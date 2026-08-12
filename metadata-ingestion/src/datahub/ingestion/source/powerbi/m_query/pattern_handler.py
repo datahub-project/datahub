@@ -1734,10 +1734,14 @@ class OdbcLineage(AbstractLineage):
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
-        return self._post_process_athena(result, platform_pair, dsn)
+        return self._post_process_athena(result, platform_pair, server_name, dsn)
 
     def _post_process_athena(
-        self, result: Lineage, platform_pair: DataPlatformPair, dsn: str
+        self,
+        result: Lineage,
+        platform_pair: DataPlatformPair,
+        server_name: str,
+        dsn: str,
     ) -> Lineage:
         """Athena-specific post-processing for both the query and hierarchical
         navigation paths. Strips the catalog prefix so URNs match the standalone
@@ -1745,8 +1749,32 @@ class OdbcLineage(AbstractLineage):
         platform overrides (e.g. athena -> mysql). No-op for other platforms."""
         if platform_pair.datahub_data_platform_name != ATHENA_PLATFORM:
             return result
-        result = self._strip_athena_catalog_from_lineage(result)
-        return self._apply_table_platform_override(result, dsn)
+        # URNs embed the configured platform_instance as the leading segment of
+        # the dataset name; resolve it so catalog stripping and override matching
+        # operate on the real table portion instead of dropping the instance.
+        platform_detail = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=platform_pair,
+                data_platform_server=server_name,
+            )
+        )
+        platform_instance = platform_detail.platform_instance
+        result = self._strip_athena_catalog_from_lineage(result, platform_instance)
+        return self._apply_table_platform_override(result, dsn, platform_instance)
+
+    @staticmethod
+    def _split_platform_instance_prefix(
+        name: str, platform_instance: Optional[str]
+    ) -> Tuple[Optional[str], str]:
+        """Separate a leading platform_instance prefix from a dataset URN name.
+
+        make_dataset_urn_with_platform_instance embeds the instance as the first
+        dot-segment of the name (``instance.database.table``). Splitting it off
+        lets the Athena catalog-strip / override logic manipulate the real
+        qualified table name without clobbering the instance."""
+        if platform_instance and name.startswith(f"{platform_instance}."):
+            return platform_instance, name[len(platform_instance) + 1 :]
+        return None, name
 
     @staticmethod
     def _transform_lineage_urns(
@@ -1799,7 +1827,9 @@ class OdbcLineage(AbstractLineage):
             column_lineage=updated_column_lineage,
         )
 
-    def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
+    def _strip_athena_catalog_from_lineage(
+        self, lineage: Lineage, platform_instance: Optional[str]
+    ) -> Lineage:
         """
         Strip catalog/database prefix from Athena URNs to normalize to database.table format.
 
@@ -1833,12 +1863,17 @@ class OdbcLineage(AbstractLineage):
                 )
                 return urn
 
-            parts = parsed.name.split(".")
+            instance_prefix, table_name = self._split_platform_instance_prefix(
+                parsed.name, platform_instance
+            )
+            parts = table_name.split(".")
             if len(parts) < 3:
                 return urn
 
             # Strip first part, keep remaining parts (database.table)
             stripped_name = ".".join(parts[1:])
+            if instance_prefix:
+                stripped_name = f"{instance_prefix}.{stripped_name}"
             stripped_urn = str(
                 DatasetUrn(platform=parsed.platform, name=stripped_name, env=parsed.env)
             )
@@ -1847,7 +1882,9 @@ class OdbcLineage(AbstractLineage):
 
         return self._transform_lineage_urns(lineage, strip_catalog_from_urn)
 
-    def _apply_table_platform_override(self, lineage: Lineage, dsn: str) -> Lineage:
+    def _apply_table_platform_override(
+        self, lineage: Lineage, dsn: str, platform_instance: Optional[str]
+    ) -> Lineage:
         """
         Override the platform in URNs for specific tables based on config.
 
@@ -1877,13 +1914,16 @@ class OdbcLineage(AbstractLineage):
                 )
                 return urn
 
-            urn_name = parsed.name  # format: "database.table"
             current_platform = str(parsed.platform)
 
-            # Parse database and table from URN name
-            # Athena has no schema level, so expect exactly 2 parts (database.table)
-            # Skip override if format is unexpected (e.g., unstripped catalog prefix)
-            name_parts = urn_name.split(".")
+            # Parse database and table from URN name, ignoring any embedded
+            # platform_instance prefix. Athena has no schema level, so the real
+            # qualified name must be exactly 2 parts (database.table); skip the
+            # override if the format is unexpected (e.g. unstripped catalog prefix).
+            instance_prefix, table_name = self._split_platform_instance_prefix(
+                parsed.name, platform_instance
+            )
+            name_parts = table_name.split(".")
             if len(name_parts) != 2:
                 return urn
             urn_database, urn_table = name_parts
@@ -1903,11 +1943,16 @@ class OdbcLineage(AbstractLineage):
             if not target_platform:
                 return urn
 
+            overridden_name = (
+                f"{instance_prefix}.{table_name}" if instance_prefix else table_name
+            )
             overridden_urn = str(
-                DatasetUrn(platform=target_platform, name=urn_name, env=parsed.env)
+                DatasetUrn(
+                    platform=target_platform, name=overridden_name, env=parsed.env
+                )
             )
             logger.debug(
-                f"Overriding platform for table {urn_name}: {current_platform} -> {target_platform}"
+                f"Overriding platform for table {overridden_name}: {current_platform} -> {target_platform}"
             )
             return overridden_urn
 
@@ -2091,7 +2136,7 @@ class OdbcLineage(AbstractLineage):
             column_lineage=column_lineage,
         )
 
-        return self._post_process_athena(result, platform_pair, dsn)
+        return self._post_process_athena(result, platform_pair, server_name, dsn)
 
     @staticmethod
     def create_platform_pair(
