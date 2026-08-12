@@ -1,6 +1,17 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import requests
 import urllib3
@@ -15,6 +26,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_API_AUTH_LOGIN,
     MSTR_API_AUTH_LOGOUT,
     MSTR_API_AUTH_PREFIX,
+    MSTR_API_FOLDERS_PREDEFINED,
     MSTR_API_METADATA_SEARCHES,
     MSTR_API_OBJECT,
     MSTR_API_PROJECTS,
@@ -29,6 +41,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceConnection,
     MicroStrategyObject,
     ModelTablesResponse,
+    PredefinedFolder,
     Project,
     SqlView,
 )
@@ -165,6 +178,26 @@ class MicroStrategyClient:
             )
         return self._parse_models(
             Datasource, datasources, f"GET {path} project_id={project_id}"
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: Sequence[int]
+    ) -> List[PredefinedFolder]:
+        """GET /api/folders/preDefined?folderType=... -- resolves the id and
+        MicroStrategy-assigned label for one or more EnumDSSXMLFolderNames
+        predefined folders (e.g. 7 = Shared Reports) for this project."""
+        path = MSTR_API_FOLDERS_PREDEFINED
+        params = {
+            "folderType": ",".join(str(folder_type) for folder_type in folder_types)
+        }
+        payload = self._get_json(path, project_id=project_id, params=params)
+        folders = self._extract_list(payload, "preDefined")
+        if not folders:
+            self._warn_if_unrecognized_shape(
+                payload, path, recognized_keys={"preDefined", "result", "items"}
+            )
+        return self._parse_models(
+            PredefinedFolder, folders, f"GET {path} project_id={project_id}"
         )
 
     def list_project_datasources(self, project_id: str) -> List[Datasource]:

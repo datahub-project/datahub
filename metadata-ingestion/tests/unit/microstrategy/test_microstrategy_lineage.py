@@ -8,10 +8,12 @@ from datahub.ingestion.source.microstrategy.config import (
 from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
+    bind_visualization_column_sets,
     bind_visualizations_by_derived_objects,
     datahub_platform_for_source_type,
     extract_field_names_from_expression,
     metric_fact_ids_from_model,
+    metric_formula_references,
     metric_metric_ids_from_model,
     qualify_table_name,
     unique_derived_object_owners,
@@ -888,3 +890,400 @@ def test_warehouse_field_upstreams_from_sql_requires_final_select() -> None:
         ).field_upstreams
         == {}
     )
+
+
+def _compound_grid_dashboard(pages: List[str]) -> DashboardDefinition:
+    """A compound-grid dossier structurally mirroring the live shape: one
+    dataset per (family x page), one visualization per page whose column sets
+    are named by family. Shared metric/dimension ids repeat across every
+    dataset; each family's plan metric also appears in the combined dataset,
+    so ids discriminate the family but never the page."""
+    datasets = []
+    visualizations = []
+    for page in pages:
+        datasets.extend(
+            [
+                {
+                    "id": f"ds-store-{page.lower()}",
+                    "name": f"STORE SALES {page}",
+                    "availableObjects": {
+                        "metrics": [
+                            {"id": "M100", "name": "Net Amount"},
+                            {"id": "M200", "name": "Store Plan Amt"},
+                        ],
+                        "attributes": [
+                            {
+                                "id": "A100",
+                                "name": "Region Number",
+                                "forms": [{"id": "F100", "name": "NUMBER"}],
+                            }
+                        ],
+                    },
+                },
+                {
+                    "id": f"ds-web-{page.lower()}",
+                    "name": f"WEB SALES {page}",
+                    "availableObjects": {
+                        "metrics": [
+                            {"id": "M100", "name": "Net Amount"},
+                            {"id": "M300", "name": "Web Plan Amt"},
+                        ],
+                        "attributes": [
+                            {
+                                "id": "A100",
+                                "name": "Region Number",
+                                "forms": [{"id": "F100", "name": "NUMBER"}],
+                            }
+                        ],
+                    },
+                },
+                {
+                    "id": f"ds-combined-{page.lower()}",
+                    "name": f"COMBINED TOTALS {page}",
+                    "availableObjects": {
+                        "metrics": [
+                            {"id": "M100", "name": "Net Amount"},
+                            {"id": "M200", "name": "Store Plan Amt"},
+                            {"id": "M300", "name": "Web Plan Amt"},
+                        ],
+                        "attributes": [
+                            {
+                                "id": "A100",
+                                "name": "Region Number",
+                                "forms": [{"id": "F100", "name": "NUMBER"}],
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+        visualizations.append(
+            {
+                "key": f"viz-{page.lower()}",
+                "name": f"Sales {page}",
+                "visualizationType": "compound_grid",
+                "runtimeDefinition": {
+                    "definition": {
+                        "grid": {
+                            "columnSets": [
+                                {
+                                    "key": f"cs-store-{page.lower()}",
+                                    "name": "STORE",
+                                    "columns": [
+                                        {
+                                            "type": "attribute",
+                                            "id": "LBL1",
+                                            "name": f"STORE {page}",
+                                        },
+                                        {
+                                            "type": "templateMetrics",
+                                            "elements": [
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M100",
+                                                    "name": "Net Amount",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M200",
+                                                    "name": "Store Plan Amt",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": f"D100-{page}",
+                                                    "name": "Pct To Plan",
+                                                    "derived": True,
+                                                    "dataType": "double",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                                {
+                                    "key": f"cs-web-{page.lower()}",
+                                    "name": "WEB",
+                                    "columns": [
+                                        {
+                                            "type": "templateMetrics",
+                                            "elements": [
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M100",
+                                                    "name": "Net Amount",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M300",
+                                                    "name": "Web Plan Amt",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": f"D200-{page}",
+                                                    "name": "Pct To Plan",
+                                                    "derived": True,
+                                                    "dataType": "double",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                                # "TOTAL SALES" never token- or id-matches the
+                                # "COMBINED TOTALS" dataset (TOTAL is a stop
+                                # word); only leftover elimination binds it.
+                                {
+                                    "key": f"cs-total-{page.lower()}",
+                                    "name": "TOTAL SALES",
+                                    "columns": [
+                                        {
+                                            "type": "templateMetrics",
+                                            "elements": [
+                                                {
+                                                    "type": "metric",
+                                                    "id": "M100",
+                                                    "name": "Net Amount",
+                                                },
+                                                {
+                                                    "type": "metric",
+                                                    "id": f"D300-{page}",
+                                                    "name": "Pct To Plan",
+                                                    "derived": True,
+                                                    "dataType": "double",
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ]
+                        }
+                    }
+                },
+            }
+        )
+    return DashboardDefinition.from_api_response(
+        object_id="dash-grid",
+        object_name="Sales Overview",
+        response={
+            "definition": {
+                "datasets": datasets,
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "SALES",
+                        "pages": [
+                            {
+                                "key": f"pg-{page.lower()}",
+                                "name": page,
+                                "visualizations": [visualization],
+                            }
+                            for page, visualization in zip(
+                                pages, visualizations, strict=True
+                            )
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def test_bind_visualization_column_sets_by_page_name_ids_and_elimination() -> None:
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = next(
+        viz for viz in dashboard.visualizations if viz.key == "viz-wtd"
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {
+        "cs-store-wtd": "ds-store-wtd",
+        "cs-web-wtd": "ds-web-wtd",
+        "cs-total-wtd": "ds-combined-wtd",
+    }
+    assert binding.unbound_column_sets == []
+    assert binding.dataset_ids == [
+        "ds-combined-wtd",
+        "ds-store-wtd",
+        "ds-web-wtd",
+    ]
+
+
+def test_bind_visualization_column_sets_ambiguous_group_stays_unbound() -> None:
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-lone",
+            "name": "Sales Summary",
+            # No page context and a group name matching several datasets:
+            # ambiguous, and elimination cannot fire (6 datasets vs 1 group).
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                "key": "cs-lone",
+                                "name": "SALES",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {
+                                                "type": "metric",
+                                                "id": "M100",
+                                                "name": "Net Amount",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {}
+    assert binding.unbound_column_sets == ["cs-lone"]
+
+
+def test_visualization_inputs_bound_by_column_sets() -> None:
+    extractor = _extractor()
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = next(
+        viz for viz in dashboard.visualizations if viz.key == "viz-wtd"
+    )
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert [urn.split(",")[1] for urn in inputs] == [
+        "project-1.dash-grid.ds-combined-wtd",
+        "project-1.dash-grid.ds-store-wtd",
+        "project-1.dash-grid.ds-web-wtd",
+    ]
+    assert extractor.report.visualizations_bound_by_column_sets == 1
+    assert extractor.report.column_sets_unbound == 0
+
+
+def test_metric_formula_references_parses_and_dedupes() -> None:
+    assert metric_formula_references(
+        "(({Net Amount} - {Net Amount LY}) / Abs({Net Amount LY})) * 100"
+    ) == ["Net Amount", "Net Amount LY"]
+    assert metric_formula_references("Sum(NET_AMT)") == []
+    assert metric_formula_references("") == []
+
+
+def test_visualization_inputs_counts_unbound_column_sets() -> None:
+    extractor = _extractor()
+    dashboard = _compound_grid_dashboard(["WTD", "MTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-mixed",
+            "name": "Sales Mixed",
+            "pageName": "WTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                "key": "cs-store",
+                                "name": "STORE",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {
+                                                "type": "metric",
+                                                "id": "M200",
+                                                "name": "Store Plan Amt",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
+                            # Matches nothing; elimination cannot fire because
+                            # the page has 3 datasets but only 2 groups exist.
+                            {"key": "cs-zzz", "name": "ZZZ"},
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    inputs = extractor.visualization_inputs("project-1", dashboard, visualization)
+
+    assert len(inputs) == 1
+    assert extractor.report.column_sets_unbound == 1
+    assert extractor.report.visualizations_bound_by_column_sets == 1
+
+
+def test_nameless_and_colliding_column_sets_are_unbound_not_guessed() -> None:
+    dashboard = _compound_grid_dashboard(["WTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-odd",
+            "name": "Sales Odd",
+            "pageName": "WTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            # No key, no name: no join identifier.
+                            {"columns": []},
+                            # Two groups sharing one name and no keys collide.
+                            {"name": "STORE"},
+                            {"name": "STORE"},
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {}
+    assert len(binding.unbound_column_sets) == 3
+
+
+def test_page_name_without_match_falls_back_to_all_datasets() -> None:
+    dashboard = _compound_grid_dashboard(["WTD"])
+    visualization = Visualization.model_validate(
+        {
+            "key": "viz-qtd",
+            "name": "Sales QTD",
+            # No dataset name contains QTD; the page filter must widen to all
+            # datasets instead of binding nothing.
+            "pageName": "QTD",
+            "runtimeDefinition": {
+                "definition": {
+                    "grid": {
+                        "columnSets": [
+                            {
+                                "key": "cs-store",
+                                "name": "STORE",
+                                "columns": [
+                                    {
+                                        "type": "templateMetrics",
+                                        "elements": [
+                                            {
+                                                "type": "metric",
+                                                "id": "M200",
+                                                "name": "Store Plan Amt",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+    )
+
+    binding = bind_visualization_column_sets(dashboard, visualization)
+
+    assert binding.dataset_id_by_column_set == {"cs-store": "ds-store-wtd"}

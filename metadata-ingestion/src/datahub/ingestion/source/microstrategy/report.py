@@ -40,7 +40,17 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     unresolved_visualizations: int = 0
     visualizations_suppressed_ambiguous: int = 0
     visualizations_bound_by_derived_objects: int = 0
+    visualizations_bound_by_column_sets: int = 0
+    column_sets_unbound: int = 0
+    derived_metric_fields_scanned: int = 0
+    derived_metrics_unattached: int = 0
+    metric_formula_lineage_edges: int = 0
+    metric_formula_refs_unresolved: int = 0
+    metric_formula_unresolved_ref_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     warehouse_upstreams_pruned_by_field_evidence: int = 0
+    predefined_folder_labels_resolved: int = 0
     api_errors: int = 0
     malformed_objects_skipped: LossyList[str] = field(default_factory=LossyList)
     filtered_projects: LossyList[str] = field(default_factory=LossyList)
@@ -130,6 +140,27 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_visualizations_bound_by_derived_objects(self, count: int) -> None:
         self.visualizations_bound_by_derived_objects += count
 
+    def report_visualization_bound_by_column_sets(self) -> None:
+        self.visualizations_bound_by_column_sets += 1
+
+    def report_column_sets_unbound(self, count: int) -> None:
+        self.column_sets_unbound += count
+
+    def report_derived_metric_field(self) -> None:
+        self.derived_metric_fields_scanned += 1
+
+    def report_derived_metric_unattached(self) -> None:
+        self.derived_metrics_unattached += 1
+
+    def report_metric_formula_lineage_edges(self, count: int) -> None:
+        self.metric_formula_lineage_edges += count
+
+    def report_metric_formula_refs_unresolved(self, count: int) -> None:
+        self.metric_formula_refs_unresolved += count
+
+    def report_metric_formula_unresolved_ref(self, context: str) -> None:
+        self.metric_formula_unresolved_ref_samples.append(context)
+
     def report_visualization_suppressed_ambiguous(self) -> None:
         self.visualizations_suppressed_ambiguous += 1
 
@@ -150,6 +181,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_warehouse_upstreams_pruned(self, count: int) -> None:
         self.warehouse_upstreams_pruned_by_field_evidence += count
+
+    def report_predefined_folder_labels_resolved(self, count: int) -> None:
+        self.predefined_folder_labels_resolved += count
 
     def report_api_error(self) -> None:
         self.api_errors += 1

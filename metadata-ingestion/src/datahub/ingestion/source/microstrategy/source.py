@@ -30,6 +30,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TYPE_REPORT,
+    MSTR_PREDEFINED_FOLDER_LABELS,
     USAGE_TARGET_CHART,
     USAGE_TARGET_DASHBOARD,
 )
@@ -59,6 +60,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ProjectKey,
     ReportDefinition,
     Visualization,
+    normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import (
@@ -81,7 +83,10 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.CONTAINERS, "Projects and folders emit as containers")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.TAGS, "Metric, attribute, and temporal field tags")
+@capability(
+    SourceCapability.TAGS,
+    "Metric, attribute, temporal, and derived-metric field tags",
+)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default via `ingest_owner`")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -113,6 +118,22 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.lineage = self.mapper.lineage
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
+        self._predefined_folder_label_cache: Dict[str, Dict[str, str]] = {}
+        if self.config.extract_derived_metrics and not (
+            self.config.extract_lineage and self.config.extract_visualization_details
+        ):
+            # Not an error: the flag defaults on and its inputs are simply
+            # absent. Make the no-op observable so operators aren't left
+            # wondering why no derived fields appeared.
+            self.report.info(
+                title="Derived metric extraction has no input",
+                message=(
+                    "extract_derived_metrics is enabled but extract_lineage "
+                    "and/or extract_visualization_details are disabled, so no "
+                    "runtime grids are fetched and no derived metrics can be "
+                    "extracted."
+                ),
+            )
         # Object GUID (upper) -> usage target for entities ingested this run;
         # usage buckets only attach to these.
         self._usage_targets: Dict[str, UsageTarget] = {}
@@ -418,6 +439,55 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     exc=error,
                 )
 
+    def _predefined_folder_labels(self, project_id: str) -> Dict[str, str]:
+        """Folder id -> MicroStrategy-assigned label (e.g. 'Shared Reports') for
+        the predefined folders in MSTR_PREDEFINED_FOLDER_LABELS, cached per
+        project since folder containers are (re)built once per dashboard/report."""
+        if not self.config.use_predefined_folder_names:
+            return {}
+        if project_id in self._predefined_folder_label_cache:
+            return self._predefined_folder_label_cache[project_id]
+
+        labels: Dict[str, str] = {}
+        try:
+            folders = self.client.get_predefined_folders(
+                project_id, list(MSTR_PREDEFINED_FOLDER_LABELS)
+            )
+        except Exception as error:
+            # Folder browsing is an optional enhancement layered on top of the
+            # raw ancestor walk -- any failure here (unsupported on an older
+            # MicroStrategy version, insufficient privilege, transport error)
+            # must never take down dashboard/report processing. Remember the
+            # failure instead of re-attempting it for every dashboard/report
+            # in the project.
+            self.report.warning(
+                title="Predefined folder lookup unavailable",
+                message=(
+                    "Could not resolve MicroStrategy's predefined folder labels "
+                    "for this project; folder containers will use MicroStrategy's "
+                    "raw metadata folder names instead. With "
+                    "use_predefined_folder_names enabled this changes folder "
+                    "container URNs relative to a run where resolution "
+                    "succeeded."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
+            )
+            folders = []
+
+        for folder in folders:
+            label = (
+                MSTR_PREDEFINED_FOLDER_LABELS.get(folder.folder_type)
+                if folder.folder_type is not None
+                else None
+            )
+            if label:
+                labels[normalize_object_id(folder.id)] = label
+        if labels:
+            self.report.report_predefined_folder_labels_resolved(len(labels))
+        self._predefined_folder_label_cache[project_id] = labels
+        return labels
+
     def _process_dashboard_object(
         self,
         project_id: str,
@@ -425,9 +495,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from self.mapper.gen_folder_containers(project_id, dashboard_object)
+        folder_labels = self._predefined_folder_labels(project_id)
+        yield from self.mapper.gen_folder_containers(
+            project_id, dashboard_object, folder_labels
+        )
         parent_key = self.mapper.folder_container_for_dashboard(
-            project_id, dashboard_object
+            project_id, dashboard_object, folder_labels
         )
         dashboard = self._get_dashboard_definition(project_id, dashboard_object)
         if dashboard is None:
@@ -448,6 +521,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             )
         if model_lineage_index:
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
+        if self.config.extract_derived_metrics:
+            self.mapper.attach_derived_metrics(dashboard)
         if linked_report_ids is not None:
             linked_report_ids.update(
                 dependency.id.upper()
@@ -591,10 +666,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        yield from self.mapper.gen_folder_containers(project_id, report_object)
+        folder_labels = self._predefined_folder_labels(project_id)
+        yield from self.mapper.gen_folder_containers(
+            project_id, report_object, folder_labels
+        )
         parent_key = self.mapper.folder_container_for_dashboard(
             project_id,
             report_object,
+            folder_labels,
         )
         report_definition = self._get_report_definition(project_id, report_object)
         source_dataset = self._report_source_dataset(
@@ -1040,6 +1119,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                                 **visualization.raw,
                                 "chapterKey": visualization.chapter_key,
                                 "pageKey": visualization.page_key,
+                                "pageName": visualization.page_name,
                                 "runtimeDefinition": detail,
                             }
                         )
