@@ -24,6 +24,10 @@ public interface EntityWriteLock {
   /**
    * Best-effort acquire of per-key write locks (sorted internally for deadlock-freedom). Returns a
    * handle that releases exactly what was acquired. Never throws for acquisition failure.
+   *
+   * <p>Keys are opaque strings. Callers MUST build them through one shared encoder (the caller's
+   * {@code writeGateKey}) so two writers targeting the same {@code (urn, aspect)} always produce
+   * the identical key — a hand-built key that differs would silently escape serialization.
    */
   @Nonnull
   LockHandle acquire(@Nonnull OperationContext opContext, @Nonnull Collection<String> keys);

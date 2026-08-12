@@ -6,6 +6,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.codahale.metrics.MetricRegistry;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -32,12 +33,15 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -80,6 +84,7 @@ public class EbeanEntityServiceScopedRetryGateConcurrencyTest {
   private EntityServiceImpl entityService;
   private HazelcastInstance hazelcast;
   private OperationContext opContext;
+  private SimpleMeterRegistry meterRegistry;
 
   public EbeanEntityServiceScopedRetryGateConcurrencyTest() throws EntityRegistryException {}
 
@@ -101,11 +106,16 @@ public class EbeanEntityServiceScopedRetryGateConcurrencyTest {
             .entityWriteLockBackend("hazelcast")
             .build();
 
+    // Real metric registry so the test can PROVE the gate engaged (zero CAS conflicts), not just
+    // that no writes were lost (which holds even with a NoOp gate, since scoped retry recovers).
+    meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+
     aspectDao =
         new EbeanAspectDao(
             PrimaryStorageTestUtils.ebeanResolver(server),
             config,
-            null,
+            metricUtils,
             List.of(),
             null,
             /* optimisticLocking */ true);
@@ -246,6 +256,25 @@ public class EbeanEntityServiceScopedRetryGateConcurrencyTest {
         storedMeta.getVersion(),
         String.valueOf(writers + 1),
         "final SystemMetadata.version must equal seed(1) + one bump per writer (no lost updates)");
+
+    // Gate-engagement proof (distinct from no-loss): because the gate serializes writers on the
+    // same
+    // (urn, aspect), each reads the fresh committed version under the lock and its CAS succeeds
+    // first
+    // try → ZERO CAS conflicts. A NoOp or broken gate wiring would let writers collide and the
+    // DAO's
+    // CAS-conflict counter would be > 0 (scoped retry would still recover, so the no-loss
+    // assertions
+    // above alone cannot catch that). This makes a broken gate a hard test failure.
+    Counter conflicts =
+        meterRegistry
+            .find(MetricRegistry.name(EbeanAspectDao.class, "optimistic_lock_update_conflict"))
+            .counter();
+    assertTrue(
+        conflicts == null || conflicts.count() == 0.0,
+        "engaged write gate must serialize same-(urn,aspect) writers → zero CAS conflicts; got "
+            + (conflicts == null ? 0.0 : conflicts.count())
+            + " (broken / NoOp gate wiring?)");
   }
 
   private static HazelcastInstance isolatedHazelcast() {
