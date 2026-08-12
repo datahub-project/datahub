@@ -134,10 +134,7 @@ public class EntitySpecBuilder {
                           .asSubclass(RecordTemplate.class));
           aspectSpecs.add(spec);
         } catch (ClassNotFoundException ce) {
-          failValidation(
-              String.format(
-                  "Failed to find class for aspect %s on entity %s",
-                  member.getType(), entitySnapshotRecordSchema.getFullName()));
+          log.warn("Failed to find class for {}", member.getType(), ce);
         }
       }
 
