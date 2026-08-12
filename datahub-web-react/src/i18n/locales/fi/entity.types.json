@@ -328,5 +328,10 @@
     "user.teamLabel": "Tiimi",
     "user.teamsHeading": "Tiimit",
     "user.titleRoleLabel": "Titteli/rooli",
-    "dataProduct.parentLabel": "Ylätason Data Product"
+    "dataProduct.parentLabel": "Ylätason Data Product",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.subProductsCountTitle": "Sub-products ({{count}})",
+    "dataProduct.lineageCounts": "{{upstream}} upstream · {{downstream}} downstream",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

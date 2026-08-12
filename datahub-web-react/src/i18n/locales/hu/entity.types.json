@@ -328,5 +328,10 @@
     "user.teamLabel": "Csapat",
     "user.teamsHeading": "Csapatok",
     "user.titleRoleLabel": "Beosztás/Szerepkör",
-    "dataProduct.parentLabel": "Szülő Data Product"
+    "dataProduct.parentLabel": "Szülő Data Product",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.subProductsCountTitle": "Sub-products ({{count}})",
+    "dataProduct.lineageCounts": "{{upstream}} upstream · {{downstream}} downstream",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

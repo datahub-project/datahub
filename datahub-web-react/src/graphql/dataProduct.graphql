@@ -17,6 +17,35 @@ query getDataProduct($urn: String!) {
         deprecation {
             ...deprecationFields
         }
+        childDataProducts(input: { count: 5, query: "*" }) {
+            total
+            nextScrollId
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on DataProduct {
+                        properties {
+                            name
+                            description
+                            numAssets
+                        }
+                        domain {
+                            ...entityDomain
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        tags {
+                            ...globalTagsFields
+                        }
+                        deprecation {
+                            ...deprecationFields
+                        }
+                    }
+                }
+            }
+        }
         ...notes
         settings {
             ...AssetSettingsFields

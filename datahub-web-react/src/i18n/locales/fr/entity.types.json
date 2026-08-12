@@ -328,5 +328,10 @@
     "user.teamLabel": "Équipe",
     "user.teamsHeading": "Équipes",
     "user.titleRoleLabel": "Titre/Rôle",
-    "dataProduct.parentLabel": "Data Product parent"
+    "dataProduct.parentLabel": "Data Product parent",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.subProductsCountTitle": "Sub-products ({{count}})",
+    "dataProduct.lineageCounts": "{{upstream}} upstream · {{downstream}} downstream",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

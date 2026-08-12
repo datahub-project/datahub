@@ -14,6 +14,7 @@ import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
+import MarketplaceRoutes from '@app/marketplace/MarketplaceRoutes';
 import MetricsRoutes from '@app/metrics/MetricsRoutes';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -42,8 +43,11 @@ export const SearchRoutes = (): JSX.Element => {
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
+    const { config, loaded } = useAppConfig();
+    const { metricsEnabled, dataProductMarketplaceEnabled } = config.featureFlags;
+
     // Get entities, filtering out Document when context documents is enabled (handled by ContextRoutes),
-    // and filtering out Metric + SemanticModel which are handled by MetricsRoutes.
+    // Metric + SemanticModel (MetricsRoutes), and DataProduct when marketplace is enabled (MarketplaceRoutes).
     const allEntities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
@@ -51,9 +55,9 @@ export const SearchRoutes = (): JSX.Element => {
         if (isContextDocumentsEnabled && entity.type === EntityType.Document) return false;
         if (entity.type === EntityType.Metric) return false;
         if (entity.type === EntityType.SemanticModel) return false;
+        if (dataProductMarketplaceEnabled && entity.type === EntityType.DataProduct) return false;
         return true;
     });
-    const { config, loaded } = useAppConfig();
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
@@ -67,7 +71,6 @@ export const SearchRoutes = (): JSX.Element => {
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
-    const { metricsEnabled } = config.featureFlags;
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
 
     const renderAnalyticsPage = () => {
@@ -102,6 +105,12 @@ export const SearchRoutes = (): JSX.Element => {
                             PageRoutes.METRICS,
                         ]}
                         render={() => <MetricsRoutes />}
+                    />
+                )}
+                {dataProductMarketplaceEnabled && (
+                    <Route
+                        path={[`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`, PageRoutes.MARKETPLACE]}
+                        render={() => <MarketplaceRoutes />}
                     />
                 )}
                 <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />

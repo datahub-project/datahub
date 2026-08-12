@@ -1,16 +1,30 @@
 import React from 'react';
+import styled from 'styled-components';
 
-import { AssetsSection } from '@app/entityV2/dataProduct/AssetsSections';
-import { OutputPortsSection } from '@app/entityV2/dataProduct/OutputPortsSection';
+import { CompactOutputPortsSection } from '@app/entityV2/dataProduct/CompactOutputPortsSection';
+import { DataProductMetaRow } from '@app/entityV2/dataProduct/DataProductMetaRow';
+import { LineagePanel } from '@app/entityV2/dataProduct/LineagePanel';
+import { SubProductsSection } from '@app/entityV2/dataProduct/SubProductsSection';
 import { SummaryTabWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
+
+const ModulesRow = styled.div`
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+`;
 
 export const DataProductSummaryTab = () => {
     return (
         <SummaryTabWrapper>
-            <OutputPortsSection />
-            <AssetsSection />
+            <DataProductMetaRow />
             <SummaryAboutSection />
+            <ModulesRow>
+                <CompactOutputPortsSection />
+                <SubProductsSection />
+            </ModulesRow>
+            <LineagePanel />
         </SummaryTabWrapper>
     );
 };

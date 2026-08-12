@@ -853,6 +853,13 @@ type FeatureFlagsConfig {
   metricsEnabled: Boolean!
 
   """
+  If turned on, enables the Data Product Marketplace: the Marketplace page in the nav,
+  the /marketplace route, and hierarchical browse for Data Products.
+  Defaults off in OSS while the feature is in development.
+  """
+  dataProductMarketplaceEnabled: Boolean!
+
+  """
   Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
