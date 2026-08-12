@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.LineageFlags;
+import com.linkedin.metadata.query.SchemaFieldValidationMode;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -77,10 +78,13 @@ public class SearchAcrossLineageCountsResolver
     if (Boolean.TRUE.equals(input.getIncludeGhostEntities())) {
       lineageFlags.setUseLightningMode(true);
     }
-    // Left unset when the caller says nothing, so the service applies its own default
-    if (input.getValidateSchemaFields() != null) {
-      lineageFlags.setValidateSchemaFields(input.getValidateSchemaFields());
-    }
+    // The service defaults to NONE, so that callers which never asked are unaffected. Counting is
+    // where a stale column actually misleads, so this query opts in unless told otherwise -- which
+    // the schema also states as its default.
+    lineageFlags.setValidateSchemaFields(
+        input.getValidateSchemaFields() == null
+            ? SchemaFieldValidationMode.AUTO
+            : SchemaFieldValidationMode.valueOf(input.getValidateSchemaFields().toString()));
 
     // Fixed rather than exposed: a count of schema fields has to stay a count of schema fields
     // rather than being grouped up into the datasets holding them, and version filtering would

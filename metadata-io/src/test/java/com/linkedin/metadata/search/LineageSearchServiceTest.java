@@ -38,6 +38,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
+import com.linkedin.metadata.query.SchemaFieldValidationMode;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -1116,17 +1117,22 @@ public class LineageSearchServiceTest {
   }
 
   @Test
-  public void testShouldValidateSchemaFieldsDefaultsOn() {
-    // The read is batched by parent and cheap at the sizes lineage walks reach, and an unvalidated
-    // count is wrong in a way the caller cannot see, so validating is the default
-    assertTrue(LineageSearchService.shouldValidateSchemaFields(null));
-    assertTrue(LineageSearchService.shouldValidateSchemaFields(new LineageFlags()));
-    assertTrue(
-        LineageSearchService.shouldValidateSchemaFields(
-            new LineageFlags().setValidateSchemaFields(true)));
-    assertFalse(
-        LineageSearchService.shouldValidateSchemaFields(
-            new LineageFlags().setValidateSchemaFields(false)));
+  public void testSchemaFieldValidationDefaultsToNone() {
+    // Off unless asked for, so callers that reach the graph-only path by exceeding its size
+    // threshold rather than by requesting it are unaffected
+    assertEquals(
+        LineageSearchService.schemaFieldValidationMode(null), SchemaFieldValidationMode.NONE);
+    assertEquals(
+        LineageSearchService.schemaFieldValidationMode(new LineageFlags()),
+        SchemaFieldValidationMode.NONE);
+    assertEquals(
+        LineageSearchService.schemaFieldValidationMode(
+            new LineageFlags().setValidateSchemaFields(SchemaFieldValidationMode.AUTO)),
+        SchemaFieldValidationMode.AUTO);
+    assertEquals(
+        LineageSearchService.schemaFieldValidationMode(
+            new LineageFlags().setValidateSchemaFields(SchemaFieldValidationMode.ALWAYS)),
+        SchemaFieldValidationMode.ALWAYS);
   }
 
   private EntityLineageResult createMockEntityLineageResult() {

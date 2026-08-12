@@ -263,7 +263,7 @@ input SearchAcrossLineageCountsInput {
 
   Such a count does not have the entity index filtering it, so view-based access control is not
   applied, unlike a count taken from the index. Columns their parent no longer declares are dropped
-  by validateSchemaFields. It also cannot be combined with a query or a sort, which this
+  according to validateSchemaFields. It also cannot be combined with a query or a sort, which this
   input does not offer.
   """
   includeGhostEntities: Boolean
@@ -275,14 +275,34 @@ input SearchAcrossLineageCountsInput {
 
   """
   Whether to check that schema fields counted off the graph still exist, by reading the
-  schemaMetadata of the datasets holding them. The graph keeps edges long after a column is removed
-  or its dataset deleted, so without this those columns are still counted.
+  schemaMetadata of the datasets holding them. The graph keeps its edges long after a column is
+  removed or its dataset deleted, so without this those columns are still counted.
 
-  Defaults to checking, since the read is batched by parent dataset and cheap at the sizes lineage
-  walks reach. Only worth turning off for a walk that fans out over very many datasets, and it is
-  skipped automatically past the point where the fetch stops being cheap.
+  Defaults to AUTO, which checks whenever doing so is cheap.
   """
-  validateSchemaFields: Boolean
+  validateSchemaFields: SchemaFieldValidationMode = AUTO
+}
+
+"""
+Whether to check that schema fields read off the lineage graph still exist
+"""
+enum SchemaFieldValidationMode {
+  """
+  Do not check. Counts may include columns their parent no longer declares.
+  """
+  NONE
+
+  """
+  Check when it is cheap to, which is nearly always: the read is batched per parent dataset and
+  columns share parents heavily, so counting very many columns is usually few reads. Skipped when a
+  walk fans out over more parent datasets than are worth fetching.
+  """
+  AUTO
+
+  """
+  Check however many parent datasets it takes.
+  """
+  ALWAYS
 }
 
 """

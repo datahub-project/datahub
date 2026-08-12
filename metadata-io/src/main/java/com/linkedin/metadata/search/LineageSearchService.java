@@ -29,6 +29,7 @@ import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.LineageFlags;
+import com.linkedin.metadata.query.SchemaFieldValidationMode;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -283,9 +284,7 @@ public class LineageSearchService {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         List<LineageRelationship> countable =
-            shouldValidateSchemaFields(finalOpContext.getSearchContext().getLineageFlags())
-                ? dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships)
-                : lineageRelationships;
+            dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
         LineageSearchResult lineageSearchResult =
             getLightningSearchResult(
                 countable, reducedFilters, from, size, new HashSet<>(entities));
@@ -372,6 +371,12 @@ public class LineageSearchService {
    */
   private List<LineageRelationship> dropSchemaFieldsMissingFromParent(
       @Nonnull OperationContext opContext, List<LineageRelationship> relationships) {
+    final SchemaFieldValidationMode mode =
+        schemaFieldValidationMode(opContext.getSearchContext().getLineageFlags());
+    if (SchemaFieldValidationMode.NONE.equals(mode)) {
+      return relationships;
+    }
+
     Map<Urn, List<LineageRelationship>> byParent = new HashMap<>();
     List<LineageRelationship> passThrough = new ArrayList<>();
     for (LineageRelationship relationship : relationships) {
@@ -387,9 +392,10 @@ public class LineageSearchService {
     if (byParent.isEmpty()) {
       return relationships;
     }
-    if (byParent.size() > MAX_PARENTS_TO_VALIDATE) {
+    if (SchemaFieldValidationMode.AUTO.equals(mode) && byParent.size() > MAX_PARENTS_TO_VALIDATE) {
       log.info(
-          "Skipping schema field validation for {} parents, above the limit of {}",
+          "Skipping schema field validation for {} parents, above the limit of {}. Request ALWAYS to"
+              + " validate regardless.",
           byParent.size(),
           MAX_PARENTS_TO_VALIDATE);
       return relationships;
@@ -428,13 +434,16 @@ public class LineageSearchService {
   }
 
   /**
-   * Whether to check that the schema fields counted off the graph still exist. Defaults to
-   * checking, since the fetch is batched by parent and cheap at the sizes lineage walks reach, and
-   * an unchecked count is wrong in a way the caller cannot see. A caller can force it either way.
+   * How much to spend checking that the schema fields counted off the graph still exist. Defaults
+   * to NONE so that callers which never asked for it are unaffected, including those that reach the
+   * graph-only path merely by exceeding its result-size threshold.
    */
   @VisibleForTesting
-  static boolean shouldValidateSchemaFields(@Nullable LineageFlags lineageFlags) {
-    return Optional.ofNullable(lineageFlags).map(LineageFlags::isValidateSchemaFields).orElse(true);
+  static SchemaFieldValidationMode schemaFieldValidationMode(@Nullable LineageFlags lineageFlags) {
+    return Optional.ofNullable(lineageFlags)
+        .map(LineageFlags::getValidateSchemaFields)
+        .filter(mode -> !SchemaFieldValidationMode.$UNKNOWN.equals(mode))
+        .orElse(SchemaFieldValidationMode.NONE);
   }
 
   /** Explains why lightning mode cannot be served, naming what the request actually asked for. */
