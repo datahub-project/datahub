@@ -32,7 +32,19 @@ const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Prop
     // Track the chosen group locally so the child picker stays open after a group is picked but
     // before a child is selected (at which point there is no leaf value in the predicate yet).
     const [openGroupId, setOpenGroupId] = useState<string | undefined>(undefined);
-    const activeGroupId = parentOfSelected?.id ?? openGroupId;
+
+    // Condition rows are rendered from an unkeyed list, so a delete can rebind this instance to a
+    // different predicate. Drop the transient group whenever the bound property changes to a
+    // concrete leaf, so a stale group never leaks onto another condition.
+    const [prevSelectedProperty, setPrevSelectedProperty] = useState(selectedProperty);
+    if (selectedProperty !== prevSelectedProperty) {
+        setPrevSelectedProperty(selectedProperty);
+        if (selectedProperty) {
+            setOpenGroupId(undefined);
+        }
+    }
+
+    const activeGroupId = parentOfSelected?.id ?? (selectedProperty ? undefined : openGroupId);
     const activeGroup = useMemo(
         () => properties.find((property) => property.id === activeGroupId),
         [properties, activeGroupId],

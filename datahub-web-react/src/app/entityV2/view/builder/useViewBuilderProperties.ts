@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { useMemo } from 'react';
 
 import { STRUCTURED_PROPERTY_FILTER_PREFIX } from '@app/entityV2/view/builder/constants';
@@ -11,7 +12,6 @@ import { useSearchStructuredPropertiesQuery } from '@graphql/structuredPropertie
 import { EntityType, StructuredPropertyEntity } from '@types';
 
 const STRUCTURED_PROPERTY_FETCH_COUNT = 1000;
-const STRUCTURED_PROPERTY_GROUP_NAME = 'Structured Property';
 
 function toAllowedValueOptions(entity: StructuredPropertyEntity): SelectOption[] {
     const allowedValues = entity.definition?.allowedValues ?? [];
@@ -89,7 +89,9 @@ export function buildViewBuilderProperties(entities: StructuredPropertyEntity[])
 
     const structuredPropertyGroup: Property = {
         id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
-        displayName: STRUCTURED_PROPERTY_GROUP_NAME,
+        get displayName() {
+            return i18next.t('entity.views:prop.structuredPropertyGroup');
+        },
         children: structuredPropertyProperties,
     };
     return [...viewBuilderProperties, structuredPropertyGroup];
