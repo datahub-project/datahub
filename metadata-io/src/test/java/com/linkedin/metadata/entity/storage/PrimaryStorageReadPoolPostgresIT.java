@@ -49,12 +49,14 @@ public class PrimaryStorageReadPoolPostgresIT {
   @BeforeClass
   public void init() throws SQLException {
     postgres = PostgresTestUtils.startPostgres();
+    PostgresTestUtils.IntegrationNamespace ns =
+        PostgresTestUtils.newIntegrationNamespace("readpool_it");
     primaryDatabase =
         PostgresTestUtils.createEbeanPrimaryDatabase(
-            postgres, PostgresTestUtils.uniqueServerName("readpool_it_primary"));
+            postgres, PostgresTestUtils.uniqueServerName("readpool_it_primary"), ns);
     readPoolDatabase =
         PostgresTestUtils.createEbeanReadPoolDatabase(
-            postgres, PostgresTestUtils.uniqueServerName("readpool_it_read"));
+            postgres, PostgresTestUtils.uniqueServerName("readpool_it_read"), ns);
 
     resolver = PrimaryStorageTestUtils.splitPoolEbeanResolver(primaryDatabase, readPoolDatabase);
     aspectDao =
