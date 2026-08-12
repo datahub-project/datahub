@@ -1,3 +1,5 @@
+import re
+
 from datahub.utilities.str_enum import StrEnum
 
 DEFAULT_CPU_COUNT_FALLBACK = 4
@@ -28,6 +30,18 @@ MAX_DISTINCT_VALUE_FREQUENCIES = 10
 # Fallback cap on profiled fields when max_number_of_fields_to_profile is unset and
 # expensive profiling is disabled.
 DEFAULT_MAX_FIELDS_TO_PROFILE = 10
+
+# Confluent Cloud brokers are always reached through this domain, and the console
+# that fronts them lives at CONFLUENT_CLOUD_CONSOLE_URL. Both are fixed by
+# Confluent, so a deployment that reaches the console at some other address uses
+# external_url_base instead.
+CONFLUENT_CLOUD_DOMAIN_SUFFIX = ".confluent.cloud"
+CONFLUENT_CLOUD_CONSOLE_URL = "https://confluent.cloud"
+# A Confluent Cloud logical Kafka cluster id, e.g. "lkc-a1b2c3". Every broker
+# since Kafka 0.10.1 reports some cluster id (KIP-78), but only Confluent Cloud
+# reports one that addresses anything in the console, so the value has to be
+# shape-checked before it is spliced into a URL.
+CONFLUENT_CLOUD_CLUSTER_ID_PATTERN = re.compile(r"^lkc-[a-z0-9]+$")
 
 # Schema types
 SCHEMA_TYPE_AVRO = "AVRO"
