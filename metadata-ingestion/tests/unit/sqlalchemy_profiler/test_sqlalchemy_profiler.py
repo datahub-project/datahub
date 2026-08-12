@@ -1180,6 +1180,35 @@ class TestReportExpensiveTables:
 
         assert not mock_report.info.called
 
+    def test_does_not_fire_below_slowest_threshold(self, sqlite_engine, mock_report):
+        # The advice targets tables expensive enough to warrant a guardrail. Below the
+        # threshold (a run where every table profiled or failed setup in milliseconds)
+        # the message is noise — a multi-GB scan and a millisecond failure must not
+        # produce the same "risks OOM" info entry.
+        profiler = self._make_profiler(
+            sqlite_engine, mock_report, flag=True, limits=False
+        )
+        profiler.times_taken_per_table = [
+            ("my_db.small", 0.2),
+            ("my_db.tiny", 0.1),
+        ]
+
+        profiler._report_expensive_tables()
+
+        assert not mock_report.info.called
+
+    def test_fires_at_slowest_threshold(self, sqlite_engine, mock_report):
+        # Boundary: the slowest table exactly at the threshold still fires (>= comparison).
+        profiler = self._make_profiler(
+            sqlite_engine, mock_report, flag=True, limits=False
+        )
+        threshold = SQLAlchemyProfiler._EXPENSIVE_TABLES_SLOWEST_MIN_S
+        profiler.times_taken_per_table = [("my_db.boundary", float(threshold))]
+
+        profiler._report_expensive_tables()
+
+        assert mock_report.info.called
+
     def test_top_n_is_bounded(self, sqlite_engine, mock_report):
         # The info entry must name at most _EXPENSIVE_TABLES_TOP_N tables so it stays one short,
         # actionable line regardless of how many tables were profiled.

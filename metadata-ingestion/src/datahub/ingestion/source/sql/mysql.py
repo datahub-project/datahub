@@ -378,6 +378,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
         self._discovered_lower_cache: Optional[Set[str]] = None
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
+        # Lazily-emitted warning flag (see generate_profile_candidates). Plain attribute
+        # so it survives a subclass reassigning self.report after super().__init__.
+        self._warned_profile_freshness_unsupported = False
         if config.auth_mode == MySQLAuthMode.AWS_IAM:
             hostname, port = parse_host_port(config.host_port, default_port=3306)
             if port is None:
@@ -391,20 +394,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 username=config.username,
                 port=port,
                 aws_config=config.aws_config,
-            )
-
-        # profile_if_updated_since_days has no effect on MySQL: candidate selection is row/size
-        # based only (see generate_profile_candidates). SupportedSources is pure JSON-schema
-        # metadata and does not stop anyone setting the field, so warn rather than let users
-        # assume freshness filtering is applied. Mirrors the Teradata precedent (teradata.py).
-        if (
-            config.is_profiling_enabled()
-            and config.profiling.profile_if_updated_since_days is not None
-        ):
-            self.report.warning(
-                title=f"{self.get_platform().capitalize()} profiling does not support profile_if_updated_since_days",
-                message="This setting will be ignored. Tables are selected for profiling by "
-                "row/size limits only (profile_table_row_limit / profile_table_size_limit).",
             )
 
     def get_platform(self):
@@ -502,43 +491,85 @@ class MySQLSource(TwoTierSQLAlchemySource):
         threshold_time: Optional[datetime.datetime],
         schema: str,
     ) -> Optional[List[str]]:
-        # profile_if_updated_since_days is NOT enforced here — candidate selection is row/size
-        # based only. SupportedSources is pure JSON-schema metadata (no runtime effect), so a
-        # user can still set profile_if_updated_since_days; sql_common.loop_profiler_requests
-        # will compute and pass threshold_time, but this method ignores it. A warning in
-        # MySQLSource.__init__ flags that misconfiguration rather than letting it silently no-op.
-        #
+        # profile_if_updated_since_days is not enforced here — candidate selection is row/size
+        # based only. Warn once per source when it is set, so a user does not assume freshness
+        # filtering is applied. Emitted here (not in __init__) so it lands in the live report
+        # even when a subclass reassigns self.report after super().__init__ (e.g. Doris).
+        if (
+            not self._warned_profile_freshness_unsupported
+            and self.config.profiling.profile_if_updated_since_days is not None
+        ):
+            self._warned_profile_freshness_unsupported = True
+            self.report.warning(
+                title="Profiling does not support profile_if_updated_since_days",
+                message="This setting will be ignored. Tables are selected for profiling by "
+                "row/size limits only (profile_table_row_limit / profile_table_size_limit).",
+                context=f"Platform: {self.get_platform()}",
+            )
+
         # When both row/size limits are None there is nothing to enforce, so skip the per-schema
-        # information_schema query entirely. Restores the pre-guardrail behaviour of returning
-        # no candidate filter (loop_profiler_requests then falls back to get_table_names), keeps
-        # the __init__ warning truthful, and avoids a per-schema round-trip on the default path.
+        # information_schema query and return no candidate filter (loop_profiler_requests then
+        # falls back to get_table_names).
         if (
             self.config.profiling.profile_table_row_limit is None
             and self.config.profiling.profile_table_size_limit is None
         ):
             return None
+
         # table_rows is an InnoDB *estimate* (can be stale until ANALYZE TABLE) and data_length
         # is in bytes — acceptable for a guardrail, not an accurate count.
-        with inspector.engine.connect() as conn:
-            # Unpack positionally (case-independent), matching add_profile_metadata above.
-            rows = conn.execute(
-                text(_PROFILE_CANDIDATES_QUERY),
-                {
-                    "schema": schema,
-                    "table_row_limit": self.config.profiling.profile_table_row_limit,
-                    "table_size_limit": self.config.profiling.profile_table_size_limit,
-                },
-            )
-            # Build candidate identifiers via self.get_identifier — the SAME method
-            # sql_common.loop_profiler_requests uses to build dataset_name — so candidate
-            # strings match dataset_name character-for-character and the membership test in
-            # is_dataset_eligible_for_profiling does not silently no-op on a mismatch.
-            return [
-                self.get_identifier(
-                    schema=schema, entity=table_name, inspector=inspector
+        try:
+            with inspector.engine.connect() as conn:
+                # Unpack positionally (case-independent), matching add_profile_metadata above.
+                rows = conn.execute(
+                    text(_PROFILE_CANDIDATES_QUERY),
+                    {
+                        "schema": schema,
+                        "table_row_limit": self.config.profiling.profile_table_row_limit,
+                        "table_size_limit": self.config.profiling.profile_table_size_limit,
+                    },
                 )
-                for table_name, _table_rows, _data_length in rows
-            ]
+                # Build candidate identifiers via self.get_identifier — the SAME method
+                # sql_common.loop_profiler_requests uses to build dataset_name — so candidate
+                # strings match dataset_name character-for-character and the membership test
+                # in is_dataset_eligible_for_profiling does not silently no-op on a mismatch.
+                candidates = [
+                    self.get_identifier(
+                        schema=schema, entity=table_name, inspector=inspector
+                    )
+                    for table_name, _table_rows, _data_length in rows
+                ]
+        except Exception as e:
+            # Degrade to no candidate filter rather than aborting profiling for the whole
+            # run; is_dataset_eligible_for_profiling falls back to the no-filter path.
+            self.report.warning(
+                title="Failed to generate profile candidates",
+                message="Could not generate the profile candidate list; profiling will proceed without a row/size guardrail for this schema.",
+                context=f"Schema: {schema}",
+                exc=e,
+            )
+            return None
+
+        # An empty candidate list drops every profile in the schema (the list is additive).
+        # Warn when the schema actually has tables so the operator knows profiles are being
+        # dropped — either every table genuinely exceeds the configured limits, or
+        # information_schema is not returning them (restricted grants, a rewriting proxy,
+        # or a Doris external catalog whose session sits in a different catalog than
+        # table_schema).
+        if not candidates:
+            if inspector.get_table_names(schema):
+                self.report.warning(
+                    title="No tables passed the row/size guardrail",
+                    message=(
+                        "Profiling will be skipped for every table in this schema. Either "
+                        "every table exceeds the configured row/size limits, or "
+                        "information_schema is not returning them (restricted grants, a "
+                        "rewriting proxy, or a catalog mismatch)."
+                    ),
+                    context=f"Schema: {schema}",
+                )
+
+        return candidates
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str

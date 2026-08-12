@@ -283,3 +283,148 @@ def test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sourc
             assert props[field]["schema_extra"].get("supported_sources"), (
                 f"{cfg_cls.__name__}.{field} lost SupportedSources metadata"
             )
+
+
+def test_generate_profile_candidates_fails_open_with_warning() -> None:
+    # When the information_schema query raises (restricted grants, a proxy, a dialect
+    # difference), the method must degrade to no candidate filter (None) and emit a
+    # structured warning, rather than aborting profiling for the whole schema. This
+    # fail-open is MySQL-scoped (lives here, not in sql_common.loop_profiler_requests)
+    # so Oracle and Teradata keep their pre-PR behaviour.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_row_limit": 1_000_000,
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    source.report = MagicMock()
+    conn = MagicMock()
+    conn.execute.side_effect = RuntimeError("information_schema denied")
+    inspector = MagicMock()
+    inspector.engine.connect.return_value.__enter__.return_value = conn
+
+    result = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert result is None
+    assert source.report.warning.called
+    _args, kwargs = source.report.warning.call_args
+    assert kwargs["title"] == "Failed to generate profile candidates"
+    assert "Schema: my_db" in kwargs["context"]
+    assert kwargs["exc"] is not None
+
+
+def test_profile_freshness_warning_fires_lazily_and_once() -> None:
+    # The profile_if_updated_since_days warning must fire from generate_profile_candidates
+    # (not __init__), at most once per source, and only when the setting is set.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_if_updated_since_days": 7,
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    source.report = MagicMock()
+    inspector = MagicMock()
+
+    # Both limits None -> method returns None after the lazy warning, no query needed.
+    result = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+    assert result is None
+    assert source.report.warning.call_count == 1
+    _args, kwargs = source.report.warning.call_args
+    assert kwargs["title"] == "Profiling does not support profile_if_updated_since_days"
+    assert "Platform: mysql" in kwargs["context"]
+
+    # Second call must not re-fire (flag guards it to once per source).
+    source.generate_profile_candidates(inspector, threshold_time=None, schema="my_db")
+    assert source.report.warning.call_count == 1
+
+
+def test_profile_freshness_warning_reaches_doris_replaced_report() -> None:
+    # DorisSource.__init__ calls super().__init__ then replaces self.report with a fresh
+    # DorisSourceReport. A warning emitted from __init__ would land in the discarded
+    # report; the lazy warning from generate_profile_candidates must land in the live
+    # DorisSourceReport. Spy on the live report's warning to prove it.
+    config = DorisConfig(
+        host_port="localhost:9030",
+        profiling={
+            "enabled": True,
+            "profile_if_updated_since_days": 7,
+        },
+    )
+    source = DorisSource(config, PipelineContext(run_id="doris-freshness-test"))
+    # source.report is the DorisSourceReport that survived the reassignment.
+    source.report.warning = MagicMock()  # type: ignore[method-assign]
+    inspector = MagicMock()
+
+    source.generate_profile_candidates(inspector, threshold_time=None, schema="my_db")
+
+    assert source.report.warning.called
+    _args, kwargs = source.report.warning.call_args
+    assert kwargs["title"] == "Profiling does not support profile_if_updated_since_days"
+    assert "Platform: doris" in kwargs["context"]
+
+
+def test_empty_candidates_warns_when_schema_has_tables() -> None:
+    # An empty candidate list drops every profile in the schema (the list is additive).
+    # When the schema actually has tables, warn so the operator knows profiles are being
+    # dropped — either every table genuinely exceeds the limits, or information_schema
+    # is not returning them.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_row_limit": 1_000_000,
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    source.report = MagicMock()
+    conn = MagicMock()
+    conn.execute.return_value = []  # query succeeds but returns nothing
+    inspector = MagicMock()
+    inspector.engine.connect.return_value.__enter__.return_value = conn
+    inspector.get_table_names.return_value = ["orders", "customers"]
+
+    result = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert result == []
+    warning_calls = source.report.warning.call_args_list
+    titles = [c.kwargs["title"] for c in warning_calls]
+    assert "No tables passed the row/size guardrail" in titles
+    no_tables_call = next(c for c in warning_calls if "No tables" in c.kwargs["title"])
+    assert "Schema: my_db" in no_tables_call.kwargs["context"]
+
+
+def test_empty_candidates_no_warn_when_schema_has_no_tables() -> None:
+    # If the schema genuinely has no tables, an empty candidate list is correct — no
+    # warning. Avoids noise on an empty schema.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_row_limit": 1_000_000,
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    source.report = MagicMock()
+    conn = MagicMock()
+    conn.execute.return_value = []
+    inspector = MagicMock()
+    inspector.engine.connect.return_value.__enter__.return_value = conn
+    inspector.get_table_names.return_value = []
+
+    result = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert result == []
+    titles = [c.kwargs["title"] for c in source.report.warning.call_args_list]
+    assert "No tables passed the row/size guardrail" not in titles

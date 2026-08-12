@@ -432,6 +432,12 @@ class SQLAlchemyProfiler:
     # per-database contexts are self-describing and LossyList caps the total.
     _EXPENSIVE_TABLES_TOP_N = 5
 
+    # Minimum elapsed time (seconds) the slowest table must meet before the expensive-tables
+    # info entry fires. Below this the guardrail advice is noise — a run where every table
+    # profiled in milliseconds (or failed setup in milliseconds) would otherwise produce the
+    # same "risks OOM" message as a run that genuinely scanned a multi-GB table.
+    _EXPENSIVE_TABLES_SLOWEST_MIN_S = 30
+
     report: SQLSourceReport
     config: ProfilingConfig
     times_taken: List[float]
@@ -1156,6 +1162,8 @@ class SQLAlchemyProfiler:
         top = sorted(
             self.times_taken_per_table, key=lambda pair: pair[1], reverse=True
         )[: self._EXPENSIVE_TABLES_TOP_N]
+        if top[0][1] < self._EXPENSIVE_TABLES_SLOWEST_MIN_S:
+            return
         formatted = ", ".join(f"{name} ({t:.1f}s)" for name, t in top)
         self.report.info(
             title="Profiling: expensive tables",
