@@ -31,18 +31,18 @@ From your agent's overview, scroll to **Tools** and click **+ Add tool**. Select
 
 On DataHub Cloud v1.0.2+, Copilot Studio can connect with OAuth2 and [Dynamic Client Registration (DCR)](https://datatracker.ietf.org/doc/html/rfc7591). Each agent user signs in with their own DataHub account (including SSO such as Okta or Azure AD). No personal access token to mint or paste.
 
-| Field              | Value                                           |
-| ------------------ | ----------------------------------------------- |
-| **Server name**    | `DataHub MCP Server`                            |
-| **Server URL**     | `https://<tenant>.acryl.io/integrations/ai/mcp` |
-| **Authentication** | **OAuth 2.0** · **Dynamic discovery**           |
+| Field              | Value                                 |
+| ------------------ | ------------------------------------- |
+| **Server name**    | `DataHub MCP Server`                  |
+| **Server URL**     | `https://mcp.datahub.com/mcp`         |
+| **Authentication** | **OAuth 2.0** · **Dynamic discovery** |
 
-Use your tenant URL (`https://<tenant>.acryl.io/integrations/ai/mcp`) rather than the shared `https://mcp.datahub.com/mcp` endpoint — Copilot Studio works best when the auth server is discovered from the tenant host directly.
+Click **Create** / **Next**. Copilot Studio discovers DataHub's OAuth metadata and registers itself via DCR. On **Add tool**, choose **Create a new connection**. On first connect, enter your DataHub domain (e.g. `<tenant>` for `https://<tenant>.acryl.io`), complete login (and SSO if your tenant uses it), then **Add to agent**.
 
-Click **Create** / **Next**. Copilot Studio discovers DataHub's OAuth metadata and registers itself via DCR. On **Add tool**, choose **Create a new connection**, complete the DataHub login (and SSO if your tenant uses it), then **Add to agent**.
+Prefer your tenant URL directly? Use `https://<tenant>.acryl.io/integrations/ai/mcp` as the Server URL instead — both endpoints support OAuth2 + DCR.
 
 :::tip Fallback OAuth modes
-If **Dynamic discovery** fails, try **Dynamic** and enter the Authorization and Token URLs from your tenant's `/.well-known/oauth-authorization-server` document. Prefer Dynamic discovery when it works — you should not need a Client ID or Client secret.
+If **Dynamic discovery** fails, try **Dynamic** and enter the Authorization and Token URLs from the auth server's `/.well-known/oauth-authorization-server` document. Prefer Dynamic discovery when it works — you should not need a Client ID or Client secret.
 :::
 
 #### DataHub Cloud — Personal Access Token (v0.3.12+)
@@ -92,7 +92,7 @@ Click **Test** in the top-right corner and try:
 
 ## Troubleshooting
 
-- **Can't connect with OAuth?** Confirm the tenant is on DataHub Cloud v1.0.2+, the Server URL is `https://<tenant>.acryl.io/integrations/ai/mcp`, and authentication is **OAuth 2.0** with **Dynamic discovery**. Complete **Create a new connection** so the browser login can finish.
+- **Can't connect with OAuth?** Confirm the tenant is on DataHub Cloud v1.0.2+, the Server URL is `https://mcp.datahub.com/mcp` (or your tenant MCP URL), and authentication is **OAuth 2.0** with **Dynamic discovery**. Complete **Create a new connection**, enter your DataHub domain when prompted, and finish the browser login.
 - **Can't connect with a PAT?** Verify the DataHub URL, check the token hasn't expired, and confirm auth is set to **API key** (not OAuth). Include the `Bearer ` prefix.
 - **Tools not appearing?** Click refresh on the Tools page. Verify the [MCP server](../../features/feature-guides/mcp.md) is running and the connection has the right permissions.
 - **Empty results?** Check that your DataHub instance has ingested metadata. Try broader search terms.
