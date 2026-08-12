@@ -28,6 +28,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+    get_connector_external_url,
     get_platform_instance,
     transform_connector_config,
 )
@@ -750,7 +751,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector_type = connector.type
         connector_class = connector.config.get(CONNECTOR_CLASS)
         flow_property_bag = connector.flow_property_bag
-        # connector_url = connector.url  # NOTE: this will expose connector credential when used
+        # NOTE: connector.url is still not used as the externalUrl. It is derived
+        # from connect_uri, which for a self-hosted Connect cluster can embed
+        # basic-auth credentials that would then be published on the DataFlow.
+        # get_connector_external_url only returns a Confluent Cloud console URL,
+        # which is assembled from the configured environment and cluster ids plus
+        # the connector name and so carries no credentials.
+        external_url = get_connector_external_url(self.config, connector)
         flow_urn = builder.make_data_flow_urn(
             self.platform,
             connector_name,
@@ -764,7 +771,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 name=connector_name,
                 description=f"{connector_type.capitalize()} connector using `{connector_class}` plugin.",
                 customProperties=flow_property_bag,
-                # externalUrl=connector_url, # NOTE: this will expose connector credential when used
+                externalUrl=external_url,
             ),
         ).as_workunit()
 

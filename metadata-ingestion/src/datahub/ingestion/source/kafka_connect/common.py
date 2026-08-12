@@ -4,6 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional
+from urllib.parse import quote
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -58,6 +59,17 @@ JDBC_PREFIX: Final[str] = "jdbc:"
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
+
+# Confluent Cloud web console. Connector pages live under a per-type path
+# segment, e.g.
+#   https://confluent.cloud/environments/env-xxxxx/clusters/lkc-xxxxx
+#       /connectors/sinks/<connector-name>
+# The console keys on the connector name rather than on its lcc-* id.
+CONFLUENT_CLOUD_CONSOLE_URI: Final[str] = "https://confluent.cloud"
+CONFLUENT_CLOUD_CONSOLE_CONNECTOR_PATHS: Final[Dict[str, str]] = {
+    SINK: "sinks",
+    SOURCE: "sources",
+}
 
 _QUOTED_IDENTIFIER_RE: Final = re.compile(r'"([^"]+)"')
 _VALID_TOPIC_NAME_RE: Final = re.compile(r'^[a-zA-Z0-9._\-"\s]+$')
@@ -514,6 +526,41 @@ class ConnectorManifest:
         )
 
         return ConnectorRegistry.get_topics_from_config(self, config, report)
+
+
+def get_connector_external_url(
+    config: "KafkaConnectSourceConfig", connector: ConnectorManifest
+) -> Optional[str]:
+    """Build a credential-free console URL for a connector, if one exists.
+
+    Only Confluent Cloud is handled. The console URL is assembled from the
+    configured environment and cluster ids plus the connector name, so it can
+    never leak a secret. The Connect REST URI is deliberately not used as a
+    fallback for self-hosted deployments: `connect_uri` may embed basic-auth
+    credentials, which would then be published on the DataFlow.
+
+    Returns None when the deployment is self-hosted, when either Confluent
+    Cloud id is unset, or when the connector type is neither source nor sink.
+    """
+    if not config.is_confluent_cloud():
+        return None
+
+    environment_id = config.confluent_cloud_environment_id
+    cluster_id = config.confluent_cloud_cluster_id
+    if not environment_id or not cluster_id:
+        # Confluent Cloud was detected from connect_uri alone, so the ids the
+        # console URL needs were never configured.
+        return None
+
+    connector_path = CONFLUENT_CLOUD_CONSOLE_CONNECTOR_PATHS.get(connector.type)
+    if not connector_path:
+        return None
+
+    return (
+        f"{CONFLUENT_CLOUD_CONSOLE_URI}/environments/{environment_id}"
+        f"/clusters/{cluster_id}/connectors/{connector_path}"
+        f"/{quote(connector.name, safe='')}"
+    )
 
 
 def remove_prefix(text: str, prefix: str) -> str:
