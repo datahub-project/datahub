@@ -1223,6 +1223,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             // These items are new items from side effects
                             Map<String, Set<String>> sideEffects = updatedItems.getFirst();
 
+                            // Acquire the advisory lock for the side-effect aspects too.
+                            // The initial lockAspectsForWrite above covered only the input
+                            // aspects; MCPSideEffects can introduce additional (urn, aspect)
+                            // pairs that this transaction will write, and a concurrent writer
+                            // on that same aspect would race without this lock.
+                            // pg_advisory_xact_lock is transaction-scoped and reentrant, so
+                            // re-acquiring a key already locked above is a no-op; only the
+                            // newly-introduced aspect keys are effectively added.
+                            aspectDao.lockAspectsForWrite(opContext, sideEffects);
+
                             final Map<String, Map<String, Long>> updatedNextVersions;
 
                             Map<String, Map<String, SystemAspect>> newLatestAspects =
