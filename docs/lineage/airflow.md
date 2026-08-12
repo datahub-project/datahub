@@ -198,11 +198,32 @@ mismatch is findable rather than silent.
 the same pattern as Fivetran's `sources_to_platform_instance` and the Spark agent's
 `metadata.dataset.connections`, and the same key those use, so the three stay interchangeable.
 
-One entry covers all three of the ways the plugin names datasets: Airflow Asset URIs,
+One entry reaches all three of the ways the plugin names datasets — Airflow Asset URIs,
 OpenLineage facets, and SQL-parsed lineage from SQL operators. For SQL parsing the entry is
 matched on the connection's authority (for Snowflake, the account hostname reported by the
 provider), so column-level lineage from a `SnowflakeOperator` gets the same
 `platform_instance` as everything else.
+
+Not every setting applies to every writer, though:
+
+| Setting                     | Asset URIs | OpenLineage | SQL parsing |
+| --------------------------- | ---------- | ----------- | ----------- |
+| `platform_instance`         | yes        | yes         | yes         |
+| `env`                       | yes        | yes         | yes         |
+| `convert_urns_to_lowercase` | yes        | yes         | no          |
+| `database`                  | yes        | n/a         | fallback    |
+| `platform`                  | yes        | yes         | no          |
+
+SQL parsing resolves table names against the datasets already in DataHub, so it settles
+casing by finding the URN that actually exists rather than deriving one — which is why an
+explicit `convert_urns_to_lowercase` does not apply there, and why re-casing its output
+would be a downgrade rather than a fix. Its defaults match the other two writers, since
+both come from the same case-sensitivity rule. `platform` likewise comes from the
+operator's dialect, which is more reliable than anything configured here.
+
+`database` is a **fallback** for SQL parsing: the operator's argument and the database
+the connection reports always win, but some connections report none, and without a
+database the parser cannot fully qualify table names. Setting it here fills that gap.
 
 ```ini title="airflow.cfg"
 [datahub]

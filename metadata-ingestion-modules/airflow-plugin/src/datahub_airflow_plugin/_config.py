@@ -54,7 +54,9 @@ class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
         description="Lowercase the whole dataset name. Unset follows the same per-platform "
         "rule DataHub's SQL parser uses: case-insensitive platforms (snowflake, postgres, "
         "mysql) are lowercased, case-sensitive ones (bigquery) are not. Set explicitly "
-        "only to override that.",
+        "only to override that. Applies to Airflow Asset URIs and OpenLineage datasets; "
+        "SQL-parsed lineage settles casing by resolving against the datasets already in "
+        "DataHub, so this override does not apply there.",
     )
 
     # env comes from PlatformDetail with a PROD default. Unset must mean "use the
@@ -73,8 +75,10 @@ class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
 
     database: Optional[str] = Field(
         default=None,
-        description="Prepended as the leading name segment when the URI omits it — for "
-        "example a Postgres URI written without its database.",
+        description="For Airflow Asset URIs, prepended as the leading name segment when "
+        "the URI omits it — for example a Postgres URI written without its database. For "
+        "SQL parsing, used as the default database when the operator and connection "
+        "report none, since without one the parser cannot fully qualify table names.",
     )
 
 

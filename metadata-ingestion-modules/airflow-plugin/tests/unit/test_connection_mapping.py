@@ -301,3 +301,39 @@ def test_empty_connections_config_parses_to_an_empty_mapping():
 
     assert parse_asset_connections(None) == {}
     assert parse_asset_connections("{}") == {}
+
+
+# --- default database for SQL parsing -----------------------------------------
+
+
+def test_default_database_prefers_what_the_operator_and_connection_report():
+    """The operator argument and the connection's own database are authoritative; the
+    mapping must not override a value the connection actually reported."""
+    from datahub_airflow_plugin._connection_mapping import resolve_default_database
+
+    detail = AssetConnectionDetail(database="from_config")
+
+    assert (
+        resolve_default_database("from_operator", "from_connection", detail)
+        == "from_operator"
+    )
+    assert (
+        resolve_default_database(None, "from_connection", detail) == "from_connection"
+    )
+
+
+def test_default_database_falls_back_to_the_mapping_when_unknown():
+    """Without a database the SQL parser cannot fully qualify table names, so a configured
+    one is better than none."""
+    from datahub_airflow_plugin._connection_mapping import resolve_default_database
+
+    detail = AssetConnectionDetail(database="from_config")
+
+    assert resolve_default_database(None, None, detail) == "from_config"
+
+
+def test_default_database_stays_none_when_nothing_supplies_one():
+    from datahub_airflow_plugin._connection_mapping import resolve_default_database
+
+    assert resolve_default_database(None, None, None) is None
+    assert resolve_default_database(None, None, AssetConnectionDetail()) is None

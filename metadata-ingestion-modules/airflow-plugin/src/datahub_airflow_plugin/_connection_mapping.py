@@ -132,6 +132,21 @@ def resolve_lowercase(platform: str, detail: Optional[AssetConnectionDetail]) ->
     return platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
 
+def resolve_default_database(
+    from_operator: Optional[str],
+    from_connection: Optional[str],
+    detail: Optional[AssetConnectionDetail],
+) -> Optional[str]:
+    """Default database for SQL parsing, most authoritative source first.
+
+    The operator's own argument and the database the connection reports describe what the
+    query actually ran against, so neither is ever overridden by config. The mapping's
+    `database` is a last resort for connections that report none: without a database the
+    parser cannot fully qualify table names, and a configured one beats nothing.
+    """
+    return from_operator or from_connection or (detail.database if detail else None)
+
+
 def _warn_shape_once(uri: str, key: str, expected: int, got: int, urn: str) -> None:
     if key in _warned_connections:
         return

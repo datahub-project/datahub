@@ -144,9 +144,6 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         platform = OL_SCHEME_TWEAKS.get(platform, platform)
 
-        # Get default database and schema
-        # database_info is a DatabaseInfo object (dataclass/namedtuple), not a dict
-        default_database = database or getattr(database_info, "database", None)
         default_schema = self.default_schema
 
         # Check if SQL still contains templates (should be rendered by operator)
@@ -180,6 +177,16 @@ def _datahub_generate_openlineage_metadata_from_sql(
         )
         if connection_detail is not None and connection_detail.env:
             env = connection_detail.env
+
+        # Get the default database. database_info is a DatabaseInfo object
+        # (dataclass/namedtuple), not a dict. The mapping's `database` is only a fallback
+        # for connections that report none — without one the parser cannot fully qualify
+        # table names.
+        default_database = connection_mapping.resolve_default_database(
+            database,
+            getattr(database_info, "database", None),
+            connection_detail,
+        )
 
         logger.debug(
             "Running DataHub SQL parser %s (platform=%s, platform_instance=%s, default db=%s, schema=%s, multi_statement=%s): %s",
