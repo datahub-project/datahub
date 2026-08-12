@@ -7,8 +7,7 @@ import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/prop
 import { ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 import { fireEvent, render, screen, within } from '@utils/test-utils/customRender';
 
-// SimpleSelect only mounts its trigger once the container is visible; the shared setup stubs
-// IntersectionObserver as a no-op, so report intersecting immediately for these interaction tests.
+// SimpleSelect only mounts its trigger once visible, so force IntersectionObserver to report visible.
 beforeAll(() => {
     vi.stubGlobal(
         'IntersectionObserver',
@@ -121,9 +120,6 @@ describe('PropertySelect', () => {
     });
 
     it('drops a transient open group when the row is rebound to a concrete top-level property', () => {
-        // An unkeyed Condition delete can rebind this instance to a different predicate. Simulate the
-        // parent swapping selectedProperty out from under an open group: the leaf now resolves to a
-        // top-level property, so the stale group must be dropped rather than leak through.
         function Rebindable() {
             const [selected, setSelected] = useState<string | undefined>(undefined);
             return (

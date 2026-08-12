@@ -29,7 +29,6 @@ describe('structuredPropertyToViewProperty', () => {
             }),
         );
 
-        // Field id matches the search facet field so the saved View filter round-trips.
         expect(property?.id).toBe(`${STRUCTURED_PROPERTY_FILTER_PREFIX}io.acryl.dataSteward`);
         expect(property?.displayName).toBe('Data Steward');
         expect(property?.valueType).toBe(ValueTypeId.URN);
