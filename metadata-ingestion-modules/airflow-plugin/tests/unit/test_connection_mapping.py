@@ -42,20 +42,65 @@ def _urn(platform: str, name: str, instance: Optional[str] = None) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},PROD)"
 
 
-# --- Airflow Asset path --------------------------------------------------------
+# --- Airflow Asset path: derivation without any mapping ----------------------
+#
+# Each connector's naming is a fixed rule, not a guess, so a URI alone is enough for
+# everything except platform_instance:
+#
+#   snowflake  drop authority (an account)  db.schema.table    lowercased (source default)
+#   postgres   drop authority (a host)      db.schema.table    case kept
+#   mysql      drop authority (a host)      db.table           case kept
+#   bigquery   KEEP authority (the project) project.ds.table   case kept
 
 
-def test_mapped_snowflake_asset_uri_matches_the_warehouse_naming():
-    """Authority dropped, slashes become dots, lowercased by default."""
+def test_unmapped_snowflake_uri_derives_the_warehouse_naming():
     urn = translate_airflow_asset_to_urn(
-        FakeAsset("snowflake://myacct/MY_DB/MY_SCHEMA/EVENTS"),
-        connections=SNOWFLAKE_CONNECTIONS,
+        FakeAsset("snowflake://myacct/MY_DB/MY_SCHEMA/EVENTS"), connections={}
     )
 
     assert urn == _urn("snowflake", "my_db.my_schema.events")
 
 
-def test_mapped_asset_uri_applies_platform_instance():
+def test_unmapped_postgres_uri_preserves_case():
+    """postgres inherits convert_urns_to_lowercase=False, unlike snowflake."""
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("postgresql://db.host:5432/MyDb/MySchema/MyTable"), connections={}
+    )
+
+    assert urn == _urn("postgres", "MyDb.MySchema.MyTable")
+
+
+def test_unmapped_mysql_uri_is_two_part():
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("mysql://db.host/mydb/mytable"), connections={}
+    )
+
+    assert urn == _urn("mysql", "mydb.mytable")
+
+
+def test_unmapped_bigquery_uri_keeps_the_project():
+    """BigQuery puts the project in the authority, where the others put a connection."""
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("bigquery://my-project/MyDataset/MyTable"), connections={}
+    )
+
+    assert urn == _urn("bigquery", "my-project.MyDataset.MyTable")
+
+
+def test_unexpected_segment_count_still_emits_lineage():
+    """A hand-written URI may omit the account, making the shape ambiguous. Emit the
+    best-effort URN so no lineage is lost; the warning names it for diagnosis."""
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("snowflake://MY_DB/MY_SCHEMA"), connections={}
+    )
+
+    assert urn == _urn("snowflake", "my_schema")
+
+
+# --- Airflow Asset path: mapping supplies what a URI cannot ------------------
+
+
+def test_mapping_supplies_platform_instance():
     urn = translate_airflow_asset_to_urn(
         FakeAsset("snowflake://myacct/DB/SCH/TBL"),
         connections={
@@ -66,18 +111,17 @@ def test_mapped_asset_uri_applies_platform_instance():
     assert urn == _urn("snowflake", "db.sch.tbl", instance="prod_acct")
 
 
-def test_mapped_asset_uri_can_preserve_case():
-    """BigQuery preserves case, so its mapping must be able to opt out."""
+def test_mapping_can_override_the_platform_case_default():
     urn = translate_airflow_asset_to_urn(
-        FakeAsset("bigquery://my-project/MyDataset/MyTable"),
+        FakeAsset("postgresql://db.host:5432/MyDb/MySchema/MyTable"),
         connections={
-            "bigquery://my-project": AssetConnectionDetail(
-                convert_urns_to_lowercase=False, database="my-project"
+            "postgres://db.host:5432": AssetConnectionDetail(
+                convert_urns_to_lowercase=True
             )
         },
     )
 
-    assert urn == _urn("bigquery", "my-project.MyDataset.MyTable")
+    assert urn == _urn("postgres", "mydb.myschema.mytable")
 
 
 def test_database_fills_in_a_segment_the_uri_omits():
@@ -91,16 +135,25 @@ def test_database_fills_in_a_segment_the_uri_omits():
     assert urn == _urn("postgres", "warehouse.public.events")
 
 
-def test_unmapped_table_scheme_is_skipped_rather_than_guessed():
-    """Without a mapping we cannot know the account from the database, so emitting
-    anything would mint a plausible-but-wrong URN. Skip instead."""
-    assert (
-        translate_airflow_asset_to_urn(
-            FakeAsset("snowflake://myacct/MY_DB/MY_SCHEMA/EVENTS"),
-            connections={},
-        )
-        is None
+def test_env_falls_back_to_the_plugin_cluster_when_the_mapping_omits_it():
+    """A mapping entry without `env` must not silently reset the dataset to PROD."""
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("snowflake://myacct/DB/SCH/TBL"),
+        env="DEV",
+        connections={"snowflake://myacct": AssetConnectionDetail()},
     )
+
+    assert urn == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,DEV)"
+
+
+def test_mapping_env_overrides_the_plugin_cluster():
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("snowflake://myacct/DB/SCH/TBL"),
+        env="DEV",
+        connections={"snowflake://myacct": AssetConnectionDetail(env="PROD")},
+    )
+
+    assert urn == _urn("snowflake", "db.sch.tbl")
 
 
 @pytest.mark.parametrize(
@@ -112,8 +165,7 @@ def test_unmapped_table_scheme_is_skipped_rather_than_guessed():
     ],
 )
 def test_path_based_schemes_are_unchanged(uri, expected_platform, expected_name):
-    """For object stores the URI form already IS the connector's naming, so these need
-    no mapping and must keep working exactly as before."""
+    """For object stores the URI form already IS the connector's naming."""
     urn = translate_airflow_asset_to_urn(FakeAsset(uri), connections={})
 
     assert urn == _urn(expected_platform, expected_name)
@@ -159,14 +211,41 @@ def test_mapped_ol_dataset_applies_platform_instance():
     assert urn == _urn("snowflake", "db.sch.tbl", instance="prod_acct")
 
 
-def test_unmapped_ol_dataset_keeps_todays_behaviour():
-    """The OL path runs for every plugin user, so an absent mapping must change nothing."""
+def test_unmapped_ol_dataset_follows_the_platform_case_default():
+    """OL producers report Snowflake names in upper case while the Snowflake source
+    lowercases them, so an unmapped OL dataset was a duplicate of the ingested one on
+    casing alone. Applying the platform's own default fixes that with no config — and
+    keeps this writer in step with the Asset path, which derives the same way."""
     urn = translate_ol_to_datahub_urn(
         OpenLineageDataset("snowflake://myacct", "MY_DB.MY_SCHEMA.EVENTS"),
         connections={},
     )
 
-    assert urn == _urn("snowflake", "MY_DB.MY_SCHEMA.EVENTS")
+    assert urn == _urn("snowflake", "my_db.my_schema.events")
+
+
+def test_unmapped_ol_dataset_on_a_case_preserving_platform_is_untouched():
+    """postgres/mysql/bigquery inherit convert_urns_to_lowercase=False, so their OL names
+    pass through exactly as before."""
+    urn = translate_ol_to_datahub_urn(
+        OpenLineageDataset("postgres://db.host:5432", "MyDb.MySchema.MyTable"),
+        connections={},
+    )
+
+    assert urn == _urn("postgres", "MyDb.MySchema.MyTable")
+
+
+def test_both_writers_converge_with_no_mapping_at_all():
+    """The zero-config case: the two writers agree without any asset_connections entry."""
+    from_asset = translate_airflow_asset_to_urn(
+        FakeAsset("snowflake://myacct/MY_DB/MY_SCHEMA/EVENTS"), connections={}
+    )
+    from_ol = translate_ol_to_datahub_urn(
+        OpenLineageDataset("snowflake://myacct", "MY_DB.MY_SCHEMA.EVENTS"),
+        connections={},
+    )
+
+    assert from_asset == from_ol == _urn("snowflake", "my_db.my_schema.events")
 
 
 def test_both_writers_converge_on_one_urn_when_mapped():
@@ -193,10 +272,10 @@ def test_both_writers_converge_on_one_urn_when_mapped():
 # --- config parsing -----------------------------------------------------------
 
 
-def test_connection_detail_defaults_to_lowercasing():
-    """Snowflake/Databricks/dbt all default convert_urns_to_lowercase=True, and matching
-    those is the point of the mapping."""
-    assert AssetConnectionDetail().convert_urns_to_lowercase is True
+def test_connection_detail_leaves_casing_to_the_platform_by_default():
+    """Only snowflake overrides convert_urns_to_lowercase to True; postgres, mysql and
+    bigquery inherit False. An unset value must defer to the platform, not force one."""
+    assert AssetConnectionDetail().convert_urns_to_lowercase is None
 
 
 def test_connections_parse_from_a_json_string():
@@ -208,7 +287,7 @@ def test_connections_parse_from_a_json_string():
     )
 
     assert parsed["snowflake://myacct"].platform_instance == "prod_acct"
-    assert parsed["snowflake://myacct"].convert_urns_to_lowercase is True
+    assert parsed["snowflake://myacct"].convert_urns_to_lowercase is None
 
 
 def test_empty_connections_config_parses_to_an_empty_mapping():

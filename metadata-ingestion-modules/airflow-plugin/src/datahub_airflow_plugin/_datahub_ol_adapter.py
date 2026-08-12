@@ -119,7 +119,8 @@ def translate_ol_to_datahub_urn(
         name=name,
         detail=detail,
         env=env,
-        # OL supplies the platform's own dotted name, so the mapping's casing rule is
-        # exactly what is needed to line it up with the warehouse source.
-        lowercase=bool(detail and detail.convert_urns_to_lowercase),
+        # OL supplies the platform's own dotted name, so applying that platform's casing
+        # rule is what lines it up with the warehouse source: OL producers report
+        # Snowflake names in upper case while the Snowflake source lowercases them.
+        lowercase=connection_mapping.resolve_lowercase(platform, detail),
     )

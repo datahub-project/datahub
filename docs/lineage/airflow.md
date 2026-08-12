@@ -158,34 +158,43 @@ task = BashOperator(
 
 The plugin maps URI schemes to DataHub platforms:
 
-| URI Scheme            | DataHub Platform | Needs a connection mapping? |
-| --------------------- | ---------------- | --------------------------- |
-| `s3://`, `s3a://`     | s3               | no                          |
-| `gs://`, `gcs://`     | gcs              | no                          |
-| `file://`             | file             | no                          |
-| `hdfs://`             | hdfs             | no                          |
-| `abfs://`, `abfss://` | adls             | no                          |
-| `postgresql://`       | postgres         | **yes**                     |
-| `mysql://`            | mysql            | **yes**                     |
-| `bigquery://`         | bigquery         | **yes**                     |
-| `snowflake://`        | snowflake        | **yes**                     |
+| URI Scheme            | DataHub Platform | Dataset name derived from the URI  |
+| --------------------- | ---------------- | ---------------------------------- |
+| `s3://`, `s3a://`     | s3               | `bucket/key` (URI form, case kept) |
+| `gs://`, `gcs://`     | gcs              | `bucket/key` (URI form, case kept) |
+| `file://`             | file             | `path/to/file` (case kept)         |
+| `hdfs://`             | hdfs             | `namenode/path` (case kept)        |
+| `abfs://`, `abfss://` | adls             | `container/path` (case kept)       |
+| `snowflake://`        | snowflake        | `db.schema.table`, **lowercased**  |
+| `postgresql://`       | postgres         | `db.schema.table`, case kept       |
+| `mysql://`            | mysql            | `db.table`, case kept              |
+| `bigquery://`         | bigquery         | `project.dataset.table`, case kept |
 
 Plain name assets (e.g., from the `@asset` decorator) default to the `airflow` platform.
 
-For object stores the URI is already the naming DataHub uses — `s3://bucket/key` becomes
-`bucket/key` — so nothing else is needed. Warehouse URIs are different: `snowflake://acct/DB/SCH/TBL`
-holds an account in the authority and slashes where DataHub uses dots, and the Snowflake
-connector lowercases its names. Without knowing which `platform_instance` your Snowflake
-recipe uses, the plugin cannot construct a matching URN, so **warehouse Assets are skipped
-unless you map their connection** (a warning naming the URI is logged once per connection).
-Guessing would create a dataset that looks real but is linked to nothing.
+No configuration is needed for any of these — each row is that connector's own naming
+convention, which the plugin reproduces from the URI alone:
+
+- **Object stores** pass through: the URI already is DataHub's naming.
+- **Warehouses** are restructured. The authority is a connection identifier — a Snowflake
+  account, a Postgres host — so it is dropped, and segments are joined with dots. BigQuery
+  is the exception: its authority is the project, which the connector's name begins with,
+  so it is kept.
+- **Casing follows the platform**, not one global rule. Only the Snowflake source sets
+  `convert_urns_to_lowercase: true` by default; postgres, mysql and bigquery preserve case.
+
+The one thing a URI cannot carry is `platform_instance`. If your warehouse recipe sets one,
+map the connection (below) so the URNs line up. If a warehouse URI has an unexpected number
+of segments — a hand-written `snowflake://MY_DB/MY_SCHEMA` that omits the account, say —
+the plugin still emits its best guess but logs a warning naming the URN it produced, so the
+mismatch is findable rather than silent.
 
 #### Connection mapping
 
-`asset_connections` maps a connection to how its datasets should be named, so both the
-Airflow Asset path and the OpenLineage facet path produce the URNs your warehouse's own
-ingestion already emits. It follows the same pattern as Fivetran's
-`sources_to_platform_instance` and the Spark agent's `metadata.dataset.connections`.
+`asset_connections` is **optional**. It supplies the pieces a URI cannot carry — chiefly
+`platform_instance` — and lets you override any of the derivation defaults above. It follows
+the same pattern as Fivetran's `sources_to_platform_instance` and the Spark agent's
+`metadata.dataset.connections`, and the same key those use, so the three stay interchangeable.
 
 ```ini title="airflow.cfg"
 [datahub]
@@ -197,27 +206,28 @@ capture_airflow_assets = true
 asset_connections = {
     "snowflake://myacct": {"platform_instance": "prod_acct"},
     "postgres://db.host:5432": {"platform_instance": "analytics_pg", "database": "warehouse"},
-    "bigquery://my-project": {"database": "my-project", "convert_urns_to_lowercase": false}
+    "mysql://db.host": {"env": "DEV"}
   }
 ```
 
-| Setting                     | Default | Purpose                                                                                                                                                     |
-| --------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform_instance`         | None    | Must match the `platform_instance` in that platform's ingestion recipe, or the URNs will not line up.                                                       |
-| `env`                       | PROD    | Environment for this connection's datasets, overriding the plugin-wide `cluster`.                                                                           |
-| `convert_urns_to_lowercase` | true    | Lowercases the dataset name to match sources that lowercase their URNs (snowflake, unity, dbt). Set `false` for bigquery, which preserves case.             |
-| `database`                  | None    | Prepended as the leading name segment when the URI omits it, and the way to keep a BigQuery project, which sits in the authority that is otherwise dropped. |
-| `platform`                  | None    | Override the platform inferred from the URI scheme.                                                                                                         |
+| Setting                     | Default          | Purpose                                                                                                                                    |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `platform_instance`         | None             | Must match the `platform_instance` in that platform's ingestion recipe, or the URNs will not line up. The main reason to map a connection. |
+| `env`                       | plugin `cluster` | Environment for this connection's datasets. Unset keeps the plugin-wide `cluster`.                                                         |
+| `convert_urns_to_lowercase` | platform default | Overrides the per-platform casing above. Rarely needed — set it only if your recipe overrides the source's own default.                    |
+| `database`                  | None             | Prepended as the leading name segment when the URI omits it, e.g. a Postgres URI written without its database.                             |
+| `platform`                  | scheme-derived   | Override the platform inferred from the URI scheme.                                                                                        |
 
-With the mapping in place, a table reached through both paths resolves to one URN:
+A table reached through both paths resolves to one URN. This already holds with no config;
+mapping the connection adds the `platform_instance` prefix:
 
 ```
 Airflow Asset  snowflake://myacct/MY_DB/MY_SCHEMA/EVENTS  ─┐
 OpenLineage    snowflake://myacct  MY_DB.MY_SCHEMA.EVENTS  ─┼─→  prod_acct.my_db.my_schema.events
-Snowflake ingestion                                              ─┘
+Snowflake ingestion                                        ─┘
 ```
 
-Without it, those would be three separate datasets, because DataHub identity is exact
+Without matching names those would be separate datasets, because DataHub identity is exact
 string matching — there is no fuzzy resolution between similar names.
 
 > **Note:** `materialize_iolets` is not the right lever for duplicates. It does not create
@@ -229,9 +239,11 @@ string matching — there is no fuzzy resolution between similar names.
 
 Native Airflow Assets have the following limitations compared to using DataHub's `Dataset` or `Urn` entities directly:
 
-1. **Warehouse URIs need a connection mapping**: `platform_instance`, per-connection `env`, and casing all come from `asset_connections` (above). Unmapped warehouse Assets are skipped rather than emitted with a name that matches nothing.
+1. **`platform_instance` requires a connection mapping**: a URI cannot express it, so without an `asset_connections` entry the URN has no platform-instance prefix and will not match a warehouse ingested with one.
 
 2. **Settings are per connection, not per asset**: every Asset on a connection shares that entry's `platform_instance`, `env`, and naming. You cannot vary them for individual assets.
+
+3. **The URI shape has to match the platform's**: `db.schema.table` for snowflake/postgres, `db.table` for mysql, `project.dataset.table` for bigquery. A URI with a different number of segments still produces lineage, but logs a warning that the URN may be wrong.
 
 If you need `platform_instance` or per-asset environment control, use the DataHub entity classes instead:
 

@@ -10,7 +10,7 @@ Both now resolve through here, so a single mapping entry makes them converge.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub_airflow_plugin._config import (
@@ -45,25 +45,41 @@ SCHEME_TO_PLATFORM = {
     "awsathena": "athena",
 }
 
+
+class TableNaming(NamedTuple):
+    """How one platform's DataHub connector names its datasets.
+
+    These are fixed conventions, not guesses, so a URI is enough to build a matching
+    dataset name without any configuration. Only `platform_instance` — which the URI
+    genuinely cannot carry — needs the connection mapping.
+    """
+
+    # Whether the URI authority is part of the dataset name. False for connection
+    # identifiers (a Snowflake account, a Postgres host); True for BigQuery, where the
+    # authority is the project and the connector's name starts with it.
+    keep_authority: bool
+    # How many dot-separated segments the connector's name has. Used only to warn when a
+    # hand-authored URI doesn't look like the expected shape.
+    expected_segments: int
+    # That connector's own `convert_urns_to_lowercase` default. Only Snowflake overrides
+    # the mixin's False (see snowflake_config.py); postgres/mysql (sql_config.py) and
+    # bigquery (bigquery_config.py) inherit it.
+    lowercase: bool
+
+
 # Platforms whose datasets are named `<database>.<schema>.<table>` (or
-# `<database>.<table>`) by their DataHub connector, so the URI authority is a connection
-# identifier — an account or host — and must not appear in the dataset name. A URI alone
-# can't tell us which platform_instance the warehouse recipe used, nor whether that
-# platform lowercases, so these require an explicit mapping.
+# `<database>.<table>`), where the URI needs restructuring rather than passing through.
 #
 # Path-shaped platforms (s3, gcs, file, hdfs, adls) are deliberately absent: for those
-# the URI form already IS the connector's naming (`s3://bucket/key` -> `bucket/key`), so
-# they need no mapping and keep their existing behaviour. mssql/athena are also absent
-# for now — they are table-shaped too, but no Asset URIs for them have been reported and
-# adding them would widen the set of URIs that stop resolving without a mapping.
-TABLE_SHAPED_PLATFORMS = frozenset(
-    {
-        "snowflake",
-        "postgres",
-        "mysql",
-        "bigquery",
-    }
-)
+# the URI form already IS the connector's naming (`s3://bucket/key` -> `bucket/key`).
+# mssql/athena are absent for now — table-shaped too, but no Asset URIs for them have
+# been reported, and each needs its naming confirmed before being added.
+TABLE_NAMING = {
+    "snowflake": TableNaming(keep_authority=False, expected_segments=3, lowercase=True),
+    "postgres": TableNaming(keep_authority=False, expected_segments=3, lowercase=False),
+    "mysql": TableNaming(keep_authority=False, expected_segments=2, lowercase=False),
+    "bigquery": TableNaming(keep_authority=True, expected_segments=3, lowercase=False),
+}
 
 
 def platform_for_scheme(scheme: str) -> str:
@@ -96,23 +112,38 @@ def lookup(
 
 
 def is_table_shaped(scheme: str) -> bool:
-    return platform_for_scheme(scheme) in TABLE_SHAPED_PLATFORMS
+    return platform_for_scheme(scheme) in TABLE_NAMING
 
 
-def warn_unmapped_once(scheme: str, authority: str, uri: str) -> None:
-    key = connection_key(scheme, authority)
+def resolve_lowercase(platform: str, detail: Optional[AssetConnectionDetail]) -> bool:
+    """Whether to lowercase this platform's dataset name.
+
+    An explicit mapping value always wins. Otherwise follow that connector's own default
+    (Snowflake lowercases; postgres, mysql and bigquery do not). Platforms with no entry —
+    object stores, and anything unrecognised — default to preserving case, since their
+    keys are case-sensitive.
+    """
+    if detail is not None and detail.convert_urns_to_lowercase is not None:
+        return detail.convert_urns_to_lowercase
+    naming = TABLE_NAMING.get(platform)
+    return naming.lowercase if naming else False
+
+
+def _warn_shape_once(uri: str, key: str, expected: int, got: int, urn: str) -> None:
     if key in _warned_connections:
         return
     _warned_connections.add(key)
     logger.warning(
-        "Airflow Asset %r has no [datahub] asset_connections entry for %r, so it was "
-        "skipped. A URI alone does not say which platform_instance the %s recipe used, "
-        "and guessing would create a dataset that looks real but matches nothing. Add "
-        'asset_connections = {"%s": {"platform_instance": "..."}} to map it, or use a '
-        "DataHub-native inlet/outlet, which needs no inference.",
+        "Airflow Asset %r produced %d name segments where %s datasets have %d, so the "
+        "URN %r may be wrong — a hand-written URI that omits the account or host is the "
+        "usual cause, since the authority is dropped as a connection identifier. "
+        'Set [datahub] asset_connections = {"%s": {"database": "..."}} to supply the '
+        "missing segment, or use a DataHub-native inlet/outlet, which needs no inference.",
         uri,
-        key,
-        scheme,
+        got,
+        key.split("://")[0],
+        expected,
+        urn,
         key,
     )
 
@@ -120,26 +151,46 @@ def warn_unmapped_once(scheme: str, authority: str, uri: str) -> None:
 def build_table_urn(
     *,
     platform: str,
+    authority: str,
     path_segments: List[str],
-    detail: AssetConnectionDetail,
+    detail: Optional[AssetConnectionDetail],
+    env: str,
+    uri: str,
+    key: str,
 ) -> Optional[str]:
-    """Build a `<database>.<schema>.<table>`-style URN from a mapped connection."""
+    """Build a `<database>.<schema>.<table>`-style URN for a table-shaped platform.
+
+    Works with no mapping at all: the authority and separator rules come from the
+    platform's own naming convention. A mapping only supplies what a URI cannot —
+    `platform_instance` — plus optional overrides.
+    """
+    naming = TABLE_NAMING[platform]
+
     segments = [s for s in path_segments if s]
-    if detail.database:
+    if naming.keep_authority and authority:
+        segments = [authority, *segments]
+    if detail is not None and detail.database:
         segments = [detail.database, *segments]
     if not segments:
         return None
 
     name = ".".join(segments)
-    if detail.convert_urns_to_lowercase:
+    if resolve_lowercase(platform, detail):
         name = name.lower()
 
-    return builder.make_dataset_urn_with_platform_instance(
+    urn = builder.make_dataset_urn_with_platform_instance(
         platform=platform,
         name=name,
-        platform_instance=detail.platform_instance,
-        env=detail.env,
+        platform_instance=detail.platform_instance if detail else None,
+        # An entry that doesn't set env must not silently reset the dataset to PROD; fall
+        # back to the plugin-wide cluster.
+        env=(detail.env if detail is not None and detail.env else env),
     )
+
+    if len(segments) != naming.expected_segments:
+        _warn_shape_once(uri, key, naming.expected_segments, len(segments), urn)
+
+    return urn
 
 
 def build_named_urn(
@@ -172,5 +223,6 @@ def build_named_urn(
         platform=platform,
         name=name,
         platform_instance=detail.platform_instance,
-        env=detail.env,
+        # See build_table_urn: an entry without env keeps the plugin-wide cluster.
+        env=detail.env or env,
     )

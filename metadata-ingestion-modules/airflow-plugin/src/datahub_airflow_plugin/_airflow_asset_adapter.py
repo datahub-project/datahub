@@ -113,18 +113,22 @@ def translate_airflow_asset_to_urn(
     detail = connection_mapping.lookup(connections, scheme, parsed.netloc)
 
     if scheme and connection_mapping.is_table_shaped(scheme):
-        # `<database>.<schema>.<table>` platforms: the authority is an account or host,
-        # not part of the dataset name, and only the operator knows the recipe's
-        # platform_instance and casing. Without a mapping any URN we built would look
-        # real while matching nothing, so skip rather than guess.
-        if detail is None:
-            connection_mapping.warn_unmapped_once(scheme, parsed.netloc, uri)
-            return None
-        platform = detail.platform or URI_SCHEME_TO_PLATFORM.get(scheme, scheme)
+        # `<database>.<schema>.<table>` platforms need the URI restructured rather than
+        # passed through: the authority is a connection identifier (an account or host)
+        # and DataHub separates segments with dots. Those rules are the platform's own
+        # convention, so this works with no configuration; a mapping only adds what a URI
+        # cannot carry, chiefly platform_instance.
+        platform = (
+            detail.platform if detail else None
+        ) or connection_mapping.platform_for_scheme(scheme)
         urn = connection_mapping.build_table_urn(
             platform=platform,
+            authority=parsed.netloc,
             path_segments=parsed.path.split("/"),
             detail=detail,
+            env=env,
+            uri=uri,
+            key=connection_mapping.connection_key(scheme, parsed.netloc),
         )
         if urn is None:
             logger.warning(
@@ -163,9 +167,10 @@ def translate_airflow_asset_to_urn(
             name=name,
             detail=detail,
             env=env,
-            # Object-store keys and bare asset names are case-sensitive, so a mapping
-            # added purely for platform_instance must not re-case them.
-            lowercase=False,
+            # Object-store keys and bare asset names are case-sensitive, so these
+            # preserve case unless the mapping explicitly asks otherwise — a mapping
+            # added purely for platform_instance must not silently re-case them.
+            lowercase=connection_mapping.resolve_lowercase(platform, detail),
         )
     except Exception as e:
         logger.warning(

@@ -43,15 +43,27 @@ class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
     its URNs. Rather than guess, we ask.
     """
 
-    # convert_urns_to_lowercase comes from LowerCaseDatasetUrnConfigMixin, whose default
-    # is False. Override to True: the point of a mapping is to match a warehouse's own
-    # URNs, and snowflake/unity/dbt all default their sources to True. BigQuery
-    # preserves case, so bigquery entries should set this back to False.
-    convert_urns_to_lowercase: bool = Field(
-        default=True,
-        description="Lowercase the whole dataset name so it matches sources that "
-        "lowercase their URNs (snowflake, unity, dbt). Set False for platforms that "
-        "preserve case, such as bigquery.",
+    # Both of these narrow their inherited type to Optional so that "unset" is
+    # distinguishable from a value, letting the platform's own default apply.
+    #
+    # convert_urns_to_lowercase comes from LowerCaseDatasetUrnConfigMixin (default
+    # False). Casing is per-platform: only the Snowflake source overrides it to True,
+    # while postgres/mysql (sql_config.py) and bigquery (bigquery_config.py) inherit
+    # False — so forcing one value here would mis-case three of the four.
+    convert_urns_to_lowercase: Optional[bool] = Field(  # type: ignore[assignment]
+        default=None,
+        description="Lowercase the whole dataset name. Unset follows the platform's own "
+        "connector default (snowflake lowercases; postgres, mysql and bigquery do not). "
+        "Set explicitly only to override that.",
+    )
+
+    # env comes from PlatformDetail with a PROD default. Unset must mean "use the
+    # plugin-wide cluster", otherwise mapping a connection would quietly move its
+    # datasets to PROD on a DEV deployment.
+    env: Optional[str] = Field(  # type: ignore[assignment]
+        default=None,
+        description="Environment for this connection's datasets. Unset uses the "
+        "plugin-wide `cluster` setting.",
     )
 
     platform: Optional[str] = Field(
@@ -61,9 +73,8 @@ class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
 
     database: Optional[str] = Field(
         default=None,
-        description="Prepended as the leading name segment when the URI omits it. "
-        "Also the way to keep a BigQuery project, which sits in the URI authority that "
-        "is otherwise dropped.",
+        description="Prepended as the leading name segment when the URI omits it — for "
+        "example a Postgres URI written without its database.",
     )
 
 
