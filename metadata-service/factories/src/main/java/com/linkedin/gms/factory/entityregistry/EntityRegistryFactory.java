@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -76,23 +77,31 @@ public class EntityRegistryFactory {
 
       List<AspectPayloadValidator> newValidators =
           findMissing(
-              applicationContext.getBeansOfType(AspectPayloadValidator.class).values(),
+              BeanFactoryUtils.beansOfTypeIncludingAncestors(
+                      applicationContext, AspectPayloadValidator.class)
+                  .values(),
               pluginFactory.getAspectPayloadValidators());
       List<MutationHook> newHooks =
           findMissing(
-              applicationContext.getBeansOfType(MutationHook.class).values(),
+              BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, MutationHook.class)
+                  .values(),
               pluginFactory.getMutationHooks());
       List<MCLSideEffect> newMclEffects =
           findMissing(
-              applicationContext.getBeansOfType(MCLSideEffect.class).values(),
+              BeanFactoryUtils.beansOfTypeIncludingAncestors(
+                      applicationContext, MCLSideEffect.class)
+                  .values(),
               pluginFactory.getMclSideEffects());
       List<MCPSideEffect> newMcpEffects =
           findMissing(
-              applicationContext.getBeansOfType(MCPSideEffect.class).values(),
+              BeanFactoryUtils.beansOfTypeIncludingAncestors(
+                      applicationContext, MCPSideEffect.class)
+                  .values(),
               pluginFactory.getMcpSideEffects());
       List<MCPObserver> newObservers =
           findMissing(
-              applicationContext.getBeansOfType(MCPObserver.class).values(),
+              BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, MCPObserver.class)
+                  .values(),
               pluginFactory.getMcpObservers());
 
       int total =

@@ -118,14 +118,15 @@ public class SpringPluginLateRegistrationTest {
     MergedEntityRegistry mergedRegistry = new MergedEntityRegistry(configEntityRegistry);
     PluginFactory pluginFactory = mergedRegistry.getPluginFactory();
 
-    int beforeSize = pluginFactory.getMcpObservers().size();
+    List<MCPObserver> existingObservers = pluginFactory.getMcpObservers();
+    int beforeSize = existingObservers.size();
 
     pluginFactory.appendPlugins(
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
-        Collections.emptyList());
+        List.copyOf(existingObservers));
 
     assertEquals(pluginFactory.getMcpObservers().size(), beforeSize);
   }

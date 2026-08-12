@@ -575,11 +575,12 @@ public class PluginFactory {
 
   /**
    * Appends late-discovered plugins to the existing plugin lists. Plugins already present (by
-   * identity) are skipped. The same {@link #applyDisable} filtering is applied to the new plugins
-   * before they are appended.
+   * equality — same class and config) are skipped. The full combined list is run through {@link
+   * #applyDisable} so the disable contract is consistent with the constructor path.
    *
    * <p>Intended for post-initialization reconciliation (e.g. Spring beans that were unavailable
-   * during entity registry construction due to circular dependencies).
+   * during entity registry construction due to circular dependencies). Called once during startup
+   * by {@code SmartInitializingSingleton} before any request processing begins.
    */
   public void appendPlugins(
       @Nonnull List<AspectPayloadValidator> newValidators,
@@ -599,7 +600,7 @@ public class PluginFactory {
   private static <T extends PluginSpec> List<T> appendNew(
       @Nonnull List<T> existing, @Nonnull List<T> candidates) {
     List<T> fresh =
-        applyDisable(candidates).stream()
+        candidates.stream()
             .filter(candidate -> !existing.contains(candidate))
             .collect(Collectors.toList());
     if (fresh.isEmpty()) {
@@ -607,7 +608,7 @@ public class PluginFactory {
     }
     List<T> combined = new ArrayList<>(existing);
     combined.addAll(fresh);
-    return combined;
+    return applyDisable(combined);
   }
 
   @Nonnull

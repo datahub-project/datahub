@@ -377,6 +377,28 @@ public class PluginFactoryMergeTest {
     assertEquals(factory.getMclSideEffects().size(), 2);
     assertEquals(factory.getMcpSideEffects().size(), 2);
     assertEquals(factory.getMcpObservers().size(), 2);
+
+    assertEquals(
+        factory.getAspectPayloadValidators().get(0).getConfig().getClassName(),
+        "ValidatorOriginal");
+    assertTrue(factory.getAspectPayloadValidators().get(1) instanceof LateValidator);
+    assertEquals(
+        factory.getAspectPayloadValidators().get(1).getConfig().getClassName(), "NewPlugin");
+
+    assertEquals(factory.getMutationHooks().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMutationHooks().get(1) instanceof LateMutationHook);
+
+    assertEquals(
+        factory.getMclSideEffects().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMclSideEffects().get(1) instanceof LateMCLSideEffect);
+
+    assertEquals(
+        factory.getMcpSideEffects().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMcpSideEffects().get(1) instanceof LateMCPSideEffect);
+
+    assertEquals(factory.getMcpObservers().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMcpObservers().get(1) instanceof LateMCPObserver);
+    assertEquals(factory.getMcpObservers().get(1).getConfig().getClassName(), "NewPlugin");
   }
 
   @Test
@@ -403,6 +425,20 @@ public class PluginFactoryMergeTest {
         Collections.emptyList(),
         Collections.emptyList(),
         List.of(observer));
+
+    assertEquals(factory.getMcpObservers().size(), 1);
+
+    // Distinct instance with the same config exercises the config-equality branch
+    // of PluginSpec.equals rather than the this==o short-circuit
+    MockMCPObserver duplicate = new MockMCPObserver();
+    duplicate.setConfig(config);
+
+    factory.appendPlugins(
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        List.of(duplicate));
 
     assertEquals(factory.getMcpObservers().size(), 1);
   }
