@@ -1115,6 +1115,20 @@ public class LineageSearchServiceTest {
             10));
   }
 
+  @Test
+  public void testShouldValidateSchemaFieldsDefaultsOn() {
+    // The read is batched by parent and cheap at the sizes lineage walks reach, and an unvalidated
+    // count is wrong in a way the caller cannot see, so validating is the default
+    assertTrue(LineageSearchService.shouldValidateSchemaFields(null));
+    assertTrue(LineageSearchService.shouldValidateSchemaFields(new LineageFlags()));
+    assertTrue(
+        LineageSearchService.shouldValidateSchemaFields(
+            new LineageFlags().setValidateSchemaFields(true)));
+    assertFalse(
+        LineageSearchService.shouldValidateSchemaFields(
+            new LineageFlags().setValidateSchemaFields(false)));
+  }
+
   private EntityLineageResult createMockEntityLineageResult() {
     EntityLineageResult result = new EntityLineageResult();
     result.setTotal(0);

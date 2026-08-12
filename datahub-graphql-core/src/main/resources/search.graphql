@@ -261,9 +261,10 @@ input SearchAcrossLineageCountsInput {
   entity index has nothing to return for those, so counting them means reading the count off the
   graph instead.
 
-  That count is approximate: a relation whose parent no longer exists is still counted, and
-  view-based access control is not applied, neither of which is true of a count taken from the
-  index. It also cannot be combined with a query or a sort, which this input does not offer.
+  Such a count does not have the entity index filtering it, so view-based access control is not
+  applied, unlike a count taken from the index. Columns their parent no longer declares are dropped
+  by validateSchemaFields. It also cannot be combined with a query or a sort, which this
+  input does not offer.
   """
   includeGhostEntities: Boolean
 
@@ -271,6 +272,17 @@ input SearchAcrossLineageCountsInput {
   Whether to count soft deleted entities
   """
   includeSoftDeleted: Boolean
+
+  """
+  Whether to check that schema fields counted off the graph still exist, by reading the
+  schemaMetadata of the datasets holding them. The graph keeps edges long after a column is removed
+  or its dataset deleted, so without this those columns are still counted.
+
+  Defaults to checking, since the read is batched by parent dataset and cheap at the sizes lineage
+  walks reach. Only worth turning off for a walk that fans out over very many datasets, and it is
+  skipped automatically past the point where the fetch stops being cheap.
+  """
+  validateSchemaFields: Boolean
 }
 
 """

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
+import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -13,6 +14,7 @@ import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
@@ -40,9 +42,13 @@ import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -101,6 +107,14 @@ public class LineageSearchService {
   /** Filter fields the graph-only path can answer from a urn, without the entity index. */
   private static final Set<String> LIGHTNING_FILTER_FIELDS =
       Set.of("platform", "origin", PARENT_FILTER);
+
+  /**
+   * How many parent datasets are worth reading schemaMetadata for to check that the schema fields
+   * counted off the graph still exist. The fetch is batched and schema fields share parents
+   * heavily, so this is reached far later than the number of relationships would suggest -- it is a
+   * backstop against a walk that fans out over thousands of datasets, not a normal limit.
+   */
+  private static final int MAX_PARENTS_TO_VALIDATE = 1000;
 
   private static final AggregationMetadata DEGREE_FILTER_GROUP =
       new AggregationMetadata()
@@ -268,9 +282,13 @@ public class LineageSearchService {
           lineageRelationships, finalInput, reducedFilters, sortCriteria, useLightningMode)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
+        List<LineageRelationship> countable =
+            shouldValidateSchemaFields(finalOpContext.getSearchContext().getLineageFlags())
+                ? dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships)
+                : lineageRelationships;
         LineageSearchResult lineageSearchResult =
             getLightningSearchResult(
-                lineageRelationships, reducedFilters, from, size, new HashSet<>(entities));
+                countable, reducedFilters, from, size, new HashSet<>(entities));
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
               "Lightning Lineage entity result: {}",
@@ -341,6 +359,82 @@ public class LineageSearchService {
         && input.equals("*")
         && simpleFilters
         && CollectionUtils.isEmpty(sortCriteria);
+  }
+
+  /**
+   * Drops schema fields the graph points at that their parent no longer declares, which the graph
+   * keeps edges for long after a column is removed or its dataset deleted. Reads schemaMetadata for
+   * the parents in one batch and keeps only fields it still lists, under any of the urn aliases a
+   * field can be referred to by.
+   *
+   * <p>Relationships that are not schema fields are left alone: this says nothing about whether
+   * they exist.
+   */
+  private List<LineageRelationship> dropSchemaFieldsMissingFromParent(
+      @Nonnull OperationContext opContext, List<LineageRelationship> relationships) {
+    Map<Urn, List<LineageRelationship>> byParent = new HashMap<>();
+    List<LineageRelationship> passThrough = new ArrayList<>();
+    for (LineageRelationship relationship : relationships) {
+      Optional<Pair<Urn, String>> parsed =
+          SchemaFieldUtils.parseSchemaFieldUrn(relationship.getEntity());
+      if (parsed.isPresent()) {
+        byParent.computeIfAbsent(parsed.get().getFirst(), k -> new ArrayList<>()).add(relationship);
+      } else {
+        passThrough.add(relationship);
+      }
+    }
+
+    if (byParent.isEmpty()) {
+      return relationships;
+    }
+    if (byParent.size() > MAX_PARENTS_TO_VALIDATE) {
+      log.info(
+          "Skipping schema field validation for {} parents, above the limit of {}",
+          byParent.size(),
+          MAX_PARENTS_TO_VALIDATE);
+      return relationships;
+    }
+
+    final Map<Urn, Map<String, Aspect>> aspects =
+        opContext
+            .getRetrieverContext()
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                opContext, byParent.keySet(), Set.of(SCHEMA_METADATA_ASPECT_NAME));
+
+    List<LineageRelationship> kept = new ArrayList<>(passThrough);
+    for (Map.Entry<Urn, List<LineageRelationship>> entry : byParent.entrySet()) {
+      final Urn parent = entry.getKey();
+      final Aspect aspect =
+          Optional.ofNullable(aspects.get(parent))
+              .map(a -> a.get(SCHEMA_METADATA_ASPECT_NAME))
+              .orElse(null);
+      if (aspect == null) {
+        // No schema to check against, so nothing under this parent can be confirmed to exist
+        continue;
+      }
+      final SchemaMetadata schemaMetadata =
+          RecordUtils.toRecordTemplate(SchemaMetadata.class, aspect.data());
+      final Set<Urn> declared = new HashSet<>();
+      for (SchemaField field : schemaMetadata.getFields()) {
+        declared.addAll(SchemaFieldUtils.getSchemaFieldAliases(parent, schemaMetadata, field));
+        declared.add(SchemaFieldUtils.generateSchemaFieldUrn(parent, field));
+      }
+      entry.getValue().stream()
+          .filter(relationship -> declared.contains(relationship.getEntity()))
+          .forEach(kept::add);
+    }
+    return kept;
+  }
+
+  /**
+   * Whether to check that the schema fields counted off the graph still exist. Defaults to
+   * checking, since the fetch is batched by parent and cheap at the sizes lineage walks reach, and
+   * an unchecked count is wrong in a way the caller cannot see. A caller can force it either way.
+   */
+  @VisibleForTesting
+  static boolean shouldValidateSchemaFields(@Nullable LineageFlags lineageFlags) {
+    return Optional.ofNullable(lineageFlags).map(LineageFlags::isValidateSchemaFields).orElse(true);
   }
 
   /** Explains why lightning mode cannot be served, naming what the request actually asked for. */

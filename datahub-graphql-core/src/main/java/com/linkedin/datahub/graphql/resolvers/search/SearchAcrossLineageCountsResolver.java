@@ -77,6 +77,10 @@ public class SearchAcrossLineageCountsResolver
     if (Boolean.TRUE.equals(input.getIncludeGhostEntities())) {
       lineageFlags.setUseLightningMode(true);
     }
+    // Left unset when the caller says nothing, so the service applies its own default
+    if (input.getValidateSchemaFields() != null) {
+      lineageFlags.setValidateSchemaFields(input.getValidateSchemaFields());
+    }
 
     // Fixed rather than exposed: a count of schema fields has to stay a count of schema fields
     // rather than being grouped up into the datasets holding them, and version filtering would
