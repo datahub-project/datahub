@@ -167,19 +167,42 @@ jobs:
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Compute this shard's spec files
+        # Individual spec-file args bypass Playwright's fullyParallel worker-hash grouping
+        # (keyed off featureName, used inconsistently across files, not path) entirely, so
+        # duration-balanced file assignment actually controls shard placement here --
+        # --shard=N/M only balances by raw test count.
+        env:
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+        run: |
+          python3 .github/scripts/split_playwright_tests.py \
+            --split-index "$((SHARD - 1))" --split-total "$SHARD_COUNT" \
+            --repo-root . \
+            --test-dir e2e-test/ui/playwright/tests \
+            --weights e2e-test/ui/playwright/playwright_test_weights.json \
+            --output-args e2e-test/ui/playwright/shard-files.txt
+
       - name: Run Playwright tests
         working-directory: e2e-test/ui/playwright
         env:
           BASE_URL: "http://localhost:9002"
           PLAYWRIGHT_REUSE_SERVER: "1"
-          SHARD: ${{ inputs.shard }}
-          SHARD_COUNT: ${{ inputs.shard_count }}
           WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
+          # Blob reporter's default output filename (report.zip) only gets a shard suffix
+          # when --shard is set (see playwright/lib/runner/index.js _defaultReportName). We
+          # no longer pass --shard, so every shard job would collide on the same filename
+          # once reusable-playwright-report.yml flattens blobs into one directory to merge
+          # them -- set this explicitly instead.
+          PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.shard }}.zip
         run: |
-          echo "Running Playwright shard $SHARD/$SHARD_COUNT at $WORKERS_PER_SHARD worker(s)"
-          npx playwright test \
-            --shard="$SHARD/$SHARD_COUNT" \
-            --workers="$WORKERS_PER_SHARD"
+          mapfile -t ARGS < shard-files.txt
+          if [ "${#ARGS[@]}" -eq 0 ]; then
+            echo "No spec files assigned to shard ${{ inputs.shard }}/${{ inputs.shard_count }} — skipping."
+            exit 0
+          fi
+          echo "Running Playwright shard ${{ inputs.shard }}/${{ inputs.shard_count }} (${#ARGS[@]} spec files) at $WORKERS_PER_SHARD worker(s)"
+          npx playwright test "${ARGS[@]}" --workers="$WORKERS_PER_SHARD"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

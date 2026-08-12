@@ -220,6 +220,8 @@ export function normalizeMcp(mcp: Mcp): Mcp {
  *   mlPrimaryKey mlPrimaryKeyProperties — strip nulls
  *   mlModel  mlModelProperties          — strip nulls
  *   mlModelGroup mlModelGroupProperties — strip nulls
+ *   glossaryTerm glossaryRelatedTerms   — posted as-is (silently dropped by the legacy endpoint,
+ *                                         same as the other union-typed aspects above)
  */
 export function extractComplexAspects(mcps: Mcp[]): ComplexAspect[] {
   const results: ComplexAspect[] = [];
@@ -353,6 +355,16 @@ export function extractComplexAspects(mcps: Mcp[]): ComplexAspect[] {
               entityType: 'mlModelGroup',
               aspectName: 'mlModelGroupProperties',
               value: stripNulls(aspect[propsKey]),
+            });
+          }
+        } else if (urn.startsWith('urn:li:glossaryTerm:')) {
+          const relatedTermsKey = keys.find((k) => k.includes('GlossaryRelatedTerms'));
+          if (relatedTermsKey) {
+            results.push({
+              urn,
+              entityType: 'glossaryTerm',
+              aspectName: 'glossaryRelatedTerms',
+              value: stripNulls(aspect[relatedTermsKey]),
             });
           }
         }
