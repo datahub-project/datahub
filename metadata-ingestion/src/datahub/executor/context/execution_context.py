@@ -40,8 +40,10 @@ class ExecutionContext:
     report: ExecutionReport
 
     # Directory the task writes its logs and artifacts to, if it produces any.
-    # Populated by the task once it knows the path; None until then, and None for
-    # tasks that produce no artifacts at all.
+    #
+    # None means "there is nothing worth collecting here" -- either the task produces
+    # no artifacts at all, or it failed early enough that the directory holds only
+    # empty files. See set_artifact_dir for why that distinction matters.
     #
     # This exists so a caller can find the run's artifacts after execute() returns,
     # without having to reconstruct the path from configuration. The directory
@@ -71,4 +73,12 @@ class ExecutionContext:
         return self.artifact_dir
 
     def set_artifact_dir(self, artifact_dir: str) -> None:
+        """Publish the directory holding this run's logs and artifacts.
+
+        Call this once the directory actually has something in it, not as soon as the
+        path is known. Callers treat a non-None value as "these artifacts are worth
+        collecting", and some ship them somewhere durable; publishing a path whose log
+        files have been created but not yet written produces empty artifacts for a run
+        that failed during setup, which is worse than publishing nothing.
+        """
         self.artifact_dir = artifact_dir
