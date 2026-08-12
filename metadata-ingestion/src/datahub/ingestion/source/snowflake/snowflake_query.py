@@ -558,7 +558,6 @@ class SnowflakeQuery:
     def show_views_for_database(
         db_name: str,
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        view_pagination_marker: Optional[str] = None,
     ) -> str:
         # While there is an information_schema.views view, that only shows the view definition if the role
         # is an owner of the view. That doesn't work for us.
@@ -568,12 +567,40 @@ class SnowflakeQuery:
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
-        # To work around this, we paginate through the results using the FROM clause.
+        # Deliberately not paginated. This output is "ordered lexicographically by
+        # database, schema, and view name", but the `LIMIT ... FROM '<name>'` cursor
+        # matches on the object *name* alone - so the cursor key is not the sort key and
+        # the result cannot be continued. Measured against a live account, paging it
+        # fails in one of two ways depending on what the last row of the page is:
+        #   - a real object name: the cursor acts as a global `name > marker` filter, so
+        #     every view in a LATER schema whose name sorts below the marker is silently
+        #     dropped, while earlier schemas' higher-sorting views are returned again;
+        #   - an INFORMATION_SCHEMA view name: the cursor is ignored outright and the
+        #     next page comes back identical, so the loop never terminates.
+        # When this single page comes back full, the caller must page per schema
+        # instead - see show_views_for_schema.
+        return f"""\
+SHOW VIEWS IN DATABASE "{db_name}"
+LIMIT {limit};
+"""
+
+    @staticmethod
+    def show_views_for_schema(
+        db_name: str,
+        schema_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        view_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # Scoped to a single schema, the output is ordered by view name only - which is
+        # exactly what the `FROM '<name>'` cursor matches on. The cursor key is then the
+        # whole sort key, so paging is exact (unlike show_views_for_database).
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
         from_clause = (
             f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
         )
         return f"""\
-SHOW VIEWS IN DATABASE "{db_name}"
+SHOW VIEWS IN SCHEMA "{db_name}"."{schema_name}"
 LIMIT {limit} {from_clause};
 """
 
@@ -1530,25 +1557,57 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def streams_for_database(
         db_name: str,
         limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
-        stream_pagination_marker: Optional[str] = None,
     ) -> str:
         # SHOW STREAMS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
 
-        # To work around this, we paginate through the results using the FROM clause.
+        # Deliberately not paginated; see show_views_for_database for why a
+        # database-wide SHOW cannot be paged safely. When this page comes back full the
+        # caller must page per schema instead - see streams_for_schema.
+        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit};"""
+
+    @staticmethod
+    def streams_for_schema(
+        db_name: str,
+        schema_name: str,
+        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
+        stream_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # Scoped to one schema the output is ordered by name alone, so the
+        # `FROM '<name>'` cursor is the whole sort key and paging is exact.
+        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
+
         from_clause = (
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
-        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
+        return f"""SHOW STREAMS IN SCHEMA "{db_name}"."{schema_name}" LIMIT {limit} {from_clause};"""
 
     @staticmethod
     def show_dynamic_tables_for_database(
         db_name: str,
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        dynamic_table_pagination_marker: Optional[str] = None,
     ) -> str:
         """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
+        # Deliberately not paginated; see show_views_for_database for why a
+        # database-wide SHOW cannot be paged safely. When this page comes back full the
+        # caller must page per schema instead - see show_dynamic_tables_for_schema.
+        return f"""\
+    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    LIMIT {limit};
+    """
+
+    @staticmethod
+    def show_dynamic_tables_for_schema(
+        db_name: str,
+        schema_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        dynamic_table_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # Scoped to one schema the output is ordered by name alone, so the
+        # `FROM '<name>'` cursor is the whole sort key and paging is exact.
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
         from_clause = (
@@ -1557,7 +1616,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             else ""
         )
         return f"""\
-    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    SHOW DYNAMIC TABLES IN SCHEMA "{db_name}"."{schema_name}"
     LIMIT {limit} {from_clause};
     """
 

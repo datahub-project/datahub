@@ -30,6 +30,7 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
+    SHOW_STREAM_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -963,52 +964,35 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     def _get_views_for_database_using_show(
         self, db_name: str
-    ) -> Dict[str, List[SnowflakeView]]:
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
+        cur = self.connection.query(
+            SnowflakeQuery.show_views_for_database(db_name, limit=page_limit)
+        )
+
         views: Dict[str, List[SnowflakeView]] = {}
+        result_set_size = 0
+        for view in cur:
+            result_set_size += 1
+            views.setdefault(view["schema_name"], []).append(self._map_show_view(view))
 
-        first_iteration = True
-        view_pagination_marker: Optional[str] = None
-        while first_iteration or view_pagination_marker is not None:
-            cur = self.connection.query(
-                SnowflakeQuery.show_views_for_database(
-                    db_name,
-                    limit=page_limit,
-                    view_pagination_marker=view_pagination_marker,
-                )
+        if result_set_size >= page_limit:
+            # A full page means there are more views than one `SHOW VIEWS IN DATABASE`
+            # can return, and that result cannot be continued: its `FROM '<name>'` cursor
+            # keys on the object name alone while the output is ordered by
+            # (schema, name). Measured live, continuing drops every view in a later
+            # schema whose name sorts below the marker while re-returning earlier
+            # schemas' higher-sorting views - and if the marker happens to name an
+            # INFORMATION_SCHEMA view the cursor is ignored entirely and the loop spins
+            # forever. Give up on the database-wide query and let the caller page per
+            # schema, where name *is* the whole sort key and paging is exact (verified
+            # against a 16k-view schema: two pages, no gaps, no duplicates).
+            logger.info(
+                f"Database-wide 'SHOW VIEWS' for {db_name} filled its {page_limit}-row "
+                "page; falling back to per-schema queries, which paginate reliably."
             )
-
-            first_iteration = False
-            view_pagination_marker = None
-
-            result_set_size = 0
-            for view in cur:
-                result_set_size += 1
-
-                view_name = view["name"]
-                schema_name = view["schema_name"]
-                if schema_name not in views:
-                    views[schema_name] = []
-                views[schema_name].append(
-                    SnowflakeView(
-                        name=view_name,
-                        created=view["created_on"],
-                        comment=view["comment"],
-                        view_definition=view["text"],
-                        last_altered=view["created_on"],  # TODO: This is not correct.
-                        materialized=(
-                            view.get("is_materialized", "false").lower() == "true"
-                        ),
-                        is_secure=(view.get("is_secure", "false").lower() == "true"),
-                    )
-                )
-
-            if result_set_size >= page_limit:
-                logger.info(
-                    f"Fetching next page of views for {db_name} - after {view_name}"
-                )
-                view_pagination_marker = view_name
+            return None
 
         # Because this is in a cached function, this will only log once per database.
         view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
@@ -1016,6 +1000,103 @@ class SnowflakeDataDictionary(SupportsAsObj):
             f"Finished fetching views in {db_name}; counts by schema {view_counts}"
         )
         return views
+
+    def get_views_for_schema(
+        self, *, db_name: str, schema_name: str, view_filter: str = ""
+    ) -> List[SnowflakeView]:
+        """Fetch one schema's views, for when the database-wide fetch cannot return a
+        complete result. Mirrors the strategy chosen by get_views_for_database."""
+        if self._fetch_views_from_information_schema:
+            return self.get_views_for_schema_using_information_schema(
+                db_name=db_name, schema_name=schema_name, view_filter=view_filter
+            )
+        return self.get_views_for_schema_using_show(
+            db_name=db_name, schema_name=schema_name
+        )
+
+    def _iter_show_rows_for_schema(
+        self,
+        *,
+        build_query: Callable[[Optional[str]], str],
+        page_limit: int,
+        object_kind: str,
+        context: str,
+    ) -> Iterable[Dict[str, Any]]:
+        """Yield rows of a schema-scoped SHOW, paging by object name.
+
+        Schema-scoped output is ordered by name alone, which is exactly what the
+        `FROM '<name>'` cursor matches on, so paging here is exact - unlike the
+        database-wide form (see _get_views_for_database_using_show).
+
+        Snowflake does not honour that cursor for every object class, though: for its
+        built-in INFORMATION_SCHEMA views, `FROM` is ignored and every page repeats the
+        first, which would spin forever. So stop as soon as the marker fails to advance,
+        and dedupe by name so a misbehaving cursor can never emit an object twice. A
+        short result plus a warning beats a hung ingestion.
+        """
+        seen_names: Set[str] = set()
+        marker: Optional[str] = None
+        first_iteration = True
+        while first_iteration or marker is not None:
+            cur = self.connection.query(build_query(marker))
+
+            first_iteration = False
+            previous_marker = marker
+            marker = None
+
+            result_set_size = 0
+            last_name: Optional[str] = None
+            for row in cur:
+                result_set_size += 1
+                last_name = row["name"]
+                if last_name in seen_names:
+                    continue
+                seen_names.add(last_name)
+                yield row
+
+            if result_set_size >= page_limit and last_name is not None:
+                if previous_marker is not None and last_name <= previous_marker:
+                    self.report.warning(
+                        message=f"Paginated 'SHOW {object_kind}' stopped early because "
+                        "Snowflake did not honour the pagination cursor; some objects "
+                        "may be missing.",
+                        context=f"{context} after {previous_marker}",
+                    )
+                    return
+                logger.info(
+                    f"Fetching next page of {object_kind.lower()} for {context} - "
+                    f"after {last_name}"
+                )
+                marker = last_name
+
+    def get_views_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeView]:
+        return [
+            self._map_show_view(row)
+            for row in self._iter_show_rows_for_schema(
+                build_query=lambda marker: SnowflakeQuery.show_views_for_schema(
+                    db_name,
+                    schema_name,
+                    limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+                    view_pagination_marker=marker,
+                ),
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+                object_kind="VIEWS",
+                context=f"{db_name}.{schema_name}",
+            )
+        ]
+
+    def _map_show_view(self, row: Dict[str, Any]) -> SnowflakeView:
+        return SnowflakeView(
+            name=row["name"],
+            created=row["created_on"],
+            comment=row["comment"],
+            view_definition=row["text"],
+            last_altered=row["created_on"],  # TODO: This is not correct.
+            materialized=(row.get("is_materialized", "false").lower() == "true"),
+            is_secure=(row.get("is_secure", "false").lower() == "true"),
+        )
 
     def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
@@ -2206,61 +2287,69 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @serialized_lru_cache(maxsize=1)
     def get_streams_for_database(
         self, db_name: str
-    ) -> Dict[str, List[SnowflakeStream]]:
-        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+    ) -> Optional[Dict[str, List[SnowflakeStream]]]:
+        page_limit = SHOW_STREAM_MAX_PAGE_SIZE
+
+        cur = self.connection.query(
+            SnowflakeQuery.streams_for_database(db_name, limit=page_limit)
+        )
 
         streams: Dict[str, List[SnowflakeStream]] = {}
-
-        first_iteration = True
-        stream_pagination_marker: Optional[str] = None
-        while first_iteration or stream_pagination_marker is not None:
-            cur = self.connection.query(
-                SnowflakeQuery.streams_for_database(
-                    db_name,
-                    limit=page_limit,
-                    stream_pagination_marker=stream_pagination_marker,
-                )
+        result_set_size = 0
+        for stream in cur:
+            result_set_size += 1
+            streams.setdefault(stream["schema_name"], []).append(
+                self._map_show_stream(stream)
             )
 
-            first_iteration = False
-            stream_pagination_marker = None
-
-            result_set_size = 0
-            for stream in cur:
-                result_set_size += 1
-
-                stream_name = stream["name"]
-                schema_name = stream["schema_name"]
-                if schema_name not in streams:
-                    streams[schema_name] = []
-                streams[stream["schema_name"]].append(
-                    SnowflakeStream(
-                        name=stream["name"],
-                        created=stream["created_on"],
-                        owner=stream["owner"],
-                        comment=stream["comment"],
-                        source_type=stream["source_type"],
-                        type=stream["type"],
-                        stale=stream["stale"],
-                        mode=stream["mode"],
-                        database_name=stream["database_name"],
-                        schema_name=stream["schema_name"],
-                        invalid_reason=stream["invalid_reason"],
-                        owner_role_type=stream["owner_role_type"],
-                        stale_after=stream["stale_after"],
-                        table_name=stream["table_name"],
-                        base_tables=stream["base_tables"],
-                        last_altered=stream["created_on"],
-                    )
-                )
-
-            if result_set_size >= page_limit:
-                logger.info(
-                    f"Fetching next page of streams for {db_name} - after {stream_name}"
-                )
-                stream_pagination_marker = stream_name
+        if result_set_size >= page_limit:
+            # A full page cannot be continued safely - see
+            # _get_views_for_database_using_show for the cursor-vs-sort-key reasoning.
+            logger.info(
+                f"Database-wide 'SHOW STREAMS' for {db_name} filled its {page_limit}-row "
+                "page; falling back to per-schema queries, which paginate reliably."
+            )
+            return None
 
         return streams
+
+    def get_streams_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeStream]:
+        return [
+            self._map_show_stream(row)
+            for row in self._iter_show_rows_for_schema(
+                build_query=lambda marker: SnowflakeQuery.streams_for_schema(
+                    db_name,
+                    schema_name,
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                    stream_pagination_marker=marker,
+                ),
+                page_limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                object_kind="STREAMS",
+                context=f"{db_name}.{schema_name}",
+            )
+        ]
+
+    def _map_show_stream(self, row: Dict[str, Any]) -> SnowflakeStream:
+        return SnowflakeStream(
+            name=row["name"],
+            created=row["created_on"],
+            owner=row["owner"],
+            comment=row["comment"],
+            source_type=row["source_type"],
+            type=row["type"],
+            stale=row["stale"],
+            mode=row["mode"],
+            database_name=row["database_name"],
+            schema_name=row["schema_name"],
+            invalid_reason=row["invalid_reason"],
+            owner_role_type=row["owner_role_type"],
+            stale_after=row["stale_after"],
+            table_name=row["table_name"],
+            base_tables=row["base_tables"],
+            last_altered=row["created_on"],
+        )
 
     @serialized_lru_cache(maxsize=1)
     def get_procedures_for_database(
@@ -2351,7 +2440,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @serialized_lru_cache(maxsize=1)
     def get_dynamic_tables_with_definitions(
         self, db_name: str
-    ) -> Dict[str, List[SnowflakeDynamicTable]]:
+    ) -> Optional[Dict[str, List[SnowflakeDynamicTable]]]:
         """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
         dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
@@ -2359,97 +2448,122 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Get graph/dependency information (pass db_name)
         dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
-        first_iteration = True
-        dt_pagination_marker: Optional[str] = None
-
-        while first_iteration or dt_pagination_marker is not None:
-            try:
-                cur = self.connection.query(
-                    SnowflakeQuery.show_dynamic_tables_for_database(
-                        db_name,
-                        limit=page_limit,
-                        dynamic_table_pagination_marker=dt_pagination_marker,
-                    )
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_dynamic_tables_for_database(
+                    db_name, limit=page_limit
                 )
+            )
 
-                first_iteration = False
-                dt_pagination_marker = None
-                result_set_size = 0
-
-                for dt in cur:
-                    result_set_size += 1
-
-                    dt_name = dt["name"]
-                    schema_name = dt["schema_name"]
-
-                    if schema_name not in dynamic_tables:
-                        dynamic_tables[schema_name] = []
-
-                    definition = dt.get("text")
-                    target_lag = dt.get("target_lag")
-                    upstream_tables: List[SnowflakeDynamicTableInput] = []
-                    if dt_graph_info:
-                        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
-                        graph_info = dt_graph_info.get(qualified_name, {})
-                        if not target_lag:
-                            if graph_info.get("target_lag_type") and graph_info.get(
-                                "target_lag_sec"
-                            ):
-                                target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
-                        raw_inputs = graph_info.get("inputs")
-                        if raw_inputs:
-                            # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
-                            try:
-                                if isinstance(raw_inputs, str):
-                                    raw_inputs = json.loads(raw_inputs)
-                                # Coerce non-list JSON values (e.g. "null" -> None,
-                                # single object -> dict) so the comprehension below
-                                # doesn't crash the whole database scan.
-                                if not isinstance(raw_inputs, list):
-                                    raw_inputs = []
-                                upstream_tables = [
-                                    SnowflakeDynamicTableInput(
-                                        name=inp["name"],
-                                        kind=inp.get("kind", "Table"),
-                                    )
-                                    for inp in raw_inputs
-                                    if isinstance(inp, dict) and inp.get("name")
-                                ]
-                            except json.JSONDecodeError as e:
-                                logger.warning(
-                                    f"Failed to parse INPUTS for dynamic table "
-                                    f"{db_name}.{schema_name}.{dt_name}: {e}"
-                                )
-
-                    dynamic_tables[schema_name].append(
-                        SnowflakeDynamicTable(
-                            name=dt_name,
-                            created=dt["created_on"],
-                            last_altered=dt.get("created_on"),
-                            size_in_bytes=dt.get("bytes", 0),
-                            rows_count=dt.get("rows", 0),
-                            comment=dt.get("comment"),
-                            definition=definition,
-                            target_lag=target_lag,
-                            upstream_tables=upstream_tables,
-                            is_dynamic=True,
-                            type="DYNAMIC TABLE",
-                        )
-                    )
-
-                if result_set_size >= page_limit:
-                    logger.info(
-                        f"Fetching next page of dynamic tables for {db_name} - after {dt_name}"
-                    )
-                    dt_pagination_marker = dt_name
-
-            except Exception as e:
-                logger.debug(
-                    f"Failed to get dynamic tables for database {db_name}: {e}"
+            result_set_size = 0
+            for dt in cur:
+                result_set_size += 1
+                dynamic_tables.setdefault(dt["schema_name"], []).append(
+                    self._map_show_dynamic_table(db_name, dt, dt_graph_info)
                 )
-                break
+        except Exception as e:
+            logger.debug(f"Failed to get dynamic tables for database {db_name}: {e}")
+            return dynamic_tables
+
+        if result_set_size >= page_limit:
+            # A full page cannot be continued safely - see
+            # _get_views_for_database_using_show for the cursor-vs-sort-key reasoning.
+            logger.info(
+                f"Database-wide 'SHOW DYNAMIC TABLES' for {db_name} filled its "
+                f"{page_limit}-row page; falling back to per-schema queries, which "
+                "paginate reliably."
+            )
+            return None
 
         return dynamic_tables
+
+    def get_dynamic_tables_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeDynamicTable]:
+        dt_graph_info = self.get_dynamic_table_graph_info(db_name)
+
+        dynamic_tables: List[SnowflakeDynamicTable] = []
+        try:
+            for row in self._iter_show_rows_for_schema(
+                build_query=lambda marker: (
+                    SnowflakeQuery.show_dynamic_tables_for_schema(
+                        db_name,
+                        schema_name,
+                        limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+                        dynamic_table_pagination_marker=marker,
+                    )
+                ),
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+                object_kind="DYNAMIC TABLES",
+                context=f"{db_name}.{schema_name}",
+            ):
+                dynamic_tables.append(
+                    self._map_show_dynamic_table(db_name, row, dt_graph_info)
+                )
+        except Exception as e:
+            logger.debug(
+                f"Failed to get dynamic tables for {db_name}.{schema_name}: {e}"
+            )
+
+        return dynamic_tables
+
+    def _map_show_dynamic_table(
+        self,
+        db_name: str,
+        row: Dict[str, Any],
+        dt_graph_info: Dict[str, Dict[str, Any]],
+    ) -> SnowflakeDynamicTable:
+        dt_name = row["name"]
+        schema_name = row["schema_name"]
+        target_lag = row.get("target_lag")
+        upstream_tables: List[SnowflakeDynamicTableInput] = []
+
+        if dt_graph_info:
+            qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+            graph_info = dt_graph_info.get(qualified_name, {})
+            if not target_lag:
+                if graph_info.get("target_lag_type") and graph_info.get(
+                    "target_lag_sec"
+                ):
+                    target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+            raw_inputs = graph_info.get("inputs")
+            if raw_inputs:
+                # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
+                try:
+                    if isinstance(raw_inputs, str):
+                        raw_inputs = json.loads(raw_inputs)
+                    # Coerce non-list JSON values (e.g. "null" -> None,
+                    # single object -> dict) so the comprehension below
+                    # doesn't crash the whole database scan.
+                    if not isinstance(raw_inputs, list):
+                        raw_inputs = []
+                    upstream_tables = [
+                        SnowflakeDynamicTableInput(
+                            name=inp["name"],
+                            kind=inp.get("kind", "Table"),
+                        )
+                        for inp in raw_inputs
+                        if isinstance(inp, dict) and inp.get("name")
+                    ]
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        f"Failed to parse INPUTS for dynamic table "
+                        f"{db_name}.{schema_name}.{dt_name}: {e}"
+                    )
+
+        return SnowflakeDynamicTable(
+            name=dt_name,
+            created=row["created_on"],
+            last_altered=row.get("created_on"),
+            size_in_bytes=row.get("bytes", 0),
+            rows_count=row.get("rows", 0),
+            comment=row.get("comment"),
+            definition=row.get("text"),
+            target_lag=target_lag,
+            upstream_tables=upstream_tables,
+            is_dynamic=True,
+            type="DYNAMIC TABLE",
+        )
 
     def populate_dynamic_table_definitions(
         self, tables: Dict[str, List[SnowflakeTable]], db_name: str
@@ -2458,6 +2572,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
         try:
             # Get dynamic tables with definitions from SHOW command
             dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
+
+            if dt_with_definitions is None:
+                # The database-wide SHOW filled its page and cannot be paged safely.
+                # Fetch only the schemas we actually need, paging each one exactly.
+                dt_with_definitions = {
+                    schema_name: self.get_dynamic_tables_for_schema_using_show(
+                        db_name=db_name, schema_name=schema_name
+                    )
+                    for schema_name in tables
+                }
 
             for schema_name, table_list in tables.items():
                 for table in table_list:

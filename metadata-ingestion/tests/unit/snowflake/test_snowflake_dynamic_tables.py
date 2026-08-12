@@ -324,12 +324,16 @@ def test_dynamic_table_subtype():
 
 
 def test_dynamic_table_pagination():
-    # Test the pagination marker handling in show_dynamic_tables_for_database
-    query = SnowflakeQuery.show_dynamic_tables_for_database(
-        db_name="TEST_DB", dynamic_table_pagination_marker="LAST_TABLE"
+    # Pagination is only sound at schema scope, where the output is ordered by name
+    # alone and so matches what the `FROM '<name>'` cursor compares against. The
+    # database-wide variant is ordered by (schema, name) and therefore takes no marker.
+    query = SnowflakeQuery.show_dynamic_tables_for_schema(
+        db_name="TEST_DB",
+        schema_name="TEST_SCHEMA",
+        dynamic_table_pagination_marker="LAST_TABLE",
     )
 
-    # Verify the pagination marker is included in the query
+    assert 'IN SCHEMA "TEST_DB"."TEST_SCHEMA"' in query
     assert "FROM 'LAST_TABLE'" in query
 
 

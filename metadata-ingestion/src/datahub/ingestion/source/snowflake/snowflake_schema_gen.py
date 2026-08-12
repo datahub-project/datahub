@@ -2759,10 +2759,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # Some schemas may not have any views
             return views.get(schema_name, [])
 
-        # Usually this fails when there are too many views in the schema.
-        # Fall back to per-schema queries.
+        # The database-wide fetch could not return a complete result — either the
+        # information_schema query returned too much data, or a database-wide
+        # `SHOW VIEWS` filled its page and cannot be paged safely. Per-schema queries
+        # are exact in both modes.
         self.report.num_get_views_for_schema_queries += 1
-        return self.data_dictionary.get_views_for_schema_using_information_schema(
+        return self.data_dictionary.get_views_for_schema(
             db_name=db_name,
             schema_name=schema_name,
             view_filter=view_filter,
@@ -2886,7 +2888,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> List[SnowflakeStream]:
         streams = self.data_dictionary.get_streams_for_database(db_name)
 
-        return streams.get(schema_name, [])
+        if streams is not None:
+            return streams.get(schema_name, [])
+
+        # The database-wide `SHOW STREAMS` filled its page and cannot be paged safely.
+        # Per-schema queries paginate exactly.
+        return self.data_dictionary.get_streams_for_schema_using_show(
+            db_name=db_name, schema_name=schema_name
+        )
 
     def fetch_procedures_for_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
