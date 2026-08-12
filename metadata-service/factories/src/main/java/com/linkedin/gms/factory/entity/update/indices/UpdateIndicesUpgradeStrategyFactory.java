@@ -60,7 +60,7 @@ public class UpdateIndicesUpgradeStrategyFactory {
               systemOpContext
                   .getSearchContext()
                   .getIndexConvention()
-                  .getEntityIndexName(entityName);
+                  .getEntityIndexName(systemOpContext, entityName);
           persistDualWriteStartTime(
               entityService, systemOpContext, upgradeIdUrn, originalIndexName, startTimeMillis);
         };
@@ -116,7 +116,7 @@ public class UpdateIndicesUpgradeStrategyFactory {
           continue;
         }
 
-        Optional<String> entityName = indexConvention.getEntityName(indexName);
+        Optional<String> entityName = indexConvention.getEntityName(opContext, indexName);
         entityName.ifPresent(name -> entityToOldIndex.put(name, oldBackingIndexName));
       }
 
