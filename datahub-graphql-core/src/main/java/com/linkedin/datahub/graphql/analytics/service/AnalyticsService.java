@@ -73,18 +73,18 @@ public class AnalyticsService {
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
 
   @Nonnull
-  public String getEntityIndexName(EntityType entityType) {
-    return _indexConvention.getEntityIndexName(EntityTypeMapper.getName(entityType));
+  public String getEntityIndexName(@Nonnull OperationContext opContext, EntityType entityType) {
+    return _indexConvention.getEntityIndexName(opContext, EntityTypeMapper.getName(entityType));
   }
 
   @Nonnull
-  public String getAllEntityIndexName() {
-    return _indexConvention.getEntityIndexName("*");
+  public String getAllEntityIndexName(@Nonnull OperationContext opContext) {
+    return _indexConvention.getEntityIndexName(opContext, "*");
   }
 
   @Nonnull
-  public String getUsageIndexName() {
-    return _indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return _indexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   public List<NamedLine> getTimeseriesChart(
@@ -431,7 +431,8 @@ public class AnalyticsService {
     }
 
     Filter aggregationResult =
-        executeAndExtract(opContext, buildEntityStatsRequest(distinctTypes, facetFields));
+        executeAndExtract(
+            opContext, buildEntityStatsRequest(opContext, distinctTypes, facetFields));
 
     Map<EntityType, EntityStats> results = new LinkedHashMap<>();
     for (EntityType entityType : distinctTypes) {
@@ -442,14 +443,21 @@ public class AnalyticsService {
   }
 
   @VisibleForTesting
-  SearchRequest buildEntityStatsRequest(List<EntityType> entityTypes, List<String> facetFields) {
+  SearchRequest buildEntityStatsRequest(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    // Resolve each entity's dynamic index name once, so the _index term filters and the request's
+    // target indices are built from the same resolution (and to avoid duplicate resolver work).
+    final Map<EntityType, String> indexByType = new LinkedHashMap<>();
+    for (EntityType entityType : entityTypes) {
+      indexByType.computeIfAbsent(entityType, type -> getEntityIndexName(opContext, type));
+    }
     KeyedFilter[] entityFilters =
         entityTypes.stream()
             .map(
                 entityType ->
                     new KeyedFilter(
                         entityType.name(),
-                        QueryBuilders.termQuery(INDEX_FIELD, getEntityIndexName(entityType))))
+                        QueryBuilders.termQuery(INDEX_FIELD, indexByType.get(entityType))))
             .toArray(KeyedFilter[]::new);
     KeyedFilter[] facetFilters =
         facetFields.stream()
@@ -464,7 +472,7 @@ public class AnalyticsService {
     AggregationBuilder filteredAgg = nonRemovedFilteredAggregation();
     filteredAgg.subAggregation(byEntityAgg);
 
-    String[] indices = entityTypes.stream().map(this::getEntityIndexName).toArray(String[]::new);
+    String[] indices = entityTypes.stream().map(indexByType::get).distinct().toArray(String[]::new);
     SearchRequest searchRequest = constructSearchRequest(indices, filteredAgg);
     // A single absent index must not fail the whole batch. Previously a missing index threw out of
     // the per-type query, propagated uncaught, and left the resolver's catch-all to blank the

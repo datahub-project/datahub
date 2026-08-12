@@ -300,7 +300,10 @@ class FilteringConfig(ConfigModel):
         default=True, description="Skip documents with no text content"
     )
     min_text_length: int = Field(
-        default=50, description="Minimum text length in characters"
+        default=0,
+        description="Minimum text length in characters to embed a document. "
+        "Default 0 embeds all non-empty documents; set > 0 to skip short "
+        "documents. Empty documents are still governed by skip_empty_documents.",
     )
 
 

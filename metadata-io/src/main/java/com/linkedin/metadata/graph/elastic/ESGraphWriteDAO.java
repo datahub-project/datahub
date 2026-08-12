@@ -47,7 +47,7 @@ public class ESGraphWriteDAO {
       return;
     }
     final UpdateRequest updateRequest =
-        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
+        new UpdateRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -70,7 +70,7 @@ public class ESGraphWriteDAO {
       return;
     }
     final DeleteRequest deleteRequest =
-        new DeleteRequest(indexConvention.getIndexName(INDEX_NAME)).id(docId);
+        new DeleteRequest(indexConvention.getIndexName(opContext, INDEX_NAME)).id(docId);
     // Route by docId — see upsertDocument above.
     bulkProcessor.add(opContext, docId, deleteRequest);
   }
@@ -98,7 +98,7 @@ public class ESGraphWriteDAO {
         buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
 
     return bulkProcessor
-        .deleteByQuery(opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME))
+        .deleteByQuery(opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME))
         .orElse(null);
   }
 
@@ -112,7 +112,8 @@ public class ESGraphWriteDAO {
       return null;
     }
     return bulkProcessor
-        .updateByQuery(opContext, script, query, indexConvention.getIndexName(INDEX_NAME))
+        .updateByQuery(
+            opContext, script, query, indexConvention.getIndexName(opContext, INDEX_NAME))
         .orElse(null);
   }
 }

@@ -92,7 +92,7 @@ public class ESSystemMetadataDAO {
   public void upsertDocument(
       @Nonnull OperationContext opContext, @Nonnull String docId, @Nonnull String document) {
     final UpdateRequest updateRequest =
-        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
+        new UpdateRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -106,7 +106,7 @@ public class ESSystemMetadataDAO {
   public DeleteResponse deleteByDocId(
       @Nonnull OperationContext opContext, @Nonnull final String docId) {
     DeleteRequest deleteRequest =
-        new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
+        new DeleteRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId);
 
     try {
       final DeleteResponse deleteResponse =
@@ -126,7 +126,7 @@ public class ESSystemMetadataDAO {
 
     final Optional<BulkByScrollResponse> deleteResponse =
         bulkProcessor.deleteByQuery(
-            opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME));
+            opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
@@ -141,7 +141,7 @@ public class ESSystemMetadataDAO {
 
     final Optional<BulkByScrollResponse> deleteResponse =
         bulkProcessor.deleteByQuery(
-            opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME));
+            opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
@@ -173,7 +173,7 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       final SearchResponse searchResponse =
@@ -215,7 +215,7 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       final SearchResponse searchResponse =
@@ -255,7 +255,7 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.sort(FIELD_URN).sort(FIELD_ASPECT);
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
@@ -318,7 +318,7 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       final SearchResponse searchResponse =
@@ -343,7 +343,7 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       SearchResponse searchResponse =
@@ -382,7 +382,7 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       SearchResponse searchResponse =
