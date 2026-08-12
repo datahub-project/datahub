@@ -176,17 +176,12 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
         }
       } while (scrollId != null);
 
+      // The counters are per-run, so a resumed run would record only its own segment; the log and
+      // the report carry them instead.
       context
           .upgrade()
           .setUpgradeResult(
-              opContext,
-              getUpgradeIdUrn(),
-              entityService,
-              DataHubUpgradeState.SUCCEEDED,
-              Map.of(
-                  "emitted", String.valueOf(stats.emitted),
-                  "unparseable", String.valueOf(stats.unparseable),
-                  "alreadyLowercased", String.valueOf(stats.alreadyLowercased)));
+              opContext, getUpgradeIdUrn(), entityService, DataHubUpgradeState.SUCCEEDED, null);
       log.info("{}: completed. {}", id(), stats);
       context.report().addLine(String.format("%s: completed. %s", id(), stats));
 

@@ -250,13 +250,10 @@ public class BackfillDatasetAliasesStepTest {
   public void testFollowsScrollIdUntilExhausted() {
     stubScroll(page("next", URN_MIXED_CASE), page(null, URN_OTHER));
 
-    buildStep(false).executable().apply(mockContext);
+    UpgradeStepResult result = buildStep(false).executable().apply(mockContext);
 
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     capturedProposals(2);
-    // the marker carries the run counts so they outlive the job and can be alerted on
-    Map<String, String> result = capturedResult(DataHubUpgradeState.SUCCEEDED);
-    assertEquals(result.get("emitted"), "2");
-    assertEquals(result.get("unparseable"), "0");
   }
 
   @Test
@@ -317,8 +314,6 @@ public class BackfillDatasetAliasesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
-    // the counter is the only signal that bad data was stepped over
-    assertEquals(capturedResult(DataHubUpgradeState.SUCCEEDED).get("unparseable"), "1");
   }
 
   @Test
@@ -329,7 +324,6 @@ public class BackfillDatasetAliasesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
-    assertEquals(capturedResult(DataHubUpgradeState.SUCCEEDED).get("alreadyLowercased"), "1");
   }
 
   @Test
@@ -402,6 +396,6 @@ public class BackfillDatasetAliasesStepTest {
             any(),
             eq(DataHubUpgradeState.IN_PROGRESS),
             any());
-    assertEquals(capturedResult(DataHubUpgradeState.SUCCEEDED).get("emitted"), "2");
+    capturedProposals(2);
   }
 }
