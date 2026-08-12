@@ -240,10 +240,10 @@ class MySQLProfilingConfig(GEProfilingConfig):
     #
     # profile_table_row_limit / profile_table_size_limit: the shared defaults (5M rows / 5GB) are
     # tuned to Snowflake/BigQuery billing, not to "InnoDB will melt." A 10-50M row MySQL table
-    # profiles fine; the customer's pain starts around 500M-1B. Cutting at 5M would deny profiles
-    # to healthy tables to solve a problem ~100x higher up. Default None (opt-in): silently dropping
-    # profiles would quietly break the Volume/Column Metric assertions that are the customer's
-    # actual goal. The discoverability mechanism for opt-in is `report_expensive_tables` below.
+    # profiles fine; the failure mode appears one to two orders of magnitude higher, so a 5M cut
+    # denies profiles to healthy tables. Default None (opt-in): silently dropping profiles would
+    # break the Volume/Column Metric assertions built on them. The discoverability mechanism for
+    # opt-in is `report_expensive_tables` below.
     #
     # Redeclared with Annotated[...] (not plain Optional[int]) so the SupportedSources metadata
     # is preserved on the subclass field — a plain redeclaration drops it (verified empirically),
@@ -272,20 +272,20 @@ class MySQLProfilingConfig(GEProfilingConfig):
     # structures). The shared default (5 * cpu_count, ~40 on an 8-core box) is miscalibrated for
     # MySQL.
     #
-    # 5 is a judgment call from that reasoning, not a measured optimum, and no benchmark is
-    # currently in flight to replace it. It is deliberately conservative: the failure mode it
-    # guards against (concurrent full scans exhausting memory on a large table) costs far more
-    # than the throughput it gives up. Deployments with many small tables lose the most here:
-    # profiling there is latency-bound rather than scan-bound, and per-database batching means
-    # databases with <= 5 profiled tables are unaffected either way, so those deployments
-    # should raise it. Tune per workload; do not treat 5 as validated.
+    # 5 is a judgment call from that reasoning, not a measured optimum. It is deliberately
+    # conservative: the failure mode it guards against (concurrent full scans exhausting memory
+    # on a large table) costs far more than the throughput it gives up. Deployments with many
+    # small tables lose the most here: profiling there is latency-bound rather than scan-bound,
+    # and per-database batching means databases with <= 5 profiled tables are unaffected either
+    # way, so those deployments should raise it. Tune per workload; do not treat 5 as validated.
     max_workers: int = Field(
         default=5,
         description="Number of worker threads to use for profiling. MySQL defaults to 5 (vs the "
         "shared 5*cpu_count) because MySQL is a single-primary row store: extra concurrency adds "
         "contention and peak memory rather than throughput. Tune per your workload. This default "
         "is deliberately conservative; deployments with many small tables are latency-bound "
-        "rather than scan-bound and may want to raise it.",
+        "rather than scan-bound and may want to raise it. Also caps the profiling engine's "
+        "`max_overflow` (set via `options.max_overflow` to decouple).",
     )
 
     # MySQL defaults to no row/size guardrail, so operators need a way to discover they should set
@@ -423,7 +423,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             and config.profiling.profile_if_updated_since_days is not None
         ):
             self.report.warning(
-                title="MySQL profiling does not support profile_if_updated_since_days",
+                title=f"{self.get_platform().capitalize()} profiling does not support profile_if_updated_since_days",
                 message="This setting will be ignored. Tables are selected for profiling by "
                 "row/size limits only (profile_table_row_limit / profile_table_size_limit).",
             )
@@ -528,6 +528,16 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # user can still set profile_if_updated_since_days; sql_common.loop_profiler_requests
         # will compute and pass threshold_time, but this method ignores it. A warning in
         # MySQLSource.__init__ flags that misconfiguration rather than letting it silently no-op.
+        #
+        # When both row/size limits are None there is nothing to enforce, so skip the per-schema
+        # information_schema query entirely. Restores the pre-guardrail behaviour of returning
+        # no candidate filter (loop_profiler_requests then falls back to get_table_names), keeps
+        # the __init__ warning truthful, and avoids a per-schema round-trip on the default path.
+        if (
+            self.config.profiling.profile_table_row_limit is None
+            and self.config.profiling.profile_table_size_limit is None
+        ):
+            return None
         # table_rows is an InnoDB *estimate* (can be stale until ANALYZE TABLE) and data_length
         # is in bytes — acceptable for a guardrail, not an accurate count.
         with inspector.engine.connect() as conn:
@@ -542,8 +552,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
             )
             # Build candidate identifiers via self.get_identifier — the SAME method
             # sql_common.loop_profiler_requests uses to build dataset_name — so candidate
-            # strings match dataset_name character-for-character and the membership test at
-            # sql_common.py:1412 does not silently no-op on a mismatch.
+            # strings match dataset_name character-for-character and the membership test in
+            # is_dataset_eligible_for_profiling does not silently no-op on a mismatch.
             return [
                 self.get_identifier(
                     schema=schema, entity=table_name, inspector=inspector

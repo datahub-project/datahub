@@ -122,14 +122,12 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # time, with the guardrail config to set. Off by default; sources whose profiling defaults
     # to no row/size limit (e.g. MySQL) opt in so operators can discover they need a limit.
     # Uses report.info (not report.warning) so it surfaces without counting toward
-    # --strict-warnings failure. Applies only to `method: sqlalchemy` (the default); under
-    # `method: ge` both this flag and `profiling_isolation_level` are inert.
+    # --strict-warnings failure.
     report_expensive_tables: bool = Field(
         default=False,
         description="Emit a post-run report.info entry naming the few tables that took the longest "
         "to profile, with a suggestion to set `profile_table_row_limit` / `profile_table_size_limit` "
-        "to skip large tables. Intended for sources that default to no row/size guardrail (e.g. MySQL). "
-        "Applies only to `method: sqlalchemy`.",
+        "to skip large tables. Intended for sources that default to no row/size guardrail (e.g. MySQL).",
     )
 
     turn_off_expensive_profiling_metrics: bool = Field(
@@ -168,19 +166,32 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     profile_table_size_limit: Annotated[
         Optional[int],
         SupportedSources(
-            ["snowflake", "bigquery", "unity-catalog", "oracle", "teradata", "mysql"]
+            [
+                "snowflake",
+                "bigquery",
+                "unity-catalog",
+                "oracle",
+                "teradata",
+                "mysql",
+                "mariadb",
+                "doris",
+                "tidb",
+            ]
         ),
     ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
         "no limit on the size of tables to profile. Supported in `Snowflake`, `BigQuery`, "
         "`Databricks`, `Oracle`, and `Teradata`. `Oracle` uses calculated size from gathered stats. "
-        "`Teradata` uses DBC space accounting. `MySQL` uses `information_schema.tables.data_length` "
-        "and defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables.",
+        "`Teradata` uses DBC space accounting. `MySQL` uses `information_schema.tables.data_length + "
+        "index_length` and defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables.",
     )
 
     profile_table_row_limit: Annotated[
-        Optional[int], SupportedSources(["snowflake", "bigquery", "oracle", "mysql"])
+        Optional[int],
+        SupportedSources(
+            ["snowflake", "bigquery", "oracle", "mysql", "mariadb", "doris", "tidb"]
+        ),
     ] = Field(
         default=5000000,
         description="Profile tables only if their row count is less than specified count. "

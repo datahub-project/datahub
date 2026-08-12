@@ -94,12 +94,11 @@ class DorisProfilingConfig(MySQLProfilingConfig):
     #     that doesn't hold for Doris's MPP execution.
     #   - report_expensive_tables=True recommends setting *MySQL* row limits, which is odd advice
     #     for Doris.
-    # The two limit fields are deliberately NOT redeclared: they inherit MySQLProfilingConfig's
-    # `None` default. That is what preserves prior behavior — PR 2 newly implements
-    # generate_profile_candidates (the enforcement mechanism) for the MySQL family, so a non-None
-    # default here would *activate* a guardrail that never ran before, silently dropping profiles
-    # for tables over 5M rows using information_schema.tables.table_rows semantics that Doris
-    # (an MPP engine) does not share with InnoDB. Same failure mode rejected for MySQL in §4.1.
+    # The two limit fields are not redeclared: they inherit MySQLProfilingConfig's `None` default,
+    # which preserves prior behavior. A non-None default would activate a row/size guardrail using
+    # information_schema.tables.table_rows semantics that Doris (an MPP engine) does not share
+    # with InnoDB — silently dropping profiles for tables over 5M rows on an engine where that
+    # cutoff is not meaningful.
     # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] type, so
     # `null` is still accepted and the SupportedSources metadata survives (verified in
     # test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sources).

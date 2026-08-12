@@ -1104,12 +1104,11 @@ class TestProfilingIsolationLevelRejection:
 
 
 class TestReportExpensiveTables:
-    """The post-run 'most expensive tables' warning (PR 2 discoverability mechanism).
+    """The post-run 'most expensive tables' info entry.
 
-    Pre-flight warning #2: the info entry must live in the profiler run path (here), NOT in
+    The info entry must live in the profiler run path (here), NOT in
     generate_profile_candidates — which is dead by default when the limits are None. It must
-    fire with no limits configured (the MySQL default), and behave independently of the skip
-    path when limits ARE configured.
+    fire with no limits configured (the MySQL default).
     """
 
     def _make_profiler(
@@ -1136,8 +1135,8 @@ class TestReportExpensiveTables:
         )
 
     def test_fires_with_no_limits_configured(self, sqlite_engine, mock_report):
-        # The default MySQL state: limits None, flag on. The info entry must fire — this is the
-        # state the customer is actually in, and the whole point of opt-in discoverability.
+        # The default MySQL state: limits None, flag on. The info entry must fire — this is
+        # the state MySQL defaults to, and the whole point of opt-in discoverability.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=False
         )
@@ -1159,19 +1158,6 @@ class TestReportExpensiveTables:
         assert "my_db.orders (120.0s)" in kwargs["context"]
         # customers (30s) is 3rd — still in top 3 of 3, so included; the cap matters only
         # when there are more than _EXPENSIVE_TABLES_TOP_N tables (asserted below).
-
-    def test_fires_independently_of_limits(self, sqlite_engine, mock_report):
-        # With limits set, the skip path (generate_profile_candidates) and the info path
-        # (here) are independent: the info entry still fires because the flag is on, regardless
-        # of the limits. This is the inverse case from pre-flight warning #2.
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=True
-        )
-        profiler.times_taken_per_table = [("my_db.orders", 120.0)]
-
-        profiler._report_expensive_tables()
-
-        assert mock_report.info.called
 
     def test_does_not_fire_when_flag_off(self, sqlite_engine, mock_report):
         # Non-MySQL sources default the flag off — no info entry, even for expensive tables.
@@ -1210,3 +1196,41 @@ class TestReportExpensiveTables:
         # The formatted list is in context=, not message=.
         named = [w for w in kwargs["context"].split(", ") if "s)" in w]
         assert len(named) <= SQLAlchemyProfiler._EXPENSIVE_TABLES_TOP_N
+
+    def test_failed_table_still_records_timing(self, sqlite_engine, mock_report):
+        # The finally block in _generate_single_profile appends to times_taken_per_table
+        # on every exit path, including the except branches. The expensive-tables report
+        # exists to surface tables that are too expensive — and the most expensive ones are
+        # precisely those that OOM/timeout/raise — so a failed table must still contribute
+        # its timing. Drive the real path (via _generate_profile_from_request) with
+        # setup_profiling raising, and assert the table appears in times_taken_per_table.
+        profiler = self._make_profiler(
+            sqlite_engine, mock_report, flag=True, limits=False
+        )
+        profiler.config.catch_exceptions = True
+        request = ProfilerRequest(
+            pretty_name="my_db.big_table",
+            batch_kwargs={"table": "big_table", "schema": "my_db"},
+        )
+
+        with (
+            sqlite_engine.connect() as conn,
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = conn
+            mock_adapter = MagicMock()
+            mock_adapter.setup_profiling.side_effect = PermissionError("denied")
+            mock_get_adapter.return_value = mock_adapter
+
+            result_request, result_profile = profiler._generate_profile_from_request(
+                MagicMock(), request
+            )
+
+        assert result_profile is None
+        # The failed table's timing was still recorded by the finally block.
+        assert len(profiler.times_taken_per_table) == 1
+        assert profiler.times_taken_per_table[0][0] == "my_db.big_table"
+        assert profiler.times_taken_per_table[0][1] >= 0.0

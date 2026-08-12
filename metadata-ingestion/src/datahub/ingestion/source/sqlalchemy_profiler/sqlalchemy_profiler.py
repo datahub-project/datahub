@@ -445,9 +445,6 @@ class SQLAlchemyProfiler:
     base_engine: Engine
     platform: str  # passed from parent source config
     env: str
-    # Resolved once at construction (see __init__); the per-table path re-applies it to each
-    # checked-out connection. None means stay transactional.
-    _profiling_isolation_level: Optional[str]
 
     def __init__(
         self,
@@ -1146,8 +1143,8 @@ class SQLAlchemyProfiler:
         # StructuredLogs.report_log (api/source.py:148) dedupes on f"{title}-{message}" — all
         # databases on a multi-database server group under ONE entry with one context per call,
         # rather than N entries (one per database, since get_profiling_internal constructs a fresh
-        # profiler per database — sql_common.py:596-599). message is also LiteralString by
-        # convention (teradata.py:1852 etc.).
+        # profiler per database). message is also LiteralString by convention (teradata.py:1852
+        # etc.).
         #
         # Generator caveat: generate_profiles is a generator, so this only runs on full
         # consumption — the info entry vanishes if the pipeline stops early. Same pre-existing
