@@ -43,7 +43,7 @@ env:
         "key": "OBS",
         "team_id": "1a592e48-d6ba-4b92-a241-8172b568e9bb",
         "assignee_id": "f81f2754-6338-467c-9c91-a12e727b4c36",
-        "description": "Data Quality and Assertions. Any PR touching the Assertions codebase belongs to this team."
+        "description": "Data Quality and Assertions. Any PR touching the Assertions/Monitors or Incidents codebase belongs to this team."
       }
     ]
 
