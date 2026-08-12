@@ -127,7 +127,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         default=False,
         description="Emit a post-run report.info entry naming the few tables that took the longest "
         "to profile, with a suggestion to set `profile_table_row_limit` / `profile_table_size_limit` "
-        "to skip large tables. Intended for sources that default to no row/size guardrail (e.g. MySQL).",
+        "to skip large tables or lower `max_workers` to relieve memory pressure. Intended for "
+        "sources that default to no row/size guardrail (e.g. MySQL).",
     )
 
     turn_off_expensive_profiling_metrics: bool = Field(

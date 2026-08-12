@@ -165,19 +165,18 @@ def test_mysql_profiling_overrides_do_not_drift() -> None:
     (both sides read ``PydanticUndefined`` and compare equal). Do not over-trust this test for
     those cases.
 
-    The allowlist is PER-FIELD, not per-config: MySQLProfilingConfig narrows four fields from
+    The allowlist is PER-FIELD, not per-config: MySQLProfilingConfig narrows three fields from
     GEProfilingConfig; each MySQL-derived config must, for each override field, either REVERT
     it to the grandparent's default or INHERIT MySQL's default. The decision is field-specific:
-      - max_workers, report_expensive_tables: reverted by Doris and TiDB (single-primary-row-
-        store rationale doesn't hold for an MPP / distributed engine; the warning's remediation
-        advice is MySQL-specific). MariaDB inherits (it IS a single-primary row store).
+      - report_expensive_tables: reverted by Doris and TiDB (the warning's remediation advice
+        is MySQL-specific). MariaDB inherits (it IS a single-primary row store).
       - profile_table_row_limit, profile_table_size_limit: inherited as MySQL's `None` by Doris,
         TiDB, AND MariaDB. None is what preserves prior behavior — the enforcement mechanism
         (generate_profile_candidates) is newly implemented for the MySQL family, so a non-None
         default would ACTIVATE a guardrail that never ran before, silently dropping profiles
         for tables over 5M rows using information_schema.tables.table_rows semantics these
         engines don't share with InnoDB.
-    Without this test, a fifth field added to MySQLProfilingConfig would silently leak into the
+    Without this test, a fourth field added to MySQLProfilingConfig would silently leak into the
     subclasses without a deliberate decision.
     """
     from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -196,7 +195,6 @@ def test_mysql_profiling_overrides_do_not_drift() -> None:
     assert mysql_overrides == {
         "profile_table_row_limit",
         "profile_table_size_limit",
-        "max_workers",
         "report_expensive_tables",
     }, (
         "MySQLProfilingConfig override set changed — update the per-field allowlist below and "
@@ -208,13 +206,11 @@ def test_mysql_profiling_overrides_do_not_drift() -> None:
     # field; a missing entry fails loudly so a new override can't slip through undecided.
     decisions: dict[str, dict[str, str]] = {
         "DorisProfilingConfig": {
-            "max_workers": "revert",
             "report_expensive_tables": "revert",
             "profile_table_row_limit": "inherit",
             "profile_table_size_limit": "inherit",
         },
         "TiDBProfilingConfig": {
-            "max_workers": "revert",
             "report_expensive_tables": "revert",
             "profile_table_row_limit": "inherit",
             "profile_table_size_limit": "inherit",
@@ -224,7 +220,6 @@ def test_mysql_profiling_overrides_do_not_drift() -> None:
         # sweep doesn't "fix" it wrongly (MariaDB is a MySQL fork; reverting would reintroduce
         # the long-transaction risk for a certified source).
         "MySQLConfig": {
-            "max_workers": "inherit",
             "report_expensive_tables": "inherit",
             "profile_table_row_limit": "inherit",
             "profile_table_size_limit": "inherit",

@@ -1162,7 +1162,10 @@ class SQLAlchemyProfiler:
             message=(
                 "These tables took the longest to profile. If profiling is too slow or risks "
                 "OOM, set `profiling.profile_table_row_limit` and/or "
-                "`profiling.profile_table_size_limit` to skip large tables."
+                "`profiling.profile_table_size_limit` to skip large tables, or lower "
+                "`profiling.max_workers` — concurrent full scans on a single-primary row "
+                "store multiply peak memory rather than increasing throughput, so a low value "
+                "(e.g. 5) can relieve memory pressure on MySQL."
             ),
             context=formatted,
         )

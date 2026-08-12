@@ -266,28 +266,6 @@ class MySQLProfilingConfig(GEProfilingConfig):
         "(profiling reads secondary indexes heavily).",
     )
 
-    # MySQL is a row store on a single primary: profiling throughput is bound by the same buffer
-    # pool and IO path regardless of session count, so concurrency past a handful mostly adds
-    # contention and multiplies peak memory (each session may hold multi-GB COUNT(DISTINCT)
-    # structures). The shared default (5 * cpu_count, ~40 on an 8-core box) is miscalibrated for
-    # MySQL.
-    #
-    # 5 is a judgment call from that reasoning, not a measured optimum. It is deliberately
-    # conservative: the failure mode it guards against (concurrent full scans exhausting memory
-    # on a large table) costs far more than the throughput it gives up. Deployments with many
-    # small tables lose the most here: profiling there is latency-bound rather than scan-bound,
-    # and per-database batching means databases with <= 5 profiled tables are unaffected either
-    # way, so those deployments should raise it. Tune per workload; do not treat 5 as validated.
-    max_workers: int = Field(
-        default=5,
-        description="Number of worker threads to use for profiling. MySQL defaults to 5 (vs the "
-        "shared 5*cpu_count) because MySQL is a single-primary row store: extra concurrency adds "
-        "contention and peak memory rather than throughput. Tune per your workload. This default "
-        "is deliberately conservative; deployments with many small tables are latency-bound "
-        "rather than scan-bound and may want to raise it. Also caps the profiling engine's "
-        "`max_overflow` (set via `options.max_overflow` to decouple).",
-    )
-
     # MySQL defaults to no row/size guardrail, so operators need a way to discover they should set
     # one. This emits one post-run report.info entry naming the few most expensive tables by observed
     # profiling time, with the config to set. The info entry lives in the profiler run path
@@ -298,7 +276,8 @@ class MySQLProfilingConfig(GEProfilingConfig):
         default=True,
         description="Emit a post-run report.info entry naming the few MySQL tables that took the "
         "longest to profile, with a suggestion to set `profile_table_row_limit` / "
-        "`profile_table_size_limit` to skip large tables.",
+        "`profile_table_size_limit` to skip large tables or lower `max_workers` to relieve "
+        "memory pressure.",
     )
 
 

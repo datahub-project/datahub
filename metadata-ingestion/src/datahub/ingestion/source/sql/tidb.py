@@ -1,4 +1,3 @@
-import os
 from typing import Any, Dict
 
 from pydantic import Field, model_validator
@@ -26,12 +25,8 @@ TIDB_DEFAULT_PORT = 4000
 
 class TiDBProfilingConfig(MySQLProfilingConfig):
     # TiDB inherits MySQLConfig's narrowed `profiling: MySQLProfilingConfig` type, but TiDB is a
-    # distributed HTAP database, not a single-primary row store. Two of MySQL's overrides don't
-    # fit and are reverted to the shared GEProfilingConfig default:
-    #   - max_workers=5 is a ~40→5 throughput regression for a reason (single-primary contention)
-    #     that doesn't hold for TiDB's distributed execution.
-    #   - report_expensive_tables=True recommends setting *MySQL* row limits, which is odd advice
-    #     for TiDB.
+    # distributed HTAP database, not a single-primary row store, so the expensive-tables report
+    # (which recommends MySQL-specific row/size limits) is off here.
     # The two limit fields are not redeclared: they inherit MySQLProfilingConfig's `None` default,
     # which preserves prior behavior. A non-None default would activate a row/size guardrail using
     # information_schema.tables.table_rows semantics that TiDB (distributed HTAP) does not share
@@ -44,10 +39,6 @@ class TiDBProfilingConfig(MySQLProfilingConfig):
     # stale, so the guardrail is only as good as those stats. With the default None the guardrail
     # stays dormant; the stale-stats concern only surfaces if an operator opts in by setting a
     # limit, which is an acceptable documented caveat.
-    max_workers: int = Field(
-        default=5 * (os.cpu_count() or 4),
-        description="Number of worker threads to use for profiling. Set to 1 to disable.",
-    )
     report_expensive_tables: bool = Field(
         default=False,
         description="Emit a post-run report.info entry naming the few tables that took the longest to profile.",

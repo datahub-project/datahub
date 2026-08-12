@@ -1,6 +1,5 @@
 import functools
 import logging
-import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Set
@@ -88,12 +87,8 @@ _DORIS_CATALOG_PREFIX_PATTERN = _catalog_prefix_pattern(DORIS_INTERNAL_CATALOG)
 class DorisProfilingConfig(MySQLProfilingConfig):
     # Doris extends MySQLConfig (MySQL-protocol-compatible driver/information_schema), so it
     # inherits MySQLConfig's narrowed `profiling: MySQLProfilingConfig` type. Doris is an MPP
-    # columnar engine, not a single-primary row store, so two of MySQL's overrides don't fit and
-    # are reverted to the shared GEProfilingConfig default:
-    #   - max_workers=5 is a ~40→5 throughput regression for a reason (single-primary contention)
-    #     that doesn't hold for Doris's MPP execution.
-    #   - report_expensive_tables=True recommends setting *MySQL* row limits, which is odd advice
-    #     for Doris.
+    # columnar engine, not a single-primary row store, so the expensive-tables report (which
+    # recommends MySQL-specific row/size limits) is off here.
     # The two limit fields are not redeclared: they inherit MySQLProfilingConfig's `None` default,
     # which preserves prior behavior. A non-None default would activate a row/size guardrail using
     # information_schema.tables.table_rows semantics that Doris (an MPP engine) does not share
@@ -102,10 +97,6 @@ class DorisProfilingConfig(MySQLProfilingConfig):
     # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] type, so
     # `null` is still accepted and the SupportedSources metadata survives (verified in
     # test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sources).
-    max_workers: int = Field(
-        default=5 * (os.cpu_count() or 4),
-        description="Number of worker threads to use for profiling. Set to 1 to disable.",
-    )
     report_expensive_tables: bool = Field(
         default=False,
         description="Emit a post-run report.info entry naming the few tables that took the longest to profile.",
