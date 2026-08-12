@@ -1391,6 +1391,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         link that renders perfectly and 404s. Both the endpoint and the id's
         shape therefore have to check out before it is used.
         """
+        # Nothing derived is ever used when an explicit base is set, so resolving
+        # here would only produce a warning about links that were emitted anyway.
+        if self.source_config.external_url_base:
+            return None
+
         environment_id = self.source_config.confluent_cloud_environment_id
         if not environment_id:
             return None
