@@ -2,6 +2,7 @@ import sys
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional, Protocol, Type, cast
 
+from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 
@@ -19,34 +20,87 @@ class _SqlAlchemyUrlConfig(Protocol):
     def get_sql_alchemy_url(self) -> str: ...
 
 
-def engine_options(config: object) -> Dict[str, Any]:
+# How each SQLAlchemy dialect family is asked to bound a statement server-side.
+# Keyed by URL scheme prefix, because that is what a config's own
+# get_sql_alchemy_url() hands us and it needs no driver import to read.
+#
+# Deliberately short. A wrong connect_arg does not degrade the probe -- it stops
+# the connector opening a connection at all, which is a worse failure than an
+# unbounded query -- so a dialect earns a row here only once its knob is known to
+# be both server-side and safe to pass. Everything absent declares no ceiling
+# rather than pretending to one.
+def _postgres_timeout(seconds: int) -> Dict[str, Any]:
+    # libpq passes -c settings straight through to the backend.
+    return {"options": f"-c statement_timeout={seconds * 1000}"}
+
+
+def _mysql_timeout(seconds: int) -> Dict[str, Any]:
+    # MySQL 5.7.8+; the server aborts the statement itself. MariaDB spells this
+    # max_statement_time (and in seconds), which is why mariadb is not listed.
+    return {"init_command": f"SET SESSION max_execution_time={seconds * 1000}"}
+
+
+_TIMEOUT_CONNECT_ARGS: Dict[str, Any] = {
+    "postgresql": _postgres_timeout,
+    "postgres": _postgres_timeout,
+    "redshift": _postgres_timeout,
+    "cockroachdb": _postgres_timeout,
+    "mysql": _mysql_timeout,
+}
+
+
+def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
+    if seconds is None or seconds <= 0:
+        return {}
+    scheme = url.split("://", 1)[0].split("+", 1)[0].lower()
+    builder = _TIMEOUT_CONNECT_ARGS.get(scheme)
+    return builder(seconds) if builder else {}
+
+
+def effective_budget(url: str, budget: QueryBudget) -> QueryBudget:
+    """The budget as it will actually be enforced for this dialect.
+
+    The declared default carries a timeout, but only the dialects above have a
+    knob to apply it through. Reporting the declared value on the rest would be
+    the failure the QueryBudget docstring warns about -- a ceiling that reads as
+    present and is not -- so the timeout is dropped where nothing applies it.
+    """
+    if _timeout_connect_args(url, budget.timeout_seconds):
+        return budget
+    return QueryBudget(timeout_seconds=None, max_bytes_billed=budget.max_bytes_billed)
+
+
+def engine_options(
+    config: object, budget: Optional[QueryBudget] = None
+) -> Dict[str, Any]:
     # SQLAlchemy engine kwargs are heterogeneous (connect_args dict, pool ints,
     # bools, ...), so values are genuinely Any. Prefer get_options() when a config
     # defines it; otherwise fall back to the plain `options` dict. Mirrors the real
     # ingestion path, which passes these to create_engine (e.g. connect_args ssl).
+    options: Dict[str, Any] = {}
     get_options = getattr(config, "get_options", None)
     if callable(get_options):
         opts = get_options()
         if isinstance(opts, dict):
-            return dict(opts)
-    options = getattr(config, "options", None)
-    if isinstance(options, dict):
-        return dict(options)
-    return {}
+            options = dict(opts)
+    if not options:
+        plain = getattr(config, "options", None)
+        if isinstance(plain, dict):
+            options = dict(plain)
 
+    if budget is None:
+        return options
 
-def _engine(config: Any) -> Any:
-    # lazy: sqlalchemy is only needed once a probe actually runs
-    from sqlalchemy import create_engine
-
-    return create_engine(config.get_sql_alchemy_url(), **engine_options(config))
-
-
-def _inspector(engine: Any) -> Any:
-    # lazy: sqlalchemy is only needed once a probe actually runs
-    from sqlalchemy import inspect
-
-    return inspect(engine)
+    # Additive: a connector's own connect_args (ssl, auth plugins) must survive,
+    # so merge into a copy rather than replacing the dict it handed us.
+    url_getter = getattr(config, "get_sql_alchemy_url", None)
+    url = url_getter() if callable(url_getter) else ""
+    timeout_args = _timeout_connect_args(str(url), budget.timeout_seconds)
+    if timeout_args:
+        connect_args = dict(options.get("connect_args") or {})
+        connect_args.update(timeout_args)
+        options["connect_args"] = connect_args
+    return options
 
 
 def _source_class_for(config: object) -> Type[SQLAlchemySource]:
@@ -101,14 +155,14 @@ def _shim_inspector(
     per connector for a value we already have in hand.
 
     Otherwise parses the connector's own default SQLAlchemy URL instead of
-    opening a connection, unlike the real _inspector() used to list
-    tables/views/columns.
+    opening a connection, unlike the real Inspector that SqlAlchemyMetadataProbe
+    builds to list tables/views/columns.
     """
     if database is not None:
         return SimpleNamespace(
             engine=SimpleNamespace(url=SimpleNamespace(database=database))
         )
-    # lazy: sqlalchemy is only needed once a probe actually runs (see _engine)
+    # lazy: sqlalchemy is only needed once a probe actually runs
     from sqlalchemy.engine import make_url
 
     url = make_url(config.get_sql_alchemy_url())

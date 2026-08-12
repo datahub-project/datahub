@@ -33,6 +33,14 @@ class SnowflakeMetadataProbe(SqlCatalogPassthrough):
         self._connection.close()
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
+        # Server-side, and set before the query rather than around it: abandoning
+        # the cursor client-side would stop us waiting while the warehouse kept
+        # running -- and billing -- the statement.
+        timeout = self.query_budget.timeout_seconds
+        if timeout is not None:
+            self._connection.query(
+                f"ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = {int(timeout)}"
+            )
         # SnowflakeConnection.query uses a DictCursor, so rows arrive as dicts.
         return rows_from_mappings(
             list(itertools.islice(self._connection.query(query), limit))

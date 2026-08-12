@@ -39,10 +39,14 @@ class FakeBigQueryClient:
         self._columns = columns
         self._rows = rows
         self.max_results_seen: Optional[int] = None
+        self.job_config_seen: object = None
         self.closed = False
 
-    def query(self, sql: str) -> object:
+    # Signature mirrors google.cloud.bigquery.Client.query, which takes
+    # job_config -- a narrower fake passes while the real client raises.
+    def query(self, sql: str, job_config: object = None) -> object:
         client = self
+        client.job_config_seen = job_config
 
         class _Iterator:
             def __init__(self, capped: List[Dict[str, object]]) -> None:
@@ -53,7 +57,7 @@ class FakeBigQueryClient:
                 return iter(self._capped)
 
         class _Job:
-            def result(self, max_results: int) -> object:
+            def result(self, max_results: int, timeout: Optional[int] = None) -> object:
                 client.max_results_seen = max_results
                 return _Iterator(client._rows[:max_results])
 

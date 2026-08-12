@@ -54,11 +54,23 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # lazy: keep sqlalchemy engine construction off the config import path
         from sqlalchemy import create_engine
 
-        from datahub.ingestion.source.sql.sql_probe import engine_options
-
-        probe = cls(
-            create_engine(config.get_sql_alchemy_url(), **engine_options(config))
+        from datahub.ingestion.source.sql.sql_probe import (
+            effective_budget,
+            engine_options,
         )
+
+        # The budget rides on the engine rather than on each statement, because
+        # that is the one construction point the whole SQLAlchemy family shares --
+        # wiring it per connector would be fifteen chances to forget. It also means
+        # the Inspector below inherits it, so the typed listings are bounded too and
+        # not just `sql`.
+        url = config.get_sql_alchemy_url()
+        probe = cls(
+            create_engine(url, **engine_options(config, budget=cls.query_budget))
+        )
+        # Report what this dialect actually enforces, not what the class declared:
+        # only some dialects have a knob to apply the timeout through.
+        probe.query_budget = effective_budget(url, cls.query_budget)
         # One provider class serves ~15 dialects, so the catalog surface cannot be a
         # class attribute here -- it comes from the connector's own config, which is
         # per dialect.

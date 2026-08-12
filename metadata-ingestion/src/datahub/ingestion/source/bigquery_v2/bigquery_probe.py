@@ -1,10 +1,20 @@
 import itertools
 from typing import Any
 
-from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
+from datahub.ingestion.agent.sql_passthrough import (
+    CatalogRows,
+    QueryBudget,
+    SqlCatalogPassthrough,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+
+# One GiB scanned. BigQuery bills by bytes read regardless of how few rows come
+# back, so max_results caps the page and this caps the bill -- generous for the
+# INFORMATION_SCHEMA reads a probe is for, and a hard stop on anything that
+# wanders into a full table scan.
+_MAX_BYTES_BILLED = 1024**3
 
 
 class BigQueryMetadataProbe(SqlCatalogPassthrough):
@@ -15,6 +25,11 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
     """
 
     sql_dialect = "bigquery"
+
+    # maximum_bytes_billed is the strongest ceiling any dialect here offers: the
+    # job is refused before it runs rather than cancelled partway, so it bounds
+    # spend rather than just how long we wait for it.
+    query_budget = QueryBudget(timeout_seconds=30, max_bytes_billed=_MAX_BYTES_BILLED)
 
     def __init__(self, client: Any) -> None:
         self._client = client
@@ -29,9 +44,20 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         self._client.close()
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
+        # lazy: the bigquery client library is only needed once a probe runs
+        from google.cloud.bigquery import QueryJobConfig
+
+        job_config = QueryJobConfig(
+            maximum_bytes_billed=self.query_budget.max_bytes_billed,
+            use_query_cache=True,
+        )
         # max_results caps what BigQuery pages back, so a broad catalog query does
-        # not stream an entire result set to be thrown away.
-        iterator = self._client.query(query).result(max_results=limit)
+        # not stream an entire result set to be thrown away. It does NOT cap the
+        # bill -- BigQuery charges for bytes scanned whatever the page size -- which
+        # is what job_config above is for.
+        iterator = self._client.query(query, job_config=job_config).result(
+            max_results=limit, timeout=self.query_budget.timeout_seconds
+        )
         columns = [field.name for field in iterator.schema]
         return CatalogRows(
             columns=columns,
