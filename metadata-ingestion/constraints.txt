@@ -403,6 +403,7 @@ giturlparse==0.14.0
     # via dlt
 google-api-core==2.25.2
     # via
+    #   google-api-python-client
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -415,11 +416,15 @@ google-api-core==2.25.2
     #   google-cloud-secret-manager
     #   google-cloud-storage
     #   sqlalchemy-bigquery
+google-api-python-client==2.198.0
+    # via acryl-datahub
 google-auth==2.49.0
     # via
     #   acryl-datahub
     #   databricks-sdk
     #   google-api-core
+    #   google-api-python-client
+    #   google-auth-httplib2
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -433,6 +438,10 @@ google-auth==2.49.0
     #   google-cloud-storage
     #   google-genai
     #   sqlalchemy-bigquery
+google-auth-httplib2==0.4.1
+    # via
+    #   acryl-datahub
+    #   google-api-python-client
 google-cloud-aiplatform==1.140.0
     # via acryl-datahub
 google-cloud-appengine-logging==1.8.0
@@ -535,6 +544,8 @@ hdbcli==2.27.24 ; platform_machine != 'aarch64' and platform_machine != 'arm64'
     # via
     #   acryl-datahub
     #   sqlalchemy-hana
+html2text==2020.1.16
+    # via acryl-datahub
 html5lib==1.1
     # via unstructured
 htmlbuilder==1.0.0
@@ -543,6 +554,10 @@ httpcore==1.0.9
     # via
     #   httpx
     #   unstructured-client
+httplib2==0.32.0
+    # via
+    #   google-api-python-client
+    #   google-auth-httplib2
 httptools==0.7.1
     # via uvicorn
 httpx==0.28.1
@@ -1026,6 +1041,7 @@ pyopenssl==26.4.0
     #   snowflake-connector-python
 pyparsing==3.3.2
     # via
+    #   httplib2
     #   pyiceberg
     #   rdflib
 pypdf==6.10.2
@@ -1580,6 +1596,8 @@ unstructured-client==0.42.10
     # via unstructured
 unstructured-ingest==0.7.2
     # via acryl-datahub
+uritemplate==4.2.0
+    # via google-api-python-client
 urllib3==2.7.0
     # via
     #   acryl-datahub
