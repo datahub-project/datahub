@@ -350,7 +350,7 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     DeleteRequest deleteRequest = new DeleteRequest(indexName, docId);
     bulkProcessor.add(opContext, docId, deleteRequest);
   }
