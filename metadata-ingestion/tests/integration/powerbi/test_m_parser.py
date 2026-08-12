@@ -1752,6 +1752,32 @@ _ODBC_ATHENA_NAV_CATALOG_SCHEMA_TABLE = (
 )
 
 
+# Db2 (three-tier) ODBC navigation. The standalone Db2Source emits
+# database.schema.object (it extends SQLAlchemySource, not the two-tier base), so
+# Db2 is a three-tier ODBC platform: a full Database+Schema+Table nav builds
+# database.schema.table.
+_ODBC_DB2_NAV_DATABASE_SCHEMA_TABLE = (
+    'let\n    Source = Odbc.DataSource("driver={IBM DB2 ODBC DRIVER};'
+    'dsn=db2_prod", [HierarchicalNavigation=true]),\n'
+    '    SAMPLE_Database = Source{[Name="SAMPLE",Kind="Database"]}[Data],\n'
+    '    MYSCHEMA_Schema = SAMPLE_Database{[Name="MYSCHEMA",Kind="Schema"]}[Data],\n'
+    '    ORDERS_Table = MYSCHEMA_Schema{[Name="ORDERS",Kind="Table"]}[Data]\n'
+    "in\n    ORDERS_Table"
+)
+
+# Db2 (three-tier) ODBC navigation that surfaces a Database node and the leaf table
+# but omits Schema. Before Db2 was classified three-tier this emitted a truncated
+# database.table URN; it must now backfill the schema from dsn_to_database_schema,
+# or warn and skip when no mapping supplies it.
+_ODBC_DB2_NAV_DATABASE_NO_SCHEMA = (
+    'let\n    Source = Odbc.DataSource("driver={IBM DB2 ODBC DRIVER};'
+    'dsn=db2_prod", [HierarchicalNavigation=true]),\n'
+    '    SAMPLE_Database = Source{[Name="SAMPLE",Kind="Database"]}[Data],\n'
+    '    ORDERS_Table = SAMPLE_Database{[Name="ORDERS",Kind="Table"]}[Data]\n'
+    "in\n    ORDERS_Table"
+)
+
+
 # Each case exercises a distinct ODBC navigation / dsn_to_database_schema backfill
 # branch: (expression, table name, full_name, override_config, expected_urn).
 _ODBC_NAV_SUCCESS_CASES = [
@@ -1878,6 +1904,22 @@ _ODBC_NAV_SUCCESS_CASES = [
         "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.accounts,PROD)",
         id="athena-catalog-strip-preserves-platform-instance",
     ),
+    pytest.param(
+        _ODBC_DB2_NAV_DATABASE_SCHEMA_TABLE,
+        "ORDERS",
+        "SAMPLE.MYSCHEMA.ORDERS",
+        {},
+        "urn:li:dataset:(urn:li:dataPlatform:db2,sample.myschema.orders,PROD)",
+        id="db2-database-schema-table-three-tier",
+    ),
+    pytest.param(
+        _ODBC_DB2_NAV_DATABASE_NO_SCHEMA,
+        "ORDERS",
+        "SAMPLE.ORDERS",
+        {"dsn_to_database_schema": {"db2_prod": "ignored_db.myschema"}},
+        "urn:li:dataset:(urn:li:dataPlatform:db2,sample.myschema.orders,PROD)",
+        id="db2-database-node-backfills-schema",
+    ),
 ]
 
 # (expression, table name, full_name, override_config, expected_warning_title) for
@@ -1909,6 +1951,14 @@ _ODBC_NAV_WARN_CASES = [
         {},
         "Cannot build two-tier ODBC table name",
         id="oracle-missing-schema",
+    ),
+    pytest.param(
+        _ODBC_DB2_NAV_DATABASE_NO_SCHEMA,
+        "ORDERS",
+        "SAMPLE.ORDERS",
+        {},
+        "Can not determine qualified table name",
+        id="db2-missing-schema-warns-instead-of-truncated-urn",
     ),
 ]
 

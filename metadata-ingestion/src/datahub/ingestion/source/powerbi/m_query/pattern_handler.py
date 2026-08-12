@@ -1593,6 +1593,12 @@ ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
 # BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
 # dsn_to_database_schema backfill) yields database + table but no schema, these
 # must warn-and-skip rather than emit a truncated database.table URN.
+# db2 has no SupportedDataPlatform member because it is only reachable over ODBC
+# (odbc.py sniffs it from the driver / dsn_to_platform_name); its datahub platform
+# name is the literal "db2" that the standalone Db2Source registers. Its standalone
+# connector emits database.schema.object, so it is three-tier here.
+DB2_PLATFORM: str = "db2"
+
 ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
     {
         SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name,
@@ -1601,6 +1607,7 @@ ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
         SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name,
         SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
         SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
+        DB2_PLATFORM,
     }
 )
 
