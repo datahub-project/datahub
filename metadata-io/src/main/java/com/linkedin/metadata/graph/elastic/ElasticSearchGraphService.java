@@ -331,7 +331,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return List.of(
         indexBuilder.buildReindexState(
             opContext,
-            indexConvention.getIndexName(INDEX_NAME),
+            indexConvention.getIndexName(opContext, INDEX_NAME),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
@@ -339,7 +339,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = indexConvention.getIndexName(INDEX_NAME);
+    String indexName = indexConvention.getIndexName(opContext, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
@@ -482,7 +482,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     searchSourceBuilder.size(getGraphServiceConfig().getLimit().getResults().getApiDefault());
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     // Execute search using the graphReadDAO's search client
     SearchResponse searchResponse = graphReadDAO.executeSearch(opContext, searchRequest);
