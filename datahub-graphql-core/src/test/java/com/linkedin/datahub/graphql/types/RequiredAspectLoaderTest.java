@@ -205,7 +205,8 @@ public class RequiredAspectLoaderTest {
             "Test",
             "Incident",
             "DataContract",
-            "DataHubConnection")) {
+            "DataHubConnection",
+            "Document")) {
       Set<String> required = AspectUtils.getMapperRequiredAspects(typeName);
       assertFalse(required.isEmpty(), typeName + " should have mapper-required aspects registered");
 

@@ -43,7 +43,11 @@ public class AspectUtils {
           "DataHubConnection",
               Set.of(
                   Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-                  Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+                  Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME),
+          // DocumentMapper's authorization (canViewDocument) reads documentInfo + subTypes, so a
+          // bridge document is wrongly redacted if a selection omits them. Auth runs on every
+          // selection, so both must always be fetched.
+          "Document", Set.of(Constants.DOCUMENT_INFO_ASPECT_NAME, Constants.SUB_TYPES_ASPECT_NAME));
 
   private AspectUtils() {}
 

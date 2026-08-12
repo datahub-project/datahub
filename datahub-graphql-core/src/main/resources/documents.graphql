@@ -105,7 +105,7 @@ type Document implements Entity {
   """
   Information about the Document
   """
-  info: DocumentInfo @aspectMapping(aspects: ["documentInfo"])
+  info: DocumentInfo @aspectMapping(aspects: ["documentInfo", "semanticText"])
 
   """
   Settings specific to the Document

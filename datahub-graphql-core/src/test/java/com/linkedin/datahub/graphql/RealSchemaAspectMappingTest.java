@@ -118,6 +118,15 @@ public class RealSchemaAspectMappingTest {
   }
 
   @Test
+  public void testDocumentInfoMapsToInfoAndSemanticText() {
+    // DocumentMapper folds the standalone semanticText aspect into info.contents.semanticText, so
+    // the info field must pull both documentInfo and semanticText.
+    assertEquals(
+        registry.getRequiredAspects("Document", List.of(field("info", "Document"))),
+        Set.of("documentInfo", "semanticText"));
+  }
+
+  @Test
   public void testDatasetMinimalSelection() {
     Set<String> aspects =
         registry.getRequiredAspects(
