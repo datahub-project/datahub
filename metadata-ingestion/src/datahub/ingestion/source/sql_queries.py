@@ -67,7 +67,9 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 
 logger = logging.getLogger(__name__)
 
-CONSECUTIVE_AGGREGATOR_FAILURE_THRESHOLD = 5
+DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD = 5
+
+AGGREGATOR_FAILURE_RATIO_THRESHOLD = 0.8
 
 # Listed explicitly for readability even though several are OSError subclasses.
 _SYSTEMIC_ERRORS = (
@@ -112,10 +114,17 @@ class SqlQueriesSourceConfig(
     )
     temp_table_patterns: List[str] = Field(
         description="Regex patterns for temporary tables to filter in lineage ingestion. "
-        "Patterns match the entire table name — use '.*' for prefix/suffix matching. "
+        "Patterns are start-anchored (like AllowDenyPattern). "
+        "Use '.*' suffix for prefix matching (e.g. 'temp_.*'). "
         "This is useful for platforms like Athena "
         "that don't have native temp tables but use naming patterns for fake temp tables.",
         default=[],
+    )
+
+    max_consecutive_aggregator_failures: int = Field(
+        default=DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD,
+        description="Abort after this many consecutive aggregator failures (likely systemic). "
+        "Set to 0 to disable.",
     )
 
     # AWS/S3 configuration
@@ -257,6 +266,10 @@ class SqlQueriesSource(Source):
     def _process_queries_batch(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+        consecutive_failure_threshold = (
+            self.config.max_consecutive_aggregator_failures
+        )
+
         with self.report.new_stage("Parsing and processing queries"):
             consecutive_failures = 0
             for entry in self._parse_query_file():
@@ -289,8 +302,8 @@ class SqlQueriesSource(Source):
                         exc=e,
                     )
                     if (
-                        consecutive_failures
-                        >= CONSECUTIVE_AGGREGATOR_FAILURE_THRESHOLD
+                        consecutive_failure_threshold > 0
+                        and consecutive_failures >= consecutive_failure_threshold
                     ):
                         self.report.failure(
                             title="Too many consecutive failures",
@@ -301,17 +314,50 @@ class SqlQueriesSource(Source):
                         )
                         return
 
-        if self.report.num_queries_processed_sequential == 0:
-            self.report.failure(
-                title="No entries processed",
-                message="No query entries were successfully processed from input file",
-                context=self.config.query_file,
-            )
-            return
+        self._check_post_loop_health()
 
         with self.report.new_stage("Generating metadata work units"):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
+
+    def _check_post_loop_health(self) -> None:
+        """Check aggregator health after the processing loop.
+
+        Handles three cases:
+        - Empty file (no entries parsed, no failures) → warning
+        - All entries malformed (no entries parsed, some failures) → failure
+        - Entries parsed but most failed inside the aggregator → failure
+        """
+        if self.report.num_entries_processed == 0 and self.report.num_entries_failed == 0:
+            self.report.warning(
+                title="Empty input",
+                message="No query entries found in input file",
+                context=self.config.query_file,
+            )
+            return
+
+        if self.report.num_entries_processed == 0 and self.report.num_entries_failed > 0:
+            self.report.failure(
+                title="All entries failed to parse",
+                message="Every entry in the input file failed to parse — "
+                "check the file format (expected newline-delimited JSON)",
+                context=f"{self.report.num_entries_failed} entries failed",
+            )
+            return
+
+        agg_report = self.aggregator.report
+        total_observed = agg_report.num_observed_queries
+        failed_observed = agg_report.num_observed_queries_failed
+        if total_observed > 0:
+            failure_ratio = failed_observed / total_observed
+            if failure_ratio >= AGGREGATOR_FAILURE_RATIO_THRESHOLD:
+                self.report.failure(
+                    title="Most queries failed SQL parsing",
+                    message="A high proportion of queries failed during SQL parsing — "
+                    "likely a systemic issue such as expired credentials or "
+                    "unreachable schema resolver",
+                    context=f"{failed_observed}/{total_observed} queries failed ({failure_ratio:.0%})",
+                )
 
     def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
         """Parse query file from S3 using smart_open."""
@@ -336,8 +382,6 @@ class SqlQueriesSource(Source):
         try:
             with file_stream_ctx as file_stream:
                 yield from self._parse_lines(file_stream)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            raise
         except Exception as e:
             self.report.failure(
                 title="S3 stream error",
@@ -436,9 +480,12 @@ class SqlQueriesSource(Source):
             self.aggregator.add_observed_query(observed_query)
 
     def is_temp_table(self, name: str) -> bool:
-        """Check if a table name matches any of the configured temp table patterns."""
+        """Check if a table name matches any of the configured temp table patterns.
+
+        Uses start-anchored matching (re.match), consistent with AllowDenyPattern.
+        """
         for compiled in self.config._compiled_temp_table_patterns:
-            if compiled.fullmatch(name):
+            if compiled.match(name):
                 logger.debug(
                     f"Table '{name}' matched temp table pattern: {compiled.pattern}"
                 )

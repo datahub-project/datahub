@@ -18,7 +18,6 @@ description: "Release notes and breaking change history for upgrading DataHub be
 - #15512: Assertion related data models will enforce strict urn validation including selective existence, format, and supported entity types. This may impact
           existing assertions which would need to be removed from the system.
 - **(Ingestion / sql-queries)** The `enable_lazy_schema_loading` config option has been removed (it was never read). Existing recipes that include it will now produce a deprecation warning instead of silently accepting it.
-- **(Ingestion / sql-queries)** The `temp_table_patterns` config now uses full-string matching (`re.fullmatch`) instead of start-anchored matching (`re.match`). Prefix-only patterns like `temp_` must be updated to `temp_.*` to retain the previous behavior.
 
 ### Known Issues
 
