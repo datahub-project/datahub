@@ -15,7 +15,6 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -66,8 +65,8 @@ public class EntityRegistryFactory {
 
   /**
    * Runs after all singleton beans are created. Picks up any plugin beans that were unavailable
-   * during entity registry construction due to circular dependencies (e.g. plugins that transitively
-   * depend on EntityRegistry via systemOperationContext).
+   * during entity registry construction due to circular dependencies (e.g. plugins that
+   * transitively depend on EntityRegistry via systemOperationContext).
    */
   @Bean
   SmartInitializingSingleton entityRegistryPluginRefresh(
@@ -115,10 +114,16 @@ public class EntityRegistryFactory {
           "Entity registry plugin refresh: appended {} plugin(s) — "
               + "validators={}, mutationHooks={}, mclSideEffects={}, mcpSideEffects={}, mcpObservers={}",
           total,
-          newValidators.stream().map(p -> p.getClass().getSimpleName()).collect(Collectors.toList()),
+          newValidators.stream()
+              .map(p -> p.getClass().getSimpleName())
+              .collect(Collectors.toList()),
           newHooks.stream().map(p -> p.getClass().getSimpleName()).collect(Collectors.toList()),
-          newMclEffects.stream().map(p -> p.getClass().getSimpleName()).collect(Collectors.toList()),
-          newMcpEffects.stream().map(p -> p.getClass().getSimpleName()).collect(Collectors.toList()),
+          newMclEffects.stream()
+              .map(p -> p.getClass().getSimpleName())
+              .collect(Collectors.toList()),
+          newMcpEffects.stream()
+              .map(p -> p.getClass().getSimpleName())
+              .collect(Collectors.toList()),
           newObservers.stream()
               .map(p -> p.getClass().getSimpleName())
               .collect(Collectors.toList()));

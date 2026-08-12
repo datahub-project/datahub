@@ -261,8 +261,7 @@ public class SpringStandardPluginConfiguration {
   @Bean
   @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
   public MCPObserver ingestionMetricsEmitter(
-      MeterRegistry meterRegistry,
-      ObjectMapper objectMapper) {
+      MeterRegistry meterRegistry, ObjectMapper objectMapper) {
     AspectPluginConfig config =
         AspectPluginConfig.builder()
             .className(IngestionMetricsEmitter.class.getName())

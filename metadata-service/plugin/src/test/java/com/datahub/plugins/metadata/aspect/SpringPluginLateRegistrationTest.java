@@ -28,8 +28,8 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 /**
- * Verifies that plugin beans created after {@link SpringPluginFactory} construction (due to circular
- * dependencies during entity registry initialization) can be reconciled via {@link
+ * Verifies that plugin beans created after {@link SpringPluginFactory} construction (due to
+ * circular dependencies during entity registry initialization) can be reconciled via {@link
  * PluginFactory#appendPlugins}.
  *
  * <p>Simulates the production scenario where (an {@link
@@ -99,9 +99,7 @@ public class SpringPluginLateRegistrationTest {
 
     List<MCPObserver> finalObservers = pluginFactory.getMcpObservers();
     Set<String> finalClasses =
-        finalObservers.stream()
-            .map(o -> o.getClass().getSimpleName())
-            .collect(Collectors.toSet());
+        finalObservers.stream().map(o -> o.getClass().getSimpleName()).collect(Collectors.toSet());
     assertTrue(
         finalClasses.contains("LateObserver"),
         "LateObserver should be present after appendPlugins reconciliation");

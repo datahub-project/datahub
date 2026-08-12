@@ -71,9 +71,10 @@ public abstract class PluginSpec {
                         || supported.equalsIgnoreCase(String.valueOf(changeType)));
   }
 
-  // Explicit equals and hash code using abstract fields due to lombok EqualsAndHashCode returning equal for 
+  // Explicit equals and hash code using abstract fields due to lombok EqualsAndHashCode returning
+  // equal for
   // invalid cases
-  
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
