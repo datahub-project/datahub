@@ -8,8 +8,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,6 +30,8 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -41,7 +43,6 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -49,6 +50,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -105,17 +107,25 @@ public class BackfillDatasetAliasesStepTest {
         .thenReturn(first, rest);
   }
 
-  private List<MetadataChangeProposal> capturedProposals(int expectedCount) {
-    ArgumentCaptor<MetadataChangeProposal> captor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockEntityService, times(expectedCount))
-        .ingestProposal(eq(OP_CONTEXT), captor.capture(), any(), eq(true));
-    return captor.getAllValues();
+  /**
+   * Every page is emitted as one batch, so the proposals are read back off the captured batches.
+   */
+  private List<MCPItem> capturedProposals(int expectedCount) {
+    ArgumentCaptor<AspectsBatch> captor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(mockEntityService, atLeastOnce())
+        .ingestProposal(eq(OP_CONTEXT), captor.capture(), eq(true));
+    List<MCPItem> items =
+        captor.getAllValues().stream()
+            .flatMap(batch -> batch.getMCPItems().stream())
+            .collect(Collectors.toList());
+    assertEquals(items.size(), expectedCount);
+    return items;
   }
 
-  private static Aliases aliasesOf(MetadataChangeProposal proposal) {
+  private static Aliases aliasesOf(MCPItem item) {
     return RecordUtils.toRecordTemplate(
-        Aliases.class, proposal.getAspect().getValue().asString(StandardCharsets.UTF_8));
+        Aliases.class,
+        item.getMetadataChangeProposal().getAspect().getValue().asString(StandardCharsets.UTF_8));
   }
 
   private Filter capturedFilter() {
@@ -140,10 +150,9 @@ public class BackfillDatasetAliasesStepTest {
     UpgradeStepResult result = buildStep(false).executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    List<MetadataChangeProposal> proposals = capturedProposals(2);
-    MetadataChangeProposal first = proposals.get(0);
-    assertEquals(first.getEntityUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
-    assertEquals(first.getEntityType(), DATASET_ENTITY_NAME);
+    MCPItem first = capturedProposals(2).get(0);
+    assertEquals(first.getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
+    assertEquals(first.getMetadataChangeProposal().getEntityType(), DATASET_ENTITY_NAME);
     assertEquals(first.getAspectName(), ALIASES_ASPECT_NAME);
     assertEquals(aliasesOf(first).getLowercasedUrn().toString(), URN_MIXED_CASE_LOWERED);
     assertEquals(first.getSystemMetadata().getRunId(), BackfillDatasetAliasesStep.UPGRADE_ID);
@@ -241,7 +250,7 @@ public class BackfillDatasetAliasesStepTest {
     buildStep(false).executable().apply(mockContext);
 
     verify(mockEntityService, never())
-        .ingestProposal(any(OperationContext.class), any(), any(), eq(true));
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), eq(true));
     verify(mockUpgrade)
         .setUpgradeResult(
             any(OperationContext.class),
@@ -253,24 +262,17 @@ public class BackfillDatasetAliasesStepTest {
 
   @Test
   public void testEmitFailureStopsTheScanWithoutMarker() {
-    stubScroll(page(null, URN_MIXED_CASE, URN_OTHER));
+    stubScroll(page("next", URN_MIXED_CASE), page(null, URN_OTHER));
     doThrow(new RuntimeException("kafka down"))
         .when(mockEntityService)
-        .ingestProposal(
-            eq(OP_CONTEXT),
-            argThat(p -> UrnUtils.getUrn(URN_MIXED_CASE).equals(p.getEntityUrn())),
-            any(),
-            eq(true));
+        .ingestProposal(eq(OP_CONTEXT), any(AspectsBatch.class), eq(true));
 
     expectThrows(RuntimeException.class, () -> buildStep(false).executable().apply(mockContext));
 
-    // the urn after the failure is never attempted
-    verify(mockEntityService, never())
-        .ingestProposal(
-            eq(OP_CONTEXT),
-            argThat(p -> UrnUtils.getUrn(URN_OTHER).equals(p.getEntityUrn())),
-            any(),
-            eq(true));
+    // the failing page ends the run: the next page is never fetched
+    verify(mockSearchService, times(1))
+        .scrollAcrossEntities(
+            any(OperationContext.class), any(), anyString(), any(), any(), any(), any(), anyInt());
     verify(mockUpgrade, never())
         .setUpgradeResult(any(OperationContext.class), any(Urn.class), any(), any(), any());
   }
@@ -282,8 +284,7 @@ public class BackfillDatasetAliasesStepTest {
     UpgradeStepResult result = buildStep(false).executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    List<MetadataChangeProposal> proposals = capturedProposals(1);
-    assertEquals(proposals.get(0).getEntityUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
+    assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
   }
 
   @Test

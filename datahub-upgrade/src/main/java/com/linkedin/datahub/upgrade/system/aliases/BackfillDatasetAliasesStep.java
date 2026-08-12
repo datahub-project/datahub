@@ -20,6 +20,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -38,8 +39,11 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -131,9 +135,7 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
         if (result.getEntities().isEmpty()) {
           break;
         }
-        for (SearchEntity hit : result.getEntities()) {
-          emitAliases(hit.getEntity(), auditStamp, stats);
-        }
+        emitPage(result.getEntities(), auditStamp, stats);
         scrollId = result.getScrollId();
         if (scrollId != null) {
           log.info("{}: emitted {} so far.", id(), stats.emitted);
@@ -187,7 +189,25 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
         batchSize);
   }
 
-  private void emitAliases(Urn urn, AuditStamp auditStamp, RunStats stats) {
+  private void emitPage(Collection<SearchEntity> entities, AuditStamp auditStamp, RunStats stats) {
+    List<MetadataChangeProposal> proposals = new ArrayList<>(entities.size());
+    for (SearchEntity entity : entities) {
+      buildProposal(entity.getEntity(), stats).ifPresent(proposals::add);
+    }
+    if (proposals.isEmpty()) {
+      return;
+    }
+
+    entityService.ingestProposal(
+        opContext,
+        AspectsBatchImpl.builder()
+            .mcps(proposals, auditStamp, opContext.getRetrieverContext())
+            .build(opContext),
+        true);
+    stats.emitted += proposals.size();
+  }
+
+  private Optional<MetadataChangeProposal> buildProposal(Urn urn, RunStats stats) {
     final DatasetUrn lowercasedUrn;
     try {
       lowercasedUrn = AliasesUtils.lowercaseDatasetUrn(urn);
@@ -195,7 +215,7 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
       // mirrors AliasesSideEffect: such urns can never carry the aspect
       log.warn("{}: skipping dataset urn {} that cannot be lowercased", id(), urn, e);
       stats.unparseable++;
-      return;
+      return Optional.empty();
     }
 
     MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -206,8 +226,7 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
     proposal.setSystemMetadata(backfillSystemMetadata());
     proposal.setAspect(
         GenericRecordUtils.serializeAspect(new Aliases().setLowercasedUrn(lowercasedUrn)));
-    entityService.ingestProposal(opContext, proposal, auditStamp, true);
-    stats.emitted++;
+    return Optional.of(proposal);
   }
 
   private static Filter missingLowercasedUrnFilter() {
