@@ -1,12 +1,14 @@
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from typing import (
     Any,
     Dict,
     Iterable,
     List,
     Optional,
+    Set,
     Type,
     TypeVar,
 )
@@ -18,6 +20,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DATABASE_PARAM_RE,
     MSTR_DATASET_CONTAINER_KEYS,
     MSTR_DATASET_KEY_RE,
+    MSTR_GRID_METRIC_ELEMENT_TYPE,
+    MSTR_GRID_TEMPLATE_METRICS_TYPE,
     MSTR_KEYS_DATABASE_NAME,
     MSTR_KEYS_DATABASE_NAME_NESTED,
     MSTR_KEYS_DATABASE_TYPE,
@@ -154,6 +158,60 @@ class MetricEnrichment(MicroStrategyBaseModel):
     fact_ids: List[str] = Field(default_factory=list)
 
 
+class GridMetricElement(MicroStrategyBaseModel):
+    """One metric element of a compound grid's templateMetrics column. All
+    fields optional so a malformed element can never fail the visualization's
+    validation; `extra="allow"` keeps unknown server-version fields."""
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+    derived: bool = False
+    data_type: Optional[str] = Field(default=None, alias="dataType")
+
+    @property
+    def display_name(self) -> str:
+        return self.name or self.id or "unknown"
+
+
+class ColumnSet(MicroStrategyBaseModel):
+    """One column group of a compound-grid visualization. `metrics` holds the
+    grid's metric elements (including their `derived` flags) when the runtime
+    grid payload is available; static dossier definitions carry only key and
+    name."""
+
+    key: Optional[str] = None
+    name: Optional[str] = None
+    metrics: List[GridMetricElement] = Field(default_factory=list)
+
+    @property
+    def identifier(self) -> str:
+        """The join key used everywhere a binding is stored or looked up."""
+        return self.key or self.name or ""
+
+
+class DerivedMetricSpec(MicroStrategyBaseModel):
+    """A visualization-local derived metric (grid `derived: true`). These exist
+    only inside the visualization template — not in the metadata catalog — so
+    the REST API exposes no formula or model object for them."""
+
+    id: str
+    name: str
+    data_type: Optional[str] = None
+    column_set_name: Optional[str] = None
+    source_visualization_key: str
+    source_visualization_name: Optional[str] = None
+
+
+class PredefinedFolder(MicroStrategyBaseModel):
+    """A well-known MicroStrategy folder (EnumDSSXMLFolderNames), resolved via
+    /api/folders/preDefined so its MicroStrategy-assigned label can be matched
+    against the raw folder id seen while walking an object's ancestors."""
+
+    id: str
+    name: str
+    folder_type: Optional[int] = Field(default=None, alias="folderType")
+
+
 class ModelTablesResponse(MicroStrategyBaseModel):
     """Model-tables envelope; tables stay untyped as their shape varies by server version."""
 
@@ -195,6 +253,17 @@ class DatasetObject(MicroStrategyBaseModel):
     field_warehouse_upstreams: Dict[str, List[str]] = Field(default_factory=dict)
     # Keyed by normalized (upper-cased) metric object ID.
     metric_enrichments: Dict[str, MetricEnrichment] = Field(default_factory=dict)
+    # Visualization-local derived metrics attached to this dataset, keyed by
+    # normalized (upper-cased) object ID.
+    derived_metrics: Dict[str, DerivedMetricSpec] = Field(default_factory=dict)
+    # Column-group name per member object ID (normalized upper-cased), recorded
+    # from the first visualization that groups the object. Viz-scoped context
+    # attached best-effort to the dataset; first match wins.
+    column_groups_by_object_id: Dict[str, str] = Field(default_factory=dict)
+
+    def normalized_object_ids(self) -> Set[str]:
+        """Catalog object ids normalized for cross-API comparison."""
+        return {normalize_object_id(object_id) for object_id in self.object_ids}
 
     @model_validator(mode="before")
     @classmethod
@@ -292,8 +361,10 @@ class Visualization(MicroStrategyBaseModel):
     type: Optional[str] = None
     chapter_key: Optional[str] = Field(default=None, alias="chapterKey")
     page_key: Optional[str] = Field(default=None, alias="pageKey")
+    page_name: Optional[str] = Field(default=None, alias="pageName")
     datasets: List[str] = Field(default_factory=list)
     object_ids: List[str] = Field(default_factory=list)
+    column_sets: List[ColumnSet] = Field(default_factory=list)
     raw: MicroStrategyDict = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -312,6 +383,7 @@ class Visualization(MicroStrategyBaseModel):
             result["type"] = _first_str(result, MSTR_KEYS_VISUALIZATION_TYPE)
             result["datasets"] = _extract_dataset_ids(result)
             result["object_ids"] = _extract_object_ids(result)
+            result["column_sets"] = _extract_column_sets(result)
             result["raw"] = data
             return result
         return data
@@ -434,6 +506,21 @@ class ProjectKey(ContainerKey):
 
 class FolderKey(ProjectKey):
     folder_path: str
+
+
+@dataclass(frozen=True)
+class FolderPart:
+    """One level of a folder ancestor chain: the raw metadata name, plus its
+    object id when known (ids are absent for the string-path fallback, since
+    that path carries no per-level identifiers to resolve against)."""
+
+    name: str
+    id: Optional[str] = None
+
+
+def normalize_object_id(value: object) -> str:
+    """Canonical form for MicroStrategy object-id comparison across APIs."""
+    return str(value).strip().upper()
 
 
 def _unwrap_definition(response: MicroStrategyDict) -> MicroStrategyDict:
@@ -626,6 +713,7 @@ def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategy
                 if not isinstance(page, dict):
                     continue
                 page_key = _first_str(page, MSTR_KEYS_KEY_ID)
+                page_name = _first_str(page, MSTR_KEYS_NAME)
                 visualizations = page.get("visualizations")
                 if not isinstance(visualizations, list):
                     continue
@@ -637,6 +725,8 @@ def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategy
                         annotated["chapterKey"] = chapter_key
                     if page_key:
                         annotated["pageKey"] = page_key
+                    if page_name:
+                        annotated["pageName"] = page_name
                     found.append(annotated)
 
     visit(definition.get("chapters", definition))
@@ -680,6 +770,56 @@ def _extract_dataset_ids(value: object) -> List[str]:
     return sorted(set(dataset_ids))
 
 
+def _extract_column_sets(data: MicroStrategyDict) -> List[MicroStrategyDict]:
+    """Column groups of a compound-grid visualization. The runtime grid payload
+    carries each group's member metric elements (including `derived` flags);
+    the static dossier definition carries only key and name. Prefer runtime."""
+    runtime = data.get("runtimeDefinition")
+    if isinstance(runtime, dict):
+        definition = runtime.get("definition")
+        grid = definition.get("grid") if isinstance(definition, dict) else None
+        column_sets = grid.get("columnSets") if isinstance(grid, dict) else None
+        if isinstance(column_sets, list):
+            extracted = [
+                _column_set_from_grid(column_set)
+                for column_set in column_sets
+                if isinstance(column_set, dict)
+            ]
+            if extracted:
+                return extracted
+    static_sets = data.get("columnSets")
+    if isinstance(static_sets, list):
+        return [
+            {"key": column_set.get("key"), "name": column_set.get("name")}
+            for column_set in static_sets
+            if isinstance(column_set, dict)
+        ]
+    return []
+
+
+def _column_set_from_grid(column_set: MicroStrategyDict) -> MicroStrategyDict:
+    metrics: List[MicroStrategyDict] = []
+    columns = column_set.get("columns")
+    for column in columns if isinstance(columns, list) else []:
+        if not isinstance(column, dict):
+            continue
+        if str(column.get("type") or "").lower() != MSTR_GRID_TEMPLATE_METRICS_TYPE:
+            continue
+        elements = column.get("elements")
+        for element in elements if isinstance(elements, list) else []:
+            if (
+                isinstance(element, dict)
+                and str(element.get("type") or "").lower()
+                == MSTR_GRID_METRIC_ELEMENT_TYPE
+            ):
+                metrics.append(element)
+    return {
+        "key": column_set.get("key"),
+        "name": column_set.get("name"),
+        "metrics": metrics,
+    }
+
+
 def _extract_object_ids(value: object) -> List[str]:
     object_ids: List[str] = []
 
@@ -701,24 +841,33 @@ def _extract_object_ids(value: object) -> List[str]:
     return sorted(set(object_ids))
 
 
-def extract_folder_parts(raw_object: MicroStrategyDict) -> List[str]:
+def extract_folder_parts(raw_object: MicroStrategyDict) -> List[FolderPart]:
     # Quick-search results requested with getAncestors carry the folder path
     # as a top-down list of ancestor objects.
     ancestors = raw_object.get("ancestors")
     if isinstance(ancestors, list) and ancestors:
-        parts = [
-            _first_str(ancestor, MSTR_KEYS_NAME)
+        candidates = [
+            FolderPart(
+                name=_first_str(ancestor, MSTR_KEYS_NAME) or "",
+                id=_first_str(ancestor, MSTR_KEYS_ID),
+            )
             for ancestor in ancestors
             if isinstance(ancestor, dict)
         ]
         # Only trust the ancestor path when every entry resolved to a name;
         # a nameless entry mid-list would silently collapse the hierarchy
         # (A/B/C -> A/C), so fall back to folder/location instead.
-        if parts and len(parts) == len(ancestors) and all(parts):
-            return [part for part in parts if part]
+        if (
+            candidates
+            and len(candidates) == len(ancestors)
+            and all(part.name for part in candidates)
+        ):
+            return candidates
     folder = raw_object.get("folder") or raw_object.get("location")
     if isinstance(folder, dict):
         path = _first_str(folder, MSTR_KEYS_FOLDER_PATH)
     else:
         path = str(folder) if folder else None
-    return [part for part in (path or "").strip("/").split("/") if part]
+    return [
+        FolderPart(name=part) for part in (path or "").strip("/").split("/") if part
+    ]
