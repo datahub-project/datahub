@@ -198,6 +198,12 @@ mismatch is findable rather than silent.
 the same pattern as Fivetran's `sources_to_platform_instance` and the Spark agent's
 `metadata.dataset.connections`, and the same key those use, so the three stay interchangeable.
 
+One entry covers all three of the ways the plugin names datasets: Airflow Asset URIs,
+OpenLineage facets, and SQL-parsed lineage from SQL operators. For SQL parsing the entry is
+matched on the connection's authority (for Snowflake, the account hostname reported by the
+provider), so column-level lineage from a `SnowflakeOperator` gets the same
+`platform_instance` as everything else.
+
 ```ini title="airflow.cfg"
 [datahub]
 # Set to false to disable capturing Airflow Assets as lineage (default: true)
