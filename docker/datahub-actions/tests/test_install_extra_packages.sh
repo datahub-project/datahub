@@ -12,6 +12,19 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UNDER_TEST="${SCRIPT_DIR}/../install_extra_packages.sh"
 
+# One scratch root for the whole suite, removed however the script ends.
+#
+# Each case used to call `mktemp -d` directly and never clean up. That was survivable while
+# the suite was run by hand, but it is now wired into `check`, so every CI invocation would
+# leave nine directories behind in /tmp. Allocating under a single root means one trap
+# collects all of them, including on an early exit or an interrupt.
+TEST_TMP_ROOT="$(mktemp -d)"
+trap 'rm -rf "$TEST_TMP_ROOT"' EXIT INT TERM
+
+new_tmp() {
+  mktemp -d "${TEST_TMP_ROOT}/case.XXXXXX"
+}
+
 failures=0
 
 pass() { echo "ok   - $1"; }
@@ -46,7 +59,7 @@ BASH_BIN="${BASH:-/bin/bash}"
 
 test_unset_is_a_no_op() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local path
   path="$(make_stub_path "$tmp")"
 
@@ -63,7 +76,7 @@ test_unset_is_a_no_op() {
 
 test_empty_is_a_no_op() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local path
   path="$(make_stub_path "$tmp")"
 
@@ -80,7 +93,7 @@ test_empty_is_a_no_op() {
 
 test_packages_are_installed() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local path
   path="$(make_stub_path "$tmp")"
 
@@ -106,7 +119,7 @@ test_packages_are_installed() {
 
 test_no_package_manager_fails_loudly() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local path
   path="$(make_bare_path "$tmp")"
 
@@ -131,7 +144,7 @@ test_no_package_manager_fails_loudly() {
 
 test_install_failure_is_not_swallowed() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   mkdir -p "$tmp/bin"
   printf '#!/bin/bash\nexit 3\n' >"$tmp/bin/uv"
   chmod +x "$tmp/bin/uv"
@@ -160,7 +173,7 @@ test_install_failure_is_not_swallowed() {
 test_startup_script_runs_the_installer() {
   local start_sh="${SCRIPT_DIR}/../start.sh"
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local marker="$tmp/installer-ran"
 
   printf '#!/bin/bash\ntouch "%s"\nexit 0\n' "$marker" >"$tmp/stub-installer.sh"
@@ -197,7 +210,7 @@ test_startup_script_runs_the_installer() {
 test_startup_script_aborts_when_the_installer_fails() {
   local start_sh="${SCRIPT_DIR}/../start.sh"
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
 
   printf '#!/bin/bash\nexit 7\n' >"$tmp/failing-installer.sh"
   chmod +x "$tmp/failing-installer.sh"
@@ -225,7 +238,7 @@ test_startup_script_aborts_when_the_installer_fails() {
 # requirement for a matching filename in the working directory.
 test_requirements_are_not_glob_expanded() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local path
   path="$(make_stub_path "$tmp")"
 
@@ -255,7 +268,7 @@ test_requirements_are_not_glob_expanded() {
 # "--extra-index-url https://user:token@host/simple pkg". It must not reach the logs.
 test_package_list_is_not_logged() {
   local tmp
-  tmp="$(mktemp -d)"
+  tmp="$(new_tmp)"
   local path
   path="$(make_stub_path "$tmp")"
   local secret="https://user:s3cr3t-token@example.invalid/simple"
