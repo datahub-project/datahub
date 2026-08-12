@@ -116,6 +116,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
   @Nonnull private final TransactionRetryPolicy transactionRetryPolicy;
   private final boolean optimisticLocking;
+  // Opt-in scoped-retry: derived from config (not a constructor arg) so existing call sites are
+  // unchanged; only takes effect when optimistic locking is on.
+  private final boolean scopedRetryEnabled;
 
   public enum Dialect {
     MYSQL,
@@ -132,7 +135,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // index
   // order, so none of this is needed and nothing changes there.
   private final boolean isPostgres;
-  // Opt-in per-entity write serialization via pg_advisory_xact_lock (Postgres only).
+  // Opt-in per-entity write serialization via the Postgres advisory lock (pg_advisory_xact_lock).
   private final boolean entityWriteAdvisoryLockEnabled;
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
@@ -226,15 +229,27 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         new TransactionRetryPolicy(
             retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
 
+    // Postgres deadlock-ordering advisory lock — independent of the Hazelcast write-gate backend.
     this.entityWriteAdvisoryLockEnabled = ebeanConfiguration.isEntityWriteAdvisoryLockEnabled();
+    // Scoped retry is an OL-only flow; enforce the prerequisite at the source so it can never read
+    // "on" while optimistic locking is off.
+    this.scopedRetryEnabled = optimisticLocking && ebeanConfiguration.isScopedRetryEnabled();
     if (optimisticLocking) {
-      log.info("EbeanAspectDao optimistic locking enabled (dialect={})", dialect);
+      log.info(
+          "EbeanAspectDao optimistic locking enabled (dialect={}, scopedRetry={})",
+          dialect,
+          scopedRetryEnabled);
     }
   }
 
   @Override
   public boolean isOptimisticLockingEnabled() {
     return optimisticLocking;
+  }
+
+  @Override
+  public boolean isScopedRetryEnabled() {
+    return scopedRetryEnabled;
   }
 
   @Nonnull
@@ -492,6 +507,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           incrementOptimisticMetric("optimistic_lock_update_attempt");
           if (modified == 0) {
             incrementOptimisticMetric("optimistic_lock_update_conflict");
+            incrementConflictByEntityType(entityAspect.getUrn());
             return Optional.empty();
           }
           return Optional.of(entityAspect);
@@ -572,6 +588,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private void throwOnDuplicateKeyInsertConflict(
       @Nonnull SystemAspect aspect, @Nonnull PersistenceException original) {
     incrementOptimisticMetric("optimistic_lock_insert_fallback");
+    // Also tag by entity type so creation-race conflicts show up on the same per-entity dashboard
+    // as CAS-update conflicts (updateAspectConditional), not just in the aggregate counter.
+    incrementConflictByEntityType(aspect.getUrn().toString());
     throw new OptimisticLockConflictException(
         String.format(
             "Optimistic lock conflict on concurrent v0 insert urn=%s aspect=%s",
@@ -621,6 +640,28 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (metricUtils != null) {
       metricUtils.increment(MetricRegistry.name(this.getClass(), name), 1);
     }
+  }
+
+  /**
+   * Attributes optimistic-lock conflicts to the entity type so operators can see WHICH entity is
+   * contended (a specific consumer's hot key), not just an aggregate rate. Entity type is
+   * low-cardinality; the raw URN is deliberately NOT tagged (unbounded → metric explosion).
+   */
+  private void incrementConflictByEntityType(@Nullable String urn) {
+    if (metricUtils == null || urn == null) {
+      return;
+    }
+    String entityType;
+    try {
+      entityType = UrnUtils.getUrn(urn).getEntityType();
+    } catch (RuntimeException e) {
+      entityType = "unknown";
+    }
+    metricUtils.incrementMicrometer(
+        MetricRegistry.name(this.getClass(), "optimistic_lock_conflict"),
+        1.0,
+        "entityType",
+        entityType);
   }
 
   @Override
