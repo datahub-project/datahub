@@ -69,9 +69,11 @@ public class EbeanAspectDaoLockingPostgresIT {
   @BeforeClass
   public void init() {
     postgres = PostgresTestUtils.startPostgres();
+    PostgresTestUtils.IntegrationNamespace ns =
+        PostgresTestUtils.newIntegrationNamespace("locking_it");
     primaryDatabase =
         PostgresTestUtils.createEbeanPrimaryDatabase(
-            postgres, PostgresTestUtils.uniqueServerName("locking_it"));
+            postgres, PostgresTestUtils.uniqueServerName("locking_it"), ns);
     final PrimaryStorageResolver resolver = PrimaryStorageTestUtils.ebeanResolver(primaryDatabase);
 
     advisoryDao =
