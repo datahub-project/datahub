@@ -6,7 +6,11 @@ import pytest
 from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka import (
+    KafkaSource,
+    KafkaSourceConfig,
+    is_confluent_cloud_bootstrap,
+)
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     KafkaSchemaClass,
@@ -27,6 +31,27 @@ CONSOLE_URL = (
     f"/clusters/{CLUSTER_ID}/topics/{TOPIC}"
 )
 EXTERNAL_URL_BASE = "https://console.aiven.io/project/p/kafka/topics"
+
+
+@pytest.mark.parametrize(
+    "bootstrap,expected",
+    [
+        (CONFLUENT_CLOUD_BOOTSTRAP, True),
+        ("PKC-XXXXX.US-EAST-1.AWS.CONFLUENT.CLOUD:9092", True),
+        (f"{CONFLUENT_CLOUD_BOOTSTRAP},pkc-yyyyy.confluent.cloud:9092", True),
+        (SELF_HOSTED_BOOTSTRAP, False),
+        # One broker outside Confluent Cloud means the run is not addressing a
+        # Confluent Cloud cluster, whichever order the list is given in.
+        (f"{CONFLUENT_CLOUD_BOOTSTRAP},{SELF_HOSTED_BOOTSTRAP}", False),
+        (f"{SELF_HOSTED_BOOTSTRAP},{CONFLUENT_CLOUD_BOOTSTRAP}", False),
+        # A suffix match on the whole string would accept this.
+        ("evil-confluent.cloud.example.com:9092", False),
+        ("", False),
+        (",", False),
+    ],
+)
+def test_is_confluent_cloud_bootstrap(bootstrap: str, expected: bool) -> None:
+    assert is_confluent_cloud_bootstrap(bootstrap) is expected
 
 
 @pytest.fixture
