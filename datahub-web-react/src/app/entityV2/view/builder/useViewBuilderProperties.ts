@@ -9,14 +9,8 @@ import { SelectInputMode, SelectOption, ValueTypeId } from '@app/sharedV2/queryB
 import { useSearchStructuredPropertiesQuery } from '@graphql/structuredProperties.generated';
 import { EntityType, StructuredPropertyEntity } from '@types';
 
-// DataHub rarely defines more than a few dozen structured properties; fetch a generous
-// page so every definition is offered as a filterable field without paginating.
 const STRUCTURED_PROPERTY_FETCH_COUNT = 1000;
 
-/**
- * Converts a structured property's allowed values into fixed select options.
- * Supports both string- and number-typed allowed values.
- */
 function toAllowedValueOptions(entity: StructuredPropertyEntity): SelectOption[] {
     const allowedValues = entity.definition?.allowedValues ?? [];
     return allowedValues
@@ -34,12 +28,8 @@ function toAllowedValueOptions(entity: StructuredPropertyEntity): SelectOption[]
         .filter((option): option is SelectOption => !!option);
 }
 
-/**
- * Maps a structured property definition to a query-builder Property so it can be
- * selected and filtered on in the View builder. The property id is the same
- * `structuredProperties.<qualifiedName>` field name that search facets use, so the
- * resulting View filter round-trips through the existing predicate <-> filter conversion.
- */
+// The property id is the `structuredProperties.<qualifiedName>` field that search facets use,
+// so the resulting View filter round-trips through the existing predicate <-> filter conversion.
 export function structuredPropertyToViewProperty(entity: StructuredPropertyEntity): Property | undefined {
     const { definition } = entity;
     if (!definition?.qualifiedName) {
@@ -51,8 +41,6 @@ export function structuredPropertyToViewProperty(entity: StructuredPropertyEntit
     const { description } = definition;
     const valueTypeUrn = definition.valueType?.urn;
 
-    // URN-valued properties reference other entities — offer entity search, scoped to the
-    // property's allowed entity types when the definition constrains them.
     if (valueTypeUrn === URN_TYPE_URN) {
         const entityTypes = (definition.typeQualifier?.allowedTypes ?? [])
             .map((allowedType) => allowedType.type)
@@ -66,7 +54,6 @@ export function structuredPropertyToViewProperty(entity: StructuredPropertyEntit
         };
     }
 
-    // Properties with a constrained set of allowed values get a fixed multi-select.
     const allowedValueOptions = toAllowedValueOptions(entity);
     if (allowedValueOptions.length > 0) {
         return {
@@ -78,19 +65,14 @@ export function structuredPropertyToViewProperty(entity: StructuredPropertyEntit
         };
     }
 
-    // Numeric and date properties (dates are indexed as epoch millis) support >, <, = filtering.
+    // Dates are indexed as epoch millis, so they filter as numbers.
     if (valueTypeUrn === NUMBER_TYPE_URN || valueTypeUrn === DATE_TYPE_URN) {
         return { id, displayName, description: description || undefined, valueType: ValueTypeId.NUMBER };
     }
 
-    // Free-form string / rich-text (and anything unrecognised) fall back to a text input.
     return { id, displayName, description: description || undefined, valueType: ValueTypeId.STRING };
 }
 
-/**
- * Returns the list of properties available in the View builder's Build Filters tab:
- * the static, well-known fields plus every structured property defined in the instance.
- */
 export function useViewBuilderProperties(): Property[] {
     const { data } = useSearchStructuredPropertiesQuery({
         variables: { query: '*', start: 0, count: STRUCTURED_PROPERTY_FETCH_COUNT },
