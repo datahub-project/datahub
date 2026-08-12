@@ -379,7 +379,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         # would be re-emitted without its catalog tags, deleting them. Warn once.
         self._warned_partial_catalog = False
         # Resolved once from the cluster metadata the run already fetches; stays
-        # None on anything that is not a verified Confluent Cloud cluster.
+        # None on anything that is not a verified Confluent Cloud cluster. It is
+        # still None until get_workunits_internal resolves it, which is safe
+        # because the only reader runs downstream of that; a reader added ahead
+        # of it would silently see no cluster and emit no link.
         self._confluent_cloud_cluster_id: Optional[str] = None
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
             self.source_config.connection
