@@ -83,9 +83,26 @@ def platform_for_scheme(scheme: str) -> str:
     return SCHEME_TO_PLATFORM.get(scheme.lower(), scheme.lower())
 
 
-# Fire per-connection warnings at most once each, so a DAG with hundreds of Assets on one
-# unmapped connection doesn't flood the task log.
-_warned_connections: set = set()
+# A DAG can declare hundreds of Assets sharing one connection and one defect. Warn once
+# per (cause, connection) so the task log stays readable: the first occurrence carries the
+# offending URI and stays actionable, and the rest would only repeat it.
+_warned_keys: set = set()
+
+
+def warn_once(dedup_key: str, message: str, *args: object) -> None:
+    if dedup_key in _warned_keys:
+        return
+    _warned_keys.add(dedup_key)
+    logger.warning(message, *args)
+
+
+def scheme_of(uri: str) -> str:
+    """Scheme prefix of a URI, without parsing it.
+
+    Used to group warnings for URIs that cannot be parsed at all, where no connection key
+    can be derived.
+    """
+    return uri.split("://", maxsplit=1)[0][:40]
 
 
 def connection_key(scheme: str, authority: str) -> str:
@@ -148,10 +165,8 @@ def resolve_default_database(
 
 
 def _warn_shape_once(uri: str, key: str, expected: int, got: int, urn: str) -> None:
-    if key in _warned_connections:
-        return
-    _warned_connections.add(key)
-    logger.warning(
+    warn_once(
+        f"shape:{key}",
         "Airflow Asset %r produced %d name segments where %s datasets have %d, so the "
         "URN %r may be wrong — a hand-written URI that omits the account or host is the "
         "usual cause, since the authority is dropped as a connection identifier. "

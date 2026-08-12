@@ -103,9 +103,13 @@ def translate_airflow_asset_to_urn(
     try:
         parsed = urlparse(uri)
     except Exception as e:
-        logger.warning(
-            f"Failed to parse Airflow asset URI '{uri}': {e}. "
-            f"This asset will be excluded from lineage."
+        connection_mapping.warn_once(
+            f"unparseable:{connection_mapping.scheme_of(uri)}",
+            "Failed to parse Airflow asset URI %r: %s. This asset is excluded from "
+            "lineage; further unparseable %s:// URIs are not reported again.",
+            uri,
+            e,
+            connection_mapping.scheme_of(uri),
         )
         return None
 
@@ -131,9 +135,12 @@ def translate_airflow_asset_to_urn(
             key=connection_mapping.connection_key(scheme, parsed.netloc),
         )
         if urn is None:
-            logger.warning(
-                f"Airflow asset URI '{uri}' has no table path after the connection "
-                f"authority, so no dataset name could be built. Excluded from lineage."
+            connection_mapping.warn_once(
+                f"no-table-path:{connection_mapping.connection_key(scheme, parsed.netloc)}",
+                "Airflow asset URI %r has no table path after the connection authority, "
+                "so no dataset name could be built. Excluded from lineage; further "
+                "assets on this connection with the same problem are not reported again.",
+                uri,
             )
         return urn
 
@@ -414,12 +421,14 @@ def extract_urns_from_iolets(
                 if urn:
                     urns.append(urn)
                 else:
-                    # translate_airflow_asset_to_urn already logs details
+                    # translate_airflow_asset_to_urn has already warned with the specific
+                    # reason and deduplicated it. Repeating a generic message here doubled
+                    # the volume on DAGs with many assets sharing one defect, and implied
+                    # the URI was malformed even when the cause was something else.
                     uri = getattr(iolet, "uri", None)
-                    logger.warning(
+                    logger.debug(
                         f"Skipping Airflow asset with URI '{uri}' - "
-                        f"could not convert to DataHub URN. "
-                        f"Check that the URI is valid and has a proper scheme."
+                        f"no DataHub URN could be derived."
                     )
             elif capture_airflow_assets and is_airflow_asset_alias(iolet):
                 urn = translate_airflow_asset_alias_to_urn(iolet, env=env)

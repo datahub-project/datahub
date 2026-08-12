@@ -401,3 +401,80 @@ def test_database_is_not_prepended_when_the_authority_already_supplied_it():
     )
 
     assert urn == _urn("bigquery", "my-project.ds.tbl")
+
+
+# --- warning volume ------------------------------------------------------------
+
+
+def _count_warnings(assets):
+    import logging
+
+    from datahub_airflow_plugin._airflow_asset_adapter import extract_urns_from_iolets
+
+    class Collect(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.warnings = []
+
+        def emit(self, record):
+            if record.levelno >= logging.WARNING:
+                self.warnings.append(record.getMessage())
+
+    handler = Collect()
+    logger = logging.getLogger("datahub_airflow_plugin")
+    logger.addHandler(handler)
+    previous_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    try:
+        urns = extract_urns_from_iolets(assets, capture_airflow_assets=True)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+    return urns, handler.warnings
+
+
+class Asset:
+    """The class name matters: extract_urns_from_iolets recognises an Airflow asset by
+    walking the MRO for a class literally named Asset or Dataset, so a differently-named
+    stub is silently skipped and any warning assertion passes vacuously."""
+
+    def __init__(self, uri: str) -> None:
+        self.uri = uri
+
+
+def test_many_unparseable_assets_do_not_flood_the_task_log():
+    """A DAG can declare hundreds of assets on one connection. Two warnings per asset -
+    detail from the translator plus a generic one from the caller - buries the task log,
+    which is what a reviewer hit in practice."""
+    _reset_warning_dedup()
+
+    urns, warnings = _count_warnings([Asset(f"snowflake://[bad{i}") for i in range(25)])
+
+    assert urns == []
+    assert len(warnings) <= 2, warnings
+
+
+def test_many_assets_with_no_table_path_do_not_flood_the_task_log():
+    _reset_warning_dedup()
+
+    urns, warnings = _count_warnings([Asset("snowflake://acct") for _ in range(25)])
+
+    assert urns == []
+    assert len(warnings) <= 2, warnings
+
+
+def test_the_first_occurrence_still_names_the_offending_uri():
+    """Deduplication must not cost diagnosability: the surviving warning has to identify
+    the asset so it stays actionable."""
+    _reset_warning_dedup()
+
+    _, warnings = _count_warnings([Asset("snowflake://[bad0") for _ in range(5)])
+
+    assert warnings
+    assert "snowflake://[bad0" in warnings[0]
+
+
+def _reset_warning_dedup():
+    from datahub_airflow_plugin import _connection_mapping
+
+    _connection_mapping._warned_keys.clear()
