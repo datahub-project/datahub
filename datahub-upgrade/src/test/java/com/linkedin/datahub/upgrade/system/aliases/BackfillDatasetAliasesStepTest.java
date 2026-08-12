@@ -386,4 +386,22 @@ public class BackfillDatasetAliasesStepTest {
     assertEquals(
         capturedResult(DataHubUpgradeState.IN_PROGRESS).get("lastUrn"), URN_ALREADY_LOWERCASED);
   }
+
+  @Test
+  public void testReprocessRecordsNoCursor() {
+    // An ordinary run would read the cursor back and reapply the IS_NULL filter, skipping the
+    // stale-valued datasets the interrupted reprocess never reached.
+    stubScroll(page("next", URN_MIXED_CASE), page(null, URN_OTHER));
+
+    buildStep(true).executable().apply(mockContext);
+
+    verify(mockUpgrade, never())
+        .setUpgradeResult(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            eq(DataHubUpgradeState.IN_PROGRESS),
+            any());
+    assertEquals(capturedResult(DataHubUpgradeState.SUCCEEDED).get("emitted"), "2");
+  }
 }
