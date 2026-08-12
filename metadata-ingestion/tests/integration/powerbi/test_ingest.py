@@ -506,10 +506,9 @@ def test_upstream_column_lineage_uses_the_upstream_casing(
                 if MYSQL_EMPLOYEES_URN in upstream:
                     emitted_upstream_columns.add(upstream.rsplit(",", 1)[1].rstrip(")"))
 
-    assert emitted_upstream_columns, (
-        "no column-level lineage was emitted to the mysql upstream"
-    )
-    # Every emitted column follows the warehouse's casing, not PowerBI's.
-    assert emitted_upstream_columns <= set(upstream_columns), (
-        f"expected upstream casing, got {sorted(emitted_upstream_columns)}"
+    # Exact equality, so this also catches column edges being dropped rather
+    # than merely mis-cased.
+    assert emitted_upstream_columns == set(upstream_columns), (
+        f"expected upstream casing for every column, got "
+        f"{sorted(emitted_upstream_columns)}"
     )

@@ -55,7 +55,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
-    _convert_schema_aspect_to_info,
+    convert_schema_aspect_to_info,
     match_columns_to_schema,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -192,23 +192,40 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
-def _fetch_upstream_schema(ctx: PipelineContext, urn: str) -> Optional[SchemaInfo]:
+def _fetch_upstream_schema(
+    ctx: PipelineContext, urn: str, reporter: PowerBiDashboardSourceReport
+) -> Optional[SchemaInfo]:
     """The upstream table's columns as DataHub already stores them.
 
-    Returns None when the pipeline has no graph connection (e.g. a file sink) or
-    the upstream has not been ingested yet — the caller then keeps PowerBI's own
-    casing rather than dropping the edge. Reads the aspect directly instead of
-    going through SchemaResolver, which would add a per-table on-disk cache we
-    have no use for here.
+    Returns None when the pipeline has no graph connection (e.g. a file sink),
+    when the upstream has not been ingested yet, or when the lookup itself fails
+    — the caller then keeps PowerBI's own casing rather than dropping the edge.
+    Reads the aspect directly instead of going through SchemaResolver, which
+    would add a per-table on-disk cache we have no use for here.
     """
     if ctx.graph is None:
         return None
 
-    aspect = ctx.graph.get_aspect(urn, SchemaMetadataClass)
+    try:
+        aspect = ctx.graph.get_aspect(urn, SchemaMetadataClass)
+    except Exception as e:
+        # Callers run inside the parser's catch-all, which discards *all* lineage
+        # for the expression. A flaky or unauthorized read must not cost the
+        # table-level upstream too, so degrade to PowerBI's casing instead.
+        reporter.warning(
+            title="Unable to read upstream schema",
+            message="Could not check how the upstream spells its columns, so "
+            "PowerBI's own column casing was used. Column-level lineage may not "
+            "resolve if the two disagree; table-level lineage is unaffected.",
+            context=f"upstream-urn={urn}",
+            exc=e,
+        )
+        return None
+
     if aspect is None:
         return None
 
-    return _convert_schema_aspect_to_info(aspect)
+    return convert_schema_aspect_to_info(aspect)
 
 
 def _remap_column_lineage_to_pbi_fields(
@@ -512,15 +529,20 @@ class AbstractLineage(ABC):
         # edge pointing at a field that does not exist. Ask DataHub how the
         # upstream actually spells its columns; the SQL-parsing path gets the
         # same correction for free from sqlglot's schema resolver.
-        schema_info = _fetch_upstream_schema(self.ctx, urn)
         pbi_column_names = [column.name for column in self.table.columns]
-        if schema_info:
-            upstream_column_names = match_columns_to_schema(
-                schema_info, pbi_column_names
-            )
-        else:
-            upstream_column_names = pbi_column_names
-            self.reporter.m_query_upstream_schema_unresolved += 1
+        upstream_column_names = pbi_column_names
+
+        # The mapper discards every column edge when the flag is off, so skip a
+        # lookup whose result would be thrown away — and do not count it as a
+        # degraded run, which would only muddy the signal.
+        if self.config.extract_column_level_lineage:
+            schema_info = _fetch_upstream_schema(self.ctx, urn, self.reporter)
+            if schema_info is not None:
+                upstream_column_names = match_columns_to_schema(
+                    schema_info, pbi_column_names
+                )
+            else:
+                self.reporter.m_query_upstream_schema_unresolved += 1
 
         column_lineage = []
         for column, upstream_column_name in zip(

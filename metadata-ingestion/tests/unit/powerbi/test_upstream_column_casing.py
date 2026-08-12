@@ -1,5 +1,5 @@
 from typing import List, Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
@@ -23,7 +23,16 @@ UPSTREAM_URN = (
 )
 
 
-def _handler(column_names: List[str]) -> MSSqlLineage:
+def _config(**overrides: object) -> PowerBiDashboardSourceConfig:
+    return PowerBiDashboardSourceConfig(
+        tenant_id="t", client_id="c", client_secret="s", **overrides
+    )
+
+
+def _handler(
+    column_names: List[str], config: Optional[PowerBiDashboardSourceConfig] = None
+) -> MSSqlLineage:
+    config = config or _config()
     table = Table(
         name="fact_orders",
         full_name="warehouse.fact_orders",
@@ -40,14 +49,10 @@ def _handler(column_names: List[str]) -> MSSqlLineage:
     return MSSqlLineage(
         ctx=PipelineContext(run_id="test"),
         table=table,
-        config=PowerBiDashboardSourceConfig(
-            tenant_id="t", client_id="c", client_secret="s"
-        ),
+        config=config,
         reporter=PowerBiDashboardSourceReport(),
         platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
-            PowerBiDashboardSourceConfig(
-                tenant_id="t", client_id="c", client_secret="s"
-            )
+            config
         ),
     )
 
@@ -55,10 +60,17 @@ def _handler(column_names: List[str]) -> MSSqlLineage:
 def _upstream_columns(
     column_names: List[str], schema_info: Optional[SchemaInfo]
 ) -> List[str]:
+    handler = _handler(column_names)
     with patch.object(
         pattern_handler, "_fetch_upstream_schema", return_value=schema_info
     ):
-        cll = _handler(column_names).create_table_column_lineage(UPSTREAM_URN)
+        cll = handler.create_table_column_lineage(UPSTREAM_URN)
+
+    # The counter must track only genuinely unreadable schemas, since it is the
+    # signal operators use to explain missing column-level lineage.
+    assert handler.reporter.m_query_upstream_schema_unresolved == (
+        0 if schema_info is not None else 1
+    )
     return [upstream.column for info in cll for upstream in info.upstreams]
 
 
@@ -88,4 +100,44 @@ def test_columns_absent_from_the_upstream_schema_are_left_alone() -> None:
     assert _upstream_columns(["LeadId", "Computed"], {"leadid": "VARCHAR"}) == [
         "leadid",
         "Computed",
+    ]
+
+
+def test_an_empty_upstream_schema_is_not_reported_as_unresolved() -> None:
+    # Readable but with no fields is a different situation from unreadable, and
+    # conflating them inflates the degraded-run signal.
+    assert _upstream_columns(["LeadId"], {}) == ["LeadId"]
+
+
+def test_a_failing_schema_lookup_does_not_cost_the_table_level_lineage() -> None:
+    # create_table_column_lineage runs inside the parser's catch-all, so an
+    # exception escaping here would discard the upstream table edge as well.
+    handler = _handler(["LeadId"])
+    graph = MagicMock()
+    graph.get_aspect.side_effect = ConnectionError("boom")
+    handler.ctx.graph = graph
+
+    cll = handler.create_table_column_lineage(UPSTREAM_URN)
+
+    assert [upstream.column for info in cll for upstream in info.upstreams] == [
+        "LeadId"
+    ]
+    assert handler.reporter.m_query_upstream_schema_unresolved == 1
+    assert handler.reporter.warnings
+
+
+def test_no_schema_lookup_when_column_level_lineage_is_disabled() -> None:
+    # The mapper drops every column edge in this mode, so the graph read would
+    # buy nothing — and must not be counted as a degraded run either.
+    handler = _handler(["LeadId"], config=_config(extract_column_level_lineage=False))
+    graph = MagicMock()
+    handler.ctx.graph = graph
+
+    cll = handler.create_table_column_lineage(UPSTREAM_URN)
+
+    graph.get_aspect.assert_not_called()
+    assert handler.reporter.m_query_upstream_schema_unresolved == 0
+    # Output is unchanged from before this fix: PowerBI's own casing.
+    assert [upstream.column for info in cll for upstream in info.upstreams] == [
+        "LeadId"
     ]

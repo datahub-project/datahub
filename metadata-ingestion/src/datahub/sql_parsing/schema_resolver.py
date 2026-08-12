@@ -297,7 +297,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_schema_metadata(
         self, urn: str, schema_metadata: SchemaMetadataClass
     ) -> None:
-        schema_info = _convert_schema_aspect_to_info(schema_metadata)
+        schema_info = convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
     def add_schema_metadata_from_fetch(
@@ -306,7 +306,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # Always stores a result (including None) to prevent repeated API calls
         # for schemas not found in DataHub.
         schema_info = (
-            _convert_schema_aspect_to_info(schema_metadata)
+            convert_schema_aspect_to_info(schema_metadata)
             if schema_metadata is not None
             else None
         )
@@ -347,7 +347,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if not aspect:
             return None
 
-        return _convert_schema_aspect_to_info(aspect)
+        return convert_schema_aspect_to_info(aspect)
 
     @classmethod
     def convert_graphql_schema_metadata_to_info(
@@ -423,7 +423,7 @@ def _convert_schema_field_list_to_info(
     }
 
 
-def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
+def convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
     return _convert_schema_field_list_to_info(schema_metadata.fields)
 
 
