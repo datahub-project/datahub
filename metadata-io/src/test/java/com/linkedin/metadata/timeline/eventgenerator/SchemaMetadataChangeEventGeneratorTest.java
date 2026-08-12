@@ -593,6 +593,48 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
   }
 
   @Test
+  public void testUnionCollapsedToScalarStillReportsDescriptionChange() throws Exception {
+    // Collapsing a union to a plain column moves the union node's own path as well, so unlike a
+    // change confined to the members there is no field left outside the group to carry the
+    // documentation. The group still describes one named field, so its documentation is diffed
+    // between the fields that denote the column on each side.
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("[version=2.0].[type=union].foo")
+                    .setNativeDataType("union")
+                    .setDescription("old doc"),
+                new SchemaField()
+                    .setFieldPath("[version=2.0].[type=union].[type=string].foo")
+                    .setNativeDataType("string"),
+                new SchemaField()
+                    .setFieldPath("[version=2.0].[type=union].[type=int].foo")
+                    .setNativeDataType("int")));
+    Aspect<SchemaMetadata> to =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("[version=2.0].[type=long].foo")
+                    .setNativeDataType("bigint")
+                    .setDescription("new doc")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to, auditStamp);
+    assertEquals(2, actual.size());
+    compareDescriptions(
+        Set.of(
+            "A backwards incompatible change due to native datatype of the field 'foo' changed from 'int, string, union' to 'bigint'.",
+            "The description for the field '[version=2.0].[type=union].foo' has been changed from 'old doc' to 'new doc'."),
+        actual);
+  }
+
+  @Test
   public void testSchemaFieldPrimaryKeyChange() throws Exception {
     // When a rename cannot be detected, treated as drop -> add
     SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();

@@ -430,6 +430,15 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
             .filter(field -> !basePaths.contains(field.getFieldPath()))
             .collect(Collectors.groupingBy(SchemaFieldUtils::downgradeFieldPath));
 
+    // Logical paths that also have a field whose path did not move. A union whose members change
+    // keeps its union node in place, for instance, and the merge-join diffs that node's
+    // documentation, tags and terms already.
+    Set<String> logicalPathsWithStableField =
+        baseFields.stream()
+            .filter(field -> targetPaths.contains(field.getFieldPath()))
+            .map(SchemaFieldUtils::downgradeFieldPath)
+            .collect(Collectors.toSet());
+
     Map<SchemaField, MovedFieldGroup> movedFieldGroups = new HashMap<>();
     baseByLogicalPath.forEach(
         (logicalPath, candidateBaseFields) -> {
@@ -437,7 +446,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           if (candidateTargetFields == null) {
             return;
           }
-          MovedFieldGroup group = new MovedFieldGroup(candidateBaseFields, candidateTargetFields);
+          MovedFieldGroup group =
+              new MovedFieldGroup(
+                  candidateBaseFields,
+                  candidateTargetFields,
+                  logicalPathsWithStableField.contains(logicalPath));
           candidateBaseFields.forEach(field -> movedFieldGroups.put(field, group));
           candidateTargetFields.forEach(field -> movedFieldGroups.put(field, group));
         });
@@ -446,20 +459,28 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
 
   /** The fields on either side of a field path move that share one type-stripped field path. */
   private static final class MovedFieldGroup {
+    // The least qualified path in a group denotes the column itself rather than one of its type
+    // branches: a union node is [type=union].u while its members add a type annotation on top. The
+    // path breaks ties so that the representative, and therefore the URN reported for the change,
+    // does not depend on the order the fields happened to arrive in.
+    private static final Comparator<SchemaField> COLUMN_FIRST =
+        Comparator.comparingInt(
+                (SchemaField field) -> StringUtils.countMatches(field.getFieldPath(), '.'))
+            .thenComparing(SchemaField::getFieldPath, Comparator.naturalOrder());
+
     private final List<SchemaField> baseFields;
     private final List<SchemaField> targetFields;
+    private final boolean hasStableField;
 
-    private MovedFieldGroup(List<SchemaField> baseFields, List<SchemaField> targetFields) {
-      // Sorted so that the representative field, and therefore the URN reported for the change,
-      // does not depend on the order the fields happened to arrive in.
+    private MovedFieldGroup(
+        List<SchemaField> baseFields, List<SchemaField> targetFields, boolean hasStableField) {
       this.baseFields = sortByPath(baseFields);
       this.targetFields = sortByPath(targetFields);
+      this.hasStableField = hasStableField;
     }
 
     private static List<SchemaField> sortByPath(List<SchemaField> fields) {
-      return fields.stream()
-          .sorted(Comparator.comparing(SchemaField::getFieldPath))
-          .collect(Collectors.toList());
+      return fields.stream().sorted(COLUMN_FIRST).collect(Collectors.toList());
     }
 
     private static String describeNativeTypes(List<SchemaField> fields) {
@@ -486,9 +507,12 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       return describeNativeTypes(targetFields);
     }
 
-    /** Whether exactly one field on each side carries this path, so the pairing is unambiguous. */
-    boolean isUnambiguousPair() {
-      return baseFields.size() == 1 && targetFields.size() == 1;
+    /**
+     * Whether a field sharing this logical path kept its path, in which case the merge-join already
+     * diffs that field's documentation, tags and terms and this group must not do so again.
+     */
+    boolean hasStableField() {
+      return hasStableField;
     }
 
     /** Whether the path moved because the declared types changed, rather than moving on its own. */
@@ -521,9 +545,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           movedGroup.getTargetNativeTypes(),
           auditStamp);
     }
-    // Descriptions, tags and terms belong to an individual field, so they can only be diffed when
-    // there is exactly one field to attribute them to.
-    if (movedGroup.isUnambiguousPair()) {
+    // Documentation, tags and terms describe the column, so they are diffed between the fields
+    // denoting it on each side - unless a field sharing this path stayed put, in which case the
+    // merge-join has already diffed them and doing it here would report the change twice.
+    if (!movedGroup.hasStableField()) {
       changeEvents.addAll(
           getFieldPropertyChangeEvents(
               baseField, targetField, datasetUrn, changeCategories, auditStamp));
