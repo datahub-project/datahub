@@ -182,7 +182,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         # Content filtering
         filtering:
-          min_text_length: 100
+          min_text_length: 100  # optional; default 0 embeds all non-empty pages
           include_empty_docs: false
 
         # Stateful ingestion
@@ -945,14 +945,21 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Extract text content
         text = self._extract_text_from_page(page)
 
-        # Check minimum text length
-        if len(text) < self.config.filtering.min_text_length:
-            # Exempt parent pages from text length filter
+        # Drop empty pages, and pages below the optional minimum-length knob.
+        # The empty check is independent of min_text_length so that zeroing the
+        # knob (the default) still drops truly empty pages rather than trying to
+        # embed an empty string.
+        is_empty = self.config.filtering.skip_empty_documents and not text
+        too_short = len(text) < self.config.filtering.min_text_length
+        if is_empty or too_short:
+            # Exempt parent pages: they anchor the hierarchy even when sparse.
             if page_id not in parent_page_ids:
-                self.report.report_page_skipped(
-                    page_id,
-                    f"Text length {len(text)} < minimum {self.config.filtering.min_text_length}",
+                reason = (
+                    "No text content"
+                    if is_empty
+                    else f"Text length {len(text)} < minimum {self.config.filtering.min_text_length}"
                 )
+                self.report.report_page_skipped(page_id, reason)
                 return
 
         # Extract metadata

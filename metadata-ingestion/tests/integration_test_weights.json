@@ -804,6 +804,14 @@
     "duration": "0.148s"
   },
   {
+    "testId": "tests.integration.elasticsearch.test_elasticsearch::test_elasticsearch_ingest",
+    "duration": "40.000s"
+  },
+  {
+    "testId": "tests.integration.elasticsearch.test_elasticsearch::test_opensearch_ingest",
+    "duration": "40.000s"
+  },
+  {
     "testId": "tests.integration.excel.test_excel_abs::test_excel_abs",
     "duration": "0.141s"
   },
