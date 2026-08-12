@@ -2025,8 +2025,10 @@ class OdbcLineage(AbstractLineage):
             or a one-part DSN database (matching the SQL path); the Kind=Database
             node is only the strippable catalog and can never stand in for it, so a
             missing database skips rather than emitting catalog.table.
-          - everything else (MySQL/Teradata/ClickHouse/...): database.table, and the
-            schema tier is never backfilled to avoid splicing a spurious middle level.
+          - everything else (MySQL/Teradata/ClickHouse/...): database.table; the
+            schema tier is never spliced in (neither backfilled from config nor
+            taken from a navigation Schema node) to avoid emitting a spurious
+            three-part URN that cannot match their two-part entities.
         """
         if table_name is None:
             return None
@@ -2049,7 +2051,16 @@ class OdbcLineage(AbstractLineage):
         if schema is None and data_platform in ODBC_SCHEMA_BACKFILL_PLATFORMS:
             schema = config_schema
 
-        if database is not None and schema is not None:
+        # Only three-tier platforms (and Athena, whose catalog.database.table is
+        # later stripped to database.table) compose a three-part name. Two-part
+        # platforms must never splice in a schema tier — even when navigation or
+        # dsn_to_database_schema supplies one — or the URN cannot match their
+        # database.table entities.
+        if (
+            database is not None
+            and schema is not None
+            and data_platform in ODBC_SCHEMA_BACKFILL_PLATFORMS
+        ):
             return f"{database}.{schema}.{table_name}"
         # Three-tier platforms must not fall back to a truncated database.table.
         if data_platform in ODBC_THREE_TIER_PLATFORMS:

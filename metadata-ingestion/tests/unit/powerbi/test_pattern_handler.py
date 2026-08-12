@@ -918,6 +918,36 @@ def test_odbc_two_part_mysql_allows_database_table_fallback():
     ]
 
 
+def test_odbc_two_part_mysql_schema_nav_plus_dsn_mapping_stays_two_part():
+    """Regression: a two-part platform must never emit database.schema.table. When
+    MySQL navigation exposes Schema + Table (no Database) and a one-part
+    dsn_to_database_schema supplies the database, the schema tier must be dropped
+    so the URN stays database.table and can match MySQL's two-part entities."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"mysql_dsn": "employees"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "sales"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn="mysql_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.orders,PROD)"
+    ]
+
+
 def test_odbc_two_part_teradata_allows_database_table_fallback():
     """TeradataSource is TwoTierSQLAlchemySource — database.table is the correct
     URN. The three-tier denylist must not drop this lineage (regression against
