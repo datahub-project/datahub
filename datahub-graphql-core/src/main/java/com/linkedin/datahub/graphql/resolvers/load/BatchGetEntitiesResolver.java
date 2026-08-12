@@ -55,7 +55,10 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     for (Map.Entry<EntityType, List<Entity>> entry : entityTypeToEntities.entrySet()) {
       CompletableFuture<List<Entity>> entitiesFuture =
           BatchLoadUtils.batchLoadEntitiesOfSameType(
-              entry.getValue(), _entityTypes, environment.getDataLoaderRegistry());
+              entry.getValue(),
+              _entityTypes,
+              environment.getDataLoaderRegistry(),
+              environment.getContext());
       entitiesFutures.add(entitiesFuture);
     }
 
