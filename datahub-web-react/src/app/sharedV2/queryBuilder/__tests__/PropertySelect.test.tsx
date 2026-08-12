@@ -20,7 +20,10 @@ beforeAll(() => {
             }
 
             observe(target: Element) {
-                this.callback([{ isIntersecting: true, target } as IntersectionObserverEntry], this);
+                this.callback(
+                    [{ isIntersecting: true, target } as IntersectionObserverEntry],
+                    this as unknown as IntersectionObserver,
+                );
             }
 
             unobserve() {}
@@ -115,5 +118,31 @@ describe('PropertySelect', () => {
         expect(
             within(screen.getByTestId('condition-select-child-base')).getByText('Retention Days'),
         ).toBeInTheDocument();
+    });
+
+    it('drops a transient open group when the row is rebound to a concrete top-level property', () => {
+        // An unkeyed Condition delete can rebind this instance to a different predicate. Simulate the
+        // parent swapping selectedProperty out from under an open group: the leaf now resolves to a
+        // top-level property, so the stale group must be dropped rather than leak through.
+        function Rebindable() {
+            const [selected, setSelected] = useState<string | undefined>(undefined);
+            return (
+                <>
+                    <button type="button" data-testid="rebind" onClick={() => setSelected('platform')}>
+                        rebind
+                    </button>
+                    <PropertySelect selectedProperty={selected} properties={PROPERTIES} onChangeProperty={() => {}} />
+                </>
+            );
+        }
+        render(<Rebindable />);
+
+        openSelect('condition-select');
+        fireEvent.click(screen.getByTestId(`option-${STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID}`));
+        expect(screen.getByTestId('condition-select-child')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('rebind'));
+
+        expect(screen.queryByTestId('condition-select-child')).not.toBeInTheDocument();
     });
 });
