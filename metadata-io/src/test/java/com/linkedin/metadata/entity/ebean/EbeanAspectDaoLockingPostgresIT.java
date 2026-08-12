@@ -143,8 +143,11 @@ public class EbeanAspectDaoLockingPostgresIT {
             () -> {
               try {
                 aHoldsLock.await(LOCK_WAIT_SECONDS, TimeUnit.SECONDS);
-                bAttempting.countDown();
                 try (Transaction tx = primaryDatabase.beginTransaction()) {
+                  // Signal inside the open transaction, right before the lock call, so
+                  // bAttempting means "B is in the transaction and about to lock" -- a
+                  // stronger not-yet-acquired anchor than signaling before beginTransaction.
+                  bAttempting.countDown();
                   bBody.run();
                   bAcquiredAtNanos.set(System.nanoTime());
                   bAcquired.countDown();
@@ -175,11 +178,14 @@ public class EbeanAspectDaoLockingPostgresIT {
           bAcquiredAtNanos.get() >= releasedAtNanos,
           "B must acquire only after A released on commit");
     } else {
-      // Non-blocking proof (no sleep): release A and wait for B to acquire via a latch.
-      // If B blocks (bug), the latch times out and the test fails with a clear cause
-      // instead of flaking on a fixed sleep.
-      releaseA.countDown();
+      // Non-blocking proof (no sleep): A KEEPS holding its lock while we judge B. If B
+      // acquires while A holds, the lock is not over-serializing (correct). If B
+      // blocks (bug), the latch times out and the test fails. Do NOT release A
+      // before judging B -- releasing A early would let an over-serializing lock
+      // unblock B and pass spuriously, hiding the regression this test is meant
+      // to catch. Release A only after the judgment so threads can finish.
       boolean acquired = bAcquired.await(NON_BLOCK_ACQUIRE_SECONDS, TimeUnit.SECONDS);
+      releaseA.countDown();
       a.join(THREAD_JOIN_MILLIS);
       b.join(THREAD_JOIN_MILLIS);
       assertNull(failure.get(), "lock threads should not error");
@@ -187,8 +193,8 @@ public class EbeanAspectDaoLockingPostgresIT {
           acquired,
           "B did not acquire within "
               + NON_BLOCK_ACQUIRE_SECONDS
-              + "s; it appears blocked behind A, which means the"
-              + " lock over-serialized when it should not have");
+              + "s while A held its lock; it appears blocked behind A, which means"
+              + " the lock over-serialized when it should not have");
     }
   }
 
