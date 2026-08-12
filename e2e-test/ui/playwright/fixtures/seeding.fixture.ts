@@ -6,9 +6,12 @@
  *   1. A suite opts in by setting the `featureName` option at describe level.
  *   2. The fixture claims `.seeded/{featureName}.json` via withArtifactLock.
  *   2a. State EXISTS  → data was already ingested this run; skip injection.
- *   2b. Lock acquired → read `tests/{featureName}/fixtures/data.json`, POST
- *       each MCP to the GMS REST API, wait for the search index to catch up,
- *       then write the state file so other workers skip ingestion.
+ *   2b. Lock acquired → read `tests/{featureName}/fixtures/data.json` (or, if
+ *       the directory carries a CI shard-balancing group prefix, whichever
+ *       `tests/*-{featureName}/fixtures/data.json` matches — see
+ *       resolveFeatureDir), POST each MCP to the GMS REST API, wait for the
+ *       search index to catch up, then write the state file so other workers
+ *       skip ingestion.
  *   2c. Lock held by another worker → poll for the state file it is
  *       producing instead of duplicating the ingestion (see withArtifactLock;
  *       this is what makes seeding safe under workers_per_shard > 1).
@@ -27,7 +30,8 @@
  *   import { test, expect } from '../../fixtures/base-test';
  *
  *   test.use({ featureName: 'search' });
- *   // ^ seeds from: tests/search/fixtures/data.json
+ *   // ^ seeds from: tests/g1-search/fixtures/data.json (resolved by
+ *   //   suffix match — the featureName itself never carries the g1- prefix)
  *   // ^ state file: .seeded/search.json
  *
  *   test.describe('Search tests', () => {
@@ -145,9 +149,10 @@ interface SeedState {
 
 type SeedingFixtureOptions = {
   /**
-   * Feature name identifying the data to inject.
-   * Must match the directory under `tests/` that contains
-   * `fixtures/data.json` (e.g. `'search'`, `'business-attributes'`).
+   * Feature name identifying the data to inject. Must match (exactly, or as
+   * the suffix after a `gN-` shard-balancing prefix — see resolveFeatureDir)
+   * the directory under `tests/` that contains `fixtures/data.json` (e.g.
+   * `'search'` for `tests/g1-search/fixtures/data.json`).
    *
    * Set to `null` (default) to skip seeding for the suite.
    */
@@ -167,8 +172,31 @@ function stateFilePath(featureName: string): string {
   return path.join(SEEDED_DIR, `${featureName}.json`);
 }
 
+/**
+ * Resolves `featureName` to its directory under `tests/`. Directories are
+ * prefixed with a CI shard-balancing group (e.g. `featureName: 'search'`
+ * lives under `tests/g1-search/`) — see shard-group.fixture.ts — so an exact
+ * `tests/{featureName}` match is tried first, falling back to whichever
+ * directory ends with `-{featureName}`.
+ */
+function resolveFeatureDir(featureName: string): string {
+  const exact = path.join(TESTS_DIR, featureName);
+  if (fs.existsSync(exact)) return exact;
+
+  const match = fs
+    .readdirSync(TESTS_DIR, { withFileTypes: true })
+    .find((entry) => entry.isDirectory() && entry.name.endsWith(`-${featureName}`));
+  if (!match) {
+    throw new Error(
+      `No tests/ directory found for featureName '${featureName}' ` +
+        `(looked for tests/${featureName} and tests/*-${featureName})`,
+    );
+  }
+  return path.join(TESTS_DIR, match.name);
+}
+
 function dataFilePath(featureName: string): string {
-  return path.join(TESTS_DIR, featureName, 'fixtures', 'data.json');
+  return path.join(resolveFeatureDir(featureName), 'fixtures', 'data.json');
 }
 
 /**
@@ -187,7 +215,7 @@ async function ingestMcps(
 ): Promise<void> {
   const dataFile = explicitDataFile ?? dataFilePath(featureName);
   if (!fs.existsSync(dataFile)) {
-    throw new Error(`Seed data file not found: ${dataFile}\n` + `Expected: tests/${featureName}/fixtures/data.json`);
+    throw new Error(`Seed data file not found: ${dataFile}`);
   }
 
   // Strip the legacy "pegasus2avro." namespace prefix from Avro-translated class names so
