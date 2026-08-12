@@ -1,8 +1,8 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import MLFeatureTablePropertiesClass
-from datahub.metadata.urns import MlFeatureTableUrn
+from datahub.metadata.urns import DataPlatformUrn, MlFeatureTableUrn
 
-graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
+graph = get_default_graph()
 
 # Or get this from the UI (share -> copy urn) and use MlFeatureTableUrn.from_string(...)
 mlfeature_table_urn = MlFeatureTableUrn(
@@ -15,7 +15,10 @@ mlfeature_table_properties = graph.get_aspect(
 )
 
 print("MLFeature Table name:", mlfeature_table_urn.name)
-print("MLFeature Table platform:", mlfeature_table_urn.platform)
+print(
+    "MLFeature Table platform:",
+    DataPlatformUrn.from_string(mlfeature_table_urn.platform).platform_name,
+)
 if mlfeature_table_properties is not None:
     print("MLFeature Table description:", mlfeature_table_properties.description)
     print("MLFeature Table features:", mlfeature_table_properties.mlFeatures)
