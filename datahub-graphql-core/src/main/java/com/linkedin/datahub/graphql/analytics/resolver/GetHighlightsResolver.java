@@ -78,7 +78,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
     final Map<String, Integer> activeUsers =
         _analyticsService.getUniqueCountsByRange(
-            opContext, _analyticsService.getUsageIndexName(), ranges, BROWSER_ID);
+            opContext, _analyticsService.getUsageIndexName(opContext), ranges, BROWSER_ID);
 
     highlights.add(
         buildTimeBasedHighlight(
