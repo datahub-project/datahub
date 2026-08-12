@@ -5,6 +5,14 @@ import { EntityType } from '@types';
 export const URN_FILTER_NAME = 'urn';
 
 /**
+ * Field-name prefix for structured property filters. A structured property is filtered on
+ * via the `structuredProperties.<qualifiedName>` field — the same field search facets use —
+ * so View filters built from structured properties round-trip through the standard
+ * predicate <-> filter conversion.
+ */
+export const STRUCTURED_PROPERTY_FILTER_PREFIX = 'structuredProperties.';
+
+/**
  * Single source of truth for entity types available in the View builder.
  * Used by both the "Build Filters" tab (type dropdown) and the "Select Assets" tab.
  * To add/remove a type from Views, update this list only.
