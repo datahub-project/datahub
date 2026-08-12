@@ -271,9 +271,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.isOptimisticLockingEnabled() && entityWriteLock.isActive();
   }
 
-  // Write-gate key separator. NUL cannot appear in a urn or an aspect name, so "<urn>\0<aspect>" is
-  // an unambiguous composite key.
-  private static final char WRITE_GATE_KEY_SEP = '\u0000';
+  // Write-gate key separator. URNs are "urn:..." and aspect names are alphanumeric PDL identifiers,
+  // neither of which contains '|', so "<urn>|<aspect>" is an unambiguous composite key. Matches the
+  // DAO advisory's ADVISORY_LOCK_KEY_SEP so both aspect-level lock systems share one convention.
+  private static final char WRITE_GATE_KEY_SEP = '|';
 
   /**
    * The write-gate key for one {@code (urn, aspect)} — the CAS conflict unit. CAS and {@code FOR
@@ -1587,14 +1588,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               final Map<String, Set<String>> urnAspects =
                                   batchWithDefaults.getUrnAspectsMap();
 
-                              // Opt-in per-entity write serialization (Postgres advisory lock),
-                              // taken before any row locks so this write serializes against a
+                              // Opt-in per-(urn, aspect) write serialization (Postgres advisory
+                              // lock), taken before any row locks so this write serializes against a
                               // concurrent hard-delete. Skipped when the pre-transaction write gate
-                              // is engaged — the gate already serializes the same URNs
-                              // off-connection, so the advisory would be a redundant per-URN round
-                              // trip.
+                              // is engaged — the gate already serializes the same (urn, aspect) keys
+                              // off-connection, so the advisory would be a redundant round trip.
                               if (!writeGateEngaged()) {
-                                aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+                                aspectDao.lockAspectsForWrite(opContext, urnAspects);
                               }
 
                               // Write-intent read: pin primary. The DAO uses SELECT FOR UPDATE in
@@ -4010,11 +4010,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     final Map<String, Set<String>> urnAspects = batch.getUrnAspectsMap();
 
-    // Opt-in per-entity write serialization (Postgres advisory lock), taken before the read/CAS.
-    // Skipped when the pre-transaction write gate is engaged — the gate already serializes the same
-    // URNs off-connection, so the advisory would be a redundant per-URN round trip.
+    // Opt-in per-(urn, aspect) write serialization (Postgres advisory lock), taken before the
+    // read/CAS. Skipped when the pre-transaction write gate is engaged — the gate already serializes
+    // the same (urn, aspect) keys off-connection, so the advisory would be a redundant round trip.
     if (!writeGateEngaged()) {
-      aspectDao.lockUrnsForWrite(opContext, urnAspects.keySet());
+      aspectDao.lockAspectsForWrite(opContext, urnAspects);
     }
 
     // read #1 — initial database state.

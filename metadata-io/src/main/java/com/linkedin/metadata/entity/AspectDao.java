@@ -17,7 +17,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -428,15 +427,19 @@ public interface AspectDao {
       @Nonnull final String urn);
 
   /**
-   * Optionally serialize concurrent writers to the given urns before any row locks are acquired.
-   * Default is a no-op; the Ebean/Postgres implementation may take a transaction-scoped advisory
-   * lock per urn when enabled. The lock is Postgres-only ({@code pg_advisory_xact_lock}) and
-   * auto-releases on commit/rollback, so no explicit release is needed. Used to prevent lock-order
-   * deadlocks between multi-row writes (e.g. logical-model linking) and concurrent hard-deletes
-   * touching the same rows.
+   * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row
+   * locks are acquired. Default is a no-op; the Ebean/Postgres implementation may take a
+   * transaction-scoped advisory lock per {@code (urn, aspect)} when enabled.
+   *
+   * <p>Keying on the {@code (urn, aspect)} conflict unit (not the whole entity) matches what CAS
+   * and {@code FOR UPDATE} actually contend on: two writers on the same URN but different aspects
+   * share no row and must not share a mutex. Whole-entity ops (e.g. {@code deleteUrn}) pass the
+   * entity's full aspect key-set so delete↔upsert safety is key-set overlap, not a permanent
+   * URN-wide lock on every ingest. Used to prevent lock-order deadlocks between multi-row writes
+   * (e.g. logical-model linking) and concurrent hard-deletes touching the same rows.
    */
-  default void lockUrnsForWrite(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+  default void lockAspectsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
     // no-op by default
   }
 

@@ -140,6 +140,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
+  // Composite-key separator for the per-(urn, aspect) advisory lock. The separator must not
+  // appear in a urn or an aspect name so "<urn><sep><aspect>" is unambiguous, AND it must be
+  // valid UTF-8 (NUL cannot be used: the Postgres JDBC driver rejects 0x00 in bound string
+  // parameters). URNs are "urn:..." (no '|') and aspect names are alphanumeric PDL identifiers
+  // (no '|'), so '|' is unambiguous and JDBC-safe.
+  private static final String ADVISORY_LOCK_KEY_SEP = "|";
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -286,23 +292,57 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   /**
-   * Postgres-only, opt-in per-entity write serialization. When enabled, both the ingest write path
-   * and {@link #deleteUrn} take a transaction-scoped advisory lock per urn <em>before</em>
-   * acquiring any row locks, so a multi-row {@code FOR UPDATE} writer (e.g. logical-model linking)
-   * and a concurrent hard-delete cannot interleave their row-lock acquisition into a cycle. The
-   * advisory lock is released automatically on commit/rollback. No-op unless the store is Postgres
-   * and the feature is enabled.
+   * Postgres-only, opt-in per-{@code (urn, aspect)} write serialization. When enabled, both the
+   * ingest write path and {@link #deleteUrn} take a transaction-scoped advisory lock per {@code
+   * (urn, aspect)} <em>before</em> acquiring any row locks, so a multi-row {@code FOR UPDATE}
+   * writer (e.g. logical-model linking) and a concurrent hard-delete cannot interleave their
+   * row-lock acquisition into a cycle. The advisory lock ({@code pg_advisory_xact_lock}) is
+   * released automatically on commit/rollback, so no explicit release is needed. No-op unless the
+   * store is Postgres and the feature is enabled.
    *
-   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn))}. {@code hashtext} is a
-   * 32-bit hash, so distinct urns can collide on the same lock key and serialize against each
-   * other. That is a false serialization: it costs throughput but never affects correctness. It is
-   * acceptable here because the feature is opt-in and collisions are rare relative to the set of
-   * entities being written concurrently.
+   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn || '|' || aspect))}. The '|'
+   * separator cannot appear in a urn or an aspect name, so the composite is unambiguous, and it is
+   * valid UTF-8 (a NUL separator would be rejected by the Postgres JDBC driver as a bound string
+   * parameter). {@code hashtext} is a 32-bit hash, so distinct {@code (urn, aspect)} pairs can
+   * collide on the same lock key and serialize against each other. That is a false serialization:
+   * it costs throughput but never affects correctness (CAS remains the guard). It is acceptable
+   * here because the feature is opt-in and collisions are rare relative to the set of pairs being
+   * written concurrently.
+   *
+   * <p>Collision bound for operators: {@code hashtext} yields {@code int4} (2^32 ≈ 4.29e9 keys). By
+   * the birthday paradox the 50% collision point is at √2^32 ≈ 65,536 distinct pairs. A deployment
+   * with 10M entities × ~10 aspects = 100M pairs will almost certainly have hash collisions, but a
+   * collision only matters when two writers on colliding pairs run concurrently — the cost is that
+   * they serialize unnecessarily for the lock hold time, not a lost or corrupted write. For
+   * workloads where that false serialization is unacceptable, keep the feature off (the default) or
+   * use the Hazelcast write gate ({@code ENTITY_WRITE_LOCK_BACKEND=hazelcast}), which keys on the
+   * full composite string with no hash collision.
+   *
+   * <p>Keying on the {@code (urn, aspect)} conflict unit (not the whole entity) matches what CAS
+   * and {@code FOR UPDATE} actually contend on: two writers on the same URN but different aspects
+   * share no row and must not share a mutex, so cross-aspect writers on the same URN do not
+   * serialize. Whole-entity ops (e.g. {@link #deleteUrn}) pass the entity's full aspect key-set so
+   * delete↔upsert safety is key-set overlap, not a permanent URN-wide lock on every ingest.
    */
   @Override
-  public void lockUrnsForWrite(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
-    if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urns.isEmpty()) {
+  public void lockAspectsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urnAspects.isEmpty()) {
+      return;
+    }
+    // Flatten to composite keys urn|aspect, de-duplicated and sorted. Sorting the composite
+    // strings is equivalent to sorting by (urn, aspect) because '|' is the separator and
+    // cannot appear in either field, so every transaction presents the keys in the same order
+    // (advisory locks can self-deadlock across transactions otherwise). Note: the SQL below
+    // re-sorts by hashtext(key) (the actual lock id) under an OFFSET 0 fence, which is what
+    // guarantees acquisition order; this Java sort is a best-effort pre-sort.
+    final List<String> sortedKeys =
+        urnAspects.entrySet().stream()
+            .flatMap(e -> e.getValue().stream().map(a -> e.getKey() + ADVISORY_LOCK_KEY_SEP + a))
+            .distinct()
+            .sorted()
+            .collect(Collectors.toList());
+    if (sortedKeys.isEmpty()) {
       return;
     }
     txnFactory.runInScope(
@@ -312,30 +352,36 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           // and release immediately. All real callsites run inside runInTransactionWithRetry; if
           // that ever isn't the case, skip the lock with a warning rather than abort the caller's
           // write.
-          if (!hasActiveTransaction("lockUrnsForWrite")) {
+          if (!hasActiveTransaction("lockAspectsForWrite")) {
             return null;
           }
-          // Acquire all the advisory locks in ONE round trip. Sort first so every transaction
-          // presents the keys in the same order (advisory locks can self-deadlock across
-          // transactions otherwise), then lock them in a single statement over a VALUES list — a
-          // logical-model link can carry hundreds/thousands of urns, and a round trip per urn would
-          // swamp the DB. The VALUES scan evaluates the (void-returning) function once per row, in
-          // list order. Result discarded.
-          final List<String> sortedUrns =
-              urns.stream().distinct().sorted().collect(Collectors.toList());
-          final StringBuilder sql =
-              new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.urn)) from (values ");
-          for (int i = 0; i < sortedUrns.size(); i++) {
+          // Acquire all advisory locks in ONE round trip with guaranteed acquisition
+          // order. The inner subquery computes hashtext(key) (the actual int4 lock id)
+          // and sorts by THAT, and OFFSET 0 is an optimizer fence preventing the planner
+          // from flattening the subquery, so the Sort materializes BEFORE the outer SELECT
+          // evaluates pg_advisory_xact_lock. Ordering by the hash -- not the composite
+          // string -- is what makes hash collisions throughput-only: two batches whose
+          // distinct composites collide on the same int4 still acquire those ids in the
+          // same ascending order, so no ABBA deadlock. Ordering by the composite string
+          // would leave colliding hashes free to be acquired in opposite orders across
+          // batches. The outer SELECT locks on the pre-computed int4 (hashtext is not
+          // re-evaluated). pg_advisory_xact_lock is transaction-scoped and reentrant per
+          // session, so re-acquiring the same key within this transaction is a no-op.
+          final StringBuilder inner =
+              new StringBuilder("select hashtext(v.key) as h from (values ");
+          for (int i = 0; i < sortedKeys.size(); i++) {
             if (i > 0) {
-              sql.append(", ");
+              inner.append(", ");
             }
-            sql.append("(:u").append(i).append(")");
+            inner.append("(:k").append(i).append(")");
           }
-          sql.append(") as v(urn)");
+          inner.append(") as v(key) order by h offset 0");
+          final String sql =
+              "select pg_advisory_xact_lock(:ns, ordered.h) from (" + inner + ") as ordered(h)";
           final SqlQuery lockQuery =
               server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
-          for (int i = 0; i < sortedUrns.size(); i++) {
-            lockQuery.setParameter("u" + i, sortedUrns.get(i));
+          for (int i = 0; i < sortedKeys.size(); i++) {
+            lockQuery.setParameter("k" + i, sortedKeys.get(i));
           }
           lockQuery.findList();
           return null;
@@ -768,11 +814,31 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           Urn urnObj = UrnUtils.getUrn(urn);
           String keyAspectName = opContext.getKeyAspectName(urnObj);
 
-          // Opt-in per-entity write serialization (advisory lock), taken before any row locks.
-          // No-op unless enabled; when on, it serializes this delete against a concurrent multi-row
-          // write (e.g. logical-model linking) on the same entity. Postgres transaction-scoped
-          // pg_advisory_xact_lock, auto-released on commit/rollback.
-          lockUrnsForWrite(opContext, List.of(urn));
+          // Opt-in Postgres per-(urn, aspect) write serialization (advisory lock), taken before
+          // any row locks. No-op unless enabled on a Postgres store; when on, it serializes this
+          // delete against a concurrent multi-row write (e.g. logical-model linking) on the same
+          // entity. A hard-delete wipes the whole entity, so it locks the entity's full aspect
+          // key-set (wide) — delete↔upsert safety is key-set overlap, not a permanent URN-wide
+          // lock on every ingest. Postgres transaction-scoped pg_advisory_xact_lock, auto-released
+          // on commit/rollback.
+          //
+          // Defensive: the registry lookup should return a non-null aspect set, but a misconfigured
+          // entity registry (entity with no registered aspects) could return null and NPE inside
+          // Map.of, which would abort the delete. Fall back to the single-URN composite key
+          // (urn + keyAspect) so the delete still takes a lock on the key aspect and proceeds —
+          // the FOR UPDATE ordering below still guards the deadlock; only the advisory
+          // serialization is narrowed.
+          final Set<String> entityAspects = opContext.getEntityAspectNames(urnObj);
+          if (entityAspects == null || entityAspects.isEmpty()) {
+            log.warn(
+                "Entity registry returned no aspects for urn={}; falling back to key-aspect-only"
+                    + " advisory lock for deleteUrn. Check the entity registry for this entity"
+                    + " type.",
+                urn);
+            lockAspectsForWrite(opContext, Map.of(urn, Set.of(keyAspectName)));
+          } else {
+            lockAspectsForWrite(opContext, Map.of(urn, entityAspects));
+          }
 
           // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
           // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
