@@ -1441,7 +1441,7 @@ systemUpdate:
   datasetAliases:
     enabled: ${SYSTEM_UPDATE_DATASET_ALIASES_ENABLED:true}
     batchSize: ${SYSTEM_UPDATE_DATASET_ALIASES_BATCH_SIZE:1000}
-    delayMs: ${SYSTEM_UPDATE_DATASET_ALIASES_DELAY_MS:1000}
+    delayMs: ${SYSTEM_UPDATE_DATASET_ALIASES_DELAY_MS:0}
     reprocess:
       enabled: ${SYSTEM_UPDATE_DATASET_ALIASES_REPROCESS:false}
   schemaFieldsFromSchemaMetadata:
