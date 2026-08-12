@@ -4,18 +4,18 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.buffer.CoalesceBuffer;
-import com.linkedin.metadata.buffer.CoalesceBuffers;
+import com.linkedin.metadata.buffer.offload.OffloadBuffer;
+import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.function.BinaryOperator;
 import org.testng.annotations.Test;
 
 public class CoalesceRetentionBufferTest {
@@ -28,36 +28,42 @@ public class CoalesceRetentionBufferTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void testEnqueueMergesWithKeepMaxLongPolicy() {
-    CoalesceBuffer<RetentionKey, Long> coalesceBuffer = mock(CoalesceBuffer.class);
-    CoalesceRetentionBuffer buffer =
-        new CoalesceRetentionBuffer(coalesceBuffer, new SimpleRetentionContextResolver());
+  public void testEnqueueRoutesThroughResolverThenBuffer() {
+    OffloadBuffer<RetentionKey, Long> offloadBuffer = mock(OffloadBuffer.class);
+    RetentionContextResolver resolver = new SimpleRetentionContextResolver();
+    RetentionKey expectedKey = new SimpleRetentionKey(TEST_URN.toString(), ASPECT);
+
+    CoalesceRetentionBuffer buffer = new CoalesceRetentionBuffer(offloadBuffer, resolver);
 
     buffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 7L);
 
-    verify(coalesceBuffer, times(1))
-        .merge(
-            eq(new SimpleRetentionKey(TEST_URN.toString(), ASPECT)),
-            eq(7L),
-            eq(CoalesceBuffers.KEEP_MAX_LONG));
+    verify(offloadBuffer, times(1)).enqueue(eq(expectedKey), eq(7L));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEnqueueRoutesThroughCustomResolverThenBuffer() {
+    // Asserts the wiring contract: enqueue delegates to resolver.enrichKey then buffer.enqueue.
+    OffloadBuffer<RetentionKey, Long> offloadBuffer = mock(OffloadBuffer.class);
+    RetentionContextResolver resolver = mock(RetentionContextResolver.class);
+    RetentionKey expectedKey = mock(RetentionKey.class);
+    when(resolver.enrichKey(SYSTEM_CONTEXT, TEST_URN, ASPECT)).thenReturn(expectedKey);
+
+    CoalesceRetentionBuffer buffer = new CoalesceRetentionBuffer(offloadBuffer, resolver);
+
+    buffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 7L);
+
+    verify(resolver, times(1)).enrichKey(eq(SYSTEM_CONTEXT), eq(TEST_URN), eq(ASPECT));
+    verify(offloadBuffer, times(1)).enqueue(eq(expectedKey), eq(7L));
   }
 
   @Test
   @SuppressWarnings("unchecked")
   public void testDefersApplyIsAlwaysTrue() {
-    CoalesceBuffer<RetentionKey, Long> coalesceBuffer = mock(CoalesceBuffer.class);
+    OffloadBuffer<RetentionKey, Long> offloadBuffer = mock(OffloadBuffer.class);
     CoalesceRetentionBuffer buffer =
-        new CoalesceRetentionBuffer(coalesceBuffer, new SimpleRetentionContextResolver());
+        new CoalesceRetentionBuffer(offloadBuffer, new SimpleRetentionContextResolver());
 
     assertTrue(buffer.defersApply());
-  }
-
-  /**
-   * Guards against a future refactor accidentally introducing an equivalent-but-different lambda.
-   */
-  @Test
-  public void testKeepMaxLongIsUsedByReferenceIdentity() {
-    BinaryOperator<Long> equivalentLambda = (a, b) -> a >= b ? a : b;
-    org.testng.Assert.assertNotSame(equivalentLambda, CoalesceBuffers.KEEP_MAX_LONG);
   }
 }

@@ -79,4 +79,30 @@ public abstract class MCPSideEffect extends PluginSpec {
       @Nonnull OperationFingerprint operationContext,
       Collection<MCLItem> mclItems,
       @Nonnull RetrieverContext retrieverContext);
+
+  /**
+   * Opt-in to async (deferred) post-commit replay. When {@code true} (and a {@link
+   * com.linkedin.metadata.entity.hooks.buffer.PostCommitHookBuffer} is wired with {@code
+   * defersApply()=true}), the ingest thread does NOT call {@link #postApply} inline; instead the
+   * committed MCL is enqueued and a background drainer replays it through this hook off the request
+   * thread. Default {@code false} keeps the legacy synchronous behavior.
+   *
+   * <p>A hook MUST only opt in when its {@link #postMCPSideEffect} is safe for async-only replay:
+   * i.e. it reads the MCL's previous-aspect to compute a per-transition delta and re-derives the
+   * same MCPs from the same (previous, current) pair regardless of when it runs. It must NOT
+   * coalesce (collapse) multiple MCLs into one — the buffer replays every MCL exactly once. See
+   * {@code PostCommitHookBuffer} for the lossless-replay contract.
+   *
+   * <p><b>Idempotency against graph state.</b> Replay is at-least-once: an emit failure leaves the
+   * entry in the buffer and the next tick re-runs {@link #postApply} against the then-current graph
+   * state, which may have advanced since the original commit (other MCLs for the same entity may
+   * have landed in the meantime). A hook opting in MUST produce idempotent output in that case —
+   * re-running {@code postApply} for the same (previous, current) MCL pair after the graph has
+   * moved on must not produce contradictory or destructive MCPs. Hooks that query the live graph at
+   * replay time (rather than deriving purely from the MCL's previous/current aspects) must tolerate
+   * seeing a newer graph than at commit time and converge to the correct end state.
+   */
+  public boolean defersPostCommit() {
+    return false;
+  }
 }

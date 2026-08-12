@@ -24,6 +24,14 @@ public final class HazelcastBootstrapProperties {
   public static final String POST_COMMIT_RETENTION_ENABLED =
       "featureFlags.postCommitRetentionEnabled";
 
+  /**
+   * Canonical gate: {@code featureFlags.postCommitHookBufferEnabled}. The post-commit hook replay
+   * buffer's only backend is Hazelcast (cluster-wide shared map + drain lock), so this flag alone
+   * decides whether the embedded node must boot for it.
+   */
+  public static final String POST_COMMIT_HOOK_BUFFER_ENABLED =
+      "featureFlags.postCommitHookBufferEnabled";
+
   private HazelcastBootstrapProperties() {}
 
   /**

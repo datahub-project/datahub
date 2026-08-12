@@ -34,6 +34,11 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
       // still runs legacy in-transaction retention with RetentionBuffer.NO_OP.
       return true;
     }
+    if (Boolean.parseBoolean(
+        env.getProperty(HazelcastBootstrapProperties.POST_COMMIT_HOOK_BUFFER_ENABLED, "false"))) {
+      // Post-commit hook replay buffer is Hazelcast-backed only, so it requires the embedded node.
+      return true;
+    }
     // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone
     // would leave a scoped-only deployment without a Hazelcast instance, and the engine throws at
     // startup when scoped is active but Hazelcast is null.
