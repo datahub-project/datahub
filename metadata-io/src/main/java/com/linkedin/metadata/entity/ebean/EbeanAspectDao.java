@@ -286,8 +286,18 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * NUL separator cannot appear in a urn or aspect name, so the composite is unambiguous. {@code
    * hashtext} is a 32-bit hash, so distinct {@code (urn, aspect)} pairs can collide on the same
    * lock key and serialize against each other. That is a false serialization: it costs throughput
-   * but never affects correctness. It is acceptable here because the feature is opt-in and
-   * collisions are rare relative to the set of pairs being written concurrently.
+   * but never affects correctness (CAS remains the guard). It is acceptable here because the
+   * feature is opt-in and collisions are rare relative to the set of pairs being written
+   * concurrently.
+   *
+   * <p>Collision bound for operators: {@code hashtext} yields {@code int4} (2^32 ≈ 4.29e9 keys). By
+   * the birthday paradox the 50% collision point is at √2^32 ≈ 65,536 distinct pairs. A deployment
+   * with 10M entities × ~10 aspects = 100M pairs will almost certainly have hash collisions, but a
+   * collision only matters when two writers on colliding pairs run concurrently — the cost is that
+   * they serialize unnecessarily for the lock hold time, not a lost or corrupted write. For
+   * workloads where that false serialization is unacceptable, keep the feature off (the default) or
+   * use the Hazelcast write gate ({@code ENTITY_WRITE_LOCK_BACKEND=hazelcast}), which keys on the
+   * full composite string with no hash collision.
    *
    * <p>Keying on the {@code (urn, aspect)} conflict unit (not the whole entity) matches what CAS
    * and {@code FOR UPDATE} actually contend on: two writers on the same URN but different aspects
@@ -325,21 +335,30 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           if (!hasActiveTransaction("lockAspectsForWrite")) {
             return null;
           }
-          // Acquire all the advisory locks in ONE round trip. Sort first so every transaction
-          // presents the keys in the same order (advisory locks can self-deadlock across
-          // transactions otherwise), then lock them in a single statement over a VALUES list — a
-          // logical-model link can carry hundreds/thousands of (urn, aspect) pairs, and a round
-          // trip per key would swamp the DB. The VALUES scan evaluates the (void-returning)
-          // function once per row, in list order. Result discarded.
-          final StringBuilder sql =
-              new StringBuilder("select pg_advisory_xact_lock(:ns, hashtext(v.key)) from (values ");
+          // Acquire all advisory locks in ONE round trip with guaranteed acquisition
+          // order. The inner subquery sorts the keys and OFFSET 0 is an optimizer fence:
+          // it prevents the planner from flattening the subquery, so the Sort materializes
+          // BEFORE the outer SELECT evaluates pg_advisory_xact_lock. Without the fence,
+          // Postgres evaluates the SELECT-list function in scan order and only sorts the
+          // output afterward, so two transactions taking overlapping keys in different
+          // orders could ABBA-deadlock -- the exact failure this lock prevents. This is the
+          // community-accepted Postgres pattern for ordered batched advisory locks (see
+          // pgsql-general "Guarantee order of batched pg_advisory_xact_lock"). The keys are
+          // pre-sorted in Java too, so ORDER BY is belt-and-suspenders; OFFSET 0 is the real
+          // fence. pg_advisory_xact_lock is transaction-scoped and reentrant per session, so
+          // re-acquiring the same key within this transaction is a no-op.
+          final StringBuilder inner = new StringBuilder("select v.key from (values ");
           for (int i = 0; i < sortedKeys.size(); i++) {
             if (i > 0) {
-              sql.append(", ");
+              inner.append(", ");
             }
-            sql.append("(:k").append(i).append(")");
+            inner.append("(:k").append(i).append(")");
           }
-          sql.append(") as v(key)");
+          inner.append(") as v(key) order by v.key offset 0");
+          final String sql =
+              "select pg_advisory_xact_lock(:ns, hashtext(ordered.key)) from ("
+                  + inner
+                  + ") as ordered(key)";
           final SqlQuery lockQuery =
               server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
           for (int i = 0; i < sortedKeys.size(); i++) {
@@ -757,7 +776,24 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           // key-set (wide) — delete↔upsert safety is key-set overlap, not a permanent URN-wide
           // lock on every ingest. Postgres transaction-scoped pg_advisory_xact_lock, auto-released
           // on commit/rollback.
-          lockAspectsForWrite(opContext, Map.of(urn, opContext.getEntityAspectNames(urnObj)));
+          //
+          // Defensive: the registry lookup should return a non-null aspect set, but a misconfigured
+          // entity registry (entity with no registered aspects) could return null and NPE inside
+          // Map.of, which would abort the delete. Fall back to the single-URN composite key
+          // (urn + keyAspect) so the delete still takes a lock on the key aspect and proceeds —
+          // the FOR UPDATE ordering below still guards the deadlock; only the advisory
+          // serialization is narrowed.
+          final Set<String> entityAspects = opContext.getEntityAspectNames(urnObj);
+          if (entityAspects == null || entityAspects.isEmpty()) {
+            log.warn(
+                "Entity registry returned no aspects for urn={}; falling back to key-aspect-only"
+                    + " advisory lock for deleteUrn. Check the entity registry for this entity"
+                    + " type.",
+                urn);
+            lockAspectsForWrite(opContext, Map.of(urn, Set.of(keyAspectName)));
+          } else {
+            lockAspectsForWrite(opContext, Map.of(urn, entityAspects));
+          }
 
           // On PostgreSQL, acquire this urn's rows up front in canonical (urn, aspect, version)
           // order — the same order the upsert write path uses for its FOR UPDATE reads. The bulk
