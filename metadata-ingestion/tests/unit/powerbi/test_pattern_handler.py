@@ -1060,6 +1060,37 @@ def test_odbc_oracle_default_database_emits_three_part_urn():
     ]
 
 
+def test_odbc_oracle_nav_database_wins_over_default_database():
+    """When both a navigation Database and default_database are present, the
+    navigation-supplied database wins (default_database is only the fallback for
+    bare TNS aliases). Mirrors OracleLineage's effective_db precedence and the
+    'navigation always wins' contract."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="MYDB")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCLPDB"),
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb.hr.employees,PROD)"
+    ]
+
+
 def test_odbc_hive_ignores_oracle_default_database():
     """The server resolver keys only on the server name, so a Hive server that
     happens to map to an OraclePlatformDetail must NOT gain a database tier —

@@ -2014,7 +2014,9 @@ class OdbcLineage(AbstractLineage):
             dropped, and a single-segment DSN value is treated as the schema. Oracle
             additionally emits database.schema.table when the user opts in via
             server_to_platform_instance `default_database` (oracle_default_database),
-            mirroring standalone Oracle's add_database_name_to_urn=true.
+            mirroring standalone Oracle's add_database_name_to_urn=true; within that
+            opt-in the navigation-supplied database wins and default_database is only
+            the fallback (matching OracleLineage's effective_db precedence).
           - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
             skips rather than emitting a truncated database.table.
           - Athena: navigation is catalog.database.table, later stripped to
@@ -2034,7 +2036,12 @@ class OdbcLineage(AbstractLineage):
             if schema is None:
                 return None
             if oracle_default_database is not None:
-                return f"{oracle_default_database}.{schema}.{table_name}"
+                # Navigation wins over the configured default_database (which is a
+                # fallback for bare TNS aliases that carry no database), matching
+                # OracleLineage's effective_db precedence.
+                return (
+                    f"{database_name or oracle_default_database}.{schema}.{table_name}"
+                )
             return f"{schema}.{table_name}"
 
         database = database_name or config_database
