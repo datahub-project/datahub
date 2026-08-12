@@ -27,6 +27,8 @@ import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.key.IncidentKey;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -329,6 +331,9 @@ public class RaiseIncidentResolverTest {
     Assert.assertEquals(
         proposal.getHeaders().get(CreateIfNotExistsValidator.FILTER_EXCEPTION_HEADER),
         CreateIfNotExistsValidator.FILTER_EXCEPTION_VALUE);
+    Assert.assertEquals(
+        proposal.getEntityKeyAspect(),
+        GenericRecordUtils.serializeAspect(new IncidentKey().setId(callerId)));
   }
 
   @Test
