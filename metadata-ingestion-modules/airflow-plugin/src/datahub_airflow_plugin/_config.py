@@ -116,7 +116,7 @@ def parse_asset_connections(raw: Optional[str]) -> Dict[str, AssetConnectionDeta
     connections: Dict[str, AssetConnectionDetail] = {}
     for key, value in decoded.items():
         try:
-            connections[normalize_connection_key(key)] = (
+            connections[canonical_connection_key(key)] = (
                 AssetConnectionDetail.model_validate(value)
             )
         except Exception as e:
@@ -127,13 +127,31 @@ def parse_asset_connections(raw: Optional[str]) -> Dict[str, AssetConnectionDeta
 
 
 def normalize_connection_key(key: str) -> str:
-    """Canonical form of a connection key, so config and emitted URIs match.
+    """Case/slash normalisation for a connection key.
 
     Hosts and schemes are case-insensitive, and Airflow's URI sanitiser can leave a
     trailing slash on authority-only URIs, so neither should decide whether a mapping
     applies.
     """
     return key.strip().rstrip("/").lower()
+
+
+def canonical_connection_key(key: str) -> str:
+    """A config key in the same canonical form lookups use.
+
+    Config keys must go through the scheme -> platform map too, otherwise an entry written
+    with the URI's own scheme (`postgresql://host`, which is what a user copies off an
+    Airflow Asset) would never match a lookup built from the platform (`postgres://host`)
+    — and the docs promise the two forms share one entry. Imported here rather than at
+    module scope because _connection_mapping imports this module.
+    """
+    from datahub_airflow_plugin._connection_mapping import platform_for_scheme
+
+    normalized = normalize_connection_key(key)
+    scheme, separator, rest = normalized.partition("://")
+    if not separator:
+        return normalized
+    return f"{platform_for_scheme(scheme)}://{rest}"
 
 
 class DatahubLineageConfig(ConfigModel):

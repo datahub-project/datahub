@@ -118,11 +118,11 @@ def translate_airflow_asset_to_urn(
         # and DataHub separates segments with dots. Those rules are the platform's own
         # convention, so this works with no configuration; a mapping only adds what a URI
         # cannot carry, chiefly platform_instance.
-        platform = (
-            detail.platform if detail else None
-        ) or connection_mapping.platform_for_scheme(scheme)
+        scheme_platform = connection_mapping.platform_for_scheme(scheme)
+        platform = (detail.platform if detail else None) or scheme_platform
         urn = connection_mapping.build_table_urn(
             platform=platform,
+            scheme_platform=scheme_platform,
             authority=parsed.netloc,
             path_segments=parsed.path.split("/"),
             detail=detail,

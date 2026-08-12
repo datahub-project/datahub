@@ -169,6 +169,7 @@ def _warn_shape_once(uri: str, key: str, expected: int, got: int, urn: str) -> N
 def build_table_urn(
     *,
     platform: str,
+    scheme_platform: str,
     authority: str,
     path_segments: List[str],
     detail: Optional[AssetConnectionDetail],
@@ -182,12 +183,19 @@ def build_table_urn(
     platform's own naming convention. A mapping only supplies what a URI cannot —
     `platform_instance` — plus optional overrides.
     """
-    naming = TABLE_NAMING[platform]
+    # A `platform` override can point outside TABLE_NAMING (is_table_shaped only inspects
+    # the URI scheme). Fall back to the scheme's own naming rather than raising: a KeyError
+    # here drops the asset's lineage, and inside an alias batch it can clear the rest.
+    naming = TABLE_NAMING.get(platform) or TABLE_NAMING[scheme_platform]
 
     segments = [s for s in path_segments if s]
-    if naming.keep_authority and authority:
+    authority_supplied_a_segment = bool(naming.keep_authority and authority)
+    if authority_supplied_a_segment:
         segments = [authority, *segments]
-    if detail is not None and detail.database:
+    # `database` fills a segment the URI omitted, so skip it when the authority already
+    # provided the leading one — otherwise a BigQuery entry naming its project yields
+    # project.project.dataset.table.
+    if detail is not None and detail.database and not authority_supplied_a_segment:
         segments = [detail.database, *segments]
     if not segments:
         return None

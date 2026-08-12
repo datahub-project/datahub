@@ -337,3 +337,67 @@ def test_default_database_stays_none_when_nothing_supplies_one():
 
     assert resolve_default_database(None, None, None) is None
     assert resolve_default_database(None, None, AssetConnectionDetail()) is None
+
+
+# --- findings from CI review ---------------------------------------------------
+
+
+def test_config_key_written_with_the_uri_scheme_still_matches():
+    """A user copies the scheme straight off the Asset URI, so `postgresql://` must resolve
+    to the same entry as `postgres://` — the docs promise they share one."""
+    from datahub_airflow_plugin._config import parse_asset_connections
+
+    conns = parse_asset_connections(
+        '{"postgresql://db.host:5432": {"platform_instance": "pg_inst"}}'
+    )
+
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("postgresql://db.host:5432/mydb/public/events"), connections=conns
+    )
+
+    assert urn == _urn("postgres", "mydb.public.events", instance="pg_inst")
+
+
+def test_unmapped_ol_namespace_keeps_its_original_platform():
+    """The OpenLineage path must stay byte-identical when no mapping is configured. Only
+    OL_SCHEME_TWEAKS applied before, so canonicalising more schemes would silently re-key
+    existing datasets."""
+    for namespace, name, expected_platform in [
+        ("gs://bucket", "folder/file", "gs"),
+        ("s3a://bucket", "key", "s3a"),
+        ("abfs://container", "path", "abfs"),
+        # the two OL_SCHEME_TWEAKS entries are the exception and must still apply
+        ("sqlserver://host", "db.sch.tbl", "mssql"),
+        ("awsathena://host", "db.tbl", "athena"),
+    ]:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace, name), connections={}
+        )
+        assert urn == _urn(expected_platform, name), namespace
+
+
+def test_platform_override_outside_the_table_naming_table_does_not_raise():
+    """An override to a platform with no naming rule must degrade, not crash — a KeyError
+    here drops the asset's lineage, and can clear a whole alias-resolution batch."""
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("snowflake://acct/DB/SCH/TBL"),
+        connections={
+            "snowflake://acct": AssetConnectionDetail(platform="some_other_platform")
+        },
+    )
+
+    assert urn is not None
+    assert "some_other_platform" in urn
+
+
+def test_database_is_not_prepended_when_the_authority_already_supplied_it():
+    """BigQuery keeps its authority as the project segment, so a mapping that also sets
+    `database` must not double it into project.project.dataset.table."""
+    urn = translate_airflow_asset_to_urn(
+        FakeAsset("bigquery://my-project/ds/tbl"),
+        connections={
+            "bigquery://my-project": AssetConnectionDetail(database="my-project")
+        },
+    )
+
+    assert urn == _urn("bigquery", "my-project.ds.tbl")

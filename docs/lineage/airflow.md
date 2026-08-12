@@ -239,13 +239,13 @@ asset_connections = {
   }
 ```
 
-| Setting                     | Default          | Purpose                                                                                                                                    |
-| --------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `platform_instance`         | None             | Must match the `platform_instance` in that platform's ingestion recipe, or the URNs will not line up. The main reason to map a connection. |
-| `env`                       | plugin `cluster` | Environment for this connection's datasets. Unset keeps the plugin-wide `cluster`.                                                         |
-| `convert_urns_to_lowercase` | platform default | Overrides the per-platform casing above. Rarely needed — set it only if your recipe overrides the source's own default.                    |
-| `database`                  | None             | Prepended as the leading name segment when the URI omits it, e.g. a Postgres URI written without its database.                             |
-| `platform`                  | scheme-derived   | Override the platform inferred from the URI scheme.                                                                                        |
+| Setting                     | Default          | Purpose                                                                                                                                                                                                                                                  |
+| --------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform_instance`         | None             | Must match the `platform_instance` in that platform's ingestion recipe, or the URNs will not line up. The main reason to map a connection.                                                                                                               |
+| `env`                       | plugin `cluster` | Environment for this connection's datasets. Unset keeps the plugin-wide `cluster`.                                                                                                                                                                       |
+| `convert_urns_to_lowercase` | platform default | Overrides the per-platform casing above. Rarely needed — set it only if your recipe overrides the source's own default.                                                                                                                                  |
+| `database`                  | None             | For Asset URIs, prepended as the leading name segment when the URI omits it — ignored where the authority already supplies that segment, such as BigQuery's project. For SQL parsing, the default database when the operator and connection report none. |
+| `platform`                  | scheme-derived   | Override the platform inferred from the URI scheme.                                                                                                                                                                                                      |
 
 A table reached through both paths resolves to one URN. This already holds with no config;
 mapping the connection adds the `platform_instance` prefix:
