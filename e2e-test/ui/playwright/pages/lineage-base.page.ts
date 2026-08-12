@@ -388,6 +388,7 @@ export class LineageBasePage extends BasePage {
   /** Open the column selector dropdown and pick a column by name. */
   async selectColumnFromDropdown(columnName: string): Promise<void> {
     await this.page.getByText('Select column').click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(1000);
     await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
   }

@@ -25,7 +25,6 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
-import com.linkedin.datahub.graphql.loaders.ContainerEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
@@ -128,6 +127,7 @@ import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpsertIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
@@ -382,6 +382,7 @@ import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
@@ -465,6 +466,7 @@ public class GmsGraphQLEngine {
   private final DataProductService dataProductService;
   private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
+  private final IncidentService incidentService;
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
@@ -583,6 +585,7 @@ public class GmsGraphQLEngine {
 
     this.entityClient = args.entityClient;
     this.systemEntityClient = args.systemEntityClient;
+    this.incidentService = new IncidentService(this.systemEntityClient);
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
     this.siblingGraphService = args.siblingGraphService;
@@ -957,9 +960,6 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .addDataLoader(
-            ContainerEntityCountsBatchLoader.LOADER_NAME,
-            context -> ContainerEntityCountsBatchLoader.create(entityClient, context))
         .addDataLoader(
             DomainEntityCountsBatchLoader.LOADER_NAME,
             context -> DomainEntityCountsBatchLoader.create(entityClient, context))
@@ -1627,7 +1627,10 @@ public class GmsGraphQLEngine {
                   new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "updateIncident",
-                  new UpdateIncidentResolver(this.entityClient, this.entityService))
+                  new UpdateIncidentResolver(this.incidentService, this.entityService))
+              .dataFetcher(
+                  "upsertIncident",
+                  new UpsertIncidentResolver(this.incidentService, this.entityService))
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
