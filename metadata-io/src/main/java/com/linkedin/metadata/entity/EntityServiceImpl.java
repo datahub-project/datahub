@@ -1589,9 +1589,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   batchWithDefaults.getUrnAspectsMap();
 
                               // Opt-in per-(urn, aspect) write serialization (Postgres advisory
-                              // lock), taken before any row locks so this write serializes against a
+                              // lock), taken before any row locks so this write serializes against
+                              // a
                               // concurrent hard-delete. Skipped when the pre-transaction write gate
-                              // is engaged — the gate already serializes the same (urn, aspect) keys
+                              // is engaged — the gate already serializes the same (urn, aspect)
+                              // keys
                               // off-connection, so the advisory would be a redundant round trip.
                               if (!writeGateEngaged()) {
                                 aspectDao.lockAspectsForWrite(opContext, urnAspects);
@@ -4011,7 +4013,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final Map<String, Set<String>> urnAspects = batch.getUrnAspectsMap();
 
     // Opt-in per-(urn, aspect) write serialization (Postgres advisory lock), taken before the
-    // read/CAS. Skipped when the pre-transaction write gate is engaged — the gate already serializes
+    // read/CAS. Skipped when the pre-transaction write gate is engaged — the gate already
+    // serializes
     // the same (urn, aspect) keys off-connection, so the advisory would be a redundant round trip.
     if (!writeGateEngaged()) {
       aspectDao.lockAspectsForWrite(opContext, urnAspects);
