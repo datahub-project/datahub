@@ -491,6 +491,46 @@ class TestSubProcessIngestionTaskExecution:
             "/tmp/logs/some-exec-id"
         )
 
+    async def test_artifact_dir_is_not_published_when_the_subprocess_never_starts(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        sample_args: dict[str, str],
+        mock_execution_context: Mock,
+    ) -> None:
+        """Venv setup happens inside _create_subprocess and can fail.
+
+        At that point the log file has been opened but nothing has been written to it --
+        venv output lives in the in-memory LogHolder until _monitor_subprocess runs. If
+        the artifact directory were published anyway, a consumer that uploads artifacts
+        would ship a zero-byte log for every venv or dependency-resolution failure, and
+        those are common. The useful error text is in the result report instead.
+        """
+        with (
+            patch.multiple(
+                ingestion_task,
+                _setup_directories=Mock(
+                    return_value=(
+                        "/tmp/exec",
+                        "/tmp/logs/some-exec-id",
+                        "/tmp/report.json",
+                    )
+                ),
+                _prepare_subprocess_environment=Mock(return_value={}),
+                _create_subprocess=AsyncMock(
+                    side_effect=TaskError("venv setup failed")
+                ),
+            ),
+            patch(
+                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
+            ),
+            patch(_GET_PLUGIN, return_value="demo-data"),
+            patch("builtins.open", mock_open()),
+            pytest.raises(TaskError),
+        ):
+            await ingestion_task.execute(sample_args, mock_execution_context)
+
+        mock_execution_context.set_artifact_dir.assert_not_called()
+
     async def test_execute_handles_task_error_from_recipe_resolution(
         self,
         ingestion_task: SubProcessIngestionTask,

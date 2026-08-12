@@ -319,10 +319,6 @@ class SubProcessIngestionTask(Task):
         exec_out_dir, artifact_output_dir, report_out_file = self._setup_directories(
             exec_id
         )
-        # Publish the artifact directory on the context so callers can locate this run's
-        # logs and artifacts after execute() returns. Unlike exec_out_dir, this directory
-        # is not removed on completion.
-        ctx.set_artifact_dir(artifact_output_dir)
 
         # 3. Prepare subprocess environment and create subprocess
         subprocess_env = self._prepare_subprocess_environment(
@@ -353,6 +349,20 @@ class SubProcessIngestionTask(Task):
             shared_logs,
             secret_values,
         )
+
+        # Publish the artifact directory on the context so callers can locate this run's
+        # logs and artifacts after execute() returns. Unlike exec_out_dir, this directory
+        # is not removed on completion.
+        #
+        # Deliberately after the subprocess exists, not right after the directories are
+        # created. Venv setup happens inside _create_subprocess and can raise; at that
+        # point ingestion-logs.log has been opened but nothing has been written to it
+        # (venv output lives in shared_logs until _read_output_lines runs). Publishing
+        # earlier would advertise a directory whose only log file is empty, so a consumer
+        # that uploads artifacts would ship a zero-byte log for every venv or
+        # dependency-resolution failure. Those failures are common, and the useful error
+        # text is in the result report, not here.
+        ctx.set_artifact_dir(artifact_output_dir)
 
         cancelled = False
         try:
