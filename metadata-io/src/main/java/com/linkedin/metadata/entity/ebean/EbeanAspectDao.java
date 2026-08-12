@@ -137,9 +137,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // Arbitrary fixed namespace for entity-write advisory locks, so they can't collide with other
   // pg_advisory lock users in the same database; hashtext(urn) supplies the per-entity key.
   private static final int ADVISORY_LOCK_NAMESPACE = 0x44480001;
-  // Composite-key separator for the per-(urn, aspect) advisory lock. NUL cannot appear in a urn
-  // or an aspect name, so "<urn>\0<aspect>" is an unambiguous composite key.
-  private static final String ADVISORY_LOCK_KEY_SEP = "\u0000";
+  // Composite-key separator for the per-(urn, aspect) advisory lock. The separator must not
+  // appear in a urn or an aspect name so "<urn><sep><aspect>" is unambiguous, AND it must be
+  // valid UTF-8 (NUL cannot be used: the Postgres JDBC driver rejects 0x00 in bound string
+  // parameters). URNs are "urn:..." (no '|') and aspect names are alphanumeric PDL identifiers
+  // (no '|'), so '|' is unambiguous and JDBC-safe.
+  private static final String ADVISORY_LOCK_KEY_SEP = "|";
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -282,13 +285,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * released automatically on commit/rollback, so no explicit release is needed. No-op unless the
    * store is Postgres and the feature is enabled.
    *
-   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn || E'\0' || aspect))}. The
-   * NUL separator cannot appear in a urn or aspect name, so the composite is unambiguous. {@code
-   * hashtext} is a 32-bit hash, so distinct {@code (urn, aspect)} pairs can collide on the same
-   * lock key and serialize against each other. That is a false serialization: it costs throughput
-   * but never affects correctness (CAS remains the guard). It is acceptable here because the
-   * feature is opt-in and collisions are rare relative to the set of pairs being written
-   * concurrently.
+   * <p>Keyed by {@code pg_advisory_xact_lock(<namespace>, hashtext(urn || '|' || aspect))}. The '|'
+   * separator cannot appear in a urn or an aspect name, so the composite is unambiguous, and it is
+   * valid UTF-8 (a NUL separator would be rejected by the Postgres JDBC driver as a bound string
+   * parameter). {@code hashtext} is a 32-bit hash, so distinct {@code (urn, aspect)} pairs can
+   * collide on the same lock key and serialize against each other. That is a false serialization:
+   * it costs throughput but never affects correctness (CAS remains the guard). It is acceptable
+   * here because the feature is opt-in and collisions are rare relative to the set of pairs being
+   * written concurrently.
    *
    * <p>Collision bound for operators: {@code hashtext} yields {@code int4} (2^32 ≈ 4.29e9 keys). By
    * the birthday paradox the 50% collision point is at √2^32 ≈ 65,536 distinct pairs. A deployment
@@ -311,11 +315,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (!canWrite || !entityWriteAdvisoryLockEnabled || !isPostgres || urnAspects.isEmpty()) {
       return;
     }
-    // Flatten to composite keys urn\0aspect, de-duplicated and sorted. Sorting the composite
-    // strings
-    // is equivalent to sorting by (urn, aspect) because NUL is the separator and cannot appear in
-    // either field, so every transaction presents the keys in the same order (advisory locks can
-    // self-deadlock across transactions otherwise).
+    // Flatten to composite keys urn|aspect, de-duplicated and sorted. Sorting the composite
+    // strings is equivalent to sorting by (urn, aspect) because '|' is the separator and
+    // cannot appear in either field, so every transaction presents the keys in the same order
+    // (advisory locks can self-deadlock across transactions otherwise). Note: the SQL below
+    // re-sorts by hashtext(key) (the actual lock id) under an OFFSET 0 fence, which is what
+    // guarantees acquisition order; this Java sort is a best-effort pre-sort.
     final List<String> sortedKeys =
         urnAspects.entrySet().stream()
             .flatMap(e -> e.getValue().stream().map(a -> e.getKey() + ADVISORY_LOCK_KEY_SEP + a))
@@ -336,29 +341,28 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             return null;
           }
           // Acquire all advisory locks in ONE round trip with guaranteed acquisition
-          // order. The inner subquery sorts the keys and OFFSET 0 is an optimizer fence:
-          // it prevents the planner from flattening the subquery, so the Sort materializes
-          // BEFORE the outer SELECT evaluates pg_advisory_xact_lock. Without the fence,
-          // Postgres evaluates the SELECT-list function in scan order and only sorts the
-          // output afterward, so two transactions taking overlapping keys in different
-          // orders could ABBA-deadlock -- the exact failure this lock prevents. This is the
-          // community-accepted Postgres pattern for ordered batched advisory locks (see
-          // pgsql-general "Guarantee order of batched pg_advisory_xact_lock"). The keys are
-          // pre-sorted in Java too, so ORDER BY is belt-and-suspenders; OFFSET 0 is the real
-          // fence. pg_advisory_xact_lock is transaction-scoped and reentrant per session, so
-          // re-acquiring the same key within this transaction is a no-op.
-          final StringBuilder inner = new StringBuilder("select v.key from (values ");
+          // order. The inner subquery computes hashtext(key) (the actual int4 lock id)
+          // and sorts by THAT, and OFFSET 0 is an optimizer fence preventing the planner
+          // from flattening the subquery, so the Sort materializes BEFORE the outer SELECT
+          // evaluates pg_advisory_xact_lock. Ordering by the hash -- not the composite
+          // string -- is what makes hash collisions throughput-only: two batches whose
+          // distinct composites collide on the same int4 still acquire those ids in the
+          // same ascending order, so no ABBA deadlock. Ordering by the composite string
+          // would leave colliding hashes free to be acquired in opposite orders across
+          // batches. The outer SELECT locks on the pre-computed int4 (hashtext is not
+          // re-evaluated). pg_advisory_xact_lock is transaction-scoped and reentrant per
+          // session, so re-acquiring the same key within this transaction is a no-op.
+          final StringBuilder inner =
+              new StringBuilder("select hashtext(v.key) as h from (values ");
           for (int i = 0; i < sortedKeys.size(); i++) {
             if (i > 0) {
               inner.append(", ");
             }
             inner.append("(:k").append(i).append(")");
           }
-          inner.append(") as v(key) order by v.key offset 0");
+          inner.append(") as v(key) order by h offset 0");
           final String sql =
-              "select pg_advisory_xact_lock(:ns, hashtext(ordered.key)) from ("
-                  + inner
-                  + ") as ordered(key)";
+              "select pg_advisory_xact_lock(:ns, ordered.h) from (" + inner + ") as ordered(h)";
           final SqlQuery lockQuery =
               server.sqlQuery(sql.toString()).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
           for (int i = 0; i < sortedKeys.size(); i++) {
