@@ -17,6 +17,38 @@
  * a given feature name, regardless of how many tests request it; across
  * workers sharing a filesystem, exactly one of them actually performs it.
  *
+ * ── Local vs. CI: two different seeding strategies ──────────────────────────
+ *
+ * Locally, the lazy per-feature strategy above is fast for a dev iterating on
+ * one feature: only the current suite's `featureName` gets ingested.
+ *
+ * In CI (`process.env.CI === 'true'`), Playwright's `fullyParallel` scheduler
+ * groups tests onto workers by a hash of worker-scoped options — including
+ * `featureName`, which is set inconsistently across spec files — and shard
+ * assignment is now done per spec file (duration-based bin-packing) rather
+ * than by feature directory. That means a shard/worker can no longer assume
+ * "if a test doesn't declare featureName X, X's data was never needed here":
+ * a test can end up depending on another feature's fixture data purely by
+ * shard placement. So in CI, before the per-feature check above runs, a
+ * worker seeds EVERY feature's `tests/{featureName}/fixtures/data.json` up front —
+ * data locality no longer depends on which shard/worker a test lands on.
+ * See `seedAllFeaturesForCi`.
+ *
+ * Naively looping "ingest feature → wait 15s for the index → write state"
+ * over ~25 features would serialize 6+ minutes of pure waiting per shard,
+ * making CI slower. Instead the batch path ingests every pending feature
+ * back-to-back with NO per-feature wait (`ingestMcpsNoWait`), then performs
+ * ONE 15s index wait for the whole batch, then writes all state files —
+ * see `ingestMcps` vs. `ingestMcpsNoWait` below.
+ *
+ * The whole batch is itself guarded by a single withArtifactLock keyed to a
+ * `.seeded/_all-features.json` marker, so only one worker per shard performs
+ * it; siblings under `workers_per_shard > 1` poll for the marker instead of
+ * duplicating the batch. After the batch, the normal per-feature
+ * `withArtifactLock(stateFile, ...)` check still runs unconditionally — for a
+ * suite that also declares `featureName`, that state file was already
+ * written by the batch, so it short-circuits immediately at no extra cost.
+ *
  * NOTE: This fixture is intentionally worker-scoped.  Worker-scoped fixtures
  * cannot depend on test-scoped fixtures such as `logger`.  A dedicated logger
  * instance is created directly via createLogger() using workerInfo.workerIndex.
@@ -136,6 +168,15 @@ const TESTS_DIR = path.join(__dirname, '../tests');
 const GLOBAL_DATA_FILE = path.join(__dirname, '../test-data/data.json');
 const GLOBAL_FEATURE_NAME = 'global-data';
 
+/**
+ * Playwright fixture timeouts are static per-declaration (evaluated once at
+ * module load), not runtime-conditional on the current test — so the CI vs.
+ * local budget has to be computed here rather than inside the fixture body.
+ * CI seeds every feature in one batch (see module docstring); local dev only
+ * ever seeds the current suite's one feature.
+ */
+const SEED_TIMEOUT_MS = process.env.CI === 'true' ? 600_000 : 180_000;
+
 /** Shape written to the state file after a successful seed. */
 interface SeedState {
   featureName: string;
@@ -171,20 +212,41 @@ function dataFilePath(featureName: string): string {
   return path.join(TESTS_DIR, featureName, 'fixtures', 'data.json');
 }
 
+/** Wait for the search index to catch up. Shared by single-feature and batch ingestion. */
+async function waitForIndexCatchUp(logger: DataHubLogger): Promise<void> {
+  logger.info('waiting 15s for search index to catch up before marking seed complete');
+  await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+}
+
+/** Write the state file marking `featureName` as seeded. */
+function writeSeedState(featureName: string, entityCount: number): void {
+  const state: SeedState = {
+    featureName,
+    seededAt: new Date().toISOString(),
+    entityCount,
+  };
+  writeJsonAtomic(stateFilePath(featureName), state);
+}
+
 /**
- * Ingest MCPs from a data file into the GMS.
+ * Ingest MCPs from a data file into the GMS, WITHOUT waiting for the search
+ * index or writing the state file. Split out from `ingestMcps` so batch
+ * seeding (`seedAllFeaturesForCi`) can ingest many features back-to-back and
+ * pay the 15s index-catch-up wait exactly once for the whole batch, instead
+ * of once per feature.
  *
  * @param throwOnFailure - When true (default), throws if any entity fails.
  *   Set to false for optional/global data where partial ingestion is acceptable.
+ * @returns the number of MCPs ingested, for the caller to use when writing state.
  */
-async function ingestMcps(
+async function ingestMcpsNoWait(
   featureName: string,
   gmsToken: string,
   gmsBaseUrl: string,
   logger: DataHubLogger,
   explicitDataFile?: string,
   throwOnFailure = true,
-): Promise<void> {
+): Promise<number> {
   const dataFile = explicitDataFile ?? dataFilePath(featureName);
   if (!fs.existsSync(dataFile)) {
     throw new Error(`Seed data file not found: ${dataFile}\n` + `Expected: tests/${featureName}/fixtures/data.json`);
@@ -261,25 +323,92 @@ async function ingestMcps(
       await ingestComplexAspects(apiContext, gmsToken, complexAspects, logger);
     }
 
-    // Wait for the search index to catch up BEFORE marking this seed complete.
-    // The state file's mere existence is the fixture's signal that data is safe
-    // to read; writing it any earlier let workers that reuse it proceed against
-    // not-yet-indexed data.
-    logger.info('waiting 15s for search index to catch up before marking seed complete');
-    await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
-
-    // Write state file so other workers (and next runs) skip re-seeding.
-    // Written even on partial failures (when throwOnFailure=false) so we don't retry endlessly.
-    const state: SeedState = {
-      featureName,
-      seededAt: new Date().toISOString(),
-      entityCount: mcps.length,
-    };
-    writeJsonAtomic(stateFilePath(featureName), state);
-    logger.info('state saved', { featureName });
+    return mcps.length;
   } finally {
     await apiContext.dispose();
   }
+}
+
+/**
+ * Ingest a single feature's MCPs, then wait for the search index and write
+ * its state file. This is the original single-feature seeding path (local
+ * dev, and the CI per-feature short-circuit after the batch below) —
+ * `ingestMcpsNoWait` + `waitForIndexCatchUp` + `writeSeedState` composed for
+ * the one-feature-at-a-time case.
+ *
+ * @param throwOnFailure - When true (default), throws if any entity fails.
+ *   Set to false for optional/global data where partial ingestion is acceptable.
+ */
+async function ingestMcps(
+  featureName: string,
+  gmsToken: string,
+  gmsBaseUrl: string,
+  logger: DataHubLogger,
+  explicitDataFile?: string,
+  throwOnFailure = true,
+): Promise<void> {
+  const entityCount = await ingestMcpsNoWait(featureName, gmsToken, gmsBaseUrl, logger, explicitDataFile, throwOnFailure);
+  // Wait for the search index to catch up BEFORE marking this seed complete.
+  // The state file's mere existence is the fixture's signal that data is safe
+  // to read; writing it any earlier let workers that reuse it proceed against
+  // not-yet-indexed data.
+  await waitForIndexCatchUp(logger);
+  // Write state file so other workers (and next runs) skip re-seeding.
+  // Written even on partial failures (when throwOnFailure=false) so we don't retry endlessly.
+  writeSeedState(featureName, entityCount);
+  logger.info('state saved', { featureName });
+}
+
+/** Marker artifact for the CI batch-seed-everything path (see module docstring). */
+const ALL_FEATURES_MARKER_FILE = path.join(SEEDED_DIR, '_all-features.json');
+
+/** Feature directories under `tests/` that have their own `fixtures/data.json`. */
+function discoverFeatureNames(): string[] {
+  return fs
+    .readdirSync(TESTS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => fs.existsSync(dataFilePath(name)));
+}
+
+/**
+ * CI-only: seed every feature's fixture data in one batch, guarded by a
+ * single withArtifactLock so only one worker per shard performs it (see
+ * module docstring for why CI needs this instead of per-feature lazy
+ * seeding). Ingests every not-yet-seeded feature back-to-back with no
+ * per-feature wait, pays the 15s search-index wait exactly once for the
+ * whole batch, then writes each feature's state file before writing the
+ * marker file itself.
+ */
+async function seedAllFeaturesForCi(gmsToken: string, gmsBaseUrl: string, logger: DataHubLogger): Promise<void> {
+  await withArtifactLock(ALL_FEATURES_MARKER_FILE, async () => {
+    const featureNames = discoverFeatureNames();
+    const pending = featureNames.filter((name) => !fs.existsSync(stateFilePath(name)));
+
+    if (pending.length > 0) {
+      logger.info(`CI global seeding: batch-ingesting ${pending.length} feature(s)`, { features: pending });
+
+      const entityCounts: Array<[string, number]> = [];
+      for (const featureName of pending) {
+        // throwOnFailure=false: one bad feature's fixture shouldn't block seeding the rest
+        // for the whole shard — mirrors GLOBAL_DATA_FILE's non-blocking ingest below.
+        const entityCount = await ingestMcpsNoWait(featureName, gmsToken, gmsBaseUrl, logger, undefined, false);
+        entityCounts.push([featureName, entityCount]);
+      }
+
+      await waitForIndexCatchUp(logger);
+
+      for (const [featureName, entityCount] of entityCounts) {
+        writeSeedState(featureName, entityCount);
+      }
+    }
+
+    writeJsonAtomic(ALL_FEATURES_MARKER_FILE, {
+      seededAt: new Date().toISOString(),
+      featureCount: featureNames.length,
+    });
+    logger.info('CI global seeding complete', { featureCount: featureNames.length });
+  });
 }
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
@@ -326,11 +455,21 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
         logger.info('global data ready', { seededAt: state.seededAt, entityCount: state.entityCount });
       }
 
+      // CI: seed every feature up front, regardless of this suite's own featureName —
+      // shard placement can no longer be relied on to co-locate a test with the feature
+      // data it needs (see module docstring). Local dev never takes this branch.
+      if (process.env.CI === 'true') {
+        await seedAllFeaturesForCi(gmsToken, gmsUrl(), logger);
+      }
+
       if (!featureName) {
         await use();
         return;
       }
 
+      // In CI this is a no-op short-circuit: seedAllFeaturesForCi already wrote
+      // this feature's state file, so withArtifactLock's existence check returns
+      // immediately without re-ingesting.
       const stateFile = stateFilePath(featureName);
       await withArtifactLock(stateFile, () => ingestMcps(featureName, gmsToken, gmsUrl(), logger));
       const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
@@ -338,8 +477,10 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
 
       await use();
     },
-    // Generous ceiling: worst case one worker produces token + global + feature,
-    // each with ingest + a 15s ES index wait under withArtifactLock.
-    { auto: true, scope: 'worker', timeout: 180_000 },
+    // Local: worst case one worker produces token + global + one feature, each with
+    // ingest + a 15s ES index wait under withArtifactLock. CI: worst case one worker
+    // also produces the full batch seed of every feature (one shared 15s wait, see
+    // seedAllFeaturesForCi) before its own feature's now-instant short-circuit.
+    { auto: true, scope: 'worker', timeout: SEED_TIMEOUT_MS },
   ],
 });

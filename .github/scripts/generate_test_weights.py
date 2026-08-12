@@ -188,6 +188,46 @@ def parse_gradle_results(artifact_dir: Path) -> Dict[str, List[float]]:
     return test_durations
 
 
+def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
+    """
+    Parse Playwright JUnit XML files from multiple runs.
+
+    Playwright's junit reporter emits one flat <testsuite name="path/to/file.spec.ts"
+    time="22.9"> per spec file, relative to testDir -- no nested root suite to unwrap
+    (unlike Cypress).
+
+    Returns:
+        Dictionary mapping spec file paths to lists of durations across runs
+        Example: {"analytics/analytics.spec.ts": [22.9, 21.4, 23.1]}
+    """
+    test_durations: Dict[str, List[float]] = {}
+
+    xml_files = list(artifact_dir.rglob("junit.xml"))
+    print(f"Found {len(xml_files)} Playwright XML files")
+
+    for xml_file in xml_files:
+        try:
+            root = ET.parse(xml_file).getroot()
+            for testsuite in root.findall(".//testsuite"):
+                file_path = testsuite.get("name", "")
+                time_str = testsuite.get("time", "0")
+                if not file_path:
+                    continue
+                try:
+                    duration = float(time_str)
+                except ValueError:
+                    print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
+                    continue
+                if duration > 0:
+                    test_durations.setdefault(file_path, []).append(duration)
+        except ET.ParseError as e:
+            print(f"Warning: Failed to parse {xml_file}: {e}")
+        except Exception as e:
+            print(f"Warning: Error processing {xml_file}: {e}")
+
+    return test_durations
+
+
 def calculate_median_weights(
     test_durations: Dict[str, List[float]], key_name: str = "filePath"
 ) -> List[Dict]:
@@ -245,11 +285,24 @@ def main():
         required=False,
         help="Output path for Gradle test weights JSON (keyed by FQCN)",
     )
+    parser.add_argument(
+        "--playwright-output",
+        type=Path,
+        required=False,
+        help="Output path for Playwright test weights JSON (keyed by spec file path)",
+    )
 
     args = parser.parse_args()
 
-    if not (args.pytest_output or args.cypress_output or args.gradle_output):
-        parser.error("at least one of --pytest-output/--cypress-output/--gradle-output is required")
+    if not (
+        args.pytest_output
+        or args.cypress_output
+        or args.gradle_output
+        or args.playwright_output
+    ):
+        parser.error(
+            "at least one of --pytest-output/--cypress-output/--gradle-output/--playwright-output is required"
+        )
 
     if not args.input_dir.exists():
         print(f"Error: Input directory does not exist: {args.input_dir}")
@@ -279,6 +332,14 @@ def main():
         gradle_durations = parse_gradle_results(args.input_dir)
         print(f"Found {len(gradle_durations)} unique Gradle tests")
 
+    playwright_durations = {}
+    if args.playwright_output:
+        print("\n" + "=" * 60)
+        print("Parsing Playwright test results...")
+        print("=" * 60)
+        playwright_durations = parse_playwright_results(args.input_dir)
+        print(f"Found {len(playwright_durations)} unique Playwright spec files")
+
     print("\n" + "=" * 60)
     print("Calculating median weights...")
     print("=" * 60)
@@ -298,6 +359,11 @@ def main():
         if args.gradle_output
         else []
     )
+    playwright_weights = (
+        calculate_median_weights(playwright_durations, key_name="filePath")
+        if args.playwright_output
+        else []
+    )
 
     # Write output files
     print("\n" + "=" * 60)
@@ -308,6 +374,7 @@ def main():
         (args.cypress_output, cypress_weights, "Cypress"),
         (args.pytest_output, pytest_weights, "Pytest"),
         (args.gradle_output, gradle_weights, "Gradle"),
+        (args.playwright_output, playwright_weights, "Playwright"),
     ):
         if output_path is None:
             continue
