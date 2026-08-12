@@ -232,13 +232,32 @@ def test_unmapped_ol_dataset_follows_the_platform_case_default():
 
 
 def test_unmapped_ol_dataset_on_a_case_sensitive_platform_is_untouched():
-    """BigQuery is in PLATFORMS_WITH_CASE_SENSITIVE_TABLES, so its names pass through."""
+    """BigQuery is in PLATFORMS_WITH_CASE_SENSITIVE_TABLES, so its names pass through.
+
+    The namespace is bare "bigquery" (BIGQUERY_NAMESPACE in the Google provider), with the
+    project carried in the name — so passing the name through is what matches the
+    connector, and there is no authority to fold in.
+    """
     urn = translate_ol_to_datahub_urn(
-        OpenLineageDataset("bigquery://my-project", "MyDataset.MyTable"),
+        OpenLineageDataset("bigquery", "my-project.MyDataset.MyTable"),
         connections={},
     )
 
-    assert urn == _urn("bigquery", "MyDataset.MyTable")
+    assert urn == _urn("bigquery", "my-project.MyDataset.MyTable")
+
+
+def test_bigquery_writers_converge_despite_the_project_living_in_different_places():
+    """The Asset URI puts the project in the authority while OpenLineage puts it in the
+    name, so the two writers reach the same URN by different routes. Asserting it guards
+    against "fixing" one side into divergence."""
+    from_asset = translate_airflow_asset_to_urn(
+        FakeAsset("bigquery://my-project/MyDataset/MyTable"), connections={}
+    )
+    from_ol = translate_ol_to_datahub_urn(
+        OpenLineageDataset("bigquery", "my-project.MyDataset.MyTable"), connections={}
+    )
+
+    assert from_asset == from_ol == _urn("bigquery", "my-project.MyDataset.MyTable")
 
 
 def test_both_writers_converge_with_no_mapping_at_all():

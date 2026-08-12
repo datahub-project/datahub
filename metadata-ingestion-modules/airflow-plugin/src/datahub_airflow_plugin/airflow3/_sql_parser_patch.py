@@ -175,8 +175,12 @@ def _datahub_generate_openlineage_metadata_from_sql(
         platform_instance = (
             connection_detail.platform_instance if connection_detail else None
         )
-        if connection_detail is not None and connection_detail.env:
-            env = connection_detail.env
+        # Deliberately NOT applying the mapping's `env` here. With OpenLineage disabled
+        # (the default) these URNs are converted back into synthetic OpenLineage datasets
+        # further down and translated a second time using the plugin-wide cluster, so
+        # overriding env on only the first leg splits one table across two environments.
+        # platform_instance survives that round trip because DataHub encodes it as a
+        # prefix of the dataset name, which the conversion preserves.
 
         # Get the default database. database_info is a DatabaseInfo object
         # (dataclass/namedtuple), not a dict. The mapping's `database` is only a fallback

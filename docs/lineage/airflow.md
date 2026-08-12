@@ -209,7 +209,7 @@ Not every setting applies to every writer, though:
 | Setting                     | Asset URIs | OpenLineage | SQL parsing |
 | --------------------------- | ---------- | ----------- | ----------- |
 | `platform_instance`         | yes        | yes         | yes         |
-| `env`                       | yes        | yes         | yes         |
+| `env`                       | yes        | yes         | no          |
 | `convert_urns_to_lowercase` | yes        | yes         | no          |
 | `database`                  | yes        | n/a         | fallback    |
 | `platform`                  | yes        | yes         | no          |
@@ -272,7 +272,7 @@ Native Airflow Assets have the following limitations compared to using DataHub's
 
 2. **Settings are per connection, not per asset**: every Asset on a connection shares that entry's `platform_instance`, `env`, and naming. You cannot vary them for individual assets.
 
-3. **The URI shape has to match the platform's**: `db.schema.table` for snowflake/postgres, `db.table` for mysql, `project.dataset.table` for bigquery. A URI with a different number of segments still produces lineage, but logs a warning that the URN may be wrong.
+3. **The URI shape has to match the platform's**: `db.schema.table` for snowflake/postgres, `db.table` for mysql, `project.dataset.table` for bigquery. A URI with the wrong _number_ of segments still produces lineage, with a warning that the URN may be wrong — set `database` to supply a missing leading segment. A URI with **no** path after the connection authority (for example `snowflake://myacct`) has nothing to name a dataset from, so it is excluded from lineage instead, also with a warning.
 
 If you need `platform_instance` or per-asset environment control, use the DataHub entity classes instead:
 
