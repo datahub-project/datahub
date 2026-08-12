@@ -100,7 +100,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                   baseField.getFieldPath(),
                   baseDescription,
                   targetDescription))
-          .parameters(ImmutableMap.of("description", targetDescription))
+          // The schema history UI diffs the two values, so it cannot render the change without the
+          // previous one. Both are non-null here: the branches above handle either being absent.
+          .parameters(
+              ImmutableMap.of(
+                  "description", targetDescription, "previousDescription", baseDescription))
           .auditStamp(auditStamp)
           .build();
     }

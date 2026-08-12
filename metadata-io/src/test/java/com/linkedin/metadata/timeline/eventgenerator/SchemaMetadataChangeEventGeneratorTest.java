@@ -635,6 +635,39 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
   }
 
   @Test
+  public void testDescriptionChangeCarriesPreviousValue() throws Exception {
+    // The schema history UI renders documentation as a diff between the previous and the new value,
+    // so a MODIFY carrying only the new value cannot be displayed at all. The dataset properties
+    // generators already emit both.
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("id")
+                    .setNativeDataType("int")
+                    .setDescription("old doc")));
+    Aspect<SchemaMetadata> to =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField()
+                    .setFieldPath("id")
+                    .setNativeDataType("int")
+                    .setDescription("new doc")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to, auditStamp);
+    assertEquals(1, actual.size());
+    Map<String, Object> parameters = actual.get(0).getParameters();
+    assertEquals(parameters.get("description"), "new doc");
+    assertEquals(parameters.get("previousDescription"), "old doc");
+  }
+
+  @Test
   public void testSchemaFieldPrimaryKeyChange() throws Exception {
     // When a rename cannot be detected, treated as drop -> add
     SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
