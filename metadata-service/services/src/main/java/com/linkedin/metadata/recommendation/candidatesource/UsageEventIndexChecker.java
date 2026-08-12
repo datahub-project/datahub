@@ -30,22 +30,17 @@ public class UsageEventIndexChecker {
     if (cached != null) {
       return cached;
     }
-    synchronized (UsageEventIndexChecker.class) {
-      if (USAGE_INDEX_EXISTS != null) {
-        return USAGE_INDEX_EXISTS;
-      }
-      try {
-        boolean exists =
-            searchClient.indexExists(
-                opContext,
-                new GetIndexRequest(indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX)),
-                RequestOptions.DEFAULT);
-        USAGE_INDEX_EXISTS = exists;
-        return exists;
-      } catch (IOException e) {
-        log.error("Failed to check whether DataHub usage index exists");
-        return false;
-      }
+    try {
+      boolean exists =
+          searchClient.indexExists(
+              opContext,
+              new GetIndexRequest(indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX)),
+              RequestOptions.DEFAULT);
+      USAGE_INDEX_EXISTS = exists;
+      return exists;
+    } catch (IOException e) {
+      log.error("Failed to check whether DataHub usage index exists");
+      return false;
     }
   }
 }
