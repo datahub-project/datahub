@@ -1,0 +1,12 @@
+{
+  "value": [
+    {
+      "name": "SAP.TIME.VIEW_DIMENSION_DAY",
+      "label": "Time Dimension - Day",
+      "spaceName": "DEMO_SPACE",
+      "assetRelationalMetadataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_DAY/$metadata",
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    }
+  ]
+}

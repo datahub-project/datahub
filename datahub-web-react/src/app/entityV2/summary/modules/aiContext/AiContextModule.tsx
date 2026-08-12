@@ -38,16 +38,14 @@ const ExampleItem = styled.li`
 `;
 
 type EntityDataWithAiContext = {
-    info?: {
-        aiContext?: AiContext | null;
-    } | null;
+    aiContext?: AiContext | null;
 };
 
 export default function AiContextModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
 
-    const aiContext = (entityData as EntityDataWithAiContext)?.info?.aiContext;
+    const aiContext = (entityData as EntityDataWithAiContext)?.aiContext;
 
     if (!aiContext) {
         return null;

@@ -20,14 +20,13 @@ import {
     Entity,
     EntityType,
     ErModelRelationshipCardinality,
-    ModelDataset,
     SemanticModelRelationship,
 } from '@types';
 
 type EntityDataWithRelationships = {
     platform?: DataPlatform | null;
     info?: {
-        datasets?: ModelDataset[] | null;
+        datasets?: Dataset[] | null;
         relationships?: SemanticModelRelationship[] | null;
     } | null;
 };
@@ -171,8 +170,10 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     const fallbackPlatform = typedData?.platform;
 
     const datasetsByName = useMemo(() => {
-        const map = new Map<string, ModelDataset>();
-        (typedData?.info?.datasets ?? []).forEach((dataset) => map.set(dataset.name, dataset));
+        const map = new Map<string, Dataset>();
+        (typedData?.info?.datasets ?? []).forEach((dataset) =>
+            map.set(dataset.semanticModelProperties?.alias || dataset.name, dataset),
+        );
         return map;
     }, [typedData?.info?.datasets]);
 
@@ -193,10 +194,8 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
             {relationships.map((rel, idx) => {
                 const fromDataset = datasetsByName.get(rel.from);
                 const toDataset = datasetsByName.get(rel.to);
-                const fromSource = fromDataset?.source as Dataset | undefined;
-                const toSource = toDataset?.source as Dataset | undefined;
-                const fromPlatform = fromSource?.platform ?? fallbackPlatform;
-                const toPlatform = toSource?.platform ?? fallbackPlatform;
+                const fromPlatform = fromDataset?.platform ?? fallbackPlatform;
+                const toPlatform = toDataset?.platform ?? fallbackPlatform;
 
                 const label = rel.cardinality
                     ? t(CARDINALITY_LABEL_KEYS[rel.cardinality], CARDINALITY_LABELS_FALLBACK[rel.cardinality])
@@ -210,7 +209,7 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
                             datasetName={rel.from}
                             columns={rel.fromColumns}
                             platform={fromPlatform}
-                            source={fromSource}
+                            source={fromDataset}
                             align="left"
                         />
                         <CardinalityCell>{label && <Pill label={label} color={color} size="sm" />}</CardinalityCell>
@@ -218,7 +217,7 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
                             datasetName={rel.to}
                             columns={rel.toColumns}
                             platform={toPlatform}
-                            source={toSource}
+                            source={toDataset}
                             align="right"
                         />
                     </RelationshipRow>

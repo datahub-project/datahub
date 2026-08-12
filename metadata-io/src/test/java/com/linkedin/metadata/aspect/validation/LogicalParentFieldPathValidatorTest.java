@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.eq;
@@ -23,6 +24,7 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.mockito.Mockito;
@@ -138,6 +140,48 @@ public class LogicalParentFieldPathValidatorTest {
     List<AspectValidationException> exceptions =
         validator
             .validateProposedAspects(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
+
+    Assert.assertTrue(exceptions.isEmpty());
+    Mockito.verifyNoInteractions(mockAspectRetriever);
+  }
+
+  /** A parent edge set via patch is validated from the patch's own value at the request stage. */
+  @Test
+  public void testPatchParentEdgeValidated() {
+    stubSchema(CHILD_DATASET, "id");
+    stubSchema(PARENT_DATASET, "other");
+
+    Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(CHILD_DATASET, "id");
+    Urn parentFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(PARENT_DATASET, "id");
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/parent\",\"value\":{\"destinationUrn\":\""
+            + parentFieldUrn
+            + "\"}}]";
+
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposedAspects(
+                OperationFingerprint.EMPTY,
+                List.of(TestPatchMCP.of(childFieldUrn, LOGICAL_PARENT_ASPECT_NAME, ops)),
+                retrieverContext)
+            .toList();
+
+    // parent field "id" does not exist on the parent schema
+    Assert.assertFalse(exceptions.isEmpty());
+  }
+
+  @Test
+  public void testPatchRemoveIgnored() {
+    String ops = "[{\"op\":\"remove\",\"path\":\"/parent\"}]";
+    Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(CHILD_DATASET, "id");
+
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposedAspects(
+                OperationFingerprint.EMPTY,
+                List.of(TestPatchMCP.of(childFieldUrn, LOGICAL_PARENT_ASPECT_NAME, ops)),
+                retrieverContext)
             .toList();
 
     Assert.assertTrue(exceptions.isEmpty());

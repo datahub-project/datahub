@@ -7,6 +7,7 @@ import { MetricsTreeItem } from '@app/metrics/MetricsTreeItem';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import { MetricEntity, SemanticModel } from '@app/metrics/metricsTypes';
 import useMetricChildren from '@app/metrics/useMetricChildren';
+import { DEFAULT_METRICS_SIDEBAR_SORT, MetricsSidebarSortValue } from '@app/metrics/utils/metricsSidebarSort';
 import { PageRoutes } from '@conf/Global';
 
 export type SemanticModelRowProps = {
@@ -15,6 +16,7 @@ export type SemanticModelRowProps = {
     isSelected: boolean;
     expandedMetricUrns: Set<string>;
     selectedUrn: string | null;
+    sort?: MetricsSidebarSortValue;
     onToggle: () => void;
     onToggleMetric: (urn: string) => void;
 };
@@ -25,12 +27,14 @@ export function SemanticModelRow({
     isSelected,
     expandedMetricUrns,
     selectedUrn,
+    sort = DEFAULT_METRICS_SIDEBAR_SORT,
     onToggle,
     onToggleMetric,
 }: SemanticModelRowProps) {
     const history = useHistory();
     const { entityData } = useMetricsEntityContext();
     const hasChildren = (model.metrics?.total ?? 0) > 0;
+    const childCount = model.metrics?.total ?? 0;
 
     // Auto-expand when navigating to a metric that belongs to this semantic model.
     useEffect(() => {
@@ -39,11 +43,12 @@ export function SemanticModelRow({
             onToggle();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityData, model.urn, isExpanded]);
+    }, [entityData?.urn, entityData?.semanticModel?.urn, model.urn]);
 
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'model', modelUrn: model.urn },
         skip: !isExpanded || !hasChildren,
+        sort,
     });
 
     const metrics = data as MetricEntity[];
@@ -58,6 +63,7 @@ export function SemanticModelRow({
                 title={modelTitle}
                 isSelected={isSelected}
                 hasChildren={hasChildren}
+                childCount={childCount}
                 isExpanded={isExpanded}
                 onClick={() => history.push(`${PageRoutes.SEMANTIC_MODEL_ENTITY}/${encodeURIComponent(model.urn)}`)}
                 onToggleExpand={hasChildren ? onToggle : undefined}
@@ -73,6 +79,7 @@ export function SemanticModelRow({
                         isSelected={selectedUrn === metric.urn}
                         expandedMetricUrns={expandedMetricUrns}
                         selectedUrn={selectedUrn}
+                        sort={sort}
                         onToggle={() => onToggleMetric(metric.urn)}
                         onToggleMetric={onToggleMetric}
                     />

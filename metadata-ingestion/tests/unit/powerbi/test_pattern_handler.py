@@ -267,10 +267,12 @@ def test_create_lineage_from_query_skips_warning_when_sql_is_qualified():
     )
 
 
-def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns():
+def test_create_lineage_from_query_threads_oracle_default_schema():
     """When the resolver returns ``OraclePlatformDetail(default_schema='hr')``,
-    ``parse_custom_sql`` must be called with ``schema='hr'`` and the returned
-    column_lineage must be remapped to PowerBI field casing."""
+    ``parse_custom_sql`` must be called with ``schema='hr'`` (and the resolved
+    detail threaded through), and its result returned unchanged. The downstream
+    column remap now lives inside ``parse_custom_sql`` itself, covered by
+    ``test_parse_custom_sql_remaps_downstream_columns_to_pbi_field_casing``."""
     config = _build_config(enable_advance_lineage_sql_construct=True)
     pbi_columns = [
         Column(
@@ -331,17 +333,59 @@ def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns
     # parse_custom_sql so the resolver isn't re-run inside it.
     assert kwargs["platform_detail"] is oracle_detail
 
-    assert result.upstreams == parsed_lineage.upstreams
-    assert len(result.column_lineage) == 1
-    # _remap_column_lineage_to_pbi_fields restores the PowerBI field casing.
-    assert result.column_lineage[0].downstream.column == "EMPLOYEE_ID"
-    # Upstream casing must be preserved (Oracle stores lowercase).
-    assert result.column_lineage[0].upstreams[0].column == "employee_id"
+    # _create_lineage_from_query delegates to parse_custom_sql and returns its
+    # result verbatim (the remap happens inside parse_custom_sql, mocked here).
+    assert result is parsed_lineage
 
     # Unqualified-table SQL was parsed, but with default_schema set the
     # missing-default_schema warning must NOT fire.
     warning_titles = [entry.title for entry in instance.reporter.warnings]
     assert not any("default_schema" in (t or "") for t in warning_titles)
+
+
+def test_parse_custom_sql_remaps_downstream_columns_to_pbi_field_casing():
+    """parse_custom_sql (the shared SQL-parsing path used by native-query, ODBC,
+    Oracle, and the two/three-step patterns) must remap the parsed downstream
+    column from the SQL alias' casing to the PowerBI field's casing, so the
+    downstream schemaField URN resolves to a real field."""
+    config = _build_config(enable_advance_lineage_sql_construct=True)
+    pbi_columns = [
+        Column(
+            name="EmployeeId",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        )
+    ]
+    instance = _build_oracle_lineage(config=config, columns=pbi_columns)
+
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    parsed_result = MagicMock()
+    parsed_result.in_tables = [upstream_urn]
+    parsed_result.debug_info = None
+    parsed_result.column_lineage = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="employeeid"),
+            upstreams=[ColumnRef(table=upstream_urn, column="employeeid")],
+        )
+    ]
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.pattern_handler."
+        "native_sql_parser.parse_custom_sql",
+        return_value=parsed_result,
+    ):
+        result = instance.parse_custom_sql(
+            query="SELECT employeeid FROM hr.employees",
+            server="server",
+            database=None,
+            schema="hr",
+            platform_detail=PlatformDetail(),
+        )
+
+    assert len(result.column_lineage) == 1
+    # SQL alias casing ("employeeid") remapped to the PowerBI field ("EmployeeId").
+    assert result.column_lineage[0].downstream.column == "EmployeeId"
 
 
 # ---------------------------------------------------------------------------

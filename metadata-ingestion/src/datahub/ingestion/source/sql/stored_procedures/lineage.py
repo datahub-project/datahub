@@ -1,7 +1,6 @@
 import logging
 import re
 import uuid
-from dataclasses import dataclass
 from typing import Callable, List, Optional, Set, Tuple
 
 import sqlglot
@@ -11,6 +10,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, make_data_job_urn
 from datahub.ingestion.source.sql.stored_procedures.constants import (
     STORED_PROCEDURES_CONTAINER,
 )
+from datahub.ingestion.source.sql.stored_procedures.models import ProcedureCall
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
 from datahub.sql_parsing.query_types import get_query_type_of_sql
@@ -65,15 +65,6 @@ _BLOCK_CLOSER_RE = re.compile(
 )
 
 
-@dataclass(frozen=True)
-class _ProcedureCall:
-    """A reference to a stored procedure invoked from another procedure body."""
-
-    database: Optional[str]
-    schema: Optional[str]
-    name: str
-
-
 def _strip_identifier_quotes(ident: str) -> str:
     """Drop surrounding ``[]``, ``""``, or backtick quoting from an identifier."""
     if len(ident) >= 2 and ident[0] == ident[-1] and ident[0] in ('"', "`"):
@@ -83,7 +74,7 @@ def _strip_identifier_quotes(ident: str) -> str:
     return ident
 
 
-def _parse_call_target(literal: str) -> Optional[_ProcedureCall]:
+def _parse_call_target(literal: str) -> Optional[ProcedureCall]:
     """Parse the ``CALL <name>...`` / ``EXEC <name>...`` literal sqlglot hands us.
 
     Returns ``None`` when the literal isn't recognisably a procedure call (e.g.
@@ -100,15 +91,15 @@ def _parse_call_target(literal: str) -> Optional[_ProcedureCall]:
     ]
 
     if len(parts) == 1:
-        return _ProcedureCall(database=None, schema=None, name=parts[0])
+        return ProcedureCall(database=None, db_schema=None, name=parts[0])
     if len(parts) == 2:
         # Caller resolves the leading qualifier against default_db / default_schema
         # based on whether the source is two-tier or three-tier.
-        return _ProcedureCall(database=None, schema=parts[0], name=parts[1])
-    return _ProcedureCall(database=parts[0], schema=parts[1], name=parts[2])
+        return ProcedureCall(database=None, db_schema=parts[0], name=parts[1])
+    return ProcedureCall(database=parts[0], db_schema=parts[1], name=parts[2])
 
 
-def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[_ProcedureCall]:
+def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[ProcedureCall]:
     """Return the called procedure for a CALL/EXEC statement, or ``None``.
 
     Handles two shapes sqlglot produces depending on dialect:
@@ -122,11 +113,11 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[_Procedu
     if isinstance(parsed, sqlglot.exp.Execute):
         target = parsed.this
         if isinstance(target, sqlglot.exp.Table):
-            return _ProcedureCall(
+            return ProcedureCall(
                 database=target.args["catalog"].name
                 if target.args.get("catalog")
                 else None,
-                schema=target.args["db"].name if target.args.get("db") else None,
+                db_schema=target.args["db"].name if target.args.get("db") else None,
                 name=target.name,
             )
         return None
@@ -145,7 +136,7 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[_Procedu
 
 def _build_call_datajob_urn(
     *,
-    call: _ProcedureCall,
+    call: ProcedureCall,
     schema_resolver: SchemaResolver,
     default_db: Optional[str],
     default_schema: Optional[str],
@@ -169,12 +160,12 @@ def _build_call_datajob_urn(
 
     if is_two_tier:
         # In two-tier, the schema slot doesn't exist. Anything the parser put
-        # in ``call.schema`` is really a database qualifier.
-        database = call.database or call.schema or default_db
+        # in ``call.db_schema`` is really a database qualifier.
+        database = call.database or call.db_schema or default_db
         schema: Optional[str] = None
     else:
         database = call.database or default_db
-        schema = call.schema or default_schema
+        schema = call.db_schema or default_schema
 
     if not database and not schema:
         # Can't compose a flow URN with nothing — skip silently.
@@ -249,16 +240,16 @@ def _classify_statements(
     dialect: Dialect,
     platform: str,
     procedure_name: Optional[str],
-) -> Tuple[List[str], List[_ProcedureCall]]:
+) -> Tuple[List[str], List[ProcedureCall]]:
     """Classify each statement as DML, a procedure call, or neither.
 
     Returns ``(dml_statements, procedure_calls)``. DML statements are returned
     as the original SQL strings so the aggregator can re-parse them in its
-    own context; procedure calls are returned as structured ``_ProcedureCall``
+    own context; procedure calls are returned as structured ``ProcedureCall``
     records so the caller can resolve them to DataJob URNs.
     """
     dml_statements: List[str] = []
-    procedure_calls: List[_ProcedureCall] = []
+    procedure_calls: List[ProcedureCall] = []
 
     for stmt in statements:
         stmt_stripped = stmt.strip()

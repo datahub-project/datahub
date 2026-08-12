@@ -4,12 +4,13 @@ import os
 from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
-from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
@@ -21,19 +22,18 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class ProfilingMethodConfig(ConfigModel):
-    """Base class for profiling configs that support method selection."""
+class ProfilingIsolationLevel(StrEnum):
+    AUTOCOMMIT = "AUTOCOMMIT"
+    READ_COMMITTED = "READ COMMITTED"
+    REPEATABLE_READ = "REPEATABLE READ"
+    SERIALIZABLE = "SERIALIZABLE"
 
-    method: Literal["ge", "sqlalchemy"] = Field(
-        default="sqlalchemy",
-        description=(
-            "Profiling method to use. "
-            "`sqlalchemy` (default) runs profiling queries directly against your "
-            "source's existing SQLAlchemy connection. "
-            "`ge` selects the legacy Great Expectations profiler, which is "
-            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
-        ),
-    )
+
+class ProfilingMethodConfig(ConfigModel):
+    # `method` used to select between the SQLAlchemy and the (now removed) Great
+    # Expectations profiler. SQLAlchemy is the only SQL profiler, so the field is
+    # gone; recipes that still set it are ignored with a deprecation warning.
+    _method_removed = pydantic_removed_field("method", month="August", year=2026)
 
 
 class GEProfilingBaseConfig(ProfilingMethodConfig):
@@ -189,6 +189,42 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
+
+    # Isolation level applied to the profiling connection. None (the default)
+    # sets nothing, so the connection keeps the driver default and the whole
+    # table profile runs under one transaction. AUTOCOMMIT makes each profiling
+    # SELECT self-contained, at the cost of cross-statement snapshot consistency.
+    profiling_isolation_level: Annotated[
+        Optional[ProfilingIsolationLevel], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Isolation level for the profiling connection. Defaults to unset, so "
+            "the connection keeps the driver default and one transaction spans the "
+            "whole table profile. Set AUTOCOMMIT if profiling is holding Postgres "
+            "idle-in-transaction (blocking VACUUM) or pinning an InnoDB read view "
+            "and growing the undo log on MySQL; each profiling SELECT then runs on "
+            "its own. Under AUTOCOMMIT or READ_COMMITTED, metrics come from "
+            "different snapshots, so a profile can be internally inconsistent on a "
+            "concurrently-written table (e.g. uniqueCount > rowCount). On MySQL "
+            "InnoDB, REPEATABLE_READ keeps a consistent snapshot; on Postgres, "
+            "READ COMMITTED already takes a fresh snapshot per statement, so "
+            "AUTOCOMMIT loses no consistency there."
+        ),
+    )
+
+    @field_validator("profiling_isolation_level", mode="before")
+    @classmethod
+    def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
+        # Accept case/underscore variants (read_committed → READ COMMITTED) so the
+        # enum rejects typos at config-parse time while still matching the SQL
+        # standard names with spaces. Empty/whitespace → None (leave unset).
+        if value is None or isinstance(value, ProfilingIsolationLevel):
+            return value
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().upper().replace("_", " ")
+        return normalized or None
 
     partition_profiling_enabled: Annotated[
         bool, SupportedSources(["athena", "bigquery"])

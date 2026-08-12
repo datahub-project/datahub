@@ -36,10 +36,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -479,25 +481,48 @@ public class EbeanPostgresMetadataQueueStoreIT {
   @Test
   public void ensureContentTypeRegistered_uniqueViolationStillResolves() throws Exception {
     String mime = "application/concurrent-" + UUID.randomUUID();
+    String topicA = "topic_a_" + UUID.randomUUID();
+    String topicB = "topic_b_" + UUID.randomUUID();
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch start = new CountDownLatch(1);
+    AtomicReference<Throwable> firstError = new AtomicReference<>();
+    AtomicReference<Throwable> secondError = new AtomicReference<>();
     ExecutorService pool = Executors.newFixedThreadPool(2);
     try {
       Future<?> first =
           pool.submit(
-              () ->
-                  store.ensureTopic(
-                      "topic_a_" + UUID.randomUUID(),
-                      new QueueTopicDefaults(4, 0, 0L, 0L, false, mime)));
+              () -> {
+                ready.countDown();
+                try {
+                  Assert.assertTrue(start.await(30, TimeUnit.SECONDS));
+                  store.ensureTopic(topicA, new QueueTopicDefaults(4, 0, 0L, 0L, false, mime));
+                } catch (Throwable t) {
+                  firstError.set(t);
+                }
+              });
       Future<?> second =
           pool.submit(
-              () ->
-                  store.ensureTopic(
-                      "topic_b_" + UUID.randomUUID(),
-                      new QueueTopicDefaults(4, 0, 0L, 0L, false, mime)));
+              () -> {
+                ready.countDown();
+                try {
+                  Assert.assertTrue(start.await(30, TimeUnit.SECONDS));
+                  store.ensureTopic(topicB, new QueueTopicDefaults(4, 0, 0L, 0L, false, mime));
+                } catch (Throwable t) {
+                  secondError.set(t);
+                }
+              });
+      Assert.assertTrue(ready.await(30, TimeUnit.SECONDS));
+      start.countDown();
       first.get(60, TimeUnit.SECONDS);
       second.get(60, TimeUnit.SECONDS);
+      Assert.assertNull(firstError.get(), "first ensureTopic failed: " + firstError.get());
+      Assert.assertNull(secondError.get(), "second ensureTopic failed: " + secondError.get());
       Assert.assertEquals(countContentTypeRowsForMime(mime), 1);
+      Assert.assertEquals(topicDefaultContentTypeMime(topicA), mime);
+      Assert.assertEquals(topicDefaultContentTypeMime(topicB), mime);
     } finally {
-      pool.shutdownNow();
+      pool.shutdown();
+      Assert.assertTrue(pool.awaitTermination(30, TimeUnit.SECONDS));
     }
   }
 
@@ -1324,6 +1349,23 @@ public class EbeanPostgresMetadataQueueStoreIT {
       try (ResultSet rs = ps.executeQuery()) {
         rs.next();
         return rs.getInt(1);
+      }
+    }
+  }
+
+  private String topicDefaultContentTypeMime(String topicName) throws Exception {
+    try (Connection c = database.dataSource().getConnection();
+        PreparedStatement ps =
+            c.prepareStatement(
+                "SELECT ct.mime FROM "
+                    + names.qualifiedTopic()
+                    + " t JOIN "
+                    + names.qualifiedContentType()
+                    + " ct ON ct.id = t.default_content_type_id WHERE t.topic_name = ?")) {
+      ps.setString(1, topicName);
+      try (ResultSet rs = ps.executeQuery()) {
+        Assert.assertTrue(rs.next(), "topic missing: " + topicName);
+        return rs.getString(1);
       }
     }
   }

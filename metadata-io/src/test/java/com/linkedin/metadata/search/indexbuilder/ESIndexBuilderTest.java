@@ -909,6 +909,33 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testApplyMappings_WithInPlaceMappingParameterUpdate() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(false);
+    when(indexState.isPureStructuredPropertyAddition()).thenReturn(false);
+    when(indexState.isInPlaceMappingParameterUpdate()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(putMappingResponse);
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
   void testBuildIndex_HandlesOpenSearchStatusException() throws IOException {
     // Setup
     ReindexConfig indexState = mock(ReindexConfig.class);
@@ -1699,10 +1726,7 @@ public class ESIndexBuilderTest {
     when(healthResponse.getIndices()).thenReturn(healthMap);
 
     AtomicInteger count = new AtomicInteger();
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             inv -> {
               // Throw IOException on second call (index health check), not first (data node count)
@@ -1715,10 +1739,7 @@ public class ESIndexBuilderTest {
     indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     verify(searchClient, atLeast(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1737,10 +1758,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should NOT throw - YELLOW with all primaries active is acceptable
@@ -1749,10 +1767,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private Map<String, Object> createTestTargetSettings() {
@@ -1775,10 +1790,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should not throw
@@ -1786,10 +1798,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called exactly once
     verify(searchClient, times(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1803,10 +1812,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(3);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw IOException
@@ -1826,10 +1832,7 @@ public class ESIndexBuilderTest {
     // Verify clusterHealth was called at least once (retry logic may try multiple times)
     // But the first response already indicates RED, so we expect few retries
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1844,10 +1847,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(2);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw RuntimeException
@@ -1867,10 +1867,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private ClusterHealthResponse createMockClusterHealthResponse(
@@ -1933,6 +1930,141 @@ public class ESIndexBuilderTest {
   }
 
   // --- Incremental reindex tests ---
+
+  /** Shared poll-completion fixture: zero-retry builder + fixed dest count for both indices. */
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount) throws IOException {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(0)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
+
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(destDocCount);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void stubReindexTaskCompleted(boolean completed) throws IOException {
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenReturn(completed);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(task));
+  }
+
+  /**
+   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
+   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
+   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
+      throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(900L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(), "A completed-but-short reindex must be reported as not completed");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * Mid-copy false positive: dest has already reached the expected count but the ES task is still
+   * running. Poll must not complete — otherwise the launch-time swap gate would accept a partial
+   * copy.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskRunning_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts while the reindex task is still running must not complete");
+  }
+
+  /** Counts match and the ES task reports completed — poll succeeds. */
+  @Test
+  void testPollReindexCompletion_countsMatchAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Matching counts with a completed task must complete");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+  }
+
+  /**
+   * Destination overshoot after the ES task finishes (writes between launch-time snapshot and
+   * scroll open) must complete — otherwise busy-index ZDU Phase 1 times out forever.
+   */
+  @Test
+  void testPollReindexCompletion_destOvershootAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1005L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Completed task with dest > expected must complete");
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1005L));
+  }
+
+  /**
+   * Transient getTask failures must not complete on matching counts alone — that reopens the
+   * mid-copy false-complete hole.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskLookupError_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("connection reset"));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts during a transient task-status lookup failure must not complete");
+  }
 
   @Test
   void testExtractTargetShards() {

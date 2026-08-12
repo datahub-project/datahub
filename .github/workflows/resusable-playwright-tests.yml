@@ -51,6 +51,11 @@ on:
         required: false
         type: boolean
         default: false
+      workers_per_shard:
+        description: "Number of Playwright workers per shard. Defaults to 1; values above 1 share the shard's stack and filesystem."
+        required: false
+        type: string
+        default: "1"
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -60,7 +65,7 @@ jobs:
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           restore-keys: playwright-${{ runner.os }}-yarn-
 
       - name: Check out the repo
@@ -72,7 +77,7 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
+          distribution: "temurin"
           java-version: 21
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
@@ -99,6 +104,14 @@ jobs:
           docker images
 
       # Path 2: Build images in the job
+      - id: uv-creds
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images (fork — no depot cache)
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
         timeout-minutes: 60
@@ -107,10 +120,11 @@ jobs:
           BUILD_TASK: ${{ inputs.image_build_task }}
           DATAHUB_VERSION: ${{ inputs.datahub_version }}
           LOCAL_BUILD_FLAGS: ${{ inputs.local_build_flags }}
+          UV_DOCKER_PROFILE: ${{ steps.uv-creds.outputs.uv_profile }}
         run: |
           echo "Using build task: $BUILD_TASK"
           read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
-          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
+          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" -Pdatahub.dependencies.python.uvDockerProfile="$UV_DOCKER_PROFILE" "${extra_flags[@]}"
           docker images
 
       # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
@@ -160,9 +174,12 @@ jobs:
           PLAYWRIGHT_REUSE_SERVER: "1"
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
         run: |
+          echo "Running Playwright shard $SHARD/$SHARD_COUNT at $WORKERS_PER_SHARD worker(s)"
           npx playwright test \
-            --shard="$SHARD/$SHARD_COUNT"
+            --shard="$SHARD/$SHARD_COUNT" \
+            --workers="$WORKERS_PER_SHARD"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -259,4 +276,4 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}

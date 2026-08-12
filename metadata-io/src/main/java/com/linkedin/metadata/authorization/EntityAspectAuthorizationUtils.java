@@ -95,6 +95,32 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
+   * Returns true when the actor may view {@code schemaFieldUrn}. Schema fields inherit VIEW from
+   * the containing parent URN encoded in the schemaField key (typically a dataset), then fall back
+   * to a direct grant on the schemaField URN itself.
+   *
+   * <p>Uses {@link #resolveLogicalParentAuthorizationCandidates(Urn)} so write and view paths share
+   * the same parent resolution. Non-schemaField URNs are checked directly via {@link
+   * com.datahub.authorization.AuthUtil#canViewEntity}.
+   */
+  public static boolean canViewSchemaFieldEntity(
+      @Nonnull AuthorizationSession session, @Nonnull Urn schemaFieldUrn) {
+    if (!SCHEMA_FIELD_ENTITY_NAME.equals(schemaFieldUrn.getEntityType())) {
+      return com.datahub.authorization.AuthUtil.canViewEntity(session, schemaFieldUrn);
+    }
+    for (Urn candidate : resolveLogicalParentAuthorizationCandidates(schemaFieldUrn)) {
+      if (com.datahub.authorization.AuthUtil.canViewEntity(session, candidate)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static boolean isSchemaFieldEntity(@Nonnull Urn urn) {
+    return SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType());
+  }
+
+  /**
    * Returns true when the actor may write {@code logicalParent} on {@code childUrn}. Setting a
    * parent requires {@code EDIT_ENTITY} on both the child and proposed parent — each side is
    * evaluated independently (dataset or schema field URN for that side). Clearing a parent requires

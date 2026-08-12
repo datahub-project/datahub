@@ -42,8 +42,14 @@ env:
       {
         "key": "OBS",
         "team_id": "1a592e48-d6ba-4b92-a241-8172b568e9bb",
-        "assignee_id": "2bd2434a-cf1e-47a4-8243-0e77ed19faf7",
-        "description": "Data Quality and Assertions. Any PR touching the Assertions codebase belongs to this team."
+        "assignee_id": "f81f2754-6338-467c-9c91-a12e727b4c36",
+        "description": "Data Quality and Assertions. Any PR touching the Assertions/Monitors or Incidents codebase belongs to this team."
+      },
+      {
+        "key": "OSS",
+        "team_id": "952ee4f2-e3eb-4580-98e3-67c2b73a5c51",
+        "assignee_id": "48f94188-01fa-4ab6-bcbd-153bf769198f",
+        "description": "Fallback for PRs/issues that do not clearly belong to an engineering team (docs, community, misc). Assigned to DevRel for triage."
       }
     ]
 
@@ -164,7 +170,8 @@ jobs:
             FILES_LIST=""
           fi
 
-          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | "- " + .key + ": " + .description')
+          # Exclude OSS from LLM choices — it is the code-side fallback only
+          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | select(.key != "OSS") | "- " + .key + ": " + .description')
 
           PROMPT=$(cat <<PROMPT_EOF
           You are routing a GitHub PR to the correct engineering team for review. Based on the PR details below, respond with ONLY the team key (e.g. ING, CAT, PFP), or NONE if it doesn't clearly belong to any team.
@@ -203,21 +210,27 @@ jobs:
           echo ""
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
-            echo "🤷 Would route to: NONE (no matching team)"
+            echo "⚠️  No matching engineering team — would fall back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
+          fi
+
+          TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+          if [ -z "$TEAM_CONFIG" ]; then
+            echo "⚠️  Claude returned unrecognized key: $TEAM_KEY — would fall back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
+            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+          fi
+
+          if [ -z "$TEAM_CONFIG" ]; then
+            echo "❌ OSS fallback config missing from LINEAR_TEAM_CONFIG"
             echo "team_key=" >> "$GITHUB_OUTPUT"
           else
-            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
-            if [ -z "$TEAM_CONFIG" ]; then
-              echo "⚠️  Claude returned unrecognized key: $TEAM_KEY"
-              echo "team_key=" >> "$GITHUB_OUTPUT"
-            else
-              echo "✅ Would route to: $TEAM_KEY"
-              {
-                echo "team_key=$TEAM_KEY"
-                echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
-                echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
-              } >> "$GITHUB_OUTPUT"
-            fi
+            echo "✅ Would route to: $TEAM_KEY"
+            {
+              echo "team_key=$TEAM_KEY"
+              echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
+              echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+            } >> "$GITHUB_OUTPUT"
           fi
 
           echo ""
@@ -414,7 +427,8 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
         run: |
-          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | "- " + .key + ": " + .description')
+          # Exclude OSS from LLM choices — it is the code-side fallback only
+          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | select(.key != "OSS") | "- " + .key + ": " + .description')
 
           PROMPT=$(cat <<PROMPT_EOF
           You are routing a GitHub issue to the correct engineering team. Based on the issue details below, respond with ONLY the team key (e.g. ING, CAT, PFP), or NONE if it doesn't clearly belong to any team.
@@ -450,21 +464,27 @@ jobs:
           echo ""
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
-            echo "🤷 Would route to: NONE (no matching team)"
+            echo "⚠️  No matching engineering team — would fall back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
+          fi
+
+          TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+          if [ -z "$TEAM_CONFIG" ]; then
+            echo "⚠️  Claude returned unrecognized key: $TEAM_KEY — would fall back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
+            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+          fi
+
+          if [ -z "$TEAM_CONFIG" ]; then
+            echo "❌ OSS fallback config missing from LINEAR_TEAM_CONFIG"
             echo "team_key=" >> "$GITHUB_OUTPUT"
           else
-            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
-            if [ -z "$TEAM_CONFIG" ]; then
-              echo "⚠️  Claude returned unrecognized key: $TEAM_KEY"
-              echo "team_key=" >> "$GITHUB_OUTPUT"
-            else
-              echo "✅ Would route to: $TEAM_KEY"
-              {
-                echo "team_key=$TEAM_KEY"
-                echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
-                echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
-              } >> "$GITHUB_OUTPUT"
-            fi
+            echo "✅ Would route to: $TEAM_KEY"
+            {
+              echo "team_key=$TEAM_KEY"
+              echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
+              echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+            } >> "$GITHUB_OUTPUT"
           fi
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 

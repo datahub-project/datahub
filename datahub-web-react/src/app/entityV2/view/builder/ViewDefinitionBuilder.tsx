@@ -1,3 +1,4 @@
+import { ButtonTabs, Tab } from '@components';
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -19,8 +20,6 @@ import {
 } from '@app/entityV2/view/builder/utils';
 import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { ViewBuilderState } from '@app/entityV2/view/types';
-import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
-import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 

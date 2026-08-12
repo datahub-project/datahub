@@ -7,8 +7,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
 import com.linkedin.metadata.aspect.hooks.DomainsSyncMutationHook;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
@@ -56,6 +59,7 @@ import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidat
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -145,22 +149,44 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.schemaField.enabled",
       havingValue = "true")
-  public MCPSideEffect schemaFieldSideEffect() {
+  public MCPSideEffect schemaFieldSideEffect(ConfigurationProvider configurationProvider) {
+    var schemaFieldConfig =
+        configurationProvider.getMetadataChangeProposal().getSideEffects().getSchemaField();
+    boolean domainEnabled = schemaFieldConfig != null && schemaFieldConfig.isDomainEnabled();
+    boolean ownershipEnabled = schemaFieldConfig != null && schemaFieldConfig.isOwnershipEnabled();
+
+    List<AspectPluginConfig.EntityAspectName> supported =
+        new java.util.ArrayList<>(
+            List.of(
+                AspectPluginConfig.EntityAspectName.builder()
+                    .entityName(Constants.DATASET_ENTITY_NAME)
+                    .aspectName(Constants.STATUS_ASPECT_NAME)
+                    .build(),
+                AspectPluginConfig.EntityAspectName.builder()
+                    .entityName(Constants.DATASET_ENTITY_NAME)
+                    .aspectName(Constants.SCHEMA_METADATA_ASPECT_NAME)
+                    .build()));
+    if (domainEnabled) {
+      supported.add(
+          AspectPluginConfig.EntityAspectName.builder()
+              .entityName(Constants.DATASET_ENTITY_NAME)
+              .aspectName(Constants.DOMAINS_ASPECT_NAME)
+              .build());
+    }
+    if (ownershipEnabled) {
+      supported.add(
+          AspectPluginConfig.EntityAspectName.builder()
+              .entityName(Constants.DATASET_ENTITY_NAME)
+              .aspectName(Constants.OWNERSHIP_ASPECT_NAME)
+              .build());
+    }
+
     AspectPluginConfig config =
         AspectPluginConfig.builder()
             .enabled(true)
             .className(SchemaFieldSideEffect.class.getName())
             .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE"))
-            .supportedEntityAspectNames(
-                List.of(
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.DATASET_ENTITY_NAME)
-                        .aspectName(Constants.STATUS_ASPECT_NAME)
-                        .build(),
-                    AspectPluginConfig.EntityAspectName.builder()
-                        .entityName(Constants.DATASET_ENTITY_NAME)
-                        .aspectName(Constants.SCHEMA_METADATA_ASPECT_NAME)
-                        .build()))
+            .supportedEntityAspectNames(supported)
             .build();
 
     // prevent recursive dependency from using primary bean
@@ -169,10 +195,38 @@ public class SpringStandardPluginConfiguration {
     entityChangeEventGeneratorRegistry.register(
         SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
 
-    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    log.info(
+        "Initialized {} (domainEnabled={}, ownershipEnabled={})",
+        SchemaFieldSideEffect.class.getName(),
+        domainEnabled,
+        ownershipEnabled);
     return new SchemaFieldSideEffect()
         .setConfig(config)
+        .setDomainEnabled(domainEnabled)
+        .setOwnershipEnabled(ownershipEnabled)
         .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.aliases.enabled",
+      havingValue = "true")
+  public MCPSideEffect aliasesSideEffect() {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(AliasesSideEffect.class.getName())
+            .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, RESTATE))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATASET_ENTITY_NAME)
+                        .aspectName(Constants.DATASET_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info("Initialized {}", AliasesSideEffect.class.getName());
+    return new AliasesSideEffect().setConfig(config);
   }
 
   @Bean
@@ -239,8 +293,10 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(FieldPathValidator.class.getName())
                 .enabled(true)
+                // PATCH is required so patch writes reach the proposed hook, where the field
+                // paths carried by the patch's own add/replace values are validated
                 .supportedOperations(
-                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE"))
+                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE", "PATCH"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -315,7 +371,7 @@ public class SpringStandardPluginConfiguration {
                 .className(FormPromptValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
-                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE"))
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -506,6 +562,28 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.domainWrite.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator domainWriteAuthorizationValidator() {
+    return new DomainWriteAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DomainWriteAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(DOMAINS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.aspectAuthorization.logicalParent.enabled",
       havingValue = "true",
       matchIfMissing = true)
@@ -650,6 +728,23 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  public MutationHook assertionInfoMutator() {
+    return new AssertionInfoMutator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssertionInfoMutator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ENTITY_NAME)
+                            .aspectName(ASSERTION_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   public MutationHook ownershipOwnerTypes() {
     return new OwnershipOwnerTypes()
         .setConfig(
@@ -690,8 +785,12 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectPayloadValidator propertyDefinitionValidator() {
+  public AspectPayloadValidator propertyDefinitionValidator(
+      @Nullable StructuredPropertyMappingLookup structuredPropertyMappingLookup) {
+    // Nullable: SqlSetup and other slim contexts load plugins without search factories.
+    // PropertyDefinitionValidator already skips ES mapping checks when the lookup is absent.
     return new PropertyDefinitionValidator()
+        .setStructuredPropertyMappingLookup(structuredPropertyMappingLookup)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PropertyDefinitionValidator.class.getName())
@@ -719,11 +818,15 @@ public class SpringStandardPluginConfiguration {
         .setDropMissingPropertyValuesWithWarning(
             structuredPropertiesConfiguration != null
                 && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setKeywordMaxLength(
+            structuredPropertiesConfiguration != null
+                ? structuredPropertiesConfiguration.getKeywordMaxLength()
+                : 0)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, UPSERT, DELETE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, DELETE))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -820,7 +923,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(LifecycleStageValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -837,7 +940,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(PolicyFieldTypeValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -854,7 +957,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(LogicalParentFieldPathValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -885,7 +988,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(ServiceDefinitionLargeStringValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

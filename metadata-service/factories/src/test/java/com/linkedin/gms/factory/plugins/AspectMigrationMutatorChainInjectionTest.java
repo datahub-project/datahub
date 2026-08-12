@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.mockito.Answers;
@@ -44,6 +45,8 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
 
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   private ConfigurationProvider configurationProvider;
+
+  @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
 
   @BeforeClass
   private void setup() {

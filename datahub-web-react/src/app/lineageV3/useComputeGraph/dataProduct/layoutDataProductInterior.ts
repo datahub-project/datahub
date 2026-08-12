@@ -1,7 +1,6 @@
 import type { XYPosition } from '@reactflow/core/dist/esm/types';
 import { Node } from 'reactflow';
 
-import { LINEAGE_NODE_HEIGHT } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import {
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
@@ -9,6 +8,7 @@ import {
 import { TRANSFORMATION_NODE_SIZE } from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
 import {
     LINEAGE_FILTER_TYPE,
+    LINEAGE_NODE_HEIGHT,
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
     LineageEntity,

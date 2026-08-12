@@ -51,8 +51,10 @@ class SnowflakeAdapter(PlatformAdapter):
 
         # Prefer the row count already on the context (from the schema crawl)
         # to avoid a redundant INFORMATION_SCHEMA round-trip per table.
-        row_count = context.row_count or self._get_row_count_from_metadata(
-            context, conn
+        row_count = (
+            context.row_count
+            if context.row_count is not None
+            else self._get_row_count_from_metadata(context, conn)
         )
         if not self.config.limit and self.config.use_sampling:
             if row_count is not None and row_count <= self.config.sample_size:

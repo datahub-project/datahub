@@ -11,6 +11,11 @@ export enum ValueTypeId {
      */
     URN = 'URN',
     /**
+     * A hierarchical URN reference (Domain, Container, Parent Document)
+     * that supports Within (descendants-inclusive) matching.
+     */
+    URN_HIERARCHY = 'URN_HIERARCHY',
+    /**
      * String type
      */
     STRING = 'STRING',
@@ -104,6 +109,11 @@ const valueTypes = [
         id: ValueTypeId.URN,
         displayName: 'Ref',
         operators: [OperatorId.EQUAL_TO, OperatorId.EXISTS],
+    },
+    {
+        id: ValueTypeId.URN_HIERARCHY,
+        displayName: 'Ref',
+        operators: [OperatorId.WITHIN, OperatorId.EQUAL_TO, OperatorId.EXISTS],
     },
     {
         id: ValueTypeId.URN_LIST,

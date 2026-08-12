@@ -1,17 +1,29 @@
 package com.linkedin.metadata.structuredproperties.validators;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyValue;
@@ -23,6 +35,8 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +48,8 @@ import org.testng.annotations.Test;
 public class StructuredPropertiesValidatorTest {
 
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
+  private static final OperationContext TEST_OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:datahub,Test,PROD)");
@@ -759,5 +775,358 @@ public class StructuredPropertiesValidatorTest {
                 new MockAspectRetriever(propertyUrn, def))
             .count();
     Assert.assertEquals(errors, 1, "SchemaField on disallowed platform should fail");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertRejectsOversizedValue() throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    String oversized = "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef))
+            .count(),
+        1,
+        "Should reject string values larger than Lucene keyword max bytes");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertAllowsMaxKeywordBytes() throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    String atLimit = "a".repeat(ESUtils.KEYWORD_MAXLENGTH);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(atLimit)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef))
+            .count(),
+        0,
+        "Values exactly at Lucene keyword max bytes should be accepted");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertRejectsOversizedMultibyteValue()
+      throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    // 'é' is 2 UTF-8 bytes; enough repeats exceed KEYWORD_MAXLENGTH by byte length while char
+    // length remains under the limit.
+    int charsNeeded = (ESUtils.KEYWORD_MAXLENGTH / 2) + 1;
+    String oversized = "é".repeat(charsNeeded);
+    Assert.assertTrue(oversized.length() <= ESUtils.KEYWORD_MAXLENGTH);
+    Assert.assertTrue(
+        oversized.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+            > ESUtils.KEYWORD_MAXLENGTH);
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef))
+            .count(),
+        1,
+        "Should reject values whose UTF-8 byte length exceeds the keyword limit");
+  }
+
+  @Test
+  public void testValidateAspectRichTextUpsertRejectsOversizedValue() throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition richTextPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.rich_text"));
+
+    String oversized = "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, richTextPropertyDef))
+            .count(),
+        1,
+        "Should reject rich text values larger than Lucene keyword max bytes");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertHonorsConfiguredKeywordMaxLength()
+      throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    int configuredMax = 100;
+    String atConfiguredLimit = "a".repeat(configuredMax);
+    String overConfiguredLimit = "a".repeat(configuredMax + 1);
+
+    StructuredProperties allowedPayload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(atConfiguredLimit)))));
+    StructuredProperties rejectedPayload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(overConfiguredLimit)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(allowedPayload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef),
+                false,
+                configuredMax)
+            .count(),
+        0,
+        "Values at the configured keyword max length should be accepted");
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                OperationFingerprint.EMPTY,
+                TestMCP.ofOneUpsertItemDatasetUrn(rejectedPayload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef),
+                false,
+                configuredMax)
+            .count(),
+        1,
+        "Values over the configured keyword max length should be rejected");
+  }
+
+  @Test
+  public void testValidateProposedRejectsOversizedPatchAdd() throws Exception {
+    // PATCH ADDs are validated at request time by inspecting add ops (not in the DB transaction).
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/properties/" + propertyUrn + "/");
+    addOp.setValue(
+        Map.of(
+            "propertyUrn",
+            propertyUrn.toString(),
+            "values",
+            List.of(Map.of("string", "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1)))));
+
+    GenericJsonPatch.PatchOp removeOp = new GenericJsonPatch.PatchOp();
+    removeOp.setOp("remove");
+    removeOp.setPath("/properties/" + propertyUrn);
+    removeOp.setValue(Map.of());
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .arrayPrimaryKeys(Map.of("properties", List.of("propertyUrn", "attribution␟source")))
+            .patch(List.of(removeOp, addOp))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(
+        GenericRecordUtils.serializePatch(genericJsonPatch, TEST_OP_CONTEXT.getObjectMapper()));
+
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L);
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, TEST_REGISTRY);
+
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    MockAspectRetriever aspectRetriever = new MockAspectRetriever(propertyUrn, stringPropertyDef);
+    aspectRetriever.setEntityRegistry(TEST_REGISTRY);
+    when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator()
+            .setKeywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .className(StructuredPropertiesValidator.class.getName())
+                    .enabled(true)
+                    .supportedOperations(List.of("UPSERT", "PATCH"))
+                    .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                    .build());
+
+    assertEquals(
+        validator
+            .validateProposed(TEST_OP_CONTEXT, List.of(patchItem), retrieverContext, null)
+            .count(),
+        1,
+        "Proposed-time PATCH ADD validation should reject oversized string values");
+  }
+
+  @Test
+  public void testExtractPatchAddAssignmentsIgnoresRemove() throws Exception {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+
+    GenericJsonPatch.PatchOp removeOp = new GenericJsonPatch.PatchOp();
+    removeOp.setOp("remove");
+    removeOp.setPath("/properties/" + propertyUrn);
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .arrayPrimaryKeys(Map.of("properties", List.of("propertyUrn", "attribution␟source")))
+            .patch(List.of(removeOp))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(
+        GenericRecordUtils.serializePatch(genericJsonPatch, TEST_OP_CONTEXT.getObjectMapper()));
+
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .build(
+                mcp,
+                new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L),
+                TEST_REGISTRY);
+
+    assertEquals(
+        StructuredPropertiesValidator.extractPatchAddAssignments(
+                patchItem, TEST_OP_CONTEXT.getObjectMapper())
+            .size(),
+        0,
+        "REMOVE ops should not produce assignments for value validation");
+  }
+
+  /**
+   * With alternate MCP validation (the quickstart/docker default, {@code
+   * ALTERNATE_MCP_VALIDATION=true}) a patch reaches the proposed hook as a {@link ProposedItem}
+   * carrying the raw proposal — not a {@link PatchItemImpl} — so the serialized patch must be read
+   * from the MCP payload itself. Routing on the item class silently skips patch validation on every
+   * such deployment.
+   */
+  @Test
+  public void testValidateProposedRejectsPatchAddViaProposedItem() throws Exception {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.retentionTime");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"))
+            .setAllowedValues(
+                new PropertyValueArray(
+                    List.of(
+                        new PropertyValue().setValue(PrimitivePropertyValue.create("a")),
+                        new PropertyValue().setValue(PrimitivePropertyValue.create("b")))));
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/properties/" + propertyUrn + "/");
+    addOp.setValue(
+        Map.of("propertyUrn", propertyUrn.toString(), "values", List.of(Map.of("string", "c"))));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .arrayPrimaryKeys(Map.of("properties", List.of("propertyUrn", "attribution␟source")))
+            .patch(List.of(addOp))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(
+        GenericRecordUtils.serializePatch(genericJsonPatch, TEST_OP_CONTEXT.getObjectMapper()));
+
+    ProposedItem proposedItem =
+        ProposedItem.builder()
+            .build(
+                mcp,
+                new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L),
+                TEST_REGISTRY);
+
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    MockAspectRetriever aspectRetriever = new MockAspectRetriever(propertyUrn, stringPropertyDef);
+    aspectRetriever.setEntityRegistry(TEST_REGISTRY);
+    when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .className(StructuredPropertiesValidator.class.getName())
+                    .enabled(true)
+                    .supportedOperations(List.of("UPSERT", "PATCH"))
+                    .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                    .build());
+
+    assertEquals(
+        validator
+            .validateProposed(TEST_OP_CONTEXT, List.of(proposedItem), retrieverContext, null)
+            .count(),
+        1,
+        "A ProposedItem patch ADD with a disallowed value must be rejected at request time");
   }
 }

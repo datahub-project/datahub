@@ -61,12 +61,20 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
         include:
           - python-version: "3.10"
             extraPythonRequirement: "great-expectations~=0.18.0"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull"
+            venvName: "venv"
           - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.18.0"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull"
+            venvName: "venv"
+          # GX Core 1.x exercises datahub_gx_plugin.action_v1 in its own venv.
+          - python-version: "3.11"
+            extraPythonRequirement: "great-expectations~=1.0"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:testFullGx1"
+            venvName: "venv-gx1"
       fail-fast: false
     steps:
       - name: Set up JDK 21
@@ -83,10 +91,10 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install GX package and test  (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' ${{ matrix.gradleTasks }}
       - name: pip freeze show list installed
         if: always()
-        run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && uv pip freeze
+        run: source metadata-ingestion-modules/gx-plugin/${{ matrix.venvName }}/bin/activate && uv pip freeze
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results

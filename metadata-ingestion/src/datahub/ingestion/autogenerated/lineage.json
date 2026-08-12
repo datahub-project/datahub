@@ -205,6 +205,23 @@
             }
           }
         ]
+      },
+      "semanticModelInfo": {
+        "aspect": "semanticModelInfo",
+        "fields": [
+          {
+            "name": "datasets",
+            "path": "datasets",
+            "isLineage": true,
+            "relationship": {
+              "name": "Contains",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
       }
     },
     "aiAgent": {
@@ -607,5 +624,6 @@
       }
     }
   },
-  "generated_by": "metadata-ingestion/scripts/modeldocgen.py"
+  "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
+  "generated_at": "2026-07-26T20:18:00.599562+00:00"
 }
