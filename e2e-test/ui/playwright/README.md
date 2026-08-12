@@ -14,6 +14,7 @@ e2e-test/ui/playwright/
 │   ├── logger.fixture.ts         # Winston logger (auto-injected into every test)
 │   ├── mocking.fixture.ts        # apiMock fixture for route interception
 │   ├── seeding.fixture.ts        # Per-worker test data injection (seedingFixture)
+│   ├── shard-group.fixture.ts    # shardGroup option — CI shard-balancing lever only
 │   └── login.ts                  # Auth file path helpers + GMS token reader
 ├── pages/                        # Page Object Models
 │   ├── base.page.ts              # Base class: screenshot helper, logger/logDir
@@ -27,12 +28,14 @@ e2e-test/ui/playwright/
 │       ├── searchbar-component.ts
 │       └── sidebar-component.ts
 ├── tests/                        # Test specs, organised by feature
-│   ├── auth/
-│   ├── login-v2/
-│   ├── onboarding/
-│   ├── search/
-│   ├── business-attributes/
-│   └── incidents-v2/
+│   ├── g1-auth/
+│   ├── g1-login-v2/
+│   ├── g7-onboarding/
+│   ├── g1-search/
+│   ├── g2-business-attributes/
+│   └── g8-incidents-v2/
+│   # ^ the g1-..g8 prefix is a CI shard-balancing group (see "CI/CD" below) —
+│   #   NOT a feature name; the rest of the directory name is unchanged.
 ├── helpers/                      # Standalone utility classes
 │   ├── cleanup-helper.ts         # CleanupHelper / GlobalCleanupHelper
 │   ├── graphql-helper.ts         # GraphQL request helpers (executeQuery, waitForGraphQLResponse)
@@ -92,11 +95,11 @@ yarn playwright test --ui
 yarn playwright test --debug
 
 # Specific suite
-yarn playwright test tests/search/
-yarn playwright test tests/business-attributes/
+yarn playwright test tests/g1-search/
+yarn playwright test tests/g2-business-attributes/
 
 # Specific test file
-yarn playwright test tests/search/search-filters.spec.ts
+yarn playwright test tests/g1-search/search-filters.spec.ts
 
 # Specific test by name
 yarn playwright test --grep "should login successfully"
@@ -229,7 +232,7 @@ Test data is injected via `seedingFixture`, which mirrors the `loginFixture` pat
 ```typescript
 import { test, expect } from '../../fixtures/base-test';
 
-// Set at file/describe level — seeds from tests/search/fixtures/data.json
+// Set at file/describe level — seeds from tests/g1-search/fixtures/data.json
 test.use({ featureName: 'search' });
 
 test.describe('Search', () => {
@@ -334,3 +337,29 @@ deletion of all entities of a type.
 - JUnit report written to `test-results/junit.xml`.
 - Screenshots and traces captured on failure.
 - Single worker (`workers: 1`) in CI for stable ordering.
+
+### Shard grouping (`g1-`..`g8-` directory prefixes, `shardGroup`)
+
+CI runs the suite across 8 `--shard` jobs. Playwright's shard slicing is
+duration-blind — it only balances by test _count_ — and, under
+`fullyParallel: true`, the order it slices in is driven by each test's
+worker hash (which factors in the resolved value of every worker-scoped
+option a test uses, including `featureName` from the seeding fixture).
+Directories with inconsistent or absent `featureName` usage would otherwise
+get pulled into shared hash buckets and scattered across unrelated shards.
+
+Two things work together to keep shard content predictable and duration-balanced:
+
+1. Every top-level `tests/` directory is prefixed with its assigned shard
+   group (`g1-` .. `g8-`), chosen by bin-packing directories against real CI
+   duration data so each group's total runtime is roughly even.
+2. Every spec file sets `test.use({ shardGroup: 'gN' })` (merged alongside
+   `featureName` where present) matching its directory's prefix. `shardGroup`
+   has no runtime behavior — it exists purely to give every file a
+   consistent, intentional worker-hash input, independent of `featureName`.
+
+When adding a new top-level test directory, put it under whichever `gN-`
+prefix has the most duration headroom and tag every spec file in it with the
+matching `shardGroup`. See
+`docs/audit-reports/shard-rebalancing-analysis-2026-08-12.md` for the full
+investigation and duration data behind this scheme.
