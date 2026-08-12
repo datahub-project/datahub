@@ -6,6 +6,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     MYSQL_SINK_CLOUD,
     POSTGRES_CDC_SOURCE_CLOUD,
     POSTGRES_SINK_CLOUD,
+    S3_SINK_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -191,6 +192,20 @@ class TestConnectorRegistrySinkConnectors:
     def test_s3_sink_connector(self) -> None:
         """Test routing for S3 sink connector."""
         manifest = create_manifest(SINK, S3_SINK_CONNECTOR_CLASS)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, ConfluentS3SinkConnector)
+        assert connector.get_platform() == "s3"
+
+    def test_s3_sink_connector_cloud(self) -> None:
+        """Test routing for the Confluent Cloud managed S3 sink connector."""
+        manifest = create_manifest(SINK, S3_SINK_CLOUD)
         config = create_mock_config()
         report = create_mock_report()
 
