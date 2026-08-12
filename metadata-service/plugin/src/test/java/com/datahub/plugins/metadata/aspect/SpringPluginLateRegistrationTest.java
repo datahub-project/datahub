@@ -32,9 +32,9 @@ import org.testng.annotations.Test;
  * circular dependencies during entity registry initialization) can be reconciled via {@link
  * PluginFactory#appendPlugins}.
  *
- * <p>Simulates the production scenario where (an {@link
- * MCPObserver}) transitively depends on {@code EntityRegistry} and is therefore unavailable when
- * {@link SpringPluginFactory#build} queries {@code BeanFactoryUtils.beansOfTypeIncludingAncestors}.
+ * <p>Simulates the production scenario where (an {@link MCPObserver}) transitively depends on
+ * {@code EntityRegistry} and is therefore unavailable when {@link SpringPluginFactory#build}
+ * queries {@code BeanFactoryUtils.beansOfTypeIncludingAncestors}.
  */
 public class SpringPluginLateRegistrationTest {
 
