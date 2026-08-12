@@ -1724,6 +1724,20 @@ _ODBC_ORACLE_NAV_DATABASE_NO_SCHEMA = (
     "in\n    ORDERS_Table"
 )
 
+# Oracle ODBC navigation that surfaces Database + Schema + Table. When the user
+# opts into 3-part URNs via server_to_platform_instance default_database, the
+# navigation-supplied database (ORCLPDB) must win over the configured
+# default_database (MYDB) — matching OracleLineage's effective_db precedence and
+# the "navigation always wins" contract.
+_ODBC_ORACLE_NAV_DATABASE_SCHEMA_TABLE = (
+    'let\n    Source = Odbc.DataSource("driver={Oracle in OraClient19Home1};'
+    'dsn=oracle_prod", [HierarchicalNavigation=true]),\n'
+    '    ORCLPDB_Database = Source{[Name="ORCLPDB",Kind="Database"]}[Data],\n'
+    '    SALES_Schema = ORCLPDB_Database{[Name="SALES",Kind="Schema"]}[Data],\n'
+    '    ORDERS_Table = SALES_Schema{[Name="ORDERS",Kind="Table"]}[Data]\n'
+    "in\n    ORDERS_Table"
+)
+
 # Athena ODBC navigation that surfaces only the leaf table; the database
 # (which occupies Athena's schema slot) is backfilled from a one-part
 # dsn_to_database_schema value. extract_server resolves the DSN as the server
@@ -1869,6 +1883,19 @@ _ODBC_NAV_SUCCESS_CASES = [
         {"server_to_platform_instance": {"oracle_prod": {"default_database": "MYDB"}}},
         "urn:li:dataset:(urn:li:dataPlatform:oracle,mydb.sales.orders,PROD)",
         id="oracle-default-database-opt-in-resolves-from-config",
+    ),
+    # End-to-end precedence: with a nav Database node present, the opt-in
+    # default_database is only a fallback — navigation (ORCLPDB) wins over the
+    # configured MYDB, mirroring OracleLineage's effective_db. Pins that the
+    # documented "navigation always wins" contract holds on the real-config path,
+    # not just the injected-resolver unit test.
+    pytest.param(
+        _ODBC_ORACLE_NAV_DATABASE_SCHEMA_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {"server_to_platform_instance": {"oracle_prod": {"default_database": "MYDB"}}},
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb.sales.orders,PROD)",
+        id="oracle-nav-database-wins-over-default-database",
     ),
     pytest.param(
         M_QUERIES[35],
