@@ -10,9 +10,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * A dot-separated numeric release version, tolerant of the several spellings DataHub uses for the
- * same release: {@code v1.7.0} (product update JSON id), {@code v_2_1_0} (cloud release note file
- * name), and {@code 1-7-0} (docs anchor / blog slug).
+ * A numeric release version, e.g. {@code v1.7.0}. {@link #parse} accepts the dot/underscore
+ * spellings DataHub uses for release ids and note file names ({@code v1.7.0}, {@code v_2_1_0}); the
+ * hyphenated form used in docs anchors and blog slugs ({@code 1-7-0}) is matched only when
+ * searching within text via {@link #appearsIn}.
  */
 public final class ReleaseVersion implements Comparable<ReleaseVersion> {
 

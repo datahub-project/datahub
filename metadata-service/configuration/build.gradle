@@ -38,9 +38,7 @@ test {
     exclude '**/productupdate/ProductUpdateReleaseSyncTest.class'
 }
 
-// The product update JSONs advertise a release, but the release history that makes them stale
-// lives in docs/. Declaring both as inputs of a dedicated task is what makes promoting release
-// notes re-run this gate instead of leaving `test` UP-TO-DATE.
+// Declare the docs/ release history as inputs too, so promoting release notes re-runs this gate.
 def productUpdateInputs = files(
     file("${projectDir}/src/main/resources/product-update.json"),
     file("${projectDir}/src/main/resources/product-update-saas.json"),
