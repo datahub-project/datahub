@@ -43,6 +43,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
@@ -1639,6 +1640,126 @@ public class EntityServiceImplTest {
         .setRetry(0)
         .setEnableBrowseV2(true)
         .setPostCommitRetentionEnabled(postCommitRetentionEnabled);
+  }
+
+  @Test
+  public void testIngestAspectsChunksOversizedBatchIntoMultipleTransactions() throws Exception {
+    AspectDao dao = mock(AspectDao.class);
+    when(dao.runInTransactionWithRetry(any(), any(), any(AspectsBatch.class), anyInt()))
+        .thenReturn(Optional.of(IngestAspectsResult.EMPTY));
+
+    final int chunkSize = 2;
+    EntityServiceImpl svc =
+        new EntityServiceImpl(
+            dao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig().setMaxRequestBatchSize(chunkSize),
+            metricUtils);
+
+    // 5 items → chunks of 2,2,1
+    AspectsBatch batch = statusBatch(5);
+    svc.ingestAspects(opContext, batch, true, true);
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(dao, times(3)).runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
+    List<AspectsBatch> chunks = batchCaptor.getAllValues();
+    assertEquals(chunks.get(0).getItems().size(), 2);
+    assertEquals(chunks.get(1).getItems().size(), 2);
+    assertEquals(chunks.get(2).getItems().size(), 1);
+  }
+
+  @Test
+  public void testIngestAspectsSingleTransactionWhenAtOrBelowChunkSize() throws Exception {
+    AspectDao dao = mock(AspectDao.class);
+    when(dao.runInTransactionWithRetry(any(), any(), any(AspectsBatch.class), anyInt()))
+        .thenReturn(Optional.of(IngestAspectsResult.EMPTY));
+
+    EntityServiceImpl svc =
+        new EntityServiceImpl(
+            dao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig().setMaxRequestBatchSize(EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT),
+            metricUtils);
+
+    AspectsBatch batch = statusBatch(EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT);
+    svc.ingestAspects(opContext, batch, true, true);
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(dao, times(1)).runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
+    assertEquals(
+        batchCaptor.getValue().getItems().size(), EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT);
+  }
+
+  @Test
+  public void testIngestAspectsSkipsChunkingWhenDisabled() throws Exception {
+    AspectDao dao = mock(AspectDao.class);
+    when(dao.runInTransactionWithRetry(any(), any(), any(AspectsBatch.class), anyInt()))
+        .thenReturn(Optional.of(IngestAspectsResult.EMPTY));
+
+    EntityServiceImpl svc =
+        new EntityServiceImpl(
+            dao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig().setMaxRequestBatchSize(0),
+            metricUtils);
+
+    int oversized = EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT + 50;
+    AspectsBatch batch = statusBatch(oversized);
+    svc.ingestAspects(opContext, batch, true, true);
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(dao, times(1)).runInTransactionWithRetry(any(), any(), batchCaptor.capture(), anyInt());
+    assertEquals(batchCaptor.getValue().getItems().size(), oversized);
+  }
+
+  @Test
+  public void testIngestAspectsPartialApplyWhenLaterChunkFails() throws Exception {
+    AspectDao dao = mock(AspectDao.class);
+    when(dao.runInTransactionWithRetry(any(), any(), any(AspectsBatch.class), anyInt()))
+        .thenReturn(Optional.of(IngestAspectsResult.EMPTY))
+        .thenThrow(new RuntimeException("simulated lock timeout"));
+
+    EntityServiceImpl svc =
+        new EntityServiceImpl(
+            dao,
+            mockEventProducer,
+            mock(PreProcessHooks.class),
+            testConfig().setMaxRequestBatchSize(2),
+            metricUtils);
+
+    try {
+      svc.ingestAspects(opContext, statusBatch(5), true, true);
+      fail("expected RuntimeException after partial commit");
+    } catch (RuntimeException e) {
+      assertTrue(e.getMessage().contains("chunk 2/3"));
+      assertTrue(e.getMessage().contains("earlier chunks committed"));
+    }
+
+    // First chunk committed (txn entered); second failed — only 2 attempts.
+    verify(dao, times(2))
+        .runInTransactionWithRetry(any(), any(), any(AspectsBatch.class), anyInt());
+  }
+
+  private AspectsBatch statusBatch(int size) {
+    List<ChangeItemImpl> items = new ArrayList<>(size);
+    for (int i = 0; i < size; i++) {
+      Urn urn = UrnUtils.getUrn("urn:li:corpuser:batch-cap-" + i);
+      items.add(
+          ChangeItemImpl.builder()
+              .urn(urn)
+              .aspectName(STATUS_ASPECT_NAME)
+              .recordTemplate(new Status().setRemoved(true))
+              .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+              .auditStamp(TEST_AUDIT_STAMP)
+              .build(opContext.getAspectRetriever()));
+    }
+    return AspectsBatchImpl.builder()
+        .retrieverContext(opContext.getRetrieverContext())
+        .items(items)
+        .build(opContext);
   }
 
   private UpdateAspectResult postCommitUpsertResult() {

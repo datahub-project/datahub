@@ -813,6 +813,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "entityClient.restli.ingest.batchThreadKeepAlive",
           "entityClient.retryInterval",
           "entityService.impl",
+          "entityService.maxRequestBatchSize",
           "entityService.retention.applyOnBootstrap",
           "entityService.retention.applyOnPolicyChange",
           "entityService.retention.enabled",
