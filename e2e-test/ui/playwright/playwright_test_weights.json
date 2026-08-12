@@ -13,7 +13,7 @@
   },
   {
     "filePath": "auth/login-with-welcome-modal.spec.ts",
-    "duration": "8.260s"
+    "duration": "16.305s"
   },
   {
     "filePath": "auth/login.spec.ts",
@@ -41,7 +41,7 @@
   },
   {
     "filePath": "change-history/change-history.spec.ts",
-    "duration": "134.812s"
+    "duration": "270.137s"
   },
   {
     "filePath": "containers-v2/v2-containers.spec.ts",
@@ -141,7 +141,7 @@
   },
   {
     "filePath": "ingestion-v2/run-history.spec.ts",
-    "duration": "17.175s"
+    "duration": "31.733s"
   },
   {
     "filePath": "ingestion-v2/secrets-tab.spec.ts",
@@ -273,7 +273,7 @@
   },
   {
     "filePath": "search/searchv2.spec.ts",
-    "duration": "71.033s"
+    "duration": "132.882s"
   },
   {
     "filePath": "settings-v2/v2-home-page-posts.spec.ts",

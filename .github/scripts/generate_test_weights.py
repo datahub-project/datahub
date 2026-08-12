@@ -188,24 +188,39 @@ def parse_gradle_results(artifact_dir: Path) -> Dict[str, List[float]]:
     return test_durations
 
 
+def _run_dir(xml_file: Path) -> Path:
+    """Nearest ancestor directory named run-<id> (download_test_artifacts.sh's convention),
+    falling back to the file's own parent if none is found."""
+    for parent in xml_file.parents:
+        if parent.name.startswith("run-"):
+            return parent
+    return xml_file.parent
+
+
 def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
     """
     Parse Playwright JUnit XML files from multiple runs.
 
     Playwright's junit reporter emits one flat <testsuite name="path/to/file.spec.ts"
     time="22.9"> per spec file, relative to testDir -- no nested root suite to unwrap
-    (unlike Cypress).
+    (unlike Cypress). But Playwright's --shard=N/M splits by test *count*, not by file,
+    so one file's tests can land in two different shards' junit.xml within the same run.
+    Sum a file's duration across all of a run's shard XMLs before treating it as one
+    sample -- otherwise each fragment is counted as an independent (much smaller) sample,
+    silently halving that file's median weight. Mirrors parse_gradle_results()'s per-class,
+    per-run summing for the same reason.
 
     Returns:
         Dictionary mapping spec file paths to lists of durations across runs
         Example: {"analytics/analytics.spec.ts": [22.9, 21.4, 23.1]}
     """
-    test_durations: Dict[str, List[float]] = {}
+    per_run_totals: Dict[Path, Dict[str, float]] = {}
 
     xml_files = list(artifact_dir.rglob("junit.xml"))
     print(f"Found {len(xml_files)} Playwright XML files")
 
     for xml_file in xml_files:
+        run_dir = _run_dir(xml_file)
         try:
             root = ET.parse(xml_file).getroot()
             for testsuite in root.findall(".//testsuite"):
@@ -219,11 +234,17 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
                     print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
                     continue
                 if duration > 0:
-                    test_durations.setdefault(file_path, []).append(duration)
+                    totals = per_run_totals.setdefault(run_dir, {})
+                    totals[file_path] = totals.get(file_path, 0.0) + duration
         except ET.ParseError as e:
             print(f"Warning: Failed to parse {xml_file}: {e}")
         except Exception as e:
             print(f"Warning: Error processing {xml_file}: {e}")
+
+    test_durations: Dict[str, List[float]] = {}
+    for totals in per_run_totals.values():
+        for file_path, total in totals.items():
+            test_durations.setdefault(file_path, []).append(total)
 
     return test_durations
 
