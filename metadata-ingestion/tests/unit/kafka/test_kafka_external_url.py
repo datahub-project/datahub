@@ -98,7 +98,7 @@ class TestConfluentCloudExternalUrl:
         external_urls = external_urls_of(list(source.get_workunits()))
 
         assert external_urls
-        assert not any(external_urls)
+        assert all(url is None for url in external_urls)
         assert no_links_warnings(source)
 
     def test_no_link_when_the_cluster_id_is_not_a_confluent_cloud_id(
@@ -115,7 +115,7 @@ class TestConfluentCloudExternalUrl:
         external_urls = external_urls_of(list(source.get_workunits()))
 
         assert external_urls
-        assert not any(external_urls)
+        assert all(url is None for url in external_urls)
         assert no_links_warnings(source)
 
     def test_no_link_without_an_environment_id(
@@ -126,7 +126,7 @@ class TestConfluentCloudExternalUrl:
         external_urls = external_urls_of(list(source.get_workunits()))
 
         assert external_urls
-        assert not any(external_urls)
+        assert all(url is None for url in external_urls)
         assert not no_links_warnings(source)
 
     def test_an_explicit_external_url_base_wins(
@@ -142,6 +142,24 @@ class TestConfluentCloudExternalUrl:
 
         assert f"{EXTERNAL_URL_BASE}/{TOPIC}" in external_urls
         assert CONSOLE_URL not in external_urls
+
+    def test_no_warning_when_an_explicit_base_covers_a_failed_guard(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        # Setting both on a cluster that fails the Confluent guards still yields
+        # links, from the base. Warning that none were emitted would contradict
+        # what the run actually produced.
+        source = build_source(
+            mock_kafka,
+            bootstrap=SELF_HOSTED_BOOTSTRAP,
+            confluent_cloud_environment_id=ENVIRONMENT_ID,
+            external_url_base=EXTERNAL_URL_BASE,
+        )
+
+        external_urls = external_urls_of(list(source.get_workunits()))
+
+        assert f"{EXTERNAL_URL_BASE}/{TOPIC}" in external_urls
+        assert not no_links_warnings(source)
 
     def test_external_url_base_still_works_on_its_own(
         self, mock_kafka: Mock, mock_admin_client: Mock
