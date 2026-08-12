@@ -190,7 +190,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if not self.config.confluent_catalog.enabled:
             return None
 
-        # Gate on the catalog SR URL, not connect_uri — independently configurable.
+        # Gate on the catalog SR URL, not connect_uri - independently configurable.
         if not self.config.confluent_catalog.check_confluent_cloud_endpoint(
             self.report
         ):
