@@ -165,9 +165,6 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
 
       do {
         ScrollResult result = scroll(filter, scrollId);
-        if (result.getEntities().isEmpty()) {
-          break;
-        }
         emitPage(result.getEntities(), auditStamp, stats);
         saveCursor(context, result.getEntities());
         scrollId = result.getScrollId();

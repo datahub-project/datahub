@@ -277,6 +277,22 @@ public class BackfillDatasetAliasesStepTest {
   }
 
   @Test
+  public void testEmptyPageWithLiveScrollIdContinuesTheScan() {
+    // A page whose every hit failed urn parsing: no entities, but the scroll id still advances.
+    // Treating that as exhaustion would abandon the rest of the population under a SUCCEEDED
+    // marker.
+    stubScroll(page("next"), page(null, URN_MIXED_CASE));
+
+    UpgradeStepResult result = buildStep(false).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockSearchService, times(2))
+        .scrollAcrossEntities(
+            any(OperationContext.class), any(), anyString(), any(), any(), any(), any(), anyInt());
+    assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
+  }
+
+  @Test
   public void testEmitFailureStopsTheScanWithoutMarker() {
     stubScroll(page("next", URN_MIXED_CASE), page(null, URN_OTHER));
     doThrow(new RuntimeException("kafka down"))
