@@ -27,6 +27,7 @@ constraints = [
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
     { name = "pypdf", specifier = ">=6.10.2" },
+    { name = "urllib3", specifier = ">=2.7.0,<3.0.0" },
 ]
 
 [[package]]
@@ -65,6 +66,7 @@ dependencies = [
     { name = "toml" },
     { name = "typing-extensions" },
     { name = "typing-inspect" },
+    { name = "urllib3" },
 ]
 
 [package.optional-dependencies]
@@ -223,7 +225,6 @@ all = [
     { name = "ujson" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest", extra = ["confluence", "notion"] },
-    { name = "urllib3" },
     { name = "vertica-sqlalchemy-dialect", extra = ["vertica-python"] },
     { name = "wcmatch" },
     { name = "websocket-client" },
@@ -243,7 +244,6 @@ aws-secret-manager = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "cachetools" },
-    { name = "urllib3" },
 ]
 azure-auth = [
     { name = "azure-identity" },
@@ -337,7 +337,6 @@ cockroachdb = [
     { name = "sqlalchemy-cockroachdb" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 confluence = [
     { name = "atlassian-python-api" },
@@ -350,7 +349,6 @@ confluence = [
     { name = "nltk" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest", extra = ["confluence"] },
-    { name = "urllib3" },
 ]
 cube = [
     { name = "requests" },
@@ -389,7 +387,6 @@ datahub-documents = [
     { name = "nltk" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest" },
-    { name = "urllib3" },
 ]
 datahub-kafka = [
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
@@ -406,7 +403,6 @@ datahub-pg-queue = [
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "fastavro" },
     { name = "psycopg2-binary" },
-    { name = "urllib3" },
 ]
 datahub-rest = [
     { name = "graphql-core" },
@@ -435,7 +431,6 @@ dbt = [
     { name = "more-itertools" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
-    { name = "urllib3" },
 ]
 dbt-cloud = [
     { name = "more-itertools" },
@@ -465,7 +460,6 @@ delta-lake = [
     { name = "smart-open", extra = ["azure", "s3"] },
     { name = "tableschema" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "wcmatch" },
 ]
 dev = [
@@ -862,7 +856,6 @@ doris = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 dremio = [
     { name = "cachetools" },
@@ -883,7 +876,6 @@ druid = [
 dynamodb = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "urllib3" },
 ]
 elasticsearch = [
     { name = "cachetools" },
@@ -905,7 +897,6 @@ excel = [
     { name = "smart-open", extra = ["azure"] },
     { name = "tableschema" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "wcmatch" },
 ]
 fabric-data-factory = [
@@ -968,7 +959,6 @@ gcs = [
     { name = "smart-open", extra = ["gcs", "s3"] },
     { name = "tableschema" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "wcmatch" },
 ]
 gcs-slim = [
@@ -982,7 +972,6 @@ gcs-slim = [
     { name = "smart-open", extra = ["gcs", "s3"] },
     { name = "tableschema" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "wcmatch" },
 ]
 glue = [
@@ -991,7 +980,6 @@ glue = [
     { name = "cachetools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 grafana = [
     { name = "requests" },
@@ -1041,7 +1029,6 @@ iceberg = [
 iceberg-catalog = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "urllib3" },
 ]
 informatica = [
     { name = "defusedxml" },
@@ -1108,7 +1095,6 @@ integration-tests = [
     { name = "tableschema" },
     { name = "tenacity" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "vcrpy" },
     { name = "vertica-sqlalchemy-dialect", extra = ["vertica-python"] },
     { name = "wcmatch" },
@@ -1142,7 +1128,6 @@ kinesis = [
     { name = "grpcio-tools" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "urllib3" },
 ]
 ldap = [
     { name = "python-ldap" },
@@ -1176,7 +1161,6 @@ mariadb = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 matillion-dpc = [
     { name = "requests" },
@@ -1233,7 +1217,6 @@ mysql = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 neo4j = [
     { name = "neo4j" },
@@ -1252,13 +1235,11 @@ notion = [
     { name = "nltk" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest", extra = ["notion"] },
-    { name = "urllib3" },
 ]
 odcs = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "gitpython" },
-    { name = "urllib3" },
 ]
 okta = [
     { name = "flatdict" },
@@ -1290,7 +1271,6 @@ postgres = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 powerbi = [
     { name = "mini-racer" },
@@ -1343,7 +1323,6 @@ quicksight = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "sqlglot", extra = ["c"] },
-    { name = "urllib3" },
 ]
 rdf = [
     { name = "rdflib" },
@@ -1390,7 +1369,6 @@ s3 = [
     { name = "smart-open", extra = ["s3"] },
     { name = "tableschema" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "wcmatch" },
 ]
 s3-slim = [
@@ -1404,7 +1382,6 @@ s3-slim = [
     { name = "smart-open", extra = ["s3"] },
     { name = "tableschema" },
     { name = "ujson" },
-    { name = "urllib3" },
     { name = "wcmatch" },
 ]
 sac = [
@@ -1414,7 +1391,6 @@ sac = [
 sagemaker = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "urllib3" },
 ]
 salesforce = [
     { name = "cachetools" },
@@ -1494,7 +1470,6 @@ sql-queries = [
     { name = "smart-open", extra = ["s3"] },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 sqlalchemy = [
     { name = "cachetools" },
@@ -1560,7 +1535,6 @@ tidb = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 timescaledb = [
     { name = "boto3" },
@@ -1572,7 +1546,6 @@ timescaledb = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "urllib3" },
 ]
 trino = [
     { name = "cachetools" },
@@ -1601,7 +1574,6 @@ unstructured = [
     { name = "nltk" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest" },
-    { name = "urllib3" },
 ]
 vertexai = [
     { name = "google-cloud-aiplatform" },
@@ -2738,10 +2710,10 @@ requires-dist = [
     { name = "stopit", marker = "extra == 'dev'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'docs'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'powerbi'", specifier = "==1.1.2" },
-    { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'tableau'", specifier = ">=0.24.0,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.34,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.34,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.34,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'tableau'", specifier = ">=0.34,<=0.40" },
     { name = "tableschema", marker = "extra == 'abs'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'abs-slim'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'all'", specifier = ">=1.20.2,<2.0.0" },
@@ -2859,38 +2831,9 @@ requires-dist = [
     { name = "unstructured-ingest", extras = ["confluence", "notion"], marker = "extra == 'dev'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", extras = ["confluence", "notion"], marker = "extra == 'docs'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", extras = ["notion"], marker = "extra == 'notion'", specifier = "==0.7.2" },
-    { name = "urllib3", marker = "extra == 'all'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'aws-secret-manager'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'cockroachdb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'confluence'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'datahub-documents'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'dbt'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'delta-lake'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'dev'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'docs'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'doris'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'dynamodb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'excel'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'gcs'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'gcs-slim'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'glue'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'iceberg-catalog'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'integration-tests'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'kinesis'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'mariadb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'odcs'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'quicksight'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 's3'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'sql-queries'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'tidb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'timescaledb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'unstructured'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", specifier = ">=2.5.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'dev'", specifier = ">=2.5.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'docs'", specifier = ">=2.5.0,<3.0" },
     { name = "uvicorn", marker = "extra == 'datahub-lite'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'docs'", specifier = "<0.41.0" },
@@ -10816,17 +10759,18 @@ wheels = [
 
 [[package]]
 name = "tableauserverclient"
-version = "0.25"
+version = "0.40"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
     { name = "packaging" },
     { name = "requests" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/78/4bf2cb8346c8a6da1c2e81114266ca0077eab2a924b8c3694a337afcaedc/tableauserverclient-0.25.tar.gz", hash = "sha256:d354d16245c459a805ad207bcef3fa063e18bc8168695920ac89bf8125a420b6", size = 519101, upload-time = "2023-03-17T08:17:14.031Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/57/4e661856ceb051acf97998cb0e75ab5300aaa29cd36937c1eca18ea3921b/tableauserverclient-0.40.tar.gz", hash = "sha256:544f38b9d4b46846ebe98b668d249e303bc5e73403fd966513918a12ce59db02", size = 630725, upload-time = "2026-02-03T20:21:08.907Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/4f/b928a99c706da7943ae2868f4a43ce4bd1df7d7e3d6e0af7969e68e8f280/tableauserverclient-0.25-py3-none-any.whl", hash = "sha256:341cea1706c8fc4ce35d28e21f420e3874ec13812497e1629d37adb4dce4c74a", size = 132414, upload-time = "2023-03-17T08:17:12.657Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/70/580952c49ded142c48cfe3999d8b4ff657f412f1c9616fbcdb6d6b3a6cec/tableauserverclient-0.40-py3-none-any.whl", hash = "sha256:346e092ae8a5237309c0638107074f6d84312dca7ca73f16fd26ac75d1ebe2fc", size = 214090, upload-time = "2026-02-03T20:21:07.222Z" },
 ]
 
 [[package]]
@@ -11630,11 +11574,11 @@ notion = [
 
 [[package]]
 name = "urllib3"
-version = "1.26.20"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e4/e8/6ff5e6bc22095cfc59b6ea711b687e2b7ed4bdb373f7eeec370a97d7392f/urllib3-1.26.20.tar.gz", hash = "sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32", size = 307380, upload-time = "2024-08-29T15:43:11.37Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/33/cf/8435d5a7159e2a9c83a95896ed596f68cf798005fe107cc655b5c5c14704/urllib3-1.26.20-py2.py3-none-any.whl", hash = "sha256:0ed14ccfbf1c30a9072c7ca157e4319b70d65f623e91e7b32fadb2853431016e", size = 144225, upload-time = "2024-08-29T15:43:08.921Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]

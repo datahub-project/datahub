@@ -960,6 +960,8 @@ jobs:
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
+      # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
+      workers_per_shard: ${{ github.run_attempt > 1 && '1' || '2' }}
     secrets: inherit
 
   playwright_report:
