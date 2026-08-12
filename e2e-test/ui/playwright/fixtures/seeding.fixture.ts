@@ -38,8 +38,9 @@
  * over ~25 features would serialize 6+ minutes of pure waiting per shard,
  * making CI slower. Instead the batch path ingests every pending feature
  * back-to-back with NO per-feature wait (`ingestMcpsNoWait`), then performs
- * ONE 15s index wait for the whole batch, then writes all state files —
- * see `ingestMcps` vs. `ingestMcpsNoWait` below.
+ * ONE index wait for the whole batch (longer than the single-feature default —
+ * see `BATCH_INDEX_CATCH_UP_MS`), then writes all state files — see `ingestMcps`
+ * vs. `ingestMcpsNoWait` below.
  *
  * The whole batch is itself guarded by a single withArtifactLock keyed to a
  * `.seeded/_all-features.json` marker, so only one worker per shard performs
@@ -212,10 +213,21 @@ function dataFilePath(featureName: string): string {
   return path.join(TESTS_DIR, featureName, 'fixtures', 'data.json');
 }
 
-/** Wait for the search index to catch up. Shared by single-feature and batch ingestion. */
-async function waitForIndexCatchUp(logger: DataHubLogger): Promise<void> {
-  logger.info('waiting 15s for search index to catch up before marking seed complete');
-  await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+/** Default wait for a single feature's (or global-data's) search/graph index catch-up. */
+const INDEX_CATCH_UP_MS = 15_000;
+/**
+ * CI batch seeds ~25 features' worth of MCPs (and their complex-aspects second pass) back
+ * to back in one burst, which backlogs the async MAE/graph-index pipeline more than the old
+ * one-feature-at-a-time pattern did — relationship edges (e.g. glossaryRelatedTerms) were
+ * observed lagging behind plain document search visibility under this load. Give the batch
+ * a longer wait rather than inflating the single-feature default used everywhere else.
+ */
+const BATCH_INDEX_CATCH_UP_MS = 30_000;
+
+/** Wait for the search/graph index to catch up. Shared by single-feature and batch ingestion. */
+async function waitForIndexCatchUp(logger: DataHubLogger, waitMs: number = INDEX_CATCH_UP_MS): Promise<void> {
+  logger.info(`waiting ${waitMs}ms for search index to catch up before marking seed complete`);
+  await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
 }
 
 /** Write the state file marking `featureName` as seeded. */
@@ -232,7 +244,7 @@ function writeSeedState(featureName: string, entityCount: number): void {
  * Ingest MCPs from a data file into the GMS, WITHOUT waiting for the search
  * index or writing the state file. Split out from `ingestMcps` so batch
  * seeding (`seedAllFeaturesForCi`) can ingest many features back-to-back and
- * pay the 15s index-catch-up wait exactly once for the whole batch, instead
+ * pay the index-catch-up wait exactly once for the whole batch, instead
  * of once per feature.
  *
  * @param throwOnFailure - When true (default), throws if any entity fails.
@@ -383,9 +395,9 @@ function discoverFeatureNames(): string[] {
  * single withArtifactLock so only one worker per shard performs it (see
  * module docstring for why CI needs this instead of per-feature lazy
  * seeding). Ingests every not-yet-seeded feature back-to-back with no
- * per-feature wait, pays the 15s search-index wait exactly once for the
- * whole batch, then writes each feature's state file before writing the
- * marker file itself.
+ * per-feature wait, pays the (longer, batch-sized) search/graph-index wait
+ * exactly once for the whole batch, then writes each feature's state file
+ * before writing the marker file itself.
  */
 async function seedAllFeaturesForCi(gmsToken: string, gmsBaseUrl: string, logger: DataHubLogger): Promise<void> {
   await withArtifactLock(ALL_FEATURES_MARKER_FILE, async () => {
@@ -403,7 +415,7 @@ async function seedAllFeaturesForCi(gmsToken: string, gmsBaseUrl: string, logger
         entityCounts.push([featureName, entityCount]);
       }
 
-      await waitForIndexCatchUp(logger);
+      await waitForIndexCatchUp(logger, BATCH_INDEX_CATCH_UP_MS);
 
       for (const [featureName, entityCount] of entityCounts) {
         writeSeedState(featureName, entityCount);
@@ -486,8 +498,8 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
     },
     // Local: worst case one worker produces token + global + one feature, each with
     // ingest + a 15s ES index wait under withArtifactLock. CI: worst case one worker
-    // also produces the full batch seed of every feature (one shared 15s wait, see
-    // seedAllFeaturesForCi) before its own feature's now-instant short-circuit.
+    // also produces the full batch seed of every feature (one shared, longer wait — see
+    // BATCH_INDEX_CATCH_UP_MS) before its own feature's now-instant short-circuit.
     { auto: true, scope: 'worker', timeout: SEED_TIMEOUT_MS },
   ],
 });
