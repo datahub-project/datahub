@@ -1031,7 +1031,10 @@ public class ElasticsearchController {
 
     try {
       String indexName =
-          opContext.getSearchContext().getIndexConvention().getEntityIndexName(entityName);
+          opContext
+              .getSearchContext()
+              .getIndexConvention()
+              .getEntityIndexName(opContext, entityName);
       Optional<DataHubUpgradeResult> phase1 =
           BootstrapStep.getUpgradeResult(opContext, incrementalReindexUpgradeUrn, entityService);
       if (phase1.isEmpty() || phase1.get().getResult() == null) {

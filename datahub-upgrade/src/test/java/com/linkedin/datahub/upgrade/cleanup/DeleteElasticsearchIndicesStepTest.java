@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -51,9 +52,12 @@ public class DeleteElasticsearchIndicesStepTest {
     when(esComponents.getIndexConvention()).thenReturn(indexConvention);
 
     // IndexConvention returns DataHub-specific patterns and names
-    when(indexConvention.getAllEntityIndicesPatterns()).thenReturn(List.of("test_*index_v2"));
-    when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn("test_*aspect_v1");
-    when(indexConvention.getIndexName(anyString())).thenAnswer(inv -> "test_" + inv.getArgument(0));
+    when(indexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+        .thenReturn(List.of("test_*index_v2"));
+    when(indexConvention.getAllTimeseriesAspectIndicesPattern(any(OperationFingerprint.class)))
+        .thenReturn("test_*aspect_v1");
+    when(indexConvention.getIndexName(any(OperationFingerprint.class), anyString()))
+        .thenAnswer(inv -> "test_" + inv.getArgument(1));
 
     // Default: patterns match no indices — simulate the 404 ResponseException the real client
     // throws

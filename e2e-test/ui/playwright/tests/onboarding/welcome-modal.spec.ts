@@ -193,6 +193,7 @@ test.describe('Welcome to DataHub Modal', () => {
       });
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const viewEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalViewEvent');
       expect(viewEvent).toBeDefined();
@@ -208,6 +209,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const interactEvents = trackRequests.filter((r) => r['type'] === 'WelcomeToDataHubModalInteractEvent');
       expect(interactEvents.length).toBeGreaterThan(0);
@@ -223,6 +225,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
       expect(exitEvent).toBeDefined();
@@ -239,6 +242,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaEscape();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
       expect(exitEvent).toBeDefined();
@@ -257,6 +261,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.clickLastCarouselDot();
       await welcomeModalPage.expectFinalSlideVisible();
       await welcomeModalPage.docsLink.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const linkClickEvent = trackRequests.find(
         (r) => r['type'] === 'WelcomeToDataHubModalClickViewDocumentationEvent',
