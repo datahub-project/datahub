@@ -34,6 +34,11 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("redshift", "redshift", "SELECT * FROM pg_catalog.svv_table_info"),
     ("mysql", "mysql", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT table_name FROM information_schema.tables"),
+    ("snowflake", "snowflake", "SELECT * FROM snowflake.account_usage.tables"),
+    ("snowflake", "snowflake", "SELECT * FROM account_usage.object_dependencies"),
+    ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.TABLES"),
+    ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.COLUMNS"),
+    ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.TABLE_OPTIONS"),
 ]
 
 # The text-bearing relation that sits in the same catalog as the ones above. Each of
@@ -46,6 +51,23 @@ REFUSED_QUERY_TEXT: List[Tuple[str, str, str]] = [
     ("clickhouse", "clickhouse", "SELECT query FROM system.query_log"),
     ("postgres", "postgres", "SELECT query FROM pg_catalog.pg_stat_statements"),
     ("postgres", "postgres", "SELECT query FROM pg_catalog.pg_stat_activity"),
+    # BigQuery extends INFORMATION_SCHEMA with JOBS, whose `query` column is the
+    # SQL text of every job run in the project. A schema-level allow of
+    # information_schema -- which is the framework default -- permits it, so this
+    # is the case that forced BigQuery onto a named-relation allowlist.
+    ("bigquery", "bigquery", "SELECT query FROM myds.INFORMATION_SCHEMA.JOBS"),
+    (
+        "bigquery",
+        "bigquery",
+        "SELECT query, user_email FROM myds.INFORMATION_SCHEMA.JOBS_BY_PROJECT",
+    ),
+    ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.JOBS_BY_USER"),
+    ("snowflake", "snowflake", "SELECT query_text FROM account_usage.query_history"),
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT * FROM snowflake.account_usage.access_history",
+    ),
 ]
 
 REFUSED_USER_DATA: List[Tuple[str, str, str]] = [
@@ -58,6 +80,22 @@ REFUSED_USER_DATA: List[Tuple[str, str, str]] = [
 
 
 def _scope(source_type: str) -> CatalogScope:
+    """Resolve the scope the way _enforce_gates does, which is off the provider.
+
+    Two homes, because there are two shapes. The SQLAlchemy family declares it on
+    the config and for_config primes it onto the instance -- one provider class
+    serves ~15 dialects, so the class cannot hold a per-dialect answer. A connector
+    with its own provider class (Snowflake, BigQuery) declares it there instead.
+
+    Read from the provider's own __dict__ rather than with getattr, so the base
+    class's default does not shadow a config that declares one.
+    """
+    from datahub.ingestion.agent.probe_methods import _provider_class
+
+    provider = _provider_class(source_type)
+    declared = provider.__dict__.get("catalog_scope") if provider else None
+    if isinstance(declared, CatalogScope):
+        return declared
     return config_class_for(source_type).probe_catalog_scope()
 
 
@@ -110,6 +148,93 @@ def test_cockroachdb_is_parsed_as_postgres_because_that_is_what_it_speaks():
         "SELECT relname FROM pg_catalog.pg_class",
         platform=sqlglot_dialect_for("cockroachdb"),
         scope=_scope("cockroachdb"),
+    )
+
+
+# Sources reviewed as safe on the bare default scope -- a schema-level allow of
+# information_schema and nothing else. Safe here means: this dialect's
+# information_schema holds schema shape only, with no view carrying the text of
+# user queries.
+#
+# The list exists because that judgement cannot be made generically. A sweep
+# matching relation names against a global list of text-bearing views was tried
+# first and cried wolf: it flagged information_schema.jobs on Athena, where no
+# such view exists. Whether a relation is text-bearing is irreducibly per-dialect,
+# so the decision is recorded per source instead.
+#
+# BigQuery is the reason. It sat on this default for the whole of the branch, and
+# BigQuery extends INFORMATION_SCHEMA with JOBS -- the SQL text of every job in the
+# project. It now declares a named-relation allowlist and is absent from here.
+_DEFAULT_SCOPE_REVIEWED = frozenset(
+    {
+        "athena",
+        "db2",
+        "doris",
+        "druid",
+        "hana",
+        "hive",
+        "hive-metastore",
+        "mariadb",
+        "mysql",
+        "presto",
+        "presto-on-hive",
+        "sqlalchemy",
+        "starburst-trino-usage",
+        "starrocks",
+        "tidb",
+        "trino",
+        "unity-catalog",
+        "vertica",
+    }
+)
+
+
+def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
+    """Force a decision when a connector inherits the bare default.
+
+    Follows the pattern this repo already uses for sensitive config properties:
+    rather than guess, require the classification to be explicit, and fail with
+    instructions when something new appears.
+
+    A named-relation allowlist is safe by construction -- nothing arrives
+    permitted. A schema-level allow is a denylist, so somebody has to have looked
+    at that dialect's information_schema and confirmed it carries no query text.
+    """
+    from datahub.ingestion.agent.probe_methods import _provider_class
+    from datahub.ingestion.source.source_registry import source_registry
+
+    default = CatalogScope()
+    unreviewed: List[str] = []
+    scanned = 0
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider = _provider_class(source_type)
+        except Exception:
+            # Optional deps absent in this environment; the dialects that matter
+            # here load on core deps alone (asserted below).
+            continue
+        if provider is None:
+            continue
+        scope = provider.__dict__.get("catalog_scope")
+        if not isinstance(scope, CatalogScope):
+            try:
+                scope = config_class_for(source_type).probe_catalog_scope()
+            except Exception:
+                continue
+        if not isinstance(scope, CatalogScope):
+            continue
+        scanned += 1
+        if scope == default and source_type not in _DEFAULT_SCOPE_REVIEWED:
+            unreviewed.append(source_type)
+
+    assert scanned, "scanned no scopes at all, so this proved nothing"
+    assert "mysql" in _DEFAULT_SCOPE_REVIEWED, "the sanity anchor went missing"
+    assert not unreviewed, (
+        "these sources inherit the bare information_schema default without having "
+        "been reviewed for it. Check whether the dialect's information_schema "
+        "carries user query text (BigQuery's JOBS does). If it does, declare a "
+        "named-relation allowlist on the provider; if it does not, add the source "
+        "to _DEFAULT_SCOPE_REVIEWED:\n  " + "\n  ".join(unreviewed)
     )
 
 

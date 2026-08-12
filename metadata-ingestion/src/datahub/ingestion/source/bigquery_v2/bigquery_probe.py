@@ -1,6 +1,7 @@
 import itertools
 from typing import Any
 
+from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
     QueryBudget,
@@ -25,6 +26,41 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
     """
 
     sql_dialect = "bigquery"
+
+    # A named-relation allowlist rather than a schema-level allow of
+    # information_schema, which is what the framework default gives and what every
+    # other standard dialect can safely use.
+    #
+    # BigQuery is the exception because it extends INFORMATION_SCHEMA with JOBS,
+    # whose `query` column holds the SQL text of every job in the project --
+    # WHERE-clause literals, which are row values -- alongside user_email. A
+    # schema-level allow permits it, and BigQuery's own lineage extractor reads it
+    # (queries_extractor.py), so it is not hypothetical.
+    #
+    # Excluding JOBS by name would work today and rot tomorrow: the next
+    # text-bearing view Google adds arrives permitted. Naming what is allowed keeps
+    # the default deny. The list is what BigQuery ingestion itself reads, minus
+    # JOBS, so a probe can reproduce anything ingestion does.
+    catalog_scope = CatalogScope(
+        schemas=frozenset(),
+        relations=frozenset(
+            f"{INFORMATION_SCHEMA}.{view}"
+            for view in (
+                "tables",
+                "table_options",
+                "table_constraints",
+                "table_storage",
+                "columns",
+                "column_field_paths",
+                "views",
+                "schemata",
+                "schemata_options",
+                "partitions",
+                "key_column_usage",
+                "constraint_column_usage",
+            )
+        ),
+    )
 
     # maximum_bytes_billed is the strongest ceiling any dialect here offers: the
     # job is refused before it runs rather than cancelled partway, so it bounds
