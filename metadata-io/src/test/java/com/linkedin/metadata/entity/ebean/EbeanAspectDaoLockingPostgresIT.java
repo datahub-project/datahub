@@ -31,27 +31,32 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Testcontainers integration test for the PostgreSQL write/delete lock-ordering changes that guard
- * against lock-order deadlocks between a multi-row {@code FOR UPDATE} write (e.g. logical-model
- * linking) and a concurrent hard-delete on overlapping rows.
+ * Testcontainers integration test for the PostgreSQL per-{@code (urn, aspect)} advisory write lock
+ * and the ordered {@code FOR UPDATE} lock-ordering changes.
  *
- * <p>Two things are verified against a real PostgreSQL instance:
+ * <p>Verified against a real PostgreSQL instance:
  *
  * <ul>
- *   <li>the opt-in {@code pg_advisory_xact_lock} serialization (holds within a transaction, blocks
- *       a concurrent writer on the same urn, releases on commit; no-op when disabled), and
+ *   <li>the opt-in {@code pg_advisory_xact_lock} serializes concurrent writers on the same {@code
+ *       (urn, aspect)} pair (holds within a transaction, blocks a concurrent writer on the same
+ *       key, releases on commit; no-op when disabled),
+ *   <li>writers on the same URN but different aspects do NOT serialize (the fix for the
+ *       entity-level over-serialization regression — CAS and {@code FOR UPDATE} contend on {@code
+ *       (urn, aspect)}, not the entity),
+ *   <li>{@code deleteUrn} locks the entity's full aspect key-set, so a concurrent upsert on any
+ *       aspect of that URN blocks (delete↔upsert safety is key-set overlap),
  *   <li>the ordered {@code FOR UPDATE} SQL added to {@code deleteUrn} and {@code batchGetIn}
- *       actually parses and runs on PostgreSQL (the {@code orderBy(...)} property path and the
- *       {@code ORDER BY ... FOR UPDATE} raw SQL).
+ *       actually parses and runs on PostgreSQL.
  * </ul>
  *
  * <p>We deliberately do not attempt to reproduce a nondeterministic deadlock; that is flaky and
- * characterizes the engine rather than this code. The advisory-serialization test is the
- * deterministic proof that the serialization mechanism works.
+ * characterizes the engine rather than this code. The advisory-serialization tests are the
+ * deterministic proof that the serialization mechanism works at the right granularity.
  */
 public class EbeanAspectDaoLockingPostgresIT {
 
   private static final String CREATED_BY = "urn:li:corpuser:test";
+  private static final String KEY_ASPECT_NAME = "corpUserInfo";
 
   private PostgreSQLContainer<?> postgres;
   private Database primaryDatabase;
@@ -97,9 +102,11 @@ public class EbeanAspectDaoLockingPostgresIT {
     EbeanTestUtils.shutdownDatabase(primaryDatabase);
   }
 
+  /** Same (urn, aspect): B must block until A commits, then acquire. */
   @Test
-  public void advisoryLock_serializesConcurrentWritersOnSameUrn() throws Exception {
-    final String urn = "urn:li:corpuser:adv_serialize_" + shortId();
+  public void advisoryLock_serializesConcurrentWritersOnSameUrnAspect() throws Exception {
+    final String urn = "urn:li:corpuser:adv_same_" + shortId();
+    final String aspect = STATUS_ASPECT_NAME;
     final CountDownLatch aHoldsLock = new CountDownLatch(1);
     final CountDownLatch releaseA = new CountDownLatch(1);
     final AtomicLong bAcquiredAtNanos = new AtomicLong(0);
@@ -109,7 +116,7 @@ public class EbeanAspectDaoLockingPostgresIT {
         new Thread(
             () -> {
               try (Transaction tx = primaryDatabase.beginTransaction()) {
-                advisoryDao.lockUrnsForWrite(opContext, List.of(urn));
+                advisoryDao.lockAspectsForWrite(opContext, Map.of(urn, Set.of(aspect)));
                 aHoldsLock.countDown();
                 releaseA.await(10, TimeUnit.SECONDS);
                 tx.commit();
@@ -124,7 +131,7 @@ public class EbeanAspectDaoLockingPostgresIT {
               try {
                 aHoldsLock.await(10, TimeUnit.SECONDS);
                 try (Transaction tx = primaryDatabase.beginTransaction()) {
-                  advisoryDao.lockUrnsForWrite(opContext, List.of(urn));
+                  advisoryDao.lockAspectsForWrite(opContext, Map.of(urn, Set.of(aspect)));
                   bAcquiredAtNanos.set(System.nanoTime());
                   tx.commit();
                 }
@@ -152,9 +159,193 @@ public class EbeanAspectDaoLockingPostgresIT {
         "B must acquire the advisory lock only after A released it on commit");
   }
 
+  /**
+   * Same URN, different aspects: B must proceed while A holds its aspect lock. This is the fix for
+   * the entity-level over-serialization regression — cross-aspect writers on the same URN share no
+   * row and must not share a mutex.
+   */
+  @Test
+  public void advisoryLock_doesNotSerializeDifferentAspectsOnSameUrn() throws Exception {
+    final String urn = "urn:li:corpuser:adv_diff_" + shortId();
+    final String aspectA = STATUS_ASPECT_NAME;
+    final String aspectB = KEY_ASPECT_NAME;
+    final CountDownLatch aHoldsLock = new CountDownLatch(1);
+    final CountDownLatch releaseA = new CountDownLatch(1);
+    final AtomicLong bAcquiredAtNanos = new AtomicLong(0);
+    final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+    final Thread a =
+        new Thread(
+            () -> {
+              try (Transaction tx = primaryDatabase.beginTransaction()) {
+                advisoryDao.lockAspectsForWrite(opContext, Map.of(urn, Set.of(aspectA)));
+                aHoldsLock.countDown();
+                releaseA.await(10, TimeUnit.SECONDS);
+                tx.commit();
+              } catch (Throwable t) {
+                failure.set(t);
+                aHoldsLock.countDown();
+              }
+            });
+    final Thread b =
+        new Thread(
+            () -> {
+              try {
+                aHoldsLock.await(10, TimeUnit.SECONDS);
+                try (Transaction tx = primaryDatabase.beginTransaction()) {
+                  advisoryDao.lockAspectsForWrite(opContext, Map.of(urn, Set.of(aspectB)));
+                  bAcquiredAtNanos.set(System.nanoTime());
+                  tx.commit();
+                }
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            });
+
+    a.start();
+    b.start();
+    aHoldsLock.await(10, TimeUnit.SECONDS);
+
+    // Different aspect -> no shared key -> B must NOT block on A.
+    Thread.sleep(400);
+    assertNotEquals(
+        bAcquiredAtNanos.get(),
+        0L,
+        "B on a different aspect must not be serialized behind A on the same URN");
+
+    releaseA.countDown();
+    a.join(10_000);
+    b.join(10_000);
+    assertNull(failure.get(), "advisory lock threads should not error");
+  }
+
+  /** Disjoint URNs: B must proceed while A holds its lock. No shared key, no contention. */
+  @Test
+  public void advisoryLock_disjointUrnsDoNotContend() throws Exception {
+    final String urnA = "urn:li:corpuser:adv_disjoint_a_" + shortId();
+    final String urnB = "urn:li:corpuser:adv_disjoint_b_" + shortId();
+    final String aspect = STATUS_ASPECT_NAME;
+    final CountDownLatch aHoldsLock = new CountDownLatch(1);
+    final CountDownLatch releaseA = new CountDownLatch(1);
+    final AtomicLong bAcquiredAtNanos = new AtomicLong(0);
+    final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+    final Thread a =
+        new Thread(
+            () -> {
+              try (Transaction tx = primaryDatabase.beginTransaction()) {
+                advisoryDao.lockAspectsForWrite(opContext, Map.of(urnA, Set.of(aspect)));
+                aHoldsLock.countDown();
+                releaseA.await(10, TimeUnit.SECONDS);
+                tx.commit();
+              } catch (Throwable t) {
+                failure.set(t);
+                aHoldsLock.countDown();
+              }
+            });
+    final Thread b =
+        new Thread(
+            () -> {
+              try {
+                aHoldsLock.await(10, TimeUnit.SECONDS);
+                try (Transaction tx = primaryDatabase.beginTransaction()) {
+                  advisoryDao.lockAspectsForWrite(opContext, Map.of(urnB, Set.of(aspect)));
+                  bAcquiredAtNanos.set(System.nanoTime());
+                  tx.commit();
+                }
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            });
+
+    a.start();
+    b.start();
+    aHoldsLock.await(10, TimeUnit.SECONDS);
+
+    Thread.sleep(400);
+    assertNotEquals(
+        bAcquiredAtNanos.get(), 0L, "B on a disjoint URN must not be serialized behind A");
+
+    releaseA.countDown();
+    a.join(10_000);
+    b.join(10_000);
+    assertNull(failure.get(), "advisory lock threads should not error");
+  }
+
+  /**
+   * deleteUrn locks the entity's full aspect key-set (wide), so a concurrent upsert on any aspect
+   * of that URN must block until the delete commits. This is the delete<->upsert safety guarantee:
+   * key-set overlap, not a permanent URN-wide lock on every ingest.
+   */
+  @Test
+  public void deleteUrn_locksFullAspectSet_blocksUpsertOnAnyAspect() throws Exception {
+    final String urn = "urn:li:corpuser:adv_delete_" + shortId();
+    // Seed two aspects so deleteUrn has rows to act on.
+    saveAspect(urn, KEY_ASPECT_NAME);
+    saveAspect(urn, STATUS_ASPECT_NAME);
+
+    final CountDownLatch aHoldsLock = new CountDownLatch(1);
+    final CountDownLatch releaseA = new CountDownLatch(1);
+    final AtomicLong bAcquiredAtNanos = new AtomicLong(0);
+    final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+    // Thread A: open tx, run deleteUrn (locks the full aspect set), hold without committing.
+    final Thread a =
+        new Thread(
+            () -> {
+              try (Transaction tx = primaryDatabase.beginTransaction()) {
+                advisoryDao.deleteUrn(opContext, null, urn);
+                aHoldsLock.countDown();
+                releaseA.await(10, TimeUnit.SECONDS);
+                tx.commit();
+              } catch (Throwable t) {
+                failure.set(t);
+                aHoldsLock.countDown();
+              }
+            });
+    // Thread B: try to acquire the advisory lock for a single aspect of the same URN.
+    final Thread b =
+        new Thread(
+            () -> {
+              try {
+                aHoldsLock.await(10, TimeUnit.SECONDS);
+                try (Transaction tx = primaryDatabase.beginTransaction()) {
+                  advisoryDao.lockAspectsForWrite(
+                      opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)));
+                  bAcquiredAtNanos.set(System.nanoTime());
+                  tx.commit();
+                }
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            });
+
+    a.start();
+    b.start();
+    aHoldsLock.await(10, TimeUnit.SECONDS);
+
+    // deleteUrn holds the full aspect key-set -> B's single-aspect lock must block.
+    Thread.sleep(400);
+    assertEquals(
+        bAcquiredAtNanos.get(),
+        0L,
+        "B on any aspect must block behind deleteUrn's full aspect key-set lock");
+
+    final long releasedAtNanos = System.nanoTime();
+    releaseA.countDown();
+    a.join(10_000);
+    b.join(10_000);
+
+    assertNull(failure.get(), "delete vs upsert threads should not error");
+    assertTrue(
+        bAcquiredAtNanos.get() >= releasedAtNanos,
+        "B must acquire its aspect lock only after deleteUrn committed and released the full set");
+  }
+
   @Test
   public void advisoryLock_isNoOpWhenDisabled() throws Exception {
     final String urn = "urn:li:corpuser:adv_disabled_" + shortId();
+    final String aspect = STATUS_ASPECT_NAME;
     final CountDownLatch aHoldsTxn = new CountDownLatch(1);
     final CountDownLatch releaseA = new CountDownLatch(1);
     final AtomicLong bProceededAtNanos = new AtomicLong(0);
@@ -164,7 +355,7 @@ public class EbeanAspectDaoLockingPostgresIT {
         new Thread(
             () -> {
               try (Transaction tx = primaryDatabase.beginTransaction()) {
-                defaultDao.lockUrnsForWrite(opContext, List.of(urn));
+                defaultDao.lockAspectsForWrite(opContext, Map.of(urn, Set.of(aspect)));
                 aHoldsTxn.countDown();
                 releaseA.await(10, TimeUnit.SECONDS);
                 tx.commit();
@@ -179,7 +370,7 @@ public class EbeanAspectDaoLockingPostgresIT {
               try {
                 aHoldsTxn.await(10, TimeUnit.SECONDS);
                 try (Transaction tx = primaryDatabase.beginTransaction()) {
-                  defaultDao.lockUrnsForWrite(opContext, List.of(urn));
+                  defaultDao.lockAspectsForWrite(opContext, Map.of(urn, Set.of(aspect)));
                   bProceededAtNanos.set(System.nanoTime());
                   tx.commit();
                 }
@@ -235,10 +426,11 @@ public class EbeanAspectDaoLockingPostgresIT {
   }
 
   @Test
-  public void lockUrnsForWrite_withoutActiveTransaction_skipsGracefully() {
-    // No enclosing transaction → the advisory lock can't be held (would auto-commit), so it is
+  public void lockAspectsForWrite_withoutActiveTransaction_skipsGracefully() {
+    // No enclosing transaction -> the advisory lock can't be held (would auto-commit), so it is
     // skipped with a warning rather than aborting the caller. Must not throw.
-    advisoryDao.lockUrnsForWrite(opContext, List.of("urn:li:corpuser:no_txn_" + shortId()));
+    advisoryDao.lockAspectsForWrite(
+        opContext, Map.of("urn:li:corpuser:no_txn_" + shortId(), Set.of(STATUS_ASPECT_NAME)));
   }
 
   private void saveAspect(String urn, String aspectName) {
