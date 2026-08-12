@@ -35,7 +35,6 @@ jobs:
       # Runs the single python-lint job if ANY Python module's files changed.
       python-lint: ${{ steps.filter.outputs.metadata-ingestion == 'true' || steps.filter.outputs.datahub-actions == 'true' || steps.filter.outputs.datahub-agent-context == 'true' || steps.filter.outputs.airflow-plugin == 'true' || steps.filter.outputs.gx-plugin == 'true' || steps.filter.outputs.dagster-plugin == 'true' || steps.filter.outputs.prefect-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
-      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
       default-runner: ${{ steps.runners.outputs.default-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
