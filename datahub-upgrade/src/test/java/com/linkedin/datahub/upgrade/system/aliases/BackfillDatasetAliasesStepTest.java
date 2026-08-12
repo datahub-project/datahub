@@ -5,7 +5,6 @@ import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,6 +25,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.Aliases;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
@@ -43,6 +43,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -50,6 +51,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
@@ -67,6 +69,9 @@ public class BackfillDatasetAliasesStepTest {
       "urn:li:dataset:(urn:li:dataPlatform:MySQL,db.aaa,PROD)";
   private static final String URN_OTHER =
       "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.BBB,PROD)";
+  // Uppercase platform and env are deliberate: only the name is lowercased.
+  private static final String URN_ALREADY_LOWERCASED =
+      "urn:li:dataset:(urn:li:dataPlatform:MySQL,db.ccc,PROD)";
   // Parses as a generic urn but not as a DatasetUrn: the key tuple is missing the env.
   private static final String URN_NOT_A_DATASET = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.t)";
 
@@ -89,6 +94,15 @@ public class BackfillDatasetAliasesStepTest {
   private BackfillDatasetAliasesStep buildStep(boolean reprocessEnabled) {
     return new BackfillDatasetAliasesStep(
         OP_CONTEXT, mockEntityService, mockSearchService, 1000, 0, reprocessEnabled);
+  }
+
+  private void stubPreviousResult(DataHubUpgradeState state, String lastUrn) {
+    DataHubUpgradeResult previous = new DataHubUpgradeResult().setState(state);
+    if (lastUrn != null) {
+      previous.setResult(new StringMap(Map.of("lastUrn", lastUrn)));
+    }
+    when(mockUpgrade.getUpgradeResult(any(OperationContext.class), any(Urn.class), any()))
+        .thenReturn(Optional.of(previous));
   }
 
   private static ScrollResult page(String scrollId, String... urns) {
@@ -288,10 +302,29 @@ public class BackfillDatasetAliasesStepTest {
   }
 
   @Test
+  public void testUrnAlreadyLowercasedIsSkipped() {
+    stubScroll(page(null, URN_ALREADY_LOWERCASED, URN_MIXED_CASE));
+
+    UpgradeStepResult result = buildStep(false).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(capturedProposals(1).get(0).getUrn(), UrnUtils.getUrn(URN_MIXED_CASE));
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(mockUpgrade)
+        .setUpgradeResult(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            eq(DataHubUpgradeState.SUCCEEDED),
+            captor.capture());
+    assertEquals(captor.getValue().get("alreadyLowercased"), "1");
+  }
+
+  @Test
   public void testSkipsWhenAlreadyRun() {
-    when(mockEntityService.exists(
-            any(OperationContext.class), any(Urn.class), anyString(), anyBoolean()))
-        .thenReturn(true);
+    stubPreviousResult(DataHubUpgradeState.SUCCEEDED, null);
 
     assertTrue(buildStep(false).skip(mockContext));
     assertFalse(buildStep(true).skip(mockContext), "reprocess must override a previous run");
@@ -300,5 +333,55 @@ public class BackfillDatasetAliasesStepTest {
   @Test
   public void testDoesNotSkipWithoutMarker() {
     assertFalse(buildStep(false).skip(mockContext));
+  }
+
+  @Test
+  public void testDoesNotSkipAnInterruptedRun() {
+    stubPreviousResult(DataHubUpgradeState.IN_PROGRESS, URN_MIXED_CASE);
+
+    // the IN_PROGRESS result only carries the cursor; the scan still has pages left
+    assertFalse(buildStep(false).skip(mockContext));
+  }
+
+  @Test
+  public void testResumesAfterTheRecordedUrn() {
+    stubPreviousResult(DataHubUpgradeState.IN_PROGRESS, URN_ALREADY_LOWERCASED);
+    stubScroll(page(null, URN_MIXED_CASE));
+
+    buildStep(false).executable().apply(mockContext);
+
+    Criterion cursor = capturedFilter().getOr().get(0).getAnd().get(1);
+    assertEquals(cursor.getField(), "urn");
+    assertEquals(cursor.getCondition(), Condition.GREATER_THAN);
+    assertEquals(cursor.getValues(), List.of(URN_ALREADY_LOWERCASED));
+  }
+
+  @Test
+  public void testReprocessIgnoresTheCursor() {
+    stubPreviousResult(DataHubUpgradeState.IN_PROGRESS, URN_ALREADY_LOWERCASED);
+    stubScroll(page(null, URN_MIXED_CASE));
+
+    buildStep(true).executable().apply(mockContext);
+
+    assertNull(capturedFilter(), "reprocess must scan from the start");
+  }
+
+  @Test
+  public void testRecordsTheLastScannedUrnPerPage() {
+    // the skipped urn sorts last, so a cursor tracking emits would rescan it
+    stubScroll(page(null, URN_MIXED_CASE, URN_ALREADY_LOWERCASED));
+
+    buildStep(false).executable().apply(mockContext);
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(mockUpgrade)
+        .setUpgradeResult(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            eq(DataHubUpgradeState.IN_PROGRESS),
+            captor.capture());
+    assertEquals(captor.getValue().get("lastUrn"), URN_ALREADY_LOWERCASED);
   }
 }

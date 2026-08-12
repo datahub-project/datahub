@@ -1,10 +1,11 @@
 package com.linkedin.datahub.upgrade.system.aliases;
 
+import static com.linkedin.datahub.upgrade.system.AbstractMCLStep.LAST_URN_KEY;
 import static com.linkedin.metadata.Constants.ALIASES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -36,6 +38,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -55,12 +58,16 @@ import lombok.extern.slf4j.Slf4j;
  * which is written once at creation.
  *
  * <p>Scans Elasticsearch for datasets whose {@code lowercasedUrn} is absent and emits an MCP for
- * each, leaving the writes to mce-consumer. The query is self-narrowing, so an interrupted run
- * resumes simply by running again — there is no checkpoint. The SUCCEEDED marker on {@code
+ * each, leaving the writes to mce-consumer. The SUCCEEDED marker on {@code
  * urn:li:dataHubUpgrade:dataset-aliases-v1} gates case-insensitive resolution and is written when
  * the scroll is exhausted. A URN that cannot be lowercased is counted and skipped, since it can
  * never carry the aspect, but a failed emit ends the run: ingestion is asynchronous, so the only
  * error reachable here is the proposal not making it onto the topic at all.
+ *
+ * <p>Mirroring {@code AliasesSideEffect}, a URN that already equals its lowercased form is skipped
+ * rather than emitted, so it keeps matching the filter and the scan cannot narrow on its own. Each
+ * page therefore records the urn it reached under an {@code IN_PROGRESS} result, and the next run
+ * resumes past it. Reprocess ignores the cursor and scans from the start.
  */
 @Slf4j
 public class BackfillDatasetAliasesStep implements UpgradeStep {
@@ -69,8 +76,9 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
   public static final String UPGRADE_ID = AliasesUtils.DATASET_ALIASES_BACKFILL_UPGRADE_ID;
 
   private static final String LOWERCASED_URN_FIELD = "lowercasedUrn";
+  private static final String URN_FIELD = "urn";
   private static final List<SortCriterion> URN_SORT =
-      ImmutableList.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING));
+      ImmutableList.of(new SortCriterion().setField(URN_FIELD).setOrder(SortOrder.ASCENDING));
 
   private final OperationContext opContext;
   private final EntityService<?> entityService;
@@ -103,6 +111,10 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
     return BootstrapStep.getUpgradeUrn(id());
   }
 
+  /**
+   * Only a completed run skips the step. An {@code IN_PROGRESS} result exists purely to carry the
+   * resume cursor, so treating mere existence as "already run" would abandon an interrupted scan.
+   */
   @Override
   public boolean skip(UpgradeContext context) {
     if (reprocessEnabled) {
@@ -110,21 +122,42 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
     }
 
     boolean previouslyRun =
-        entityService.exists(
-            context.opContext(), getUpgradeIdUrn(), DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+        previousResult(context)
+            .map(DataHubUpgradeResult::getState)
+            .filter(DataHubUpgradeState.SUCCEEDED::equals)
+            .isPresent();
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }
     return previouslyRun;
   }
 
+  private Optional<DataHubUpgradeResult> previousResult(UpgradeContext context) {
+    return context
+        .upgrade()
+        .getUpgradeResult(context.opContext(), getUpgradeIdUrn(), entityService);
+  }
+
+  /** The URN the last run reached, or null to scan from the start. */
+  @Nullable
+  private String resumeUrn(UpgradeContext context) {
+    return previousResult(context)
+        .filter(result -> DataHubUpgradeState.IN_PROGRESS.equals(result.getState()))
+        .map(DataHubUpgradeResult::getResult)
+        .map(result -> result.get(LAST_URN_KEY))
+        .orElse(null);
+  }
+
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
-      final Filter filter = reprocessEnabled ? null : missingLowercasedUrnFilter();
+      final String resumeUrn = reprocessEnabled ? null : resumeUrn(context);
+      final Filter filter = reprocessEnabled ? null : missingLowercasedUrnFilter(resumeUrn);
       if (reprocessEnabled) {
         log.info("{}: reprocess enabled, re-emitting aliases for every dataset.", id());
+      } else if (resumeUrn != null) {
+        log.info("{}: resuming after urn {}.", id(), resumeUrn);
       }
 
       RunStats stats = new RunStats();
@@ -136,6 +169,7 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
           break;
         }
         emitPage(result.getEntities(), auditStamp, stats);
+        saveCursor(context, result.getEntities());
         scrollId = result.getScrollId();
         if (scrollId != null) {
           log.info("{}: emitted {} so far.", id(), stats.emitted);
@@ -152,7 +186,8 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
               DataHubUpgradeState.SUCCEEDED,
               Map.of(
                   "emitted", String.valueOf(stats.emitted),
-                  "unparseable", String.valueOf(stats.unparseable)));
+                  "unparseable", String.valueOf(stats.unparseable),
+                  "alreadyLowercased", String.valueOf(stats.alreadyLowercased)));
       log.info("{}: completed. {}", id(), stats);
       context.report().addLine(String.format("%s: completed. %s", id(), stats));
 
@@ -207,6 +242,26 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
     stats.emitted += proposals.size();
   }
 
+  /**
+   * Records the last urn of the page, scanned rather than emitted: a skipped dataset keeps matching
+   * the filter, so a cursor that only advanced on emits would rescan it on the next run.
+   */
+  private void saveCursor(UpgradeContext context, Collection<SearchEntity> page) {
+    Urn lastScanned =
+        page.stream().map(SearchEntity::getEntity).reduce((first, second) -> second).orElse(null);
+    if (lastScanned == null) {
+      return;
+    }
+    context
+        .upgrade()
+        .setUpgradeResult(
+            opContext,
+            getUpgradeIdUrn(),
+            entityService,
+            DataHubUpgradeState.IN_PROGRESS,
+            Map.of(LAST_URN_KEY, lastScanned.toString()));
+  }
+
   private Optional<MetadataChangeProposal> buildProposal(Urn urn, RunStats stats) {
     final DatasetUrn lowercasedUrn;
     try {
@@ -215,6 +270,11 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
       // mirrors AliasesSideEffect: such urns can never carry the aspect
       log.warn("{}: skipping dataset urn {} that cannot be lowercased", id(), urn, e);
       stats.unparseable++;
+      return Optional.empty();
+    }
+
+    if (lowercasedUrn.equals(urn)) {
+      stats.alreadyLowercased++;
       return Optional.empty();
     }
 
@@ -229,9 +289,12 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
     return Optional.of(proposal);
   }
 
-  private static Filter missingLowercasedUrnFilter() {
+  private static Filter missingLowercasedUrnFilter(@Nullable String resumeUrn) {
     CriterionArray criteria = new CriterionArray();
     criteria.add(buildIsNullCriterion(LOWERCASED_URN_FIELD));
+    if (resumeUrn != null) {
+      criteria.add(buildCriterion(URN_FIELD, Condition.GREATER_THAN, resumeUrn));
+    }
 
     ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
     conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(criteria));
@@ -261,10 +324,13 @@ public class BackfillDatasetAliasesStep implements UpgradeStep {
   private static final class RunStats {
     private long emitted;
     private long unparseable;
+    private long alreadyLowercased;
 
     @Override
     public String toString() {
-      return String.format("emitted=%d, unparseable=%d", emitted, unparseable);
+      return String.format(
+          "emitted=%d, unparseable=%d, alreadyLowercased=%d",
+          emitted, unparseable, alreadyLowercased);
     }
   }
 }
