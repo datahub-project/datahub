@@ -13,7 +13,32 @@ import statistics
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+
+def _safe_parse_root(xml_file: Path) -> Optional[ET.Element]:
+    """Parse xml_file, printing a warning and returning None on failure instead of raising.
+    Shared by every parser below so a malformed report from any framework fails the same way."""
+    try:
+        return ET.parse(xml_file).getroot()
+    except ET.ParseError as e:
+        print(f"Warning: Failed to parse {xml_file}: {e}")
+    except Exception as e:
+        print(f"Warning: Error processing {xml_file}: {e}")
+    return None
+
+
+def _parse_finite_duration(time_str: str, xml_file: Path) -> Optional[float]:
+    """Float-convert a duration string, rejecting non-finite/negative values (float() accepts
+    nan/inf, and inf would otherwise pass a later ">0" filter and poison a median)."""
+    try:
+        duration = float(time_str)
+    except ValueError:
+        print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
+        return None
+    if not math.isfinite(duration) or duration < 0:
+        return None
+    return duration
 
 
 def parse_cypress_results(artifact_dir: Path) -> Dict[str, List[float]]:
@@ -27,7 +52,7 @@ def parse_cypress_results(artifact_dir: Path) -> Dict[str, List[float]]:
         Dictionary mapping test file paths to lists of durations across runs
         Example: {"glossaryV2/v2_glossary_navigation.js": [94.8, 95.2, 94.5]}
     """
-    test_durations = {}
+    test_durations: Dict[str, List[float]] = {}
 
     # Find all cypress-test-*.xml files
     xml_files = list(artifact_dir.rglob("cypress-test-*.xml"))
@@ -35,48 +60,34 @@ def parse_cypress_results(artifact_dir: Path) -> Dict[str, List[float]]:
     print(f"Found {len(xml_files)} Cypress XML files")
 
     for xml_file in xml_files:
-        try:
-            tree = ET.parse(xml_file)
-            root = tree.getroot()
+        root = _safe_parse_root(xml_file)
+        if root is None:
+            continue
 
-            # Find the root suite with file attribute
-            root_suite = root.find(".//testsuite[@file]")
-            if root_suite is None:
+        # Find the root suite with file attribute
+        root_suite = root.find(".//testsuite[@file]")
+        if root_suite is None:
+            continue
+
+        file_path = root_suite.get("file")
+
+        # Strip "cypress/e2e/" prefix to get relative path
+        if file_path.startswith("cypress/e2e/"):
+            relative_path = file_path.replace("cypress/e2e/", "")
+        else:
+            relative_path = file_path
+
+        # Find all other testsuites (not the root suite) to get actual test durations
+        for testsuite in root.findall(".//testsuite"):
+            # Skip if this is the root suite with file attribute
+            if testsuite.get("file"):
                 continue
 
-            file_path = root_suite.get("file")
-
-            # Strip "cypress/e2e/" prefix to get relative path
-            if file_path.startswith("cypress/e2e/"):
-                relative_path = file_path.replace("cypress/e2e/", "")
-            else:
-                relative_path = file_path
-
-            # Find all other testsuites (not the root suite) to get actual test durations
-            all_testsuites = root.findall(".//testsuite")
-            for testsuite in all_testsuites:
-                # Skip if this is the root suite with file attribute
-                if testsuite.get("file"):
-                    continue
-
-                time_str = testsuite.get("time", "0")
-                try:
-                    duration = float(time_str)
-
-                    # Only add if duration is non-zero
-                    if duration > 0:
-                        if relative_path not in test_durations:
-                            test_durations[relative_path] = []
-                        test_durations[relative_path].append(duration)
-                        # Only take the first non-zero duration per file
-                        break
-                except ValueError:
-                    print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
-
-        except ET.ParseError as e:
-            print(f"Warning: Failed to parse {xml_file}: {e}")
-        except Exception as e:
-            print(f"Warning: Error processing {xml_file}: {e}")
+            duration = _parse_finite_duration(testsuite.get("time", "0"), xml_file)
+            if duration is not None and duration > 0:
+                test_durations.setdefault(relative_path, []).append(duration)
+                # Only take the first non-zero duration per file
+                break
 
     return test_durations
 
@@ -92,51 +103,33 @@ def parse_pytest_results(artifact_dir: Path) -> Dict[str, List[float]]:
         Dictionary mapping test IDs to lists of durations across runs
         Example: {"test_e2e::test_gms_get_dataset": [262.8, 265.3, 260.1]}
     """
-    test_durations = {}
+    test_durations: Dict[str, List[float]] = {}
 
-    # Find all junit.*.xml files (exclude cypress ones)
-    xml_files = []
-    for xml_file in artifact_dir.rglob("junit*.xml"):
-        # Exclude Cypress JUnit files
-        if "cypress" not in xml_file.name:
-            xml_files.append(xml_file)
+    # Find all junit.*.xml files (exclude Cypress ones)
+    xml_files = [f for f in artifact_dir.rglob("junit*.xml") if "cypress" not in f.name]
 
     print(f"Found {len(xml_files)} Pytest XML files")
 
     for xml_file in xml_files:
-        try:
-            tree = ET.parse(xml_file)
-            root = tree.getroot()
+        root = _safe_parse_root(xml_file)
+        if root is None:
+            continue
 
-            # Find all testcase elements
-            for testcase in root.findall(".//testcase"):
-                classname = testcase.get("classname", "")
-                name = testcase.get("name", "")
-                time_str = testcase.get("time", "0")
+        for testcase in root.findall(".//testcase"):
+            classname = testcase.get("classname", "")
+            name = testcase.get("name", "")
 
-                # Build test ID
-                if classname and name:
-                    test_id = f"{classname}::{name}"
-                elif name:
-                    test_id = name
-                else:
-                    continue
+            # Build test ID
+            if classname and name:
+                test_id = f"{classname}::{name}"
+            elif name:
+                test_id = name
+            else:
+                continue
 
-                try:
-                    duration = float(time_str)
-
-                    # Only add if duration is non-zero
-                    if duration > 0:
-                        if test_id not in test_durations:
-                            test_durations[test_id] = []
-                        test_durations[test_id].append(duration)
-                except ValueError:
-                    print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
-
-        except ET.ParseError as e:
-            print(f"Warning: Failed to parse {xml_file}: {e}")
-        except Exception as e:
-            print(f"Warning: Error processing {xml_file}: {e}")
+            duration = _parse_finite_duration(testcase.get("time", "0"), xml_file)
+            if duration is not None and duration > 0:
+                test_durations.setdefault(test_id, []).append(duration)
 
     return test_durations
 
@@ -160,30 +153,22 @@ def parse_gradle_results(artifact_dir: Path) -> Dict[str, List[float]]:
     print(f"Found {len(xml_files)} Gradle XML files")
 
     for xml_file in xml_files:
-        try:
-            root = ET.parse(xml_file).getroot()
-            per_class: Dict[str, float] = {}
-            for testcase in root.findall(".//testcase"):
-                classname = testcase.get("classname", "")
-                time_str = testcase.get("time", "0")
-                if not classname:
-                    continue
-                try:
-                    duration = float(time_str)
-                except ValueError:
-                    print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
-                    continue
-                # Reject non-finite/negative (float() accepts nan/inf, and inf passes ">0").
-                if not math.isfinite(duration) or duration < 0:
-                    continue
-                per_class[classname] = per_class.get(classname, 0.0) + duration
-            for classname, total in per_class.items():
-                if total > 0:
-                    test_durations.setdefault(classname, []).append(total)
-        except ET.ParseError as e:
-            print(f"Warning: Failed to parse {xml_file}: {e}")
-        except Exception as e:
-            print(f"Warning: Error processing {xml_file}: {e}")
+        root = _safe_parse_root(xml_file)
+        if root is None:
+            continue
+
+        per_class: Dict[str, float] = {}
+        for testcase in root.findall(".//testcase"):
+            classname = testcase.get("classname", "")
+            if not classname:
+                continue
+            duration = _parse_finite_duration(testcase.get("time", "0"), xml_file)
+            if duration is None:
+                continue
+            per_class[classname] = per_class.get(classname, 0.0) + duration
+        for classname, total in per_class.items():
+            if total > 0:
+                test_durations.setdefault(classname, []).append(total)
 
     return test_durations
 
@@ -220,28 +205,20 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
     print(f"Found {len(xml_files)} Playwright XML files")
 
     for xml_file in xml_files:
+        root = _safe_parse_root(xml_file)
+        if root is None:
+            continue
+
         run_dir = _run_dir(xml_file)
-        try:
-            root = ET.parse(xml_file).getroot()
-            for testsuite in root.findall(".//testsuite"):
-                file_path = testsuite.get("name", "")
-                time_str = testsuite.get("time", "0")
-                if not file_path:
-                    continue
-                try:
-                    duration = float(time_str)
-                except ValueError:
-                    print(f"Warning: Invalid duration '{time_str}' in {xml_file}")
-                    continue
-                # Reject non-finite/negative (float() accepts nan/inf, and inf passes ">0").
-                if not math.isfinite(duration) or duration < 0:
-                    continue
-                totals = per_run_totals.setdefault(run_dir, {})
-                totals[file_path] = totals.get(file_path, 0.0) + duration
-        except ET.ParseError as e:
-            print(f"Warning: Failed to parse {xml_file}: {e}")
-        except Exception as e:
-            print(f"Warning: Error processing {xml_file}: {e}")
+        for testsuite in root.findall(".//testsuite"):
+            file_path = testsuite.get("name", "")
+            if not file_path:
+                continue
+            duration = _parse_finite_duration(testsuite.get("time", "0"), xml_file)
+            if duration is None:
+                continue
+            totals = per_run_totals.setdefault(run_dir, {})
+            totals[file_path] = totals.get(file_path, 0.0) + duration
 
     test_durations: Dict[str, List[float]] = {}
     for totals in per_run_totals.values():
