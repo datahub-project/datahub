@@ -347,7 +347,14 @@ async function ingestMcps(
   explicitDataFile?: string,
   throwOnFailure = true,
 ): Promise<void> {
-  const entityCount = await ingestMcpsNoWait(featureName, gmsToken, gmsBaseUrl, logger, explicitDataFile, throwOnFailure);
+  const entityCount = await ingestMcpsNoWait(
+    featureName,
+    gmsToken,
+    gmsBaseUrl,
+    logger,
+    explicitDataFile,
+    throwOnFailure,
+  );
   // Wait for the search index to catch up BEFORE marking this seed complete.
   // The state file's mere existence is the fixture's signal that data is safe
   // to read; writing it any earlier let workers that reuse it proceed against
