@@ -143,7 +143,7 @@ public class DailyReport {
     int dailyActiveUsers =
         analyticsService.getHighlights(
             systemOperationContext,
-            analyticsService.getUsageIndexName(),
+            analyticsService.getUsageIndexName(systemOperationContext),
             Optional.of(dayRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -153,7 +153,7 @@ public class DailyReport {
     int weeklyActiveUsers =
         analyticsService.getHighlights(
             systemOperationContext,
-            analyticsService.getUsageIndexName(),
+            analyticsService.getUsageIndexName(systemOperationContext),
             Optional.of(weekRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -163,7 +163,7 @@ public class DailyReport {
     int monthlyActiveUsers =
         analyticsService.getHighlights(
             systemOperationContext,
-            analyticsService.getUsageIndexName(),
+            analyticsService.getUsageIndexName(systemOperationContext),
             Optional.of(monthRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -221,7 +221,7 @@ public class DailyReport {
           systemOperationContext
               .getSearchContext()
               .getIndexConvention()
-              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
+              .getEntityIndexName(systemOperationContext, Constants.CORP_USER_ENTITY_NAME);
 
       SearchRequest searchRequest = new SearchRequest(corpUserIndex);
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -253,7 +253,7 @@ public class DailyReport {
           systemOperationContext
               .getSearchContext()
               .getIndexConvention()
-              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
+              .getEntityIndexName(systemOperationContext, Constants.CORP_USER_ENTITY_NAME);
 
       SearchRequest searchRequest = new SearchRequest(corpUserIndex);
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -327,7 +327,7 @@ public class DailyReport {
     // Iterate only tracked entity types (not all)
     for (EntityType entityType : REPORTING_ENTITY_TYPES) {
       try {
-        String index = analyticsService.getEntityIndexName(entityType);
+        String index = analyticsService.getEntityIndexName(systemOperationContext, entityType);
         // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
         // per-event context available
         int count =
@@ -366,7 +366,7 @@ public class DailyReport {
       List<NamedBar> platformBars =
           analyticsService.getBarChart(
               systemOperationContext,
-              analyticsService.getAllEntityIndexName(),
+              analyticsService.getAllEntityIndexName(systemOperationContext),
               Optional.empty(),
               ImmutableList.of("platform.keyword"),
               Collections.emptyMap(),

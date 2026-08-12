@@ -160,7 +160,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
       searchRequest.source(searchSourceBuilder);
       searchRequest.indices(
-          opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+          opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
 
       // Execute initial search to get scroll ID
       SearchResponse response = executeSearch(opContext, searchRequest);

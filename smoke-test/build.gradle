@@ -35,24 +35,6 @@ node {
 
 }
 
-task yarnInstall(type: YarnTask) {
-  println  "Root directory:  ${project.rootDir}";
-  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
-  args = ['install', '--network-timeout', '300000', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
-}
-
-task cypressLint(type: YarnTask, dependsOn: yarnInstall) {
-  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
-  // TODO: Run a full lint instead of just format.
-  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format']
-}
-
-task cypressLintFix(type: YarnTask, dependsOn: yarnInstall) {
-  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
-  // TODO: Run a full lint instead of just format.
-  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format', '--write']
-}
-
 task installDev(type: Exec) {
     inputs.file file('pyproject.toml')
     inputs.file file('requirements.txt')
@@ -102,62 +84,12 @@ task pytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev'
             "./smoke.sh"
 }
 
-//  ./gradlew :smoke-test:cypressTest -PbatchNumber=2 (default 0)
-task cypressTest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
-    // Get BATCH_NUMBER from command line argument with default value of 0
-    def batchNumber = project.hasProperty('batchNumber') ? project.property('batchNumber') : '0'
-
-    environment 'RUN_QUICKSTART', 'false'
-    environment 'TEST_STRATEGY', 'cypress'
-    environment 'BATCH_COUNT', 11
-    environment 'BATCH_NUMBER', batchNumber
-
-    workingDir = project.projectDir
-    commandLine 'bash', '-c',
-            "source ${venv_name}/bin/activate && set -x && " +
-                    "./smoke.sh"
-}
-
-/**
- * The following will run Cypress in interactive mode against an already running stack.
- */
-task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
-    environment 'RUN_QUICKSTART', 'false'
-
-    workingDir = project.projectDir
-    commandLine 'bash', '-c',
-            "source ${venv_name}/bin/activate && set -x && " +
-                    "./cypress-dev.sh"
-}
-
-/**
- * The following will install Cypress data in an already running stack.
- */
-task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
-    environment 'RUN_QUICKSTART', 'false'
-    environment 'RUN_UI', 'false'
-
-    workingDir = project.projectDir
-    commandLine 'bash', '-c',
-            "source ${venv_name}/bin/activate && set -x && " +
-                    "./cypress-dev.sh"
-}
-
-task cypressRemote(type: Exec) {
-  environment 'CYPRESS_BASE_URL', project.findProperty('baseUrl') ?: 'http://localhost:4173'
-  environment 'CYPRESS_ADMIN_USERNAME', project.findProperty('username') ?: 'admin'
-  environment 'CYPRESS_ADMIN_PASSWORD', project.findProperty('password')
-
-  workingDir = "${project.rootDir}/smoke-test/tests/cypress"
-  commandLine 'bash', '-c', './cypress-remote.sh'
-}
-
 task lint {
-    dependsOn pythonLint, cypressLint
+    dependsOn pythonLint
 }
 
 task lintFix {
-    dependsOn pythonLintFix, cypressLintFix
+    dependsOn pythonLintFix
 }
 
 task cleanPythonCache(type: Exec) {

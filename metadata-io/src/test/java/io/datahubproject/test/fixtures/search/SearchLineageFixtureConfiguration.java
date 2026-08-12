@@ -44,6 +44,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -88,10 +89,8 @@ public abstract class SearchLineageFixtureConfiguration {
   @Bean(name = "searchLineageIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("searchLineagePrefix") String prefix) {
     return new IndexConventionImpl(
-        IndexConventionImpl.IndexConventionConfig.builder()
-            .prefix(prefix)
-            .hashIdAlgo("MD5")
-            .build(),
+        IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+        new ConfiguredIndexPrefixResolver(prefix),
         SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
@@ -149,7 +148,7 @@ public abstract class SearchLineageFixtureConfiguration {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
