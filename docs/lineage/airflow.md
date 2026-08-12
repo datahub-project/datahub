@@ -166,8 +166,8 @@ The plugin maps URI schemes to DataHub platforms:
 | `hdfs://`             | hdfs             | `namenode/path` (case kept)        |
 | `abfs://`, `abfss://` | adls             | `container/path` (case kept)       |
 | `snowflake://`        | snowflake        | `db.schema.table`, **lowercased**  |
-| `postgresql://`       | postgres         | `db.schema.table`, case kept       |
-| `mysql://`            | mysql            | `db.table`, case kept              |
+| `postgresql://`       | postgres         | `db.schema.table`, **lowercased**  |
+| `mysql://`            | mysql            | `db.table`, **lowercased**         |
 | `bigquery://`         | bigquery         | `project.dataset.table`, case kept |
 
 Plain name assets (e.g., from the `@asset` decorator) default to the `airflow` platform.
@@ -180,8 +180,10 @@ convention, which the plugin reproduces from the URI alone:
   account, a Postgres host — so it is dropped, and segments are joined with dots. BigQuery
   is the exception: its authority is the project, which the connector's name begins with,
   so it is kept.
-- **Casing follows the platform**, not one global rule. Only the Snowflake source sets
-  `convert_urns_to_lowercase: true` by default; postgres, mysql and bigquery preserve case.
+- **Casing follows the platform**, using the same rule DataHub's SQL parser applies
+  (`PLATFORMS_WITH_CASE_SENSITIVE_TABLES`), so all three of the plugin's writers —
+  Asset URIs, OpenLineage facets and SQL parsing — agree. Case-insensitive platforms
+  (snowflake, postgres, mysql) are lowercased; case-sensitive ones (bigquery) are not.
 
 The one thing a URI cannot carry is `platform_instance`. If your warehouse recipe sets one,
 map the connection (below) so the URNs line up. If a warehouse URI has an unexpected number

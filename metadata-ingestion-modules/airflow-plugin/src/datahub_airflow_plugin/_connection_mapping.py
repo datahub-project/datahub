@@ -13,6 +13,7 @@ import logging
 from typing import Dict, List, NamedTuple, Optional
 
 import datahub.emitter.mce_builder as builder
+from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub_airflow_plugin._config import (
     AssetConnectionDetail,
     normalize_connection_key,
@@ -61,10 +62,6 @@ class TableNaming(NamedTuple):
     # How many dot-separated segments the connector's name has. Used only to warn when a
     # hand-authored URI doesn't look like the expected shape.
     expected_segments: int
-    # That connector's own `convert_urns_to_lowercase` default. Only Snowflake overrides
-    # the mixin's False (see snowflake_config.py); postgres/mysql (sql_config.py) and
-    # bigquery (bigquery_config.py) inherit it.
-    lowercase: bool
 
 
 # Platforms whose datasets are named `<database>.<schema>.<table>` (or
@@ -75,10 +72,10 @@ class TableNaming(NamedTuple):
 # mssql/athena are absent for now — table-shaped too, but no Asset URIs for them have
 # been reported, and each needs its naming confirmed before being added.
 TABLE_NAMING = {
-    "snowflake": TableNaming(keep_authority=False, expected_segments=3, lowercase=True),
-    "postgres": TableNaming(keep_authority=False, expected_segments=3, lowercase=False),
-    "mysql": TableNaming(keep_authority=False, expected_segments=2, lowercase=False),
-    "bigquery": TableNaming(keep_authority=True, expected_segments=3, lowercase=False),
+    "snowflake": TableNaming(keep_authority=False, expected_segments=3),
+    "postgres": TableNaming(keep_authority=False, expected_segments=3),
+    "mysql": TableNaming(keep_authority=False, expected_segments=2),
+    "bigquery": TableNaming(keep_authority=True, expected_segments=3),
 }
 
 
@@ -118,15 +115,21 @@ def is_table_shaped(scheme: str) -> bool:
 def resolve_lowercase(platform: str, detail: Optional[AssetConnectionDetail]) -> bool:
     """Whether to lowercase this platform's dataset name.
 
-    An explicit mapping value always wins. Otherwise follow that connector's own default
-    (Snowflake lowercases; postgres, mysql and bigquery do not). Platforms with no entry —
-    object stores, and anything unrecognised — default to preserving case, since their
-    keys are case-sensitive.
+    An explicit mapping value always wins. Otherwise defer to
+    PLATFORMS_WITH_CASE_SENSITIVE_TABLES — the same rule the SQL parser applies via
+    SchemaResolver._prefers_urn_lower — so all three of the plugin's writers (Asset URIs,
+    OpenLineage facets, SQL parsing) agree on casing. Deriving it from that shared
+    constant rather than repeating a list here is what stops the two from drifting apart.
+
+    Only applies to table-shaped platforms. Object stores and unrecognised schemes keep
+    their case: their keys really are case-sensitive, and that constant is about SQL
+    identifier folding, not object paths.
     """
     if detail is not None and detail.convert_urns_to_lowercase is not None:
         return detail.convert_urns_to_lowercase
-    naming = TABLE_NAMING.get(platform)
-    return naming.lowercase if naming else False
+    if platform not in TABLE_NAMING:
+        return False
+    return platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
 
 def _warn_shape_once(uri: str, key: str, expected: int, got: int, urn: str) -> None:

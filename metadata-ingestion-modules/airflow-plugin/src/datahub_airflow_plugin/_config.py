@@ -37,24 +37,24 @@ class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
     the OpenLineage converter's `connectionInstanceMap` use, so the three stay
     interchangeable. Mirrors Fivetran's `sources_to_platform_instance` shape.
 
-    A URI alone cannot be split reliably: only the operator knows whether the authority
-    is a Snowflake account (drop it) or a BigQuery project (keep it), which
-    `platform_instance` the warehouse recipe used, or whether that platform lowercases
-    its URNs. Rather than guess, we ask.
+    Optional: the authority, separator and casing rules come from each platform's own
+    naming convention, so URNs are derived without any configuration. This supplies the
+    one thing a URI cannot carry — `platform_instance` — plus overrides for the rest.
     """
 
     # Both of these narrow their inherited type to Optional so that "unset" is
     # distinguishable from a value, letting the platform's own default apply.
     #
     # convert_urns_to_lowercase comes from LowerCaseDatasetUrnConfigMixin (default
-    # False). Casing is per-platform: only the Snowflake source overrides it to True,
-    # while postgres/mysql (sql_config.py) and bigquery (bigquery_config.py) inherit
-    # False — so forcing one value here would mis-case three of the four.
+    # False). Casing here is per-platform, derived from the same
+    # PLATFORMS_WITH_CASE_SENSITIVE_TABLES constant the SQL parser uses, so all three of
+    # the plugin's writers agree — see _connection_mapping.resolve_lowercase.
     convert_urns_to_lowercase: Optional[bool] = Field(  # type: ignore[assignment]
         default=None,
-        description="Lowercase the whole dataset name. Unset follows the platform's own "
-        "connector default (snowflake lowercases; postgres, mysql and bigquery do not). "
-        "Set explicitly only to override that.",
+        description="Lowercase the whole dataset name. Unset follows the same per-platform "
+        "rule DataHub's SQL parser uses: case-insensitive platforms (snowflake, postgres, "
+        "mysql) are lowercased, case-sensitive ones (bigquery) are not. Set explicitly "
+        "only to override that.",
     )
 
     # env comes from PlatformDetail with a PROD default. Unset must mean "use the
@@ -93,9 +93,10 @@ def parse_asset_connections(raw: Optional[str]) -> Dict[str, AssetConnectionDeta
         decoded = json.loads(raw)
     except json.JSONDecodeError as e:
         logger.warning(
-            "Could not parse [datahub] asset_connections as JSON (%s); "
-            "connection mapping is disabled. Airflow Assets with table-shaped URIs "
-            "will be skipped until this is fixed.",
+            "Could not parse [datahub] asset_connections as JSON (%s); connection "
+            "mapping is disabled. URNs are still derived from each platform's naming "
+            "convention, but without this mapping's platform_instance they will not "
+            "match a warehouse ingested with one.",
             e,
         )
         return {}

@@ -47,10 +47,13 @@ def _urn(platform: str, name: str, instance: Optional[str] = None) -> str:
 # Each connector's naming is a fixed rule, not a guess, so a URI alone is enough for
 # everything except platform_instance:
 #
-#   snowflake  drop authority (an account)  db.schema.table    lowercased (source default)
-#   postgres   drop authority (a host)      db.schema.table    case kept
-#   mysql      drop authority (a host)      db.table           case kept
+#   snowflake  drop authority (an account)  db.schema.table    lowercased
+#   postgres   drop authority (a host)      db.schema.table    lowercased
+#   mysql      drop authority (a host)      db.table           lowercased
 #   bigquery   KEEP authority (the project) project.ds.table   case kept
+#
+# Casing comes from PLATFORMS_WITH_CASE_SENSITIVE_TABLES, the same constant the SQL parser
+# uses, so all three of the plugin's writers agree.
 
 
 def test_unmapped_snowflake_uri_derives_the_warehouse_naming():
@@ -61,13 +64,15 @@ def test_unmapped_snowflake_uri_derives_the_warehouse_naming():
     assert urn == _urn("snowflake", "my_db.my_schema.events")
 
 
-def test_unmapped_postgres_uri_preserves_case():
-    """postgres inherits convert_urns_to_lowercase=False, unlike snowflake."""
+def test_unmapped_postgres_uri_is_lowercased():
+    """Case follows DataHub's PLATFORMS_WITH_CASE_SENSITIVE_TABLES, the same rule the SQL
+    parser applies, so all three of the plugin's writers agree. Postgres is
+    case-insensitive, so its URNs are lowercased."""
     urn = translate_airflow_asset_to_urn(
         FakeAsset("postgresql://db.host:5432/MyDb/MySchema/MyTable"), connections={}
     )
 
-    assert urn == _urn("postgres", "MyDb.MySchema.MyTable")
+    assert urn == _urn("postgres", "mydb.myschema.mytable")
 
 
 def test_unmapped_mysql_uri_is_two_part():
@@ -112,16 +117,18 @@ def test_mapping_supplies_platform_instance():
 
 
 def test_mapping_can_override_the_platform_case_default():
+    """For a warehouse whose recipe sets convert_urns_to_lowercase=False, the mapping has
+    to be able to switch lowercasing back off."""
     urn = translate_airflow_asset_to_urn(
         FakeAsset("postgresql://db.host:5432/MyDb/MySchema/MyTable"),
         connections={
             "postgres://db.host:5432": AssetConnectionDetail(
-                convert_urns_to_lowercase=True
+                convert_urns_to_lowercase=False
             )
         },
     )
 
-    assert urn == _urn("postgres", "mydb.myschema.mytable")
+    assert urn == _urn("postgres", "MyDb.MySchema.MyTable")
 
 
 def test_database_fills_in_a_segment_the_uri_omits():
@@ -224,15 +231,14 @@ def test_unmapped_ol_dataset_follows_the_platform_case_default():
     assert urn == _urn("snowflake", "my_db.my_schema.events")
 
 
-def test_unmapped_ol_dataset_on_a_case_preserving_platform_is_untouched():
-    """postgres/mysql/bigquery inherit convert_urns_to_lowercase=False, so their OL names
-    pass through exactly as before."""
+def test_unmapped_ol_dataset_on_a_case_sensitive_platform_is_untouched():
+    """BigQuery is in PLATFORMS_WITH_CASE_SENSITIVE_TABLES, so its names pass through."""
     urn = translate_ol_to_datahub_urn(
-        OpenLineageDataset("postgres://db.host:5432", "MyDb.MySchema.MyTable"),
+        OpenLineageDataset("bigquery://my-project", "MyDataset.MyTable"),
         connections={},
     )
 
-    assert urn == _urn("postgres", "MyDb.MySchema.MyTable")
+    assert urn == _urn("bigquery", "MyDataset.MyTable")
 
 
 def test_both_writers_converge_with_no_mapping_at_all():
