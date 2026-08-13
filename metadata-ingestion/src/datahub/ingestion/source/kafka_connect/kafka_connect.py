@@ -260,6 +260,18 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector is not None or bool(catalog_lineages)
         ):
             connector_manifest.lineages = catalog_lineages
+            if not catalog_lineages:
+                # Applicable-but-empty: every catalog topic was filtered out by the
+                # live cluster, so we deliberately emit no lineage rather than fall
+                # back to this recognised connector's config-inferred lineage. We
+                # only reach here when the connector is recognised (an unsupported
+                # one is dropped below), so the "no fallback" claim is accurate.
+                self.report.warning(
+                    message="Dropping all lineage for a connector because none of its "
+                    "Stream Catalog topics are present on the live Kafka cluster; its "
+                    "config-inferred lineage is not used as a fallback",
+                    context=f"connector={connector_manifest.name}",
+                )
         elif connector:
             connector_manifest.lineages = connector.extract_lineages()
             if self._catalog_listed_no_topics(connector_manifest, catalog_connector):
@@ -322,17 +334,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
                 topics = [topic for topic in topics if topic in cluster_topic_set]
             if not topics:
-                # Every catalog topic was absent from the live cluster. Returning
-                # [] (applicable-but-empty) deliberately drops this connector's
-                # config-inferred lineage rather than falling back to it, so the
-                # connector emits no lineage at all — warn with that outcome, since
-                # the per-topic warning above only says topics were ignored.
-                self.report.warning(
-                    message="Dropping all lineage for a connector because none of its "
-                    "Stream Catalog topics are present on the live Kafka cluster; its "
-                    "config-inferred lineage is not used as a fallback",
-                    context=f"connector={connector_manifest.name}",
-                )
+                # Every catalog topic was absent from the live cluster. Return []
+                # (applicable-but-empty) so a recognised connector emits no lineage
+                # rather than falling back to its config-inferred edges. The caller
+                # owns the accompanying warning, because only it knows whether the
+                # connector is recognised — an unsupported connector is dropped
+                # regardless, so there is no fallback to warn about.
                 return []
 
         self.report.catalog_lineage_connectors += 1
