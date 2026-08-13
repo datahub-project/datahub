@@ -161,6 +161,7 @@ class BaseFabricClient(ABC):
         self,
         endpoint: str,
         params: Optional[Dict[str, str]] = None,
+        items_key: str = "value",
     ) -> Iterator[dict]:
         """Yield all items from a paginated Fabric API endpoint.
 
@@ -170,16 +171,17 @@ class BaseFabricClient(ABC):
         Args:
             endpoint: API endpoint (relative to base URL)
             params: Initial query parameters
+            items_key: Response JSON key holding the items array (default "value")
 
         Yields:
-            Item dictionaries from each page's "value" array
+            Item dictionaries from each page's items array
         """
         request_params: Dict[str, str] = dict(params or {})
         page = 1
         while True:
-            response = self.get(endpoint, params=request_params)
+            response = self.get(endpoint, params=dict(request_params))
             data = response.json()
-            items = data.get("value", [])
+            items = data.get(items_key, [])
             logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
             yield from items
 
@@ -193,6 +195,7 @@ class BaseFabricClient(ABC):
         self,
         endpoint: str,
         body: dict,
+        items_key: str = "value",
     ) -> Iterator[dict]:
         """Yield all items from a paginated Fabric POST API endpoint.
 
@@ -201,17 +204,18 @@ class BaseFabricClient(ABC):
 
         Args:
             endpoint: API endpoint (relative to base URL)
-            body: JSON request body (will be mutated to add continuationToken)
+            body: JSON request body
+            items_key: Response JSON key holding the items array (default "value")
 
         Yields:
-            Item dictionaries from each page's "value" array
+            Item dictionaries from each page's items array
         """
         page = 1
         while True:
-            response = self.post(endpoint, json=body)
+            response = self.post(endpoint, json=dict(body))
             data = response.json()
 
-            items = data if isinstance(data, list) else data.get("value", [])
+            items = data if isinstance(data, list) else data.get(items_key, [])
             logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
             yield from items
 

@@ -1,7 +1,7 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Callable, Iterator, Optional, TypeVar
+from typing import Callable, Dict, Iterator, Optional, TypeVar
 
 import requests
 
@@ -108,14 +108,9 @@ class OneLakeClient(BaseFabricClient):
         """
         logger.info(f"Listing {item_type}s for workspace {workspace_id}")
         try:
-            response = self.get(f"workspaces/{workspace_id}/{endpoint_suffix}")
-            data = response.json()
-            items = data.get("value", [])
-            logger.info(
-                f"Found {len(items)} {item_type}(s) in workspace {workspace_id}"
-            )
-
-            for item_data in items:
+            for item_data in self._paginate(
+                f"workspaces/{workspace_id}/{endpoint_suffix}"
+            ):
                 logger.debug(
                     f"Processing {item_type}: {item_data.get('displayName', 'Unknown')}"
                 )
@@ -195,6 +190,63 @@ class OneLakeClient(BaseFabricClient):
             )
             return False
 
+    def _paginate_onelake_table_api(
+        self,
+        url: str,
+        params: Dict[str, str],
+        items_key: str,
+    ) -> Iterator[dict]:
+        """Yield all items from a paginated OneLake Table API endpoint.
+
+        The OneLake Table API for Delta (Unity Catalog-compatible surface) uses
+        next_page_token pagination rather than the continuationToken used by the
+        Fabric REST API.  Response field "next_page_token" is confirmed per
+        Microsoft documentation:
+        https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
+        The request-side parameter name ("page_token") follows the Unity Catalog
+        convention; verify against a live multi-page response if silent truncation
+        is observed.
+
+        If the API doesn't paginate for a given call (or if the request parameter
+        name is wrong), the loop exits after one page — identical to pre-fix
+        behaviour, so there is no regression risk.
+
+        Args:
+            url: Full URL for the API endpoint
+            params: Initial query parameters
+            items_key: Response JSON key holding the items array (e.g. "schemas", "tables")
+
+        Yields:
+            Item dictionaries
+        """
+        headers: Dict[str, str] = {}
+        try:
+            headers["Authorization"] = self.auth_helper.get_authorization_header(
+                scope=ONELAKE_STORAGE_SCOPE
+            )
+        except Exception as e:
+            logger.error(f"Failed to get authorization header: {e}")
+            raise
+
+        request_params = dict(params)
+        page = 1
+        while True:
+            response = self._session.get(
+                url, headers=headers, params=dict(request_params), timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            items = data.get(items_key, [])
+            logger.debug(f"Page {page}: got {len(items)} item(s) from {url}")
+            yield from items
+
+            next_page_token = data.get("next_page_token")
+            if not next_page_token:
+                break
+            request_params["page_token"] = next_page_token
+            page += 1
+
     def _list_schemas_via_onelake_api(
         self, workspace_id: str, lakehouse_id: str
     ) -> Iterator[str]:
@@ -210,31 +262,15 @@ class OneLakeClient(BaseFabricClient):
             Schema names
         """
         url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{lakehouse_id}/api/2.1/unity-catalog/schemas"
-        params = {"catalog_name": lakehouse_id}
-        headers = {}
-        try:
-            # Use Storage audience for OneLake Table APIs
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
+        params: Dict[str, str] = {"catalog_name": lakehouse_id}
 
         logger.debug(
             f"Listing schemas via OneLake Table API for lakehouse {lakehouse_id}"
         )
         try:
-            response = self._session.get(
-                url, headers=headers, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            schemas = data.get("schemas", [])
-            logger.info(f"Found {len(schemas)} schema(s) in lakehouse {lakehouse_id}")
-
-            for schema_data in schemas:
+            for schema_data in self._paginate_onelake_table_api(
+                url, params, items_key="schemas"
+            ):
                 schema_name = schema_data.get("name", "")
                 if schema_name:
                     logger.debug(f"Found schema: {schema_name}")
@@ -267,33 +303,18 @@ class OneLakeClient(BaseFabricClient):
             FabricTable objects
         """
         url = f"{ONELAKE_TABLE_API_BASE_URL}/delta/{workspace_id}/{lakehouse_id}/api/2.1/unity-catalog/tables"
-        params = {"catalog_name": lakehouse_id, "schema_name": schema_name}
-        headers = {}
-        try:
-            # Use Storage audience for OneLake Table APIs
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
+        params: Dict[str, str] = {
+            "catalog_name": lakehouse_id,
+            "schema_name": schema_name,
+        }
 
         logger.debug(
             f"Listing tables in schema {schema_name} via OneLake Table API for lakehouse {lakehouse_id}"
         )
         try:
-            response = self._session.get(
-                url, headers=headers, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            tables = data.get("tables", [])
-            logger.info(
-                f"Found {len(tables)} table(s) in schema {schema_name} of lakehouse {lakehouse_id}"
-            )
-
-            for table_data in tables:
+            for table_data in self._paginate_onelake_table_api(
+                url, params, items_key="tables"
+            ):
                 table_name = table_data.get("name", "")
                 if table_name:
                     logger.debug(f"Processing table: {schema_name}.{table_name}")
@@ -302,9 +323,8 @@ class OneLakeClient(BaseFabricClient):
                         schema_name=schema_name,
                         item_id=lakehouse_id,
                         workspace_id=workspace_id,
-                        description=table_data.get(
-                            "comment"
-                        ),  # OneLake API uses "comment" instead of "description"
+                        # OneLake Table API uses "comment" instead of "description"
+                        description=table_data.get("comment"),
                     )
 
         except requests.exceptions.HTTPError as e:
@@ -384,18 +404,11 @@ class OneLakeClient(BaseFabricClient):
                 f"Lakehouse {lakehouse_id} does not have schemas enabled, using Fabric REST API"
             )
             # Use standard REST API endpoint
+            # Tables are in "data" key for schemas-disabled lakehouses, not "value".
+            # Reference: https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables
             try:
-                response = self.get(
-                    f"workspaces/{workspace_id}/lakehouses/{lakehouse_id}/tables"
-                )
-                data = response.json()
-
-                # For schemas-disabled lakehouses, tables are in "data" key, not "value"
-                # Reference: https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables
-                tables = data.get("data", []) or data.get("value", [])
-                logger.info(f"Found {len(tables)} table(s) in lakehouse {lakehouse_id}")
-
-                for table_data in tables:
+                endpoint = f"workspaces/{workspace_id}/lakehouses/{lakehouse_id}/tables"
+                for table_data in self._paginate(endpoint, items_key="data"):
                     full_name = table_data.get("name", "")
                     # For schemas-disabled lakehouses, table names don't include schema prefix
                     # Use empty string for schema_name so URN generation can skip it
@@ -473,15 +486,8 @@ class OneLakeClient(BaseFabricClient):
         """
         logger.info(f"Listing tables for warehouse {warehouse_id}")
         try:
-            response = self.get(
-                f"workspaces/{workspace_id}/warehouses/{warehouse_id}/tables"
-            )
-            data = response.json()
-
-            tables = data.get("value", [])
-            logger.info(f"Found {len(tables)} table(s) in warehouse {warehouse_id}")
-
-            for table_data in tables:
+            endpoint = f"workspaces/{workspace_id}/warehouses/{warehouse_id}/tables"
+            for table_data in self._paginate(endpoint):
                 full_name = table_data.get("name", "")
                 schema_name, table_name = _parse_table_name(full_name)
                 logger.debug(f"Processing table: {schema_name}.{table_name}")
