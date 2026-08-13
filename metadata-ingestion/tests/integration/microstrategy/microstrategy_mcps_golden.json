@@ -424,7 +424,7 @@
                 {
                     "fieldPath": "Revenue Pct",
                     "nullable": false,
-                    "description": "Derived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
+                    "description": "Derived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'.",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -449,7 +449,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786629114392,
+        "lastObserved": 1786629812529,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -806,7 +806,7 @@
                 {
                     "fieldPath": "Cost Pct",
                     "nullable": false,
-                    "description": "Derived metric defined in the 'COST' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
+                    "description": "Derived metric defined in the 'COST' column group of visualization 'Sales vs Cost'.",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -831,7 +831,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786629114394,
+        "lastObserved": 1786629812532,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1304,7 +1304,7 @@
                     "schemaField": {
                         "fieldPath": "Revenue Pct",
                         "nullable": false,
-                        "description": "**SALES** \u2014 Sales Cube\n\nDerived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
+                        "description": "**SALES** \u2014 Sales Cube\n\nDerived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'.",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1355,7 +1355,7 @@
                     "schemaField": {
                         "fieldPath": "Cost Pct",
                         "nullable": false,
-                        "description": "**COST** \u2014 Cost Cube\n\nDerived metric defined in the 'COST' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
+                        "description": "**COST** \u2014 Cost Cube\n\nDerived metric defined in the 'COST' column group of visualization 'Sales vs Cost'.",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1405,7 +1405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786629383704,
+        "lastObserved": 1786629812535,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
