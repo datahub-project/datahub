@@ -6,7 +6,7 @@ By default, the connector emits lineage from MicroStrategy datasets to visualiza
 
 Set `emit_dashboard_dataset_edges: true` if you want every dashboard dataset to appear directly upstream of the dashboard as fallback lineage.
 
-The definition APIs do not expose a visualization's dataset binding directly, so the connector resolves it in tiers. First it reads the modeling document API: derived metrics and attributes are scoped to a single dataset, so a visualization grid referencing them identifies its source dataset with certainty. When no dataset-scoped objects are referenced (or modeling access is unavailable), the connector falls back to inferring the binding from shared object references and name tokens. If that inference cannot exclude any dataset (for example, dashboards built from one cube per time period where all cubes share one object catalog), the visualization is treated as unresolved and gets no dataset inputs rather than an all-to-all fan-out; use `emit_dashboard_dataset_edges: true` to keep such dashboards connected to their datasets.
+The definition APIs do not expose a visualization's dataset binding directly, so the connector resolves it in tiers. First it reads the modeling document API: derived metrics and attributes are scoped to a single dataset, so a visualization grid referencing them identifies its source dataset with certainty. For compound-grid visualizations, the connector then binds each column group (`columnSets`) to its backing dataset using the page name, group-name tokens, the group's member object IDs, and — when the page's datasets correspond one-to-one with the groups — elimination for the leftover pair; a partially bound grid keeps its resolved groups and counts the rest in the `column_sets_unbound` report counter. When neither applies, the connector falls back to inferring the binding from shared object references and name tokens. If that inference cannot exclude any dataset (for example, dashboards built from one cube per time period where all cubes share one object catalog), the visualization is treated as unresolved and gets no dataset inputs rather than an all-to-all fan-out; use `emit_dashboard_dataset_edges: true` to keep such dashboards connected to their datasets.
 
 When `extract_visualization_details: true`, the connector creates a dashboard instance and calls the v2 visualization definition endpoint to resolve dataset-to-visualization lineage when the static dashboard definition does not include dataset IDs. Use `dashboard_pattern` to scope live validation runs, for example:
 
@@ -55,6 +55,20 @@ When `extract_metric_expressions: true`, the connector fetches accessible metric
 
 When `extract_model_lineage: true`, the connector probes modeling table APIs needed for logical table and physical source warehouse lineage. Missing privileges are reported as warnings and counters; the connector continues with dashboard, dataset, metric, and source warehouse metadata.
 
+#### Folder Navigation
+
+The connector builds its browse hierarchy by walking each object's MicroStrategy folder ancestry, which reflects the metadata layer's internal folder names rather than the curated grouping Strategy Web's Library shows (favorites, "My Reports" vs. "Shared Reports", hidden system folders). With `use_predefined_folder_names: true` (the default), the connector resolves well-known folders via `GET /api/folders/preDefined` and reshapes the hierarchy to match Strategy Web: the folder Strategy Web calls "Shared Reports" (internally named "Reports") gets its MicroStrategy-assigned label everywhere — container identity (URN), `folder_pattern` matching, and display — and two system containers Strategy Web never shows are omitted entirely, with their children re-parented to the nearest kept ancestor: the project root folder (named after the project, which would render as a duplicate project level) and "Public Objects". Set `use_predefined_folder_names: false` to keep the raw metadata hierarchy (for example if you already ingested these folders and want to avoid the resulting container URN changes; see `docs/how/updating-datahub.md`).
+
+To exclude personal folders from ingestion (MicroStrategy's per-user "My Reports", nested under each user's own profile folder), use `folder_pattern`:
+
+```yaml
+folder_pattern:
+  deny:
+    - "^My Reports$"
+```
+
+Every user's personal folder carries that same literal name, so this excludes them all without needing per-user configuration.
+
 #### Metric and Attribute Tags
 
 MicroStrategy metrics and attributes are emitted as schema fields on the dashboard dataset/cube. The connector attaches canonical DataHub tags to the fields:
@@ -62,8 +76,19 @@ MicroStrategy metrics and attributes are emitted as schema fields on the dashboa
 - `urn:li:tag:Measure` for metrics.
 - `urn:li:tag:Dimension` for attributes and attribute forms.
 - `urn:li:tag:Temporal` for date/time attribute forms.
+- `urn:li:tag:Derived` for visualization-local derived metrics (see below).
 
 These tags are written to source-managed `SchemaMetadata` field metadata, not editable schema metadata.
+
+#### Derived Metrics and Column Groups
+
+Compound-grid dossier visualizations can define **derived metrics** directly in the grid (grid columns marked `derived: true`, such as an inline percent-to-plan calculation). These exist only inside the visualization template — they are not metadata catalog objects, and MicroStrategy's REST API exposes no formula or model definition for them. With `extract_derived_metrics: true` (the default), the connector surfaces each one as a schema field on the dataset backing its column group, tagged `Measure` + `Derived`, with a description naming the column group and source visualization. Derived metrics whose column group cannot be attributed to a dataset are counted in the `derived_metrics_unattached` report counter rather than silently dropped. This feature reads the runtime grids already fetched for lineage, so it requires `extract_lineage` and `extract_visualization_details` and adds no API calls.
+
+Compound grids also organize their columns into named **column groups** (`columnSets`, e.g. one group per business domain), often repeating the same metric names per group with different logic behind each — the grouping is what tells a reader what they are looking at. The connector surfaces this two ways: the chart's `microstrategyColumnGroups` custom property records each group's member metrics and backing dataset, and grouped schema fields carry a `microstrategyColumnGroup` entry in their field `jsonProps`.
+
+#### Metric Formula Lineage
+
+Set `extract_metric_formula_lineage: true` to parse `{Metric Name}` references out of catalog metric expressions (fetched via `extract_metric_expressions`) and emit field-to-field lineage from each metric to the sibling fields it references on the same dataset. This is best effort: references to objects that are not fields of the dataset (for example, a catalog metric not exposed on the cube) are counted in the `metric_formula_refs_unresolved` report counter and skipped. Disabled by default.
 
 #### Usage Statistics
 

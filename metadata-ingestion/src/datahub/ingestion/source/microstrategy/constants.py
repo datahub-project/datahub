@@ -1,4 +1,5 @@
 import re
+from typing import Dict
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
@@ -12,6 +13,27 @@ MSTR_API_PROJECTS = "/api/projects"
 MSTR_API_OBJECT = "/api/objects/{object_id}"
 MSTR_API_METADATA_SEARCHES = "/api/metadataSearches/results"
 MSTR_API_SEARCHES = "/api/searches/results"
+MSTR_API_FOLDERS_PREDEFINED = "/api/folders/preDefined"
+
+# EnumDSSXMLFolderNames predefined folder type whose MicroStrategy-assigned label
+# ("Shared Reports") differs from its raw metadata folder name ("Reports", nested
+# under the project's "Public Objects" system folder). Resolved via
+# MSTR_API_FOLDERS_PREDEFINED so the browse hierarchy matches what Strategy Web
+# shows instead of the internal metadata name.
+MSTR_FOLDER_TYPE_SHARED_REPORTS = 7
+MSTR_PREDEFINED_FOLDER_LABELS: Dict[int, str] = {
+    MSTR_FOLDER_TYPE_SHARED_REPORTS: "Shared Reports",
+}
+# System containers every object's ancestor chain passes through but Strategy
+# Web never displays: the project root folder (named after the project, so it
+# renders as a duplicate project level) and "Public Objects". Resolved by id
+# via the same predefined-folders call and omitted from the browse hierarchy;
+# children re-parent to the nearest kept ancestor.
+MSTR_FOLDER_TYPE_PUBLIC_OBJECTS = 1
+MSTR_FOLDER_TYPE_PROJECT_ROOT = 39
+MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES = frozenset(
+    {MSTR_FOLDER_TYPE_PUBLIC_OBJECTS, MSTR_FOLDER_TYPE_PROJECT_ROOT}
+)
 
 MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8
@@ -24,6 +46,7 @@ MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
+DERIVED_TAG_URN = "urn:li:tag:Derived"
 
 # Entity kinds usage buckets can attach to (dashboards get
 # DashboardUsageStatistics, report charts get ChartUsageStatistics).
@@ -125,6 +148,10 @@ MSTR_OBJECT_ID_PARENT_KEYS = frozenset(
     {"metric", "metrics", "attribute", "attributes", "templatemetrics"}
 )
 MSTR_OBJECT_TYPES = frozenset({"metric", "attribute"})
+# Lowercased grid unit types used when walking a compound grid's columnSets:
+# the metrics container column and the metric elements inside it.
+MSTR_GRID_TEMPLATE_METRICS_TYPE = "templatemetrics"
+MSTR_GRID_METRIC_ELEMENT_TYPE = "metric"
 
 # Pre-compiled regexes. Matched case-insensitively; declared once so the
 # hot-path normalizers reuse a single compiled pattern.
@@ -198,6 +225,9 @@ MSTR_NAME_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 MSTR_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 # SQL identifier (column/table token) extractor for expression parsing.
 MSTR_SQL_IDENTIFIER_RE = re.compile(r"[A-Za-z_][\w$#]*")
+# Metric formulas reference sibling catalog objects as `{Object Name}` tokens,
+# e.g. `({Net Amt} - {Net Amt LY}) / Abs({Net Amt LY})`.
+MSTR_METRIC_REFERENCE_RE = re.compile(r"\{([^{}]+)\}")
 # A 32-char hex string is MicroStrategy's canonical object-id form.
 MSTR_HEX_OBJECT_ID_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # Collapses internal whitespace runs to a single space.

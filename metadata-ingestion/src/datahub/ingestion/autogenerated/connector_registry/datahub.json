@@ -2616,7 +2616,7 @@
         },
         {
           "capability": "TAGS",
-          "description": "Metric, attribute, and temporal field tags",
+          "description": "Metric, attribute, temporal, and derived-metric field tags",
           "subtype_modifier": null,
           "supported": true
         },

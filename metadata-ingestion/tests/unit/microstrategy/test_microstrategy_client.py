@@ -214,6 +214,101 @@ def test_list_datasources_reads_datasource_management_response(
     assert datasources[0].database_type == "snow_flake"
 
 
+def test_get_predefined_folders_reads_shared_reports_response(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured_path: Optional[str] = None
+    captured_params: Optional[Dict[str, Any]] = None
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        nonlocal captured_path, captured_params
+        captured_path = path
+        captured_params = params
+        assert project_id == "project-1"
+        # Real response captured live from GET /api/folders/preDefined?folderType=7.
+        return {
+            "preDefined": [
+                {
+                    "name": "Reports",
+                    "id": "AB12CD34EF56AB78CD90EF12AB34CD56",
+                    "type": 8,
+                    "subtype": 2048,
+                    "folderType": 7,
+                    "owner": {
+                        "name": "Administrator",
+                        "id": "00112233445566778899AABBCCDDEEFF",
+                        "expired": False,
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    folders = client.get_predefined_folders("project-1", [7])
+
+    assert captured_path == "/api/folders/preDefined"
+    assert captured_params == {"folderType": "7"}
+    assert len(folders) == 1
+    assert folders[0].id == "AB12CD34EF56AB78CD90EF12AB34CD56"
+    assert folders[0].name == "Reports"
+    assert folders[0].folder_type == 7
+
+
+def test_get_predefined_folders_joins_multiple_folder_types(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+    captured_params: Optional[Dict[str, Any]] = None
+
+    def fake_get_json(
+        path: str,
+        project_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        nonlocal captured_params
+        captured_params = params
+        return {"preDefined": []}
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+
+    client.get_predefined_folders("project-1", [7, 20])
+
+    assert captured_params == {"folderType": "7,20"}
+
+
+def test_get_predefined_folders_skips_malformed_entries(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+    client = MicroStrategyClient(config, MicroStrategyReport())
+
+    monkeypatch.setattr(
+        client,
+        "_get_json",
+        lambda path, project_id=None, params=None: {
+            "preDefined": [{"name": "no id here"}]
+        },
+    )
+
+    folders = client.get_predefined_folders("project-1", [7])
+
+    assert folders == []
+
+
 def test_list_project_datasources_uses_project_scoped_endpoint(
     monkeypatch: MonkeyPatch,
 ) -> None:

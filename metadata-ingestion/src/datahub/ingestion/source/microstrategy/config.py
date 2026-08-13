@@ -1,6 +1,6 @@
 from typing import Annotated, Dict, Literal, Optional, Union
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
@@ -120,7 +120,22 @@ class MicroStrategyConfig(
         description=(
             "Regex patterns to filter folder containers by name. When an "
             "intermediate folder is denied, its children re-parent to the "
-            "nearest allowed ancestor rather than being dropped."
+            "nearest allowed ancestor rather than being dropped. To exclude "
+            "personal folders (MicroStrategy's per-user 'My Reports'), use "
+            '`deny: ["^My Reports$"]` -- every user\'s personal folder carries '
+            "that same literal name."
+        ),
+    )
+    use_predefined_folder_names: bool = Field(
+        default=True,
+        description=(
+            "Resolve the 'Shared Reports' predefined folder (MicroStrategy "
+            "EnumDSSXMLFolderNames type 7) via GET /api/folders/preDefined and use "
+            "that label -- for browse-path matching, container identity, and "
+            "display -- instead of the folder's raw metadata name ('Reports'). "
+            "Adds one cached API call per project. Disabling this keeps prior "
+            "container URNs for environments that already ingested that folder "
+            "under its raw name; see docs/how/updating-datahub.md."
         ),
     )
 
@@ -199,6 +214,31 @@ class MicroStrategyConfig(
             "Whether to fetch metric model definitions with expression tokens "
             "and attach expression metadata to metric schema fields when the "
             "MicroStrategy principal has access."
+        ),
+    )
+    extract_derived_metrics: bool = Field(
+        default=True,
+        description=(
+            "Whether to surface visualization-local derived metrics (grid "
+            "columns marked `derived: true`, which exist only inside a dossier "
+            "visualization and not in the metadata catalog) as schema fields "
+            "on the dataset backing their column group, tagged `Derived`. "
+            "MicroStrategy's REST API exposes no formula for these objects, so "
+            "the fields carry provenance but no expression. Reads the runtime "
+            "grids already fetched for lineage — adds no API calls — and "
+            "therefore requires `extract_lineage` and "
+            "`extract_visualization_details` to have anything to extract."
+        ),
+    )
+    extract_metric_formula_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to parse `{Metric Name}` references out of catalog metric "
+            "expressions (fetched via `extract_metric_expressions`) and emit "
+            "field-to-field lineage from a metric to the sibling fields it "
+            "references on the same dataset. Best effort: references to "
+            "objects that are not fields of the dataset are counted in the "
+            "report and skipped. Disabled by default."
         ),
     )
     extract_model_lineage: bool = Field(
@@ -338,6 +378,18 @@ class MicroStrategyConfig(
         default=None,
         description="Stateful ingestion config with stale entity removal support.",
     )
+
+    @model_validator(mode="after")
+    def _formula_lineage_requires_metric_expressions(self) -> "MicroStrategyConfig":
+        # Opt-in flag whose entire input supply is another flag's output: a
+        # recipe combining them this way would silently emit nothing.
+        if self.extract_metric_formula_lineage and not self.extract_metric_expressions:
+            raise ValueError(
+                "extract_metric_formula_lineage requires "
+                "extract_metric_expressions: metric formulas are the only "
+                "source of formula references."
+            )
+        return self
 
     @field_validator("base_url", mode="after")
     @classmethod

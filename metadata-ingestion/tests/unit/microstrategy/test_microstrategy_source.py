@@ -16,6 +16,8 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     MicroStrategyObject,
     ModelTablesResponse,
+    PredefinedFolder,
+    PredefinedFolderResolution,
     Project,
     ReportDefinition,
     SqlView,
@@ -430,6 +432,11 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
         def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
             return iter(dashboards)
 
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            return []
+
         def get_dossier_definition(
             self, project_id: str, dossier_id: str
         ) -> Dict[str, Any]:
@@ -466,6 +473,11 @@ class _ReportSearchClient:
     def __init__(self) -> None:
         self.search_calls = 0
         self.object_info_calls: List[str] = []
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
 
     def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
         self.search_calls += 1
@@ -823,6 +835,89 @@ def test_resolve_visualization_bindings_memoizes_modeling_failure() -> None:
     assert len(source.report.infos) == 1
 
 
+def test_predefined_folder_labels_resolves_shared_reports() -> None:
+    source = _source()
+
+    class FakeClient:
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            assert folder_types == [1, 7, 39]
+            return [
+                PredefinedFolder.model_validate(
+                    {"id": "project-root-id", "name": "Analytics", "folderType": 39}
+                ),
+                PredefinedFolder.model_validate(
+                    {
+                        "id": "public-objects-id",
+                        "name": "Public Objects",
+                        "folderType": 1,
+                    }
+                ),
+                PredefinedFolder.model_validate(
+                    {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+                ),
+            ]
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    resolution = source._predefined_folders("project-1")
+    assert resolution.labels == {"REPORTS-FOLDER-ID": "Shared Reports"}
+    assert resolution.hidden_ids == {"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"}
+
+
+def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None:
+    source = _source({"use_predefined_folder_names": False})
+
+    class FakeClient:
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            raise AssertionError("should not be called when the flag is disabled")
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
+
+
+def test_predefined_folder_labels_memoizes_api_failure() -> None:
+    source = _source()
+
+    class FakeClient:
+        calls = 0
+
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            self.calls += 1
+            raise MicroStrategyAPIError("not supported on this version")
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    assert source._predefined_folders("project-1").labels == {}
+    assert source._predefined_folders("project-1").labels == {}
+
+    # The project-scoped failure is remembered; no re-attempts per lookup.
+    assert fake_client.calls == 1
+    assert len(source.report.warnings) == 1
+
+
+def test_predefined_folder_labels_degrades_on_unexpected_client_error() -> None:
+    # A client that doesn't implement the method (e.g. an older FakeClient in
+    # another test, or any non-MicroStrategyAPIError failure) must never take
+    # down dashboard/report processing -- this lookup is purely additive.
+    source = _source()
+
+    class FakeClient:
+        pass
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
+    assert len(source.report.warnings) == 1
+
+
 def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
     source = _source({"extract_model_lineage": True})
 
@@ -901,3 +996,44 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     assert not lineage_context._context_resolved
     assert fake_client.model_table_calls == 0
     assert fake_client.connection_calls == 0
+
+
+@pytest.mark.parametrize("flag", [True, False])
+def test_extract_derived_metrics_flag_gates_attachment(flag: bool) -> None:
+    source = _source(
+        {
+            "extract_derived_metrics": flag,
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_model_lineage": False,
+        }
+    )
+
+    class FakeClient:
+        def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+            return iter(
+                [MicroStrategyObject.model_validate({"id": "dash-1", "name": "Dash"})]
+            )
+
+        def get_predefined_folders(
+            self, project_id: str, folder_types: List[int]
+        ) -> List[PredefinedFolder]:
+            return []
+
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            return {"result": {"definition": {"datasets": [], "chapters": []}}}
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    with mock.patch.object(source.mapper, "attach_derived_metrics") as attach:
+        list(
+            source._process_project_dashboards(
+                "project-1",
+                _LazyProjectLineage(source, "project-1", []),
+            )
+        )
+    assert attach.called is flag
