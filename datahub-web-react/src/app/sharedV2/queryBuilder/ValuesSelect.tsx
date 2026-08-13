@@ -26,7 +26,10 @@ interface Props {
 
 const ValuesSelect = ({ selectedValues, options, onChangeValues, property, propertyDisplayName }: Props) => {
     const { t } = useTranslation('shared.query-builder');
-    const label = useMemo(() => getValuesSelectLabel(property, t), [property, t]);
+    const label = useMemo(
+        () => getValuesSelectLabel(property, t, propertyDisplayName),
+        [property, t, propertyDisplayName],
+    );
     const placeholder = propertyDisplayName
         ? t('value.placeholder', { propertyDisplayName: propertyDisplayName.toLowerCase() })
         : t('value.defaultPlaceholder');
