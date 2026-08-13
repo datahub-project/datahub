@@ -67,6 +67,38 @@ def test_update_matching_no_rows_is_a_failure(kubeconfig: Path) -> None:
             update_airbyte_database_id(kubeconfig, "workspace", "old-id", "new-id")
 
 
+def test_rewrite_committed_by_a_timed_out_attempt_is_not_a_false_failure(
+    kubeconfig: Path,
+) -> None:
+    # kubectl can be killed at the timeout after psql already committed server-side.
+    # The retry then matches no rows, so the end state — not the UPDATE count — is
+    # what decides success.
+    row_present = " ?column?\n----------\n        1\n(1 row)"
+    results = [
+        subprocess.TimeoutExpired(cmd="kubectl", timeout=60),
+        _completed(0, stdout=row_present),
+    ]
+
+    with (
+        patch("shutil.which", return_value="/usr/bin/kubectl"),
+        patch("time.sleep"),
+        patch("subprocess.run", side_effect=results),
+    ):
+        update_airbyte_database_id(kubeconfig, "workspace", "old-id", "new-id")
+
+
+def test_non_timeout_exec_failure_is_retried_and_surfaced(kubeconfig: Path) -> None:
+    with (
+        patch("shutil.which", return_value="/usr/bin/kubectl"),
+        patch("time.sleep"),
+        patch("subprocess.run", side_effect=OSError("exec format error")) as run,
+    ):
+        with pytest.raises(RuntimeError, match="exec format error"):
+            update_airbyte_database_id(kubeconfig, "workspace", "old-id", "new-id")
+
+    assert run.call_count > 1
+
+
 def test_timeout_is_retried_then_surfaced(kubeconfig: Path) -> None:
     calls: List[Any] = []
 

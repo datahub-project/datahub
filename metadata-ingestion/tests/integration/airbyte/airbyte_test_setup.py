@@ -208,7 +208,7 @@ def diagnose_airbyte_proxy_issue() -> None:
                 "get",
                 "pods",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
             ],
             capture_output=True,
             text=True,
@@ -246,7 +246,7 @@ def check_airbyte_pods_ready() -> bool:
                 "get",
                 "pods",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
                 "-o",
                 "json",
             ],
@@ -288,7 +288,7 @@ def get_airbyte_version() -> Optional[str]:
                 "deployment",
                 "airbyte-server",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
                 "-o",
                 "jsonpath={.spec.template.spec.containers[0].image}",
             ],
@@ -389,6 +389,22 @@ def _exec_psql(kubeconfig_path: Path, sql: str) -> "subprocess.CompletedProcess[
     )
 
 
+def _row_exists(kubeconfig_path: Path, table_name: str, row_id: str) -> bool:
+    """Whether `table_name` holds a row with `row_id`.
+
+    Best-effort: a failure here is reported as "not present" so the caller falls
+    through to its own retry and its own loud error, rather than masking that
+    error with this one.
+    """
+    try:
+        result = _exec_psql(
+            kubeconfig_path, f"SELECT 1 FROM {table_name} WHERE id = '{row_id}';"
+        )
+    except (subprocess.SubprocessError, OSError):
+        return False
+    return result.returncode == 0 and "(1 row)" in result.stdout
+
+
 def update_all_ids_atomically(
     kubeconfig_path: Path,
     id_updates: Dict[str, Dict[str, Any]],
@@ -455,21 +471,35 @@ def update_airbyte_database_id(
 
     sql = f"UPDATE {table_name} SET id = '{new_id}' WHERE id = '{old_id}';"
     failure = ""
+    # An attempt can commit server-side and still fail locally — kubectl killed at
+    # the timeout, or an UPDATE that matched nothing because a previous attempt
+    # already renamed the row. Once that is possible, the row's end state rather
+    # than the affected-row count decides whether the rewrite landed.
+    may_have_committed = False
 
     for attempt in range(1, _DB_ID_UPDATE_ATTEMPTS + 1):
         try:
             result = _exec_psql(kubeconfig_path, sql)
         except subprocess.TimeoutExpired:
+            may_have_committed = True
             failure = f"kubectl exec timed out after {_PSQL_TIMEOUT_SECONDS}s"
+        except (subprocess.SubprocessError, OSError) as e:
+            failure = f"kubectl exec failed: {e}"
         else:
             # psql exits 0 for an UPDATE that matched no rows, so the affected-row
             # count is the only trustworthy signal that the rewrite landed.
             if result.returncode == 0 and "UPDATE 1" in result.stdout:
                 return
+            if "UPDATE 0" in result.stdout:
+                may_have_committed = True
             failure = (
                 f"exit={result.returncode} stdout={result.stdout.strip()!r} "
                 f"stderr={result.stderr.strip()!r}"
             )
+
+        if may_have_committed and _row_exists(kubeconfig_path, table_name, new_id):
+            print(f"  {table_name} id already holds {new_id}; rewrite landed")
+            return
 
         print(f"  {table_name} id rewrite attempt {attempt} failed: {failure}")
         if attempt < _DB_ID_UPDATE_ATTEMPTS:
@@ -819,7 +849,7 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
             "restart",
             "deployment/airbyte-abctl-server",
             "-n",
-            "airbyte-abctl",
+            AIRBYTE_NAMESPACE,
         ]
         restart_result = subprocess.run(
             restart_cmd, capture_output=True, text=True, timeout=30
@@ -834,7 +864,7 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
                 "status",
                 "deployment/airbyte-abctl-server",
                 "-n",
-                "airbyte-abctl",
+                AIRBYTE_NAMESPACE,
                 "--timeout=120s",
             ]
             subprocess.run(
