@@ -85,8 +85,8 @@ class DefaultExecutor(Executor):
             task_instance = task_class.create(task.configs, executor_context)
             self.task_instances[task.name] = task_instance
         except Exception:
-            # Ported verbatim: `from err`/`from None` both alter the rendered traceback
-            # (the message already embeds format_exc), which reaches users and tests.
+            # `from err`/`from None` both alter the rendered traceback (the message
+            # already embeds format_exc), which reaches users and tests.
             raise Exception(  # noqa: B904
                 f"Failed to create instance of task with name {task.name}: {traceback.format_exc(limit=3)}"
             )

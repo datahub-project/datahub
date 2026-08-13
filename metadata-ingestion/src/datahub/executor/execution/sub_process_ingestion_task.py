@@ -63,15 +63,14 @@ class SubProcessIngestionTaskConfig(ConfigModel):
     heartbeat_time_seconds: int = 2
     max_log_lines: int = SubProcessTaskUtil.MAX_LOG_LINES
 
-    # Retired: this task used to tar the artifact directory and upload it to S3, and
-    # these three configured that. Uploading is a hosted-DataHub concern and no longer
-    # lives here -- the task now just writes artifacts and publishes the directory on
-    # the ExecutionContext, and whatever collects them supplies its own destination.
+    # Retired: these three configured uploading the artifact directory. This task now
+    # just writes artifacts and publishes the directory on the ExecutionContext, and
+    # whatever collects them supplies its own destination.
     #
     # Still ACCEPTED rather than removed, because ConfigModel is extra="forbid": a
     # leftover key in an operator's task_configs[].configs would otherwise fail
-    # validation at startup, and "extra fields not permitted" gives no hint that the
-    # feature moved. Accepted-and-warned degrades; forbidden does not.
+    # validation at startup, and "extra fields not permitted" gives no hint why.
+    # Accepted-and-warned degrades; forbidden does not.
     cloud_log_bucket: Optional[str] = None
     cloud_log_path: Optional[str] = None
     cloud_log_cleanup: Optional[bool] = None

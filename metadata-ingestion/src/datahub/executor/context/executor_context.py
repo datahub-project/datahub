@@ -27,10 +27,9 @@ class ExecutorContext:
     # Secret stores that were configured at boot time
     secret_stores: list[SecretStore]
 
-    # Ported verbatim from acryl-executor. The mutable default is shared across all
-    # default-constructed instances and is assigned directly onto self; rewriting it to
-    # None + `or []` would change cross-instance aliasing, so it is suppressed rather
-    # than fixed during the move. Tracked as known debt.
+    # The mutable default is shared across all default-constructed instances and is
+    # assigned directly onto self; rewriting it to None + `or []` would change
+    # cross-instance aliasing, so it is suppressed rather than fixed. Known debt.
     def __init__(
         self,
         executor_id: str,

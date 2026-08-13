@@ -12,12 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Generic executor environment lookups. These previously lived in
-# acryl.executor.cloud_utils.env_utils alongside DataHub-Cloud-only helpers; the
-# Cloud half (log bucket/path/cleanup, executor pool id) stays in the DataHub
-# Cloud executor and is deliberately absent here. Function bodies are unchanged
-# from the original, including the env var names.
-
 import os
 
 # ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH keeps its original name on purpose:
