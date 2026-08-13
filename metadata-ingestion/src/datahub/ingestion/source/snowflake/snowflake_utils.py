@@ -406,6 +406,15 @@ class SnowflakeIdentifierBuilder:
             return identifier.lower()
         return identifier
 
+    def snowflake_column_identifier(self, column_name: str) -> str:
+        # Columns are folded separately from datasets: Snowflake's quoted identifiers
+        # let `"col"` and `"COL"` coexist in one table, and lowercasing collapses them
+        # into a single field path. Delegating on the default path keeps the emitted
+        # output byte-identical to the pre-flag behaviour.
+        if self.identifier_config.preserve_column_case:
+            return column_name
+        return self.snowflake_identifier(column_name)
+
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:

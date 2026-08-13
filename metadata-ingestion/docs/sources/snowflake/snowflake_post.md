@@ -476,6 +476,32 @@ pipe_pattern:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
+#### Column Name Casing
+
+Snowflake stores unquoted identifiers in uppercase, but quoted identifiers keep the case you wrote them in. Two columns in the same table can therefore differ only by case — `"col"` and `"COL"` are distinct columns.
+
+By default DataHub lowercases column names when building field paths, so such columns collapse onto a single field path. The duplicate is then dropped before the schema is written, so the column disappears from DataHub entirely and its column-level lineage, tags, and profile are lost. Ingestion reports a warning whenever it detects this, so you can find affected tables without changing any configuration.
+
+Set `preserve_column_case: true` to keep Snowflake's casing and the columns distinct:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    # Dataset URNs stay lowercase so lineage matches other platforms.
+    convert_urns_to_lowercase: true
+    # Column field paths keep Snowflake's casing.
+    preserve_column_case: true
+```
+
+This option is independent of `convert_urns_to_lowercase`: you can keep dataset URNs lowercase — which you usually want, so lineage resolves against other sources — while preserving column casing. If `convert_urns_to_lowercase` is already `false`, column casing is preserved regardless and this option has no effect.
+
+Treat it as a one-way door. The value is part of every column's `schemaField` URN, so changing it after data has been ingested re-keys each column: `...,col)` becomes `...,COL)`. Column-level tags, glossary terms, documentation, and assertions that users attached in the UI point at the old URNs and are orphaned. Choose a value before your first ingestion run and leave it unchanged.
+
+If you also run the `snowflake-queries` source against the same account, set `preserve_column_case` the same way in both recipes. The two sources build field paths independently, and a mismatch means the column-level lineage from one will not resolve against the schema from the other.
+
+Profiling handles these columns too. The SQLAlchemy driver folds reflected column names before DataHub sees them, so the profiler re-reads the column list and addresses each column by its as-stored, quoted name. With `preserve_column_case: true` every column gets its own profile, matched to its own schema field. With the option off, the pair shares one field path, so a single profile is emitted for it — mirroring the schema, where the duplicate field is dropped.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

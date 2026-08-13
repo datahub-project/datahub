@@ -2,6 +2,7 @@ import itertools
 import json
 import logging
 import time
+from collections import defaultdict
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import sqlglot
@@ -221,6 +222,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def snowflake_identifier(self, identifier: str) -> str:
         return self.identifiers.snowflake_identifier(identifier)
+
+    def snowflake_column_identifier(self, column_name: str) -> str:
+        return self.identifiers.snowflake_column_identifier(column_name)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.extract_tags_as_structured_properties:
@@ -1046,7 +1050,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def make_data_reader(self) -> Optional[SnowflakeDataReader]:
         if self.classification_handler.is_classification_enabled() and self.connection:
             return SnowflakeDataReader.create(
-                self.connection, self.snowflake_identifier
+                self.connection, self.snowflake_column_identifier
             )
 
         return None
@@ -1277,7 +1281,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                             if lt is not None
                             else semantic_model_urn,
-                            self.snowflake_identifier(col),
+                            self.snowflake_column_identifier(col),
                         ),
                     )
                 except Exception as e:
@@ -1672,6 +1676,45 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return GlobalTagsClass(tags=tag_associations)
         return None
 
+    def _report_column_case_collisions(
+        self,
+        table: Union[
+            SnowflakeTable, SnowflakeView, SnowflakeSemanticView, SnowflakeStream
+        ],
+        dataset_name: str,
+    ) -> None:
+        # Snowflake's quoted identifiers let columns differ only by case (e.g. "col"
+        # and "COL"). Folding them to a common field path silently drops one of them
+        # from the schema and makes its lineage, tags and profile ambiguous, so
+        # surface it even when the operator never enables preserve_column_case.
+        columns_by_field_path: Dict[str, Set[str]] = defaultdict(set)
+        for col in table.columns:
+            columns_by_field_path[self.snowflake_column_identifier(col.name)].add(
+                col.name
+            )
+
+        collisions = {
+            field_path: names
+            for field_path, names in columns_by_field_path.items()
+            if len(names) > 1
+        }
+        if not collisions:
+            return
+
+        self.structured_reporter.warning(
+            title="Columns collapsed into a single field path",
+            message="Columns that differ only by case were folded to the same field "
+            "path, so only one of them survives in the schema and its column-level "
+            "lineage, tags and profile are ambiguous. Set `preserve_column_case: true` "
+            "to keep them distinct. Note that enabling it re-keys every column's "
+            "schemaField URN.",
+            context=f"{dataset_name}: "
+            + "; ".join(
+                f"{sorted(names)} -> {field_path}"
+                for field_path, names in sorted(collisions.items())
+            ),
+        )
+
     def gen_schema_metadata(
         self,
         table: Union[
@@ -1694,6 +1737,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             f"columns={len(table.columns)}"
         )
 
+        self._report_column_case_collisions(table, dataset_name)
+
         # Get column subtypes, synonyms, and primary keys for semantic views
         column_subtypes = {}
         column_synonyms = {}
@@ -1712,7 +1757,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             platformSchema=MySqlDDL(tableSchema=""),
             fields=[
                 SchemaField(
-                    fieldPath=self.snowflake_identifier(col.name),
+                    fieldPath=self.snowflake_column_identifier(col.name),
                     type=SchemaFieldDataType(
                         SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
@@ -2091,7 +2136,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 rec_table_urn = self.identifiers.gen_dataset_urn(rec_table_identifier)
                 rec_field_urn = make_schema_field_urn(
-                    rec_table_urn, self.snowflake_identifier(rec_col)
+                    rec_table_urn, self.snowflake_column_identifier(rec_col)
                 )
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
@@ -2239,7 +2284,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             else:
                 downstream_field_urn = make_schema_field_urn(
                     semantic_view_urn,
-                    self.snowflake_identifier(col_name_upper),
+                    self.snowflake_column_identifier(col_name_upper),
                 )
 
             # Use depth-limited recursive resolution
@@ -2265,7 +2310,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 source_field_urn = make_schema_field_urn(
                     source_table_urn,
-                    self.snowflake_identifier(source_col),
+                    self.snowflake_column_identifier(source_col),
                 )
 
                 fine_grained_lineages.append(
@@ -2344,7 +2389,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 return downstream_urn_resolver(col_name_upper, logical_table_upper)
             return make_schema_field_urn(
                 semantic_view_urn,
-                self.snowflake_identifier(col_name_upper),
+                self.snowflake_column_identifier(col_name_upper),
             )
 
         logger.debug(
@@ -2506,7 +2551,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 )
                                 source_field_urn = make_schema_field_urn(
                                     source_table_urn,
-                                    self.snowflake_identifier(source_col),
+                                    self.snowflake_column_identifier(source_col),
                                 )
 
                                 # Create FineGrainedLineage for the derived column
@@ -2535,7 +2580,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Create upstream field URN for direct column lineage
                     upstream_field_urn = make_schema_field_urn(
                         base_table_urn,
-                        self.snowflake_identifier(col_name_upper),
+                        self.snowflake_column_identifier(col_name_upper),
                     )
 
                     fine_grained_lineages.append(
@@ -2581,14 +2626,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     foreignFields=[
                         make_schema_field_urn(
                             foreign_dataset,
-                            self.snowflake_identifier(col),
+                            self.snowflake_column_identifier(col),
                         )
                         for col in fk.referred_column_names
                     ],
                     sourceFields=[
                         make_schema_field_urn(
                             dataset_urn,
-                            self.snowflake_identifier(col),
+                            self.snowflake_column_identifier(col),
                         )
                         for col in fk.column_names
                     ],

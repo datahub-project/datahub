@@ -301,6 +301,19 @@ class SnowflakeIdentifierConfig(
         description="Whether to convert dataset urns to lowercase.",
     )
 
+    preserve_column_case: bool = Field(
+        default=False,
+        description="Preserve Snowflake's column casing in field paths and column-level "
+        "lineage instead of lowercasing them. Enable this when a table has quoted "
+        'identifiers that differ only by case (e.g. `"col"` and `"COL"`), which would '
+        "otherwise collapse into a single field. This value is part of each column's "
+        "schemaField URN identity, so changing it after data has been ingested re-keys "
+        "every column, orphaning column-level tags, glossary terms and documentation. "
+        "Pick one value before the first run and leave it unchanged. It must also match "
+        "across `snowflake` and `snowflake-queries` recipes pointed at the same account, "
+        "otherwise their field paths will not line up.",
+    )
+
     email_domain: Optional[str] = pydantic.Field(
         default=None,
         description="Email domain of your organization so users can be displayed on UI appropriately. This is used only if we cannot infer email ID.",
