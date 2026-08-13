@@ -1425,7 +1425,7 @@ def _metric_field_description(
     expression = enrichment.expression_text if enrichment else None
     if not expression:
         return description
-    block = f"**MicroStrategy expression:**\n\n```\n{expression}\n```"
+    block = f"```\n{expression}\n```"
     if description:
         return f"{description}\n\n{block}"
     return block

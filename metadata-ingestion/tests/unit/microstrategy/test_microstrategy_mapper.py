@@ -1011,9 +1011,8 @@ def test_metric_expression_is_preserved_in_field_json_props() -> None:
     # The formula also renders in the field description as a markdown code
     # block, after any human-authored description.
     assert revenue.description is not None
-    assert revenue.description.endswith(
-        "**MicroStrategy expression:**\n\n```\nSum(Revenue)\n```"
-    )
+    assert revenue.description.endswith("```\nSum(Revenue)\n```")
+    assert "MicroStrategy expression" not in revenue.description
 
 
 def test_metric_description_without_expression_is_unchanged() -> None:
@@ -1031,7 +1030,7 @@ def test_metric_description_without_expression_is_unchanged() -> None:
     )
     revenue = next(field for field in schema.fields if field.fieldPath == "Revenue")
 
-    assert "MicroStrategy expression" not in (revenue.description or "")
+    assert "```" not in (revenue.description or "")
 
 
 def test_extract_folder_parts_from_search_result_payloads() -> None:
