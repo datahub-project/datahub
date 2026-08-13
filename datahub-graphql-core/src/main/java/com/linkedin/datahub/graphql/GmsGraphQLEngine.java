@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.loaders.ContainerEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
+import com.linkedin.datahub.graphql.loaders.EntityExistsBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -995,6 +996,9 @@ public class GmsGraphQLEngine {
             DatasetStatsSummaryBatchLoader.LOADER_NAME,
             context ->
                 DatasetStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            EntityExistsBatchLoader.LOADER_NAME,
+            context -> EntityExistsBatchLoader.create(this.entityService, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -1053,7 +1057,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
@@ -1234,7 +1238,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("semanticModel", getResolver(semanticModelType))
                 .dataFetcher("getRootMetrics", new GetRootMetricsResolver(this.entityClient))
                 .dataFetcher("getSemanticModels", new GetSemanticModelsResolver(this.entityClient))
-                .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
+                .dataFetcher(
+                    "entityExists", new EntityExistsResolver(this.entityService, this.featureFlags))
                 .dataFetcher("entity", getEntityResolver())
                 .dataFetcher("entities", getEntitiesResolver())
                 .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
@@ -2058,7 +2063,7 @@ public class GmsGraphQLEngine {
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
                     .dataFetcher("testResults", new TestResultsResolver(entityClient))
                     .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher("runs", new EntityRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
@@ -2225,7 +2230,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -2239,7 +2244,7 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver())
                 .dataFetcher(
                     "glossaryChildrenSearch",
@@ -2308,7 +2313,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags)));
     builder.type(
         "CorpUserInfo",
         typeWiring ->
@@ -2383,7 +2388,7 @@ public class GmsGraphQLEngine {
                     new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags)));
     builder
         .type(
             "CorpGroupInfo",
@@ -2469,7 +2474,7 @@ public class GmsGraphQLEngine {
                     new LoadableTypeResolver<>(
                         dataPlatformType,
                         (env) -> ((Notebook) env.getSource()).getPlatform().getUrn()))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
@@ -2533,7 +2538,7 @@ public class GmsGraphQLEngine {
                     "statsSummary",
                     new DashboardStatsSummaryResolver(timeseriesAspectService, featureFlags))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "health",
                     new EntityHealthResolver(
@@ -2628,7 +2633,9 @@ public class GmsGraphQLEngine {
                                 .collect(Collectors.toList()))));
     builder.type(
         "StructuredPropertyEntity",
-        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "exists", new EntityExistsResolver(entityService, featureFlags)));
   }
 
   /**
@@ -2680,7 +2687,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "health",
                     new EntityHealthResolver(
@@ -2909,7 +2916,7 @@ public class GmsGraphQLEngine {
                     .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                     .dataFetcher("runs", new ExecutionRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher(
                         "health",
                         new EntityHealthResolver(
@@ -2976,7 +2983,7 @@ public class GmsGraphQLEngine {
                     new LoadableTypeResolver<>(
                         dataPlatformType,
                         (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "dataPlatformInstance",
@@ -3035,7 +3042,7 @@ public class GmsGraphQLEngine {
                             siblingGraphService,
                             restrictedService,
                             this.authorizationConfiguration))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher(
                         "platform",
                         new LoadableTypeResolver<>(
@@ -3128,7 +3135,7 @@ public class GmsGraphQLEngine {
                             siblingGraphService,
                             restrictedService,
                             this.authorizationConfiguration))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                     .dataFetcher(
                         "platform",
@@ -3186,7 +3193,7 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                             dataPlatformType,
                             (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
@@ -3215,7 +3222,7 @@ public class GmsGraphQLEngine {
                             restrictedService,
                             this.authorizationConfiguration))
                     .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
@@ -3245,7 +3252,7 @@ public class GmsGraphQLEngine {
                             restrictedService,
                             this.authorizationConfiguration))
                     .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
@@ -3386,7 +3393,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -3415,7 +3422,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -3678,7 +3685,7 @@ public class GmsGraphQLEngine {
         "DataProcessInstance",
         typeWiring ->
             typeWiring
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
@@ -3932,7 +3939,7 @@ public class GmsGraphQLEngine {
             "BusinessAttribute",
             typeWiring ->
                 typeWiring
-                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient)))
         .type(
             "ListBusinessAttributesResult",
@@ -4091,7 +4098,9 @@ public class GmsGraphQLEngine {
 
     builder.type(
         "DataHubPageModule",
-        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "exists", new EntityExistsResolver(entityService, featureFlags)));
   }
 
   private void configureDataHubFileResolvers(final RuntimeWiring.Builder builder) {
@@ -4113,7 +4122,7 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
-                    .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                    .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags)));
     builder.type(
         "DataHubFileInfo",
         typeWiring ->
@@ -4196,7 +4205,7 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",
@@ -4226,7 +4235,7 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",
