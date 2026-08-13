@@ -1415,25 +1415,27 @@ def test_chart_input_fields_include_derived_metrics() -> None:
         for input_field in input_fields.fields
         if input_field.schemaField
     }
-    assert "Pct To Plan" in field_paths
+    # Displayed names are qualified by column group so the UI never treats
+    # the per-group copies of one catalog object as the same column.
+    assert "STORE.Pct To Plan" in field_paths
+    assert {
+        "STORE.Net Amount",
+        "WEB.Net Amount",
+        "TOTAL SALES.Net Amount",
+    } <= field_paths
 
-    # Shared catalog metrics legitimately repeat once per column group; each
-    # entry is stamped with its group and source dataset so the repeats are
-    # tellable apart in the chart's field list.
-    shared_descriptions = {
-        input_field.schemaField.description
+    # The urn keeps the dataset's real (unqualified) field path so column
+    # lineage joins are unaffected by the display renaming.
+    store_entry = next(
+        input_field
         for input_field in input_fields.fields
-        if input_field.schemaField and input_field.schemaField.fieldPath == "Net Amount"
-    }
-    assert len(shared_descriptions) == 3
-    assert any(
-        description and description.startswith("**STORE** — STORE SALES WTD")
-        for description in shared_descriptions
+        if input_field.schemaField
+        and input_field.schemaField.fieldPath == "STORE.Net Amount"
     )
-    assert any(
-        description and description.startswith("**TOTAL SALES** — COMBINED TOTALS WTD")
-        for description in shared_descriptions
-    )
+    assert store_entry.schemaFieldUrn.endswith(",Net Amount)")
+    assert store_entry.schemaField is not None
+    assert store_entry.schemaField.description is not None
+    assert store_entry.schemaField.description.startswith("**STORE** — STORE SALES WTD")
 
     column_groups = {
         prop: value for prop, value in (chart_info.customProperties or {}).items()
