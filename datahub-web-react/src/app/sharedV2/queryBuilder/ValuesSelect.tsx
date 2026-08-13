@@ -63,7 +63,6 @@ const ValuesSelect = ({ selectedValues, options, onChangeValues, property, prope
                     placeholder={placeholder}
                     options={(options.options as SelectParams)?.options}
                     mode={(options.options as any)?.mode || DEFAULT_SINGLE_MODE}
-                    label={label}
                 />
             )}
             {options?.inputType === ValueInputType.TEXT && (
