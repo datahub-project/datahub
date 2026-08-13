@@ -175,7 +175,7 @@ def get_pytest_xdist_workers() -> int:
 
 
 def get_test_strategy() -> Optional[str]:
-    """Test execution strategy (e.g., 'cypress')."""
+    """Test execution strategy (e.g., 'pytests')."""
     return os.getenv("TEST_STRATEGY")
 
 
@@ -250,16 +250,6 @@ def get_kafka_broker_container() -> Optional[str]:
 def get_datahub_usage_event_topic() -> str:
     """DataHub usage event topic name."""
     return str(os.getenv("DATAHUB_USAGE_EVENT_NAME", "DataHubUsageEvent_v1"))
-
-
-# ============================================================================
-# Cypress Testing
-# ============================================================================
-
-
-def get_cypress_record_key() -> Optional[str]:
-    """Cypress Cloud recording key."""
-    return os.getenv("CYPRESS_RECORD_KEY")
 
 
 def get_filtered_tests_file() -> Optional[str]:

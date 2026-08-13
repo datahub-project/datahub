@@ -148,7 +148,7 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 
 </details>
 
-# Connecting to Managed MCP Server with OAuth - Recommended
+# Connecting to Managed MCP Server with OAuth - Recommended {#managed-mcp-server-usage}
 
 _Available in DataHub Cloud v1.0.2+_
 

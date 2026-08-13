@@ -1,6 +1,11 @@
 [tools]
 actionlint = "1.7.11"
-betterleaks = "1.6.1"
+# betterleaks has no mise registry entry, so it needs its backend named
+# explicitly. A bare `betterleaks = "..."` fails to resolve, mise installs
+# nothing, and the pre-commit secret scan then fails with "Executable
+# `betterleaks` not found" — which reads as a broken hook rather than a
+# missing tool.
+"ubi:betterleaks/betterleaks" = "1.6.1"
 java = "21"
 node = "22"
 python = "3.11"
