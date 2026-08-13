@@ -49,6 +49,7 @@ def _report_threads_alive_at_exit() -> None:
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
     pytest_addoption,
+    pytest_configure,
 )
 from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
     docker_compose_command,
