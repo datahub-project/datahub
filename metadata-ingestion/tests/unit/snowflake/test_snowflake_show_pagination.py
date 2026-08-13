@@ -139,8 +139,12 @@ class FakeShowConnection:
                 f"{self._max_queries} allowed; the caller is not terminating."
             )
 
-        in_schema = SHOW_IN_SCHEMA.search(query)
-        in_database = SHOW_IN_DATABASE.search(query)
+        # What Snowflake acts on. A subclass may differ from what was sent (see
+        # IgnoresFromClauseConnection); self.queries always keeps the statement as built.
+        effective = self._effective(query)
+
+        in_schema = SHOW_IN_SCHEMA.search(effective)
+        in_database = SHOW_IN_DATABASE.search(effective)
         if in_schema:
             kind = SnowflakeShowKind(in_schema.group("kind"))
             rows = [
@@ -156,15 +160,20 @@ class FakeShowConnection:
             # part in pagination; answer them with no rows.
             return []
 
-        marker = _parse_marker(query)
+        marker = _parse_marker(effective)
         if marker is not None:
             rows = [o for o in rows if o[1] > marker]
 
-        limit = LIMIT_CLAUSE.search(query)
+        limit = LIMIT_CLAUSE.search(effective)
         if limit:
             rows = rows[: int(limit.group("limit"))]
 
         return [_row(kind, schema_name, name) for schema_name, name in rows]
+
+    def _effective(self, query: str) -> str:
+        """The statement Snowflake behaves as though it received. Overridden to model a
+        server that quietly disregards part of what was sent."""
+        return query
 
     def show_queries(self, kind: SnowflakeShowKind) -> List[str]:
         return [q for q in self.queries if f"SHOW {kind} " in q]
@@ -175,8 +184,8 @@ class IgnoresFromClauseConnection(FakeShowConnection):
     INFORMATION_SCHEMA views) the ``FROM '<name>'`` cursor is ignored outright, so every
     page repeats the first one and a marker-driven loop never terminates."""
 
-    def query(self, query: str) -> List[Dict[str, Any]]:
-        return super().query(FROM_CLAUSE.sub("", query))
+    def _effective(self, query: str) -> str:
+        return FROM_CLAUSE.sub("", query)
 
 
 class FailsDatabaseWideConnection(FakeShowConnection):
@@ -397,8 +406,14 @@ def test_per_schema_paging_stops_when_the_cursor_does_not_advance():
 
     names = [v.name for v in views]
     assert len(names) == len(set(names)) == SHOW_COMMAND_MAX_PAGE_SIZE
-    assert len(connection.show_queries(VIEWS)) == 2
+    issued = connection.show_queries(VIEWS)
+    assert len(issued) == 2
     assert data_dictionary.report.warnings
+    # The recorded statement is what the connector built, not what this fake pretended
+    # Snowflake acted on: page 2 did carry a cursor, and the server disregarded it.
+    assert "FROM '" in issued[1], (
+        f"page 2 should have been built with a cursor: {issued[1]!r}"
+    )
 
 
 def test_database_under_the_page_limit_uses_a_single_database_wide_view_query():
