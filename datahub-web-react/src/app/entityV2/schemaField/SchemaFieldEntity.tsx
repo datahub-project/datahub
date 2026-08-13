@@ -134,11 +134,12 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     getLineageVizConfig = (entity: SchemaField): FetchedEntity => {
         const parent =
             entity.parent && globalEntityRegistryV2.getGenericEntityProperties(entity.parent.type, entity.parent);
+        const decodedFieldPath = decodeSchemaField(downgradeV2FieldPath(entity?.fieldPath) || '');
         return {
             urn: entity.urn,
             type: EntityType.SchemaField,
-            name: entity?.fieldPath,
-            expandedName: `${parent?.name}.${entity?.fieldPath}`,
+            name: decodedFieldPath,
+            expandedName: `${parent?.name}.${decodedFieldPath}`,
             icon: parent?.platform?.properties?.logoUrl ?? undefined,
             parent: parent ?? undefined,
         };
