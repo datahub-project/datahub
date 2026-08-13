@@ -35,6 +35,7 @@ from datahub.executor.execution.runner import (
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
+    resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
 from datahub.masking.bootstrap import shutdown_secret_masking
@@ -104,10 +105,13 @@ class SubProcessTestConnectionTask(Task):
             raise TaskError(f"Failed to set up virtual environment: {error_msg}") from e
 
         # 3. Spin off subprocess to run the test-connection script with venv path
-        # Invoked as a module with this interpreter rather than by bare name off
-        # PATH: the wrapper must run in the executor's own environment (it then
-        # activates the per-run target venv itself).
-        command_script: str = "datahub.executor.wrappers.run_test_connection"
+        # Invoked with this interpreter rather than by bare name off PATH: the wrapper
+        # must run in the executor's own environment (it then activates the per-run
+        # target venv itself). By absolute path rather than -m: see
+        # resolve_wrapper_script.
+        command_script: str = resolve_wrapper_script(
+            "datahub.executor.wrappers.run_test_connection"
+        )
         report_out_file: str = f"{exec_out_dir}/connection_report.json"
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
@@ -131,7 +135,6 @@ class SubProcessTestConnectionTask(Task):
         ingest_process = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
                 command_script,
                 str(venv_ref.venv_loc),
             ],

@@ -311,15 +311,17 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             mock_create.assert_called_once()
             call_args = mock_create.call_args
 
-            # The wrapper runs as a module under this interpreter rather than as a
-            # bare script name resolved off PATH.
+            # The wrapper runs by ABSOLUTE PATH under this interpreter -- not as a bare
+            # script name off PATH, and deliberately not with `-m`. `-m` puts the
+            # subprocess's CWD on sys.path[0], so a stray module in the working
+            # directory (e.g. a yaml.py in /tmp, the image's WORKDIR) shadows real
+            # imports and kills the run before any wrapper code executes.
             command_args = call_args[0]
-            assert command_args == (
-                sys.executable,
-                "-m",
-                "datahub.executor.wrappers.run_ingest",
-                str(mock_venv_ref.venv_loc),
-            )
+            assert command_args[0] == sys.executable
+            assert "-m" not in command_args
+            assert command_args[1].endswith("datahub/executor/wrappers/run_ingest.py")
+            assert Path(command_args[1]).is_absolute()
+            assert command_args[2] == str(mock_venv_ref.venv_loc)
 
             kwargs = call_args[1]
             assert kwargs["env"]["VENV_PATH"] == str(mock_venv_ref.venv_loc)
@@ -1416,3 +1418,98 @@ class TestSubProcessIngestionTaskScaleHandling:
         mock_subprocess_exec.assert_called_once()
         call_kwargs = mock_subprocess_exec.call_args[1]
         assert call_kwargs["limit"] == SubProcessTaskUtil.SUBPROCESS_BUFFER_SIZE
+
+
+class TestMonitorSubprocessCancellation:
+    """Drives _monitor_subprocess for real.
+
+    Every other cancellation test patches this method out, so its except block --
+    terminate the subprocess, cancel the sibling tasks, wait with a timeout, kill
+    whatever is still pending, then re-raise or wrap -- was never executed by the
+    suite. That is the cleanup path an operator relies on when they press cancel;
+    without it a cancelled run can leave the ingestion process alive.
+    """
+
+    def _process(self, *, wait_hangs: bool) -> Mock:
+        """A stand-in subprocess whose stdout never yields, so the monitor blocks."""
+        proc = Mock(spec=asyncio.subprocess.Process)
+        proc.returncode = None
+        proc.terminate = Mock()
+        proc.kill = Mock()
+
+        never = asyncio.Event()  # never set
+
+        async def _readuntil(_sep: bytes = b"\n") -> bytes:
+            await never.wait()
+            return b""
+
+        stdout = Mock()
+        stdout.readuntil = AsyncMock(side_effect=_readuntil)
+        proc.stdout = stdout
+
+        async def _wait() -> int:
+            if wait_hangs:
+                await never.wait()
+            return 0
+
+        proc.wait = AsyncMock(side_effect=_wait)
+        return proc
+
+    async def test_cancellation_terminates_the_subprocess_and_reraises(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        tmp_path: Path,
+    ) -> None:
+        proc = self._process(wait_hangs=False)
+        log_file = (tmp_path / "ingestion-logs.log").open("w")
+
+        try:
+            monitor = asyncio.ensure_future(
+                ingestion_task._monitor_subprocess(
+                    proc,
+                    "exec-cancel",
+                    mock_execution_context,
+                    LogHolder(max_log_lines=10),
+                    log_file,
+                )
+            )
+            # Let the monitor reach its await points before cancelling.
+            await asyncio.sleep(0)
+            monitor.cancel()
+
+            with pytest.raises(asyncio.CancelledError):
+                await monitor
+        finally:
+            log_file.close()
+
+        # The whole point: a cancelled run must not leave the child running.
+        proc.terminate.assert_called_once()
+
+    async def test_a_monitoring_failure_is_wrapped_not_swallowed(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """The non-cancellation branch: a task blowing up must still terminate the
+        child, and must surface as an error rather than a silent success."""
+        proc = self._process(wait_hangs=False)
+        proc.stdout.readuntil = AsyncMock(side_effect=RuntimeError("stdout exploded"))
+        log_file = (tmp_path / "ingestion-logs.log").open("w")
+        # Without this the test waits out the real cleanup timeout, a full minute.
+        ingestion_task.CLEANUP_TIMEOUT_SECONDS = 0.1  # type: ignore[assignment]
+
+        try:
+            with pytest.raises(RuntimeError, match="subprocess executor"):
+                await ingestion_task._monitor_subprocess(
+                    proc,
+                    "exec-boom",
+                    mock_execution_context,
+                    LogHolder(max_log_lines=10),
+                    log_file,
+                )
+        finally:
+            log_file.close()
+
+        proc.terminate.assert_called_once()

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import errno
+import importlib.util
 import json
 import logging
 import os
@@ -308,3 +309,29 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
         }
 
         return combined
+
+
+def resolve_wrapper_script(module_name: str) -> str:
+    """Absolute path to a wrapper module, for invoking it as a script.
+
+    Deliberately a path rather than ``python -m``. ``-m`` puts the subprocess's current
+    working directory on ``sys.path[0]``, so a stray module there shadows real imports
+    and kills the run before any wrapper code executes -- e.g. a ``yaml.py`` sitting in
+    the worker's CWD (``/tmp`` in the shipped image) is imported instead of PyYAML.
+    Invoking by path puts the wrapper's own directory on ``sys.path[0]`` instead, which
+    matches the console-script entry points this replaced: their ``<venv>/bin`` held no
+    importable modules either.
+
+    ``PYTHONSAFEPATH`` / ``-P`` would also fix it but are 3.11+, and this package
+    supports 3.10.
+
+    Uses ``find_spec`` rather than importing: resolving a path must not execute the
+    wrapper in the *parent* process.
+    """
+    spec = importlib.util.find_spec(module_name)
+    if spec is None or spec.origin is None:
+        raise RuntimeError(
+            f"Could not locate the wrapper module {module_name!r}. This is a packaging "
+            "problem: the executor's wrappers must ship with it."
+        )
+    return spec.origin

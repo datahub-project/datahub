@@ -45,6 +45,7 @@ from datahub.executor.execution.runner import (
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
+    resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
 from datahub.masking.bootstrap import shutdown_secret_masking
@@ -61,6 +62,36 @@ class SubProcessIngestionTaskConfig(ConfigModel):
     log_dir: str = "/tmp/datahub/logs"
     heartbeat_time_seconds: int = 2
     max_log_lines: int = SubProcessTaskUtil.MAX_LOG_LINES
+
+    # Retired: this task used to tar the artifact directory and upload it to S3, and
+    # these three configured that. Uploading is a hosted-DataHub concern and no longer
+    # lives here -- the task now just writes artifacts and publishes the directory on
+    # the ExecutionContext, and whatever collects them supplies its own destination.
+    #
+    # Still ACCEPTED rather than removed, because ConfigModel is extra="forbid": a
+    # leftover key in an operator's task_configs[].configs would otherwise fail
+    # validation at startup, and "extra fields not permitted" gives no hint that the
+    # feature moved. Accepted-and-warned degrades; forbidden does not.
+    cloud_log_bucket: Optional[str] = None
+    cloud_log_path: Optional[str] = None
+    cloud_log_cleanup: Optional[bool] = None
+
+    @pydantic.model_validator(mode="after")
+    def _warn_on_retired_cloud_log_fields(self) -> "SubProcessIngestionTaskConfig":
+        retired = [
+            name
+            for name in ("cloud_log_bucket", "cloud_log_path", "cloud_log_cleanup")
+            if getattr(self, name) is not None
+        ]
+        if retired:
+            logger.warning(
+                "Ignoring retired task config field(s) %s. This task no longer uploads "
+                "logs or artifacts anywhere; it writes them to its artifact directory "
+                "and publishes that path. Remove these from task_configs to silence "
+                "this warning.",
+                ", ".join(retired),
+            )
+        return self
 
 
 class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
@@ -85,6 +116,12 @@ class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
 
 
 class SubProcessIngestionTask(Task):
+    # How long to wait for the monitoring tasks to wind down after a cancellation
+    # or a monitoring failure, before falling back to killing the subprocess.
+    # A class attribute so tests can shorten it -- otherwise exercising that path
+    # costs a full minute per test.
+    CLEANUP_TIMEOUT_SECONDS = 60
+
     config: SubProcessIngestionTaskConfig
     tmp_dir: str  # Location where tmp files will be written (recipes)
     ctx: ExecutorContext
@@ -239,8 +276,9 @@ class SubProcessIngestionTask(Task):
         # Invoked as a module with this interpreter rather than by bare name off PATH:
         # the wrapper must run in the executor's own environment (it then activates the
         # per-run target venv itself), and this code also mutates PATH, so resolving our
-        # own helper through PATH would be fragile.
-        command_script = "datahub.executor.wrappers.run_ingest"
+        # own helper through PATH would be fragile. By absolute path rather than -m:
+        # see resolve_wrapper_script.
+        command_script = resolve_wrapper_script("datahub.executor.wrappers.run_ingest")
         debug_mode = validated_args.debug_mode
 
         # Log the execution mode
@@ -271,7 +309,6 @@ class SubProcessIngestionTask(Task):
 
         process = await asyncio.create_subprocess_exec(
             sys.executable,
-            "-m",
             command_script,
             str(venv_ref.venv_loc),
             env=venv_env,
@@ -511,7 +548,7 @@ class SubProcessIngestionTask(Task):
                     report_progress_task,
                     process_waiter_task,
                 ),
-                timeout=60,
+                timeout=self.CLEANUP_TIMEOUT_SECONDS,
                 return_when=asyncio.ALL_COMPLETED,
             )
             if pending:

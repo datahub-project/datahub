@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, mock_open, patch
 
@@ -160,15 +161,19 @@ async def test_execute_success(
         mock_setup_venv.assert_called_once()
         mock_popen.assert_called_once()
 
-        # Verify the wrapper is invoked as a module with the executor's own
-        # interpreter, not by bare script name off PATH.
+        # Verify the wrapper is invoked by ABSOLUTE PATH with the executor's own
+        # interpreter -- not by bare script name off PATH, and deliberately not with
+        # `-m`. `-m` puts the subprocess's CWD on sys.path[0], so a stray module in the
+        # working directory (e.g. a yaml.py in /tmp, which is the image's WORKDIR)
+        # shadows real imports and kills the run before any wrapper code executes.
         popen_args = mock_popen.call_args[0][0]  # First argument is the command list
-        assert popen_args == [
-            sys.executable,
-            "-m",
-            "datahub.executor.wrappers.run_test_connection",
-            "/tmp/venv-demo-data-test",
-        ]
+        assert popen_args[0] == sys.executable
+        assert "-m" not in popen_args
+        assert popen_args[1].endswith(
+            "datahub/executor/wrappers/run_test_connection.py"
+        )
+        assert Path(popen_args[1]).is_absolute()
+        assert popen_args[2] == "/tmp/venv-demo-data-test"
 
         # Verify subprocess launched with stdin=subprocess.PIPE
         popen_kwargs = mock_popen.call_args[1]
