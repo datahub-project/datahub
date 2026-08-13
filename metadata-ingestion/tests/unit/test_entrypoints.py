@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from click.testing import CliRunner
 
@@ -20,19 +22,48 @@ def test_agent_shim_command_behavior():
     "error,expected",
     [
         (
-            ImportError("No module named acryl_datahub_cloud"),
+            ModuleNotFoundError(
+                "No module named 'acryl_datahub_cloud'", name="acryl_datahub_cloud"
+            ),
             "pip install acryl-datahub-cloud",
         ),
         (
-            ImportError("No module named graphql"),
+            ModuleNotFoundError("No module named 'graphql'", name="graphql"),
+            "fix the acryl-datahub-cloud installation",
+        ),
+        (
+            ModuleNotFoundError(
+                "No module named 'acryl_datahub_cloud.cli'",
+                name="acryl_datahub_cloud.cli",
+            ),
+            "fix the acryl-datahub-cloud installation",
+        ),
+        (
+            ImportError(
+                "cannot import name 'evals' from 'acryl_datahub_cloud.cli.evals'"
+            ),
             "fix the acryl-datahub-cloud installation",
         ),
     ],
 )
-def test_evals_import_suggestion(error, expected):
+def test_evals_import_suggestion(error, expected, caplog):
     from datahub.entrypoints import _evals_import_suggestion
 
     assert expected in _evals_import_suggestion(error)
+    assert not any(record.levelno >= logging.WARNING for record in caplog.records)
+
+
+def test_registered_evals_command_shows_helpful_error_or_help():
+    """Test that the registered evals command is usable or explains its dependency."""
+    import datahub.entrypoints
+
+    result = CliRunner().invoke(datahub.entrypoints.datahub, ["evals", "--help"])
+
+    if result.exit_code == 1:
+        assert "missing dependencies" in result.output
+        assert "pip install acryl-datahub-cloud" in result.output
+    else:
+        assert result.exit_code == 0
 
 
 def test_agent_command_exists():
