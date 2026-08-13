@@ -840,6 +840,8 @@ subprojects {
         implementation("org.apache.httpcomponents.client5:httpclient5:${rootProject.ext.httpClient5Version}") // CVE-2026-40542
         implementation('org.apache.httpcomponents.core5:httpcore5:5.4.3') // CVE-2026-54399
         implementation('org.apache.httpcomponents.core5:httpcore5-h2:5.4.3') // CVE-2026-54399
+        implementation('org.playframework.netty:netty-reactive-streams:3.0.9')
+        implementation('org.playframework.netty:netty-reactive-streams-http:3.0.9')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
         implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)
