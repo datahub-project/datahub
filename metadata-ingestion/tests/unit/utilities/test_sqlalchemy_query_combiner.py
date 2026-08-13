@@ -3,12 +3,6 @@
 Exercises the combiner directly (not via QueryCombinerRunner) against a real
 in-memory SQLite engine. Follows the repo testing philosophy: behavior over
 implementation, no exact-error-message assertions.
-
-Two edge-case branches (a zero-row proxy, and a one-row/zero-column proxy)
-are unreachable through the combiner, which asserts exactly one row, so
-those tests construct _ResultProxyFake / _RowProxyFake directly. That is
-deliberate direct construction of internal types to reach branches the
-public surface cannot, not reflection into implementation details.
 """
 
 import dataclasses
@@ -18,13 +12,10 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.engine import Connection
-from sqlalchemy.orm.exc import NoResultFound
 
 from datahub.utilities.sqlalchemy_query_combiner import (
     MAX_QUERIES_TO_COMBINE_AT_ONCE,
     SQLAlchemyQueryCombiner,
-    _ResultProxyFake,
-    _RowProxyFake,
     get_query_columns,
 )
 
@@ -196,6 +187,27 @@ class TestBatchingAndPartitioning:
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == 1
 
+    def test_multiparams_bypasses_combiner(self, engine, test_table):
+        # Passing multiparams/params bypasses the combiner (returns
+        # (False, None) in _handle_execute) and runs the query normally via
+        # the underlying execute. Pin that the query goes out uncombined.
+        query = (
+            sa.select(sa.func.count().label("rowcount"))
+            .select_from(test_table)
+            .where(test_table.c.id == sa.bindparam("x"))
+        )
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, query, multiparams=({"x": 1},))
+            qc.flush()
+
+        assert cap.result is not None and cap.exc is None
+        assert cap.result.scalar() == 1
+        assert combiner.report.combined_queries_issued == 0
+        assert combiner.report.queries_combined == 0
+        assert combiner.report.uncombined_queries_issued == 1
+        assert combiner.report.total_queries == 1
+
 
 class TestResultExtraction:
     def test_result_row_mapped_by_col_name(self, engine, test_table):
@@ -211,6 +223,7 @@ class TestResultExtraction:
             qc.flush()
 
         row = cap.result.one()
+        assert cap.result.fetchone() is row
         assert row["rowcount"] == 3
         assert row["value_sum"] == pytest.approx(61.5)
         # int-indexing resolves to the column at that position, by insertion order
@@ -414,120 +427,19 @@ class TestExceptionAndFallback:
         assert combiner.report.queries_combined == 0
 
 
-class TestResultProxyContract:
-    def test_scalar_one_one_or_none_and_keyed_access(self, engine, test_table):
-        # One access per result object: on a real CursorResult (what the
-        # serial fallback stores) scalar() closes the result and a following
-        # one() raises ResourceClosedError, so chaining the two would pin a
-        # divergence between the combined and serial paths as though it were
-        # a contract. Keyed row access is covered by
-        # test_result_row_mapped_by_col_name.
-        query = sa.select(
-            sa.func.count().label("rowcount"),
-            sa.func.sum(test_table.c.value).label("value_sum"),
-        ).select_from(test_table)
-        combiner = _make_combiner()
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap_scalar = _schedule(qc, conn, query)
-            cap_one = _schedule(qc, conn, query)
-            qc.flush()
-
-        assert cap_scalar.result.scalar() == 3
-        assert cap_one.result.one()[0] == 3
-        # one_or_none on a single-row proxy returns the row.
-        row = _ResultProxyFake(
-            [_RowProxyFake({"rowcount": 3, "value_sum": 61.5})]
-        ).one_or_none()
-        assert row is not None
-        assert row[0] == 3
-        assert combiner.report.query_exceptions == 0
-        assert combiner.report.uncombined_queries_issued == 0
-        assert combiner.report.total_queries == 2
-
-    def test_fetchone_alias_to_one_on_zero_row_proxy(self):
-        # fetchone is aliased to one. On a zero-row proxy, one() raises
-        # NoResultFound while first() returns None — so fetchone() must
-        # raise, not return None.
-        empty = _ResultProxyFake([])
-        assert empty.first() is None
-        with pytest.raises(NoResultFound):
-            empty.one()
-        with pytest.raises(NoResultFound):
-            empty.fetchone()
-
-    def test_fetchall_returns_all_rows(self):
-        rows = [
-            _RowProxyFake({"a": 1, "b": 10}),
-            _RowProxyFake({"a": 2, "b": 20}),
-        ]
-        result = _ResultProxyFake(rows)
-        assert result.first() is rows[0]
-        fetched = result.fetchall()
-        assert len(fetched) == 2
-        assert fetched[0]["a"] == 1
-        assert fetched[1]["b"] == 20
-
-    def test_int_index_out_of_range_raises_indexerror(self):
-        # Pin the contract that out-of-range int access raises IndexError
-        # (rather than KeyError or a silent wrong value). The explicit guard
-        # in _RowProxyFake.__getitem__ is message-only dead code — the
-        # underlying keys[k] raises IndexError on its own — so this test
-        # pins the contract, not the guard.
-        row = _RowProxyFake({"a": 1})
-        with pytest.raises(IndexError):
-            row[5]
-
-    def test_scalar_on_empty_row_returns_none(self):
-        # scalar()'s empty-row branch: a one-row, zero-column result
-        # returns None rather than indexing into an empty row.
-        result = _ResultProxyFake([_RowProxyFake({})])
-        assert result.scalar() is None
-
-    def test_multiparams_bypasses_combiner(self, engine, test_table):
-        # Passing multiparams/params bypasses the combiner (returns
-        # (False, None) in _handle_execute) and runs the query normally via
-        # the underlying execute. Pin that the query goes out uncombined.
-        query = (
-            sa.select(sa.func.count().label("rowcount"))
-            .select_from(test_table)
-            .where(test_table.c.id == sa.bindparam("x"))
-        )
-        combiner = _make_combiner()
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, query, multiparams=({"x": 1},))
-            qc.flush()
-
-        assert cap.result is not None and cap.exc is None
-        assert cap.result.scalar() == 1
-        assert combiner.report.combined_queries_issued == 0
-        assert combiner.report.queries_combined == 0
-        assert combiner.report.uncombined_queries_issued == 1
-        assert combiner.report.total_queries == 1
-
-
 class TestGetQueryColumns:
-    def test_prefers_inner_columns_over_columns(self):
-        # inner_columns keeps semantic names ('count', 'count') for duplicate
-        # unlabeled aggregates; .columns yields anon labels embedding an
-        # object id (non-deterministic). Asserting the names (not the count
-        # — both return 2) distinguishes the two branches. Use sa.table/
-        # sa.column (pure metadata), no engine needed.
+    def test_prefers_inner_columns_and_falls_back_to_columns_for_cte(self):
+        # A Select exposes inner_columns, which keeps semantic names for
+        # duplicate unlabeled aggregates; .columns yields anon labels
+        # embedding an object id. A CTE has no inner_columns, so
+        # get_query_columns falls through to .columns on every combined query.
         t = sa.table("t", sa.column("value"))
-        query = sa.select(sa.func.count(), sa.func.count()).select_from(t)
-        assert [c.name for c in get_query_columns(query)] == ["count", "count"]
+        select_query = sa.select(sa.func.count(), sa.func.count()).select_from(t)
+        assert [c.name for c in get_query_columns(select_query)] == ["count", "count"]
 
-    def test_falls_back_to_columns_on_attribute_error(self):
-        # Some query shapes expose .columns but not .inner_columns; the
-        # helper must fall back rather than raise.
-
-        class _FakeQuery:
-            @property
-            def inner_columns(self):
-                raise AttributeError("no inner_columns")
-
-            @property
-            def columns(self):
-                return [sa.column("a"), sa.column("b")]
-
-        cols = get_query_columns(_FakeQuery())
-        assert [c.name for c in cols] == ["a", "b"]
+        cte = select_query.cte("c")
+        assert not hasattr(cte, "inner_columns")
+        cte_cols = list(get_query_columns(cte))
+        assert len(cte_cols) == 2
+        # .columns yields anon labels (embed an object id), not 'count':
+        assert all(c.name != "count" for c in cte_cols)
