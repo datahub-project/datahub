@@ -283,6 +283,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.entityCounts.keyAspect.singleFlight.waiterMaxMillis",
           "cache.primary.maxSize",
           "cache.primary.ttlSeconds",
+          "cache.retention.enabled",
+          "cache.retention.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
           "cache.search.lineage.ttlSeconds",
           // Authentication mode flags (not credentials)

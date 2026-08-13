@@ -16,4 +16,5 @@ public class CacheConfiguration {
   EntityCountsCacheConfiguration entityCounts;
   SearchCacheConfiguration search;
   ClientCacheConfiguration client;
+  RetentionCacheConfiguration retention;
 }

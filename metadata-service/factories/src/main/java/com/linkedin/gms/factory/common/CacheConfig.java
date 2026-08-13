@@ -15,6 +15,7 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
+import com.linkedin.metadata.config.cache.RetentionCacheConfiguration;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.GraphDefinition;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.NearCache;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.Scope
 import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
 import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
+import com.linkedin.metadata.entity.retention.RetentionPolicyCache;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotSerializer;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
@@ -368,6 +370,7 @@ public class CacheConfig {
   public static final String KEY_ASPECT_ENTITY_COUNTS_MAP = "keyAspectEntityCounts";
   public static final String KEY_ASPECT_ENTITY_COUNTS_IN_FLIGHT_MAP =
       "keyAspectEntityCountsInFlight";
+  public static final String RETENTION_POLICY_CACHE_NAME = RetentionPolicyCache.CACHE_NAME;
 
   @Bean
   @Conditional(HazelcastInstanceBootstrapCondition.class)
@@ -389,5 +392,30 @@ public class CacheConfig {
   @Conditional(HazelcastInstanceBootstrapCondition.class)
   public MapConfig keyAspectEntityCountsInFlightMapConfig() {
     return new MapConfig(KEY_ASPECT_ENTITY_COUNTS_IN_FLIGHT_MAP);
+  }
+
+  /**
+   * Per-map TTL for resolved retention policies. Only used when the Spring {@link CacheManager} is
+   * Hazelcast; Caffeine uses {@link #caffeineCacheBuilder()} plus an app-level TTL in {@code
+   * SpringRetentionPolicyCache}.
+   */
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig retentionPolicyMapConfig(
+      @Value(
+              "${cache.retention.ttlSeconds:"
+                  + RetentionCacheConfiguration.DEFAULT_TTL_SECONDS
+                  + "}")
+          int ttlSeconds,
+      @Value("${cache.primary.maxSize:10000}") int cacheMaxSize) {
+    MapConfig mapConfig = new MapConfig(RETENTION_POLICY_CACHE_NAME);
+    mapConfig.setTimeToLiveSeconds(ttlSeconds);
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(cacheMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
+    return mapConfig;
   }
 }

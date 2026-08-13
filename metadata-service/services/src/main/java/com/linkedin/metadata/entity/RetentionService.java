@@ -14,6 +14,7 @@ import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.RetentionPolicyCache;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -46,7 +47,13 @@ import lombok.Value;
 public abstract class RetentionService<U extends ChangeMCP> {
   protected static final String ALL = "*";
 
+  @Nonnull private RetentionPolicyCache policyCache = RetentionPolicyCache.NO_OP;
+
   protected RetentionService() {}
+
+  public void setPolicyCache(@Nullable RetentionPolicyCache policyCache) {
+    this.policyCache = policyCache != null ? policyCache : RetentionPolicyCache.NO_OP;
+  }
 
   protected abstract EntityService<U> getEntityService();
 
@@ -59,6 +66,17 @@ public abstract class RetentionService<U extends ChangeMCP> {
    * @return retention policies to apply to the input entity and aspect
    */
   public Retention getRetention(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
+    Retention cached = policyCache.get(entityName, aspectName);
+    if (cached != null) {
+      return cached;
+    }
+    Retention loaded = loadRetention(opContext, entityName, aspectName);
+    policyCache.put(entityName, aspectName, loaded);
+    return loaded;
+  }
+
+  private Retention loadRetention(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     // Prioritized list of retention keys to fetch
     List<Urn> retentionUrns = getRetentionKeys(entityName, aspectName);
@@ -227,8 +245,11 @@ public abstract class RetentionService<U extends ChangeMCP> {
     AspectsBatch batch =
         buildAspectsBatch(opContext, List.of(keyProposal, aspectProposal), auditStamp);
 
-    return getEntityService().ingestProposal(opContext, batch, false).stream()
-        .anyMatch(IngestResult::isSqlCommitted);
+    boolean committed =
+        getEntityService().ingestProposal(opContext, batch, false).stream()
+            .anyMatch(IngestResult::isSqlCommitted);
+    policyCache.invalidateAll();
+    return committed;
   }
 
   protected abstract AspectsBatch buildAspectsBatch(
@@ -254,6 +275,7 @@ public abstract class RetentionService<U extends ChangeMCP> {
     Urn retentionUrn =
         EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
     getEntityService().deleteUrn(opContext, retentionUrn);
+    policyCache.invalidateAll();
   }
 
   private void validateRetention(Retention retention) {
