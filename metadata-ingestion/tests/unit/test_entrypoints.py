@@ -42,7 +42,7 @@ def test_agent_command_shows_error_or_help():
 
 @pytest.mark.parametrize(
     "command_name",
-    ["agent", "actions", "lite"],
+    ["agent", "actions", "evals", "lite"],
 )
 def test_optional_commands_exist(command_name):
     """Test that optional commands (agent, actions, lite) are always registered."""
@@ -57,6 +57,7 @@ def test_optional_commands_exist(command_name):
     [
         ("agent", "pip install datahub-agent-context"),
         ("actions", "pip install acryl-datahub-actions"),
+        ("evals", "pip install acryl-datahub-cloud"),
         ("lite", "pip install 'acryl-datahub[datahub-lite]'"),
     ],
 )
