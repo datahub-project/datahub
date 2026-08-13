@@ -184,10 +184,8 @@ class KafkaSourceConfig(
                 catalog.api_key = SecretStr(key)
             if not catalog.api_secret:
                 catalog.api_secret = SecretStr(secret)
-            # _register_secret_fields is itself a mode="after" validator and has
-            # already run by the time this one assigns the inherited credentials,
-            # so secrets set here are never collected for redaction unless we
-            # register them ourselves.
+            # _register_secret_fields already ran (it is a mode="after" validator),
+            # so credentials inherited here must be registered for redaction by hand.
             if is_masking_enabled():
                 SecretRegistry.get_instance().register_secrets_batch(
                     {

@@ -117,11 +117,8 @@ class NameIndex(Generic[CatalogEntityType]):
     empty_name_count: int = 0
 
     def get(self, name: str) -> Optional[CatalogEntityType]:
-        # Exact match only. Kafka topic names and Connect connector names are both
-        # case-sensitive, so a case-insensitive fallback would only ever fire on
-        # genuinely different objects and could attach one entity's governance
-        # metadata to another (e.g. a deleted connector's catalog entity resolving
-        # for a live one with a different casing).
+        # Exact match only: topic and connector names are case-sensitive, so a
+        # case-insensitive fallback could attach one entity's metadata to another.
         return self.by_name.get(name)
 
     def report_issues(self, report: SourceReport, entity_label: str) -> None:

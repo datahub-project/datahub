@@ -337,8 +337,7 @@ class TestCatalogLineage:
             and any("exotic_source" in ctx for ctx in (warning.context or []))
             for warning in source.report.warnings
         )
-        # The connector is dropped, so there is no config-inferred fallback to
-        # suppress — the "Dropping all lineage" warning must not fire here.
+        # A dropped connector has no fallback to suppress, so no drop warning.
         assert not any(
             "Dropping all lineage for a connector" in warning.message
             for warning in source.report.warnings

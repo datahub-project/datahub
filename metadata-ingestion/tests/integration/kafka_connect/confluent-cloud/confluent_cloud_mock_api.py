@@ -25,10 +25,8 @@ OFFSET_ARGUMENT_RE = re.compile(r"offset:\s*(\d+)")
 LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
 IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-# The live catalog fails the whole query on a single unknown field (clusterId
-# already took out the entire cn_connector query in production), so the stub must
-# reject anything outside the set Confluent actually exposes — otherwise adding a
-# field to the query passes here but 400s in production.
+# The live catalog rejects the whole query on a single unknown field, so the stub
+# must too — otherwise a field that 400s in production would pass here.
 CONNECTOR_QUERY_KNOWN_FIELDS = frozenset(
     {
         "cn_connector",

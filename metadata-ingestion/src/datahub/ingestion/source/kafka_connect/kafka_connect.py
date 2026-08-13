@@ -252,20 +252,18 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, catalog_connector, all_cluster_topics
         )
 
-        # Catalog lineage wins when it applies (not None) and either the
-        # connector is recognised or the catalog actually returned edges. Inlined
-        # rather than stored in a bool so mypy narrows catalog_lineages to a
-        # non-None list in this branch.
+        # Catalog lineage wins when it applies (not None) and either the connector
+        # is recognised or the catalog returned edges. The condition is inlined so
+        # mypy narrows catalog_lineages to a non-None list in this branch.
         if catalog_lineages is not None and (
             connector is not None or bool(catalog_lineages)
         ):
             connector_manifest.lineages = catalog_lineages
             if not catalog_lineages:
                 # Applicable-but-empty: every catalog topic was filtered out by the
-                # live cluster, so we deliberately emit no lineage rather than fall
-                # back to this recognised connector's config-inferred lineage. We
-                # only reach here when the connector is recognised (an unsupported
-                # one is dropped below), so the "no fallback" claim is accurate.
+                # live cluster. Only recognised connectors reach here (unsupported
+                # ones are dropped below), so suppressing their config-inferred
+                # fallback is a real outcome worth warning about.
                 self.report.warning(
                     message="Dropping all lineage for a connector because none of its "
                     "Stream Catalog topics are present on the live Kafka cluster; its "
@@ -334,12 +332,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
                 topics = [topic for topic in topics if topic in cluster_topic_set]
             if not topics:
-                # Every catalog topic was absent from the live cluster. Return []
-                # (applicable-but-empty) so a recognised connector emits no lineage
-                # rather than falling back to its config-inferred edges. The caller
-                # owns the accompanying warning, because only it knows whether the
-                # connector is recognised — an unsupported connector is dropped
-                # regardless, so there is no fallback to warn about.
+                # Applicable-but-empty: return [] so a recognised connector emits no
+                # lineage rather than falling back to config-inferred edges. The
+                # caller owns the warning, since only it knows if the connector is
+                # recognised.
                 return []
 
         self.report.catalog_lineage_connectors += 1
