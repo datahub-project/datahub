@@ -687,20 +687,24 @@ def test_emits_siblings_and_upstream_lineage_with_per_column_finegrained():
     # Reciprocal siblings: consumer non-primary pointing at publisher,
     # publisher primary pointing back at consumer.
     by_urn: Dict[Any, Any] = {
-        getattr(wu.metadata, "entityUrn", None): getattr(wu.metadata, "aspect", None)
-        for wu in sibling_wus
+        getattr(wu.metadata, "entityUrn", None): wu for wu in sibling_wus
     }
     consumer_urn = next(u for u in by_urn if "shared_dataset" in u)
     publisher_urn = next(u for u in by_urn if "publisher_dataset" in u)
 
-    consumer_sibling = by_urn[consumer_urn]
+    consumer_wu = by_urn[consumer_urn]
+    consumer_sibling = getattr(consumer_wu.metadata, "aspect", None)
     assert consumer_sibling.primary is False
     assert consumer_sibling.siblings == [publisher_urn]
+    assert consumer_wu.is_primary_source is True
     assert publisher_urn.endswith(",PROD)")
 
-    publisher_sibling = by_urn[publisher_urn]
+    publisher_wu = by_urn[publisher_urn]
+    publisher_sibling = getattr(publisher_wu.metadata, "aspect", None)
     assert publisher_sibling.primary is True
     assert publisher_sibling.siblings == [consumer_urn]
+    # Out of this recipe's scope, so it must stay out of the stale-entity state.
+    assert publisher_wu.is_primary_source is False
 
     upstream = upstream_lineages[0]
     assert len(upstream.upstreams) == 1

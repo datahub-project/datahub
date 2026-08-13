@@ -307,10 +307,12 @@ class BigQueryLinkedDatasetsHandler:
             entityUrn=consumer_urn,
             aspect=Siblings(primary=False, siblings=[publisher_urn]),
         ).as_workunit()
+        # Publisher is outside this recipe's scope: keeping it out of the
+        # stale-entity state stops a revoked subscription soft-deleting it.
         yield MetadataChangeProposalWrapper(
             entityUrn=publisher_urn,
             aspect=Siblings(primary=True, siblings=[consumer_urn]),
-        ).as_workunit()
+        ).as_workunit(is_primary_source=False)
 
         fine_grained = self._build_fine_grained_lineages(
             publisher_urn=publisher_urn,
