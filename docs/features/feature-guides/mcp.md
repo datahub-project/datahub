@@ -297,7 +297,7 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
 4. In Snowsight, navigate to **AI & ML → Agents**, select your agent, choose **MCP Connectors**, and add the DataHub connector.
 5. In Snowflake CoWork (formerly Snowflake Intelligence), open the sources panel, select **Connectors**, then **Connect** next to DataHub — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
 
-See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup, or use your tenant URL (`https://<tenant>.acryl.io` for `OAUTH_RESOURCE_URL`, `https://<tenant>.acryl.io/integrations/ai/mcp` for the server URL) in place of `mcp.datahub.com` if you prefer.
+See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup. To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/integrations/ai/mcp` for the MCP server `URL`.
 
 </details>
 

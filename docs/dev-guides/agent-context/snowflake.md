@@ -12,7 +12,7 @@ Snowflake Intelligence was renamed **Snowflake CoWork** in June 2026. The Cortex
 
 - DataHub Cloud v1.0.2+ (required for OAuth2 + DCR on the MCP endpoint)
 - A Snowflake account with Cortex Agents / Snowflake CoWork enabled
-- A Snowflake user with the `ACCOUNTADMIN` role (for initial setup of the API integration and MCP server object)
+- A Snowflake user with the `ACCOUNTADMIN` role for the initial setup. `CREATE API INTEGRATION` requires it; the MCP server object needs `CREATE EXTERNAL MCP SERVER` on the target schema, which by default only account admins hold.
 - A database and schema to hold the external MCP server object
 
 ## Setup
