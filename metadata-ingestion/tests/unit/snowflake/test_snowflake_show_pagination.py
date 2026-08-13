@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.ingestion.source.snowflake.constants import SnowflakeShowKind
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
@@ -30,21 +31,23 @@ from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
 
-VIEWS = "VIEWS"
-STREAMS = "STREAMS"
-DYNAMIC_TABLES = "DYNAMIC TABLES"
+VIEWS = SnowflakeShowKind.VIEWS
+STREAMS = SnowflakeShowKind.STREAMS
+DYNAMIC_TABLES = SnowflakeShowKind.DYNAMIC_TABLES
+
+# Built from the enum so the fake connection recognises exactly the object classes the
+# connector can ask for - a new kind cannot be paged without this fixture understanding it.
+_KINDS = "|".join(kind.value for kind in SnowflakeShowKind)
 
 SHOW_IN_SCHEMA = re.compile(
-    r'SHOW (?P<kind>VIEWS|STREAMS|DYNAMIC TABLES) IN SCHEMA "(?P<db>[^"]+)"\."(?P<schema>[^"]+)"'
+    rf'SHOW (?P<kind>{_KINDS}) IN SCHEMA "(?P<db>[^"]+)"\."(?P<schema>[^"]+)"'
 )
-SHOW_IN_DATABASE = re.compile(
-    r'SHOW (?P<kind>VIEWS|STREAMS|DYNAMIC TABLES) IN DATABASE "(?P<db>[^"]+)"'
-)
+SHOW_IN_DATABASE = re.compile(rf'SHOW (?P<kind>{_KINDS}) IN DATABASE "(?P<db>[^"]+)"')
 LIMIT_CLAUSE = re.compile(r"LIMIT (?P<limit>\d+)")
 FROM_CLAUSE = re.compile(r"FROM '(?P<marker>[^']+)'")
 
 
-def _row(kind: str, schema_name: str, name: str) -> Dict[str, Any]:
+def _row(kind: SnowflakeShowKind, schema_name: str, name: str) -> Dict[str, Any]:
     created = datetime(2026, 1, 1)
     if kind == VIEWS:
         return {
@@ -92,7 +95,7 @@ class FakeShowConnection:
     """Emulates Snowflake's documented ``SHOW`` semantics: output ordered by
     ``(schema, name)``, and ``FROM '<name>'`` a cursor on the name alone."""
 
-    def __init__(self, objects: Dict[str, List[Tuple[str, str]]]) -> None:
+    def __init__(self, objects: Dict[SnowflakeShowKind, List[Tuple[str, str]]]) -> None:
         self._objects = {kind: sorted(rows) for kind, rows in objects.items()}
         self.queries: List[str] = []
 
@@ -102,14 +105,14 @@ class FakeShowConnection:
         in_schema = SHOW_IN_SCHEMA.search(query)
         in_database = SHOW_IN_DATABASE.search(query)
         if in_schema:
-            kind = in_schema.group("kind")
+            kind = SnowflakeShowKind(in_schema.group("kind"))
             rows = [
                 o
                 for o in self._objects.get(kind, [])
                 if o[0] == in_schema.group("schema")
             ]
         elif in_database:
-            kind = in_database.group("kind")
+            kind = SnowflakeShowKind(in_database.group("kind"))
             rows = list(self._objects.get(kind, []))
         else:
             # Non-SHOW metadata queries (e.g. the dynamic-table graph history) play no
@@ -126,7 +129,7 @@ class FakeShowConnection:
 
         return [_row(kind, schema_name, name) for schema_name, name in rows]
 
-    def show_queries(self, kind: str) -> List[str]:
+    def show_queries(self, kind: SnowflakeShowKind) -> List[str]:
         return [q for q in self.queries if f"SHOW {kind} " in q]
 
 

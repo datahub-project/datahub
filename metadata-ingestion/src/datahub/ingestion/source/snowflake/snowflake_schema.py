@@ -27,6 +27,7 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import (
     SemanticViewColumnSubtype,
     SnowflakeObjectDomain,
+    SnowflakeShowKind,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
@@ -971,7 +972,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         *,
         query: str,
         page_limit: int,
-        object_kind: str,
+        object_kind: SnowflakeShowKind,
         db_name: str,
         mapper: Callable[[Dict[str, Any]], _ShowRowT],
     ) -> Optional[Dict[str, List[_ShowRowT]]]:
@@ -1016,7 +1017,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         views = self._probe_database_wide_show(
             query=SnowflakeQuery.show_views_for_database(db_name, limit=page_limit),
             page_limit=page_limit,
-            object_kind="VIEWS",
+            object_kind=SnowflakeShowKind.VIEWS,
             db_name=db_name,
             mapper=self._map_show_view,
         )
@@ -1048,7 +1049,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         *,
         build_query: Callable[[Optional[str]], str],
         page_limit: int,
-        object_kind: str,
+        object_kind: SnowflakeShowKind,
         context: str,
     ) -> Iterable[Dict[str, Any]]:
         """Yield rows of a schema-scoped SHOW, paging by object name.
@@ -1111,7 +1112,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     view_pagination_marker=marker,
                 ),
                 page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
-                object_kind="VIEWS",
+                object_kind=SnowflakeShowKind.VIEWS,
                 context=f"{db_name}.{schema_name}",
             )
         ]
@@ -2322,7 +2323,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return self._probe_database_wide_show(
             query=SnowflakeQuery.streams_for_database(db_name, limit=page_limit),
             page_limit=page_limit,
-            object_kind="STREAMS",
+            object_kind=SnowflakeShowKind.STREAMS,
             db_name=db_name,
             mapper=self._map_show_stream,
         )
@@ -2340,7 +2341,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     stream_pagination_marker=marker,
                 ),
                 page_limit=SHOW_STREAM_MAX_PAGE_SIZE,
-                object_kind="STREAMS",
+                object_kind=SnowflakeShowKind.STREAMS,
                 context=f"{db_name}.{schema_name}",
             )
         ]
@@ -2467,7 +2468,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     db_name, limit=page_limit
                 ),
                 page_limit=page_limit,
-                object_kind="DYNAMIC TABLES",
+                object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
                 db_name=db_name,
                 mapper=lambda row: self._map_show_dynamic_table(
                     db_name, row, dt_graph_info
@@ -2499,7 +2500,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     )
                 ),
                 page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
-                object_kind="DYNAMIC TABLES",
+                object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
                 context=f"{db_name}.{schema_name}",
             ):
                 dynamic_tables.append(
