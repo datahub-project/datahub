@@ -4,7 +4,10 @@ from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeObjectDomain,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
 )
@@ -555,34 +558,70 @@ class SnowflakeQuery:
         """
 
     @staticmethod
+    def show_objects_for_database(
+        kind: SnowflakeShowKind,
+        db_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+    ) -> str:
+        """A single database-wide SHOW. Deliberately NOT paginated.
+
+        The output is "ordered lexicographically by database, schema, and name", but the
+        `LIMIT ... FROM '<name>'` cursor matches on the object *name* alone - so the cursor
+        key is not the sort key and the result cannot be continued. Measured against a live
+        account, paging it fails in one of two ways depending on the page's last row:
+          - a real object name: the cursor acts as a global `name > marker` filter, so every
+            object in a LATER schema whose name sorts below the marker is silently dropped,
+            while earlier schemas' higher-sorting objects are returned again;
+          - an INFORMATION_SCHEMA view name: the cursor is ignored outright and the next
+            page comes back identical, so the loop never terminates.
+
+        When this single page comes back full the caller must page per schema instead - see
+        show_objects_for_schema. This is THE explanation of the cursor rule; elsewhere refer
+        here rather than restating it.
+
+        SHOW returns at most 10000 rows:
+        https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        """
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+        return f"""SHOW {kind} IN DATABASE "{db_name}" LIMIT {limit};"""
+
+    @staticmethod
+    def show_objects_for_schema(
+        kind: SnowflakeShowKind,
+        db_name: str,
+        schema_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        marker: Optional[str] = None,
+    ) -> str:
+        """One schema's SHOW, optionally continuing after `marker`.
+
+        Scoped to a single schema the output is ordered by name alone, which is exactly what
+        the `FROM '<name>'` cursor matches on, so the cursor key IS the whole sort key and
+        paging is exact - unlike show_objects_for_database.
+        """
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
+        # A quoted Snowflake identifier may contain a quote or a backslash, and the marker
+        # is embedded in a string literal - escape it or the next page is malformed SQL.
+        from_clause = (
+            f"""FROM '{_escape_sql_string_literal(marker)}'""" if marker else ""
+        )
+        return (
+            f"""SHOW {kind} IN SCHEMA "{db_name}"."{schema_name}" """
+            f"""LIMIT {limit} {from_clause};"""
+        )
+
+    @staticmethod
     def show_views_for_database(
         db_name: str,
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
     ) -> str:
-        # While there is an information_schema.views view, that only shows the view definition if the role
-        # is an owner of the view. That doesn't work for us.
+        # information_schema.views only exposes a definition to the view's owner, which is
+        # why SHOW is the default path here:
         # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
-
-        # SHOW VIEWS can return a maximum of 10000 rows.
-        # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-
-        # Deliberately not paginated. This output is "ordered lexicographically by
-        # database, schema, and view name", but the `LIMIT ... FROM '<name>'` cursor
-        # matches on the object *name* alone - so the cursor key is not the sort key and
-        # the result cannot be continued. Measured against a live account, paging it
-        # fails in one of two ways depending on what the last row of the page is:
-        #   - a real object name: the cursor acts as a global `name > marker` filter, so
-        #     every view in a LATER schema whose name sorts below the marker is silently
-        #     dropped, while earlier schemas' higher-sorting views are returned again;
-        #   - an INFORMATION_SCHEMA view name: the cursor is ignored outright and the
-        #     next page comes back identical, so the loop never terminates.
-        # When this single page comes back full, the caller must page per schema
-        # instead - see show_views_for_schema.
-        return f"""\
-SHOW VIEWS IN DATABASE "{db_name}"
-LIMIT {limit};
-"""
+        return SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.VIEWS, db_name, limit=limit
+        )
 
     @staticmethod
     def show_views_for_schema(
@@ -591,22 +630,13 @@ LIMIT {limit};
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
-        # Scoped to a single schema, the output is ordered by view name only - which is
-        # exactly what the `FROM '<name>'` cursor matches on. The cursor key is then the
-        # whole sort key, so paging is exact (unlike show_views_for_database).
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-
-        # A quoted Snowflake identifier may contain a quote or a backslash, and the marker
-        # is embedded in a string literal - escape it or the next page is malformed SQL.
-        from_clause = (
-            f"""FROM '{_escape_sql_string_literal(view_pagination_marker)}'"""
-            if view_pagination_marker
-            else ""
+        return SnowflakeQuery.show_objects_for_schema(
+            SnowflakeShowKind.VIEWS,
+            db_name,
+            schema_name,
+            limit=limit,
+            marker=view_pagination_marker,
         )
-        return f"""\
-SHOW VIEWS IN SCHEMA "{db_name}"."{schema_name}"
-LIMIT {limit} {from_clause};
-"""
 
     @staticmethod
     def get_views_for_database(db_name: str, view_filter: str = "") -> str:
@@ -1562,14 +1592,10 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         db_name: str,
         limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
     ) -> str:
-        # SHOW STREAMS can return a maximum of 10000 rows.
-        # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
-
-        # Deliberately not paginated; see show_views_for_database for why a
-        # database-wide SHOW cannot be paged safely. When this page comes back full the
-        # caller must page per schema instead - see streams_for_schema.
-        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit};"""
+        return SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.STREAMS, db_name, limit=limit
+        )
 
     @staticmethod
     def streams_for_schema(
@@ -1578,33 +1604,23 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
         stream_pagination_marker: Optional[str] = None,
     ) -> str:
-        # Scoped to one schema the output is ordered by name alone, so the
-        # `FROM '<name>'` cursor is the whole sort key and paging is exact.
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
-
-        # Escaped for the same reason as in show_views_for_schema.
-        from_clause = (
-            f"""FROM '{_escape_sql_string_literal(stream_pagination_marker)}'"""
-            if stream_pagination_marker
-            else ""
+        return SnowflakeQuery.show_objects_for_schema(
+            SnowflakeShowKind.STREAMS,
+            db_name,
+            schema_name,
+            limit=limit,
+            marker=stream_pagination_marker,
         )
-        return f"""SHOW STREAMS IN SCHEMA "{db_name}"."{schema_name}" LIMIT {limit} {from_clause};"""
 
     @staticmethod
     def show_dynamic_tables_for_database(
         db_name: str,
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
     ) -> str:
-        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-
-        # Deliberately not paginated; see show_views_for_database for why a
-        # database-wide SHOW cannot be paged safely. When this page comes back full the
-        # caller must page per schema instead - see show_dynamic_tables_for_schema.
-        return f"""\
-    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
-    LIMIT {limit};
-    """
+        return SnowflakeQuery.show_objects_for_database(
+            SnowflakeShowKind.DYNAMIC_TABLES, db_name, limit=limit
+        )
 
     @staticmethod
     def show_dynamic_tables_for_schema(
@@ -1613,20 +1629,13 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         dynamic_table_pagination_marker: Optional[str] = None,
     ) -> str:
-        # Scoped to one schema the output is ordered by name alone, so the
-        # `FROM '<name>'` cursor is the whole sort key and paging is exact.
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-
-        # Escaped for the same reason as in show_views_for_schema.
-        from_clause = (
-            f"""FROM '{_escape_sql_string_literal(dynamic_table_pagination_marker)}'"""
-            if dynamic_table_pagination_marker
-            else ""
+        return SnowflakeQuery.show_objects_for_schema(
+            SnowflakeShowKind.DYNAMIC_TABLES,
+            db_name,
+            schema_name,
+            limit=limit,
+            marker=dynamic_table_pagination_marker,
         )
-        return f"""\
-    SHOW DYNAMIC TABLES IN SCHEMA "{db_name}"."{schema_name}"
-    LIMIT {limit} {from_clause};
-    """
 
     @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:

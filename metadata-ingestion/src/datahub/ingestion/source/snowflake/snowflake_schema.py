@@ -884,10 +884,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 ),
             )
         except Exception as e:
+            # Debug, not a warning: the expected error here is "Information schema query
+            # returned too much data", which is this path's normal signal to page per
+            # schema, and a lossless run must not raise an alarm. Tried reporting it and
+            # backed out - it turns a benign overflow into a pipeline warning, which the
+            # failure tests correctly reject. Telling a real fault apart from the overflow
+            # would mean matching Snowflake's error text.
             logger.debug(
                 f"Failed to get all tables for database - {db_name}", exc_info=e
             )
-            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
         for table in cur:
@@ -982,10 +987,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def _probe_database_wide_show(
         self,
         *,
-        build_query: Callable[[int], str],
-        page_limit: int,
         object_kind: SnowflakeShowKind,
         db_name: str,
+        page_limit: int,
         mapper: Callable[[Dict[str, Any]], _ShowRowT],
     ) -> Optional[Dict[str, List[_ShowRowT]]]:
         """Run one database-wide SHOW and group the rows by schema, or give up.
@@ -1011,7 +1015,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
         place rather than being restated for each object type.
         """
         try:
-            rows = list(self.connection.query(build_query(page_limit)))
+            rows = list(
+                self.connection.query(
+                    SnowflakeQuery.show_objects_for_database(
+                        object_kind, db_name, limit=page_limit
+                    )
+                )
+            )
         except Exception as e:
             self.report.warning(
                 message="Database-wide SHOW failed; retrying per schema",
@@ -1042,12 +1052,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         views = self._probe_database_wide_show(
-            build_query=lambda limit: SnowflakeQuery.show_views_for_database(
-                db_name, limit=limit
-            ),
-            page_limit=page_limit,
             object_kind=SnowflakeShowKind.VIEWS,
             db_name=db_name,
+            page_limit=page_limit,
             mapper=self._map_show_view,
         )
         if views is None:
@@ -1076,15 +1083,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def _iter_show_rows_for_schema(
         self,
         *,
-        build_query: Callable[[Optional[str], int], str],
-        page_limit: int,
         object_kind: SnowflakeShowKind,
-        context: str,
+        db_name: str,
+        schema_name: str,
+        page_limit: int,
     ) -> Iterable[Dict[str, Any]]:
         """Yield rows of a schema-scoped SHOW, paging by object name.
-
-        The builder is handed the page limit so that the statement's LIMIT and the size
-        compared against the row count come from the same value at the same moment.
 
         Schema-scoped output is ordered by name alone, which is exactly what the
         `FROM '<name>'` cursor matches on, so paging here is exact - unlike the
@@ -1098,13 +1102,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
         Python and, on mixed-case identifiers, could call a perfectly good cursor stalled
         and truncate the schema. A short result plus a warning beats a hung ingestion.
         """
+        context = f"{db_name}.{schema_name}"
         seen_names: Set[str] = set()
         marker: Optional[str] = None
         while True:
             rows_in_page = 0
             new_in_page = 0
             last_name: Optional[str] = None
-            for row in self.connection.query(build_query(marker, page_limit)):
+            query = SnowflakeQuery.show_objects_for_schema(
+                object_kind, db_name, schema_name, limit=page_limit, marker=marker
+            )
+            for row in self.connection.query(query):
                 rows_in_page += 1
                 last_name = row["name"]
                 if last_name in seen_names:
@@ -1137,15 +1145,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return [
             self._map_show_view(row)
             for row in self._iter_show_rows_for_schema(
-                build_query=lambda marker, limit: SnowflakeQuery.show_views_for_schema(
-                    db_name,
-                    schema_name,
-                    limit=limit,
-                    view_pagination_marker=marker,
-                ),
-                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
                 object_kind=SnowflakeShowKind.VIEWS,
-                context=f"{db_name}.{schema_name}",
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
             )
         ]
 
@@ -1274,8 +1277,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 SnowflakeQuery.get_views_for_database(db_name, view_filter),
             )
         except Exception as e:
+            # Debug for the same reason as get_tables_for_database: "returned too much
+            # data" is this path's normal overflow signal, not a fault.
             logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
-            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -2353,12 +2357,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
         page_limit = SHOW_STREAM_MAX_PAGE_SIZE
 
         return self._probe_database_wide_show(
-            build_query=lambda limit: SnowflakeQuery.streams_for_database(
-                db_name, limit=limit
-            ),
-            page_limit=page_limit,
             object_kind=SnowflakeShowKind.STREAMS,
             db_name=db_name,
+            page_limit=page_limit,
             mapper=self._map_show_stream,
         )
 
@@ -2368,15 +2369,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return [
             self._map_show_stream(row)
             for row in self._iter_show_rows_for_schema(
-                build_query=lambda marker, limit: SnowflakeQuery.streams_for_schema(
-                    db_name,
-                    schema_name,
-                    limit=limit,
-                    stream_pagination_marker=marker,
-                ),
-                page_limit=SHOW_STREAM_MAX_PAGE_SIZE,
                 object_kind=SnowflakeShowKind.STREAMS,
-                context=f"{db_name}.{schema_name}",
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_STREAM_MAX_PAGE_SIZE,
             )
         ]
 
@@ -2501,12 +2497,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # as "this database genuinely has no dynamic tables" and silently drop every
         # definition.
         return self._probe_database_wide_show(
-            build_query=lambda limit: SnowflakeQuery.show_dynamic_tables_for_database(
-                db_name, limit=limit
-            ),
-            page_limit=page_limit,
             object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
             db_name=db_name,
+            page_limit=page_limit,
             mapper=lambda row: self._map_show_dynamic_table(
                 db_name, row, dt_graph_info
             ),
@@ -2520,17 +2513,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         dynamic_tables: List[SnowflakeDynamicTable] = []
         try:
             for row in self._iter_show_rows_for_schema(
-                build_query=lambda marker, limit: (
-                    SnowflakeQuery.show_dynamic_tables_for_schema(
-                        db_name,
-                        schema_name,
-                        limit=limit,
-                        dynamic_table_pagination_marker=marker,
-                    )
-                ),
-                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
                 object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
-                context=f"{db_name}.{schema_name}",
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
             ):
                 dynamic_tables.append(
                     self._map_show_dynamic_table(db_name, row, dt_graph_info)
@@ -2588,9 +2574,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         if isinstance(inp, dict) and inp.get("name")
                     ]
                 except json.JSONDecodeError as e:
-                    logger.warning(
-                        f"Failed to parse INPUTS for dynamic table "
-                        f"{db_name}.{schema_name}.{dt_name}: {e}"
+                    # Every upstream edge for this dynamic table is lost, so this belongs in
+                    # the report rather than only in the log - the same reasoning as the
+                    # fetch failures above.
+                    self.report.warning(
+                        message="Failed to parse dynamic table inputs; "
+                        "upstream lineage will be missing",
+                        context=f"{db_name}.{schema_name}.{dt_name}",
+                        exc=e,
                     )
 
         return SnowflakeDynamicTable(

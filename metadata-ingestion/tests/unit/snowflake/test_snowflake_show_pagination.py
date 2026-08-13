@@ -200,6 +200,19 @@ class FailsEverySchemaConnection(FakeShowConnection):
         return []
 
 
+class FailsAfterFirstPageConnection(FakeShowConnection):
+    """Page 1 succeeds and page 2 raises, so the caller ends up holding a partial result it
+    cannot tell apart from a complete one."""
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        if SHOW_IN_SCHEMA.search(query) and any(
+            SHOW_IN_SCHEMA.search(q) for q in self.queries
+        ):
+            self.queries.append(query)
+            raise ValueError("page 2 failed")
+        return super().query(query)
+
+
 def _make_schema_gen(connection: FakeShowConnection) -> SnowflakeSchemaGenerator:
     config = SnowflakeV2Config.parse_obj(
         {
@@ -505,6 +518,27 @@ def test_a_failed_database_wide_show_falls_back_per_schema(kind, fetch):
     objects = fetch(_make_schema_gen(connection))
 
     assert [o.name for o in objects] == ["obj_a"]
+
+
+def test_a_mid_paging_failure_reports_how_many_rows_were_kept():
+    """Failing on page 2 leaves a partial result the caller cannot distinguish from a
+    complete one, so the kept count has to reach the report - otherwise a truncated schema
+    looks exactly like a small one."""
+    total = SHOW_COMMAND_MAX_PAGE_SIZE + 10
+    connection = FailsAfterFirstPageConnection(
+        {DYNAMIC_TABLES: [("SCHEMA_A", f"dt_{i:05d}") for i in range(total)]}
+    )
+    data_dictionary = _make_data_dictionary(connection)
+
+    tables = data_dictionary.get_dynamic_tables_for_schema_using_show(
+        db_name="TEST_DB", schema_name="SCHEMA_A"
+    )
+
+    assert len(tables) == SHOW_COMMAND_MAX_PAGE_SIZE, "page 1 should still be salvaged"
+    reported = " ".join(str(w) for w in data_dictionary.report.warnings)
+    assert f"kept {SHOW_COMMAND_MAX_PAGE_SIZE}" in reported, (
+        f"the kept row count must be reported; got {reported!r}"
+    )
 
 
 def test_dynamic_table_fallback_skips_schemas_without_dynamic_tables():
