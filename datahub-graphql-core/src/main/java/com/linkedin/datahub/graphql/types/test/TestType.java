@@ -52,7 +52,7 @@ public class TestType implements com.linkedin.datahub.graphql.types.EntityType<T
 
     try {
       Set<String> aspectsToFetch =
-          AspectUtils.getOptimizedAspects(context, "Test", ASPECTS_TO_FETCH);
+          AspectUtils.getOptimizedAspects(context, "Test", ASPECTS_TO_FETCH, "testKey");
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

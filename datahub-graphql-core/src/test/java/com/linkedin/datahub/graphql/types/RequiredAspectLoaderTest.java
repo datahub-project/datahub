@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -245,6 +246,26 @@ public class RequiredAspectLoaderTest {
           expected.getValue(),
           "registered aspects for " + expected.getKey() + " drifted from the expected set");
     }
+  }
+
+  /**
+   * A selection built entirely from {@code @noAspects} fields must never resolve to an empty aspect
+   * set. batchGetV2 returns no row for a zero-aspect request and loaders map a missing row to a
+   * null entity, so the entity disappears rather than merely carrying fewer aspects. This is what
+   * broke the per-column getLineageCounts query for SchemaFieldEntity (whose urn, type, fieldPath,
+   * parent and lineage fields are all @noAspects), surfacing in the UI as "Column has no lineage".
+   */
+  @Test
+  public void testEmptyOptimizedSetFallsBackToDefaults() {
+    QueryContext context = new UrnOnlySelectionContext(getMockAllowContext(), "SchemaFieldEntity");
+    Set<String> defaults = Set.of("structuredProperties", "deprecation");
+
+    Set<String> resolved = AspectUtils.getOptimizedAspects(context, "SchemaFieldEntity", defaults);
+
+    assertFalse(
+        resolved.isEmpty(),
+        "an all-@noAspects selection must not produce an empty batchGetV2 aspect set");
+    assertEquals(resolved, defaults);
   }
 
   /** With the kill switch off, hydration must revert to the full default aspect set. */

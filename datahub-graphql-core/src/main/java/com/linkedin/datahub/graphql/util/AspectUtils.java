@@ -187,6 +187,15 @@ public class AspectUtils {
       optimizedAspects = new HashSet<>(optimizedAspects);
       optimizedAspects.addAll(hydrationRequired);
     }
+
+    if (optimizedAspects.isEmpty()) {
+      // A selection made up entirely of @noAspects fields resolves to nothing when the loader also
+      // passes no key aspect. batchGetV2 returns no row for a zero-aspect request, and loaders map
+      // a missing row to a null entity, so the query silently loses the entity instead of merely
+      // fetching less. Fall back to the defaults rather than issue an empty fetch.
+      log.debug("Optimized aspect set for {} was empty, falling back to defaults", entityTypeName);
+      return defaultAspects;
+    }
     log.debug("Fetching optimized aspect set for {}: {}", entityTypeName, optimizedAspects);
     return optimizedAspects;
   }

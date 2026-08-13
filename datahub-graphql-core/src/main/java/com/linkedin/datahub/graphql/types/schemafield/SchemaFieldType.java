@@ -70,8 +70,13 @@ public class SchemaFieldType
     try {
       Map<Urn, EntityResponse> entities = new HashMap<>();
       if (_featureFlags.isSchemaFieldEntityFetchEnabled()) {
+        // The key aspect is always included: every other field commonly selected on this type
+        // (urn, type, fieldPath, parent, lineage) is @noAspects, so without it batchGetV2 would be
+        // asked for zero aspects and return no row, and this loader maps a missing row to a null
+        // entity — which silently breaks callers such as the per-column getLineageCounts query.
         Set<String> aspectsToResolve =
-            AspectUtils.getOptimizedAspects(context, "SchemaFieldEntity", ASPECTS_TO_FETCH);
+            AspectUtils.getOptimizedAspects(
+                context, "SchemaFieldEntity", ASPECTS_TO_FETCH, "schemaFieldKey");
         entities =
             _entityClient.batchGetV2(
                 context.getOperationContext(),
