@@ -1,7 +1,7 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Callable, Dict, Iterator, Optional, TypeVar
+from typing import Callable, Dict, Iterator, Optional, Set, TypeVar
 
 import requests
 
@@ -198,18 +198,18 @@ class OneLakeClient(BaseFabricClient):
     ) -> Iterator[dict]:
         """Yield all items from a paginated OneLake Table API endpoint.
 
-        The OneLake Table API for Delta (Unity Catalog-compatible surface) uses
-        next_page_token pagination rather than the continuationToken used by the
-        Fabric REST API.  Response field "next_page_token" is confirmed per
-        Microsoft documentation:
-        https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
-        The request-side parameter name ("page_token") follows the Unity Catalog
-        convention; verify against a live multi-page response if silent truncation
-        is observed.
+        The OneLake Table API for Delta exposes a Unity Catalog-compatible surface,
+        so it uses page_token / next_page_token pagination rather than the
+        continuationToken used by the Fabric REST API. The request parameter
+        "page_token" and response field "next_page_token" are both defined by the
+        Unity Catalog API spec that the OneLake Table API implements (listSchemas /
+        listTables), and next_page_token is shown in Microsoft's docs:
+        https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-get-started
 
-        If the API doesn't paginate for a given call (or if the request parameter
-        name is wrong), the loop exits after one page — identical to pre-fix
-        behaviour, so there is no regression risk.
+        Should an endpoint ignore page_token, it would return the same
+        next_page_token on every call; the seen-token guard below breaks the loop
+        (with a warning) as soon as a token repeats, so a misbehaving endpoint
+        truncates loudly instead of looping forever.
 
         Args:
             url: Full URL for the API endpoint
@@ -229,6 +229,7 @@ class OneLakeClient(BaseFabricClient):
             raise
 
         request_params = dict(params)
+        seen_page_tokens: Set[str] = set()
         page = 1
         while True:
             response = self._session.get(
@@ -244,6 +245,14 @@ class OneLakeClient(BaseFabricClient):
             next_page_token = data.get("next_page_token")
             if not next_page_token:
                 break
+            if next_page_token in seen_page_tokens:
+                logger.warning(
+                    f"OneLake Table API returned a repeated pagination token for {url}; "
+                    "stopping pagination to avoid an infinite loop. Results may be "
+                    "incomplete — the endpoint may not honor the 'page_token' parameter."
+                )
+                break
+            seen_page_tokens.add(next_page_token)
             request_params["page_token"] = next_page_token
             page += 1
 

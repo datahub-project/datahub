@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, Set
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -177,6 +177,7 @@ class BaseFabricClient(ABC):
             Item dictionaries from each page's items array
         """
         request_params: Dict[str, str] = dict(params or {})
+        seen_tokens: Set[str] = set()
         page = 1
         while True:
             response = self.get(endpoint, params=dict(request_params))
@@ -188,6 +189,13 @@ class BaseFabricClient(ABC):
             continuation_token = data.get("continuationToken")
             if not continuation_token:
                 break
+            if continuation_token in seen_tokens:
+                logger.warning(
+                    f"Fabric API returned a repeated continuationToken for {endpoint}; "
+                    "stopping pagination to avoid an infinite loop. Results may be incomplete."
+                )
+                break
+            seen_tokens.add(continuation_token)
             request_params["continuationToken"] = continuation_token
             page += 1
 
@@ -210,6 +218,7 @@ class BaseFabricClient(ABC):
         Yields:
             Item dictionaries from each page's items array
         """
+        seen_tokens: Set[str] = set()
         page = 1
         while True:
             response = self.post(endpoint, json=dict(body))
@@ -224,6 +233,13 @@ class BaseFabricClient(ABC):
             )
             if not continuation_token:
                 break
+            if continuation_token in seen_tokens:
+                logger.warning(
+                    f"Fabric API returned a repeated continuationToken for {endpoint}; "
+                    "stopping pagination to avoid an infinite loop. Results may be incomplete."
+                )
+                break
+            seen_tokens.add(continuation_token)
             body["continuationToken"] = continuation_token
             page += 1
 

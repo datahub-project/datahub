@@ -108,6 +108,15 @@ class TestPaginateFabricApi:
             items = list(client._paginate("workspaces"))
         assert items == [{"id": "ws-1"}]
 
+    def test_repeated_continuation_token_breaks(self, client: OneLakeClient) -> None:
+        """A non-advancing continuationToken must stop pagination, not loop forever."""
+        page: Dict[str, Any] = {"value": [{"id": "a"}], "continuationToken": "stuck"}
+        with patch.object(client, "get", return_value=_make_response(page)) as mock_get:
+            items = list(client._paginate("workspaces"))
+        # Page 1 records the token; page 2 sees the same token and breaks.
+        assert mock_get.call_count == 2
+        assert items == [{"id": "a"}, {"id": "a"}]
+
 
 # ---------------------------------------------------------------------------
 # TestListItemsPagination — _list_items() (lakehouses & warehouses)
@@ -262,18 +271,15 @@ class TestListWarehouseTablesPagination:
 # ---------------------------------------------------------------------------
 # TestOneLakeTableApiPagination — _paginate_onelake_table_api()
 #
-# NOTE: The response-side field "next_page_token" is confirmed by MS docs.
-# The request-side parameter "page_token" follows the Unity Catalog convention
-# but has not been verified against a live multi-page response. Mark accordingly.
+# Both the request parameter "page_token" and response field "next_page_token"
+# are defined by the Unity Catalog API spec that the OneLake Table API implements
+# (listSchemas / listTables). Should an endpoint ignore page_token, the seen-token
+# guard breaks the loop instead of spinning forever (test_repeated_page_token_breaks).
 # ---------------------------------------------------------------------------
 
 
 class TestOneLakeTableApiPagination:
-    """Tests for _paginate_onelake_table_api().
-
-    REQUEST PARAMETER STATUS: "page_token" follows Unity Catalog convention.
-    Verify against a live multi-page response before relying on multi-page behaviour.
-    """
+    """Tests for _paginate_onelake_table_api()."""
 
     def test_schemas_single_page(
         self, client: OneLakeClient, mock_auth: MagicMock
@@ -378,6 +384,20 @@ class TestOneLakeTableApiPagination:
             schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
         assert schemas == ["dbo"]
         assert mock_get.call_count == 1
+
+    def test_repeated_page_token_breaks(
+        self, client: OneLakeClient, mock_auth: MagicMock
+    ) -> None:
+        """An endpoint that ignores page_token repeats next_page_token; the guard
+        must stop pagination instead of looping forever."""
+        resp = _make_response(
+            {"schemas": [{"name": "dbo"}], "next_page_token": "stuck"}
+        )
+        with patch.object(client._session, "get", return_value=resp) as mock_get:
+            schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
+        # Page 1 records the token; page 2 sees the same token and breaks.
+        assert mock_get.call_count == 2
+        assert schemas == ["dbo", "dbo"]
 
     def test_url_construction_schemas(
         self, client: OneLakeClient, mock_auth: MagicMock
