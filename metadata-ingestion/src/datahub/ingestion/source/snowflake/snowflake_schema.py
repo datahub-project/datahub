@@ -884,12 +884,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 ),
             )
         except Exception as e:
-            # Debug, not a warning: the expected error here is "Information schema query
-            # returned too much data", which is this path's normal signal to page per
-            # schema, and a lossless run must not raise an alarm. Tried reporting it and
-            # backed out - it turns a benign overflow into a pipeline warning, which the
-            # failure tests correctly reject. Telling a real fault apart from the overflow
-            # would mean matching Snowflake's error text.
+            # Debug, not a warning: "returned too much data" is this path's normal
+            # signal to page per schema, so reporting it would alarm on a lossless run.
+            # The cost is that a genuine fault here is also quiet.
             logger.debug(
                 f"Failed to get all tables for database - {db_name}", exc_info=e
             )
@@ -992,27 +989,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
         page_limit: int,
         mapper: Callable[[Dict[str, Any]], _ShowRowT],
     ) -> Optional[Dict[str, List[_ShowRowT]]]:
-        """Run one database-wide SHOW and group the rows by schema, or give up.
+        """Run one database-wide SHOW and group the rows by schema, or answer None.
 
-        A full page means there is more to fetch, and a database-wide SHOW cannot be
-        continued: its `FROM '<name>'` cursor keys on the object name alone while the
-        output is ordered by (schema, name). Measured against a live account, continuing
-        drops every object in a later schema whose name sorts below the marker while
-        re-returning earlier schemas' higher-sorting ones — and if the marker happens to
-        name an INFORMATION_SCHEMA view the cursor is ignored entirely and the loop spins
-        forever. Returning None tells the caller to page per schema instead, where name
-        *is* the whole sort key and paging is exact (verified against a 16k-view schema:
-        two pages, no gaps, no duplicates).
+        None means "this result is unusable, page per schema instead", for either reason: a
+        full page (the statement cannot be continued - see
+        SnowflakeQuery.show_objects_for_database) or a failure. An empty mapping means the
+        database genuinely holds none.
 
-        A failure is reported and also answered with None, so a database-wide SHOW that
-        cannot run at all (a missing grant, a statement timeout) still reaches the exact
-        per-schema path instead of losing the whole database. Catching here rather than in
-        each caller keeps one failure policy for views, streams and dynamic tables - and
-        matters because serialized_lru_cache does not cache exceptions, so an uncaught
-        failure would re-run this query once per schema.
-
-        Shared by views, streams and dynamic tables so the page-boundary rule lives in one
-        place rather than being restated for each object type.
+        Failures are caught here rather than per caller so all three object kinds share one
+        policy, and because serialized_lru_cache does not cache exceptions - an uncaught one
+        would re-run this query once per schema.
         """
         try:
             rows = list(
@@ -1090,17 +1076,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
     ) -> Iterable[Dict[str, Any]]:
         """Yield rows of a schema-scoped SHOW, paging by object name.
 
-        Schema-scoped output is ordered by name alone, which is exactly what the
-        `FROM '<name>'` cursor matches on, so paging here is exact - unlike the
-        database-wide form (see _get_views_for_database_using_show).
+        Paging is exact here because a schema's output is ordered by name alone, which is
+        what the cursor matches on (see SnowflakeQuery.show_objects_for_schema).
 
-        Snowflake does not honour that cursor for every object class, though: for its
-        built-in INFORMATION_SCHEMA views, `FROM` is ignored and every page repeats the
-        first, which would spin forever. Termination is therefore decided by whether a
-        full page produced any name not already seen - deliberately not by comparing the
-        new marker against the old one, which would re-derive Snowflake's collation in
-        Python and, on mixed-case identifiers, could call a perfectly good cursor stalled
-        and truncate the schema. A short result plus a warning beats a hung ingestion.
+        Snowflake does not honour that cursor for every object class - for INFORMATION_SCHEMA
+        views it is ignored and every page repeats the first - so termination is decided by
+        whether a full page yielded a name not already seen. Deliberately not by comparing
+        markers: that re-derives Snowflake's collation in Python and could call a working
+        cursor stalled on mixed-case identifiers. A short result plus a warning beats a hang.
         """
         context = f"{db_name}.{schema_name}"
         seen_names: Set[str] = set()

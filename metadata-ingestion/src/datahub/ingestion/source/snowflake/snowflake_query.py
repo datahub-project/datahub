@@ -575,9 +575,8 @@ class SnowflakeQuery:
           - an INFORMATION_SCHEMA view name: the cursor is ignored outright and the next
             page comes back identical, so the loop never terminates.
 
-        When this single page comes back full the caller must page per schema instead - see
-        show_objects_for_schema. This is THE explanation of the cursor rule; elsewhere refer
-        here rather than restating it.
+        When this page comes back full the caller must page per schema instead - see
+        show_objects_for_schema. Other sites refer here rather than restating this.
 
         SHOW returns at most 10000 rows:
         https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes

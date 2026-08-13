@@ -1,12 +1,9 @@
 """Pagination of database-wide ``SHOW`` commands.
 
-Snowflake's ``SHOW <objects> IN DATABASE`` output is "ordered lexicographically by
-database, schema, and name", but its ``LIMIT ... FROM '<name>'`` cursor matches on the
-object *name* alone. The cursor key is therefore not the sort key, and paging a
-database-wide result both skips objects (anything in a later schema whose name sorts
-before the marker) and returns others twice. Views, streams and dynamic tables all
-shared that bug; each must now page per schema instead, where name *is* the whole
-sort key.
+A database-wide ``SHOW`` sorts by (database, schema, name) but its cursor matches on name
+alone, so paging one both skips and duplicates objects - see
+``SnowflakeQuery.show_objects_for_database`` for the full rule. Views, streams and dynamic
+tables all shared the bug and all now page per schema, where name is the whole sort key.
 """
 
 import re
@@ -126,10 +123,8 @@ class FakeShowConnection:
 
     def query(self, query: str) -> List[Dict[str, Any]]:
         self.queries.append(query)
-        # Counts SHOW statements only. Budgeting every query would let an unrelated lookup
-        # (the dynamic-table graph history SELECT) or a legitimately wide fan-out fixture
-        # trip a message that says "the caller is not terminating" - a false diagnosis of a
-        # correct implementation. Only a paging loop can repeat the same SHOW shape.
+        # SHOW statements only: counting every query would let a wide fan-out fixture trip
+        # a message claiming the caller never terminates. Only paging repeats a SHOW shape.
         show_queries = [q for q in self.queries if q.lstrip().startswith("SHOW ")]
         if len(show_queries) > self._max_queries:
             # Fail fast rather than hang: without this, a caller that stops advancing its
