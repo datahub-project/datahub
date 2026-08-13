@@ -601,6 +601,8 @@ try:
 
     datahub.add_command(evals)
 except ImportError as e:
+    if "acryl_datahub_cloud" not in str(e):
+        raise
     logger.debug(f"Failed to load datahub evals command: {e}")
     datahub.add_command(
         make_shim_command("evals", "run `pip install acryl-datahub-cloud`")

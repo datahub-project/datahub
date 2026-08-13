@@ -45,7 +45,7 @@ def test_agent_command_shows_error_or_help():
     ["agent", "actions", "evals", "lite"],
 )
 def test_optional_commands_exist(command_name):
-    """Test that optional commands (agent, actions, lite) are always registered."""
+    """Test that optional commands are always registered."""
     import datahub.entrypoints
 
     # Verify the command exists in the CLI
