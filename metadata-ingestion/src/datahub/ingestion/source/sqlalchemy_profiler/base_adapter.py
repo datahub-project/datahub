@@ -830,10 +830,73 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy Table object
         """
+        engine = autoload_with or self.base_engine
         metadata = sa.MetaData()
-        return sa.Table(
+        sql_table = sa.Table(
             table,
             metadata,
             schema=schema,
-            autoload_with=autoload_with or self.base_engine,
+            autoload_with=engine,
         )
+        return self._restore_case_folded_columns(sql_table, engine)
+
+    def _restore_case_folded_columns(
+        self, sql_table: sa.Table, engine: Engine
+    ) -> sa.Table:
+        """Rebuild a reflected table so columns differing only by case survive.
+
+        Dialects that normalize identifiers (Snowflake, Oracle, Firebird) fold
+        reflected column names, so two columns differing only by case — legal via
+        quoted identifiers — arrive under the same name. ``sa.Table`` rejects the
+        second one, silently dropping a real column before profiling ever sees it.
+
+        Each rebuilt column is named with its denormalized (as-stored) identifier,
+        forced to quote on render. That makes the names distinct strings, so
+        downstream dicts and sets stop collapsing them, while emitting SQL that
+        addresses exactly one real column. Keys are synthetic because ``sa.Table``
+        de-duplicates on a column's name, not only on its key.
+
+        Subclasses that build the table themselves must call this on the result.
+        Tables without a collision, and dialects that do not normalize, are
+        returned untouched.
+        """
+        # Declared on DefaultDialect rather than the Dialect interface, and third
+        # party dialects need not set it at all.
+        if not getattr(engine.dialect, "requires_name_normalize", False):
+            return sql_table
+
+        try:
+            reflected = sa.inspect(engine).get_columns(
+                sql_table.name, schema=sql_table.schema
+            )
+        except SQLAlchemyError as e:
+            logger.debug(
+                f"Could not re-inspect {sql_table.fullname} for case-folded "
+                f"columns: {type(e).__name__}: {e}"
+            )
+            return sql_table
+
+        if len(reflected) <= len(sql_table.columns):
+            return sql_table
+
+        denormalize = engine.dialect.denormalize_name
+        columns = [
+            sa.Column(
+                sa.sql.quoted_name(denormalize(col["name"]), quote=True),
+                col["type"],
+                key=f"_dh_col_{index}",
+            )
+            for index, col in enumerate(reflected)
+        ]
+        # Reuse the original name objects so any quoting decided by the caller
+        # (Snowflake quotes mixed-case table and schema names) is preserved.
+        rebuilt = sa.Table(
+            sql_table.name, sa.MetaData(), *columns, schema=sql_table.schema
+        )
+        # Not a warning: the rebuild is the fix. Whether the two columns can still
+        # be told apart downstream is the caller's concern to report.
+        logger.info(
+            f"Restored case-folded columns for {sql_table.fullname}: "
+            f"{sorted(str(c.name) for c in rebuilt.columns)}"
+        )
+        return rebuilt

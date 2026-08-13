@@ -236,13 +236,16 @@ class SnowflakeAdapter(PlatformAdapter):
 
         if has_lowercase or has_lowercase_schema:
             try:
-                return sa.Table(
-                    table,
-                    metadata,
-                    schema=schema,
-                    autoload_with=engine,
-                    quote=True,
-                    quote_schema=bool(schema),
+                return self._restore_case_folded_columns(
+                    sa.Table(
+                        table,
+                        metadata,
+                        schema=schema,
+                        autoload_with=engine,
+                        quote=True,
+                        quote_schema=bool(schema),
+                    ),
+                    engine,
                 )
             except SQLAlchemyError as e:
                 logger.debug(
@@ -251,13 +254,16 @@ class SnowflakeAdapter(PlatformAdapter):
                 )
 
         try:
-            return sa.Table(
-                table,
-                metadata,
-                schema=schema,
-                autoload_with=engine,
-                quote=False,
-                quote_schema=False,
+            return self._restore_case_folded_columns(
+                sa.Table(
+                    table,
+                    metadata,
+                    schema=schema,
+                    autoload_with=engine,
+                    quote=False,
+                    quote_schema=False,
+                ),
+                engine,
             )
         except SQLAlchemyError as e:
             if not (has_lowercase or has_lowercase_schema):
@@ -265,13 +271,16 @@ class SnowflakeAdapter(PlatformAdapter):
                     f"Failed to reflect {schema}.{table} without quoting, "
                     f"trying with quotes: {type(e).__name__}: {str(e)}"
                 )
-                return sa.Table(
-                    table,
-                    metadata,
-                    schema=schema,
-                    autoload_with=engine,
-                    quote=True,
-                    quote_schema=bool(schema),
+                return self._restore_case_folded_columns(
+                    sa.Table(
+                        table,
+                        metadata,
+                        schema=schema,
+                        autoload_with=engine,
+                        quote=True,
+                        quote_schema=bool(schema),
+                    ),
+                    engine,
                 )
             raise
 
