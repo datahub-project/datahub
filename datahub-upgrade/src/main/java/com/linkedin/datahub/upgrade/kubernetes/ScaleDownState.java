@@ -39,7 +39,8 @@ public class ScaleDownState {
   /**
    * Last-known env values we overwrote per deployment (for restore). Key = deployment name, value =
    * env vars to restore. Covers all deployments that had env updates applied via
-   * deploymentEnvUpdates.
+   * deploymentEnvUpdates. An empty value means that the env var was absent before scale-down and
+   * must be removed during restore.
    */
   private Map<String, Map<String, String>> envBeforeByDeployment;
 

@@ -332,7 +332,7 @@ public class KubernetesScaleDownStep implements UpgradeStep {
     CompletableFuture.allOf(futures).join();
   }
 
-  private void restore(KubernetesApiAccessor accessor, ScaleDownState state, String namespace) {
+  static void restore(KubernetesApiAccessor accessor, ScaleDownState state, String namespace) {
     List<ScaleDownState.DeploymentReplicas> deployments = state.getDeployments();
     if (deployments != null && !deployments.isEmpty()) {
       runParallel(
@@ -350,7 +350,7 @@ public class KubernetesScaleDownStep implements UpgradeStep {
               .map(
                   e ->
                       (Runnable)
-                          () -> accessor.setDeploymentEnv(e.getKey(), namespace, e.getValue()))
+                          () -> accessor.restoreDeploymentEnv(e.getKey(), namespace, e.getValue()))
               .collect(Collectors.toList()));
     }
     if (deployments != null && !deployments.isEmpty()) {

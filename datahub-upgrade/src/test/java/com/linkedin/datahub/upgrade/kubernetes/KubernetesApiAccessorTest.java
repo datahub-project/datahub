@@ -431,6 +431,65 @@ public class KubernetesApiAccessorTest {
   }
 
   @Test
+  public void testRestoreDeploymentEnvRestoresValuesAndRemovesPreviouslyAbsentVariables() {
+    Deployment deployment =
+        new DeploymentBuilder()
+            .withNewMetadata()
+            .withName("gms")
+            .withNamespace(NAMESPACE)
+            .endMetadata()
+            .withNewSpec()
+            .withNewTemplate()
+            .withNewSpec()
+            .addNewContainer()
+            .withName("main")
+            .addToEnv(new EnvVar("MCE_CONSUMER_ENABLED", "false", null))
+            .addToEnv(new EnvVar("PRE_PROCESS_HOOKS_UI_ENABLED", "false", null))
+            .addToEnv(new EnvVar("UNCHANGED", "value", null))
+            .endContainer()
+            .endSpec()
+            .endTemplate()
+            .endSpec()
+            .build();
+
+    KubernetesClient client = mock(KubernetesClient.class);
+    io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL apps =
+        mock(io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL.class);
+    MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deploymentsOp =
+        mock(MixedOperation.class);
+    RollableScalableResource<Deployment> resource = mock(RollableScalableResource.class);
+    when(client.apps()).thenReturn(apps);
+    when(apps.deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(anyString())).thenReturn(deploymentsOp);
+    when(deploymentsOp.withName("gms")).thenReturn(resource);
+    when(resource.edit(any(UnaryOperator.class)))
+        .thenAnswer(inv -> ((UnaryOperator<Deployment>) inv.getArgument(0)).apply(deployment));
+
+    KubernetesApiAccessor accessor = new KubernetesApiAccessor(client);
+    accessor.restoreDeploymentEnv(
+        "gms",
+        NAMESPACE,
+        Map.of("MCE_CONSUMER_ENABLED", "true", "PRE_PROCESS_HOOKS_UI_ENABLED", ""));
+
+    List<EnvVar> env = deployment.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
+    assertEquals(
+        env.stream()
+            .filter(e -> "MCE_CONSUMER_ENABLED".equals(e.getName()))
+            .findFirst()
+            .orElseThrow()
+            .getValue(),
+        "true");
+    assertFalse(env.stream().anyMatch(e -> "PRE_PROCESS_HOOKS_UI_ENABLED".equals(e.getName())));
+    assertEquals(
+        env.stream()
+            .filter(e -> "UNCHANGED".equals(e.getName()))
+            .findFirst()
+            .orElseThrow()
+            .getValue(),
+        "value");
+  }
+
+  @Test
   public void testListActiveJobNamesExceptSystemUpdateReturnsActiveJobsOnly() {
     io.fabric8.kubernetes.api.model.batch.v1.Job activeJob =
         new io.fabric8.kubernetes.api.model.batch.v1.JobBuilder()

@@ -234,7 +234,7 @@ public class KubernetesScaleDownStepTest {
     assertEquals(result.result(), com.linkedin.upgrade.DataHubUpgradeState.FAILED);
     verify(mockAccessor).scaleDeployment(eq("gms"), anyString(), eq(2));
     verify(mockAccessor)
-        .setDeploymentEnv(
+        .restoreDeploymentEnv(
             eq("gms"), anyString(), eq(Map.of("PRE_PROCESS_HOOKS_UI_ENABLED", "true")));
     verify(mockAccessor).waitForRollout(eq("gms"), anyString());
     verify(mockAccessor).deleteConfigMap(anyString(), anyString());

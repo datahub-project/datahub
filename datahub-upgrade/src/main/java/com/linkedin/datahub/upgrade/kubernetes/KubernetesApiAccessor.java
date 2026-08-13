@@ -329,6 +329,56 @@ public class KubernetesApiAccessor {
             });
   }
 
+  /**
+   * Restores environment variables captured before scale-down. An empty saved value means the
+   * variable did not exist before scale-down, so it is removed instead of restored as an empty
+   * literal.
+   */
+  public void restoreDeploymentEnv(
+      String deploymentName, String namespace, Map<String, String> envVars) {
+    client
+        .apps()
+        .deployments()
+        .inNamespace(namespace)
+        .withName(deploymentName)
+        .edit(
+            dep -> {
+              if (dep.getSpec() == null
+                  || dep.getSpec().getTemplate() == null
+                  || dep.getSpec().getTemplate().getSpec() == null
+                  || dep.getSpec().getTemplate().getSpec().getContainers() == null
+                  || dep.getSpec().getTemplate().getSpec().getContainers().isEmpty()) {
+                return dep;
+              }
+              Container container = dep.getSpec().getTemplate().getSpec().getContainers().get(0);
+              List<EnvVar> env = container.getEnv();
+              if (env == null) {
+                env = new ArrayList<>();
+                container.setEnv(env);
+              }
+              Map<String, EnvVar> existing = new HashMap<>();
+              for (EnvVar current : env) {
+                if (current.getName() != null) {
+                  existing.put(current.getName(), current);
+                }
+              }
+              for (Map.Entry<String, String> saved : envVars.entrySet()) {
+                EnvVar current = existing.get(saved.getKey());
+                if (saved.getValue().isEmpty()) {
+                  if (current != null) {
+                    env.remove(current);
+                  }
+                } else if (current != null) {
+                  current.setValue(saved.getValue());
+                  current.setValueFrom(null);
+                } else {
+                  env.add(new EnvVar(saved.getKey(), saved.getValue(), null));
+                }
+              }
+              return dep;
+            });
+  }
+
   public void waitForRollout(String deploymentName, String namespace) {
     int maxWaitSec = rolloutMaxWaitSeconds();
     int pollSec = rolloutPollSeconds();
