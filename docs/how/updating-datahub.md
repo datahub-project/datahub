@@ -65,6 +65,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Security / Dependencies)** Logback (`logback-classic` / `logback-core`) bumped from 1.5.32 to **1.5.38** for CVE-2026-9828 (`HardenedObjectInputStream` overly broad `java.lang`/`java.util` deserialization allowlist; fixed in 1.5.33+) and CVE-2026-10532 (Proxy class deserialization; fixed in 1.5.38). **Action:** none for operators; rebuild/redeploy picks up the new JARs. DataHub does not expose Logback `SimpleSocketServer` / `SimpleSSLSocketServer` by default.
+
 - **(Security / Dependencies)** Apache Log4j API/Core bumped from 2.25.4 to **2.25.5** for CVE-2026-49844 (`MapMessage.asJson()` emitting non-RFC-8259 tokens for NaN/Infinity). **Action:** none for operators; rebuild/redeploy picks up the new JARs.
 - **(Security / Dependencies)** Apache Parquet stack (`parquet-avro`, `parquet-hadoop`, `parquet-jackson`) bumped from 1.17.1 to **1.18.0**. `parquet-jackson` shades Jackson under `shaded/parquet/`; 1.18.0 refreshes that shade to jackson-databind **2.22.1**, covering CVE-2026-54512/54513 and related jackson-databind issues that required 2.21.4+. Application-classpath Jackson remains separately pinned. **Action:** none for operators; rebuild/redeploy picks up the new JARs.
 
