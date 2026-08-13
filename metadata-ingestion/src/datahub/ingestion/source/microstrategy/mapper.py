@@ -823,8 +823,12 @@ class MicroStrategyMapper:
         }
         # A compound grid repeats the same catalog object once per column
         # group, each copy reading a different dataset — so the same field
-        # name legitimately appears once per input dataset. Stamp each entry
-        # with its group and source dataset so the repeats are tellable apart.
+        # name legitimately appears once per input dataset. Qualify each
+        # entry's displayed name with its group (falling back to the dataset
+        # name) so the UI never treats the copies as one column, and stamp
+        # the description with the full source context. Only the embedded
+        # display copy is renamed; the schemaField urn keeps the dataset's
+        # real field path, so column lineage joins are unaffected.
         annotate_source = len(input_urn_set) > 1
         group_by_dataset_id = self._column_group_by_dataset_id(dashboard, visualization)
         input_fields_by_urn: Dict[str, InputFieldClass] = {}
@@ -833,15 +837,20 @@ class MicroStrategyMapper:
             if dataset_urn not in input_urn_set:
                 continue
             schema_fields = self._schema_fields_and_object_map(dataset)
+            group_name = group_by_dataset_id.get(dataset.id)
             source_context = (
-                _input_field_source_context(
-                    group_by_dataset_id.get(dataset.id), dataset.name
-                )
+                _input_field_source_context(group_name, dataset.name)
                 if annotate_source
                 else None
             )
+            display_prefix = (group_name or dataset.name) if annotate_source else None
             for object_id in visualization_object_ids:
                 for schema_field in schema_fields.by_object_id.get(object_id, []):
+                    # Urn must come from the dataset's real field path, before
+                    # any display renaming.
+                    schema_field_urn = builder.make_schema_field_urn(
+                        dataset_urn, schema_field.fieldPath
+                    )
                     if source_context:
                         # Fresh per-call instances, so mutation cannot leak
                         # into the dataset's own schema emission.
@@ -850,7 +859,14 @@ class MicroStrategyMapper:
                             if schema_field.description
                             else source_context
                         )
-                    _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
+                    if display_prefix:
+                        schema_field.fieldPath = (
+                            f"{display_prefix}.{schema_field.fieldPath}"
+                        )
+                    input_fields_by_urn[schema_field_urn] = InputFieldClass(
+                        schemaFieldUrn=schema_field_urn,
+                        schemaField=schema_field,
+                    )
 
         return _input_fields_aspect(input_fields_by_urn)
 

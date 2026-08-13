@@ -1321,7 +1321,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD),Revenue Pct)",
                     "schemaField": {
-                        "fieldPath": "Revenue Pct",
+                        "fieldPath": "SALES.Revenue Pct",
                         "nullable": false,
                         "description": "**SALES** \u2014 Sales Cube\n\nDerived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'.",
                         "type": {
@@ -1348,7 +1348,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD),Revenue)",
                     "schemaField": {
-                        "fieldPath": "Revenue",
+                        "fieldPath": "SALES.Revenue",
                         "nullable": false,
                         "description": "**SALES** \u2014 Sales Cube\n\n```\nSum(Revenue Fact)\n```",
                         "type": {
@@ -1372,7 +1372,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-2,PROD),Cost Pct)",
                     "schemaField": {
-                        "fieldPath": "Cost Pct",
+                        "fieldPath": "COST.Cost Pct",
                         "nullable": false,
                         "description": "**COST** \u2014 Cost Cube\n\nDerived metric defined in the 'COST' column group of visualization 'Sales vs Cost'.",
                         "type": {
@@ -1399,7 +1399,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-2,PROD),Cost)",
                     "schemaField": {
-                        "fieldPath": "Cost",
+                        "fieldPath": "COST.Cost",
                         "nullable": false,
                         "description": "**COST** \u2014 Cost Cube\n\n```\nSum(NET_COST_AMT)\n```",
                         "type": {
@@ -1424,7 +1424,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786629813141,
+        "lastObserved": 1786645061576,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
