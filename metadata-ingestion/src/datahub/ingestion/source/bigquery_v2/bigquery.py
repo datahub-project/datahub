@@ -287,6 +287,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     title="Config option deprecation warning",
                     log=False,
                 )
+            # Checked against fields_set rather than the value: the option defaults to
+            # False, so a user who sets it to False expecting column lineage to be
+            # suppressed is indistinguishable from one who never set it at all. They
+            # receive column lineage either way, and only the explicit setter needs telling.
+            if "extract_column_lineage" in self.config.model_fields_set:
+                self.report.warning(
+                    message="`extract_column_lineage` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2. Column-level lineage "
+                    "is emitted regardless of this setting.",
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                    log=False,
+                )
 
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:
         return BigQueryQueriesExtractorConfig(

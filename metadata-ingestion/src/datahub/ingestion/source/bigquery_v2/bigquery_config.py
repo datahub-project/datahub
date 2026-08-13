@@ -451,8 +451,10 @@ class BigQueryV2Config(
 
     extract_column_lineage: bool = Field(
         default=False,
-        description="If enabled, generate column level lineage. "
-        "Requires lineage_use_sql_parser to be enabled.",
+        description="Generate column-level lineage from the legacy audit-log extractor. "
+        "Only applies when `use_queries_v2` is disabled; that extractor is the sole reader "
+        "of this option. Under the default `use_queries_v2: True`, column-level lineage comes "
+        "from the SQL parsing aggregator, which this option does not control.",
     )
 
     extract_lineage_from_catalog: bool = Field(
