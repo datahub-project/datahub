@@ -36,24 +36,26 @@ describe('structuredPropertyToViewProperty', () => {
         expect(property?.valueOptions?.mode).toBe(SelectInputMode.MULTIPLE);
     });
 
-    it('maps a property with allowed values to a fixed multi-select', () => {
+    it('maps a property with allowed values to a fixed multi-select, using the description as the friendly label', () => {
         const property = structuredPropertyToViewProperty(
             makeEntity({
                 qualifiedName: 'io.acryl.tier',
                 valueType: { urn: STRING_TYPE_URN },
                 allowedValues: [
-                    { value: { stringValue: 'Gold' } },
+                    { value: { stringValue: 'T1' }, description: 'Tier 1' },
                     { value: { stringValue: 'Silver' } },
-                    { value: { numberValue: 3 } },
+                    { value: { numberValue: 3 }, description: 'Bronze' },
                 ],
             }),
         );
 
         expect(property?.valueType).toBe(ValueTypeId.ENUM);
+        // The raw value stays the stored id so the saved filter round-trips, while the label
+        // shows the property author's friendly description (falling back to the value).
         expect(property?.valueOptions?.options).toEqual([
-            { id: 'Gold', displayName: 'Gold' },
+            { id: 'T1', displayName: 'Tier 1' },
             { id: 'Silver', displayName: 'Silver' },
-            { id: '3', displayName: '3' },
+            { id: '3', displayName: 'Bronze' },
         ]);
     });
 

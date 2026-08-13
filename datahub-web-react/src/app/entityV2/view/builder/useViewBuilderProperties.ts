@@ -17,13 +17,15 @@ function toAllowedValueOptions(entity: StructuredPropertyEntity): SelectOption[]
     const allowedValues = entity.definition?.allowedValues ?? [];
     return allowedValues
         .map((allowed): SelectOption | undefined => {
-            const { value } = allowed;
+            const { value, description } = allowed;
+            // The filter stores the raw value (id), but the picker shows the human-friendly
+            // label the property author set on the allowed value, falling back to the value itself.
             if (value && 'stringValue' in value && value.stringValue != null) {
-                return { id: value.stringValue, displayName: value.stringValue };
+                return { id: value.stringValue, displayName: description || value.stringValue };
             }
             if (value && 'numberValue' in value && value.numberValue != null) {
                 const stringified = String(value.numberValue);
-                return { id: stringified, displayName: stringified };
+                return { id: stringified, displayName: description || stringified };
             }
             return undefined;
         })
