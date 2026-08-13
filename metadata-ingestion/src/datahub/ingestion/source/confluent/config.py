@@ -115,7 +115,12 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         return f"{self.schema_registry_url}{CATALOG_GRAPHQL_PATH}"
 
     def get_credentials(self) -> Tuple[str, str]:
-        if self.api_key is None or self.api_secret is None:
+        if (
+            self.api_key is None
+            or not self.api_key.get_secret_value().strip()
+            or self.api_secret is None
+            or not self.api_secret.get_secret_value().strip()
+        ):
             raise ValueError(
                 "api_key and api_secret are required when the Stream Catalog is enabled"
             )
