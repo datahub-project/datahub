@@ -2779,7 +2779,7 @@ public class ESIndexBuilder {
         // deletes it and points the alias at the new "<base>_semantic_<ts>" backing; those backings
         // are then cleaned normally (they don't match isSemanticEntityIndex). So never delete the
         // bare name here.
-        if (indexConvention.isSemanticEntityIndex(index)) {
+        if (indexConvention.isSemanticEntityIndex(opContext, index)) {
           log.info(
               "Skipping semantic index {} matched by base clean pattern {}",
               index,

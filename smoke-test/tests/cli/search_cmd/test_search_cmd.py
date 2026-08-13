@@ -11,8 +11,10 @@ Test data (search_test_data.json) contains:
   - 1 chart on looker (revenue_chart)
   - 1 dashboard on looker (sales_dashboard)
 
-All URNs use a run-unique ``search_smoke_test-<suffix>`` namespace (see
-``materialize_with_unique_name``) so parallel xdist modules cannot collide.
+All URNs and searchable name/title/description fields use a run-unique
+``search_smoke_test-<suffix>`` namespace (see ``materialize_with_unique_name``)
+so parallel xdist modules cannot collide and free-text ``ns`` queries match
+on both OSS and Acryl search configs.
 CorpUser filter tests rely on built-in DataHub system users (always present).
 """
 

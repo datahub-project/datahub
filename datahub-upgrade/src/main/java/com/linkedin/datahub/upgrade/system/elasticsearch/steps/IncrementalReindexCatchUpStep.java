@@ -230,7 +230,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     String nextIndexName = indexState.get(IncrementalReindexState.NEXT_INDEX_NAME);
-    Optional<String> entityNameOpt = indexConvention.getEntityName(indexName);
+    Optional<String> entityNameOpt = indexConvention.getEntityName(opContext, indexName);
 
     if (entityNameOpt.isPresent()) {
       String entityName = entityNameOpt.get();
@@ -245,7 +245,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       return CatchUpStatus.COMPLETED;
     }
 
-    if (indexConvention.getEntityAndAspectName(indexName).isPresent() && nextIndexName != null) {
+    if (indexConvention.getEntityAndAspectName(opContext, indexName).isPresent()
+        && nextIndexName != null) {
       String oldBackingIndexName = indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
       if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
         log.warn("Timeseries index {} has no oldBackingIndexName, skipping catch-up", indexName);
@@ -538,9 +539,10 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    */
   private boolean isGlobalIndex(String indexName) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
     String systemMetadataIndexName =
-        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
     return indexName.equals(graphIndexName) || indexName.equals(systemMetadataIndexName);
   }
 

@@ -15,6 +15,7 @@
     <test name="postgresql-ebean-locking">
         <classes>
             <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT"/>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoOptimisticLockingPostgresIT"/>
         </classes>
     </test>
 </suite>
