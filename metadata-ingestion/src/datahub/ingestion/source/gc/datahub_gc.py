@@ -51,6 +51,7 @@ class TimeseriesAspectRetentionConfig(ConfigModel):
     )
     older_than_days: Optional[int] = Field(
         default=None,
+        ge=0,
         description=(
             "Override truncate_index_older_than_days for this aspect. "
             "When unset, the global default is used."
@@ -78,6 +79,7 @@ class DataHubGcSourceConfig(ConfigModel):
     )
     truncate_index_older_than_days: int = Field(
         default=30,
+        ge=0,
         description=(
             "Default max age in days for timeseries truncation. Used for the built-in "
             "aspect list when truncate_aspect_retentions is empty, and as the fallback "

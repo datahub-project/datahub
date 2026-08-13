@@ -86,20 +86,35 @@ public class TimeseriesFilterGraphExpansionTest {
   }
 
   @Test
-  public void expand_relatedIncl_unionsIncomingAndOutgoing() {
+  public void expand_relatedIncl_expandsOutgoingFromDescendants() {
+    // Seed → child (INCOMING), then child → parent (OUTGOING from descendant set).
+    // Starting OUTGOING only from seeds would miss PARENT when the edge is child→parent.
     doAnswer(
             inv -> {
               @SuppressWarnings("unchecked")
               Function<RelatedEntitiesScrollResult, Boolean> consumer = inv.getArgument(0);
-              RelatedEntities related =
-                  new RelatedEntities(
-                      "IsPartOf", SEED, CHILD, RelationshipDirection.OUTGOING, null);
-              consumer.apply(
-                  RelatedEntitiesScrollResult.builder()
-                      .numResults(1)
-                      .pageSize(100)
-                      .entities(List.of(related))
-                      .build());
+              com.linkedin.metadata.query.filter.RelationshipFilter relFilter = inv.getArgument(6);
+              if (relFilter.getDirection() == RelationshipDirection.INCOMING) {
+                RelatedEntities related =
+                    new RelatedEntities(
+                        "IsPartOf", CHILD, SEED, RelationshipDirection.INCOMING, null);
+                consumer.apply(
+                    RelatedEntitiesScrollResult.builder()
+                        .numResults(1)
+                        .pageSize(100)
+                        .entities(List.of(related))
+                        .build());
+              } else if (relFilter.getDirection() == RelationshipDirection.OUTGOING) {
+                RelatedEntities related =
+                    new RelatedEntities(
+                        "IsPartOf", CHILD, PARENT, RelationshipDirection.OUTGOING, null);
+                consumer.apply(
+                    RelatedEntitiesScrollResult.builder()
+                        .numResults(1)
+                        .pageSize(100)
+                        .entities(List.of(related))
+                        .build());
+              }
               return null;
             })
         .when(graphRetriever)
@@ -112,6 +127,7 @@ public class TimeseriesFilterGraphExpansionTest {
 
     assertTrue(result.contains(SEED));
     assertTrue(result.contains(CHILD));
+    assertTrue(result.contains(PARENT));
   }
 
   @Test

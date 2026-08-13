@@ -20,13 +20,17 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -551,10 +555,21 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
     RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
     if (previous == null) {
-      log.debug(
-          "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
-          deleteEvent.getUrn(),
-          aspectSpec.getName());
+      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
+        // Postgres SoT: delete all rows for this URN/aspect when the MCL lacks a prior snapshot.
+        Filter urnFilter =
+            QueryUtils.getFilterFromCriteria(
+                java.util.List.of(
+                    CriterionUtils.buildCriterion(
+                        "urn", Condition.EQUAL, deleteEvent.getUrn().toString())));
+        timeseriesAspectService.deleteAspectValues(
+            opContext, deleteEvent.getEntitySpec().getName(), aspectSpec.getName(), urnFilter);
+      } else {
+        log.debug(
+            "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
+            deleteEvent.getUrn(),
+            aspectSpec.getName());
+      }
       return;
     }
     Urn urn = deleteEvent.getUrn();

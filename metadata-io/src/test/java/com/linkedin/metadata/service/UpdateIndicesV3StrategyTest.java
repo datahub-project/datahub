@@ -1029,4 +1029,76 @@ public class UpdateIndicesV3StrategyTest {
             any(),
             anyBoolean());
   }
+
+  @Test
+  public void testProcessBatch_Timeseries_rethrowsWhenPostgresSoT() throws Exception {
+    TimeseriesAspectWriteSink sink = org.mockito.Mockito.mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy dualWriteStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(true);
+    doThrow(new IllegalStateException("pg upsert failed"))
+        .when(timeseriesAspectService)
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> dualWriteStrategy.processBatch(operationContext, groupedEvents, true));
+  }
+
+  @Test
+  public void testProcessBatch_Timeseries_swallowsWhenSoftEsPath() throws Exception {
+    TimeseriesAspectWriteSink sink = org.mockito.Mockito.mock(TimeseriesAspectWriteSink.class);
+    when(sink.failOnError()).thenReturn(false);
+    UpdateIndicesV3Strategy dualWriteStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+    doThrow(new RuntimeException("es upsert failed"))
+        .when(timeseriesAspectService)
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Soft path: swallow and continue (search batch still proceeds).
+    dualWriteStrategy.processBatch(operationContext, groupedEvents, true);
+  }
 }

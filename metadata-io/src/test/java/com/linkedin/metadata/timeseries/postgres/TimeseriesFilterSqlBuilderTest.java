@@ -175,19 +175,26 @@ public class TimeseriesFilterSqlBuilderTest {
 
   @Test
   public void buildDocumentFilter_exists_and_isNull() {
+    OperationContext noLatestFlag =
+        opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false));
     Filter existsFilter =
         QueryUtils.getFilterFromCriteria(List.of(buildExistsCriterion("strStat")));
     TimeseriesFilterSqlBuilder.BuiltSql exists =
         TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            existsFilter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+            existsFilter,
+            true,
+            Collections.emptyMap(),
+            noLatestFlag,
+            QueryFilterRewriteChain.EMPTY);
     assertTrue(exists.getExpression().contains("IS NOT NULL"));
-    assertTrue(exists.getExpression().contains("<> ''"));
+    assertTrue(!exists.getExpression().contains("<> ''"));
 
     Filter nullFilter = QueryUtils.getFilterFromCriteria(List.of(buildIsNullCriterion("strStat")));
     TimeseriesFilterSqlBuilder.BuiltSql isNull =
         TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            nullFilter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
-    assertTrue(isNull.getExpression().contains("IS NULL OR"));
+            nullFilter, true, Collections.emptyMap(), noLatestFlag, QueryFilterRewriteChain.EMPTY);
+    assertTrue(isNull.getExpression().contains("IS NULL"));
+    assertTrue(!isNull.getExpression().contains("= ''"));
   }
 
   @Test
@@ -198,7 +205,7 @@ public class TimeseriesFilterSqlBuilderTest {
     TimeseriesFilterSqlBuilder.BuiltSql containSql =
         TimeseriesFilterSqlBuilder.buildDocumentFilter(
             contain, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
-    assertTrue(containSql.getExpression().contains("LIKE ? ESCAPE '\\'"));
+    assertTrue(containSql.getExpression().contains("ILIKE ? ESCAPE '\\'"));
     assertEquals(containSql.getParams(), List.of("%mid%"));
 
     Filter start =
@@ -216,6 +223,17 @@ public class TimeseriesFilterSqlBuilderTest {
         TimeseriesFilterSqlBuilder.buildDocumentFilter(
             end, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
     assertEquals(endSql.getParams(), List.of("%suf"));
+  }
+
+  @Test
+  public void buildDocumentFilter_contain_escapesSqlLikeMetacharacters() {
+    Filter contain =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("strStat", Condition.CONTAIN, "a%b_c\\d")));
+    TimeseriesFilterSqlBuilder.BuiltSql containSql =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            contain, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+    assertEquals(containSql.getParams(), List.of("%a\\%b\\_c\\\\d%"));
   }
 
   @Test
@@ -352,6 +370,24 @@ public class TimeseriesFilterSqlBuilderTest {
     assertTrue(built.getExpression().contains(" OR "));
     assertTrue(built.getExpression().contains("document->>'description'"));
     assertTrue(built.getExpression().contains("document->>'editedDescription'"));
+    assertEquals(built.getParams(), List.of("docs", "docs"));
+  }
+
+  @Test
+  public void buildDocumentFilter_negatedFieldExpansion_appliesSingleOuterNot() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("description", Condition.EQUAL, true, "docs")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+
+    String expr = built.getExpression();
+    assertTrue(expr.startsWith("NOT (") || expr.contains("NOT (("));
+    // Alternates must not each be individually negated (would become AND of equals).
+    assertTrue(!expr.contains("NOT (document->>'description'"));
+    assertTrue(expr.contains(" OR "));
     assertEquals(built.getParams(), List.of("docs", "docs"));
   }
 
