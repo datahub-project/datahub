@@ -597,6 +597,16 @@ datahub.add_command(api)
 datahub.add_command(agent_skill)
 
 try:
+    from acryl_datahub_cloud.cli.evals import evals
+
+    datahub.add_command(evals)
+except ImportError as e:
+    logger.debug(f"Failed to load datahub evals command: {e}")
+    datahub.add_command(
+        make_shim_command("evals", "run `pip install acryl-datahub-cloud`")
+    )
+
+try:
     from datahub.cli.iceberg_cli import iceberg
 
     datahub.add_command(iceberg)
