@@ -650,6 +650,14 @@ def _column(name: str) -> BigqueryColumn:
     )
 
 
+def _aspect(wu: MetadataWorkUnit) -> Any:
+    return getattr(wu.metadata, "aspect", None)
+
+
+def _urn(wu: MetadataWorkUnit) -> Any:
+    return getattr(wu.metadata, "entityUrn", None)
+
+
 def _aspects(wus: Iterable[MetadataWorkUnit]) -> List[Any]:
     out: List[Any] = []
     for wu in wus:
@@ -677,30 +685,28 @@ def test_emits_siblings_and_upstream_lineage_with_per_column_finegrained():
     assert handler.report.num_linked_dataset_lineage_emitted == 1
 
     aspects = _aspects(wus)
-    sibling_wus = [
-        wu for wu in wus if isinstance(getattr(wu.metadata, "aspect", None), Siblings)
-    ]
+    sibling_wus = [wu for wu in wus if isinstance(_aspect(wu), Siblings)]
     upstream_lineages = [a for a in aspects if isinstance(a, UpstreamLineage)]
-    assert len(sibling_wus) == 2
+    assert len(sibling_wus) == 1
     assert len(upstream_lineages) == 1
 
-    # Reciprocal siblings: consumer non-primary pointing at publisher,
-    # publisher primary pointing back at consumer.
-    by_urn: Dict[Any, Any] = {
-        getattr(wu.metadata, "entityUrn", None): wu for wu in sibling_wus
-    }
-    consumer_urn = next(u for u in by_urn if "shared_dataset" in u)
-    publisher_urn = next(u for u in by_urn if "publisher_dataset" in u)
-
-    consumer_wu = by_urn[consumer_urn]
-    consumer_sibling = getattr(consumer_wu.metadata, "aspect", None)
+    consumer_wu = sibling_wus[0]
+    consumer_urn = _urn(consumer_wu)
+    consumer_sibling = _aspect(consumer_wu)
+    assert "shared_dataset" in consumer_urn
     assert consumer_sibling.primary is False
-    assert consumer_sibling.siblings == [publisher_urn]
     assert consumer_wu.is_primary_source is True
+
+    (publisher_urn,) = consumer_sibling.siblings
+    assert "publisher_dataset" in publisher_urn
     assert publisher_urn.endswith(",PROD)")
 
-    publisher_wu = by_urn[publisher_urn]
-    publisher_sibling = getattr(publisher_wu.metadata, "aspect", None)
+    # The reciprocal aspect is deferred to the end of the run.
+    publisher_wus = list(handler.gen_publisher_sibling_workunits())
+    assert len(publisher_wus) == 1
+    publisher_wu = publisher_wus[0]
+    publisher_sibling = _aspect(publisher_wu)
+    assert _urn(publisher_wu) == publisher_urn
     assert publisher_sibling.primary is True
     assert publisher_sibling.siblings == [consumer_urn]
     # Out of this recipe's scope, so it must stay out of the stale-entity state.
@@ -796,14 +802,68 @@ def test_empty_columns_emit_copy_lineage_without_finegrained():
             columns=[],
         )
     )
-    sibling_wus = [
-        wu for wu in wus if isinstance(getattr(wu.metadata, "aspect", None), Siblings)
-    ]
+    sibling_wus = [wu for wu in wus if isinstance(_aspect(wu), Siblings)]
     upstreams = [a for a in _aspects(wus) if isinstance(a, UpstreamLineage)]
-    assert len(sibling_wus) == 2
+    assert len(sibling_wus) == 1
+    assert len(list(handler.gen_publisher_sibling_workunits())) == 1
     assert len(upstreams) == 1
     assert upstreams[0].upstreams[0].type == DatasetLineageType.COPY
     assert upstreams[0].fineGrainedLineages is None
+
+
+def test_publisher_siblings_grouped_across_consumers():
+    """One publisher shared into several linked datasets gets a single aspect
+    listing every consumer, rather than one aspect per consumer."""
+    handler = _seed_with_linked_dataset()
+    handler._lookup[("other-project", "other_shared")] = LinkedDatasetInfo(
+        consumer_project_id="other-project",
+        consumer_dataset="other_shared",
+        publisher=PublisherRef(
+            dataset="publisher_dataset", project_id="publisher-project"
+        ),
+    )
+
+    for project_id, dataset in (
+        ("consumer-project", "shared_dataset"),
+        ("other-project", "other_shared"),
+    ):
+        list(
+            handler.gen_lineage_workunits(
+                consumer_project_id=project_id,
+                consumer_dataset=dataset,
+                entity_name="users",
+                columns=[_column("id")],
+            )
+        )
+
+    publisher_wus = list(handler.gen_publisher_sibling_workunits())
+    assert len(publisher_wus) == 1
+
+    sibling = _aspect(publisher_wus[0])
+    assert sibling.primary is True
+    assert [u.split(",")[1] for u in sibling.siblings] == [
+        "consumer-project.shared_dataset.users",
+        "other-project.other_shared.users",
+    ]
+
+
+def test_publisher_siblings_separate_per_publisher_entity():
+    """Two tables in one linked dataset map to two publisher entities."""
+    handler = _seed_with_linked_dataset()
+    for entity_name in ("users", "orders"):
+        list(
+            handler.gen_lineage_workunits(
+                consumer_project_id="consumer-project",
+                consumer_dataset="shared_dataset",
+                entity_name=entity_name,
+                columns=[_column("id")],
+            )
+        )
+
+    publisher_wus = list(handler.gen_publisher_sibling_workunits())
+    assert len(publisher_wus) == 2
+    for wu in publisher_wus:
+        assert len(_aspect(wu).siblings) == 1
 
 
 # --- API error path -------------------------------------------------------

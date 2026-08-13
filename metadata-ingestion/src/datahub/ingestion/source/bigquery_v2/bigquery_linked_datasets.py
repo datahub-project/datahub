@@ -1,4 +1,6 @@
 import logging
+import threading
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -167,6 +169,10 @@ class BigQueryLinkedDatasetsHandler:
         # Caching None avoids retrying a failed publisher resolution within a run.
         self._publisher_project_id_cache: Dict[str, Optional[str]] = {}
 
+        # Written by the parallel dataset workers, drained once at the end of the run.
+        self._publisher_siblings: Dict[str, Set[str]] = defaultdict(set)
+        self._publisher_siblings_lock = threading.Lock()
+
         self._ah_client: Optional[
             bigquery_analyticshub_v1.AnalyticsHubServiceClient
         ] = None
@@ -307,12 +313,11 @@ class BigQueryLinkedDatasetsHandler:
             entityUrn=consumer_urn,
             aspect=Siblings(primary=False, siblings=[publisher_urn]),
         ).as_workunit()
-        # Publisher is outside this recipe's scope: keeping it out of the
-        # stale-entity state stops a revoked subscription soft-deleting it.
-        yield MetadataChangeProposalWrapper(
-            entityUrn=publisher_urn,
-            aspect=Siblings(primary=True, siblings=[consumer_urn]),
-        ).as_workunit(is_primary_source=False)
+
+        # Siblings is single-valued, so one publisher can only be told about all
+        # its consumers at once. Deferred to gen_publisher_sibling_workunits.
+        with self._publisher_siblings_lock:
+            self._publisher_siblings[publisher_urn].add(consumer_urn)
 
         fine_grained = self._build_fine_grained_lineages(
             publisher_urn=publisher_urn,
@@ -331,6 +336,16 @@ class BigQueryLinkedDatasetsHandler:
         ).as_workunit()
 
         self.report.num_linked_dataset_lineage_emitted += 1
+
+    def gen_publisher_sibling_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit one Siblings aspect per publisher; call once all projects are done."""
+        for publisher_urn, consumer_urns in sorted(self._publisher_siblings.items()):
+            # Publisher is outside this recipe's scope: keeping it out of the
+            # stale-entity state stops a revoked subscription soft-deleting it.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=publisher_urn,
+                aspect=Siblings(primary=True, siblings=sorted(consumer_urns)),
+            ).as_workunit(is_primary_source=False)
 
     def _consumer_dataset_name(
         self, sub: bigquery_analyticshub_v1.Subscription
