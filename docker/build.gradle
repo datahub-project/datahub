@@ -589,6 +589,22 @@ quickstart_configs.each { taskName, config ->
 
             jsonFile.parentFile.mkdirs()
             jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+
+            // buildx >= 0.17 requires explicit consent (--allow=fs.read) to read files
+            // referenced by the bake definition that live outside the working directory,
+            // e.g. a netrc secret at $HOME/.netrc. In non-interactive runs (CI) the build
+            // fails outright instead of prompting, so grant it for the secret sources the
+            // spec itself declares. Depot runs the bake remotely and does not perform
+            // this check.
+            if (System.getenv("DOCKER_CACHE") != "DEPOT") {
+                bakeSnippets.values()
+                    .collectMany { it.secret ?: [] }
+                    .collect { secret -> secret.toString().split(',').find { it.startsWith('src=') } }
+                    .findAll()
+                    .collect { it.substring('src='.length()) }
+                    .unique()
+                    .each { args "--allow=fs.read=${it}" }
+            }
         }
     }
 }
