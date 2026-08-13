@@ -15,6 +15,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeGuard,
     TypeVar,
 )
 
@@ -55,6 +56,17 @@ class SnowflakeTaskState(StrEnum):
 
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _needs_definition(table: "SnowflakeTable") -> TypeGuard["SnowflakeDynamicTable"]:
+    """Whether a table is a dynamic table still awaiting its SHOW-derived definition.
+
+    Used both to choose which schemas the per-schema fallback visits and to decide which
+    tables the results are applied to - the two must agree, or the fallback either queries
+    schemas it has no use for or skips schemas it needed.
+    """
+    return isinstance(table, SnowflakeDynamicTable) and table.definition is None
+
 
 # Row type produced by a database-wide SHOW mapper (a view, stream or dynamic table).
 _ShowRowT = TypeVar("_ShowRowT")
@@ -2614,19 +2626,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         db_name=db_name, schema_name=schema_name
                     )
                     for schema_name, table_list in tables.items()
-                    if any(
-                        isinstance(table, SnowflakeDynamicTable)
-                        and table.definition is None
-                        for table in table_list
-                    )
+                    if any(_needs_definition(table) for table in table_list)
                 }
 
             for schema_name, table_list in tables.items():
                 for table in table_list:
-                    if (
-                        isinstance(table, SnowflakeDynamicTable)
-                        and table.definition is None
-                    ):
+                    if _needs_definition(table):
                         # Find matching dynamic table from SHOW results
                         show_dt_list = dt_with_definitions.get(schema_name, [])
                         for show_dt in show_dt_list:

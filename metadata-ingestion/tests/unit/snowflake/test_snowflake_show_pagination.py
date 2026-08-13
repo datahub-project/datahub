@@ -126,11 +126,16 @@ class FakeShowConnection:
 
     def query(self, query: str) -> List[Dict[str, Any]]:
         self.queries.append(query)
-        if len(self.queries) > self._max_queries:
+        # Counts SHOW statements only. Budgeting every query would let an unrelated lookup
+        # (the dynamic-table graph history SELECT) or a legitimately wide fan-out fixture
+        # trip a message that says "the caller is not terminating" - a false diagnosis of a
+        # correct implementation. Only a paging loop can repeat the same SHOW shape.
+        show_queries = [q for q in self.queries if q.lstrip().startswith("SHOW ")]
+        if len(show_queries) > self._max_queries:
             # Fail fast rather than hang: without this, a caller that stops advancing its
             # cursor pages forever and the test times out CI instead of reporting.
             raise AssertionError(
-                f"Runaway pagination: {len(self.queries)} queries issued for "
+                f"Runaway pagination: {len(show_queries)} SHOW queries issued for "
                 f"{self._max_queries} allowed; the caller is not terminating."
             )
 
@@ -306,28 +311,57 @@ def test_per_schema_show_views_pages_through_every_view_exactly_once():
     assert [v.name for v in views] == [f"view_{i:05d}" for i in range(total)]
 
 
-def test_per_schema_paging_survives_an_object_name_containing_a_quote():
-    """A quoted Snowflake identifier may contain an apostrophe, and the marker is embedded
-    in a single-quoted SQL literal. Unescaped, the second page is malformed SQL and the
-    rest of the schema is lost."""
-    # The awkward name has to be the LAST row of a full page, because that is the row
-    # whose name becomes the cursor for page 2 - anywhere else and the quote is never
-    # embedded in a query.
-    head = [f"view_{i:05d}" for i in range(SHOW_COMMAND_MAX_PAGE_SIZE - 1)]
-    awkward = "w_it's_a_view"
+@pytest.mark.parametrize(
+    "kind,page_size,fetch",
+    [
+        (
+            VIEWS,
+            SHOW_COMMAND_MAX_PAGE_SIZE,
+            lambda dd: dd.get_views_for_schema_using_show(
+                db_name="TEST_DB", schema_name="SCHEMA_A"
+            ),
+        ),
+        (
+            STREAMS,
+            SHOW_STREAM_MAX_PAGE_SIZE,
+            lambda dd: dd.get_streams_for_schema_using_show(
+                db_name="TEST_DB", schema_name="SCHEMA_A"
+            ),
+        ),
+        (
+            DYNAMIC_TABLES,
+            SHOW_COMMAND_MAX_PAGE_SIZE,
+            lambda dd: dd.get_dynamic_tables_for_schema_using_show(
+                db_name="TEST_DB", schema_name="SCHEMA_A"
+            ),
+        ),
+    ],
+    ids=["views", "streams", "dynamic_tables"],
+)
+def test_per_schema_paging_survives_an_object_name_needing_escaping(
+    kind, page_size, fetch
+):
+    """A quoted Snowflake identifier may contain an apostrophe or a backslash, and the
+    marker is embedded in a single-quoted SQL literal. Unescaped, page 2 is malformed SQL
+    and the rest of the schema is lost. Escaping is applied at three call sites, so it is
+    checked at all three - one passing kind would otherwise cover for two broken ones.
+    """
+    # The awkward name has to be the LAST row of a full page, because that is the row whose
+    # name becomes the cursor for page 2 - anywhere else and the quote never reaches a query.
+    head = [f"obj_{i:05d}" for i in range(page_size - 1)]
+    awkward = "w_it's_a\\_name"
     tail = [f"x_{i:02d}" for i in range(10)]
     expected = head + [awkward] + tail
     assert sorted(expected) == expected, "fixture must already be in SHOW order"
 
-    connection = FakeShowConnection({VIEWS: [("SCHEMA_A", n) for n in expected]})
+    connection = FakeShowConnection({kind: [("SCHEMA_A", n) for n in expected]})
 
-    views = _make_data_dictionary(connection).get_views_for_schema_using_show(
-        db_name="TEST_DB", schema_name="SCHEMA_A"
-    )
+    objects = fetch(_make_data_dictionary(connection))
 
-    assert [v.name for v in views] == expected
-    assert "FROM 'w_it''s_a_view'" in connection.show_queries(VIEWS)[1], (
-        "page 2's cursor must carry the name with its quote doubled"
+    assert [o.name for o in objects] == expected
+    # Quote doubled and backslash doubled, in that order.
+    assert "FROM 'w_it''s_a\\\\_name'" in connection.show_queries(kind)[1], (
+        f"page 2's cursor must carry the escaped name; got {connection.show_queries(kind)[1]!r}"
     )
 
 
@@ -500,6 +534,11 @@ def test_dynamic_table_fallback_skips_schemas_without_dynamic_tables():
     per_schema = [
         q for q in connection.show_queries(DYNAMIC_TABLES) if "IN SCHEMA" in q
     ]
+    # The negative alone is vacuously true if the fallback visits nothing at all, so pin
+    # the positive too: the schema that does need definitions must be queried.
+    assert any("SCHEMA_B" in q for q in per_schema), (
+        f"the schema holding a dynamic table was not queried: {per_schema}"
+    )
     assert all("SCHEMA_NO_DT" not in q for q in per_schema), (
         f"queried a schema with no dynamic tables: {per_schema}"
     )
