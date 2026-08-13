@@ -544,27 +544,9 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-                    WITH query_txt AS (
-                        SELECT
-                            query,
-                            userid,
-                            RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
-                                WITHIN GROUP (ORDER BY sequence)) AS querytxt
-                        FROM STL_QUERYTEXT
-                        WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
-                        GROUP BY query, userid
-                    )
-                        select
-                            distinct cluster,
-                            target_schema,
-                            target_table,
-                            username as username,
-                            source_schema,
-                            source_table,
-                            querytxt as ddl,
-                            starttime as timestamp
-                        from
-                                (
+                    -- The in-window insert rows are a CTE so the two scans below can be
+                    -- scoped to the query ids that can survive the join on `query`.
+                    WITH target_tables AS (
                             select
                                 distinct tbl as target_table_id,
                                 sti.schema as target_schema,
@@ -579,7 +561,33 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             where starttime >= '{start_time}'
                             and starttime < '{end_time}'
                             and cluster = '{db_name}'
-                                ) as target_tables
+                    ),
+                    query_txt AS (
+                        SELECT
+                            query,
+                            userid,
+                            RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                                WITHIN GROUP (ORDER BY sequence)) AS querytxt
+                        FROM STL_QUERYTEXT
+                        WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                        -- STL_QUERYTEXT has no timestamp column and the window predicate
+                        -- sits on stl_insert, so there is nothing for the optimizer to
+                        -- push down here. Unscoped, this LISTAGG aggregates the whole of
+                        -- the cluster's retained query history regardless of start_time.
+                        AND query IN (SELECT query FROM target_tables)
+                        GROUP BY query, userid
+                    )
+                        select
+                            distinct cluster,
+                            target_schema,
+                            target_table,
+                            username as username,
+                            source_schema,
+                            source_table,
+                            querytxt as ddl,
+                            starttime as timestamp
+                        from
+                                target_tables
                         join ( (
                             select
                                 sui.usename as username,
@@ -598,6 +606,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                                     type as scan_type
                                 from
                                     stl_scan
+                                where query IN (SELECT query FROM target_tables)
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
@@ -658,7 +667,15 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """\
-with query_txt as (
+with target_queries as (
+    select distinct query
+    from
+        stl_insert
+    where
+        starttime >= '{start_time}'
+        and starttime < '{end_time}'
+),
+query_txt as (
     select
         query,
         pid,
@@ -674,6 +691,10 @@ with query_txt as (
             STL_QUERYTEXT
         where
             sequence < {_QUERY_SEQUENCE_LIMIT}
+            -- Scope to the window, or this LISTAGG aggregates the cluster's entire
+            -- retained query history: STL_QUERYTEXT has no timestamp column, so the
+            -- stl_insert window predicate below cannot be pushed down into it.
+            and query in (select query from target_queries)
         order by
             sequence
     )
@@ -860,7 +881,17 @@ where
         # RedshiftDataDictionary.get_query_result, so config/catalog-derived
         # values never enter the SQL string. Order: start_time, end_time, database.
         return """
-            WITH query_txt AS (
+            -- The in-window statements are a CTE so the STL_QUERYTEXT scan below can be
+            -- scoped to them while the bound parameters stay at three, in caller order.
+            WITH in_window_queries AS (
+                SELECT sq.query, sq.pid, sq.userid, sq.starttime
+                FROM stl_query sq
+                WHERE sq.starttime >= %s
+                AND sq.starttime < %s
+                AND sq.database = %s
+                AND sq.aborted = 0
+            ),
+            query_txt AS (
                 SELECT
                     query,
                     pid,
@@ -870,6 +901,10 @@ where
                     SELECT query, pid, text, sequence
                     FROM STL_QUERYTEXT
                     WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                    -- Scope to the window, or this LISTAGG aggregates the cluster's
+                    -- entire retained query history: STL_QUERYTEXT has no timestamp
+                    -- column, so the stl_query window predicate cannot reach it.
+                    AND query IN (SELECT query FROM in_window_queries)
                     ORDER BY sequence
                 )
                 GROUP BY query, pid
@@ -880,14 +915,10 @@ where
                 sui.usename AS username,
                 q.starttime AS starttime,
                 q.pid AS session_id
-            FROM stl_query q
+            FROM in_window_queries q
               JOIN query_txt qt ON q.query = qt.query AND q.pid = qt.pid
               LEFT JOIN svl_user_info sui ON q.userid = sui.usesysid
-            WHERE q.starttime >= %s
-            AND q.starttime < %s
-            AND q.aborted = 0
-            AND q.database = %s
-            AND (sui.usename IS NULL OR sui.usename <> 'rdsdb')
+            WHERE (sui.usename IS NULL OR sui.usename <> 'rdsdb')
             ORDER BY q.starttime
         """.format(
             _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
@@ -1042,6 +1073,11 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         PARTITION BY query_id, sequence
                         ) as rn
                     FROM SYS_QUERY_TEXT
+                    -- The join to the time-filtered `queries` CTE cannot bound this
+                    -- ROW_NUMBER() window, so scope it to the same query ids -- exactly
+                    -- those that survive that join -- rather than de-duplicating all of
+                    -- SYS_QUERY_TEXT.
+                    WHERE query_id IN (SELECT query_id FROM queries)
                     )
                 WHERE rn = 1
             ),

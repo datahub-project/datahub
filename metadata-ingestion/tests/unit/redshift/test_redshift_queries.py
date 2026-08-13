@@ -103,7 +103,7 @@ class TestProvisionedQueries:
         sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
             db_name="test_db", start_time=START_TIME, end_time=END_TIME
         )
-        assert "WITH query_txt AS" in sql
+        assert "query_txt AS" in sql
         assert "STL_QUERYTEXT" in sql
         # Should join query_txt CTE (not stl_query table) for querytxt
         assert "join query_txt sq" in sql.lower()
@@ -133,9 +133,9 @@ class TestProvisionedQueries:
         assert "stl_scan" not in sql.lower()
         # Time window and database are bound as parameters (%s), not interpolated,
         # so config/catalog values never enter the SQL string.
-        assert "q.database = %s" in sql
-        assert "q.starttime >= %s" in sql
-        assert "q.starttime < %s" in sql
+        assert "sq.database = %s" in sql
+        assert "sq.starttime >= %s" in sql
+        assert "sq.starttime < %s" in sql
         assert sql.count("%s") == 3
         # Internal Redshift user must be excluded to avoid usage noise.
         assert "rdsdb" in sql
@@ -193,6 +193,56 @@ class TestServerlessQueries:
             # Should not have bare LISTAGG without RTRIM wrapper
             assert 'LISTAGG(qt."text")' not in sql
             assert "LEN(RTRIM(querytxt)) = 0" not in sql
+
+
+class TestQueryTextScopedToWindow:
+    """The query-text sources carry no timestamp of their own (STL_QUERYTEXT has only
+    userid/xid/pid/query/sequence/text), and the window predicate sits on a different
+    table in the outer query -- stl_insert, stl_query or SYS_QUERY_DETAIL. So there is
+    nothing for the optimizer to push into the aggregating query-text CTE: it must
+    restrict its own scan to the query ids the time-filtered driving set already
+    selected. Otherwise LISTAGG aggregates the cluster's whole retained query history
+    on every run, and the query times out on busy clusters no matter how small
+    start_time makes the window."""
+
+    def test_provisioned_stl_scan_lineage_scopes_query_text_and_scan(self):
+        sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        # The in-window insert rows move into a named CTE so both STL_QUERYTEXT and
+        # stl_scan -- neither of which was bounded before -- can be scoped to it.
+        assert "WITH target_tables AS" in sql
+        assert "starttime >= '2024-01-01 12:00:00'" in sql
+        assert sql.lower().count("query in (select query from target_tables)") == 2
+
+    def test_provisioned_insert_create_scopes_query_text(self):
+        sql = RedshiftProvisionedQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert "with target_queries as" in sql.lower()
+        assert "query in (select query from target_queries)" in sql.lower()
+
+    def test_provisioned_list_all_queries_scopes_query_text(self):
+        sql = RedshiftProvisionedQuery.list_all_queries_sql()
+        assert "in_window_queries" in sql
+        assert "query IN (SELECT query FROM in_window_queries)" in sql
+        # The window and database stay bound as three positional parameters in the
+        # caller's order (start_time, end_time, database) -- reordering them would
+        # silently bind the database name into a timestamp comparison.
+        assert sql.count("%s") == 3
+        assert (
+            sql.index("sq.starttime >= %s")
+            < sql.index("sq.starttime < %s")
+            < sql.index("sq.database = %s")
+        )
+
+    def test_serverless_stl_scan_lineage_scopes_query_text(self):
+        sql = RedshiftServerlessQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        # SYS_QUERY_TEXT is de-duplicated with a ROW_NUMBER() window, which the outer
+        # join to the time-filtered `queries` CTE cannot bound.
+        assert "query_id IN (SELECT query_id FROM queries)" in sql
 
 
 def _assert_no_inner_join_on(sql: str, view: str) -> None:
