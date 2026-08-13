@@ -155,16 +155,21 @@ class ConfluentStreamCatalogClient:
             )
             return None
 
+        # The Stream Catalog is opt-in supplementary metadata, so a response the
+        # source cannot use is a warning, not a run-failing error: Confluent can
+        # reshape the GraphQL response (this PR already saw clusterId become
+        # logical_cluster_id) or a proxy can wrap a 200 around an error envelope,
+        # and a large Kafka ingestion must not be marked failed because of it.
         data = payload.get(DATA_KEY)
         if not isinstance(data, dict):
-            self.report.failure(
+            self.report.warning(
                 message="The Confluent Stream Catalog response is missing a data object",
                 context=context,
             )
             return None
 
         if root_key not in data:
-            self.report.failure(
+            self.report.warning(
                 message="The Confluent Stream Catalog response is missing the queried field",
                 context=f"{context}, fields_returned={sorted(data)}",
             )
@@ -172,7 +177,7 @@ class ConfluentStreamCatalogClient:
 
         entities = data.get(root_key)
         if not isinstance(entities, list):
-            self.report.failure(
+            self.report.warning(
                 message="The Confluent Stream Catalog response field is not a list",
                 context=f"{context}, field={root_key}",
             )

@@ -228,7 +228,7 @@ class TestTopicLookup:
         assert report.catalog_topics_indexed == 0
         assert len(report.warnings) == 1
 
-    def test_case_variant_topic_names_block_insensitive_lookup(self) -> None:
+    def test_case_variant_topic_names_are_indexed_separately(self) -> None:
         report = KafkaSourceReport()
         catalog = make_catalog(
             [
@@ -242,10 +242,7 @@ class TestTopicLookup:
         assert catalog.get_topic("orders") is not None
         assert catalog.get_topic("ORDERS") is None
         assert report.catalog_topics_indexed == 2
-        assert any(
-            "Case-insensitive Stream Catalog lookup is disabled" in warning.message
-            for warning in report.warnings
-        )
+        assert not report.warnings
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)

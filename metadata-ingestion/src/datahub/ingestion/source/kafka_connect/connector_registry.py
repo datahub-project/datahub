@@ -5,7 +5,7 @@ This module provides a clean separation between common utilities and connector i
 """
 
 import logging
-from typing import TYPE_CHECKING, ClassVar, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -292,10 +292,6 @@ class ConnectorRegistry:
 
 class _GenericConnector(BaseConnector):
     """Simple connector for handling generic configurations."""
-
-    # Generic source connectors should remain connector-scoped and not consume
-    # cluster-wide topic lists.
-    needs_cluster_topics: ClassVar[bool] = False
 
     def __init__(
         self,

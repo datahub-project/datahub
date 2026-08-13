@@ -26,6 +26,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 
 class SchemaResolutionFallback(ConfigModel):
@@ -180,9 +181,20 @@ class KafkaSourceConfig(
         if isinstance(basic_auth, str) and ":" in basic_auth:
             key, _, secret = basic_auth.partition(":")
             if not catalog.api_key:
-                catalog.api_key = key
+                catalog.api_key = SecretStr(key)
             if not catalog.api_secret:
                 catalog.api_secret = SecretStr(secret)
+            # _register_secret_fields is itself a mode="after" validator and has
+            # already run by the time this one assigns the inherited credentials,
+            # so secrets set here are never collected for redaction unless we
+            # register them ourselves.
+            if is_masking_enabled():
+                SecretRegistry.get_instance().register_secrets_batch(
+                    {
+                        "confluent_catalog.api_key": key,
+                        "confluent_catalog.api_secret": secret,
+                    }
+                )
 
         catalog.validate_connection()
         return self

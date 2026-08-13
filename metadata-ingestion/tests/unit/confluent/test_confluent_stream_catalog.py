@@ -242,35 +242,35 @@ class TestConfluentStreamCatalogClient:
         assert [entity.name for entity in entities] == ["orders"]
         assert len(client.report.warnings) == 1
 
-    def test_missing_data_key_is_a_failure(self) -> None:
+    def test_missing_data_key_is_a_warning(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {}
         client = make_client([response])
 
         assert fetch(client) == []
-        assert len(client.report.failures) == 1
-        assert not client.report.warnings
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
-    def test_non_list_entity_field_is_a_failure(self) -> None:
+    def test_non_list_entity_field_is_a_warning(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"data": {"kafka_topic": {"name": "orders"}}}
         client = make_client([response])
 
         assert fetch(client) == []
-        assert len(client.report.failures) == 1
-        assert not client.report.warnings
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
-    def test_missing_queried_field_is_a_failure(self) -> None:
+    def test_missing_queried_field_is_a_warning(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"data": {"some_other_entity": []}}
         client = make_client([response])
 
         assert fetch(client) == []
-        assert len(client.report.failures) == 1
-        assert not client.report.warnings
+        assert len(client.report.warnings) == 1
+        assert not client.report.failures
 
     def test_failure_part_way_through_pagination_is_reported_as_partial(self) -> None:
         broken = Mock()
@@ -371,10 +371,11 @@ class TestCatalogEntityHelpers:
         assert entity.duplicate_business_metadata_names() == []
         assert entity.properties_from_business_metadata() == {"owner": "alice"}
 
-    def test_lookup_tolerates_case_differences(self) -> None:
+    def test_exact_lookup_does_not_fall_back_to_case_insensitive(self) -> None:
         index = index_by_name([SampleEntity(name="Orders")])
 
-        assert index.get("orders") is not None
+        assert index.get("Orders") is not None
+        assert index.get("orders") is None
         assert index.get("payments") is None
 
     def test_repeated_names_are_held_back_as_ambiguous(self) -> None:
@@ -387,38 +388,8 @@ class TestCatalogEntityHelpers:
         )
 
         assert index.get("orders") is None
-        assert index.get("ORDERS") is None
         assert sorted(index.ambiguous) == ["orders"]
         assert index.get("payments") is not None
-
-    def test_case_variant_names_stay_exact_but_block_insensitive_lookup(self) -> None:
-        index = index_by_name(
-            [
-                SampleEntity(name="Orders", logical_cluster_id="lkc-1"),
-                SampleEntity(name="orders", logical_cluster_id="lkc-2"),
-            ]
-        )
-
-        assert index.get("Orders") is not None
-        assert index.get("orders") is not None
-        assert index.get("ORDERS") is None
-        assert sorted(index.case_ambiguous) == ["orders"]
-        assert index.ambiguous == {}
-
-    def test_exact_duplicates_block_case_insensitive_lookup_of_siblings(self) -> None:
-        index = index_by_name(
-            [
-                SampleEntity(name="Orders", logical_cluster_id="lkc-1"),
-                SampleEntity(name="Orders", logical_cluster_id="lkc-2"),
-                SampleEntity(name="orders", logical_cluster_id="lkc-3"),
-            ]
-        )
-
-        assert index.get("Orders") is None
-        assert index.get("orders") is not None
-        assert index.get("ORDERS") is None
-        assert "Orders" in index.ambiguous
-        assert sorted(index.case_ambiguous) == ["orders"]
 
     def test_empty_names_are_counted(self) -> None:
         index = index_by_name(

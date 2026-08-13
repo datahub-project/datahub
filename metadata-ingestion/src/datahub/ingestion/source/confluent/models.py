@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import (
     Annotated,
     Dict,
@@ -8,7 +8,6 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
-    Set,
     TypeVar,
     Union,
 )
@@ -115,38 +114,21 @@ def non_colliding_business_metadata(
 class NameIndex(Generic[CatalogEntityType]):
     by_name: Dict[str, CatalogEntityType]
     ambiguous: Dict[str, List[CatalogEntityType]]
-    case_ambiguous: Dict[str, List[str]] = field(default_factory=dict)
     empty_name_count: int = 0
-    _by_lowered_name: Dict[str, CatalogEntityType] = field(init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        self._by_lowered_name = {
-            name.lower(): entity
-            for name, entity in self.by_name.items()
-            if name.lower() not in self.case_ambiguous
-        }
 
     def get(self, name: str) -> Optional[CatalogEntityType]:
-        entity = self.by_name.get(name)
-        if entity is not None:
-            return entity
-        return self._by_lowered_name.get(name.lower())
+        # Exact match only. Kafka topic names and Connect connector names are both
+        # case-sensitive, so a case-insensitive fallback would only ever fire on
+        # genuinely different objects and could attach one entity's governance
+        # metadata to another (e.g. a deleted connector's catalog entity resolving
+        # for a live one with a different casing).
+        return self.by_name.get(name)
 
     def report_issues(self, report: SourceReport, entity_label: str) -> None:
         if self.empty_name_count:
             report.warning(
                 message="Skipped Stream Catalog entities that had an empty name",
                 context=f"entity={entity_label}, count={self.empty_name_count}",
-            )
-        for lowered, variants in self.case_ambiguous.items():
-            report.warning(
-                message=(
-                    "Case-insensitive Stream Catalog lookup is disabled for a name that "
-                    "matches more than one catalog entity; exact-case lookups still work"
-                ),
-                context=(
-                    f"entity={entity_label}, name={lowered}, variants={sorted(variants)}"
-                ),
             )
 
 
@@ -170,20 +152,8 @@ def index_by_name(
         name: candidates for name, candidates in grouped.items() if len(candidates) > 1
     }
 
-    # Distinct casings under one lowered key — including ambiguous exact-names —
-    # so a unique sibling cannot win case-insensitive get() for a duplicate.
-    exact_names_by_lowered: Dict[str, Set[str]] = defaultdict(set)
-    for name in grouped:
-        exact_names_by_lowered[name.lower()].add(name)
-    case_ambiguous = {
-        lowered: sorted(exact_names)
-        for lowered, exact_names in exact_names_by_lowered.items()
-        if len(exact_names) >= 2
-    }
-
     return NameIndex(
         by_name=by_name,
         ambiguous=ambiguous,
-        case_ambiguous=case_ambiguous,
         empty_name_count=empty_name_count,
     )

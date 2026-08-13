@@ -25,7 +25,7 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         description="Schema Registry endpoint, e.g. `https://psrc-xxxxx.us-east-1.aws.confluent.cloud`. "
         f"The Stream Catalog GraphQL endpoint is derived as `<this>{CATALOG_GRAPHQL_PATH}`.",
     )
-    api_key: Optional[str] = Field(
+    api_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Schema Registry API key, used for Basic authentication against the Stream Catalog.",
     )
@@ -115,8 +115,8 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         return f"{self.schema_registry_url}{CATALOG_GRAPHQL_PATH}"
 
     def get_credentials(self) -> Tuple[str, str]:
-        if not self.api_key or self.api_secret is None:
+        if self.api_key is None or self.api_secret is None:
             raise ValueError(
                 "api_key and api_secret are required when the Stream Catalog is enabled"
             )
-        return self.api_key, self.api_secret.get_secret_value()
+        return self.api_key.get_secret_value(), self.api_secret.get_secret_value()

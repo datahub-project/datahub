@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
+from requests.adapters import HTTPAdapter
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -26,6 +27,10 @@ from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
     LINEAGE_SOURCE_PROPERTY,
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    BigQuerySinkConnector,
+    ConfluentS3SinkConnector,
+)
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
@@ -219,10 +224,11 @@ class TestConnectorCatalog:
         assert connector is not None
         assert connector.get_topic_names() == ["orders", "payments"]
 
-    def test_lookup_tolerates_case_differences(self) -> None:
+    def test_lookup_is_case_sensitive(self) -> None:
         catalog = make_catalog([{"name": "Source_Postgres_01"}])
 
-        assert catalog.get_connector("source_postgres_01") is not None
+        assert catalog.get_connector("Source_Postgres_01") is not None
+        assert catalog.get_connector("source_postgres_01") is None
 
     def test_repeated_connector_name_is_skipped_and_reported(self) -> None:
         catalog = make_catalog(
@@ -236,7 +242,7 @@ class TestConnectorCatalog:
         assert catalog.report.catalog_connectors_indexed == 0
         assert len(catalog.report.warnings) == 1
 
-    def test_case_variant_connector_names_block_insensitive_lookup(self) -> None:
+    def test_case_variant_connector_names_are_indexed_separately(self) -> None:
         catalog = make_catalog(
             [
                 {"name": "Source_Postgres_01", "topics": [{"name": "orders"}]},
@@ -248,10 +254,7 @@ class TestConnectorCatalog:
         assert catalog.get_connector("source_postgres_01") is not None
         assert catalog.get_connector("SOURCE_POSTGRES_01") is None
         assert catalog.report.catalog_connectors_indexed == 2
-        assert any(
-            "Case-insensitive Stream Catalog lookup is disabled" in warning.message
-            for warning in catalog.report.warnings
-        )
+        assert not catalog.report.warnings
 
     def test_connectors_are_fetched_once_per_run(self) -> None:
         catalog = make_catalog([{"name": "c1"}])
@@ -582,6 +585,10 @@ class TestCatalogLineage:
         assert manifest.lineages == []
         assert any(
             "not present on the live Kafka cluster" in warning.message
+            for warning in source.report.warnings
+        )
+        assert any(
+            "Dropping all lineage for a connector" in warning.message
             for warning in source.report.warnings
         )
         assert list(source.report.catalog_lineage_fallbacks) == []
@@ -946,8 +953,6 @@ class TestParseConfluentCloudInfo:
 
 class TestKafkaSessionRetryAdapter:
     def test_kafka_session_mounts_retry_adapter(self) -> None:
-        from requests.adapters import HTTPAdapter
-
         source = make_cloud_source()
         https_adapter = source.kafka_session.get_adapter("https://example.com")
         assert isinstance(https_adapter, HTTPAdapter)
@@ -988,10 +993,6 @@ class TestKafkaSessionRetryAdapter:
 
 class TestSinkAvailableTopicsMigration:
     def test_s3_regex_expands_against_cluster_topics_on_cloud(self) -> None:
-        from datahub.ingestion.source.kafka_connect.sink_connectors import (
-            ConfluentS3SinkConnector,
-        )
-
         manifest = make_manifest(
             name="s3-sink",
             connector_type="sink",
@@ -1010,10 +1011,6 @@ class TestSinkAvailableTopicsMigration:
         assert sorted(connector.get_topics_from_config()) == ["orders", "orders_dlq"]
 
     def test_empty_regex_match_does_not_fall_back_to_all_cluster_topics(self) -> None:
-        from datahub.ingestion.source.kafka_connect.sink_connectors import (
-            ConfluentS3SinkConnector,
-        )
-
         manifest = make_manifest(
             name="s3-sink",
             connector_type="sink",
@@ -1040,10 +1037,6 @@ class TestSinkAvailableTopicsMigration:
     def test_bigquery_lineage_uses_available_topics_not_empty_topic_names(
         self,
     ) -> None:
-        from datahub.ingestion.source.kafka_connect.sink_connectors import (
-            BigQuerySinkConnector,
-        )
-
         manifest = make_manifest(
             name="bq-sink",
             connector_type="sink",

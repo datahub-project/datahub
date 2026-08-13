@@ -322,6 +322,17 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
                 topics = [topic for topic in topics if topic in cluster_topic_set]
             if not topics:
+                # Every catalog topic was absent from the live cluster. Returning
+                # [] (applicable-but-empty) deliberately drops this connector's
+                # config-inferred lineage rather than falling back to it, so the
+                # connector emits no lineage at all — warn with that outcome, since
+                # the per-topic warning above only says topics were ignored.
+                self.report.warning(
+                    message="Dropping all lineage for a connector because none of its "
+                    "Stream Catalog topics are present on the live Kafka cluster; its "
+                    "config-inferred lineage is not used as a fallback",
+                    context=f"connector={connector_manifest.name}",
+                )
                 return []
 
         self.report.catalog_lineage_connectors += 1

@@ -23,6 +23,25 @@ def log_request_info():
 
 OFFSET_ARGUMENT_RE = re.compile(r"offset:\s*(\d+)")
 LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
+IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+# The live catalog fails the whole query on a single unknown field (clusterId
+# already took out the entire cn_connector query in production), so the stub must
+# reject anything outside the set Confluent actually exposes — otherwise adding a
+# field to the query passes here but 400s in production.
+CONNECTOR_QUERY_KNOWN_FIELDS = frozenset(
+    {
+        "cn_connector",
+        "name",
+        "qualifiedName",
+        "tags",
+        "business_metadata",
+        "value",
+        "topics",
+        "limit",
+        "offset",
+    }
+)
 
 VALID_AUTH = {
     "DEV_CONFLUENT_AUTH": "YWRtaW46YWRtaW4=",  # admin:admin in base64
@@ -465,6 +484,20 @@ def catalog_graphql():
         return jsonify(
             {"errors": [{"message": "Invalid syntax in pagination arguments"}]}
         ), 400
+
+    unknown = sorted(
+        token
+        for token in set(IDENTIFIER_RE.findall(query))
+        if token not in CONNECTOR_QUERY_KNOWN_FIELDS
+    )
+    if unknown:
+        return jsonify(
+            {
+                "errors": [
+                    {"message": f"Validation error: Field '{unknown[0]}' is undefined"}
+                ]
+            }
+        )
 
     offset = int(offset_match.group(1))
     limit = int(limit_match.group(1))
