@@ -14,12 +14,20 @@ GUARD = Path(__file__).resolve().parents[1] / "pre-commit" / "guard_push_file_co
 UPSTREAM_CHURN = 501
 
 
-def _git(repo: Path, *args: str) -> str:
+def _isolated_env() -> dict[str, str]:
+    """Ignore the developer's real git config.
+
+    Hooks, signing, commit.template and init.templateDir would otherwise leak
+    into these fixtures.
+    """
     env = dict(os.environ)
-    # Ignore the developer's real git config: hooks, signing and commit.template
-    # would otherwise leak into these fixtures.
     env["GIT_CONFIG_GLOBAL"] = os.devnull
     env["GIT_CONFIG_SYSTEM"] = os.devnull
+    return env
+
+
+def _git(repo: Path, *args: str) -> str:
+    env = _isolated_env()
     result = subprocess.run(
         ("git", "-C", str(repo)) + args,
         env=env,
@@ -51,9 +59,7 @@ def _run_guard(
     from_ref: str | None = None,
     max_files: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    env = dict(os.environ)
-    env["GIT_CONFIG_GLOBAL"] = os.devnull
-    env["GIT_CONFIG_SYSTEM"] = os.devnull
+    env = _isolated_env()
     for stale in ("PRE_COMMIT_FROM_REF", "PRE_COMMIT_TO_REF", "GUARD_PUSH_MAX_FILES"):
         env.pop(stale, None)
     if to_ref is not None:
@@ -99,6 +105,7 @@ def clone(tmp_path: Path, upstream: Path) -> Path:
     repo = tmp_path / "clone"
     subprocess.run(
         ("git", "clone", "-q", str(upstream), str(repo)),
+        env=_isolated_env(),
         check=True,
         capture_output=True,
     )
@@ -220,12 +227,29 @@ def test_unresolvable_ref_fails_open(clone: Path) -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_repo_without_remote_refs_fails_open(tmp_path: Path) -> None:
-    """`--not --remotes` has nothing to subtract, so every file would count."""
+def test_fresh_repo_first_push_is_measured(tmp_path: Path) -> None:
+    """A first push whose oldest commit is a root commit still gets counted.
+
+    pre-commit omits both refs there, and this is where an accidental bulk
+    add is most likely, so the guard measures HEAD instead of bailing out.
+    """
     repo = tmp_path / "solo"
     _init(repo)
-    head = _commit_files(repo, [f"f{i}.txt" for i in range(10)], "lots of files")
+    _commit_files(repo, [f"f{i}.txt" for i in range(10)], "initial import")
 
-    result = _run_guard(repo, to_ref=head, from_ref=head, max_files="5")
+    result = _run_guard(repo, max_files="5")
 
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 1
+    assert "10 files (limit 5)" in result.stderr
+
+
+def test_non_integer_limit_falls_back_to_the_default(clone: Path) -> None:
+    """A typo in the advertised escape hatch must not disable the guard."""
+    base = _git(clone, "rev-parse", "origin/main")
+    _git(clone, "checkout", "-qb", "feat")
+    head = _commit_files(clone, [f"f{i}.txt" for i in range(501)], "over the default")
+
+    result = _run_guard(clone, to_ref=head, from_ref=base, max_files="100k")
+
+    assert result.returncode == 1
+    assert "501 files (limit 500)" in result.stderr

@@ -5,25 +5,32 @@
 # installed via `pre-commit install --hook-type pre-push`.
 #
 # pre-commit does not forward git's pre-push stdin ref pairs to hooks; it sets
-# PRE_COMMIT_TO_REF (local/new oid) and PRE_COMMIT_FROM_REF (the oid to diff
-# against). Fail-open on a missing ref: this is an accident guard, not a
-# security control, so an unmeasurable push must never be blocked.
+# PRE_COMMIT_TO_REF (local/new oid), which is the only input used here.
+# PRE_COMMIT_FROM_REF is also exported but deliberately ignored - see the
+# comment on the `git log` below. Fail-open when the push cannot be measured:
+# this is an accident guard, not a security control.
 set -u
 
-MAX_FILES="${GUARD_PUSH_MAX_FILES:-500}"
+# Reject a malformed override rather than carrying it into the `-gt` below,
+# where a non-integer makes the test error out and evaluate false, silently
+# disabling the guard for every push.
+case "${GUARD_PUSH_MAX_FILES:-}" in
+  '' | *[!0-9]*) MAX_FILES=500 ;;
+  *) MAX_FILES="${GUARD_PUSH_MAX_FILES}" ;;
+esac
 
 to="${PRE_COMMIT_TO_REF:-}"
 
-# pre-commit omits both refs when it decides to run against all files (pushing
-# a branch that contains a root commit). Nothing reliable to measure.
 if [ -z "$to" ]; then
-  exit 0
-fi
-
-# Without remote-tracking refs, `--not --remotes` below has nothing to subtract
-# and would count every file in the repo's history.
-if [ -z "$(git for-each-ref --count=1 refs/remotes 2>/dev/null)" ]; then
-  exit 0
+  # pre-commit omits both refs when it runs against all files, which happens
+  # when the oldest commit being pushed is a root commit. With no
+  # remote-tracking refs at all that is a fresh repo's first push - precisely
+  # where an accidental bulk add is most likely - so measure HEAD rather than
+  # waving it through. Otherwise there is no reliable range to measure.
+  if [ -n "$(git for-each-ref --count=1 refs/remotes 2>/dev/null)" ]; then
+    exit 0
+  fi
+  to=HEAD
 fi
 
 # Count files touched by commits that are not yet on any remote.
