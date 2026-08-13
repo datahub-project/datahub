@@ -33,9 +33,8 @@ Core metadata is stored in the `metricInfo` aspect:
   a `Dialect` enum value with the raw SQL string.
 
 - **`semanticModel`** — optional URN of the owning SemanticModel. Authoritative membership
-  pointer (`ModeledBy`, non-lineage). Search-indexed as `semanticModel` / `hasSemanticModel`.
-  Metrics ingested without a semantic model (e.g. thin catalog-only metrics from BI tools)
-  leave this unset.
+  pointer. Search-indexed as `semanticModel` / `hasSemanticModel`. Metrics ingested without a semantic model (e.g. thin
+  catalog-only metrics from BI tools) leave this unset.
 
 ### AI Context
 

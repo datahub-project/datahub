@@ -233,7 +233,7 @@ class SnowflakeSemanticModelMapper:
         schema_name: str,
         db_name: str,
     ) -> "Dict[str, str]":
-        # Preserve declaration order so SemanticModelInfo.datasets is stable
+        # Preserve declaration order so logical-dataset URN maps stay stable
         # across re-ingestions (dict iteration order == insertion order).
         urns: Dict[str, str] = {}
         for logical_table_upper in semantic_view.logical_to_physical_table:

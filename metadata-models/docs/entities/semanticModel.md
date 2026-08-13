@@ -34,6 +34,13 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   `CREATE SEMANTIC VIEW` DDL, the dbt `semantic_model` YAML, or the Databricks
   `CREATE METRIC VIEW` DDL). Preserved as-is for round-tripping and debugging; not
   parsed by DataHub.
+- **`datasets`** — **deprecated.** Retained so already-ingested aspects remain readable;
+  `@Relationship` / `@Searchable` annotations are stripped so the field no longer writes
+  graph or search edges. New writes must not populate it. Membership is authoritative on
+  each logical dataset's `semanticModelProperties.semanticModel` (`IsPartOf`). Operators
+  upgrading from the earlier metrics-catalog shape should run
+  `datahub migrate semantic-model-container` to backfill metric→dataset lineage
+  (`metricUpstreams.datasetUpstreams`) from stored `datasets` values.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-alias, to-alias, join columns, optional
   name, optional cardinality reusing `ERModelRelationshipCardinality`, and optional per-relationship
@@ -159,6 +166,17 @@ see [Lineage](#lineage) above. Traversal then continues via each logical dataset
 `upstreamLineage` (SemanticModelDataset → Physical Dataset).
 
 ## Notable Exceptions
+
+### Deprecated `semanticModelInfo.datasets`
+
+Earlier metrics-catalog ingestions stored logical-dataset membership on the container in
+`semanticModelInfo.datasets` (with a lineage-flagged `Contains` edge). That field is
+deprecated: it stays in the PDL for stored-data compatibility, but annotations are stripped
+and producers no longer write it. Membership already lives on
+`semanticModelProperties.semanticModel`; run `datahub migrate semantic-model-container` to
+backfill `metricUpstreams.datasetUpstreams` from stored `datasets`. GraphQL
+`SemanticModelInfo.datasets` is likewise deprecated and returns empty — use
+`SemanticModel.entities` instead.
 
 ### SemanticModelRelationship vs common Relationship
 

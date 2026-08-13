@@ -2,6 +2,7 @@ namespace com.linkedin.semanticmodel
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
 
 /**
  * Core information about a SemanticModel entity.
@@ -69,6 +70,13 @@ record SemanticModelInfo includes ExternalReference {
    * the original source; not itself parsed by DataHub.
    */
   nativeDefinition: optional string
+
+  /**
+   * @deprecated Membership is member-side only via
+   * `semanticModelProperties.semanticModel` (IsPartOf).
+   */
+  @deprecated = "Use semanticModelProperties.semanticModel on member datasets. Field retained for backwards-read of already-ingested data; new writes should not populate."
+  datasets: array[Urn] = [ ]
 
   /**
    * Join relationships between the datasets of this semantic model.
