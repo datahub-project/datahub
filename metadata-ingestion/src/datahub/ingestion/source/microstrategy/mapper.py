@@ -1485,11 +1485,7 @@ def _derived_metric_description(derived: DerivedMetricSpec) -> str:
     visualization = (
         derived.source_visualization_name or derived.source_visualization_key
     )
-    return (
-        f"Derived metric defined in {location}visualization '{visualization}'. "
-        "Its formula is local to the visualization and is not exposed by the "
-        "MicroStrategy REST API."
-    )
+    return f"Derived metric defined in {location}visualization '{visualization}'."
 
 
 def _column_group_json_props(
