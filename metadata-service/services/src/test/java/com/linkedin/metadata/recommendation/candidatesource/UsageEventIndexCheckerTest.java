@@ -15,6 +15,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Map;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.testng.annotations.AfterMethod;
@@ -37,9 +38,9 @@ public class UsageEventIndexCheckerTest {
 
   @AfterMethod
   public void resetCache() throws Exception {
-    Field field = UsageEventIndexChecker.class.getDeclaredField("USAGE_INDEX_EXISTS");
+    Field field = UsageEventIndexChecker.class.getDeclaredField("USAGE_INDEX_EXISTS_CACHE");
     field.setAccessible(true);
-    field.set(null, null);
+    ((Map<?, ?>) field.get(null)).clear();
   }
 
   @Test
