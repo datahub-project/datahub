@@ -63,7 +63,7 @@ public class UpdateDocumentStatusResolverTest {
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             eq(com.linkedin.knowledge.DocumentState.PUBLISHED),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -107,7 +107,7 @@ public class UpdateDocumentStatusResolverTest {
             any(Urn.class),
             any(),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
 
     // Execute and expect exception
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

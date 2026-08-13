@@ -68,7 +68,7 @@ public class UpdateDocumentSettingsResolverTest {
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(expectedSettings),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -99,7 +99,7 @@ public class UpdateDocumentSettingsResolverTest {
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(expectedSettings),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -143,7 +143,7 @@ public class UpdateDocumentSettingsResolverTest {
             any(Urn.class),
             any(),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
 
     // Execute and expect exception
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

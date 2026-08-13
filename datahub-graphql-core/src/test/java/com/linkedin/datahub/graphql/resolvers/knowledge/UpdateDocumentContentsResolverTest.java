@@ -65,7 +65,7 @@ public class UpdateDocumentContentsResolverTest {
             eq(null),
             eq(null),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -89,7 +89,7 @@ public class UpdateDocumentContentsResolverTest {
             eq("New Title"),
             eq(null),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -127,7 +127,7 @@ public class UpdateDocumentContentsResolverTest {
             any(),
             any(),
             any(),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -146,7 +146,7 @@ public class UpdateDocumentContentsResolverTest {
             any(),
             any(),
             any(),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
 
     CompletionException exception =
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -175,6 +175,6 @@ public class UpdateDocumentContentsResolverTest {
             eq(null),
             eq(java.util.Collections.singletonList("FAQ")),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 }

@@ -63,7 +63,7 @@ public class UpdateDocumentSubTypeResolverTest {
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(TEST_SUB_TYPE),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -107,7 +107,7 @@ public class UpdateDocumentSubTypeResolverTest {
             any(Urn.class),
             any(String.class),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
 
     // Execute and expect exception
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -138,6 +138,6 @@ public class UpdateDocumentSubTypeResolverTest {
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(customType),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 }

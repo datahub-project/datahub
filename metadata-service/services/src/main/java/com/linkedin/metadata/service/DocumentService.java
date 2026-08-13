@@ -39,6 +39,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -79,6 +80,9 @@ public class DocumentService {
       @Nonnull String aspectName,
       @Nonnull com.linkedin.data.template.RecordTemplate aspect,
       @Nonnull SearchIndexMode indexMode) {
+    // Fail fast rather than silently routing a null mode down the ASYNC path — a caller that
+    // didn't choose a mode must not accidentally split the document across two index writers.
+    Objects.requireNonNull(indexMode, "indexMode is required");
     if (indexMode == SearchIndexMode.SYNC) {
       return AspectUtils.buildSynchronousMetadataChangeProposal(urn, aspectName, aspect);
     }

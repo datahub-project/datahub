@@ -63,7 +63,7 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
             any(),
             any(),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -85,7 +85,7 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
             any(),
             eq(null),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -125,7 +125,7 @@ public class UpdateDocumentRelatedEntitiesResolverTest {
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
         .updateDocumentRelatedEntities(
-            any(OperationContext.class), any(), any(), any(), any(), any(SearchIndexMode.class));
+            any(OperationContext.class), any(), any(), any(), any(), eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }

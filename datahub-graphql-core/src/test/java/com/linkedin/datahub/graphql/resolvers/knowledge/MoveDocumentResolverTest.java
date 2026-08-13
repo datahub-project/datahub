@@ -60,7 +60,7 @@ public class MoveDocumentResolverTest {
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             eq(UrnUtils.getUrn(TEST_PARENT_URN)),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -82,7 +82,7 @@ public class MoveDocumentResolverTest {
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             eq(null),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -106,7 +106,7 @@ public class MoveDocumentResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .moveDocument(any(OperationContext.class), any(), any(), any(), any(SearchIndexMode.class));
+        .moveDocument(any(OperationContext.class), any(), any(), any(), eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -118,7 +118,7 @@ public class MoveDocumentResolverTest {
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
     doThrow(new ServiceAuthorizationException("denied"))
         .when(mockService)
-        .moveDocument(any(OperationContext.class), any(), any(), any(), any(SearchIndexMode.class));
+        .moveDocument(any(OperationContext.class), any(), any(), any(), eq(SearchIndexMode.SYNC));
 
     CompletionException exception =
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

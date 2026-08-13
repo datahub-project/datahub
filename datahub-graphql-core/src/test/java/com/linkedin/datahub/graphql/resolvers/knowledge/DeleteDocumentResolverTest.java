@@ -49,7 +49,7 @@ public class DeleteDocumentResolverTest {
         .deleteDocument(
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -73,7 +73,7 @@ public class DeleteDocumentResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .deleteDocument(any(OperationContext.class), any(Urn.class), any(SearchIndexMode.class));
+        .deleteDocument(any(OperationContext.class), any(Urn.class), eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -85,7 +85,7 @@ public class DeleteDocumentResolverTest {
     when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ARTICLE_URN);
     doThrow(new ServiceAuthorizationException("denied"))
         .when(mockService)
-        .deleteDocument(any(OperationContext.class), any(Urn.class), any(SearchIndexMode.class));
+        .deleteDocument(any(OperationContext.class), any(Urn.class), eq(SearchIndexMode.SYNC));
 
     CompletionException exception =
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

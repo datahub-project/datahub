@@ -66,7 +66,7 @@ public class CreateDocumentResolverTest {
             any(), // showInGlobalContext
             any(), // owners
             any(Urn.class),
-            any(SearchIndexMode.class))) // actor
+            eq(SearchIndexMode.SYNC))) // actor
         .thenReturn(TEST_DOCUMENT_URN);
 
     resolver = new CreateDocumentResolver(mockService, mockEntityService);
@@ -104,7 +104,7 @@ public class CreateDocumentResolverTest {
             any(), // showInGlobalContext
             any(), // owners
             any(Urn.class),
-            any(SearchIndexMode.class)); // actor URN
+            eq(SearchIndexMode.SYNC)); // actor URN
 
     verify(mockService, never())
         .setDocumentOwnership(any(), any(), any(), any(), any(SearchIndexMode.class));
@@ -166,7 +166,7 @@ public class CreateDocumentResolverTest {
             any(), // showInGlobalContext
             any(), // owners
             any(),
-            any(SearchIndexMode.class)); // actor
+            eq(SearchIndexMode.SYNC)); // actor
   }
 
   @Test
@@ -223,7 +223,7 @@ public class CreateDocumentResolverTest {
             any(),
             argThat(owners -> owners != null && owners.size() == 2),
             any(Urn.class),
-            any(SearchIndexMode.class));
+            eq(SearchIndexMode.SYNC));
     verify(mockService, never())
         .setDocumentOwnership(any(), any(), any(), any(), any(SearchIndexMode.class));
   }
@@ -249,7 +249,7 @@ public class CreateDocumentResolverTest {
             any(), // showInGlobalContext
             any(), // owners
             any(),
-            any(SearchIndexMode.class))) // actor
+            eq(SearchIndexMode.SYNC))) // actor
         .thenThrow(new RuntimeException("Service error"));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -275,7 +275,7 @@ public class CreateDocumentResolverTest {
             any(),
             any(),
             any(),
-            any(SearchIndexMode.class)))
+            eq(SearchIndexMode.SYNC)))
         .thenThrow(new ServiceAuthorizationException("denied"));
 
     CompletionException exception =
