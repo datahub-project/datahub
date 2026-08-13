@@ -2462,7 +2462,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 SnowflakeQuery.get_dynamic_table_graph_history(db_name)
             )
             for row in cur:
-                dt_name = row["NAME"]
+                # Keyed by the fully qualified name because that is how
+                # _map_show_dynamic_table looks it up. Keying on the bare NAME silently
+                # dropped every dynamic table's upstream lineage and its fallback target
+                # lag - the lookup simply never hit.
+                dt_name = f"{db_name}.{row['SCHEMA_NAME']}.{row['NAME']}"
                 dt_graph_info[dt_name] = {
                     "inputs": row.get("INPUTS"),
                     "target_lag_type": row.get("TARGET_LAG_TYPE"),

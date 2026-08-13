@@ -578,6 +578,59 @@ def test_dynamic_table_fallback_skips_schemas_without_dynamic_tables():
     )
 
 
+class GraphHistoryConnection(FakeShowConnection):
+    """Answers the dynamic-table graph-history query as Snowflake does, so the producer of
+    that mapping and the consumer of it are exercised together - the seam where a key-format
+    mismatch hides when each side is tested alone."""
+
+    def __init__(
+        self,
+        objects: Dict[SnowflakeShowKind, List[Tuple[str, str]]],
+        graph_rows: List[Dict[str, Any]],
+    ) -> None:
+        super().__init__(objects)
+        self._graph_rows = graph_rows
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        if "DYNAMIC_TABLE_GRAPH_HISTORY" in query:
+            self.queries.append(query)
+            return self._graph_rows
+        return super().query(query)
+
+
+def test_dynamic_table_upstreams_come_through_the_graph_history():
+    """The graph history carries a dynamic table's INPUTS, which is where its upstream
+    lineage and its fallback target lag come from. Verified against a live account: the
+    function returns NAME, SCHEMA_NAME and DATABASE_NAME per row."""
+    connection = GraphHistoryConnection(
+        {DYNAMIC_TABLES: [("SCHEMA_A", "dt_a")]},
+        graph_rows=[
+            {
+                "NAME": "dt_a",
+                "SCHEMA_NAME": "SCHEMA_A",
+                "DATABASE_NAME": "TEST_DB",
+                "INPUTS": '[{"kind": "TABLE", "name": "TEST_DB.SCHEMA_A.base"}]',
+                "TARGET_LAG_TYPE": "USER_DEFINED",
+                "TARGET_LAG_SEC": 3600,
+                "SCHEDULING_STATE": None,
+                "ALTER_TRIGGER": None,
+            }
+        ],
+    )
+
+    tables = _make_data_dictionary(connection).get_dynamic_tables_for_schema_using_show(
+        db_name="TEST_DB", schema_name="SCHEMA_A"
+    )
+
+    assert [t.name for t in tables] == ["dt_a"]
+    assert [u.name for u in tables[0].upstream_tables] == ["TEST_DB.SCHEMA_A.base"], (
+        "upstream lineage from the graph history was dropped"
+    )
+    # SHOW already reports a target lag, and it wins; the graph value is only a fallback
+    # for when it doesn't.
+    assert tables[0].target_lag == "1 hour"
+
+
 def test_per_schema_show_dynamic_tables_pages_through_every_table_exactly_once():
     total = SHOW_COMMAND_MAX_PAGE_SIZE + 2000
     connection = FakeShowConnection(

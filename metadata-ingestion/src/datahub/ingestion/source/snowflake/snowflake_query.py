@@ -1640,15 +1640,25 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
+        # schema_name is selected because callers key this data by the fully qualified
+        # name: two schemas in one database may hold dynamic tables of the same name, and
+        # keying on the bare name would cross-wire their inputs.
+        #
+        # valid_to IS NULL keeps only the current version of each graph entry. This is a
+        # *history* function - a live account returned 13 rows for one existing dynamic
+        # table, the rest being versions of dropped ones - so without the filter the row
+        # retained per table is whichever the scan happened to see last.
         return f"""
             SELECT
                 name,
+                schema_name,
                 inputs,
                 target_lag_type,
                 target_lag_sec,
                 scheduling_state,
                 alter_trigger
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            WHERE valid_to IS NULL
             ORDER BY name
         """
 

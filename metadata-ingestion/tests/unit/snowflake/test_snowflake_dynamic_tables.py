@@ -31,7 +31,12 @@ def test_get_dynamic_table_graph_info(mock_snowflake_data_dictionary):
     mock_cursor = MagicMock()
     mock_cursor.__iter__.return_value = [
         {
-            "NAME": "TEST_DB.PUBLIC.DYNAMIC_TABLE1",
+            # DYNAMIC_TABLE_GRAPH_HISTORY() reports NAME unqualified, with SCHEMA_NAME and
+            # DATABASE_NAME as separate columns - verified against a live account. The
+            # earlier fixture put a qualified name in NAME, which made a lookup keyed on
+            # the fully qualified name appear to work when it never did.
+            "NAME": "DYNAMIC_TABLE1",
+            "SCHEMA_NAME": "PUBLIC",
             "INPUTS": [{"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}],
             "TARGET_LAG_TYPE": "INTERVAL",
             "TARGET_LAG_SEC": 60,
@@ -496,7 +501,8 @@ def test_dynamic_table_invalid_response_handling(mock_snowflake_data_dictionary)
     mock_cursor = MagicMock()
     mock_cursor.__iter__.return_value = [
         {
-            "NAME": "TEST_DB.PUBLIC.DYNAMIC_TABLE1",
+            "NAME": "DYNAMIC_TABLE1",
+            "SCHEMA_NAME": "PUBLIC",
             # Missing other required fields
         }
     ]
