@@ -16,7 +16,10 @@ function DataProviderComponent() {
     "DataHub Integrations",
     `Connect to ${Math.floor(metadata.length / 10) * 10}+ data and AI systems`,
     false,
-    true
+    true,
+    false,
+    "DataHub Connector Directory: 140+ Integrations",
+    "Find every system DataHub integrates with. Browse 140+ DataHub connectors across databases, BI tools, ETL, AI/ML systems, and more."
   );
 }
 
