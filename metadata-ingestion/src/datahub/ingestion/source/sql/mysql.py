@@ -539,6 +539,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     )
                     for table_name, _table_rows, _data_length in rows
                 ]
+            # get_table_names can also raise (e.g. on a proxy that rejects the call), so
+            # keep it inside the try so a failure takes the same fail-open path as the query.
+            table_names = inspector.get_table_names(schema)
         except Exception as e:
             # Degrade to no candidate filter rather than aborting profiling for the whole
             # run; is_dataset_eligible_for_profiling falls back to the no-filter path.
@@ -551,23 +554,19 @@ class MySQLSource(TwoTierSQLAlchemySource):
             return None
 
         # An empty candidate list drops every profile in the schema (the list is additive).
-        # Warn when the schema actually has tables so the operator knows profiles are being
-        # dropped — either every table genuinely exceeds the configured limits, or
-        # information_schema is not returning them (restricted grants, a rewriting proxy,
-        # or a Doris external catalog whose session sits in a different catalog than
-        # table_schema).
-        if not candidates:
-            if inspector.get_table_names(schema):
-                self.report.warning(
-                    title="No tables passed the row/size guardrail",
-                    message=(
-                        "Profiling will be skipped for every table in this schema. Either "
-                        "every table exceeds the configured row/size limits, or "
-                        "information_schema is not returning them (restricted grants, a "
-                        "rewriting proxy, or a catalog mismatch)."
-                    ),
-                    context=f"Schema: {schema}",
-                )
+        # Emit at info level: nothing is wrong on this path — every table may legitimately
+        # exceed the configured limits — and a warning would break --strict-warnings runs.
+        if not candidates and table_names:
+            self.report.info(
+                title="No tables passed the row/size guardrail",
+                message=(
+                    "Profiling will be skipped for every table in this schema. Either "
+                    "every table exceeds the configured row/size limits, or "
+                    "information_schema is not returning them (restricted grants, a "
+                    "rewriting proxy, or a catalog mismatch)."
+                ),
+                context=f"Schema: {schema}",
+            )
 
         return candidates
 

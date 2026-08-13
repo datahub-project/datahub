@@ -371,11 +371,11 @@ def test_profile_freshness_warning_reaches_doris_replaced_report() -> None:
     assert "Platform: doris" in kwargs["context"]
 
 
-def test_empty_candidates_warns_when_schema_has_tables() -> None:
+def test_empty_candidates_emits_info_when_schema_has_tables() -> None:
     # An empty candidate list drops every profile in the schema (the list is additive).
-    # When the schema actually has tables, warn so the operator knows profiles are being
-    # dropped — either every table genuinely exceeds the limits, or information_schema
-    # is not returning them.
+    # When the schema actually has tables, emit at info level so the operator knows
+    # profiles are being dropped — either every table genuinely exceeds the limits,
+    # or information_schema is not returning them.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
@@ -396,16 +396,18 @@ def test_empty_candidates_warns_when_schema_has_tables() -> None:
     )
 
     assert result == []
-    warning_calls = source.report.warning.call_args_list
-    titles = [c.kwargs["title"] for c in warning_calls]
+    info_calls = source.report.info.call_args_list
+    titles = [c.kwargs["title"] for c in info_calls]
     assert "No tables passed the row/size guardrail" in titles
-    no_tables_call = next(c for c in warning_calls if "No tables" in c.kwargs["title"])
+    no_tables_call = next(c for c in info_calls if "No tables" in c.kwargs["title"])
     assert "Schema: my_db" in no_tables_call.kwargs["context"]
+    # A warning on this path would break --strict-warnings runs.
+    assert not source.report.warning.called
 
 
-def test_empty_candidates_no_warn_when_schema_has_no_tables() -> None:
+def test_empty_candidates_no_info_when_schema_has_no_tables() -> None:
     # If the schema genuinely has no tables, an empty candidate list is correct — no
-    # warning. Avoids noise on an empty schema.
+    # info entry. Avoids noise on an empty schema.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
@@ -426,5 +428,5 @@ def test_empty_candidates_no_warn_when_schema_has_no_tables() -> None:
     )
 
     assert result == []
-    titles = [c.kwargs["title"] for c in source.report.warning.call_args_list]
+    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]
     assert "No tables passed the row/size guardrail" not in titles
