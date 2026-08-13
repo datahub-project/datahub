@@ -181,7 +181,8 @@ public final class TimeseriesFilterSqlBuilder {
             new Criterion()
                 .setField(alt)
                 .setCondition(criterion.getCondition())
-                .setNegated(criterion.isNegated())
+                // Negation is applied once around the OR of alternates (ES expand semantics).
+                .setNegated(false)
                 .setValues(criterion.getValues());
         // Match ES: expanded alts are single-field predicates (no recursive expansion).
         ors.add(
@@ -191,7 +192,7 @@ public final class TimeseriesFilterSqlBuilder {
                 searchableFieldTypes,
                 opContext,
                 params,
-                alreadyNegated,
+                /* alreadyNegated= */ false,
                 /* expandFields= */ false));
       }
       String combined =
@@ -206,12 +207,13 @@ public final class TimeseriesFilterSqlBuilder {
     Condition condition = criterion.getCondition();
     if (condition == Condition.IS_NULL) {
       String path = jsonTextPathExprWithParams(fieldName, params);
-      String exists = "(" + path + " IS NULL OR " + path + " = '')";
+      // ES exists/missing is path presence only; empty string is present.
+      String exists = "(" + path + " IS NULL)";
       return negated ? "NOT " + exists : exists;
     }
     if (condition == Condition.EXISTS) {
       String path = jsonTextPathExprWithParams(fieldName, params);
-      String ex = "(" + path + " IS NOT NULL AND " + path + " <> '')";
+      String ex = "(" + path + " IS NOT NULL)";
       return negated ? "NOT (" + ex + ")" : ex;
     }
 
@@ -468,13 +470,22 @@ public final class TimeseriesFilterSqlBuilder {
       String fieldName, Criterion criterion, List<Object> params, String pre, String post) {
     List<String> ors = new ArrayList<>();
     for (String raw : criterion.getValues()) {
-      String v = pre + ESUtils.escapeReservedCharacters(raw.trim()) + post;
-      ors.add(jsonTextPathExprWithParams(fieldName, params) + " LIKE ? ESCAPE '\\'");
+      // ES CONTAIN/START_WITH/END_WITH are case-insensitive; escape SQL LIKE metacharacters.
+      String v = pre + escapeSqlLikeMetacharacters(raw.trim()) + post;
+      ors.add(jsonTextPathExprWithParams(fieldName, params) + " ILIKE ? ESCAPE '\\'");
       params.add(v);
     }
     return "("
         + String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()))
         + ")";
+  }
+
+  /**
+   * Escapes {@code \}, {@code %}, and {@code _} for PostgreSQL LIKE/ILIKE with {@code ESCAPE '\'}.
+   */
+  @Nonnull
+  static String escapeSqlLikeMetacharacters(@Nonnull String value) {
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 
   private static Set<String> resolveElasticFieldTypes(

@@ -59,6 +59,31 @@ public final class PostgresTimeseriesAspectDao {
     }
   }
 
+  /** Deletes the single conflict-key row (entity, aspect, message_id, event_time). */
+  public void deleteByMessageIdAndEventTime(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String messageId,
+      long timestampMillis)
+      throws SQLException {
+    String table = qualifiedTable();
+    String sql =
+        "DELETE FROM "
+            + table
+            + " WHERE entity_name = ? AND aspect_name = ? AND message_id = ? AND event_time = ?";
+    try (Connection conn = database.dataSource().getConnection()) {
+      conn.setAutoCommit(true);
+      try (PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setString(1, entityName);
+        ps.setString(2, aspectName);
+        ps.setString(3, messageId);
+        ps.setObject(
+            4, OffsetDateTime.ofInstant(Instant.ofEpochMilli(timestampMillis), ZoneOffset.UTC));
+        ps.executeUpdate();
+      }
+    }
+  }
+
   private static String buildUpsertSql(String qualifiedTable) {
     return "INSERT INTO "
         + qualifiedTable

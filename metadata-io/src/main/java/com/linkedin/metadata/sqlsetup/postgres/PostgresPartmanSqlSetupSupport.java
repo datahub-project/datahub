@@ -92,20 +92,46 @@ public final class PostgresPartmanSqlSetupSupport {
         + "');\n";
   }
 
-  /** Maps intervalSeconds to a pg_cron schedule (minute/hour granularity). */
+  /**
+   * Maps intervalSeconds to a pg_cron schedule (minute/hour/day granularity).
+   *
+   * <p>Only intervals that map cleanly are accepted: multiples of 60 seconds up to 59 minutes,
+   * multiples of 3600 up to 23 hours, or multiples of 86400 up to 31 days. Values below 60 are
+   * treated as 60 seconds ({@code every minute}). Non-representable values (e.g. 90 minutes) throw.
+   */
   @Nonnull
   public static String toPgCronSchedule(int intervalSeconds) {
     int sec = Math.max(60, intervalSeconds);
     if (sec % 86400 == 0) {
       int days = sec / 86400;
-      days = Math.max(1, Math.min(31, days));
+      if (days < 1 || days > 31) {
+        throw new IllegalArgumentException(
+            "intervalSeconds="
+                + intervalSeconds
+                + " day cadence must be between 1 and 31 days inclusive");
+      }
       return days == 1 ? "0 0 * * *" : ("0 0 */" + days + " * *");
     }
     if (sec % 3600 == 0) {
-      int hours = Math.max(1, Math.min(23, sec / 3600));
+      int hours = sec / 3600;
+      if (hours < 1 || hours > 23) {
+        throw new IllegalArgumentException(
+            "intervalSeconds="
+                + intervalSeconds
+                + " hour cadence must be between 1 and 23 hours inclusive");
+      }
       return "0 */" + hours + " * * *";
     }
-    int minutes = Math.max(1, Math.min(59, sec / 60));
-    return "*/" + minutes + " * * * *";
+    if (sec % 60 == 0) {
+      int minutes = sec / 60;
+      if (minutes >= 1 && minutes <= 59) {
+        return "*/" + minutes + " * * * *";
+      }
+    }
+    throw new IllegalArgumentException(
+        "intervalSeconds="
+            + intervalSeconds
+            + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
+            + " 3600 (1–23 h), or 86400 (1–31 d)");
   }
 }

@@ -96,6 +96,7 @@ public class PgTimeseriesEbeanConfigFactory {
     }
 
     Map<String, Database> databasesByUrl = new LinkedHashMap<>();
+    Map<String, PgTimeseriesStoreOptions> storeByUrl = new LinkedHashMap<>();
     Map<String, StoreHandle> handles = new LinkedHashMap<>();
     for (PgTimeseriesStoreOptions store : options.getStores().values()) {
       String url = resolvePoolUrl(store);
@@ -106,18 +107,45 @@ public class PgTimeseriesEbeanConfigFactory {
                 + "' has an empty pool URL (set postgres.pgTimeseries.pool.url or the store's"
                 + " pool.url, or ebean.url)");
       }
-      JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(url.trim());
+      String urlKey = url.trim();
+      JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(urlKey);
       if (info.databaseType != DatabaseType.POSTGRES) {
         throw new IllegalStateException(
             "pgTimeseries store '" + store.getName() + "' pool URL is not PostgreSQL: " + url);
       }
+      PgTimeseriesStoreOptions existing = storeByUrl.putIfAbsent(urlKey, store);
+      if (existing != null && !poolIdentityEquals(existing, store)) {
+        throw new IllegalStateException(
+            "pgTimeseries stores '"
+                + existing.getName()
+                + "' and '"
+                + store.getName()
+                + "' share JDBC URL "
+                + urlKey
+                + " but differ in credentials or pool settings; use distinct URLs or identical"
+                + " pool configuration");
+      }
       Database database =
-          databasesByUrl.computeIfAbsent(url.trim(), u -> createDatabase(store, u, metricUtils));
+          databasesByUrl.computeIfAbsent(urlKey, u -> createDatabase(store, u, metricUtils));
       handles.put(
           store.getName(),
           new StoreHandle(store, database, new PostgresTimeseriesAspectDao(database, store)));
     }
     return new PgTimeseriesStoreRegistry(options, handles);
+  }
+
+  /** Same URL may be reused only when username, password, and pool sizing match. */
+  private static boolean poolIdentityEquals(
+      @Nonnull PgTimeseriesStoreOptions a, @Nonnull PgTimeseriesStoreOptions b) {
+    return java.util.Objects.equals(a.getPoolUsername(), b.getPoolUsername())
+        && java.util.Objects.equals(a.getPoolPassword(), b.getPoolPassword())
+        && java.util.Objects.equals(a.getPoolDriver(), b.getPoolDriver())
+        && a.getPoolMinConnections() == b.getPoolMinConnections()
+        && a.getPoolMaxConnections() == b.getPoolMaxConnections()
+        && a.getPoolMaxInactiveTimeSeconds() == b.getPoolMaxInactiveTimeSeconds()
+        && a.getPoolMaxAgeMinutes() == b.getPoolMaxAgeMinutes()
+        && a.getPoolLeakTimeMinutes() == b.getPoolLeakTimeMinutes()
+        && a.getPoolWaitTimeoutMillis() == b.getPoolWaitTimeoutMillis();
   }
 
   /**
@@ -163,8 +191,14 @@ public class PgTimeseriesEbeanConfigFactory {
         store.getPoolDriver() != null && !store.getPoolDriver().isBlank()
             ? store.getPoolDriver()
             : ebeanDriver;
-    String username = store.getPoolUsername() != null ? store.getPoolUsername() : ebeanUsername;
-    String password = store.getPoolPassword() != null ? store.getPoolPassword() : ebeanPassword;
+    String username =
+        store.getPoolUsername() != null && !store.getPoolUsername().isBlank()
+            ? store.getPoolUsername()
+            : ebeanUsername;
+    String password =
+        store.getPoolPassword() != null && !store.getPoolPassword().isBlank()
+            ? store.getPoolPassword()
+            : ebeanPassword;
 
     CrossCloudIamUtils.CrossCloudConfig crossCloudConfig =
         CrossCloudIamUtils.configureCrossCloudIam(
