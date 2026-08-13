@@ -184,6 +184,7 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Security / Dependencies)** Apache Log4j API/Core bumped from 2.25.4 to **2.25.5** for CVE-2026-49844 (`MapMessage.asJson()` emitting non-RFC-8259 tokens for NaN/Infinity). **Action:** none for operators; rebuild/redeploy picks up the new JARs.
 - **(Security / Dependencies)** Apache Parquet stack (`parquet-avro`, `parquet-hadoop`, `parquet-jackson`) bumped from 1.17.1 to **1.18.0**. `parquet-jackson` shades Jackson under `shaded/parquet/`; 1.18.0 refreshes that shade to jackson-databind **2.22.1**, covering CVE-2026-54512/54513 and related jackson-databind issues that required 2.21.4+. Application-classpath Jackson remains separately pinned. **Action:** none for operators; rebuild/redeploy picks up the new JARs.
 
 - **(Docker / Python deps)** `datahub-actions` default app venv now applies `docker/snippets/ingestion/constraints.txt` via `UV_CONSTRAINT`. Floors include `setuptools>=80.10.1,<82` (CVE-2025-47273), `cryptography>=49.0.0` (CVE-2026-69249), and `msgpack>=1.2.1` (GHSA-6v7p-g79w-8964). Ingestion SDK `cryptography` raised to `>=49.0.0,<51.0.0`. Images also drop `pip/_vendor/bom.cdx.json` so scanners do not treat pip's vendored build-time SBOM pins as installed packages.
