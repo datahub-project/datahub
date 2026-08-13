@@ -58,9 +58,15 @@ def _run_guard(
     to_ref: str | None = None,
     from_ref: str | None = None,
     max_files: str | None = None,
+    local_branch: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = _isolated_env()
-    for stale in ("PRE_COMMIT_FROM_REF", "PRE_COMMIT_TO_REF", "GUARD_PUSH_MAX_FILES"):
+    for stale in (
+        "PRE_COMMIT_FROM_REF",
+        "PRE_COMMIT_TO_REF",
+        "PRE_COMMIT_LOCAL_BRANCH",
+        "GUARD_PUSH_MAX_FILES",
+    ):
         env.pop(stale, None)
     if to_ref is not None:
         env["PRE_COMMIT_TO_REF"] = to_ref
@@ -68,6 +74,8 @@ def _run_guard(
         env["PRE_COMMIT_FROM_REF"] = from_ref
     if max_files is not None:
         env["GUARD_PUSH_MAX_FILES"] = max_files
+    if local_branch is not None:
+        env["PRE_COMMIT_LOCAL_BRANCH"] = local_branch
     return subprocess.run(
         ("bash", str(GUARD)),
         cwd=repo,
@@ -214,11 +222,32 @@ def test_default_limit_is_500(clone: Path) -> None:
     assert "501 files (limit 500)" in result.stderr
 
 
-def test_missing_refs_fail_open(clone: Path) -> None:
-    """pre-commit omits both refs when it runs against all files."""
-    result = _run_guard(clone)
+def test_missing_refs_with_nothing_unpushed_is_allowed(clone: Path) -> None:
+    """pre-commit omits both refs when it runs against all files.
+
+    The fallback measures the local branch, which here matches the remote.
+    """
+    result = _run_guard(clone, max_files="5")
 
     assert result.returncode == 0, result.stderr
+
+
+def test_orphan_branch_push_is_measured(clone: Path) -> None:
+    """A root commit in an established repo omits the refs just as a fresh one does.
+
+    The branch under test is not checked out when the guard runs, so this also
+    pins that the fallback follows PRE_COMMIT_LOCAL_BRANCH rather than HEAD.
+    """
+    _git(clone, "checkout", "-q", "--orphan", "bulk")
+    _git(clone, "rm", "-rq", "--cached", ".")
+    (clone / "base.txt").unlink()
+    _commit_files(clone, [f"o{i}.txt" for i in range(10)], "orphan bulk add")
+    _git(clone, "checkout", "-q", "main")
+
+    result = _run_guard(clone, local_branch="bulk", max_files="5")
+
+    assert result.returncode == 1
+    assert "10 files (limit 5)" in result.stderr
 
 
 def test_unresolvable_ref_fails_open(clone: Path) -> None:
@@ -243,13 +272,18 @@ def test_fresh_repo_first_push_is_measured(tmp_path: Path) -> None:
     assert "10 files (limit 5)" in result.stderr
 
 
-def test_non_integer_limit_falls_back_to_the_default(clone: Path) -> None:
-    """A typo in the advertised escape hatch must not disable the guard."""
+@pytest.mark.parametrize("limit", ["100k", "99999999999999999999", " 100"])
+def test_unusable_limit_falls_back_to_the_default(clone: Path, limit: str) -> None:
+    """A typo in the advertised escape hatch must not disable the guard.
+
+    Non-numeric values and values too large for the shell's arithmetic both
+    make `-gt` error out and evaluate false, which would allow every push.
+    """
     base = _git(clone, "rev-parse", "origin/main")
     _git(clone, "checkout", "-qb", "feat")
     head = _commit_files(clone, [f"f{i}.txt" for i in range(501)], "over the default")
 
-    result = _run_guard(clone, to_ref=head, from_ref=base, max_files="100k")
+    result = _run_guard(clone, to_ref=head, from_ref=base, max_files=limit)
 
     assert result.returncode == 1
     assert "501 files (limit 500)" in result.stderr

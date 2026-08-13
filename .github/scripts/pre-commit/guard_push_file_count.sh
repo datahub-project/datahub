@@ -5,17 +5,17 @@
 # installed via `pre-commit install --hook-type pre-push`.
 #
 # pre-commit does not forward git's pre-push stdin ref pairs to hooks; it sets
-# PRE_COMMIT_TO_REF (local/new oid), which is the only input used here.
-# PRE_COMMIT_FROM_REF is also exported but deliberately ignored - see the
-# comment on the `git log` below. Fail-open when the push cannot be measured:
-# this is an accident guard, not a security control.
+# PRE_COMMIT_TO_REF (local/new oid), plus PRE_COMMIT_LOCAL_BRANCH for the ref
+# being pushed. PRE_COMMIT_FROM_REF is also exported but deliberately ignored -
+# see the comment on the `git log` below.
 set -u
 
-# Reject a malformed override rather than carrying it into the `-gt` below,
-# where a non-integer makes the test error out and evaluate false, silently
-# disabling the guard for every push.
+# Reject a malformed override rather than carrying it into the `-gt` below: a
+# value that is not an integer, or is too large for the shell's arithmetic,
+# makes the test error out and evaluate false, silently disabling the guard for
+# every push. Eight digits is far past any real repo's file count.
 case "${GUARD_PUSH_MAX_FILES:-}" in
-  '' | *[!0-9]*) MAX_FILES=500 ;;
+  '' | *[!0-9]* | ?????????*) MAX_FILES=500 ;;
   *) MAX_FILES="${GUARD_PUSH_MAX_FILES}" ;;
 esac
 
@@ -23,14 +23,12 @@ to="${PRE_COMMIT_TO_REF:-}"
 
 if [ -z "$to" ]; then
   # pre-commit omits both refs when it runs against all files, which happens
-  # when the oldest commit being pushed is a root commit. With no
-  # remote-tracking refs at all that is a fresh repo's first push - precisely
-  # where an accidental bulk add is most likely - so measure HEAD rather than
-  # waving it through. Otherwise there is no reliable range to measure.
-  if [ -n "$(git for-each-ref --count=1 refs/remotes 2>/dev/null)" ]; then
-    exit 0
-  fi
-  to=HEAD
+  # whenever the oldest commit being pushed is a root commit: a fresh repo's
+  # first push, or an orphan branch in an established one. Both are prime
+  # accidental-bulk-add territory, so measure the branch being pushed rather
+  # than waving it through. `--not --remotes` below then subtracts whatever is
+  # already published, which for a fresh repo is nothing.
+  to="${PRE_COMMIT_LOCAL_BRANCH:-HEAD}"
 fi
 
 # Count files touched by commits that are not yet on any remote.
