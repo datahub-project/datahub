@@ -105,7 +105,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 data={genericProperties}
                 previewType={previewType}
                 datasetUrn={data.parent.urn}
-                name={downgradeV2FieldPath(data.fieldPath) || data.urn}
+                name={this.displayName(data)}
                 parent={data?.parent as GenericEntityProperties}
             />
         );
@@ -134,7 +134,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     getLineageVizConfig = (entity: SchemaField): FetchedEntity => {
         const parent =
             entity.parent && globalEntityRegistryV2.getGenericEntityProperties(entity.parent.type, entity.parent);
-        const decodedFieldPath = decodeSchemaField(downgradeV2FieldPath(entity?.fieldPath) || '');
+        const decodedFieldPath = this.displayName(entity);
         return {
             urn: entity.urn,
             type: EntityType.SchemaField,
