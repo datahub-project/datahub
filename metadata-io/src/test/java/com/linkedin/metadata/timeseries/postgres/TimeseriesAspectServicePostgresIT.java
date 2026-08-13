@@ -529,7 +529,16 @@ public class TimeseriesAspectServicePostgresIT {
     List<TestEntityProfile> profiles = stream.limit(3).collect(Collectors.toList());
     Urn urn = new TestEntityUrn("acryl", "testPostgresTimeseriesAspectService", "table2");
     for (TestEntityProfile p : profiles) {
-      upsertAllTransformedDocs(p, urn);
+      Map<String, JsonNode> documents =
+          TimeseriesAspectTransformer.transform(urn, p, aspectSpec, null, "MD5");
+      // Primary and exploded rows share (message_id, event_time) under this aspect; upsert only
+      // non-exploded primaries so getAspectValues (ES-parity) can return all three.
+      documents.forEach(
+          (key, value) -> {
+            if (!value.path(MappingsBuilder.IS_EXPLODED_FIELD).asBoolean(false)) {
+              writeSink.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value);
+            }
+          });
     }
 
     Filter urnFilter =
@@ -880,6 +889,11 @@ public class TimeseriesAspectServicePostgresIT {
             urnFilter,
             new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(50, 60));
     assertNotNull(taskId);
+    try {
+      pgTimeseries.awaitDeleteAspectValuesAsync(taskId, 60);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
     assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
   }
 

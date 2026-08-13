@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.sqlsetup.postgres.PostgresPartmanSqlSetupSupport;
 import com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlMigrationRunner;
 import com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlUtils;
 import com.linkedin.metadata.sqlsetup.postgres.migration.SqlMigrationException;

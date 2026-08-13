@@ -10,8 +10,8 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -20,10 +20,7 @@ public class PostgresTimeseriesAspectServiceConfiguration {
 
   @Bean
   @Nonnull
-  @ConditionalOnProperty(
-      prefix = "timeseriesAspectService",
-      name = "implementation",
-      havingValue = "postgres")
+  @Conditional(TimeseriesPostgresBackendCondition.class)
   public PostgresTimeseriesAspectService postgresTimeseriesAspectService(
       // ObjectProvider avoids an opaque UnsatisfiedDependencyException when the registry bean is
       // absent because postgres.pgTimeseries.enabled=false.

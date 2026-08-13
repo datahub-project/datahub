@@ -57,4 +57,15 @@ public class PgQueueSchemaStepTest {
   public void testToPgCronScheduleRejectsMultiDay() {
     expectThrows(IllegalArgumentException.class, () -> PgQueueSchemaStep.toPgCronSchedule(172800));
   }
+
+  @Test
+  public void testToPgCronScheduleRejectsNonRepresentableInterval() {
+    try {
+      PgQueueSchemaStep.toPgCronSchedule(5400); // 90 minutes
+      throw new AssertionError("expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+      assertEquals(
+          expected.getMessage().contains("cannot be represented"), true, expected.getMessage());
+    }
+  }
 }

@@ -76,7 +76,9 @@ public final class TimeseriesFilterGraphExpansion {
                 DEFAULT_LIMIT));
       case RELATED_INCL:
         {
-          Set<Urn> a =
+          // Match ES Container/DocumentExpansionRewriter: INCOMING from seeds, then OUTGOING
+          // from the descendant set (not only from seeds).
+          Set<Urn> descendants =
               expandUrns(
                   graphRetriever,
                   seeds,
@@ -84,16 +86,14 @@ public final class TimeseriesFilterGraphExpansion {
                   RelationshipDirection.INCOMING,
                   DEFAULT_PAGE_SIZE,
                   DEFAULT_LIMIT);
-          Set<Urn> b =
+          return toStrings(
               expandUrns(
                   graphRetriever,
-                  seeds,
+                  descendants,
                   relationshipTypes,
                   RelationshipDirection.OUTGOING,
                   DEFAULT_PAGE_SIZE,
-                  DEFAULT_LIMIT);
-          a.addAll(b);
-          return toStrings(a);
+                  DEFAULT_LIMIT));
         }
       default:
         throw new IllegalArgumentException("Not a lineage expansion condition: " + condition);

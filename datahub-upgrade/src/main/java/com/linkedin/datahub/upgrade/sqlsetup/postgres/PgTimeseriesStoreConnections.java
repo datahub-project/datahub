@@ -31,8 +31,25 @@ public final class PgTimeseriesStoreConnections {
       return fallbackServer.dataSource().getConnection();
     }
 
-    String user = store.getPoolUsername() != null ? store.getPoolUsername() : "";
-    String pass = store.getPoolPassword() != null ? store.getPoolPassword() : "";
+    String user = blankToNull(store.getPoolUsername());
+    String pass = blankToNull(store.getPoolPassword());
+    if (user == null || pass == null) {
+      String[] fallbackCreds = credentialsFromDataSource(fallbackServer);
+      if (fallbackCreds != null) {
+        if (user == null) {
+          user = fallbackCreds[0];
+        }
+        if (pass == null) {
+          pass = fallbackCreds[1];
+        }
+      }
+    }
+    if (user == null) {
+      user = "";
+    }
+    if (pass == null) {
+      pass = "";
+    }
     String defaultDriver =
         store.getPoolDriver() != null && !store.getPoolDriver().isBlank()
             ? store.getPoolDriver().trim()
@@ -85,5 +102,45 @@ public final class PgTimeseriesStoreConnections {
       return null;
     }
     return s.trim();
+  }
+
+  @Nullable
+  private static String blankToNull(@Nullable String s) {
+    return emptyToNull(s);
+  }
+
+  /**
+   * Best-effort read of username/password from the Ebean fallback pool so custom {@code pool.url}
+   * stores without credentials match runtime ebean fallback behavior.
+   */
+  @Nullable
+  private static String[] credentialsFromDataSource(@Nonnull Database fallbackServer) {
+    try {
+      javax.sql.DataSource ds = fallbackServer.dataSource();
+      String u = invokeStringGetter(ds, "getUsername", "getUser");
+      String p = invokeStringGetter(ds, "getPassword");
+      if (u != null || p != null) {
+        return new String[] {u != null ? u : "", p != null ? p : ""};
+      }
+    } catch (Exception ignored) {
+      // Fall through — caller uses empty credentials.
+    }
+    return null;
+  }
+
+  @Nullable
+  private static String invokeStringGetter(@Nonnull Object target, @Nonnull String... methodNames) {
+    for (String name : methodNames) {
+      try {
+        java.lang.reflect.Method m = target.getClass().getMethod(name);
+        Object v = m.invoke(target);
+        if (v instanceof String) {
+          return (String) v;
+        }
+      } catch (ReflectiveOperationException ignored) {
+        // try next
+      }
+    }
+    return null;
   }
 }

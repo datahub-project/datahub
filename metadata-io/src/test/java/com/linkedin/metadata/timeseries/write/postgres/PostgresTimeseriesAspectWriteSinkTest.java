@@ -63,6 +63,22 @@ public class PostgresTimeseriesAspectWriteSinkTest {
         () -> sink.upsertDocument(opContext, "dataset", "datasetProfile", "doc1", sampleDoc()));
   }
 
+  @Test
+  public void deleteDocument_usesMessageIdAndEventTime() throws Exception {
+    PostgresTimeseriesAspectDao dao = mock(PostgresTimeseriesAspectDao.class);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    PostgresTimeseriesAspectWriteSink sink =
+        new PostgresTimeseriesAspectWriteSink(registryWithDao(dao), false);
+
+    ObjectNode doc = sampleDoc();
+    doc.put(MappingsBuilder.MESSAGE_ID_FIELD, "msg-1");
+    sink.deleteDocument(opContext, "dataset", "datasetProfile", "doc1", doc, false);
+
+    verify(dao)
+        .deleteByMessageIdAndEventTime(
+            eq("dataset"), eq("datasetProfile"), eq("msg-1"), eq(1_700_000_000_000L));
+  }
+
   private static PgTimeseriesStoreRegistry registryWithDao(PostgresTimeseriesAspectDao dao) {
     PgTimeseriesStoreOptions store =
         PgTimeseriesStoreOptions.builder()

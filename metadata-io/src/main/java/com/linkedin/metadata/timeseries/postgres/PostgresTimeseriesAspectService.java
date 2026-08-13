@@ -70,6 +70,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   private final ExecutorService deleteExecutor =
       Executors.newCachedThreadPool(r -> new Thread(r, "pg-timeseries-delete"));
 
+  /** In-flight async deletes keyed by returned task id (removed when the task finishes). */
+  private final java.util.concurrent.ConcurrentHashMap<String, Future<?>> deleteTasks =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
   public PostgresTimeseriesAspectService(
       @Nonnull PgTimeseriesStoreRegistry storeRegistry,
       @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
@@ -160,6 +164,8 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     params.add(entityName);
     params.add(aspectName);
     params.add(urn.toString());
+    // Match ES getAspectValues: exclude collection-exploded rows.
+    where.append(primaryTimeseriesRowPredicate());
     where.append(" AND (").append(built.getExpression()).append(")");
     params.addAll(built.getParams());
 
@@ -172,7 +178,12 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       params.add(java.sql.Timestamp.from(java.time.Instant.ofEpochMilli(endTimeMillis)));
     }
 
-    String orderBy = sort != null ? orderByClause(sort) : "event_time DESC, message_id DESC";
+    String orderBy =
+        sort != null
+            ? orderByClause(
+                sort,
+                opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes())
+            : "event_time DESC, message_id DESC";
 
     int lim = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, limit);
     String sql =
@@ -200,13 +211,50 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     return out;
   }
 
-  private static String orderByClause(SortCriterion sort) {
+  private static String orderByClause(
+      SortCriterion sort,
+      Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
+          searchableFieldTypes) {
     String f = TimeseriesPgJsonPaths.stripKeywordSuffix(sort.getField());
     if (MappingsBuilder.TIMESTAMP_MILLIS_FIELD.equals(f) || "@timestamp".equals(f)) {
       return "event_time " + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC");
     }
     String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f);
-    return path + " " + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC");
+    String cast = orderByCastSuffix(f, searchableFieldTypes);
+    return "("
+        + path
+        + ")"
+        + cast
+        + " "
+        + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC");
+  }
+
+  @Nonnull
+  private static String orderByCastSuffix(
+      @Nonnull String fieldName,
+      @Nullable
+          Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
+              searchableFieldTypes) {
+    if (searchableFieldTypes == null || searchableFieldTypes.isEmpty()) {
+      return "";
+    }
+    Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType> fieldTypes =
+        searchableFieldTypes.getOrDefault(fieldName.split("\\.")[0], Set.of());
+    Set<String> elasticTypes =
+        fieldTypes.stream()
+            .map(com.linkedin.metadata.search.utils.ESUtils::getElasticTypeForFieldType)
+            .collect(java.util.stream.Collectors.toSet());
+    if (elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE)) {
+      return "::double precision";
+    }
+    if (elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE)
+        || elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE)) {
+      return "::bigint";
+    }
+    if (elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE)) {
+      return "::boolean";
+    }
+    return "";
   }
 
   @Nonnull
@@ -381,33 +429,34 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     long timeoutSeconds = options.getTimeoutSeconds();
     Future<DeleteAspectValuesResult> future =
         deleteExecutor.submit(
-            () ->
-                deleteAspectValuesBatched(
-                    opContext, entityName, aspectName, filter, batchSize, timeoutSeconds));
-    try {
-      if (timeoutSeconds > 0) {
-        future.get(timeoutSeconds, TimeUnit.SECONDS);
-      } else {
-        future.get();
-      }
-    } catch (TimeoutException e) {
-      future.cancel(true);
-      throw new IllegalStateException(
-          "PostgreSQL async timeseries delete timed out (taskId=" + taskId + ")", e);
-    } catch (ExecutionException e) {
-      Throwable cause = e.getCause() != null ? e.getCause() : e;
-      if (cause instanceof RuntimeException) {
-        throw (RuntimeException) cause;
-      }
-      throw new IllegalStateException(
-          "PostgreSQL async timeseries delete failed (taskId=" + taskId + ")", cause);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      future.cancel(true);
-      throw new IllegalStateException(
-          "PostgreSQL async timeseries delete interrupted (taskId=" + taskId + ")", e);
-    }
+            () -> {
+              try {
+                return deleteAspectValuesBatched(
+                    opContext, entityName, aspectName, filter, batchSize, timeoutSeconds);
+              } finally {
+                deleteTasks.remove(taskId);
+              }
+            });
+    deleteTasks.put(taskId, future);
+    // Return immediately (ES delete-by-query parity). Batched delete enforces timeoutSeconds.
     return taskId;
+  }
+
+  /**
+   * Waits for an async delete started by {@link #deleteAspectValuesAsync}. Used by tests;
+   * production callers poll via count/truncate watch loops.
+   */
+  void awaitDeleteAspectValuesAsync(@Nonnull String taskId, long timeoutSeconds)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    Future<?> future = deleteTasks.get(taskId);
+    if (future == null) {
+      return;
+    }
+    if (timeoutSeconds > 0) {
+      future.get(timeoutSeconds, TimeUnit.SECONDS);
+    } else {
+      future.get();
+    }
   }
 
   @Override
@@ -492,7 +541,16 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @SuppressWarnings("unused") boolean isExploded) {
     String messageId = AbstractTimeseriesAspectWriteSink.resolveMessageId(docId, document);
     try {
-      store(entityName, aspectName).getDao().deleteByMessageId(entityName, aspectName, messageId);
+      if (document != null
+          && document.has(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
+          && document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).isNumber()) {
+        long timestampMillis = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).asLong();
+        store(entityName, aspectName)
+            .getDao()
+            .deleteByMessageIdAndEventTime(entityName, aspectName, messageId, timestampMillis);
+      } else {
+        store(entityName, aspectName).getDao().deleteByMessageId(entityName, aspectName, messageId);
+      }
     } catch (SQLException e) {
       throw new IllegalStateException("PostgreSQL timeseries deleteDocument failed", e);
     }
@@ -545,7 +603,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
             opContext,
             queryFilterRewriteChain);
 
-    List<SortKey> sortKeys = resolveSortKeys(sortCriteria);
+    List<SortKey> sortKeys =
+        resolveSortKeys(
+            sortCriteria,
+            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes());
     List<Object> cursorValues = ScrollCursor.decode(scrollId, sortKeys);
     int lim = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, count);
 
@@ -554,6 +615,8 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     where.append("entity_name = ? AND aspect_name = ?");
     params.add(entityName);
     params.add(aspectName);
+    // Match ES scrollAspects: exclude collection-exploded rows from aspect scroll.
+    where.append(primaryTimeseriesRowPredicate());
     where.append(" AND (").append(built.getExpression()).append(")");
     params.addAll(built.getParams());
     if (startTimeMillis != null) {
@@ -564,6 +627,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       where.append(" AND event_time <= ?");
       params.add(java.sql.Timestamp.from(java.time.Instant.ofEpochMilli(endTimeMillis)));
     }
+
+    String countWhere = where.toString();
+    List<Object> countParams = new ArrayList<>(params);
+
     if (cursorValues != null) {
       appendKeysetPredicate(where, params, sortKeys, cursorValues);
     }
@@ -577,6 +644,22 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     StringBuilder selectKeys = new StringBuilder();
     for (int i = 0; i < sortKeys.size(); i++) {
       selectKeys.append(", ").append(sortKeys.get(i).sqlExpr()).append(" AS _sk").append(i);
+    }
+
+    long totalMatching;
+    try (Connection c = database(entityName, aspectName).dataSource().getConnection();
+        PreparedStatement cps =
+            c.prepareStatement(
+                "SELECT COUNT(*) FROM "
+                    + qualifiedTable(entityName, aspectName)
+                    + " WHERE "
+                    + countWhere)) {
+      bind(cps, countParams);
+      try (ResultSet crs = cps.executeQuery()) {
+        totalMatching = crs.next() ? crs.getLong(1) : 0L;
+      }
+    } catch (SQLException e) {
+      throw new IllegalStateException("scrollAspects count failed", e);
     }
 
     String sql =
@@ -620,12 +703,22 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       nextScroll = ScrollCursor.encode(lastSortValues);
     }
     return TimeseriesScrollResult.builder()
-        .numResults(events.size() + (hasMore ? 1 : 0))
+        .numResults((int) Math.min(totalMatching, Integer.MAX_VALUE))
         .pageSize(events.size())
         .scrollId(nextScroll)
         .events(events)
         .documents(docs)
         .build();
+  }
+
+  /** ES excludes {@code isExploded=true} collection rows from aspect value / scroll queries. */
+  @Nonnull
+  private static String primaryTimeseriesRowPredicate() {
+    return " AND (document->>'"
+        + MappingsBuilder.IS_EXPLODED_FIELD
+        + "' IS NULL OR lower(document->>'"
+        + MappingsBuilder.IS_EXPLODED_FIELD
+        + "') IN ('false', '0'))";
   }
 
   private static GenericTimeseriesDocument parseGenericDoc(ObjectMapper mapper, String docJson)
@@ -639,14 +732,47 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
           .build();
     }
     Map<String, Object> m = mapper.readValue(docJson, new TypeReference<Map<String, Object>>() {});
-    return GenericTimeseriesDocument.builder()
-        .urn(Objects.toString(m.get(MappingsBuilder.URN_FIELD), ""))
-        .timestampMillis(toLong(m.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)))
-        .timestamp(toLong(m.get(MappingsBuilder.TIMESTAMP_FIELD)))
-        .event(m.get(MappingsBuilder.EVENT_FIELD))
-        .messageId(Objects.toString(m.get(MappingsBuilder.MESSAGE_ID_FIELD), null))
-        .systemMetadata(m.get(MappingsBuilder.SYSTEM_METADATA_FIELD))
-        .build();
+    GenericTimeseriesDocument.GenericTimeseriesDocumentBuilder builder =
+        GenericTimeseriesDocument.builder()
+            .urn(Objects.toString(m.get(MappingsBuilder.URN_FIELD), ""))
+            .timestampMillis(toLong(m.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)))
+            .timestamp(toLong(m.get(MappingsBuilder.TIMESTAMP_FIELD)))
+            .event(
+                m.get(MappingsBuilder.EVENT_FIELD) != null
+                    ? m.get(MappingsBuilder.EVENT_FIELD)
+                    : Map.of());
+
+    Object messageId = m.get(MappingsBuilder.MESSAGE_ID_FIELD);
+    if (messageId != null) {
+      builder.messageId(Objects.toString(messageId, null));
+    }
+    Object systemMetadata = m.get(MappingsBuilder.SYSTEM_METADATA_FIELD);
+    if (systemMetadata != null) {
+      builder.systemMetadata(systemMetadata);
+    }
+    Object runId = m.get(MappingsBuilder.RUN_ID_FIELD);
+    if (runId != null) {
+      builder.runId(Objects.toString(runId, null));
+    }
+    Object eventGranularity = m.get(MappingsBuilder.EVENT_GRANULARITY);
+    if (eventGranularity != null) {
+      builder.eventGranularity(Objects.toString(eventGranularity, null));
+    }
+    Object isExploded = m.get(MappingsBuilder.IS_EXPLODED_FIELD);
+    if (isExploded instanceof Boolean) {
+      builder.isExploded((Boolean) isExploded);
+    } else if (isExploded != null) {
+      builder.isExploded(Boolean.parseBoolean(isExploded.toString()));
+    }
+    Object partition = m.get(MappingsBuilder.PARTITION_SPEC_PARTITION);
+    if (partition != null) {
+      builder.partition(Objects.toString(partition, null));
+    }
+    Object partitionSpec = m.get(MappingsBuilder.PARTITION_SPEC);
+    if (partitionSpec != null) {
+      builder.partitionSpec(partitionSpec);
+    }
+    return builder.build();
   }
 
   private static long toLong(Object o) {
@@ -659,6 +785,15 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   /** Resolves scroll sort keys; always ends with {@code message_id} for stable paging. */
   @Nonnull
   static List<SortKey> resolveSortKeys(@Nonnull List<SortCriterion> sortCriteria) {
+    return resolveSortKeys(sortCriteria, null);
+  }
+
+  @Nonnull
+  static List<SortKey> resolveSortKeys(
+      @Nonnull List<SortCriterion> sortCriteria,
+      @Nullable
+          Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
+              searchableFieldTypes) {
     List<SortKey> keys = new ArrayList<>();
     if (sortCriteria.isEmpty()) {
       keys.add(new SortKey("event_time", false, SortValueKind.EVENT_TIME));
@@ -666,7 +801,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       return keys;
     }
     for (SortCriterion sc : sortCriteria) {
-      keys.add(SortKey.fromCriterion(sc));
+      keys.add(SortKey.fromCriterion(sc, searchableFieldTypes));
     }
     boolean hasMessageId = keys.stream().anyMatch(k -> k.valueKind() == SortValueKind.MESSAGE_ID);
     if (!hasMessageId) {
@@ -774,6 +909,14 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     }
 
     static SortKey fromCriterion(SortCriterion sc) {
+      return fromCriterion(sc, null);
+    }
+
+    static SortKey fromCriterion(
+        SortCriterion sc,
+        @Nullable
+            Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
+                searchableFieldTypes) {
       String f = TimeseriesPgJsonPaths.stripKeywordSuffix(sc.getField());
       boolean ascending = sc.getOrder() == SortOrder.ASCENDING;
       if (MappingsBuilder.TIMESTAMP_MILLIS_FIELD.equals(f)
@@ -783,10 +926,9 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       if (MappingsBuilder.MESSAGE_ID_FIELD.equals(f)) {
         return new SortKey("message_id", ascending, SortValueKind.MESSAGE_ID);
       }
-      return new SortKey(
-          PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f),
-          ascending,
-          SortValueKind.DOCUMENT_TEXT);
+      String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f);
+      String cast = orderByCastSuffix(f, searchableFieldTypes);
+      return new SortKey("(" + path + ")" + cast, ascending, SortValueKind.DOCUMENT_TEXT);
     }
   }
 
