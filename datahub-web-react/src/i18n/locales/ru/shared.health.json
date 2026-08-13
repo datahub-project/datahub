@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Посмотреть неуспешные проверки →",
+    "failChecks": "Посмотреть неуспешные проверки →",
+    "failIncidents": "Посмотреть активные инциденты →",
+    "passAssertions": "Все проверки успешны",
+    "passChecks": "Все проверки пройдены",
+    "passIncidents": "Активных инцидентов нет",
+    "summaryHealthy": "Этот актив в порядке",
+    "summaryUnhealthy": "С этим активом могут быть проблемы",
+    "typeAssertions": "Проверки (assertions)",
+    "typeIncidents": "Инциденты",
+    "typeTests": "Тесты",
+    "warnAssertions": "С некоторыми проверками есть проблемы.",
+    "warnChecks": "С некоторыми проверками есть проблемы."
+}
