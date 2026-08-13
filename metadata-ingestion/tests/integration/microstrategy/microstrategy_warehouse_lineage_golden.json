@@ -467,7 +467,7 @@
                 {
                     "fieldPath": "Revenue",
                     "nullable": false,
-                    "description": "**MicroStrategy expression:**\n\n```\nSum(Revenue Fact)\n```",
+                    "description": "```\nSum(Revenue Fact)\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -488,7 +488,7 @@
                 {
                     "fieldPath": "Revenue Growth",
                     "nullable": false,
-                    "description": "**MicroStrategy expression:**\n\n```\n({Revenue} - {Revenue LY}) / Abs({Revenue LY})\n```",
+                    "description": "```\n({Revenue} - {Revenue LY}) / Abs({Revenue LY})\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -509,7 +509,7 @@
                 {
                     "fieldPath": "Revenue LY",
                     "nullable": false,
-                    "description": "**MicroStrategy expression:**\n\n```\nSum(NET_SALES_AMT_LY)\n```",
+                    "description": "```\nSum(NET_SALES_AMT_LY)\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -555,7 +555,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786572192499,
+        "lastObserved": 1786629114825,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -829,7 +829,7 @@
                 {
                     "fieldPath": "Cost",
                     "nullable": false,
-                    "description": "**MicroStrategy expression:**\n\n```\nSum(NET_COST_AMT)\n```",
+                    "description": "```\nSum(NET_COST_AMT)\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -875,7 +875,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786572192501,
+        "lastObserved": 1786629114828,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -919,7 +919,7 @@
                     "schemaField": {
                         "fieldPath": "Revenue",
                         "nullable": false,
-                        "description": "**MicroStrategy expression:**\n\n```\nSum(Revenue Fact)\n```",
+                        "description": "```\nSum(Revenue Fact)\n```",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -942,7 +942,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786572192502,
+        "lastObserved": 1786629114830,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1350,7 +1350,7 @@
                     "schemaField": {
                         "fieldPath": "Revenue",
                         "nullable": false,
-                        "description": "**MicroStrategy expression:**\n\n```\nSum(Revenue Fact)\n```",
+                        "description": "```\nSum(Revenue Fact)\n```",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1401,7 +1401,7 @@
                     "schemaField": {
                         "fieldPath": "Cost",
                         "nullable": false,
-                        "description": "**MicroStrategy expression:**\n\n```\nSum(NET_COST_AMT)\n```",
+                        "description": "```\nSum(NET_COST_AMT)\n```",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1424,7 +1424,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786572192504,
+        "lastObserved": 1786629114832,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
