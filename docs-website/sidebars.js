@@ -1620,10 +1620,8 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
-    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
-    // "smoke-test/tests/cypress/README"
     // ],
   ],
 };
