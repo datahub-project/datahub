@@ -256,20 +256,22 @@ input SearchAcrossLineageCountsInput {
   lineageFlags: LineageFlags
 
   """
-  Whether to count entities that were never materialized, which lineage graphs point at constantly
-  -- fine-grained lineage writes graph edges without creating the schema fields it connects. The
-  entity index has nothing to return for those, so counting them means reading the count off the
-  graph instead.
+  Whether to count all unmaterialized entities, not just the ones the entity index can return.
+  Lineage graphs point at these constantly -- fine-grained lineage writes graph edges without
+  materializing the schema fields it connects -- so counting them means reading the count off the
+  graph instead of the index.
 
-  Such a count does not have the entity index filtering it, so view-based access control is not
-  applied, unlike a count taken from the index. Columns their parent no longer declares are dropped
-  according to validateSchemaFields. It also cannot be combined with a query or a sort, which this
-  input does not offer.
+  validateSchemaFields narrows this: an unmaterialized schema field is counted only while its
+  parent dataset's schemaMetadata still declares it.
+
+  A count read off the graph is not filtered by the entity index, so view-based access control is
+  not applied. It also cannot be combined with a query or a sort, which this input does not offer.
   """
   includeGhostEntities: Boolean
 
   """
-  Whether to count soft deleted entities
+  Whether to count soft deleted entities. Ignored when includeGhostEntities is set, which counts
+  off the graph and so never consults the soft-delete state held in the entity index.
   """
   includeSoftDeleted: Boolean
 
