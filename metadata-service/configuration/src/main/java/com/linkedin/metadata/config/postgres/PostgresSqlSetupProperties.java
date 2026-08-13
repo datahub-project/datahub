@@ -570,7 +570,7 @@ public class PostgresSqlSetupProperties {
   }
 
   private boolean isAnyPgTimeseriesStoreCronEnabled() {
-    if (pgTimeseries.getMaintenance().isCronEnabled()) {
+    if (Boolean.TRUE.equals(pgTimeseries.getMaintenance().getCronEnabled())) {
       return true;
     }
     Map<String, PgTimeseries.StoreConfig> configuredStores = pgTimeseries.getStores();
@@ -580,7 +580,7 @@ public class PostgresSqlSetupProperties {
     for (PgTimeseries.StoreConfig store : configuredStores.values()) {
       if (store != null
           && store.getMaintenance() != null
-          && store.getMaintenance().isCronEnabled()) {
+          && Boolean.TRUE.equals(store.getMaintenance().getCronEnabled())) {
         return true;
       }
     }
@@ -600,14 +600,14 @@ public class PostgresSqlSetupProperties {
         .tablePrefix(normalizedPgTimeseriesTablePrefix())
         .partmanPartitionInterval(partmanIntervalNormalized)
         .partmanPremake(p.getPartmanPremake())
-        .forceOverwritePartmanConfig(p.isForceOverwritePartmanConfig())
+        .forceOverwritePartmanConfig(Boolean.TRUE.equals(p.getForceOverwritePartmanConfig()))
         .retentionMaxAgeSeconds(pgTimeseries.getRetention().getMaxAgeSeconds())
-        .maintenanceCronEnabled(pgTimeseries.getMaintenance().isCronEnabled())
+        .maintenanceCronEnabled(Boolean.TRUE.equals(pgTimeseries.getMaintenance().getCronEnabled()))
         .maintenanceIntervalSeconds(pgTimeseries.getMaintenance().getIntervalSeconds())
         .poolUrl(blankToNull(pool.getUrl()))
         .poolDriver(blankToNull(pool.getDriver()))
         .poolUsername(blankToNull(pool.getUsername()))
-        .poolPassword(pool.getPassword())
+        .poolPassword(blankToNull(pool.getPassword()))
         .poolMinConnections(pool.getMinConnections() > 0 ? pool.getMinConnections() : 1)
         .poolMaxConnections(pool.getMaxConnections() > 0 ? pool.getMaxConnections() : 12)
         .poolMaxInactiveTimeSeconds(
@@ -646,8 +646,8 @@ public class PostgresSqlSetupProperties {
             : defaults.getPartmanPartitionInterval();
     int premake = p.getPartmanPremake() > 0 ? p.getPartmanPremake() : defaults.getPartmanPremake();
     boolean forceOverwrite =
-        config.getPartitioning() != null
-            ? p.isForceOverwritePartmanConfig()
+        p.getForceOverwritePartmanConfig() != null
+            ? p.getForceOverwritePartmanConfig()
             : defaults.isForceOverwritePartmanConfig();
 
     PgTimeseries.Retention r =
@@ -658,7 +658,7 @@ public class PostgresSqlSetupProperties {
     PgTimeseries.Maintenance m =
         config.getMaintenance() != null ? config.getMaintenance() : new PgTimeseries.Maintenance();
     boolean cronEnabled =
-        config.getMaintenance() != null ? m.isCronEnabled() : defaults.isMaintenanceCronEnabled();
+        m.getCronEnabled() != null ? m.getCronEnabled() : defaults.isMaintenanceCronEnabled();
     int cronInterval =
         config.getMaintenance() != null && m.getIntervalSeconds() > 0
             ? m.getIntervalSeconds()
@@ -677,8 +677,12 @@ public class PostgresSqlSetupProperties {
         pool.getUsername() != null && !pool.getUsername().isBlank()
             ? pool.getUsername().trim()
             : defaults.getPoolUsername();
-    String poolPassword =
-        pool.getPassword() != null ? pool.getPassword() : defaults.getPoolPassword();
+    // Blank password must stay null so the runtime factory can fall back to ebean.* credentials
+    // (do not inherit the default store's password when only pool.url differs).
+    String poolPassword = blankToNull(pool.getPassword());
+    if (poolPassword == null && (pool.getUrl() == null || pool.getUrl().isBlank())) {
+      poolPassword = defaults.getPoolPassword();
+    }
 
     return PgTimeseriesStoreOptions.builder()
         .name(storeName)
@@ -693,7 +697,7 @@ public class PostgresSqlSetupProperties {
         .poolUrl(blankToNull(poolUrl))
         .poolDriver(blankToNull(poolDriver))
         .poolUsername(blankToNull(poolUsername))
-        .poolPassword(poolPassword)
+        .poolPassword(blankToNull(poolPassword))
         .poolMinConnections(
             pool.getMinConnections() > 0
                 ? pool.getMinConnections()
@@ -786,7 +790,8 @@ public class PostgresSqlSetupProperties {
               cfg.getRetention().getMaxAgeSeconds(),
               "postgres.pgTimeseries.stores." + storeName + ".retention.maxAgeSeconds");
         }
-        if (cfg.getMaintenance() != null && cfg.getMaintenance().isCronEnabled()) {
+        if (cfg.getMaintenance() != null
+            && Boolean.TRUE.equals(cfg.getMaintenance().getCronEnabled())) {
           validateMaintenanceInterval(
               cfg.getMaintenance().getIntervalSeconds(),
               "postgres.pgTimeseries.stores." + storeName + ".maintenance.intervalSeconds");
@@ -818,6 +823,13 @@ public class PostgresSqlSetupProperties {
             "postgres.pgTimeseries.routing key '"
                 + route.getKey()
                 + "' must be entity.aspect (contain a '.').");
+      }
+      String[] segments = route.getKey().split("\\.", -1);
+      if (segments.length != 2 || segments[0].isBlank() || segments[1].isBlank()) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries.routing key '"
+                + route.getKey()
+                + "' must be exactly entity.aspect (two non-empty segments).");
       }
     }
     // Reject two stores sharing schema+prefix on the same JDBC URL.
@@ -860,7 +872,7 @@ public class PostgresSqlSetupProperties {
         p.getPartmanPartitionInterval(), pathPrefix + ".partitioning.partmanPartitionInterval");
     validatePartmanPremake(p.getPartmanPremake(), pathPrefix + ".partitioning.partmanPremake");
     validateRetentionMaxAge(retention.getMaxAgeSeconds(), pathPrefix + ".retention.maxAgeSeconds");
-    if (maintenance.isCronEnabled()) {
+    if (Boolean.TRUE.equals(maintenance.getCronEnabled())) {
       validateMaintenanceInterval(
           maintenance.getIntervalSeconds(), pathPrefix + ".maintenance.intervalSeconds");
     }
@@ -902,6 +914,32 @@ public class PostgresSqlSetupProperties {
       throw new IllegalStateException(
           path + " must be between 60 and 2592000 inclusive when cron is enabled.");
     }
+    if (!isRepresentablePgCronInterval(intervalSeconds)) {
+      throw new IllegalStateException(
+          path
+              + "="
+              + intervalSeconds
+              + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
+              + " 3600 (1–23 h), or 86400 (1–31 d)");
+    }
+  }
+
+  /** Same rules as {@code PostgresPartmanSqlSetupSupport.toPgCronSchedule}. */
+  private static boolean isRepresentablePgCronInterval(int intervalSeconds) {
+    int sec = Math.max(60, intervalSeconds);
+    if (sec % 86400 == 0) {
+      int days = sec / 86400;
+      return days >= 1 && days <= 31;
+    }
+    if (sec % 3600 == 0) {
+      int hours = sec / 3600;
+      return hours >= 1 && hours <= 23;
+    }
+    if (sec % 60 == 0) {
+      int minutes = sec / 60;
+      return minutes >= 1 && minutes <= 59;
+    }
+    return false;
   }
 
   private void validatePgQueueConfig() {
@@ -1095,9 +1133,10 @@ public class PostgresSqlSetupProperties {
       /**
        * When false (default), interval/premake are applied only on first {@code create_parent};
        * later SqlSetup runs leave them unchanged. When true, SqlSetup overwrites {@code
-       * part_config.partition_interval} and {@code premake} to match this config.
+       * part_config.partition_interval} and {@code premake} to match this config. Null on a named
+       * store means inherit the default store's value.
        */
-      private boolean forceOverwritePartmanConfig;
+      private Boolean forceOverwritePartmanConfig;
     }
 
     @Getter
@@ -1115,7 +1154,9 @@ public class PostgresSqlSetupProperties {
     @Getter
     @Setter
     public static class Maintenance {
-      private boolean cronEnabled;
+      /** Null on a named store means inherit the default store's value. */
+      private Boolean cronEnabled;
+
       private int intervalSeconds;
     }
 

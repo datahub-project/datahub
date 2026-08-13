@@ -136,17 +136,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       try {
         updateTimeseriesFieldsForEvent(opContext, event);
       } catch (RuntimeException e) {
-        // Swallow so the rest of the URN batch can proceed (original V3 behavior).
-        log.warn(
-            "V3 timeseries update failed for urn {} aspect {}: {}",
-            event.getUrn(),
-            event.getAspectName(),
-            e.getMessage());
-        opContext
-            .getMetricUtils()
-            .ifPresent(
-                metricUtils ->
-                    metricUtils.increment(this.getClass(), "timeseries_update_failed", 1));
+        handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
       }
     }
 
@@ -161,18 +151,39 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           deleteTimeseriesFieldsForDeleteEvent(opContext, deleteEvent);
         }
       } catch (RuntimeException e) {
-        log.warn(
-            "V3 timeseries delete handling failed for urn {} aspect {}: {}",
-            deleteEvent.getUrn(),
-            deleteEvent.getAspectName(),
-            e.getMessage());
-        opContext
-            .getMetricUtils()
-            .ifPresent(
-                metricUtils ->
-                    metricUtils.increment(this.getClass(), "timeseries_delete_failed", 1));
+        handleTimeseriesWriteFailure(
+            opContext, deleteEvent, e, "timeseries_delete_failed", "delete");
       }
     }
+  }
+
+  /**
+   * Postgres SoT and fail-loud dual-write must fail the MCL path (design doc). Soft dual-write /
+   * non-throwing ES paths keep warn+metric so the rest of the URN batch can proceed.
+   */
+  private void handleTimeseriesWriteFailure(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nonnull RuntimeException e,
+      @Nonnull String metricName,
+      @Nonnull String opLabel) {
+    if (shouldPropagateTimeseriesFailure()) {
+      throw e;
+    }
+    log.warn(
+        "V3 timeseries {} failed for urn {} aspect {}: {}",
+        opLabel,
+        event.getUrn(),
+        event.getAspectName(),
+        e.getMessage());
+    opContext
+        .getMetricUtils()
+        .ifPresent(metricUtils -> metricUtils.increment(this.getClass(), metricName, 1));
+  }
+
+  private boolean shouldPropagateTimeseriesFailure() {
+    return timeseriesAspectService.applyDocumentDeleteOnMclDelete()
+        || timeseriesAspectWriteSink.failOnError();
   }
 
   private void deleteTimeseriesFieldsForDeleteEvent(
@@ -183,10 +194,22 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
     RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
     if (previous == null) {
-      log.debug(
-          "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
-          deleteEvent.getUrn(),
-          aspectSpec.getName());
+      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
+        var urnFilter =
+            com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+                java.util.List.of(
+                    com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                        "urn",
+                        com.linkedin.metadata.query.filter.Condition.EQUAL,
+                        deleteEvent.getUrn().toString())));
+        timeseriesAspectService.deleteAspectValues(
+            opContext, deleteEvent.getEntitySpec().getName(), aspectSpec.getName(), urnFilter);
+      } else {
+        log.debug(
+            "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
+            deleteEvent.getUrn(),
+            aspectSpec.getName());
+      }
       return;
     }
     Urn urn = deleteEvent.getUrn();
