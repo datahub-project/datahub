@@ -601,12 +601,12 @@ try:
 
     datahub.add_command(evals)
 except ImportError as e:
-    if "acryl_datahub_cloud" not in str(e):
-        raise
-    logger.debug(f"Failed to load datahub evals command: {e}")
-    datahub.add_command(
-        make_shim_command("evals", "run `pip install acryl-datahub-cloud`")
-    )
+    if "acryl_datahub_cloud" in str(e):
+        suggestion = "run `pip install acryl-datahub-cloud`"
+    else:
+        logger.warning(f"acryl-datahub-cloud is installed but failed to load: {e}")
+        suggestion = f"fix the acryl-datahub-cloud installation ({e})"
+    datahub.add_command(make_shim_command("evals", suggestion))
 
 try:
     from datahub.cli.iceberg_cli import iceberg
