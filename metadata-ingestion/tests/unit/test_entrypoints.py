@@ -53,17 +53,27 @@ def test_evals_import_suggestion(error, expected, caplog):
     assert not any(record.levelno >= logging.WARNING for record in caplog.records)
 
 
-def test_registered_evals_command_shows_helpful_error_or_help():
-    """Test that the registered evals command is usable or explains its dependency."""
+def _assert_optional_command_shows_error_or_help(
+    command_name, install_message, command_args
+):
     import datahub.entrypoints
 
-    result = CliRunner().invoke(datahub.entrypoints.datahub, ["evals", "--help"])
+    result = CliRunner().invoke(
+        datahub.entrypoints.datahub, [command_name, *command_args]
+    )
 
     if result.exit_code == 1:
         assert "missing dependencies" in result.output
-        assert "pip install acryl-datahub-cloud" in result.output
+        assert install_message in result.output
     else:
         assert result.exit_code == 0
+
+
+def test_registered_evals_command_shows_helpful_error_or_help():
+    """Test that the registered evals command is usable or explains its dependency."""
+    _assert_optional_command_shows_error_or_help(
+        "evals", "pip install acryl-datahub-cloud", []
+    )
 
 
 def test_agent_command_exists():
@@ -76,18 +86,9 @@ def test_agent_command_exists():
 
 def test_agent_command_shows_error_or_help():
     """Test that agent command either works or shows helpful error."""
-    import datahub.entrypoints
-
-    runner = CliRunner()
-    result = runner.invoke(datahub.entrypoints.datahub, ["agent", "--help"])
-
-    # Either the command works (exit code 0) or it's a shim (exit code 1 with helpful message)
-    if result.exit_code == 1:
-        assert "missing dependencies" in result.output
-        assert "pip install datahub-agent-context" in result.output
-    else:
-        # Real command should show help
-        assert result.exit_code == 0
+    _assert_optional_command_shows_error_or_help(
+        "agent", "pip install datahub-agent-context", ["--help"]
+    )
 
 
 @pytest.mark.parametrize(
