@@ -1414,6 +1414,24 @@ def test_chart_input_fields_include_derived_metrics() -> None:
     }
     assert "Pct To Plan" in field_paths
 
+    # Shared catalog metrics legitimately repeat once per column group; each
+    # entry is stamped with its group and source dataset so the repeats are
+    # tellable apart in the chart's field list.
+    shared_descriptions = {
+        input_field.schemaField.description
+        for input_field in input_fields.fields
+        if input_field.schemaField and input_field.schemaField.fieldPath == "Net Amount"
+    }
+    assert len(shared_descriptions) == 3
+    assert any(
+        description and description.startswith("**STORE** — STORE SALES WTD")
+        for description in shared_descriptions
+    )
+    assert any(
+        description and description.startswith("**TOTAL SALES** — COMBINED TOTALS WTD")
+        for description in shared_descriptions
+    )
+
     column_groups = {
         prop: value for prop, value in (chart_info.customProperties or {}).items()
     }

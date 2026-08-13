@@ -1304,7 +1304,7 @@
                     "schemaField": {
                         "fieldPath": "Revenue Pct",
                         "nullable": false,
-                        "description": "Derived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
+                        "description": "**SALES** \u2014 Sales Cube\n\nDerived metric defined in the 'SALES' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1331,7 +1331,7 @@
                     "schemaField": {
                         "fieldPath": "Revenue",
                         "nullable": false,
-                        "description": "```\nSum(Revenue Fact)\n```",
+                        "description": "**SALES** \u2014 Sales Cube\n\n```\nSum(Revenue Fact)\n```",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1355,7 +1355,7 @@
                     "schemaField": {
                         "fieldPath": "Cost Pct",
                         "nullable": false,
-                        "description": "Derived metric defined in the 'COST' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
+                        "description": "**COST** \u2014 Cost Cube\n\nDerived metric defined in the 'COST' column group of visualization 'Sales vs Cost'. Its formula is local to the visualization and is not exposed by the MicroStrategy REST API.",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1382,7 +1382,7 @@
                     "schemaField": {
                         "fieldPath": "Cost",
                         "nullable": false,
-                        "description": "```\nSum(NET_COST_AMT)\n```",
+                        "description": "**COST** \u2014 Cost Cube\n\n```\nSum(NET_COST_AMT)\n```",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -1405,7 +1405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786629114398,
+        "lastObserved": 1786629383704,
         "runId": "microstrategy-source-test",
         "lastRunId": "no-run-id-provided"
     }
