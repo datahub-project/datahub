@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.search.LineageSearchService.MAX_PARENTS_TO_VALIDATE;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -34,6 +33,8 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchLineageConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -83,6 +84,9 @@ public class LineageSearchServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.customers,PROD)");
   private static final Urn DBT_ORDERS =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
+
+  /** Small enough that a test can build a fan-out wider than it without building thousands. */
+  private static final int MAX_PARENTS_TO_VALIDATE = 5;
 
   private LineageSearchService _lineageSearchService;
   private SearchService _searchService;
@@ -136,6 +140,7 @@ public class LineageSearchServiceTest {
             .build();
 
     // Set up the configuration chain - use real objects and set properties directly
+    _appConfig.setGraphService(graphServiceConfig);
     _appConfig.setElasticSearch(elasticSearchConfig);
     elasticSearchConfig.setSearch(searchConfig);
     searchConfig.setGraph(graphConfig);
@@ -147,6 +152,14 @@ public class LineageSearchServiceTest {
 
     // Set up cache configuration
     _appConfig.setCache(cacheConfig);
+
+    _appConfig.setSearchService(
+        SearchServiceConfiguration.builder()
+            .lineage(
+                SearchLineageConfiguration.builder()
+                    .maxParentsToValidate(MAX_PARENTS_TO_VALIDATE)
+                    .build())
+            .build());
 
     // Create MetadataChangeProposalConfig to avoid NPE
     MetadataChangeProposalConfig metadataChangeProposalConfig =
@@ -1412,6 +1425,36 @@ public class LineageSearchServiceTest {
 
     assertEquals(result.getLineageSearchPath(), LineageSearchPath.LIGHTNING);
     assertEquals(result.getNumEntities().intValue(), 1);
+  }
+
+  @Test
+  public void testScrollRejectsFlagsItCannotHonor() {
+    // Scrolling always reads from the entity index, so answering either of these would mean
+    // handing back a short result that reads as the whole answer
+    assertThrows(
+        IllegalArgumentException.class, () -> scroll(new LineageFlags().setUseLightningMode(true)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> scroll(new LineageFlags().setValidateSchemaFields(SchemaFieldValidationMode.AUTO)));
+
+    // Flags it does honor, and the defaults, are left alone
+    scroll(new LineageFlags().setEntitiesExploredPerHopLimit(10));
+    scroll(new LineageFlags());
+  }
+
+  private void scroll(LineageFlags lineageFlags) {
+    _lineageSearchService.scrollAcrossLineage(
+        _operationContext.withLineageFlags(f -> lineageFlags),
+        ORDERS,
+        LineageDirection.DOWNSTREAM,
+        Collections.singletonList(DATASET_ENTITY_NAME),
+        null,
+        1,
+        null,
+        null,
+        null,
+        "5m",
+        10);
   }
 
   private EntityLineageResult createMockEntityLineageResult() {

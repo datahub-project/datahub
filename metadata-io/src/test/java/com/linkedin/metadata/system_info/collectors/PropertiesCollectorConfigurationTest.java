@@ -1004,6 +1004,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "searchService.limit.results.apiDefault",
           "searchService.limit.results.max",
           "searchService.limit.results.strict",
+          "searchService.lineage.maxParentsToValidate",
           "searchService.queryFilterRewriter.containerExpansion.enabled",
           "searchService.queryFilterRewriter.containerExpansion.limit",
           "searchService.queryFilterRewriter.containerExpansion.pageSize",

@@ -263,9 +263,6 @@ input SearchAcrossLineageCountsInput {
 
   validateSchemaFields narrows this: an unmaterialized schema field is counted only while its
   parent dataset's schemaMetadata still declares it.
-
-  A count read off the graph is not filtered by the entity index, so view-based access control is
-  not applied. It also cannot be combined with a query or a sort, which this input does not offer.
   """
   includeGhostEntities: Boolean
 

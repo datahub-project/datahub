@@ -109,13 +109,6 @@ public class LineageSearchService {
   private static final Set<String> LIGHTNING_FILTER_FIELDS =
       Set.of("platform", "origin", PARENT_FILTER);
 
-  /**
-   * How many parent datasets AUTO validation is willing to read schemaMetadata for. The fetch is
-   * batched and schema fields share parents heavily, so this is a backstop against a walk that fans
-   * out over thousands of datasets rather than a limit normal queries approach.
-   */
-  @VisibleForTesting static final int MAX_PARENTS_TO_VALIDATE = 1000;
-
   private static final AggregationMetadata DEGREE_FILTER_GROUP =
       new AggregationMetadata()
           .setName(DEGREE_FILTER)
@@ -390,12 +383,14 @@ public class LineageSearchService {
     if (parents.isEmpty()) {
       return relationships;
     }
-    if (SchemaFieldValidationMode.AUTO.equals(mode) && parents.size() > MAX_PARENTS_TO_VALIDATE) {
+    final int maxParentsToValidate =
+        appConfig.getSearchService().getLineage().getMaxParentsToValidate();
+    if (SchemaFieldValidationMode.AUTO.equals(mode) && parents.size() > maxParentsToValidate) {
       log.info(
           "Skipping schema field validation for {} parents, above the limit of {}. Request ALWAYS to"
               + " validate regardless.",
           parents.size(),
-          MAX_PARENTS_TO_VALIDATE);
+          maxParentsToValidate);
       return relationships;
     }
 
@@ -443,6 +438,25 @@ public class LineageSearchService {
         .map(LineageFlags::getValidateSchemaFields)
         .filter(mode -> !SchemaFieldValidationMode.$UNKNOWN.equals(mode))
         .orElse(SchemaFieldValidationMode.NONE);
+  }
+
+  private static void rejectUnsupportedScrollFlags(@Nullable LineageFlags lineageFlags) {
+    if (lineageFlags == null) {
+      return;
+    }
+    if (Boolean.TRUE.equals(lineageFlags.isUseLightningMode())) {
+      throw new IllegalArgumentException(
+          "useLightningMode is not supported by scrollAcrossLineage: "
+              + "lightning mode is only a feature of searchAcrossLineage.");
+    }
+    final SchemaFieldValidationMode mode = schemaFieldValidationMode(lineageFlags);
+    if (!SchemaFieldValidationMode.NONE.equals(mode)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "validateSchemaFields=%s is not supported by scrollAcrossLineage. "
+                  + "Use searchAcrossLineage instead.",
+              mode));
+    }
   }
 
   private static String unservableLightningMessage(
@@ -965,6 +979,8 @@ public class LineageSearchService {
     try (CascadeOperationContext cascade =
         CascadeOperationContext.begin(
             metricUtils, "scrollAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
+      rejectUnsupportedScrollFlags(opContext.getSearchContext().getLineageFlags());
+
       // Cache multihop result for faster performance
       final EntityLineageResultCacheKey cacheKey =
           new EntityLineageResultCacheKey(
