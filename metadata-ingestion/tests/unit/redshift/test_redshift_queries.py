@@ -221,6 +221,10 @@ class TestQueryTextScopedToWindow:
         )
         assert "with target_queries as" in sql.lower()
         assert "query in (select query from target_queries)" in sql.lower()
+        # stl_insert is cluster-wide, so the driving set joins SVV_TABLE_INFO to scope
+        # by database too -- otherwise the LISTAGG still reassembles text for inserts
+        # into every other database on the cluster, which the outer query discards.
+        assert "sti.database = 'test_db'" in sql
 
     def test_provisioned_list_all_queries_scopes_query_text(self):
         sql = RedshiftProvisionedQuery.list_all_queries_sql()

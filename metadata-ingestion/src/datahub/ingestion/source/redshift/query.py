@@ -668,12 +668,15 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
     ) -> str:
         return """\
 with target_queries as (
-    select distinct query
+    select distinct si.query
     from
-        stl_insert
+        stl_insert si
+    join SVV_TABLE_INFO sti on
+        sti.table_id = si.tbl
     where
-        starttime >= '{start_time}'
-        and starttime < '{end_time}'
+        si.starttime >= '{start_time}'
+        and si.starttime < '{end_time}'
+        and sti.database = '{db_name}'
 ),
 query_txt as (
     select
@@ -691,9 +694,9 @@ query_txt as (
             STL_QUERYTEXT
         where
             sequence < {_QUERY_SEQUENCE_LIMIT}
-            -- Scope to the window, or this LISTAGG aggregates the cluster's entire
-            -- retained query history: STL_QUERYTEXT has no timestamp column, so the
-            -- stl_insert window predicate below cannot be pushed down into it.
+            -- Scope to the window and database, or this LISTAGG aggregates the
+            -- cluster's entire retained query history: STL_QUERYTEXT has no timestamp
+            -- column, so the stl_insert predicates below cannot be pushed down into it.
             and query in (select query from target_queries)
         order by
             sequence
