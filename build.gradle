@@ -157,12 +157,11 @@ apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
 ext.jacksonVersion = '2.21.5'
-// Parquet stack: parquet-jackson shades Jackson under shaded/parquet/ (1.17.1 bundles jackson-databind 2.21.3).
-// App-classpath jackson-databind is 2.21.5 (CVE-2026-54514/54516/54517/54518/59888 fixed in 2.21.4;
-// CVE-2026-54515, CVE-2026-59889, GHSA-mhm7-754m-9p8w fixed in 2.21.5). ext.jacksonVersion does not replace
-// the shaded parquet copy — bump when Apache releases parquet-java with jackson 2.21.4+
-// (https://github.com/apache/parquet-java/pull/3594, target 1.18.0).
-ext.parquetVersion = '1.17.1'
+// Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
+// 1.18.0+ bundles jackson-databind 2.22.1 (CVE-2026-54512/54513 and related jackson-databind CVEs
+// fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
+// App-classpath jackson-databind remains ext.jacksonVersion (2.21.5); that pin does not replace the shade.
+ext.parquetVersion = '1.18.0'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
