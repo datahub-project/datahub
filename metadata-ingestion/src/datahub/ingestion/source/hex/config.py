@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr, field_validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -61,7 +62,10 @@ class HexConnectionDetail(ConfigModel):
 
 
 class HexSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     workspace_name: str = Field(
         description="Hex workspace name. Find it in the workspace switcher dropdown in the top-left corner of the Hex app.",

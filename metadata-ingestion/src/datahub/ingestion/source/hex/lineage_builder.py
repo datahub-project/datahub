@@ -129,15 +129,26 @@ class HexLineageBuilder:
         # SELECT * expansion and accurate column-level lineage. When None,
         # schema-less parsing is used (dataset-level lineage only).
         graph: Optional["DataHubGraph"] = None,
+        # Lowercase db/schema/table in emitted upstream URNs and in the
+        # queriedTables cross-validation compare. Matches a warehouse
+        # ingested with convert_urns_to_lowercase=True (e.g. Snowflake).
+        # The queriedTables path builds URNs verbatim from Hex's tableName
+        # (author case); the SQL-cell path already lowercases via
+        # SchemaResolver for case-insensitive platforms.
+        convert_urns_to_lowercase: bool = False,
     ):
         self._connections = connections
         self._env = env
         self._report = report
         self._project_id = project_id
         self._graph = graph
+        self._convert_urns_to_lowercase = convert_urns_to_lowercase
         # Cached per (platform, platform_instance) — same-platform connections
         # with different instances must NOT share a resolver.
         self._schema_resolvers: Dict[Tuple[str, Optional[str]], SchemaResolver] = {}
+
+    def _maybe_lower_name(self, name: str) -> str:
+        return name.lower() if self._convert_urns_to_lowercase else name
 
     def set_project_id(self, project_id: str) -> None:
         self._project_id = project_id
@@ -176,6 +187,7 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
+            qualified_name = self._maybe_lower_name(qualified_name)
             urn = make_dataset_urn_with_platform_instance(
                 platform=connection.platform,
                 name=qualified_name,
@@ -261,7 +273,11 @@ class HexLineageBuilder:
 
         Mismatches are recorded in the report with sample cells for diagnostics.
         """
-        queried_set = set(queried_table_urns)
+        queried_set = (
+            {u.lower() for u in queried_table_urns}
+            if self._convert_urns_to_lowercase
+            else set(queried_table_urns)
+        )
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
 
@@ -288,6 +304,8 @@ class HexLineageBuilder:
                         exc_info=True,
                     )
                     continue
+                if self._convert_urns_to_lowercase:
+                    parent_urn = parent_urn.lower()
                 if parent_urn in queried_set:
                     matched.append(furn)
                 else:

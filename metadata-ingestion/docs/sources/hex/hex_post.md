@@ -84,3 +84,5 @@ The source report lists every skipped cell with its `dataConnectionId` and a rea
 #### Column Lineage Looks Sparse
 
 When `use_queried_tables_lineage` is enabled on a Hex Enterprise workspace, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.
+
+If the upstream warehouse was ingested with `convert_urns_to_lowercase: true` (e.g. Snowflake's default), set `convert_urns_to_lowercase: true` on the Hex source too. Hex's `queriedTables` API returns table names in the case the SQL author typed them; without the flag, an uppercase reference emits an uppercase URN that does not match the lowercase warehouse node, so table lineage dangles and column lineage is dropped as a mismatch.
