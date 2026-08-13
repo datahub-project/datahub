@@ -62,9 +62,15 @@ graphqlCodegen {
     generateParameterizedFieldsResolvers = false
     modelValidationAnnotation = "@javax.annotation.Nonnull"
     addGeneratedAnnotation = false  // Skips timestamps in generated files which forces re-compile
+    // GraphQL Float is IEEE-754 double precision. Keep most historical Float mappings,
+    // but force structured-property number inputs to Double so values like 410258.29 are
+    // not silently narrowed to float32 (410258.28125) before PDL double storage.
+    // See https://github.com/datahub-project/datahub/issues/19078
     customTypesMapping = [
         Long: "Long",
-        Float: "Float"
+        Float: "Float",
+        "PropertyValueInput.numberValue": "Double",
+        "AllowedValueInput.numberValue": "Double",
     ]
 }
 
