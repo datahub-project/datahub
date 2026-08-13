@@ -16,6 +16,25 @@ def test_agent_shim_command_behavior():
     assert "run `pip install datahub-agent-context`" in result.output
 
 
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        (
+            ImportError("No module named acryl_datahub_cloud"),
+            "pip install acryl-datahub-cloud",
+        ),
+        (
+            ImportError("No module named graphql"),
+            "fix the acryl-datahub-cloud installation",
+        ),
+    ],
+)
+def test_evals_import_suggestion(error, expected):
+    from datahub.entrypoints import _evals_import_suggestion
+
+    assert expected in _evals_import_suggestion(error)
+
+
 def test_agent_command_exists():
     """Test that agent command is registered in the CLI."""
     import datahub.entrypoints
