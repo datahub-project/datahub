@@ -445,9 +445,32 @@ def test_a_failed_dynamic_table_fetch_is_reported_not_only_logged():
         {"SCHEMA_A": [_dynamic_table("dt_a")]}, "TEST_DB"
     )
 
-    assert data_dictionary.report.warnings, (
-        "a failed dynamic-table fetch must surface in the report"
+    messages = [w.message for w in data_dictionary.report.warnings]
+    # Assert the per-schema handler specifically. The database-wide failure warns first, so
+    # a bare `assert report.warnings` passes even with the terminal handler silenced - which
+    # is the handler that actually loses data.
+    assert any("for schema" in m for m in messages), (
+        f"the terminal per-schema failure must be reported; got {messages}"
     )
+
+
+@pytest.mark.parametrize(
+    "kind,fetch",
+    [
+        (VIEWS, lambda gen: gen.get_views_for_schema("SCHEMA_A", "TEST_DB")),
+        (STREAMS, lambda gen: gen.get_streams_for_schema("SCHEMA_A", "TEST_DB")),
+    ],
+    ids=["views", "streams"],
+)
+def test_a_failed_database_wide_show_falls_back_per_schema(kind, fetch):
+    """A database-wide SHOW that cannot run at all - a missing grant, a statement timeout -
+    must still reach the exact per-schema path. Losing every object in the database because
+    one wide query failed is the outcome this whole fallback exists to avoid."""
+    connection = FailsDatabaseWideConnection({kind: [("SCHEMA_A", "obj_a")]})
+
+    objects = fetch(_make_schema_gen(connection))
+
+    assert [o.name for o in objects] == ["obj_a"]
 
 
 def test_dynamic_table_fallback_skips_schemas_without_dynamic_tables():

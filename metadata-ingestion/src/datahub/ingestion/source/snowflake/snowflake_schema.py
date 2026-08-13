@@ -988,30 +988,39 @@ class SnowflakeDataDictionary(SupportsAsObj):
         *is* the whole sort key and paging is exact (verified against a 16k-view schema:
         two pages, no gaps, no duplicates).
 
+        A failure is reported and also answered with None, so a database-wide SHOW that
+        cannot run at all (a missing grant, a statement timeout) still reaches the exact
+        per-schema path instead of losing the whole database. Catching here rather than in
+        each caller keeps one failure policy for views, streams and dynamic tables - and
+        matters because serialized_lru_cache does not cache exceptions, so an uncaught
+        failure would re-run this query once per schema.
+
         Shared by views, streams and dynamic tables so the page-boundary rule lives in one
         place rather than being restated for each object type.
-
-        Takes a query *builder* rather than a query so that the LIMIT in the statement and
-        the page_limit compared against the row count cannot disagree. Were they passed
-        separately, a query built with a smaller LIMIT would never reach page_limit, the
-        fallback would never fire, and objects would be dropped with no warning - the very
-        bug this method exists to prevent.
         """
-        cur = self.connection.query(build_query(page_limit))
+        try:
+            rows = list(self.connection.query(build_query(page_limit)))
+        except Exception as e:
+            self.report.warning(
+                message="Database-wide SHOW failed; retrying per schema",
+                context=f"{object_kind} in {db_name}",
+                exc=e,
+            )
+            return None
 
-        grouped: Dict[str, List[_ShowRowT]] = {}
-        result_set_size = 0
-        for row in cur:
-            result_set_size += 1
-            grouped.setdefault(row["schema_name"], []).append(mapper(row))
-
-        if result_set_size >= page_limit:
+        # Check the page size before mapping: on a full page every mapped object is
+        # discarded, and for dynamic tables each one parses JSON.
+        if len(rows) >= page_limit:
             logger.info(
                 f"Database-wide 'SHOW {object_kind}' for {db_name} filled its "
                 f"{page_limit}-row page; falling back to per-schema queries, which "
                 "paginate reliably."
             )
             return None
+
+        grouped: Dict[str, List[_ShowRowT]] = {}
+        for row in rows:
+            grouped.setdefault(row["schema_name"], []).append(mapper(row))
 
         return grouped
 
@@ -1062,10 +1071,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
     ) -> Iterable[Dict[str, Any]]:
         """Yield rows of a schema-scoped SHOW, paging by object name.
 
-        The builder is handed the page limit rather than being called with one already
-        baked in, so the statement's LIMIT always matches the size this method compares
-        against - a smaller LIMIT would otherwise look like a short final page and
-        silently truncate the schema after one query.
+        The builder is handed the page limit so that the statement's LIMIT and the size
+        compared against the row count come from the same value at the same moment.
 
         Schema-scoped output is ordered by name alone, which is exactly what the
         `FROM '<name>'` cursor matches on, so paging here is exact - unlike the
@@ -1073,44 +1080,44 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         Snowflake does not honour that cursor for every object class, though: for its
         built-in INFORMATION_SCHEMA views, `FROM` is ignored and every page repeats the
-        first, which would spin forever. So stop as soon as the marker fails to advance,
-        and dedupe by name so a misbehaving cursor can never emit an object twice. A
-        short result plus a warning beats a hung ingestion.
+        first, which would spin forever. Termination is therefore decided by whether a
+        full page produced any name not already seen - deliberately not by comparing the
+        new marker against the old one, which would re-derive Snowflake's collation in
+        Python and, on mixed-case identifiers, could call a perfectly good cursor stalled
+        and truncate the schema. A short result plus a warning beats a hung ingestion.
         """
         seen_names: Set[str] = set()
         marker: Optional[str] = None
-        first_iteration = True
-        while first_iteration or marker is not None:
-            cur = self.connection.query(build_query(marker, page_limit))
-
-            first_iteration = False
-            previous_marker = marker
-            marker = None
-
-            result_set_size = 0
+        while True:
+            rows_in_page = 0
+            new_in_page = 0
             last_name: Optional[str] = None
-            for row in cur:
-                result_set_size += 1
+            for row in self.connection.query(build_query(marker, page_limit)):
+                rows_in_page += 1
                 last_name = row["name"]
                 if last_name in seen_names:
                     continue
                 seen_names.add(last_name)
+                new_in_page += 1
                 yield row
 
-            if result_set_size >= page_limit and last_name is not None:
-                if previous_marker is not None and last_name <= previous_marker:
-                    self.report.warning(
-                        message=f"Paginated 'SHOW {object_kind}' stopped early because "
-                        "Snowflake did not honour the pagination cursor; some objects "
-                        "may be missing.",
-                        context=f"{context} after {previous_marker}",
-                    )
-                    return
-                logger.info(
-                    f"Fetching next page of {object_kind.lower()} for {context} - "
-                    f"after {last_name}"
+            if rows_in_page < page_limit or last_name is None:
+                return
+
+            if new_in_page == 0:
+                self.report.warning(
+                    message=f"Paginated 'SHOW {object_kind}' stopped early because "
+                    "Snowflake did not honour the pagination cursor; some objects "
+                    "may be missing.",
+                    context=f"{context} after {marker}",
                 )
-                marker = last_name
+                return
+
+            logger.info(
+                f"Fetching next page of {object_kind.lower()} for {context} - "
+                f"after {last_name}"
+            )
+            marker = last_name
 
     def get_views_for_schema_using_show(
         self, *, db_name: str, schema_name: str
@@ -2477,32 +2484,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Get graph/dependency information (pass db_name)
         dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
-        try:
-            return self._probe_database_wide_show(
-                build_query=lambda limit: (
-                    SnowflakeQuery.show_dynamic_tables_for_database(
-                        db_name, limit=limit
-                    )
-                ),
-                page_limit=page_limit,
-                object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
-                db_name=db_name,
-                mapper=lambda row: self._map_show_dynamic_table(
-                    db_name, row, dt_graph_info
-                ),
-            )
-        except Exception as e:
-            # None, not an empty mapping: {} would read as "this database genuinely has no
-            # dynamic tables" and silently drop every definition. None sends the caller
-            # down the per-schema path, which can still succeed when only the
-            # database-wide statement failed (a timeout, or too large a result set).
-            self.report.warning(
-                message="Failed to get dynamic tables for database; "
-                "retrying per schema",
-                context=db_name,
-                exc=e,
-            )
-            return None
+        # No try/except here: _probe_database_wide_show reports a failure and answers None,
+        # which is the caller's signal to page per schema. Returning {} instead would read
+        # as "this database genuinely has no dynamic tables" and silently drop every
+        # definition.
+        return self._probe_database_wide_show(
+            build_query=lambda limit: SnowflakeQuery.show_dynamic_tables_for_database(
+                db_name, limit=limit
+            ),
+            page_limit=page_limit,
+            object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
+            db_name=db_name,
+            mapper=lambda row: self._map_show_dynamic_table(
+                db_name, row, dt_graph_info
+            ),
+        )
 
     def get_dynamic_tables_for_schema_using_show(
         self, *, db_name: str, schema_name: str
