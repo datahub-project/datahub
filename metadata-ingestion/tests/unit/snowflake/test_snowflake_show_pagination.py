@@ -198,15 +198,32 @@ SKIPPED_NAMES = [f"a_{i:03d}" for i in range(100)]
 # --- views ---------------------------------------------------------------------
 
 
-def test_views_in_later_schema_survive_a_database_over_the_page_limit():
-    connection = FakeShowConnection(
-        {VIEWS: _boundary_skips_a_schema(SHOW_COMMAND_MAX_PAGE_SIZE)}
-    )
-    schema_gen = _make_schema_gen(connection)
+@pytest.mark.parametrize(
+    "kind,page_size,fetch",
+    [
+        (
+            VIEWS,
+            SHOW_COMMAND_MAX_PAGE_SIZE,
+            lambda gen: gen.get_views_for_schema("SCHEMA_B", "TEST_DB"),
+        ),
+        (
+            STREAMS,
+            SHOW_STREAM_MAX_PAGE_SIZE,
+            lambda gen: gen.get_streams_for_schema("SCHEMA_B", "TEST_DB"),
+        ),
+    ],
+    ids=["views", "streams"],
+)
+def test_objects_in_a_later_schema_survive_a_database_over_the_page_limit(
+    kind, page_size, fetch
+):
+    """The page boundary is one rule shared by every object type, so each kind is checked
+    against the same fixture and expectation rather than in a hand-copied test."""
+    connection = FakeShowConnection({kind: _boundary_skips_a_schema(page_size)})
 
-    views = schema_gen.get_views_for_schema("SCHEMA_B", "TEST_DB")
+    objects = fetch(_make_schema_gen(connection))
 
-    assert [v.name for v in views] == SKIPPED_NAMES
+    assert [o.name for o in objects] == SKIPPED_NAMES
 
 
 def test_no_view_is_returned_twice_for_a_database_over_the_page_limit():
@@ -272,17 +289,6 @@ def test_database_under_the_page_limit_uses_a_single_database_wide_view_query():
 
 
 # --- streams -------------------------------------------------------------------
-
-
-def test_streams_in_later_schema_survive_a_database_over_the_page_limit():
-    connection = FakeShowConnection(
-        {STREAMS: _boundary_skips_a_schema(SHOW_STREAM_MAX_PAGE_SIZE)}
-    )
-    schema_gen = _make_schema_gen(connection)
-
-    streams = schema_gen.get_streams_for_schema("SCHEMA_B", "TEST_DB")
-
-    assert [s.name for s in streams] == SKIPPED_NAMES
 
 
 def test_per_schema_show_streams_pages_through_every_stream_exactly_once():

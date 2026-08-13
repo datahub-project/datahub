@@ -15,6 +15,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeVar,
 )
 
 import sqlglot
@@ -53,6 +54,9 @@ class SnowflakeTaskState(StrEnum):
 
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Row type produced by a database-wide SHOW mapper (a view, stream or dynamic table).
+_ShowRowT = TypeVar("_ShowRowT")
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
 
@@ -962,36 +966,61 @@ class SnowflakeDataDictionary(SupportsAsObj):
         else:
             return self._get_views_for_database_using_show(db_name)
 
+    def _probe_database_wide_show(
+        self,
+        *,
+        query: str,
+        page_limit: int,
+        object_kind: str,
+        db_name: str,
+        mapper: Callable[[Dict[str, Any]], _ShowRowT],
+    ) -> Optional[Dict[str, List[_ShowRowT]]]:
+        """Run one database-wide SHOW and group the rows by schema, or give up.
+
+        A full page means there is more to fetch, and a database-wide SHOW cannot be
+        continued: its `FROM '<name>'` cursor keys on the object name alone while the
+        output is ordered by (schema, name). Measured against a live account, continuing
+        drops every object in a later schema whose name sorts below the marker while
+        re-returning earlier schemas' higher-sorting ones — and if the marker happens to
+        name an INFORMATION_SCHEMA view the cursor is ignored entirely and the loop spins
+        forever. Returning None tells the caller to page per schema instead, where name
+        *is* the whole sort key and paging is exact (verified against a 16k-view schema:
+        two pages, no gaps, no duplicates).
+
+        Shared by views, streams and dynamic tables so the page-boundary rule lives in one
+        place rather than being restated for each object type.
+        """
+        cur = self.connection.query(query)
+
+        grouped: Dict[str, List[_ShowRowT]] = {}
+        result_set_size = 0
+        for row in cur:
+            result_set_size += 1
+            grouped.setdefault(row["schema_name"], []).append(mapper(row))
+
+        if result_set_size >= page_limit:
+            logger.info(
+                f"Database-wide 'SHOW {object_kind}' for {db_name} filled its "
+                f"{page_limit}-row page; falling back to per-schema queries, which "
+                "paginate reliably."
+            )
+            return None
+
+        return grouped
+
     def _get_views_for_database_using_show(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
-        cur = self.connection.query(
-            SnowflakeQuery.show_views_for_database(db_name, limit=page_limit)
+        views = self._probe_database_wide_show(
+            query=SnowflakeQuery.show_views_for_database(db_name, limit=page_limit),
+            page_limit=page_limit,
+            object_kind="VIEWS",
+            db_name=db_name,
+            mapper=self._map_show_view,
         )
-
-        views: Dict[str, List[SnowflakeView]] = {}
-        result_set_size = 0
-        for view in cur:
-            result_set_size += 1
-            views.setdefault(view["schema_name"], []).append(self._map_show_view(view))
-
-        if result_set_size >= page_limit:
-            # A full page means there are more views than one `SHOW VIEWS IN DATABASE`
-            # can return, and that result cannot be continued: its `FROM '<name>'` cursor
-            # keys on the object name alone while the output is ordered by
-            # (schema, name). Measured live, continuing drops every view in a later
-            # schema whose name sorts below the marker while re-returning earlier
-            # schemas' higher-sorting views - and if the marker happens to name an
-            # INFORMATION_SCHEMA view the cursor is ignored entirely and the loop spins
-            # forever. Give up on the database-wide query and let the caller page per
-            # schema, where name *is* the whole sort key and paging is exact (verified
-            # against a 16k-view schema: two pages, no gaps, no duplicates).
-            logger.info(
-                f"Database-wide 'SHOW VIEWS' for {db_name} filled its {page_limit}-row "
-                "page; falling back to per-schema queries, which paginate reliably."
-            )
+        if views is None:
             return None
 
         # Because this is in a cached function, this will only log once per database.
@@ -2290,28 +2319,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
     ) -> Optional[Dict[str, List[SnowflakeStream]]]:
         page_limit = SHOW_STREAM_MAX_PAGE_SIZE
 
-        cur = self.connection.query(
-            SnowflakeQuery.streams_for_database(db_name, limit=page_limit)
+        return self._probe_database_wide_show(
+            query=SnowflakeQuery.streams_for_database(db_name, limit=page_limit),
+            page_limit=page_limit,
+            object_kind="STREAMS",
+            db_name=db_name,
+            mapper=self._map_show_stream,
         )
-
-        streams: Dict[str, List[SnowflakeStream]] = {}
-        result_set_size = 0
-        for stream in cur:
-            result_set_size += 1
-            streams.setdefault(stream["schema_name"], []).append(
-                self._map_show_stream(stream)
-            )
-
-        if result_set_size >= page_limit:
-            # A full page cannot be continued safely - see
-            # _get_views_for_database_using_show for the cursor-vs-sort-key reasoning.
-            logger.info(
-                f"Database-wide 'SHOW STREAMS' for {db_name} filled its {page_limit}-row "
-                "page; falling back to per-schema queries, which paginate reliably."
-            )
-            return None
-
-        return streams
 
     def get_streams_for_schema_using_show(
         self, *, db_name: str, schema_name: str
@@ -2443,39 +2457,27 @@ class SnowflakeDataDictionary(SupportsAsObj):
     ) -> Optional[Dict[str, List[SnowflakeDynamicTable]]]:
         """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
-        dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
 
         # Get graph/dependency information (pass db_name)
         dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
         try:
-            cur = self.connection.query(
-                SnowflakeQuery.show_dynamic_tables_for_database(
+            return self._probe_database_wide_show(
+                query=SnowflakeQuery.show_dynamic_tables_for_database(
                     db_name, limit=page_limit
-                )
+                ),
+                page_limit=page_limit,
+                object_kind="DYNAMIC TABLES",
+                db_name=db_name,
+                mapper=lambda row: self._map_show_dynamic_table(
+                    db_name, row, dt_graph_info
+                ),
             )
-
-            result_set_size = 0
-            for dt in cur:
-                result_set_size += 1
-                dynamic_tables.setdefault(dt["schema_name"], []).append(
-                    self._map_show_dynamic_table(db_name, dt, dt_graph_info)
-                )
         except Exception as e:
+            # An empty mapping (rather than None) keeps the caller on the database-wide
+            # path with no definitions, degrading gracefully instead of failing the scan.
             logger.debug(f"Failed to get dynamic tables for database {db_name}: {e}")
-            return dynamic_tables
-
-        if result_set_size >= page_limit:
-            # A full page cannot be continued safely - see
-            # _get_views_for_database_using_show for the cursor-vs-sort-key reasoning.
-            logger.info(
-                f"Database-wide 'SHOW DYNAMIC TABLES' for {db_name} filled its "
-                f"{page_limit}-row page; falling back to per-schema queries, which "
-                "paginate reliably."
-            )
-            return None
-
-        return dynamic_tables
+            return {}
 
     def get_dynamic_tables_for_schema_using_show(
         self, *, db_name: str, schema_name: str
