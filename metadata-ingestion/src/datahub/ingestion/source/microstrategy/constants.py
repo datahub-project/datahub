@@ -24,6 +24,16 @@ MSTR_FOLDER_TYPE_SHARED_REPORTS = 7
 MSTR_PREDEFINED_FOLDER_LABELS: Dict[int, str] = {
     MSTR_FOLDER_TYPE_SHARED_REPORTS: "Shared Reports",
 }
+# System containers every object's ancestor chain passes through but Strategy
+# Web never displays: the project root folder (named after the project, so it
+# renders as a duplicate project level) and "Public Objects". Resolved by id
+# via the same predefined-folders call and omitted from the browse hierarchy;
+# children re-parent to the nearest kept ancestor.
+MSTR_FOLDER_TYPE_PUBLIC_OBJECTS = 1
+MSTR_FOLDER_TYPE_PROJECT_ROOT = 39
+MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES = frozenset(
+    {MSTR_FOLDER_TYPE_PUBLIC_OBJECTS, MSTR_FOLDER_TYPE_PROJECT_ROOT}
+)
 
 MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8

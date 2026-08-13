@@ -31,6 +31,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TYPE_REPORT,
     MSTR_PREDEFINED_FOLDER_LABELS,
+    MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     USAGE_TARGET_CHART,
     USAGE_TARGET_DASHBOARD,
 )
@@ -56,6 +57,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     MetricEnrichment,
     MicroStrategyObject,
+    PredefinedFolderResolution,
     Project,
     ProjectKey,
     ReportDefinition,
@@ -118,7 +120,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.lineage = self.mapper.lineage
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
-        self._predefined_folder_label_cache: Dict[str, Dict[str, str]] = {}
+        self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -439,19 +441,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     exc=error,
                 )
 
-    def _predefined_folder_labels(self, project_id: str) -> Dict[str, str]:
-        """Folder id -> MicroStrategy-assigned label (e.g. 'Shared Reports') for
-        the predefined folders in MSTR_PREDEFINED_FOLDER_LABELS, cached per
-        project since folder containers are (re)built once per dashboard/report."""
+    def _predefined_folders(self, project_id: str) -> PredefinedFolderResolution:
+        """Predefined-folder resolution for a project: MicroStrategy-assigned
+        labels (e.g. 'Shared Reports') plus the system containers Strategy Web
+        never shows (project root folder, 'Public Objects'), cached per project
+        since folder containers are (re)built once per dashboard/report."""
         if not self.config.use_predefined_folder_names:
-            return {}
-        if project_id in self._predefined_folder_label_cache:
-            return self._predefined_folder_label_cache[project_id]
+            return PredefinedFolderResolution.empty()
+        if project_id in self._predefined_folder_cache:
+            return self._predefined_folder_cache[project_id]
 
         labels: Dict[str, str] = {}
+        hidden_ids: Set[str] = set()
         try:
             folders = self.client.get_predefined_folders(
-                project_id, list(MSTR_PREDEFINED_FOLDER_LABELS)
+                project_id,
+                sorted(
+                    set(MSTR_PREDEFINED_FOLDER_LABELS)
+                    | MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES
+                ),
             )
         except Exception as error:
             # Folder browsing is an optional enhancement layered on top of the
@@ -476,17 +484,21 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             folders = []
 
         for folder in folders:
-            label = (
-                MSTR_PREDEFINED_FOLDER_LABELS.get(folder.folder_type)
-                if folder.folder_type is not None
-                else None
-            )
+            if folder.folder_type is None:
+                continue
+            if folder.folder_type in MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES:
+                hidden_ids.add(normalize_object_id(folder.id))
+                continue
+            label = MSTR_PREDEFINED_FOLDER_LABELS.get(folder.folder_type)
             if label:
                 labels[normalize_object_id(folder.id)] = label
-        if labels:
-            self.report.report_predefined_folder_labels_resolved(len(labels))
-        self._predefined_folder_label_cache[project_id] = labels
-        return labels
+        if labels or hidden_ids:
+            self.report.report_predefined_folder_labels_resolved(
+                len(labels) + len(hidden_ids)
+            )
+        resolution = PredefinedFolderResolution(labels=labels, hidden_ids=hidden_ids)
+        self._predefined_folder_cache[project_id] = resolution
+        return resolution
 
     def _process_dashboard_object(
         self,
@@ -495,12 +507,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        folder_labels = self._predefined_folder_labels(project_id)
+        predefined_folders = self._predefined_folders(project_id)
         yield from self.mapper.gen_folder_containers(
-            project_id, dashboard_object, folder_labels
+            project_id, dashboard_object, predefined_folders
         )
         parent_key = self.mapper.folder_container_for_dashboard(
-            project_id, dashboard_object, folder_labels
+            project_id, dashboard_object, predefined_folders
         )
         dashboard = self._get_dashboard_definition(project_id, dashboard_object)
         if dashboard is None:
@@ -666,14 +678,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         report_object: MicroStrategyObject,
         lineage_context: "_LazyProjectLineage",
     ) -> Iterable[MetadataWorkUnit]:
-        folder_labels = self._predefined_folder_labels(project_id)
+        predefined_folders = self._predefined_folders(project_id)
         yield from self.mapper.gen_folder_containers(
-            project_id, report_object, folder_labels
+            project_id, report_object, predefined_folders
         )
         parent_key = self.mapper.folder_container_for_dashboard(
             project_id,
             report_object,
-            folder_labels,
+            predefined_folders,
         )
         report_definition = self._get_report_definition(project_id, report_object)
         source_dataset = self._report_source_dataset(
