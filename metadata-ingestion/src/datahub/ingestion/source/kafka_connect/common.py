@@ -777,9 +777,7 @@ class BaseConnector:
 
     def available_topics(self) -> List[str]:
         # None = list unavailable (fall back to connector topic_names); [] = empty cluster.
-        if self.all_cluster_topics is not None:
-            return list(self.all_cluster_topics)
-        return list(self.connector_manifest.topic_names)
+        return self.topics_for_regex_expansion() or []
 
     def topics_for_regex_expansion(self) -> Optional[List[str]]:
         # Prefer the live cluster list (including empty). Fall back to connector

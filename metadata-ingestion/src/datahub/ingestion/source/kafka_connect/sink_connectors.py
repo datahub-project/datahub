@@ -46,8 +46,9 @@ def _report_transform_result(
         )
     if transform_result.fallback_used:
         report.info(
-            f"Complex transforms detected in {connector_name}. "
-            f"Consider using 'generic_connectors' config for explicit mappings."
+            message="Complex transforms detected; consider using the 'generic_connectors' "
+            "config for explicit mappings",
+            context=connector_name,
         )
 
 
