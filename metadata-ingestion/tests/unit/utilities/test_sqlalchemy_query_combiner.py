@@ -1,9 +1,8 @@
 """Unit tests for SQLAlchemyQueryCombiner — pins current behavior in isolation.
 
-Regression guard for the PR 4 flattening change. Exercises the combiner
-directly (not via QueryCombinerRunner) against a real in-memory SQLite
-engine. Follows the repo testing philosophy: behavior over implementation,
-no exact-error-message assertions.
+Exercises the combiner directly (not via QueryCombinerRunner) against a real
+in-memory SQLite engine. Follows the repo testing philosophy: behavior over
+implementation, no exact-error-message assertions.
 
 Two edge-case branches (a zero-row proxy, and a one-row/zero-column proxy)
 are unreachable through the combiner, which asserts exactly one row, so
@@ -32,13 +31,9 @@ from datahub.utilities.sqlalchemy_query_combiner import (
 
 @pytest.fixture
 def engine():
-    # In-memory SQLite uses SingletonThreadPool, so rows inserted in the
-    # test_table fixture (which opens its own connection) survive into the
-    # separate engine.connect() opened in each test. If this fixture ever
-    # switches to a pool that doesn't share one connection per identifier
-    # (e.g. NullPool), the test_table rows would vanish mid-test. Don't
-    # change the pool without re-checking that implicit dependency.
-    eng = create_engine("sqlite:///:memory:")
+    # In-memory SQLite shares one connection per identifier; explicit so the
+    # fixture doesn't silently break under a different pool.
+    eng = create_engine("sqlite:///:memory:", poolclass=sa.pool.SingletonThreadPool)
     try:
         yield eng
     finally:
@@ -133,8 +128,7 @@ class TestBatchingAndPartitioning:
         # fall-through to the serial path (e.g. an invariant violation in
         # _execute_queue) increments query_exceptions and leaves
         # uncombined_queries_issued at 0, so the uncombined assertion alone
-        # would not catch it. See test_index_len_row_invariant_* for the
-        # mechanism.
+        # would not catch it.
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == 3
 
@@ -151,6 +145,7 @@ class TestBatchingAndPartitioning:
 
         assert all(c.done for c in caps)
         assert all(c.result is not None and c.exc is None for c in caps)
+        assert all(c.result.scalar() == 3 for c in caps)
         assert combiner.report.queries_combined == n
         assert combiner.report.combined_queries_issued == 2
         assert combiner.report.uncombined_queries_issued == 0
@@ -259,9 +254,7 @@ class TestResultExtraction:
         # AFTER the loop. If the assert fires, flush() catches it,
         # increments query_exceptions, and calls _execute_queue_fallback —
         # which skips every (already-done) future, so corrupted-but-populated
-        # results stand and uncombined_queries_issued stays 0. Without
-        # this assertion the mutant that appends a trailing column to the
-        # combined SELECT passes this test.
+        # results stand and uncombined_queries_issued stays 0.
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == 2
 
@@ -272,16 +265,16 @@ class TestResultExtraction:
         # inner_columns), but the extraction loop keys off
         # query.subquery().columns, whose name is an anon label embedding
         # an object id (non-deterministic across runs). scalar() (positional)
-        # works; keyed access by 'count' does not. PR 4 must not regress
-        # scalar().
+        # works; keyed access by 'count' does not.
         query = sa.select(sa.func.count()).select_from(test_table)
         combiner = _make_combiner()
         with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, query)
+            cap_scalar = _schedule(qc, conn, query)
+            cap_one = _schedule(qc, conn, query)
             qc.flush()
 
-        assert cap.result.scalar() == 3
-        row = cap.result.one()
+        assert cap_scalar.result.scalar() == 3
+        row = cap_one.result.one()
         # Pin the shape without asserting the anon key (it embeds an object id):
         assert len(dict(row)) == 1
         # Keyed access by the inner_columns name is unavailable:
@@ -290,21 +283,17 @@ class TestResultExtraction:
         assert combiner.report.combined_queries_issued == 1
         assert combiner.report.uncombined_queries_issued == 0
         assert combiner.report.query_exceptions == 0
-        assert combiner.report.total_queries == 1
+        assert combiner.report.total_queries == 2
 
     def test_duplicate_labels_fallback_then_ambiguous_at_consumption(
         self, engine, test_table
     ):
-        # Two columns labeled 'v' in one query. The combined CTE fails to
-        # compile (ambiguous), so the combiner falls back to serial execution
-        # — which SUCCEEDS at the DB level and stores a real CursorResult.
-        # The InvalidRequestError (ambiguous column name) surfaces later, at
-        # CONSUMPTION (row['v']), not at flush(). This is exactly where the
-        # combined and serial paths diverge, and where PR 4's flattening must
-        # not silently regress: today data[col.name] = row[index] silently
-        # overwrites on a label collision while `index` still advances, so
-        # the extracted dict has one entry but the combined row has two
-        # columns.
+        # Two columns labeled 'v' in one query make the combined CTE fail to
+        # compile (SQLAlchemy raises while populating the CTE's column
+        # collection, before combined_queries_issued is incremented), so the
+        # combiner falls back to serial execution. Serial execution succeeds
+        # at the DB level and stores a real CursorResult; the ambiguity then
+        # surfaces at consumption (row['v']), not at flush().
         query = sa.select(
             sa.func.min(test_table.c.value).label("v"),
             sa.func.max(test_table.c.value).label("v"),
@@ -323,6 +312,30 @@ class TestResultExtraction:
             row = cap.result.one()
             with pytest.raises(sa.exc.InvalidRequestError):
                 row["v"]
+
+    def test_duplicate_labels_across_queries_do_not_collide(self, engine, test_table):
+        # Two separate queries, each with a single column labelled 'v', combine
+        # into one statement. Each query gets its own result dict, so identical
+        # labels across queries must not collide. This is the case that matters
+        # for the flattening change.
+        q_min = sa.select(sa.func.min(test_table.c.value).label("v")).select_from(
+            test_table
+        )
+        q_max = sa.select(sa.func.max(test_table.c.value).label("v")).select_from(
+            test_table
+        )
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_min = _schedule(qc, conn, q_min)
+            cap_max = _schedule(qc, conn, q_max)
+            qc.flush()
+
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.uncombined_queries_issued == 0
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 2
+        assert cap_min.result.one()["v"] == 10.5
+        assert cap_max.result.one()["v"] == 30.5
 
 
 class TestExceptionAndFallback:
@@ -403,37 +416,38 @@ class TestExceptionAndFallback:
 
 class TestResultProxyContract:
     def test_scalar_one_one_or_none_and_keyed_access(self, engine, test_table):
-        # The combiner returns _ResultProxyFake objects; pin the access
-        # patterns the profiler relies on: scalar(), one(), one_or_none(),
-        # int- and name-keyed row access. A combined query always returns
-        # exactly one row (asserted in the combiner), so
-        # MultipleResultsFound/NoResultFound are not exercised here.
+        # One access per result object: on a real CursorResult (what the
+        # serial fallback stores) scalar() closes the result and a following
+        # one() raises ResourceClosedError, so chaining the two would pin a
+        # divergence between the combined and serial paths as though it were
+        # a contract. Keyed row access is covered by
+        # test_result_row_mapped_by_col_name.
         query = sa.select(
             sa.func.count().label("rowcount"),
             sa.func.sum(test_table.c.value).label("value_sum"),
         ).select_from(test_table)
         combiner = _make_combiner()
         with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, query)
+            cap_scalar = _schedule(qc, conn, query)
+            cap_one = _schedule(qc, conn, query)
             qc.flush()
 
-        result = cap.result
-        assert result.scalar() == 3
-        row = result.one()
-        assert row["rowcount"] == 3
-        assert row["value_sum"] == pytest.approx(61.5)
-        assert result.one_or_none() is row
-        # fetchone is aliased to one (see test_fetchone_alias_to_one_* for the
-        # alias contract on a zero-row proxy).
-        assert result.fetchone() is row
+        assert cap_scalar.result.scalar() == 3
+        assert cap_one.result.one()[0] == 3
+        # one_or_none on a single-row proxy returns the row.
+        row = _ResultProxyFake(
+            [_RowProxyFake({"rowcount": 3, "value_sum": 61.5})]
+        ).one_or_none()
+        assert row is not None
+        assert row[0] == 3
         assert combiner.report.query_exceptions == 0
         assert combiner.report.uncombined_queries_issued == 0
-        assert combiner.report.total_queries == 1
+        assert combiner.report.total_queries == 2
 
     def test_fetchone_alias_to_one_on_zero_row_proxy(self):
         # fetchone is aliased to one. On a zero-row proxy, one() raises
         # NoResultFound while first() returns None — so fetchone() must
-        # raise, not return None. This kills the `fetchone = first` mutant.
+        # raise, not return None.
         empty = _ResultProxyFake([])
         assert empty.first() is None
         with pytest.raises(NoResultFound):
@@ -442,10 +456,6 @@ class TestResultProxyContract:
             empty.fetchone()
 
     def test_fetchall_returns_all_rows(self):
-        # .fetchall() is used at 4 production result-consumption sites, and
-        # .first() returns the first row (not None) on a populated proxy —
-        # pin both. The first() assertion kills the `first() -> None` mutant
-        # that the zero-row test alone cannot.
         rows = [
             _RowProxyFake({"a": 1, "b": 10}),
             _RowProxyFake({"a": 2, "b": 20}),
@@ -458,14 +468,11 @@ class TestResultProxyContract:
         assert fetched[1]["b"] == 20
 
     def test_int_index_out_of_range_raises_indexerror(self):
-        # Pin the CONTRACT that out-of-range int access raises IndexError
-        # (rather than KeyError or a silent wrong value). Note this does
-        # NOT pin the explicit guard in _RowProxyFake.__getitem__: that
-        # guard is message-only dead code, since the underlying keys[k]
-        # raises IndexError on its own for every out-of-range index. The
-        # "remove the guard" mutant is an equivalent mutant and cannot be
-        # killed by behavior alone. The contract will matter if PR 4
-        # reshapes row access.
+        # Pin the contract that out-of-range int access raises IndexError
+        # (rather than KeyError or a silent wrong value). The explicit guard
+        # in _RowProxyFake.__getitem__ is message-only dead code — the
+        # underlying keys[k] raises IndexError on its own — so this test
+        # pins the contract, not the guard.
         row = _RowProxyFake({"a": 1})
         with pytest.raises(IndexError):
             row[5]
@@ -503,17 +510,15 @@ class TestGetQueryColumns:
         # inner_columns keeps semantic names ('count', 'count') for duplicate
         # unlabeled aggregates; .columns yields anon labels embedding an
         # object id (non-deterministic). Asserting the names (not the count
-        # — both return 2) distinguishes the two branches and kills the
-        # `.columns`-first mutant. Use sa.table/sa.column (pure metadata),
-        # no engine needed.
+        # — both return 2) distinguishes the two branches. Use sa.table/
+        # sa.column (pure metadata), no engine needed.
         t = sa.table("t", sa.column("value"))
         query = sa.select(sa.func.count(), sa.func.count()).select_from(t)
         assert [c.name for c in get_query_columns(query)] == ["count", "count"]
 
     def test_falls_back_to_columns_on_attribute_error(self):
         # Some query shapes expose .columns but not .inner_columns; the
-        # helper must fall back rather than raise. PR 4 may touch this, so
-        # pin the contract.
+        # helper must fall back rather than raise.
 
         class _FakeQuery:
             @property
