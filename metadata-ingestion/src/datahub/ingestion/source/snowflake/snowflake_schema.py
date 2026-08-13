@@ -1095,7 +1095,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
             query = SnowflakeQuery.show_objects_for_schema(
                 object_kind, db_name, schema_name, limit=page_limit, marker=marker
             )
-            for row in self.connection.query(query):
+            try:
+                page = list(self.connection.query(query))
+            except Exception as e:
+                # Rows already yielded stand - a later page failing does not invalidate an
+                # earlier one - but the caller cannot tell a truncated schema from a small
+                # one, so the count has to be reported. Handled here so views, streams and
+                # dynamic tables share one policy.
+                self.report.warning(
+                    message=f"Paginated 'SHOW {object_kind}' failed for schema; "
+                    "results may be incomplete",
+                    context=f"{context} (kept {len(seen_names)})",
+                    exc=e,
+                )
+                return
+
+            for row in page:
                 rows_in_page += 1
                 last_name = row["name"]
                 if last_name in seen_names:
@@ -2497,30 +2512,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
     ) -> List[SnowflakeDynamicTable]:
         dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
-        dynamic_tables: List[SnowflakeDynamicTable] = []
-        try:
+        # No handler here: _iter_show_rows_for_schema reports a failure with the count it
+        # kept, so all three object kinds degrade identically.
+        return [
+            self._map_show_dynamic_table(db_name, row, dt_graph_info)
             for row in self._iter_show_rows_for_schema(
                 object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
                 db_name=db_name,
                 schema_name=schema_name,
                 page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
-            ):
-                dynamic_tables.append(
-                    self._map_show_dynamic_table(db_name, row, dt_graph_info)
-                )
-        except Exception as e:
-            # This is the last resort - there is no further fallback - so a failure here
-            # loses every definition and its lineage for the schema. `dynamic_tables` may
-            # also hold a partial page, which the caller cannot distinguish from a
-            # complete one, so the count has to be reported rather than logged.
-            self.report.warning(
-                message="Failed to get dynamic tables for schema; "
-                "definitions may be incomplete",
-                context=f"{db_name}.{schema_name} (kept {len(dynamic_tables)})",
-                exc=e,
             )
-
-        return dynamic_tables
+        ]
 
     def _map_show_dynamic_table(
         self,
