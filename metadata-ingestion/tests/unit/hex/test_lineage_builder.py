@@ -639,11 +639,6 @@ def test_explicit_table_qualifier_overrides_defaults():
     assert "other_db.other_schema.orders" in datasets[0].lower()
 
 
-# ------------------------------------------------------------------
-# convert_urns_to_lowercase — ING-3205 fix
-# ------------------------------------------------------------------
-
-
 def test_build_from_queried_tables_lowercase_flag_off_preserves_case():
     """Default: queriedTables tableName is preserved verbatim (author case)."""
     b = _builder(
