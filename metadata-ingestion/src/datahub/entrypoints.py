@@ -57,6 +57,14 @@ _logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
+
+def _evals_import_suggestion(error: ImportError) -> str:
+    if "acryl_datahub_cloud" in str(error):
+        return "run `pip install acryl-datahub-cloud`"
+    logger.warning(f"acryl-datahub-cloud is installed but failed to load: {error}")
+    return f"fix the acryl-datahub-cloud installation ({error})"
+
+
 if sys.version_info >= (3, 12):
     click.secho(
         "Python versions above 3.11 are not actively tested with yet. Please use Python 3.11 for now.",
@@ -601,12 +609,7 @@ try:
 
     datahub.add_command(evals)
 except ImportError as e:
-    if "acryl_datahub_cloud" in str(e):
-        suggestion = "run `pip install acryl-datahub-cloud`"
-    else:
-        logger.warning(f"acryl-datahub-cloud is installed but failed to load: {e}")
-        suggestion = f"fix the acryl-datahub-cloud installation ({e})"
-    datahub.add_command(make_shim_command("evals", suggestion))
+    datahub.add_command(make_shim_command("evals", _evals_import_suggestion(e)))
 
 try:
     from datahub.cli.iceberg_cli import iceberg
