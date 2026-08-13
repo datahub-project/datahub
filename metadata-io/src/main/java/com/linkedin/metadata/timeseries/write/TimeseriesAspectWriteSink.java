@@ -23,6 +23,14 @@ public interface TimeseriesAspectWriteSink {
         // no-op
       };
 
+  /**
+   * When true, write/delete failures throw instead of being swallowed. Used by UpdateIndices V3 to
+   * propagate fail-loud dual-write errors.
+   */
+  default boolean failOnError() {
+    return false;
+  }
+
   void upsertDocument(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
