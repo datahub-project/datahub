@@ -202,6 +202,20 @@ class DerivedMetricSpec(MicroStrategyBaseModel):
     source_visualization_name: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class PredefinedFolderResolution:
+    """Predefined-folder knowledge for one project: MicroStrategy-assigned
+    labels to substitute (keyed by normalized folder id) and system-container
+    ids to omit from the browse hierarchy entirely."""
+
+    labels: Dict[str, str]
+    hidden_ids: Set[str]
+
+    @staticmethod
+    def empty() -> "PredefinedFolderResolution":
+        return PredefinedFolderResolution(labels={}, hidden_ids=set())
+
+
 class PredefinedFolder(MicroStrategyBaseModel):
     """A well-known MicroStrategy folder (EnumDSSXMLFolderNames), resolved via
     /api/folders/preDefined so its MicroStrategy-assigned label can be matched

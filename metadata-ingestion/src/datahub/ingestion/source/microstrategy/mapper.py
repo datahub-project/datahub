@@ -50,6 +50,7 @@ from datahub.ingestion.source.microstrategy.models import (
     FolderPart,
     MetricEnrichment,
     MicroStrategyObject,
+    PredefinedFolderResolution,
     Project,
     ProjectKey,
     ReportDefinition,
@@ -274,13 +275,15 @@ class MicroStrategyMapper:
         self,
         project_id: str,
         dashboard_object: MicroStrategyObject,
-        folder_labels: Optional[Dict[str, str]] = None,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
         parts = extract_folder_parts(dashboard_object.model_dump())
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
         current_path = ""
         for part in parts:
-            name = _resolve_folder_name(part, folder_labels)
+            if _is_hidden_folder(part, predefined_folders):
+                continue
+            name = _resolve_folder_name(part, predefined_folders)
             if not self.config.folder_pattern.allowed(name):
                 continue
             current_path = f"{current_path}/{name}" if current_path else name
@@ -298,12 +301,16 @@ class MicroStrategyMapper:
         self,
         project_id: str,
         dashboard_object: MicroStrategyObject,
-        folder_labels: Optional[Dict[str, str]] = None,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> ProjectKey:
         parts = extract_folder_parts(dashboard_object.model_dump())
         allowed_names = [
             name
-            for name in (_resolve_folder_name(part, folder_labels) for part in parts)
+            for name in (
+                _resolve_folder_name(part, predefined_folders)
+                for part in parts
+                if not _is_hidden_folder(part, predefined_folders)
+            )
             if self.config.folder_pattern.allowed(name)
         ]
         if not allowed_names:
@@ -1394,15 +1401,25 @@ def _add_schema_field_object_mapping(
 
 
 def _resolve_folder_name(
-    part: FolderPart, folder_labels: Optional[Dict[str, str]]
+    part: FolderPart, predefined_folders: Optional[PredefinedFolderResolution]
 ) -> str:
     """A folder's raw metadata name, unless its id matches a resolved predefined
     folder (see MSTR_PREDEFINED_FOLDER_LABELS) -- then its MicroStrategy-assigned
     label is used everywhere: pattern matching, container identity, and display,
     so all three never disagree about what a folder is called."""
-    if folder_labels and part.id:
-        return folder_labels.get(normalize_object_id(part.id), part.name)
+    if predefined_folders and part.id:
+        return predefined_folders.labels.get(normalize_object_id(part.id), part.name)
     return part.name
+
+
+def _is_hidden_folder(
+    part: FolderPart, predefined_folders: Optional[PredefinedFolderResolution]
+) -> bool:
+    """System containers Strategy Web never shows (the project root folder and
+    'Public Objects'); their children re-parent to the nearest kept ancestor."""
+    if predefined_folders and part.id:
+        return normalize_object_id(part.id) in predefined_folders.hidden_ids
+    return False
 
 
 def _optional_str(value: object) -> Optional[str]:

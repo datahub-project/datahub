@@ -17,6 +17,7 @@ from datahub.ingestion.source.microstrategy.models import (
     MicroStrategyObject,
     ModelTablesResponse,
     PredefinedFolder,
+    PredefinedFolderResolution,
     Project,
     ReportDefinition,
     SqlView,
@@ -841,18 +842,28 @@ def test_predefined_folder_labels_resolves_shared_reports() -> None:
         def get_predefined_folders(
             self, project_id: str, folder_types: List[int]
         ) -> List[PredefinedFolder]:
-            assert folder_types == [7]
+            assert folder_types == [1, 7, 39]
             return [
                 PredefinedFolder.model_validate(
+                    {"id": "project-root-id", "name": "Analytics", "folderType": 39}
+                ),
+                PredefinedFolder.model_validate(
+                    {
+                        "id": "public-objects-id",
+                        "name": "Public Objects",
+                        "folderType": 1,
+                    }
+                ),
+                PredefinedFolder.model_validate(
                     {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
-                )
+                ),
             ]
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._predefined_folder_labels("project-1") == {
-        "REPORTS-FOLDER-ID": "Shared Reports"
-    }
+    resolution = source._predefined_folders("project-1")
+    assert resolution.labels == {"REPORTS-FOLDER-ID": "Shared Reports"}
+    assert resolution.hidden_ids == {"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"}
 
 
 def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None:
@@ -866,7 +877,7 @@ def test_predefined_folder_labels_disabled_by_config_skips_client_call() -> None
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._predefined_folder_labels("project-1") == {}
+    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
 
 
 def test_predefined_folder_labels_memoizes_api_failure() -> None:
@@ -884,8 +895,8 @@ def test_predefined_folder_labels_memoizes_api_failure() -> None:
     fake_client = FakeClient()
     source.client = fake_client  # type: ignore[assignment]
 
-    assert source._predefined_folder_labels("project-1") == {}
-    assert source._predefined_folder_labels("project-1") == {}
+    assert source._predefined_folders("project-1").labels == {}
+    assert source._predefined_folders("project-1").labels == {}
 
     # The project-scoped failure is remembered; no re-attempts per lookup.
     assert fake_client.calls == 1
@@ -903,7 +914,7 @@ def test_predefined_folder_labels_degrades_on_unexpected_client_error() -> None:
 
     source.client = FakeClient()  # type: ignore[assignment]
 
-    assert source._predefined_folder_labels("project-1") == {}
+    assert source._predefined_folders("project-1") == PredefinedFolderResolution.empty()
     assert len(source.report.warnings) == 1
 
 

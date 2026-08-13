@@ -17,6 +17,7 @@ from datahub.ingestion.source.microstrategy.models import (
     FolderPart,
     MetricEnrichment,
     MicroStrategyObject,
+    PredefinedFolderResolution,
     ReportDefinition,
     extract_folder_parts,
 )
@@ -1122,13 +1123,15 @@ def test_gen_folder_containers_resolves_predefined_folder_label_everywhere() -> 
         }
     )
     # Keys are normalized ids; the ancestor payload's casing must not matter.
-    folder_labels = {"REPORTS-FOLDER-ID": "Shared Reports"}
+    folder_labels = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"}, hidden_ids=set()
+    )
     resolved_key = mapper.folder_key("project-1", "Public Objects/Shared Reports")
     raw_key = mapper.folder_key("project-1", "Public Objects/Reports")
 
     workunits = list(
         mapper.gen_folder_containers(
-            "project-1", dashboard_object, folder_labels=folder_labels
+            "project-1", dashboard_object, predefined_folders=folder_labels
         )
     )
     names = _container_names(workunits)
@@ -1141,7 +1144,7 @@ def test_gen_folder_containers_resolves_predefined_folder_label_everywhere() -> 
     # deny rule targeting the raw name ("Reports") no longer applies.
     assert (
         mapper.folder_container_for_dashboard(
-            "project-1", dashboard_object, folder_labels=folder_labels
+            "project-1", dashboard_object, predefined_folders=folder_labels
         )
         == resolved_key
     )
@@ -1728,3 +1731,38 @@ def test_static_only_column_sets_bind_by_name_without_derived_fields() -> None:
     )
     assert len(inputs) == 1
     assert "ds-alpha" in inputs[0]
+
+
+def test_gen_folder_containers_hides_system_folders() -> None:
+    # The project root folder and "Public Objects" never appear in Strategy
+    # Web; children re-parent to the nearest kept ancestor.
+    mapper = _mapper()
+    dashboard_object = MicroStrategyObject.model_validate(
+        {
+            "id": "dash-1",
+            "name": "Sales Dashboard",
+            "ancestors": [
+                {"id": "project-root-id", "name": "Analytics"},
+                {"id": "public-objects-id", "name": "Public Objects"},
+                {"id": "reports-folder-id", "name": "Reports"},
+                {"id": "finance-folder-id", "name": "Finance"},
+            ],
+        }
+    )
+    resolution = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"},
+        hidden_ids={"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"},
+    )
+
+    workunits = list(
+        mapper.gen_folder_containers(
+            "project-1", dashboard_object, predefined_folders=resolution
+        )
+    )
+    names = set(_container_names(workunits).values())
+    assert names == {"Shared Reports", "Finance"}
+
+    parent_key = mapper.folder_container_for_dashboard(
+        "project-1", dashboard_object, predefined_folders=resolution
+    )
+    assert parent_key == mapper.folder_key("project-1", "Shared Reports/Finance")

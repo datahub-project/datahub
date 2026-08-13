@@ -7,6 +7,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_FOLDER_TYPE_SHARED_REPORTS,
+    MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
 )
 from datahub.ingestion.source.microstrategy.models import (
     Datasource,
@@ -455,10 +456,16 @@ def _dashboards_under_reports_folder(
                 "subtype": "14081",
                 "description": "Sales performance dashboard",
                 "owner": {"username": "sales_owner"},
-                # Real getAncestors shape from a live MicroStrategy instance: the
-                # folder Strategy Web shows as "Shared Reports" is internally
-                # named "Reports" (see MSTR_FOLDER_TYPE_SHARED_REPORTS).
-                "ancestors": [{"id": "reports-folder-id", "name": "Reports"}],
+                # Real getAncestors shape from a live MicroStrategy instance:
+                # project root folder (named after the project) -> "Public
+                # Objects" -> "Reports" (shown by Strategy Web as "Shared
+                # Reports") -> user folders.
+                "ancestors": [
+                    {"id": "project-root-id", "name": "Sales Analytics"},
+                    {"id": "public-objects-id", "name": "Public Objects"},
+                    {"id": "reports-folder-id", "name": "Reports"},
+                    {"id": "finance-folder-id", "name": "Finance"},
+                ],
             }
         )
     ]
@@ -469,11 +476,19 @@ def _shared_reports_predefined_folder(
     _project_id: str,
     folder_types: List[int],
 ) -> List[PredefinedFolder]:
-    assert folder_types == [MSTR_FOLDER_TYPE_SHARED_REPORTS]
+    assert folder_types == sorted(
+        {MSTR_FOLDER_TYPE_SHARED_REPORTS} | MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES
+    )
     return [
         PredefinedFolder.model_validate(
+            {"id": "project-root-id", "name": "Sales Analytics", "folderType": 39}
+        ),
+        PredefinedFolder.model_validate(
+            {"id": "public-objects-id", "name": "Public Objects", "folderType": 1}
+        ),
+        PredefinedFolder.model_validate(
             {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
-        )
+        ),
     ]
 
 
@@ -736,6 +751,17 @@ def test_microstrategy_resolves_shared_reports_predefined_folder(
     names = _container_names(mcps)
     assert "Shared Reports" in names
     assert "Reports" not in names
+    assert "Finance" in names
+    # System containers Strategy Web never shows: "Public Objects" and the
+    # project root folder, whose name would duplicate the project container's.
+    assert "Public Objects" not in names
+    project_name_containers = [
+        mcp
+        for mcp in mcps
+        if mcp.get("aspectName") == "containerProperties"
+        and mcp["aspect"]["json"].get("name") == "Sales Analytics"
+    ]
+    assert len(project_name_containers) == 1
 
 
 def test_microstrategy_keeps_raw_folder_name_when_predefined_lookup_disabled(
@@ -750,6 +776,9 @@ def test_microstrategy_keeps_raw_folder_name_when_predefined_lookup_disabled(
     names = _container_names(mcps)
     assert "Reports" in names
     assert "Shared Reports" not in names
+    # Without the predefined lookup nothing can be hidden either; the raw
+    # ancestor chain keeps its system containers.
+    assert "Public Objects" in names
 
 
 def test_microstrategy_metric_formula_lineage_flag_emits_field_edges(
