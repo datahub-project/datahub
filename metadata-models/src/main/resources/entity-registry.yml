@@ -350,6 +350,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
       - globalTags
   - name: document
     category: core
@@ -608,6 +609,8 @@ entities:
       - glossaryTerms
       - semanticFieldAnnotation
       - aiContext
+      - ownership
+      - domains
   - name: globalSettings
     viewUnrestricted: true
     doc: Global settings for an the platform

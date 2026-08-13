@@ -472,6 +472,20 @@ class SQLAlchemyProfiler:
 
         self.platform = platform.lower()
 
+        # Resolve the profiling isolation level once, not per table. None (the
+        # default) means "set nothing", so the whole table profile runs under one
+        # transaction — unchanged from before this option existed. The per-table
+        # path only re-applies the resolved level (see the conn.execution_options
+        # call in _generate_single_profile).
+        isolation_level = self.config.profiling_isolation_level
+        self._profiling_isolation_level: Optional[str] = (
+            isolation_level.value if isolation_level is not None else None
+        )
+        # One log line per profiler instance if the isolation level is rejected —
+        # the structured report already dedups, but the logger does not. A profiler
+        # is built per database, so a multi-database run emits one line per database.
+        self._isolation_level_warning_logged = False
+
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
         if not self.config.any_field_level_metrics_enabled():
@@ -1601,6 +1615,49 @@ class SQLAlchemyProfiler:
             try:
                 logger.info(f"Profiling {pretty_name}")
                 with self.base_engine.connect() as conn:
+                    isolation_level = self._profiling_isolation_level
+                    if isolation_level is not None:
+                        # Must be the first operation on this connection — the
+                        # isolation level cannot be changed once a transaction is in
+                        # progress. Re-applied on every checkout because SQLAlchemy
+                        # reverts it on pool return. The rebind is required: on the
+                        # pinned SQLAlchemy 1.4 (<2), execution_options returns a
+                        # branched copy, not self.
+                        try:
+                            conn = conn.execution_options(
+                                isolation_level=isolation_level
+                            )
+                        except Exception as e:
+                            # Broad by necessity: execution_options calls
+                            # dialect.set_isolation_level directly, bypassing
+                            # SQLAlchemy's DBAPI exception wrapping, so a server or
+                            # proxy refusal arrives as a raw driver error. Warn and
+                            # continue with the original (transactional) connection.
+                            # The structured report dedups by title+message; the
+                            # logger does not, so gate it on a per-run flag to emit
+                            # one line per run. Profiling runs in a ThreadPoolExecutor
+                            # so a race may emit two — acceptable, no lock.
+                            self.report.warning(
+                                title="Profiling: isolation level unavailable",
+                                message=(
+                                    "The database or SQLAlchemy dialect did "
+                                    "not accept the requested session "
+                                    "isolation level. Profiling will run one "
+                                    "transaction per table, which can block "
+                                    "VACUUM (Postgres) or grow the InnoDB undo "
+                                    "log (MySQL) for the duration of each "
+                                    "table's profile."
+                                ),
+                                context=(
+                                    f"Asset: {pretty_name}; "
+                                    f"isolation_level={isolation_level}"
+                                ),
+                                exc=e,
+                                log=not self._isolation_level_warning_logged,
+                            )
+                            self._isolation_level_warning_logged = True
+                            if not self.config.catch_exceptions:
+                                raise
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     try:

@@ -2885,6 +2885,12 @@ type GlossaryNode implements Entity {
   The Domain associated with the glossary node
   """
   domain: DomainAssociation @aspectMapping(aspects: ["domains"])
+
+  """
+  The applications associated with the glossary node
+  """
+  applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 }
 
 """

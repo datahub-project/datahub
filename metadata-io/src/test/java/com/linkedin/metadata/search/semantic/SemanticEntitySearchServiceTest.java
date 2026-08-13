@@ -81,7 +81,8 @@ public class SemanticEntitySearchServiceTest {
     mappingsBuilder = new NoOpMappingsBuilder();
 
     // Setup basic mock behavior
-    when(mockIndexConvention.getEntityIndexName(TEST_ENTITY_NAME)).thenReturn(TEST_BASE_INDEX);
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, TEST_ENTITY_NAME))
+        .thenReturn(TEST_BASE_INDEX);
     when(mockEmbeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
         .thenReturn(TEST_EMBEDDING);
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
@@ -295,8 +296,10 @@ public class SemanticEntitySearchServiceTest {
   @Test
   public void testSearchMultipleEntityTypes() throws IOException {
     // Setup multiple entity types
-    when(mockIndexConvention.getEntityIndexName("dataset")).thenReturn("datasetindex_v2");
-    when(mockIndexConvention.getEntityIndexName("chart")).thenReturn("chartindex_v2");
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, "dataset"))
+        .thenReturn("datasetindex_v2");
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, "chart"))
+        .thenReturn("chartindex_v2");
 
     setupMockKnnResponse(
         List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));

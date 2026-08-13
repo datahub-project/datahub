@@ -313,7 +313,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     // Dual-write to semantic index if it exists (with caching to avoid repeated HEAD requests)
     String semanticIndexName =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameSemantic(opContext, entityName);
     Boolean semanticExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (semanticExists == null) {
       semanticExists = indexExists(opContext, semanticIndexName);
@@ -675,9 +678,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public boolean validateAndSwapAlias(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
-      @Nonnull String newBackingIndex)
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
       throws Exception {
-    return indexBuilder.validateAndSwapAlias(opContext, aliasName, newBackingIndex);
+    return indexBuilder.validateAndSwapAlias(
+        opContext, aliasName, newBackingIndex, expectedSourceDocCount);
   }
 
   @Override
