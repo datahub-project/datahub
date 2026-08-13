@@ -45,17 +45,21 @@ describe('structuredPropertyToViewProperty', () => {
                     { value: { stringValue: 'T1' }, description: 'Tier 1' },
                     { value: { stringValue: 'Silver' } },
                     { value: { numberValue: 3 }, description: 'Bronze' },
+                    { value: { numberValue: 42 } },
                 ],
             }),
         );
 
         expect(property?.valueType).toBe(ValueTypeId.ENUM);
         // The raw value stays the stored id so the saved filter round-trips, while the label
-        // shows the property author's friendly description (falling back to the value).
+        // shows the property author's friendly description when set and falls back to the raw
+        // value otherwise — asserted for both string and number values, with and without a
+        // description.
         expect(property?.valueOptions?.options).toEqual([
             { id: 'T1', displayName: 'Tier 1' },
             { id: 'Silver', displayName: 'Silver' },
             { id: '3', displayName: 'Bronze' },
+            { id: '42', displayName: '42' },
         ]);
     });
 
