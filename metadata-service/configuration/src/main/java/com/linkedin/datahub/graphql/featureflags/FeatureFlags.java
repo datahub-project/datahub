@@ -90,4 +90,5 @@ public class FeatureFlags {
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
   private boolean entityExistsBatchLoadEnabled = true;
+  private boolean parentContainersBatchLoadEnabled = true;
 }
