@@ -7,7 +7,7 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
-from datahub.metadata.urns import SchemaFieldUrn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
@@ -147,9 +147,6 @@ class HexLineageBuilder:
         # with different instances must NOT share a resolver.
         self._schema_resolvers: Dict[Tuple[str, Optional[str]], SchemaResolver] = {}
 
-    def _maybe_lower_name(self, name: str) -> str:
-        return name.lower() if self._convert_urns_to_lowercase else name
-
     def set_project_id(self, project_id: str) -> None:
         self._project_id = project_id
 
@@ -187,7 +184,12 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
-            qualified_name = self._maybe_lower_name(qualified_name)
+            if self._convert_urns_to_lowercase:
+                # Match a warehouse ingested with convert_urns_to_lowercase=true
+                # (e.g. Snowflake's default). platform_instance is prepended by
+                # make_dataset_urn_with_platform_instance and is NOT lowercased
+                # here — it must stay whatever the warehouse was ingested under.
+                qualified_name = qualified_name.lower()
             urn = make_dataset_urn_with_platform_instance(
                 platform=connection.platform,
                 name=qualified_name,
@@ -272,12 +274,25 @@ class HexLineageBuilder:
         represents a different entity than intended).
 
         Mismatches are recorded in the report with sample cells for diagnostics.
+
+        Under ``convert_urns_to_lowercase`` the comparison is keyed on
+        ``(platform, name.lower(), env)`` — only the dataset name is normalized,
+        so platform / env / platform_instance casing differences do not cause
+        distinct upstreams to collide. Each emitted SchemaFieldUrn is rebuilt
+        against the *exact* matched queried URN (not the parsed parent), so
+        column-lineage edges resolve to the same dataset as ``datasetEdges``
+        rather than dangling against an author-case parent.
         """
-        queried_set = (
-            {u.lower() for u in queried_table_urns}
-            if self._convert_urns_to_lowercase
-            else set(queried_table_urns)
-        )
+        if self._convert_urns_to_lowercase:
+            queried_by_key: Dict[str, str] = {}
+            for u in queried_table_urns:
+                key = self._canonical_dataset_key(u)
+                if key is not None:
+                    queried_by_key.setdefault(key, u)
+        else:
+            queried_by_key = {}
+        exact_queried_set: Set[str] = set(queried_table_urns)
+
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
 
@@ -296,7 +311,9 @@ class HexLineageBuilder:
 
             for furn in field_urns:
                 try:
-                    parent_urn = SchemaFieldUrn.from_string(furn).parent
+                    sf = SchemaFieldUrn.from_string(furn)
+                    parent_urn = sf.parent
+                    field_path = sf.field_path
                 except Exception:
                     logger.warning(
                         "Skipping malformed schema field URN during queriedTables cross-validation: %s",
@@ -304,13 +321,28 @@ class HexLineageBuilder:
                         exc_info=True,
                     )
                     continue
+
                 if self._convert_urns_to_lowercase:
-                    parent_urn = parent_urn.lower()
-                if parent_urn in queried_set:
-                    matched.append(furn)
+                    key = self._canonical_dataset_key(parent_urn)
+                    canonical_parent = (
+                        queried_by_key.get(key) if key is not None else None
+                    )
+                    if canonical_parent is not None:
+                        # Rebuild the field URN against the exact queried URN so
+                        # column lineage points to the same dataset as datasetEdges
+                        # (no dangling author-case SchemaField URNs).
+                        matched.append(
+                            make_schema_field_urn(canonical_parent, field_path)
+                        )
+                    else:
+                        unmatched_tables.add(parent_urn)
+                        unmatched_field_count += 1
                 else:
-                    unmatched_tables.add(parent_urn)
-                    unmatched_field_count += 1
+                    if parent_urn in exact_queried_set:
+                        matched.append(furn)
+                    else:
+                        unmatched_tables.add(parent_urn)
+                        unmatched_field_count += 1
 
             if unmatched_tables:
                 self._report.enterprise_cells_with_mismatch += 1
@@ -339,6 +371,17 @@ class HexLineageBuilder:
 
         self._report.enterprise_column_fields_emitted += len(validated_fields)
         return validated_fields
+
+    def _canonical_dataset_key(self, urn: str) -> Optional[str]:
+        """Comparison key for a dataset URN under ``convert_urns_to_lowercase``:
+        ``(platform, name.lower(), env)``. Platform and env stay exact so
+        distinct upstreams don't collide on casing; only the dataset name is
+        normalized. Returns None if the URN is malformed."""
+        try:
+            d = DatasetUrn.from_string(urn)
+        except Exception:
+            return None
+        return f"{d.platform}\x1f{d.name.lower()}\x1f{d.env}"
 
     def _lookup_connection(
         self, connection_id: Optional[str]

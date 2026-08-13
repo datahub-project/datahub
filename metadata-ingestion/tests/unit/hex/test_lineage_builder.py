@@ -1,6 +1,12 @@
 from typing import Dict, Optional
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+import pytest
+
+from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.source.hex.lineage_builder import (
     HexLineageBuilder,
     LineageBuilderReport,
@@ -8,6 +14,7 @@ from datahub.ingestion.source.hex.lineage_builder import (
     _qualify_table_name,
 )
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
+from datahub.metadata.urns import SchemaFieldUrn
 
 SNOWFLAKE_CONN = "conn-snowflake-1"
 BIGQUERY_CONN = "conn-bq-1"
@@ -18,6 +25,15 @@ CONNECTIONS: Dict[str, HexConnection] = {
     SNOWFLAKE_CONN: HexConnection(name="Analytics", platform="snowflake"),
     BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery"),
 }
+
+
+@pytest.fixture(autouse=True)
+def _pin_dataset_urn_case_global(monkeypatch):
+    """Pin the module global DATASET_URN_TO_LOWER to False so case-preservation
+    assertions don't depend on DATAHUB_DATASET_URN_TO_LOWER in the env. The
+    flag-on code path lowercases the name itself; this only prevents the
+    builder from silently lowercasing when the flag is off."""
+    monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
 
 
 def _builder(
@@ -737,22 +753,36 @@ def test_validated_cll_lowercase_flag_off_drops_on_case_mismatch():
 
 
 def test_validated_cll_lowercase_flag_on_emits_on_case_match():
-    """With the flag on, both sides of the compare are lowercased → the
-    parsed parent URN matches the queriedTables URN → fields emitted."""
+    """With the flag on, the parsed parent (author case) is matched to the
+    queriedTables URN by a lowercased-name key, and the emitted SchemaField
+    URN is rebuilt against the *exact* queried URN — so column lineage points
+    at the same (lowercased) dataset as datasetEdges, not an author-case
+    parent that would dangle."""
     report = LineageBuilderReport()
     b = _builder(report=report, convert_urns_to_lowercase=True)
+    # queried URNs reflect what build_from_queried_tables would emit with the
+    # flag on: the db.schema.table portion is lowercased.
     queried = [
         make_dataset_urn_with_platform_instance(
             platform="snowflake",
-            name="DB.SCHEMA.ORDERS",
+            name="db.schema.orders",
             platform_instance=None,
             env="PROD",
         )
     ]
     sql = "SELECT order_id, customer_id FROM DB.SCHEMA.ORDERS"
     fields = b.build_validated_column_lineage([_cell(sql)], queried)
-    assert len(fields) > 0
-    assert any("order_id" in f for f in fields)
+    expected_parent = queried[0]
+    expected = {
+        make_schema_field_urn(expected_parent, "order_id"),
+        make_schema_field_urn(expected_parent, "customer_id"),
+    }
+    assert set(fields) == expected
+    # Each emitted field's parent must equal the lowercased queried URN,
+    # not the author-case parent the SQL parser produced.
+    for furn in fields:
+        assert SchemaFieldUrn.from_string(furn).parent == expected_parent
+    assert report.enterprise_column_fields_emitted == len(expected)
     assert report.enterprise_column_fields_skipped_mismatch == 0
     assert report.enterprise_cells_with_mismatch == 0
 
@@ -765,7 +795,7 @@ def test_validated_cll_lowercase_flag_on_mismatch_still_reported():
     queried = [
         make_dataset_urn_with_platform_instance(
             platform="snowflake",
-            name="OTHER.DB.SCHEMA.T",
+            name="other.db.schema.t",
             platform_instance=None,
             env="PROD",
         )
