@@ -238,19 +238,19 @@ class OneLakeClient(BaseFabricClient):
             response.raise_for_status()
             data = response.json()
 
+            next_page_token = data.get("next_page_token")
+            # Check for a repeated token before yielding, so an endpoint that
+            # ignores page_token doesn't emit the same page twice.
+            if self._is_repeated_pagination_token(
+                next_page_token, seen_page_tokens, f"OneLake Table API '{url}'"
+            ):
+                break
+
             items = data.get(items_key, [])
             logger.debug(f"Page {page}: got {len(items)} item(s) from {url}")
             yield from items
 
-            next_page_token = data.get("next_page_token")
             if not next_page_token:
-                break
-            if next_page_token in seen_page_tokens:
-                logger.warning(
-                    f"OneLake Table API returned a repeated pagination token for {url}; "
-                    "stopping pagination to avoid an infinite loop. Results may be "
-                    "incomplete — the endpoint may not honor the 'page_token' parameter."
-                )
                 break
             seen_page_tokens.add(next_page_token)
             request_params["page_token"] = next_page_token

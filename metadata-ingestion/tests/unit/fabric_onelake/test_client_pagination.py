@@ -109,13 +109,15 @@ class TestPaginateFabricApi:
         assert items == [{"id": "ws-1"}]
 
     def test_repeated_continuation_token_breaks(self, client: OneLakeClient) -> None:
-        """A non-advancing continuationToken must stop pagination, not loop forever."""
+        """A non-advancing continuationToken must stop pagination without emitting
+        the repeated page twice."""
         page: Dict[str, Any] = {"value": [{"id": "a"}], "continuationToken": "stuck"}
         with patch.object(client, "get", return_value=_make_response(page)) as mock_get:
             items = list(client._paginate("workspaces"))
-        # Page 1 records the token; page 2 sees the same token and breaks.
+        # Page 1 yields and records the token; page 2 detects the repeat before
+        # yielding and breaks, so the item is emitted once.
         assert mock_get.call_count == 2
-        assert items == [{"id": "a"}, {"id": "a"}]
+        assert items == [{"id": "a"}]
 
 
 # ---------------------------------------------------------------------------
@@ -395,9 +397,10 @@ class TestOneLakeTableApiPagination:
         )
         with patch.object(client._session, "get", return_value=resp) as mock_get:
             schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
-        # Page 1 records the token; page 2 sees the same token and breaks.
+        # Page 1 yields and records the token; page 2 detects the repeat before
+        # yielding and breaks, so the schema is emitted once.
         assert mock_get.call_count == 2
-        assert schemas == ["dbo", "dbo"]
+        assert schemas == ["dbo"]
 
     def test_url_construction_schemas(
         self, client: OneLakeClient, mock_auth: MagicMock
