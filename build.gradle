@@ -111,6 +111,9 @@ buildscript {
   // CVE-2026-56820/56821/56822 (netty-handler-ssl-ocsp); CVE-2026-59901 (netty-codec-compression):
   // all fixed in 4.2.16+
   ext.nettyVersion = '4.2.16.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
+  // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
+  ext.wireVersion = '6.3.0'
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
@@ -410,7 +413,7 @@ project.ext.externalDependency = [
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.6',
-    'wire': 'com.squareup.wire:wire-compiler:3.7.1',
+    'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
@@ -626,6 +629,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyVersion)
         details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'com.squareup.wire') {
+        details.useVersion(rootProject.ext.wireVersion)
+        details.because("CVE-2026-45799; wire-runtime skipGroup() negative-length crash (fixed ${rootProject.ext.wireVersion}+)")
       }
       if (details.requested.group == 'io.grpc') {
         details.useVersion(rootProject.ext.grpcVersion)

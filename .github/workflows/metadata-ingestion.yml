@@ -139,11 +139,18 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore always; save only from master (below) so PR runs stop minting per-PR
+      # copies of this shared key. Key hashes the manifests that actually determine the
+      # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
+      # none of them.
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        id: uv-cache
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install ODBC driver for mssql tests
@@ -219,6 +226,17 @@ jobs:
               "$TEST_PATH" \
               --junit-xml="test-results/junit.${CONNECTOR}.xml"
           fi
+      # Success-only, single matrix leg (parallel legs would race to reserve the same
+      # key). On master this workflow usually runs on Depot runners, where this save
+      # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
+      # master writers for this key are documentation.yml and check-datahub-jars.yml.
+      - name: Save uv cache (master only)
+        if: github.ref == 'refs/heads/master' && matrix.command == 'testQuick' && matrix.python-version == '3.11' && steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
       - name: Debug info
         if: always()
         run: |

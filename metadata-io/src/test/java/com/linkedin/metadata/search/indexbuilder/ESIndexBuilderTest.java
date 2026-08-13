@@ -814,8 +814,8 @@ public class ESIndexBuilderTest {
     // Names are derived from the context's IndexConvention so the semantic suffix (and any
     // configured prefix) match what isSemanticEntityIndex expects.
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String baseName = indexConvention.getEntityIndexName("dataset");
-    String semanticSibling = indexConvention.getEntityIndexNameSemantic("dataset");
+    String baseName = indexConvention.getEntityIndexName(opContext, "dataset");
+    String semanticSibling = indexConvention.getEntityIndexNameSemantic(opContext, "dataset");
     String baseBackingOrphan = baseName + "_1700000000000";
     String semanticBackingOrphan = semanticSibling + "_1700000000000";
 

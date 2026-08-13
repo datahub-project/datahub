@@ -88,7 +88,7 @@ public class MostPopularSource implements EntityRecommendationSource {
       analyticsEnabled =
           _searchClient.indexExists(
               opContext,
-              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+              new GetIndexRequest(_indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX)),
               RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to determine whether DataHub usage index exists");
@@ -162,7 +162,7 @@ public class MostPopularSource implements EntityRecommendationSource {
     source.size(0);
 
     request.source(source);
-    request.indices(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX));
+    request.indices(_indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX));
     return request;
   }
 
