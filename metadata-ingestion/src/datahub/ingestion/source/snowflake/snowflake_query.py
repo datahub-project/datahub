@@ -596,8 +596,12 @@ LIMIT {limit};
         # whole sort key, so paging is exact (unlike show_views_for_database).
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
+        # A quoted Snowflake identifier may contain a quote or a backslash, and the marker
+        # is embedded in a string literal - escape it or the next page is malformed SQL.
         from_clause = (
-            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+            f"""FROM '{_escape_sql_string_literal(view_pagination_marker)}'"""
+            if view_pagination_marker
+            else ""
         )
         return f"""\
 SHOW VIEWS IN SCHEMA "{db_name}"."{schema_name}"
@@ -1578,8 +1582,11 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         # `FROM '<name>'` cursor is the whole sort key and paging is exact.
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
 
+        # Escaped for the same reason as in show_views_for_schema.
         from_clause = (
-            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
+            f"""FROM '{_escape_sql_string_literal(stream_pagination_marker)}'"""
+            if stream_pagination_marker
+            else ""
         )
         return f"""SHOW STREAMS IN SCHEMA "{db_name}"."{schema_name}" LIMIT {limit} {from_clause};"""
 
@@ -1610,8 +1617,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         # `FROM '<name>'` cursor is the whole sort key and paging is exact.
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
+        # Escaped for the same reason as in show_views_for_schema.
         from_clause = (
-            f"""FROM '{dynamic_table_pagination_marker}'"""
+            f"""FROM '{_escape_sql_string_literal(dynamic_table_pagination_marker)}'"""
             if dynamic_table_pagination_marker
             else ""
         )

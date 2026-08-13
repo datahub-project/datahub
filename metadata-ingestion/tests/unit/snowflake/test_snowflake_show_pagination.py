@@ -11,7 +11,7 @@ sort key.
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,6 +26,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
+    SnowflakeTable,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
@@ -44,7 +45,26 @@ SHOW_IN_SCHEMA = re.compile(
 )
 SHOW_IN_DATABASE = re.compile(rf'SHOW (?P<kind>{_KINDS}) IN DATABASE "(?P<db>[^"]+)"')
 LIMIT_CLAUSE = re.compile(r"LIMIT (?P<limit>\d+)")
-FROM_CLAUSE = re.compile(r"FROM '(?P<marker>[^']+)'")
+# Spans the whole literal, including any doubled quotes, so that a badly escaped marker is
+# visible to _parse_marker rather than being silently truncated at the first quote.
+FROM_CLAUSE = re.compile(r"FROM '(?P<marker>.*)'\s*;", re.DOTALL)
+
+
+def _parse_marker(query: str) -> Optional[str]:
+    """Read the ``FROM '<name>'`` cursor the way Snowflake would.
+
+    Snowflake rejects a statement whose string literal contains a bare quote, so an
+    unescaped marker is a hard error here too - not a truncated cursor. Without that,
+    a fake quietly recovers from bad escaping and the test proves nothing.
+    """
+    match = FROM_CLAUSE.search(query)
+    if match is None:
+        return None
+
+    literal = match.group("marker")
+    if "'" in literal.replace("''", ""):
+        raise ValueError(f"Malformed SQL - unescaped quote in literal: {query!r}")
+    return literal.replace("''", "'").replace("\\\\", "\\")
 
 
 def _row(kind: SnowflakeShowKind, schema_name: str, name: str) -> Dict[str, Any]:
@@ -95,12 +115,24 @@ class FakeShowConnection:
     """Emulates Snowflake's documented ``SHOW`` semantics: output ordered by
     ``(schema, name)``, and ``FROM '<name>'`` a cursor on the name alone."""
 
-    def __init__(self, objects: Dict[SnowflakeShowKind, List[Tuple[str, str]]]) -> None:
+    def __init__(
+        self,
+        objects: Dict[SnowflakeShowKind, List[Tuple[str, str]]],
+        max_queries: int = 10,
+    ) -> None:
         self._objects = {kind: sorted(rows) for kind, rows in objects.items()}
         self.queries: List[str] = []
+        self._max_queries = max_queries
 
     def query(self, query: str) -> List[Dict[str, Any]]:
         self.queries.append(query)
+        if len(self.queries) > self._max_queries:
+            # Fail fast rather than hang: without this, a caller that stops advancing its
+            # cursor pages forever and the test times out CI instead of reporting.
+            raise AssertionError(
+                f"Runaway pagination: {len(self.queries)} queries issued for "
+                f"{self._max_queries} allowed; the caller is not terminating."
+            )
 
         in_schema = SHOW_IN_SCHEMA.search(query)
         in_database = SHOW_IN_DATABASE.search(query)
@@ -119,9 +151,9 @@ class FakeShowConnection:
             # part in pagination; answer them with no rows.
             return []
 
-        marker = FROM_CLAUSE.search(query)
-        if marker:
-            rows = [o for o in rows if o[1] > marker.group("marker")]
+        marker = _parse_marker(query)
+        if marker is not None:
+            rows = [o for o in rows if o[1] > marker]
 
         limit = LIMIT_CLAUSE.search(query)
         if limit:
@@ -150,6 +182,17 @@ class FailsDatabaseWideConnection(FakeShowConnection):
         if SHOW_IN_DATABASE.search(query):
             raise ValueError("SHOW ... IN DATABASE failed")
         return super().query(query)
+
+
+class FailsEverySchemaConnection(FakeShowConnection):
+    """Every SHOW fails - the shape of a systemic problem such as a missing grant, where
+    neither the database-wide query nor the per-schema fallback can succeed."""
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        super().query(query)
+        if SHOW_IN_DATABASE.search(query) or SHOW_IN_SCHEMA.search(query):
+            raise ValueError("SHOW failed")
+        return []
 
 
 def _make_schema_gen(connection: FakeShowConnection) -> SnowflakeSchemaGenerator:
@@ -263,6 +306,31 @@ def test_per_schema_show_views_pages_through_every_view_exactly_once():
     assert [v.name for v in views] == [f"view_{i:05d}" for i in range(total)]
 
 
+def test_per_schema_paging_survives_an_object_name_containing_a_quote():
+    """A quoted Snowflake identifier may contain an apostrophe, and the marker is embedded
+    in a single-quoted SQL literal. Unescaped, the second page is malformed SQL and the
+    rest of the schema is lost."""
+    # The awkward name has to be the LAST row of a full page, because that is the row
+    # whose name becomes the cursor for page 2 - anywhere else and the quote is never
+    # embedded in a query.
+    head = [f"view_{i:05d}" for i in range(SHOW_COMMAND_MAX_PAGE_SIZE - 1)]
+    awkward = "w_it's_a_view"
+    tail = [f"x_{i:02d}" for i in range(10)]
+    expected = head + [awkward] + tail
+    assert sorted(expected) == expected, "fixture must already be in SHOW order"
+
+    connection = FakeShowConnection({VIEWS: [("SCHEMA_A", n) for n in expected]})
+
+    views = _make_data_dictionary(connection).get_views_for_schema_using_show(
+        db_name="TEST_DB", schema_name="SCHEMA_A"
+    )
+
+    assert [v.name for v in views] == expected
+    assert "FROM 'w_it''s_a_view'" in connection.show_queries(VIEWS)[1], (
+        "page 2's cursor must carry the name with its quote doubled"
+    )
+
+
 def test_per_schema_paging_stops_when_the_cursor_does_not_advance():
     """A broken cursor must produce a bounded, duplicate-free result plus a warning --
     never an endless loop. Observed live against INFORMATION_SCHEMA views."""
@@ -365,6 +433,53 @@ def test_dynamic_table_definitions_fall_back_per_schema_when_the_database_wide_s
     )
 
     assert table.definition == "CREATE DYNAMIC TABLE dt_a AS SELECT 1"
+
+
+def test_a_failed_dynamic_table_fetch_is_reported_not_only_logged():
+    """The fallback is the last resort: if it fails too, every definition and its lineage
+    is lost. That must reach the ingestion report, not just a debug log."""
+    connection = FailsEverySchemaConnection({DYNAMIC_TABLES: [("SCHEMA_A", "dt_a")]})
+    data_dictionary = _make_data_dictionary(connection)
+
+    data_dictionary.populate_dynamic_table_definitions(
+        {"SCHEMA_A": [_dynamic_table("dt_a")]}, "TEST_DB"
+    )
+
+    assert data_dictionary.report.warnings, (
+        "a failed dynamic-table fetch must surface in the report"
+    )
+
+
+def test_dynamic_table_fallback_skips_schemas_without_dynamic_tables():
+    """The per-schema fallback costs one query per schema, so it must only visit schemas
+    that actually hold a dynamic table awaiting a definition."""
+    connection = FakeShowConnection(
+        {DYNAMIC_TABLES: _boundary_skips_a_schema(SHOW_COMMAND_MAX_PAGE_SIZE)}
+    )
+    data_dictionary = _make_data_dictionary(connection)
+
+    plain_table = SnowflakeTable(
+        name="plain",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    data_dictionary.populate_dynamic_table_definitions(
+        {
+            "SCHEMA_B": [_dynamic_table("a_000")],
+            "SCHEMA_NO_DT": [plain_table],
+        },
+        "TEST_DB",
+    )
+
+    per_schema = [
+        q for q in connection.show_queries(DYNAMIC_TABLES) if "IN SCHEMA" in q
+    ]
+    assert all("SCHEMA_NO_DT" not in q for q in per_schema), (
+        f"queried a schema with no dynamic tables: {per_schema}"
+    )
 
 
 def test_per_schema_show_dynamic_tables_pages_through_every_table_exactly_once():
