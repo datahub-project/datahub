@@ -65,7 +65,7 @@ record MetricInfo includes ExternalReference {
   /**
    * The semantic model that defines this metric.
    * Authoritative non-lineage membership pointer (`ModeledBy`). Drives search /
-   * filter / facet and bounding-box membership in the lineage explorer. 
+   * filter / facet and bounding-box membership in the lineage explorer.
    */
   @Relationship = {
     "name": "ModeledBy",

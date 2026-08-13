@@ -135,7 +135,6 @@ def build_graph() -> tuple[SemanticModel, List[Entity]]:
         name="Orders Model",
         description="A semantic model over the raw orders and customers tables.",
         datasets=[orders_ds, customers_ds],
-        metrics=[total_revenue.urn, double_revenue.urn],
         relationships=[
             SemanticModelRelationshipInput(
                 from_alias="ORDERS",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Sequence, Set, Type, Union
+from typing import Dict, List, Optional, Sequence, Set, Type, Union, cast
 
 from typing_extensions import Self, TypeAlias
 
@@ -27,7 +27,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import (
     DatasetUrn,
-    MetricUrn,
     SchemaFieldUrn,
     SemanticModelUrn,
     Urn,
@@ -66,7 +65,6 @@ __all__ = [
     "AiContextInput",
     "DialectExpressionInput",
     "MetricExpressionInputType",
-    "MetricInputType",
     "SemanticFieldInput",
     "SemanticModel",
     "SemanticModelDataset",
@@ -114,10 +112,7 @@ class SemanticFieldInput:
     ai_context: Optional[AiContextInput] = None
 
 
-SemanticModelDatasetInputType: TypeAlias = Union[
-    str, DatasetUrn, "SemanticModelDataset"
-]
-MetricInputType: TypeAlias = Union[str, MetricUrn]
+SemanticModelDatasetInputType: TypeAlias = "SemanticModelDataset"
 
 
 @dataclass
@@ -160,11 +155,7 @@ class SemanticModel(
     preflight helper.
     """
 
-    __slots__ = (
-        "_attached_logical_datasets",
-        "_declared_dataset_urns",
-        "_declared_metric_urns",
-    )
+    __slots__ = ("_attached_logical_datasets",)
 
     @classmethod
     def get_urn_type(cls) -> Type[SemanticModelUrn]:
@@ -183,7 +174,6 @@ class SemanticModel(
         last_modified: Optional[datetime] = None,
         native_definition: Optional[str] = None,
         datasets: Optional[Sequence[SemanticModelDatasetInputType]] = None,
-        metrics: Optional[Sequence[MetricInputType]] = None,
         relationships: Optional[Sequence[SemanticModelRelationshipInput]] = None,
         ai_context: Optional[AiContextInput] = None,
         owners: Optional[OwnersInputType] = None,
@@ -201,8 +191,6 @@ class SemanticModel(
         # Status is part of the producer contract for this entity.
         self._set_aspect(StatusClass(removed=False))
         self._attached_logical_datasets: List["SemanticModelDataset"] = []
-        self._declared_dataset_urns: List[str] = []
-        self._declared_metric_urns: List[str] = []
         self._ensure_model_props()
 
         if name is not None:
@@ -236,8 +224,6 @@ class SemanticModel(
         # already-populated alias on each SemanticModelDataset.
         if datasets is not None:
             self.set_datasets(datasets)
-        if metrics is not None:
-            self.set_metrics(metrics)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: object) -> Self:  # type: ignore[override]
@@ -310,59 +296,37 @@ class SemanticModel(
         Membership itself is stored on each dataset's
         ``semanticModelProperties.semanticModel``, not on this model.
         """
-        return list(self._declared_dataset_urns)
+        # Order-preserving dedupe — duplicates may be attached but collapse for
+        # the public membership list (and for relationship coverage checks).
+        return list(
+            dict.fromkeys(str(ds.urn) for ds in self._attached_logical_datasets)
+        )
 
     def add_dataset(self, dataset: SemanticModelDatasetInputType) -> None:
         """Attach a logical dataset to this model.
 
-        If ``dataset`` is a :class:`SemanticModelDataset`, its
-        ``semanticModelProperties.semanticModel`` back-reference is reconciled
-        to this model's URN (so the caller does not have to set it twice) and
-        its alias is left as the source of truth for relationship join paths.
-        Bare URN strings are tracked for local validation only — the caller
-        must still author ``semanticModelProperties`` on that dataset.
+        Reconciles ``semanticModelProperties.semanticModel`` to this model's URN
+        (so the caller does not have to set it twice) and leaves the dataset's
+        alias as the source of truth for relationship join paths.
 
         Insertion order is preserved across re-emits.
         """
-        if isinstance(dataset, SemanticModelDataset):
-            ds_urn = str(dataset.urn)
-            dataset._set_semantic_model_back_ref(self.urn)
-            self._attached_logical_datasets.append(dataset)
-        else:
-            ds_urn = str(dataset)
-        if ds_urn not in self._declared_dataset_urns:
-            self._declared_dataset_urns.append(ds_urn)
+        # The annotation already excludes anything else, but untyped callers
+        # (e.g. a bare URN string) must still fail loudly rather than silently
+        # attaching an object with no alias or schema.
+        if not isinstance(cast(object, dataset), SemanticModelDataset):
+            raise SdkUsageError(
+                "SemanticModel.add_dataset requires a SemanticModelDataset; "
+                "bare dataset URNs are not supported. Membership is authored on "
+                "the logical dataset via semanticModelProperties."
+            )
+        dataset._set_semantic_model_back_ref(self.urn)
+        self._attached_logical_datasets.append(dataset)
 
     def set_datasets(self, datasets: Sequence[SemanticModelDatasetInputType]) -> None:
         self._attached_logical_datasets = []
-        self._declared_dataset_urns = []
-        # Normalize so a bare dataset URN string isn't iterated character-by-char.
         for dataset in as_input_list(datasets):
             self.add_dataset(dataset)
-
-    @property
-    def metrics(self) -> List[str]:
-        """URNs of metrics attached via :meth:`add_metric` / ``metrics=``.
-
-        Membership itself is stored on each metric's ``metricInfo.semanticModel``,
-        not on this model.
-        """
-        return list(self._declared_metric_urns)
-
-    def add_metric(self, metric: MetricInputType) -> None:
-        """Track a metric URN as belonging to this model.
-
-        Insertion order is preserved. The metric entity itself must set
-        ``metricInfo.semanticModel`` — this method does not write membership.
-        """
-        metric_urn = str(metric)
-        if metric_urn not in self._declared_metric_urns:
-            self._declared_metric_urns.append(metric_urn)
-
-    def set_metrics(self, metrics: Sequence[MetricInputType]) -> None:
-        self._declared_metric_urns = []
-        for metric in as_input_list(metrics):
-            self.add_metric(metric)
 
     @property
     def relationships(self) -> Optional[List[SemanticModelRelationshipClass]]:
@@ -398,8 +362,7 @@ class SemanticModel(
         )
 
     def _attached_datasets_by_urn(self) -> Dict[str, "SemanticModelDataset"]:
-        # Keyed by URN so duplicate attachments of the same dataset collapse,
-        # matching how _declared_dataset_urns dedupes URNs.
+        # Keyed by URN so duplicate attachments of the same dataset collapse.
         return {str(ds.urn): ds for ds in self._attached_logical_datasets}
 
     def _attached_dataset_aliases(self) -> Set[str]:
@@ -414,11 +377,10 @@ class SemanticModel(
         time this can only flag what it can see. Re-run with ``strict=True`` at
         emit time (:meth:`as_mcps`).
 
-        Alias checks raise (under ``strict``) only under *full* alias coverage:
-        every declared dataset URN is an attached :class:`SemanticModelDataset`,
-        so all aliases are known. Datasets attached as raw URN strings carry no
-        alias/schema, so mismatches there downgrade to a warning. Column checks
-        run only for aliases whose dataset is attached with a non-empty schema.
+        Alias checks raise (under ``strict``) whenever datasets are attached as
+        :class:`SemanticModelDataset` objects (all aliases known), including the
+        empty-attachment case (relationships with no datasets). Column checks
+        run only for aliases whose dataset has a non-empty schema.
         """
         props = self._ensure_model_props()
         rels = props.relationships
@@ -480,12 +442,6 @@ class SemanticModel(
         # attachment set. Structural checks above already ran.
         if not attached_by_urn and self._prev_aspects is not None:
             return
-        # Subset check (not a length comparison): duplicates and instance/URN
-        # mixes no longer break coverage detection. An empty declared set with
-        # relationships present is full coverage too — the aliases can't match
-        # anything, which is exactly the broken case we want to raise on.
-        declared_urns = set(self._declared_dataset_urns)
-        full_coverage = declared_urns <= set(attached_by_urn)
 
         for rel in rels:
             for alias, columns in (
@@ -500,7 +456,7 @@ class SemanticModel(
                         f"{alias!r} does not match any attached dataset alias "
                         f"(known: {sorted(known_aliases)}). Join path may be "
                         f"broken.",
-                        definitive=full_coverage,
+                        definitive=True,
                     )
                     continue
                 field_paths = {f.field_path for f in by_alias[alias].schema}

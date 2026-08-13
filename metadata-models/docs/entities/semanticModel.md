@@ -175,8 +175,9 @@ deprecated: it stays in the PDL for stored-data compatibility, but annotations a
 and producers no longer write it. Membership already lives on
 `semanticModelProperties.semanticModel`; run `datahub migrate semantic-model-container` to
 backfill `metricUpstreams.datasetUpstreams` from stored `datasets`. GraphQL
-`SemanticModelInfo.datasets` is likewise deprecated and returns empty — use
-`SemanticModel.entities` instead.
+`SemanticModelInfo.datasets` is likewise deprecated and returns empty — discover
+member datasets via an Elasticsearch filter on `semanticModelProperties.semanticModel`
+(and `metrics(...)` / `metricInfo.semanticModel` for metrics).
 
 ### SemanticModelRelationship vs common Relationship
 

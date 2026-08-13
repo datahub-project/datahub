@@ -40,6 +40,7 @@ from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    DatasetPropertiesClass,
     DocumentationAssociationClass,
     DocumentationClass,
     EditableDatasetPropertiesClass,
@@ -467,7 +468,13 @@ class TestMigrateDatasetToSemanticModel:
         related = RelatedEntity(
             urn="urn:li:dashboard:(looker,my_dash)", relationship_type="Consumes"
         )
-        graph.get_related_entities.return_value = [related]
+
+        def get_related(entity_urn, relationship_types, direction):
+            if "Consumes" in relationship_types:
+                return [related]
+            return []
+
+        graph.get_related_entities.side_effect = get_related
 
         result = migrate_dataset_to_semantic_model(
             graph,
@@ -479,12 +486,11 @@ class TestMigrateDatasetToSemanticModel:
         )
 
         assert result.inbound_refs == [related]
-        graph.get_related_entities.assert_called_once()
 
     def test_inbound_refs_not_collected_by_default(self):
         graph = _graph_with_aspects()
 
-        migrate_dataset_to_semantic_model(
+        result = migrate_dataset_to_semantic_model(
             graph,
             self.SRC,
             platform_instance=None,
@@ -493,7 +499,14 @@ class TestMigrateDatasetToSemanticModel:
             report_inbound_refs=False,
         )
 
-        graph.get_related_entities.assert_not_called()
+        assert result.inbound_refs == []
+        # Field-governance discovery may probe IsPartOf; inbound-ref types must not.
+        for call in graph.get_related_entities.call_args_list:
+            types = call.kwargs.get("relationship_types") or (
+                call.args[1] if len(call.args) > 1 else []
+            )
+            assert "Consumes" not in types
+            assert "DownstreamOf" not in types
 
 
 class TestEditableDescriptionFallback:
@@ -934,10 +947,15 @@ class TestFieldGovernanceFanOut:
         "urn:li:metric:(urn:li:dataPlatform:snowflake,"
         "test_db.public.sales_analytics,total_revenue)"
     )
-    DIM_FIELD = (
-        "urn:li:schemaField:("
-        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_analytics),"
-        "customer_id)"
+    SMD = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "test_db.public.sales_analytics.customers,PROD)"
+    )
+    DIM_FIELD = f"urn:li:schemaField:({SMD},customer_id)"
+    # migrate-before-ingest: logical tables come from TABLE_SYNONYM_* keys so
+    # SMD schemaField URNs are derivable before IsPartOf exists.
+    _LOGICAL_TABLE_PROPS = DatasetPropertiesClass(
+        customProperties={"TABLE_SYNONYM_CUSTOMERS": "cust"}
     )
 
     def test_collect_strips_synthetic_subtype_tags_keeps_customer_tags(self):
@@ -1052,7 +1070,9 @@ class TestFieldGovernanceFanOut:
                 ),
             ],
         )
-        graph = _graph_with_aspects(schemaMetadata=schema)
+        graph = _graph_with_aspects(
+            schemaMetadata=schema, datasetProperties=self._LOGICAL_TABLE_PROPS
+        )
 
         result = migrate_dataset_to_semantic_model(
             graph,
@@ -1153,7 +1173,9 @@ class TestFieldGovernanceFanOut:
                 _schema_field("REGION", tags=[make_tag_urn("geo")]),
             ],
         )
-        graph = _graph_with_aspects(schemaMetadata=schema)
+        graph = _graph_with_aspects(
+            schemaMetadata=schema, datasetProperties=self._LOGICAL_TABLE_PROPS
+        )
 
         def emit_side_effect(mcp):
             if mcp.entityUrn == self.DIM_FIELD:
@@ -1176,6 +1198,112 @@ class TestFieldGovernanceFanOut:
         assert any("REGION" in entry for entry in migrated)
         assert not any("CUSTOMER_ID" in entry for entry in migrated)
         assert any("CUSTOMER_ID" in note for note in skipped)
+
+    def test_forward_then_rollback_preserves_dimension_tags(self):
+        """migrate-then-rollback must keep non-metric column tags/terms.
+
+        Forward writes onto SMD-anchored schemaField URNs; rollback reads those
+        same URNs via IsPartOf + schemaMetadata.
+        """
+        src_schema = SchemaMetadataClass(
+            schemaName="sales_analytics",
+            platform="urn:li:dataPlatform:snowflake",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                _schema_field(
+                    "CUSTOMER_ID",
+                    tags=[make_tag_urn("DIMENSION"), make_tag_urn("pii")],
+                    terms=["urn:li:glossaryTerm:CustomerId"],
+                ),
+            ],
+        )
+        # Phase 1: forward migrate (derive SMD URN from TABLE_SYNONYM_*).
+        forward_graph = _graph_with_aspects(
+            schemaMetadata=src_schema, datasetProperties=self._LOGICAL_TABLE_PROPS
+        )
+        forward = migrate_dataset_to_semantic_model(
+            forward_graph,
+            self.SRC,
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+            report_inbound_refs=False,
+        )
+        assert forward.error is None
+        assert any(self.DIM_FIELD in entry for entry in forward.fields_migrated)
+
+        field_tags: Optional[GlobalTagsClass] = None
+        field_terms: Optional[GlossaryTermsClass] = None
+        for call in forward_graph.emit_mcp.call_args_list:
+            mcp = call.args[0]
+            if mcp.entityUrn != self.DIM_FIELD:
+                continue
+            if isinstance(mcp.aspect, GlobalTagsClass):
+                field_tags = mcp.aspect
+            elif isinstance(mcp.aspect, GlossaryTermsClass):
+                field_terms = mcp.aspect
+        assert field_tags is not None
+        assert {t.tag for t in field_tags.tags} == {make_tag_urn("pii")}
+        assert field_terms is not None
+
+        # Phase 2: rollback reads SMD-anchored schemaField aspects via IsPartOf.
+        dst_schema = _schema_metadata(_schema_field("customer_id"))
+
+        def get_aspects(entity_urn, aspects, aspect_types):
+            out: Dict[str, Optional[_Aspect]] = {}
+            for name in aspects:
+                if name == "schemaMetadata" and entity_urn == self.SMD:
+                    out[name] = _schema_metadata(_schema_field("customer_id"))
+                elif name == "schemaMetadata" and entity_urn == self.SRC:
+                    out[name] = dst_schema
+                elif name == "globalTags" and entity_urn == self.DIM_FIELD:
+                    out[name] = field_tags
+                elif name == "glossaryTerms" and entity_urn == self.DIM_FIELD:
+                    out[name] = field_terms
+                elif name == "editableSchemaMetadata" and entity_urn == self.SRC:
+                    out[name] = None
+                else:
+                    out[name] = None
+            return out
+
+        def get_related(entity_urn, relationship_types, direction):
+            if "IsPartOf" in relationship_types:
+                return [RelatedEntity(urn=self.SMD, relationship_type="IsPartOf")]
+            return []
+
+        rollback_graph = MagicMock()
+        rollback_graph.get_aspects_for_entity.side_effect = get_aspects
+        rollback_graph.get_related_entities.side_effect = get_related
+        rollback_graph.exists.return_value = True
+
+        migrated, notes = migrate_semantic_model_field_governance(
+            rollback_graph,
+            self.SM,
+            self.SRC,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+        )
+        assert notes == []
+        assert any(
+            "CUSTOMER_ID" in entry or "customer_id" in entry for entry in migrated
+        )
+
+        editable_emits = [
+            call.args[0].aspect
+            for call in rollback_graph.emit_mcp.call_args_list
+            if isinstance(call.args[0].aspect, EditableSchemaMetadataClass)
+        ]
+        assert len(editable_emits) == 1
+        by_path = {fi.fieldPath: fi for fi in editable_emits[0].editableSchemaFieldInfo}
+        assert "customer_id" in by_path
+        rolled_tags = by_path["customer_id"].globalTags
+        assert rolled_tags is not None
+        assert {t.tag for t in rolled_tags.tags} == {make_tag_urn("pii")}
+        rolled_terms = by_path["customer_id"].glossaryTerms
+        assert rolled_terms is not None
+        assert [t.urn for t in rolled_terms.terms] == ["urn:li:glossaryTerm:CustomerId"]
 
 
 class TestSchemaFieldIsMetric:

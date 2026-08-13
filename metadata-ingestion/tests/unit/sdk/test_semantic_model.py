@@ -135,14 +135,14 @@ def test_semantic_model_add_dataset_records_urn_and_back_ref() -> None:
     assert ds.alias == "ORDERS"
 
 
-def test_semantic_model_add_dataset_accepts_urn_string() -> None:
+def test_semantic_model_add_dataset_rejects_urn_string() -> None:
+    from datahub.errors import SdkUsageError
+
     model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
-    model.add_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
-    )
-    assert model.datasets == [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
-    ]
+    with pytest.raises(SdkUsageError, match="SemanticModelDataset"):
+        model.add_dataset(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
+        )
 
 
 def test_semantic_model_datasets_preserve_insertion_order() -> None:
@@ -525,7 +525,6 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         name="Orders Model",
         description="Orders semantic model",
         datasets=[orders_ds, customers_ds],
-        metrics=[total_revenue.urn, double_revenue.urn],
         relationships=[
             SemanticModelRelationshipInput(
                 from_alias="ORDERS",
@@ -597,9 +596,7 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     # Containment: Metrics reference their SemanticModel via ModeledBy.
     assert total_revenue.semantic_model == str(model.urn)
     assert double_revenue.semantic_model == str(model.urn)
-    assert str(total_revenue.urn) in model.metrics
-    assert str(double_revenue.urn) in model.metrics
-    # Containment: SemanticModel → Logical Datasets.
+    # Containment: SemanticModel → Logical Datasets (local attach list only).
     assert str(orders_ds.urn) in model.datasets
     assert str(customers_ds.urn) in model.datasets
     # Lineage: Metric → Logical Dataset → Physical.
@@ -1137,13 +1134,14 @@ def _model_with(
     )
 
 
-def test_datasets_scalar_string_is_single_dataset() -> None:
-    # A bare dataset URN string must be one dataset, not one per character.
+def test_datasets_rejects_bare_urn_string() -> None:
+    from datahub.errors import SdkUsageError
+
     urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
-    model = SemanticModel(
-        platform="snowflake", path="analytics", id="orders_model", datasets=urn
-    )
-    assert model.datasets == [urn]
+    with pytest.raises(SdkUsageError, match="SemanticModelDataset"):
+        SemanticModel(
+            platform="snowflake", path="analytics", id="orders_model", datasets=urn
+        )
 
 
 def test_semantic_model_dataset_rejects_blank_semantic_model() -> None:

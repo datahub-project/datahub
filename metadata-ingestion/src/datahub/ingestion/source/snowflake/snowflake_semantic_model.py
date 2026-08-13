@@ -489,8 +489,7 @@ class SnowflakeSemanticModelMapper:
                 logical_dataset_urn=logical_dataset_urn,
             )
 
-        # Re-home the base-table lineage that previously hung off the model:
-        # one table-level Upstream to the physical base table for this logical
+        # One table-level Upstream to the physical base table for this logical
         # table, plus the column-level FGLs routed to this logical dataset.
         yield MetadataChangeProposalWrapper(
             entityUrn=logical_dataset_urn,
@@ -633,11 +632,9 @@ class SnowflakeSemanticModelMapper:
                         ),
                     ),
                 ).as_workunit()
-                # Column synonyms live on the first-class aiContext aspect of
-                # the same schemaField (the model no longer embeds them on the
-                # field). Read from this table's own occurrence rather than the
-                # view-merged map so synonyms don't leak across same-named columns
-                # on different logical tables. Emit only when non-empty.
+                # Read synonyms from this table's own occurrence rather than the
+                # view-merged map so they don't leak across same-named columns on
+                # different logical tables. Emit aiContext only when non-empty.
                 synonyms = occurrence.synonyms or []
                 if synonyms:
                     yield MetadataChangeProposalWrapper(
@@ -684,10 +681,9 @@ class SnowflakeSemanticModelMapper:
             ),
         ).as_workunit()
 
-        # Metric synonyms live on the first-class aiContext aspect of the
-        # metric entity (the model no longer embeds them on metricInfo). Read from
-        # this metric's own occurrence rather than the view-merged map so synonyms
-        # don't leak across same-named metrics on different logical tables.
+        # Read synonyms from this metric's own occurrence rather than the
+        # view-merged map so they don't leak across same-named metrics on
+        # different logical tables.
         metric_synonyms = occurrence.synonyms or []
         if metric_synonyms:
             yield MetadataChangeProposalWrapper(

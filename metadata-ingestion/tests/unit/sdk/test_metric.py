@@ -3,7 +3,8 @@
 These tests assert the producer contract for the ``metric`` entity: URN
 pattern, ``metricInfo`` shape (with optional expression and semantic-model
 back-ref), the always-emitted ``metricRelationships`` (so ``hasParentMetric``
-indexes as false), aiContext-only-when-non-empty, and optional
+indexes as false), the always-emitted ``metricUpstreams`` (empty clears stale
+upstreams), aiContext-only-when-non-empty, and
 ``metricUpstreams.datasetUpstreams`` for Metric → SMD lineage.
 """
 
@@ -71,14 +72,18 @@ def test_metric_urn_and_core_aspects() -> None:
     assert isinstance(rels, MetricRelationshipsClass)
     assert rels.derivedFrom == []
     assert rels.parentMetric is None
-    # No metricUpstreams when none provided (optional).
-    assert "metricUpstreams" not in aspects
+    # metricUpstreams always emitted (empty clears stale upstreams on re-emit).
+    assert "metricUpstreams" in aspects
+    upstreams = aspects["metricUpstreams"]
+    assert isinstance(upstreams, MetricUpstreamsClass)
+    assert upstreams.datasetUpstreams == []
     # No aiContext when none provided.
     assert "aiContext" not in aspects
 
 
 def test_metric_upstream_datasets() -> None:
     smd_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
+    customers_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)"
     metric = Metric(
         platform="snowflake",
         path="analytics",
@@ -92,8 +97,7 @@ def test_metric_upstream_datasets() -> None:
     assert isinstance(upstreams, MetricUpstreamsClass)
     assert upstreams.datasetUpstreams == [EdgeClass(destinationUrn=smd_urn)]
 
-    customers_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)"
-    metric.add_upstream_dataset(customers_urn)
+    metric.set_upstream_datasets([smd_urn, customers_urn])
     assert metric.upstream_datasets == [smd_urn, customers_urn]
     aspects = _aspects_by_name(metric)
     assert aspects["metricUpstreams"].datasetUpstreams == [

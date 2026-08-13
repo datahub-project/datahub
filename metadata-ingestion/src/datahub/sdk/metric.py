@@ -83,8 +83,10 @@ class Metric(
     metric reads from so lineage is authored.
 
     ``metricRelationships`` is always emitted (even with empty ``derivedFrom``)
-    so ``hasParentMetric`` indexes as false. ``metricInfo.expression`` is
-    optional and is omitted when not provided.
+    so ``hasParentMetric`` indexes as false. ``metricUpstreams`` is likewise
+    always emitted (even with empty ``datasetUpstreams``) so re-emits clear
+    stale upstreams. ``metricInfo.expression`` is optional and is omitted when
+    not provided.
 
     Server compatibility: requires a server build that includes the
     semanticModel/metric model (operator's responsibility — no automatic
@@ -146,8 +148,8 @@ class Metric(
             self.set_ai_context(ai_context)
         # Always emit metricRelationships so hasParentMetric indexes as false.
         self.set_derived_from(derived_from or [])
-        if upstream_datasets is not None:
-            self.set_upstream_datasets(upstream_datasets)
+        # Always emit metricUpstreams so re-emits clear stale datasetUpstreams.
+        self.set_upstream_datasets(upstream_datasets or [])
         if owners is not None:
             self.set_owners(owners)
         if links is not None:
@@ -307,14 +309,6 @@ class Metric(
             EdgeClass(destinationUrn=str(DatasetUrn.from_string(str(ds))))
             for ds in as_input_list(upstream_datasets)
         ]
-
-    def add_upstream_dataset(self, dataset: UpstreamDatasetInputType) -> None:
-        upstreams = self._ensure_metric_upstreams()
-        if upstreams.datasetUpstreams is None:
-            upstreams.datasetUpstreams = []
-        dest = str(DatasetUrn.from_string(str(dataset)))
-        if all(edge.destinationUrn != dest for edge in upstreams.datasetUpstreams):
-            upstreams.datasetUpstreams.append(EdgeClass(destinationUrn=dest))
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:

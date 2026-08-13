@@ -32,6 +32,7 @@ from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
     DocumentationAssociationClass,
     DocumentationClass,
     EditableDatasetPropertiesClass,
@@ -44,6 +45,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
+    ViewPropertiesClass,
     _Aspect,
 )
 from datahub.metadata.urns import DatasetUrn, MetricUrn, SemanticModelUrn
@@ -172,6 +174,32 @@ def gen_dataset_urn(
 ) -> str:
     name = snowflake_identifier(
         f"{identity.db}.{identity.schema}.{identity.view}", convert_urns_to_lowercase
+    )
+    return make_dataset_urn_with_platform_instance(
+        platform=SNOWFLAKE_PLATFORM,
+        name=name,
+        platform_instance=platform_instance,
+        env=env,
+    )
+
+
+def gen_semantic_model_dataset_urn(
+    identity: SnowflakeViewIdentity,
+    logical_table: str,
+    platform_instance: Optional[str],
+    env: str,
+    convert_urns_to_lowercase: bool,
+) -> str:
+    """Match ``SnowflakeIdentifierBuilder.gen_semantic_model_dataset_urn``.
+
+    ``platform_instance`` is applied by ``make_dataset_urn_with_platform_instance``,
+    not baked into the identifier (unlike semanticModel / metric URNs).
+    """
+    name = snowflake_identifier(
+        f"{snowflake_identifier(f'{identity.db}.{identity.schema}', convert_urns_to_lowercase)}"
+        f".{snowflake_identifier(identity.view, convert_urns_to_lowercase)}"
+        f".{snowflake_identifier(logical_table, convert_urns_to_lowercase)}",
+        convert_urns_to_lowercase,
     )
     return make_dataset_urn_with_platform_instance(
         platform=SNOWFLAKE_PLATFORM,
@@ -533,6 +561,183 @@ def _ensure_src_exists(graph: DataHubGraph, src_urn: str) -> Optional[str]:
     return None
 
 
+def _logical_table_names_from_source(
+    graph: DataHubGraph, src_dataset_urn: str
+) -> List[str]:
+    """Best-effort logical table names for migrate-before-ingest SMD URN derivation.
+
+    Prefers ``TABLE_SYNONYM_<LOGICAL>`` keys on ``datasetProperties`` (always the
+    logical alias, even when synonyms are empty would not be written). Falls back
+    to parsing the ``TABLES (...)`` clause of ``viewProperties.viewLogic``.
+    """
+    names: List[str] = []
+    seen: Set[str] = set()
+
+    props = graph.get_aspects_for_entity(
+        entity_urn=src_dataset_urn,
+        aspects=["datasetProperties"],
+        aspect_types=[DatasetPropertiesClass],
+    ).get("datasetProperties")
+    if isinstance(props, DatasetPropertiesClass) and props.customProperties:
+        prefix = "TABLE_SYNONYM_"
+        for key in props.customProperties:
+            if not key.startswith(prefix):
+                continue
+            logical = key[len(prefix) :]
+            if not logical:
+                continue
+            upper = logical.upper()
+            if upper not in seen:
+                seen.add(upper)
+                names.append(logical)
+
+    if names:
+        return names
+
+    view_props = graph.get_aspects_for_entity(
+        entity_urn=src_dataset_urn,
+        aspects=["viewProperties"],
+        aspect_types=[ViewPropertiesClass],
+    ).get("viewProperties")
+    if isinstance(view_props, ViewPropertiesClass) and view_props.viewLogic:
+        for logical in _logical_table_names_from_view_logic(view_props.viewLogic):
+            upper = logical.upper()
+            if upper not in seen:
+                seen.add(upper)
+                names.append(logical)
+    return names
+
+
+def _logical_table_names_from_view_logic(view_logic: str) -> List[str]:
+    """Extract logical aliases from a CREATE SEMANTIC VIEW ``TABLES (...)`` clause.
+
+    Mirrors the Snowflake connector's DDL fallback (tokenize + walk) without
+    importing the snowflake connector package.
+    """
+    try:
+        import sqlglot
+    except ImportError:
+        return []
+
+    try:
+        dialect = sqlglot.Dialect.get_or_raise("snowflake")
+        tokens = dialect.tokenize(view_logic)
+    except Exception:
+        return []
+
+    entries = _tables_clause_entries(tokens)
+    return [
+        name
+        for entry in entries
+        for name in [_logical_name_from_tables_entry(entry)]
+        if name is not None
+    ]
+
+
+def _tables_clause_entries(tokens: Sequence[object]) -> List[List[object]]:
+    from sqlglot.tokens import TokenType
+
+    block_start = None
+    for idx in range(len(tokens) - 1):
+        tok = tokens[idx]
+        nxt = tokens[idx + 1]
+        if (
+            tok.token_type == TokenType.VAR  # type: ignore[attr-defined]
+            and tok.text.upper() == "TABLES"  # type: ignore[attr-defined]
+            and nxt.token_type == TokenType.L_PAREN  # type: ignore[attr-defined]
+        ):
+            block_start = idx + 2
+            break
+    if block_start is None:
+        return []
+
+    entries: List[List[object]] = []
+    current: List[object] = []
+    depth = 1
+    for token in tokens[block_start:]:
+        if token.token_type == TokenType.L_PAREN:  # type: ignore[attr-defined]
+            depth += 1
+        elif token.token_type == TokenType.R_PAREN:  # type: ignore[attr-defined]
+            depth -= 1
+            if depth == 0:
+                break
+        if depth == 1 and token.token_type == TokenType.COMMA:  # type: ignore[attr-defined]
+            entries.append(current)
+            current = []
+        else:
+            current.append(token)
+    if current:
+        entries.append(current)
+    return entries
+
+
+def _logical_name_from_tables_entry(entry_tokens: Sequence[object]) -> Optional[str]:
+    from sqlglot.tokens import TokenType
+
+    depth = 0
+    for idx, token in enumerate(entry_tokens):
+        if token.token_type == TokenType.L_PAREN:  # type: ignore[attr-defined]
+            depth += 1
+        elif token.token_type == TokenType.R_PAREN:  # type: ignore[attr-defined]
+            depth -= 1
+        elif depth == 0 and token.token_type == TokenType.ALIAS:  # type: ignore[attr-defined]
+            for prev in reversed(list(entry_tokens[:idx])):
+                if prev.token_type in (TokenType.VAR, TokenType.IDENTIFIER):  # type: ignore[attr-defined]
+                    return prev.text.strip('"')  # type: ignore[attr-defined]
+            return None
+
+    parts: List[str] = []
+    for token in entry_tokens:
+        if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):  # type: ignore[attr-defined]
+            parts.append(token.text.strip('"'))  # type: ignore[attr-defined]
+        elif token.token_type == TokenType.DOT:  # type: ignore[attr-defined]
+            continue
+        elif parts:
+            break
+    return parts[-1] if parts else None
+
+
+def _logical_dataset_urns_for_model(
+    graph: DataHubGraph,
+    semantic_model_urn: str,
+    src_dataset_urn: str,
+    identity: SnowflakeViewIdentity,
+    platform_instance: Optional[str],
+    convert_urns_to_lowercase: bool,
+) -> List[str]:
+    """Resolve Semantic Model Dataset URNs for forward field-governance writes.
+
+    Prefer live ``IsPartOf`` members when ingest already ran. Otherwise derive
+    SMD URNs from logical tables on the legacy source (same shape as ingest) so
+    migrate-before-ingest still lands tags where rollback will read them.
+    """
+    urns: List[str] = []
+    for related in graph.get_related_entities(
+        entity_urn=semantic_model_urn,
+        relationship_types=["IsPartOf"],
+        direction=RelationshipDirection.INCOMING,
+    ):
+        try:
+            DatasetUrn.from_string(related.urn)
+        except Exception:
+            continue
+        urns.append(related.urn)
+    if urns:
+        return urns
+
+    env = str(DatasetUrn.from_string(src_dataset_urn).env)
+    return [
+        gen_semantic_model_dataset_urn(
+            identity,
+            logical_table,
+            platform_instance,
+            env,
+            convert_urns_to_lowercase,
+        )
+        for logical_table in _logical_table_names_from_source(graph, src_dataset_urn)
+    ]
+
+
 def migrate_dataset_field_governance(
     graph: DataHubGraph,
     src_dataset_urn: str,
@@ -547,29 +752,54 @@ def migrate_dataset_field_governance(
     Returns (migrated entries, skip notes). Destination metric / schemaField URNs
     need not exist yet (migrate-before-ingest). Each field is migrated independently
     so one field's failure doesn't discard progress already made on the others.
+
+    Non-metric column tags/terms are written onto Semantic Model Dataset
+    ``schemaField`` URNs (same anchor as ingest's ``semanticFieldAnnotation``),
+    not the semanticModel URN.
     """
     migrated: List[str] = []
     skipped: List[str] = []
+    logical_dataset_urns = _logical_dataset_urns_for_model(
+        graph,
+        semantic_model_urn,
+        src_dataset_urn,
+        identity,
+        platform_instance,
+        convert_urns_to_lowercase,
+    )
     for field_gov in collect_dataset_field_governance(graph, src_dataset_urn):
         try:
             if field_gov.is_metric:
-                dst_urn = gen_metric_urn(
-                    identity,
-                    field_gov.column_name,
-                    platform_instance,
-                    convert_urns_to_lowercase,
-                )
+                dst_urns = [
+                    gen_metric_urn(
+                        identity,
+                        field_gov.column_name,
+                        platform_instance,
+                        convert_urns_to_lowercase,
+                    )
+                ]
             else:
+                if not logical_dataset_urns:
+                    skipped.append(
+                        f"no logical datasets found for {field_gov.column_name}; "
+                        "cannot derive SMD schemaField URN (need IsPartOf members, "
+                        "TABLE_SYNONYM_* custom properties, or viewProperties.viewLogic)"
+                    )
+                    continue
                 field_path = _semantic_model_field_path(
                     field_gov.column_name, convert_urns_to_lowercase
                 )
-                dst_urn = make_schema_field_urn(semantic_model_urn, field_path)
-            if field_gov.global_tags is not None:
-                _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
-                migrated.append(f"globalTags:{field_gov.column_name}->{dst_urn}")
-            if field_gov.glossary_terms is not None:
-                _emit_aspect(graph, dst_urn, field_gov.glossary_terms, dry_run)
-                migrated.append(f"glossaryTerms:{field_gov.column_name}->{dst_urn}")
+                dst_urns = [
+                    make_schema_field_urn(smd_urn, field_path)
+                    for smd_urn in logical_dataset_urns
+                ]
+            for dst_urn in dst_urns:
+                if field_gov.global_tags is not None:
+                    _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
+                    migrated.append(f"globalTags:{field_gov.column_name}->{dst_urn}")
+                if field_gov.glossary_terms is not None:
+                    _emit_aspect(graph, dst_urn, field_gov.glossary_terms, dry_run)
+                    migrated.append(f"glossaryTerms:{field_gov.column_name}->{dst_urn}")
         except Exception as e:
             skipped.append(
                 f"failed to migrate field governance for {field_gov.column_name}: {e}"
@@ -594,8 +824,6 @@ def collect_semantic_model_field_governance(
         relationship_types=["ModeledBy"],
         direction=RelationshipDirection.INCOMING,
     ):
-        if not related.urn.startswith("urn:li:metric:"):
-            continue
         try:
             metric_urn_obj = MetricUrn.from_string(related.urn)
             column_name = str(metric_urn_obj.id)
@@ -622,7 +850,9 @@ def collect_semantic_model_field_governance(
         relationship_types=["IsPartOf"],
         direction=RelationshipDirection.INCOMING,
     ):
-        if not related.urn.startswith("urn:li:dataset:"):
+        try:
+            DatasetUrn.from_string(related.urn)
+        except Exception:
             continue
         for schema_field in _schema_metadata_fields(graph, related.urn):
             column_name = _simple_column_name(schema_field.fieldPath)
