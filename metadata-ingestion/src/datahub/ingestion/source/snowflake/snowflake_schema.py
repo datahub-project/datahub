@@ -2474,10 +2474,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 ),
             )
         except Exception as e:
-            # An empty mapping (rather than None) keeps the caller on the database-wide
-            # path with no definitions, degrading gracefully instead of failing the scan.
+            # None, not an empty mapping: {} would read as "this database genuinely has no
+            # dynamic tables" and silently drop every definition. None sends the caller
+            # down the per-schema path, which can still succeed when only the
+            # database-wide statement failed (a timeout, or too large a result set) and
+            # which degrades quietly on its own if the failure is systemic.
             logger.debug(f"Failed to get dynamic tables for database {db_name}: {e}")
-            return {}
+            return None
 
     def get_dynamic_tables_for_schema_using_show(
         self, *, db_name: str, schema_name: str

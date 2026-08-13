@@ -139,6 +139,16 @@ class IgnoresFromClauseConnection(FakeShowConnection):
         return super().query(FROM_CLAUSE.sub("", query))
 
 
+class FailsDatabaseWideConnection(FakeShowConnection):
+    """A database-wide ``SHOW`` can fail on its own - a statement timeout, or a result set
+    too large for the account's limits - while the narrower per-schema queries succeed."""
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        if SHOW_IN_DATABASE.search(query):
+            raise ValueError("SHOW ... IN DATABASE failed")
+        return super().query(query)
+
+
 def _make_schema_gen(connection: FakeShowConnection) -> SnowflakeSchemaGenerator:
     config = SnowflakeV2Config.parse_obj(
         {
@@ -341,6 +351,17 @@ def test_dynamic_table_definition_is_populated_for_a_later_schema():
     )
 
     assert table.definition == "CREATE DYNAMIC TABLE a_000 AS SELECT 1"
+
+
+def test_dynamic_table_definitions_fall_back_per_schema_when_the_database_wide_show_fails():
+    connection = FailsDatabaseWideConnection({DYNAMIC_TABLES: [("SCHEMA_A", "dt_a")]})
+    table = _dynamic_table("dt_a")
+
+    _make_data_dictionary(connection).populate_dynamic_table_definitions(
+        {"SCHEMA_A": [table]}, "TEST_DB"
+    )
+
+    assert table.definition == "CREATE DYNAMIC TABLE dt_a AS SELECT 1"
 
 
 def test_per_schema_show_dynamic_tables_pages_through_every_table_exactly_once():
