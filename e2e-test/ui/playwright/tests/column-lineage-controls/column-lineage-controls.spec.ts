@@ -23,6 +23,7 @@ import { TIMEOUTS } from '../../utils/constants';
 test.use({ featureName: 'column-lineage-controls' });
 
 const WAREHOUSE_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.orders,PROD)';
+const DOWNSTREAM_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_column_controls.order_details,PROD)';
 
 const LINEAGE_COLUMN = 'order_mode'; // Has lineage to the downstream table
 const SIBLING_ONLY_COLUMN = 'order_id'; // Only "lineage" is to the same column on its dbt sibling
@@ -48,7 +49,8 @@ for (const hideDbtSourceInLineage of [true, false]) {
 
     test('says nothing while the node is showing all of its lineage', async ({ page }) => {
       await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
-      await page.waitForTimeout(TIMEOUTS.SHORT);
+      // The column's edge is drawn on hover, marking the point the hover has been taken in
+      await lineagePage.checkEdgeBetweenColumnsExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
 
       // The node has nothing to hide downstream, so neither does its column
       await expect(page.getByTestId(`column-lineage-control-${LINEAGE_COLUMN}-DOWNSTREAM`)).toHaveCount(0);
@@ -56,8 +58,9 @@ for (const hideDbtSourceInLineage of [true, false]) {
 
     test('reports how much of a column lineage is on the graph once the node contracts', async ({ page }) => {
       await lineagePage.contract(WAREHOUSE_URN);
-      // Contracting re-lays out the graph, which moves the column out from under the cursor
-      await page.waitForTimeout(TIMEOUTS.MEDIUM);
+      // Contracting takes the downstream node off the graph and re-lays out what is left, which
+      // moves the column out from under the cursor
+      await lineagePage.checkNodeNotExists(DOWNSTREAM_URN);
       await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
 
       // One downstream column exists, and contracting took it off the graph
@@ -66,8 +69,14 @@ for (const hideDbtSourceInLineage of [true, false]) {
     });
 
     test('leaves a column whose only lineage is to its sibling out of it', async ({ page }) => {
+      // Nothing renders in response to hovering the column under test, so take the graph through a
+      // hover it does react to first: by the time that edge comes and goes, hovers are being read
+      await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+      await lineagePage.checkEdgeBetweenColumnsExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
+      await lineagePage.unhoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+      await lineagePage.checkEdgeBetweenColumnsNotExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
+
       await lineagePage.hoverColumn(WAREHOUSE_URN, SIBLING_ONLY_COLUMN);
-      await page.waitForTimeout(TIMEOUTS.SHORT);
 
       // A sibling is drawn folded into this node, so that lineage can never be drawn: the
       // column has none, and gets no control in either direction
@@ -76,8 +85,14 @@ for (const hideDbtSourceInLineage of [true, false]) {
     });
 
     test('highlights nothing elsewhere for a column whose only lineage is to its sibling', async ({ page }) => {
+      // As above: select and deselect a column the graph does highlight for, so that the selection
+      // under test is read by a graph that has already been through the whole cycle once
+      await lineagePage.selectColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+      await lineagePage.checkEdgeBetweenColumnsExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
+      await lineagePage.selectColumn(WAREHOUSE_URN, LINEAGE_COLUMN); // Clicking again deselects
+      await lineagePage.checkEdgeBetweenColumnsNotExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
+
       await lineagePage.selectColumn(WAREHOUSE_URN, SIBLING_ONLY_COLUMN);
-      await page.waitForTimeout(TIMEOUTS.SHORT);
 
       const highlightedElsewhere = await page.evaluate((homeUrn) => {
         const home = document.querySelector(`[data-testid="lineage-node-${homeUrn}"]`);

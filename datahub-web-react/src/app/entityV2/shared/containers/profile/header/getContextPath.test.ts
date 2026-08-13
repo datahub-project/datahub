@@ -48,7 +48,6 @@ const PARENT: GenericEntityProperties = {
 const dataProduct: DataProduct = {
     urn: 'urn:li:dataProduct:test',
     type: EntityType.DataProduct,
-    parentDataProducts: [],
     domain: {
         associatedUrn: '',
         domain: {
