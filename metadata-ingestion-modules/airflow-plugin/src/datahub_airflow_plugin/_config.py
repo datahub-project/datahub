@@ -216,13 +216,14 @@ class DatahubLineageConfig(ConfigModel):
     )
 
     # Connection identity -> how to name that connection's datasets, so Airflow Asset
-    # URIs and OpenLineage namespaces produce the same URNs the platform's own DataHub
-    # connector emits. Empty by default: table-shaped Asset URIs are then skipped rather
-    # than guessed at.
+    # URIs, OpenLineage namespaces and SQL-parsed tables produce the same URNs the
+    # platform's own DataHub connector emits. Empty by default: names are still derived
+    # from each platform's own convention, just without a platform_instance.
     asset_connections: Dict[str, AssetConnectionDetail] = Field(
         default_factory=dict,
-        description="Mapping of `<scheme>://<authority>` to platform_instance/env/"
-        "naming settings for that connection.",
+        description="Mapping of `<scheme>://<authority>` to the platform_instance and "
+        "naming settings for that connection. Environment is not settable here — every "
+        "writer uses the plugin-wide `cluster`.",
     )
 
     log_level: Optional[str]
