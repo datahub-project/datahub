@@ -814,17 +814,56 @@ class MicroStrategyMapper:
         visualization_object_ids = {
             normalize_object_id(object_id) for object_id in visualization.object_ids
         }
+        # A compound grid repeats the same catalog object once per column
+        # group, each copy reading a different dataset — so the same field
+        # name legitimately appears once per input dataset. Stamp each entry
+        # with its group and source dataset so the repeats are tellable apart.
+        annotate_source = len(input_urn_set) > 1
+        group_by_dataset_id = self._column_group_by_dataset_id(dashboard, visualization)
         input_fields_by_urn: Dict[str, InputFieldClass] = {}
         for dataset in dashboard.datasets:
             dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
             if dataset_urn not in input_urn_set:
                 continue
             schema_fields = self._schema_fields_and_object_map(dataset)
+            source_context = (
+                _input_field_source_context(
+                    group_by_dataset_id.get(dataset.id), dataset.name
+                )
+                if annotate_source
+                else None
+            )
             for object_id in visualization_object_ids:
                 for schema_field in schema_fields.by_object_id.get(object_id, []):
+                    if source_context:
+                        # Fresh per-call instances, so mutation cannot leak
+                        # into the dataset's own schema emission.
+                        schema_field.description = (
+                            f"{source_context}\n\n{schema_field.description}"
+                            if schema_field.description
+                            else source_context
+                        )
                     _add_input_field(input_fields_by_urn, dataset_urn, schema_field)
 
         return _input_fields_aspect(input_fields_by_urn)
+
+    @staticmethod
+    def _column_group_by_dataset_id(
+        dashboard: DashboardDefinition,
+        visualization: Visualization,
+    ) -> Dict[str, str]:
+        """Bound dataset id -> column-group display name for this visualization."""
+        if not visualization.column_sets:
+            return {}
+        binding = bind_visualization_column_sets(dashboard, visualization)
+        name_by_identifier = {
+            column_set.identifier: column_set.name or column_set.identifier
+            for column_set in visualization.column_sets
+        }
+        return {
+            dataset_id: name_by_identifier.get(identifier, identifier)
+            for identifier, dataset_id in binding.dataset_id_by_column_set.items()
+        }
 
     def _dataset_input_fields(
         self,
@@ -1429,6 +1468,12 @@ def _metric_field_description(
     if description:
         return f"{description}\n\n{block}"
     return block
+
+
+def _input_field_source_context(group_name: Optional[str], dataset_name: str) -> str:
+    if group_name:
+        return f"**{group_name}** — {dataset_name}"
+    return f"**{dataset_name}**"
 
 
 def _derived_metric_description(derived: DerivedMetricSpec) -> str:
