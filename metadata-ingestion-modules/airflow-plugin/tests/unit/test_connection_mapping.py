@@ -142,25 +142,31 @@ def test_database_fills_in_a_segment_the_uri_omits():
     assert urn == _urn("postgres", "warehouse.public.events")
 
 
-def test_env_falls_back_to_the_plugin_cluster_when_the_mapping_omits_it():
-    """A mapping entry without `env` must not silently reset the dataset to PROD."""
-    urn = translate_airflow_asset_to_urn(
+def test_the_mapping_never_changes_the_environment():
+    """Every writer uses the plugin-wide cluster. OpenLineage datasets carry no
+    environment, so the synthetic round trip in the SQL-parsing path cannot propagate a
+    per-connection one — applying it to a single writer splits a table reachable by two
+    writers into two URNs differing only by env."""
+    mapped = translate_airflow_asset_to_urn(
         FakeAsset("snowflake://myacct/DB/SCH/TBL"),
         env="DEV",
         connections={"snowflake://myacct": AssetConnectionDetail()},
     )
-
-    assert urn == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,DEV)"
-
-
-def test_mapping_env_overrides_the_plugin_cluster():
-    urn = translate_airflow_asset_to_urn(
-        FakeAsset("snowflake://myacct/DB/SCH/TBL"),
-        env="DEV",
-        connections={"snowflake://myacct": AssetConnectionDetail(env="PROD")},
+    unmapped = translate_airflow_asset_to_urn(
+        FakeAsset("snowflake://myacct/DB/SCH/TBL"), env="DEV", connections={}
     )
 
-    assert urn == _urn("snowflake", "db.sch.tbl")
+    assert mapped == unmapped
+    assert mapped == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,DEV)"
+
+
+def test_the_mapping_cannot_declare_an_environment():
+    """A stray `env` key must be rejected rather than silently ignored, so nobody
+    configures one and believes it took effect."""
+    import pydantic
+
+    with pytest.raises(pydantic.ValidationError):
+        AssetConnectionDetail.model_validate({"platform_instance": "x", "env": "DEV"})
 
 
 @pytest.mark.parametrize(
@@ -522,9 +528,10 @@ def test_a_non_string_uri_does_not_raise():
     warning rather than an AttributeError inside the error handler itself."""
     _reset_warning_dedup()
 
-    class OddAsset:
+    class Asset:
         uri = 12345
 
-    urn = translate_airflow_asset_to_urn(OddAsset(), connections={})
+    urns, warnings = _count_warnings([Asset()])
 
-    assert urn is None or isinstance(urn, str)
+    assert urns == []
+    assert len(warnings) == 1, warnings

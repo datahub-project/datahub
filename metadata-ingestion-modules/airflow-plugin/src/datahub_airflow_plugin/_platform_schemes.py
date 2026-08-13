@@ -43,4 +43,6 @@ def scheme_of(uri: object) -> str:
     derived. Coerces to `str` first: `uri` comes from a user-authored Asset, and a
     non-string must not raise inside an error handler.
     """
-    return str(uri).split("://", maxsplit=1)[0][:40]
+    # Lowercased so dedup keys built from it are case-insensitive: S3:// and s3:// are the
+    # same cause and should not warn twice.
+    return str(uri).split("://", maxsplit=1)[0][:40].lower()

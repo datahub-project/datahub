@@ -192,9 +192,9 @@ def build_table_urn(
         platform=platform,
         name=name,
         platform_instance=detail.platform_instance if detail else None,
-        # An entry that doesn't set env must not silently reset the dataset to PROD; fall
-        # back to the plugin-wide cluster.
-        env=(detail.env if detail is not None and detail.env else env),
+        # Always the caller's env (the plugin-wide cluster). See AssetConnectionDetail for
+        # why environment is not configurable per connection.
+        env=env,
     )
 
     if len(segments) != naming.expected_segments:
@@ -233,6 +233,6 @@ def build_named_urn(
         platform=platform,
         name=name,
         platform_instance=detail.platform_instance,
-        # See build_table_urn: an entry without env keeps the plugin-wide cluster.
-        env=detail.env or env,
+        # See build_table_urn: environment is never taken from the mapping.
+        env=env,
     )

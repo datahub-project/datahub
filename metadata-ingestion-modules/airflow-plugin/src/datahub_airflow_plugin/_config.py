@@ -10,7 +10,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
-    PlatformDetail,
+    PlatformInstanceConfigMixin,
 )
 from datahub.emitter.rest_emitter import EmitMode
 from datahub_airflow_plugin._platform_schemes import platform_for_scheme
@@ -29,7 +29,9 @@ class DatajobUrl(Enum):
     TASKS = "tasks"  # /dags/{dag_id}/tasks/{task_id}
 
 
-class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
+class AssetConnectionDetail(
+    PlatformInstanceConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     """How to turn one connection's Airflow Asset URIs and OpenLineage namespaces into
     URNs that match what that platform's own DataHub connector emits.
 
@@ -60,14 +62,13 @@ class AssetConnectionDetail(PlatformDetail, LowerCaseDatasetUrnConfigMixin):
         "DataHub, so this override does not apply there.",
     )
 
-    # env comes from PlatformDetail with a PROD default. Unset must mean "use the
-    # plugin-wide cluster", otherwise mapping a connection would quietly move its
-    # datasets to PROD on a DEV deployment.
-    env: Optional[str] = Field(  # type: ignore[assignment]
-        default=None,
-        description="Environment for this connection's datasets. Unset uses the "
-        "plugin-wide `cluster` setting.",
-    )
+    # Deliberately built on PlatformInstanceConfigMixin rather than PlatformDetail, so
+    # there is no `env` field at all. OpenLineage datasets carry no environment, so the
+    # synthetic OL round trip in the SQL-parsing path cannot propagate a per-connection
+    # one; applying it to any single writer splits a table reachable by two writers into
+    # two URNs differing only by env — the duplicate-entity failure this mapping exists to
+    # remove. Every writer uses the plugin-wide `cluster`. ConfigModel forbids extra keys,
+    # so a stray `env` is a loud validation error rather than a silent no-op.
 
     platform: Optional[str] = Field(
         default=None,
