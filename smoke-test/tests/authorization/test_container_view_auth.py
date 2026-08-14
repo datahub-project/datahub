@@ -11,6 +11,7 @@ Covers:
 
 import logging
 import uuid
+from typing import Any, Dict, Tuple
 
 import pytest
 
@@ -149,18 +150,52 @@ def _container_view_auth_setup_impl(graph_client, auth_session):
             logger.warning("Failed to delete %s during cleanup", urn)
 
 
+def _is_description_stripped(props: Dict[str, Any]) -> bool:
+    description = props.get("description")
+    return description != PARENT_DESCRIPTION and description in (None, "")
+
+
 @with_test_retry(max_attempts=10)
-def _fetch_container(email: str, password: str, urn: str) -> dict:
+def _assert_container_description_stripped(
+    email: str, password: str, urn: str
+) -> Dict[str, Any]:
+    """Retry until policy cache reflects revoked VIEW (description field-stripped)."""
     user_session = login_as(email, password)
     payload = {"query": GET_CONTAINER, "variables": {"urn": urn}}
     response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
     response.raise_for_status()
-    return response.json()
+    res = response.json()
+    container = (res.get("data") or {}).get("container")
+    assert container is not None, res
+    assert container.get("urn") == urn, res
+    props = container.get("properties") or {}
+    assert props.get("name") == PARENT_NAME, res
+    assert _is_description_stripped(props), res
+    return res
 
 
 @with_test_retry(max_attempts=10)
-def _parent_container_props(email: str, password: str) -> tuple[dict, dict]:
-    """Return (full response, parent properties) once hierarchy includes the parent."""
+def _assert_container_description_visible(
+    email: str, password: str, urn: str
+) -> Dict[str, Any]:
+    user_session = login_as(email, password)
+    payload = {"query": GET_CONTAINER, "variables": {"urn": urn}}
+    response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
+    response.raise_for_status()
+    res = response.json()
+    container = (res.get("data") or {}).get("container")
+    assert container is not None, res
+    assert container.get("urn") == urn, res
+    props = container.get("properties") or {}
+    assert props.get("description") == PARENT_DESCRIPTION, res
+    return res
+
+
+@with_test_retry(max_attempts=10)
+def _assert_parent_container_description_stripped(
+    email: str, password: str
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Retry until hierarchy is present and parent description is field-stripped."""
     user_session = login_as(email, password)
     payload = {
         "query": GET_PARENT_CONTAINERS,
@@ -174,19 +209,39 @@ def _parent_container_props(email: str, password: str) -> tuple[dict, dict]:
     parents = (container.get("parentContainers") or {}).get("containers") or []
     parent_by_urn = {entry.get("urn"): entry for entry in parents if entry}
     assert PARENT_CONTAINER_URN in parent_by_urn, res
-    return res, parent_by_urn[PARENT_CONTAINER_URN].get("properties") or {}
+    props = parent_by_urn[PARENT_CONTAINER_URN].get("properties") or {}
+    assert props.get("name") == PARENT_NAME, res
+    assert _is_description_stripped(props), res
+    return res, props
+
+
+@with_test_retry(max_attempts=10)
+def _assert_parent_container_description_visible(
+    email: str, password: str
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    user_session = login_as(email, password)
+    payload = {
+        "query": GET_PARENT_CONTAINERS,
+        "variables": {"urn": CHILD_CONTAINER_URN},
+    }
+    response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
+    response.raise_for_status()
+    res = response.json()
+    container = (res.get("data") or {}).get("container")
+    assert container is not None, res
+    parents = (container.get("parentContainers") or {}).get("containers") or []
+    parent_by_urn = {entry.get("urn"): entry for entry in parents if entry}
+    assert PARENT_CONTAINER_URN in parent_by_urn, res
+    props = parent_by_urn[PARENT_CONTAINER_URN].get("properties") or {}
+    assert props.get("description") == PARENT_DESCRIPTION, res
+    return res, props
 
 
 def test_container_field_stripped_without_view():
     """Unauthorized container loads keep the real URN but strip description."""
-    res = _fetch_container(TEST_USER_EMAIL, TEST_USER_PASSWORD, PARENT_CONTAINER_URN)
-    container = (res.get("data") or {}).get("container")
-    assert container is not None, res
-    assert container.get("urn") == PARENT_CONTAINER_URN, res
-    props = container.get("properties") or {}
-    assert props.get("name") == PARENT_NAME, res
-    assert props.get("description") != PARENT_DESCRIPTION, res
-    assert props.get("description") in (None, ""), res
+    _assert_container_description_stripped(
+        TEST_USER_EMAIL, TEST_USER_PASSWORD, PARENT_CONTAINER_URN
+    )
 
 
 def test_container_visible_with_view(auth_session):
@@ -202,24 +257,16 @@ def test_container_visible_with_view(auth_session):
     )
 
     try:
-        res = _fetch_container(
+        _assert_container_description_visible(
             TEST_USER_EMAIL, TEST_USER_PASSWORD, PARENT_CONTAINER_URN
         )
-        container = (res.get("data") or {}).get("container")
-        assert container is not None, res
-        assert container.get("urn") == PARENT_CONTAINER_URN, res
-        props = container.get("properties") or {}
-        assert props.get("description") == PARENT_DESCRIPTION, res
     finally:
         remove_policy(policy_urn, admin_session)
 
 
 def test_parent_containers_returns_stripped_unauthorized_parent():
     """parentContainers keeps unauthorized parents as field-stripped stubs."""
-    res, props = _parent_container_props(TEST_USER_EMAIL, TEST_USER_PASSWORD)
-    assert props.get("name") == PARENT_NAME, res
-    assert props.get("description") != PARENT_DESCRIPTION, res
-    assert props.get("description") in (None, ""), res
+    _assert_parent_container_description_stripped(TEST_USER_EMAIL, TEST_USER_PASSWORD)
 
 
 def test_parent_containers_visible_with_view_on_parent(auth_session):
@@ -235,7 +282,8 @@ def test_parent_containers_visible_with_view_on_parent(auth_session):
     )
 
     try:
-        res, props = _parent_container_props(TEST_USER_EMAIL, TEST_USER_PASSWORD)
-        assert props.get("description") == PARENT_DESCRIPTION, res
+        _assert_parent_container_description_visible(
+            TEST_USER_EMAIL, TEST_USER_PASSWORD
+        )
     finally:
         remove_policy(policy_urn, admin_session)

@@ -20,6 +20,11 @@ public class ViewAuthorizationConfigurationTest {
     assertNotInStockAdd("schemaField");
   }
 
+  @Test
+  public void testContainerIsNotUnrestrictedByDefault() throws Exception {
+    assertNotInStockAdd("container");
+  }
+
   private static void assertNotInStockAdd(String entityType) throws Exception {
     StandardEnvironment environment = new StandardEnvironment();
     new YamlPropertySourceLoader()
