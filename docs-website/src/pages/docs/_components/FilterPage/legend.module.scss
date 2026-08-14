@@ -54,9 +54,14 @@
   vertical-align: middle;
 }
 
+// These must stay in step with the real badges in
+// FilterCard/quicklinkcard.module.scss - the legend is only useful if it
+// reproduces what the cards show. Foregrounds are darkened to clear WCAG AA's
+// 4.5:1 for normal text, which applies here because the samples are well under
+// the 18pt large-text threshold.
 .sampleCertified {
   background: #e6f4ea;
-  color: #1a7f37;
+  color: #136c2e;
 }
 
 .sampleIncubating {
@@ -66,10 +71,13 @@
 
 .sampleTesting {
   background: #f0f0f5;
-  color: #6b7280;
+  color: #585d66;
 }
 
+// The cards render this one as an antd Tag with color="blue", so the sample
+// takes antd v5's blue preset rather than an approximation of it.
 .sampleApi {
-  background: #e6f0fb;
-  color: #1d4ed8;
+  background: #e6f4ff;
+  border: 1px solid #91caff;
+  color: #0958d9;
 }

@@ -16,12 +16,12 @@ function DataProviderComponent() {
     metadata,
     "DataHub Integrations",
     `Connect to ${connectorCount}+ data and AI systems`,
-    false, // allowExclusivity
-    true, // useTags
-    false, // useFilters
-    `DataHub Connector Directory: ${connectorCount}+ Integrations`, // seoTitle
-    `Find every system DataHub integrates with. Browse ${connectorCount}+ DataHub connectors across databases, BI tools, ETL, AI/ML systems, and more.`, // seoDescription
-    true // showLegend
+    {
+      useTags: true,
+      showLegend: true,
+      seoTitle: `DataHub Connector Directory: ${connectorCount}+ Integrations`,
+      seoDescription: `Find every system DataHub integrates with. Browse ${connectorCount}+ DataHub connectors across databases, BI tools, ETL, AI/ML systems, and more.`,
+    }
   );
 }
 

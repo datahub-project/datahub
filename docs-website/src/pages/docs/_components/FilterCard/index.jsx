@@ -4,6 +4,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import Link from "@docusaurus/Link";
 import styles from "./quicklinkcard.module.scss";
 import { Tag } from "antd";
+import { getSupportStatusTooltip } from "../supportStatus";
 
 const FilterCard = ({
   image,
@@ -135,17 +136,6 @@ const FilterCard = ({
     return "";
   }
 
-  function getSupportStatusTooltip() {
-    const status = supportStatus.trim().toLowerCase();
-    if (status === "certified")
-      return "Certified: well-tested and widely adopted; expected to be stable.";
-    if (status === "incubating")
-      return "Incubating: ready for adoption, but not yet tested across a wide variety of edge cases.";
-    if (status === "testing")
-      return "Testing: available for experimentation; may change without notice.";
-    return "";
-  }
-
   return (
     <div className={clsx("col col--4", styles.featureCol)}>
       <Link
@@ -156,7 +146,7 @@ const FilterCard = ({
         {supportStatus && (
           <div
             className={clsx(styles.supportBadge, getSupportBadgeClass())}
-            title={getSupportStatusTooltip()}
+            title={getSupportStatusTooltip(supportStatus)}
           >
             {supportStatus.trim() === "Certified" && "✓ "}
             {supportStatus.trim()}

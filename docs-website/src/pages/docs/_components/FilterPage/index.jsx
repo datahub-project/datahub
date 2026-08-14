@@ -5,6 +5,7 @@ import clsx from "clsx";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
 import styles from "./legend.module.scss";
+import { SUPPORT_STATUS_DESCRIPTIONS } from "../supportStatus";
 
 // Decodes the two independent labels shown on each card. Support status
 // describes how mature an existing connector is; connection type describes how
@@ -28,7 +29,7 @@ function CardLegend() {
               >
                 Certified
               </span>
-              Well-tested and widely adopted; expected to be stable.
+              {SUPPORT_STATUS_DESCRIPTIONS.certified}
             </li>
             <li>
               <span
@@ -36,14 +37,13 @@ function CardLegend() {
               >
                 Incubating
               </span>
-              Ready for adoption, but not yet tested across a wide variety of
-              edge cases.
+              {SUPPORT_STATUS_DESCRIPTIONS.incubating}
             </li>
             <li>
               <span className={clsx(styles.legendSample, styles.sampleTesting)}>
                 Testing
               </span>
-              Available for experimentation; may change without notice.
+              {SUPPORT_STATUS_DESCRIPTIONS.testing}
             </li>
             <li>
               <b>No badge</b> - the connector does not declare a support status.
@@ -86,12 +86,14 @@ export function FilterPage(
   metadata,
   title,
   subtitle,
-  allowExclusivity = false,
-  useTags = false,
-  useFilters = false,
-  seoTitle = siteConfig.tagline,
-  seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
-  showLegend = false
+  {
+    allowExclusivity = false,
+    useTags = false,
+    useFilters = false,
+    showLegend = false,
+    seoTitle = siteConfig.tagline,
+    seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
+  } = {}
 ) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
