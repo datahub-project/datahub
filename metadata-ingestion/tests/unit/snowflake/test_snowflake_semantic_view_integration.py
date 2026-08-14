@@ -298,8 +298,8 @@ class TestSemanticViewEndToEndFlow:
 
         # Verify column subtypes include merged types
         # ORDER_ID should be both DIMENSION and FACT
-        assert "ORDER_ID" in sv.column_subtypes
-        subtypes = sv.column_subtypes["ORDER_ID"]
+        assert "order_id" in sv.column_subtypes
+        subtypes = sv.column_subtypes["order_id"]
         assert "DIMENSION" in subtypes
         assert "FACT" in subtypes
 

@@ -26,6 +26,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeIdentifierBuilder,
+    semantic_column_field_path,
 )
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -246,7 +247,9 @@ class SnowflakeSemanticModelMapper:
         # so it (and its semanticFieldAnnotation) is silently dropped. Surface
         # that to operators so the column isn't lost without a trace.
         placed: Set[str] = set()
-        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+        # Both sides of the difference below use the dict key, so the comparison
+        # holds whatever the key's casing is.
+        for column_key, occurrences in semantic_view.column_occurrences.items():
             for occurrence in occurrences:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
@@ -254,7 +257,7 @@ class SnowflakeSemanticModelMapper:
                     occurrence.table_name
                     and occurrence.table_name.upper() in logical_dataset_urns
                 ):
-                    placed.add(col_name_upper)
+                    placed.add(column_key)
         unplaced = set(semantic_view.column_occurrences.keys()) - placed
         # Columns that are only metrics (no non-metric occurrence) are not
         # "unplaced" — they're emitted as metric entities, not fields.
@@ -276,28 +279,6 @@ class SnowflakeSemanticModelMapper:
                 ),
                 context=f"{semantic_view.name}: {sorted(unplaced)}",
             )
-
-    @staticmethod
-    def _stored_column_name(
-        semantic_view: SnowflakeSemanticView, column_name: str
-    ) -> str:
-        """Resolve a column reference to the name Snowflake actually stores.
-
-        Semantic-view metadata canonicalizes column references to uppercase, which
-        is fine for matching but destroys the casing an emitted field path needs.
-        Match on the uppercased form, then return the stored spelling.
-
-        Columns differing only by case share one uppercased key and cannot be told
-        apart here; the connector reports those separately.
-        """
-        target = column_name.upper()
-        for occurrence in semantic_view.column_occurrences.get(target, []):
-            if occurrence.name:
-                return occurrence.name
-        for col in semantic_view.columns:
-            if col.name and col.name.upper() == target:
-                return col.name
-        return column_name
 
     def _build_relationships(
         self, semantic_view: SnowflakeSemanticView
@@ -339,15 +320,18 @@ class SnowflakeSemanticModelMapper:
                     # through the uppercased key so the two sides still match even
                     # if the API spells them differently, then emit the stored name.
                     fromColumns=[
-                        self.identifiers.snowflake_column_identifier(
-                            self._stored_column_name(semantic_view, col)
+                        semantic_column_field_path(
+                            self.identifiers, semantic_view, col, from_table_upper
                         )
                         for col in relationship.from_columns
                     ],
                     to=relationship.to_table.upper(),
                     toColumns=[
-                        self.identifiers.snowflake_column_identifier(
-                            self._stored_column_name(semantic_view, col)
+                        semantic_column_field_path(
+                            self.identifiers,
+                            semantic_view,
+                            col,
+                            relationship.to_table.upper(),
                         )
                         for col in relationship.to_columns
                     ],
@@ -588,8 +572,11 @@ class SnowflakeSemanticModelMapper:
                         # Must match the col_name_upper anchor in
                         # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
                         # so column-level lineage resolves.
-                        fieldPath=self.identifiers.snowflake_column_identifier(
-                            occurrence.name
+                        fieldPath=semantic_column_field_path(
+                            self.identifiers,
+                            semantic_view,
+                            occurrence.name,
+                            logical_table_upper,
                         ),
                         type=SchemaFieldDataTypeClass(type_class()),
                         nativeDataType=occurrence.data_type,
@@ -635,7 +622,12 @@ class SnowflakeSemanticModelMapper:
                 )
                 field_urn = SchemaFieldUrn(
                     logical_dataset_urn,
-                    self.identifiers.snowflake_column_identifier(occurrence.name),
+                    semantic_column_field_path(
+                        self.identifiers,
+                        semantic_view,
+                        occurrence.name,
+                        logical_table_upper,
+                    ),
                 ).urn()
                 yield MetadataChangeProposalWrapper(
                     entityUrn=field_urn,
@@ -955,7 +947,12 @@ class SnowflakeSemanticModelMapper:
                 continue
             field_urn = SchemaFieldUrn(
                 logical_dataset_urn,
-                self.identifiers.snowflake_column_identifier(occurrence.name),
+                semantic_column_field_path(
+                    self.identifiers,
+                    semantic_view,
+                    occurrence.name,
+                    logical_table_upper,
+                ),
             ).urn()
             yield from add_structured_properties_to_entity_wu(
                 field_urn,
@@ -1069,9 +1066,13 @@ class SnowflakeSemanticModelMapper:
         # same view is ambiguous; used by _derived_from_metrics (avoid a wrong
         # derivedFrom edge) and _route_lineages (keep the column's own lineage on
         # its logical dataset rather than dropping it as a metric).
+        # Normalized on the way out: the map is keyed by stored name when casing
+        # is preserved, while every consumer compares an uppercased reference.
+        # Without this a mixed-case column never matches and a shadowed metric
+        # gets a derivedFrom edge it should not have.
         return {
-            col_upper
-            for col_upper, occs in semantic_view.column_occurrences.items()
+            key.upper()
+            for key, occs in semantic_view.column_occurrences.items()
             if any(o.subtype != SemanticViewColumnSubtype.METRIC for o in occs)
         }
 

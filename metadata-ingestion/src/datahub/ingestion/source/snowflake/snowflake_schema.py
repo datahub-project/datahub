@@ -327,6 +327,70 @@ class SnowflakeSemanticView(BaseView):
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
 
+    def stored_column_name(
+        self, column_name: str, logical_table_upper: Optional[str] = None
+    ) -> str:
+        """The spelling Snowflake stores for a column reference.
+
+        Semantic-view metadata canonicalizes column references to uppercase,
+        which is fine for matching but wrong for an emitted identity. Resolve on
+        the uppercased form and return the stored name.
+
+        ``logical_table_upper`` matters: the same uppercased name can belong to
+        differently-cased columns on two logical tables, and an unscoped lookup
+        would return whichever happened to be first — producing a field path that
+        does not exist on the table being emitted. Callers that know the table
+        must pass it.
+        """
+        occurrences = self.occurrences_for(column_name)
+        if logical_table_upper is not None:
+            scoped = [
+                occurrence
+                for occurrence in occurrences
+                if occurrence.table_name
+                and occurrence.table_name.upper() == logical_table_upper
+            ]
+            # Fall back to the unscoped list rather than dropping the column: a
+            # view-scoped (table-less) reference has no logical table to match.
+            occurrences = scoped or occurrences
+
+        # An exact spelling wins. Callers often already hold the stored name, and
+        # when a case-only pair shares one logical table the table cannot tell
+        # them apart — without this both would resolve to whichever came first
+        # and collapse onto a single field path.
+        for occurrence in occurrences:
+            if occurrence.name == column_name:
+                return occurrence.name
+
+        for occurrence in occurrences:
+            if occurrence.name:
+                return occurrence.name
+
+        target = column_name.upper()
+        for col in self.columns:
+            if col.name and col.name.upper() == target:
+                return col.name
+
+        return column_name
+
+    def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
+        """Occurrences for a column reference, matched case-insensitively.
+
+        Entries are keyed by stored name, but semantic-view lineage threads
+        references around uppercased, so a caller may hold either spelling. An
+        uppercase reference legitimately matches both members of a case-only
+        pair; callers that must pick one scope by logical table.
+        """
+        # Deliberately no exact-match fast path: with a case-only pair, an exact
+        # hit on one key would hide its sibling, and the caller scoping by logical
+        # table would then be handed the wrong column.
+        target = column_name.upper()
+        matched: List["SemanticViewColumnMetadata"] = []
+        for key, occurrences in self.column_occurrences.items():
+            if key.upper() == target:
+                matched.extend(occurrences)
+        return matched
+
 
 @dataclass
 class UserQueryCount:
@@ -1713,10 +1777,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         and every consumer can look up with the name it already holds.
         """
         col_name = occurrences[0].name
-        # Uppercase unless casing is being preserved, so the default path keys
-        # metadata exactly as before. When preserved, a bucket split by case needs
-        # a per-column key, and the stored name is the only one that is unique.
-        column_key = col_name if self._preserve_column_case else col_name.upper()
+        # Keyed by the stored name, always. An uppercased key is what lets two
+        # columns differing only by case collide in the first place, and the key
+        # is internal — the emitted field path is decided separately, so this
+        # does not change what any deployment already has.
+        column_key = col_name
 
         # Only the semanticModel mapper reads column_occurrences (to group fields
         # per logical dataset); gate it behind the same flag as

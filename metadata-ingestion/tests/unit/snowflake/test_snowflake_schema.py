@@ -412,4 +412,4 @@ class TestProcessColumnOccurrences:
             semantic_view, occurrences, "TEST_VIEW", 1
         )
 
-        assert semantic_view.column_occurrences == {"COL1": occurrences}
+        assert semantic_view.column_occurrences == {"col1": occurrences}

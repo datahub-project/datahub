@@ -21,6 +21,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeSemanticView
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -574,6 +575,37 @@ class SnowflakeIdentifierBuilder:
             platform_instance=self.identifier_config.platform_instance,
             env=self.identifier_config.env,
         )
+
+
+def semantic_column_field_path(
+    identifiers: "SnowflakeIdentifierBuilder",
+    semantic_view: SnowflakeSemanticView,
+    column_name: str,
+    logical_table_upper: Optional[str] = None,
+) -> str:
+    """The field path to emit for a semantic-view column.
+
+    Semantic-view code threads column references in uppercase so they match
+    across the view's own metadata. That is a lookup key, not an identity: an
+    emitted field path has to carry the casing the schema was built from, or
+    lineage anchors on a field that does not exist.
+
+    Every emitter of a semantic-view field path goes through here, so the schema,
+    its lineage, and its annotations cannot disagree.
+
+    The uppercasing on the default path is a compatibility guard, not a
+    preference. With ``convert_urns_to_lowercase`` on it is a no-op, since the
+    name is lowercased immediately after. With it off, existing deployments
+    already hold ``ORDER_DATE``, and emitting the stored ``Order_Date`` instead
+    would re-key every semantic-view schemaField URN without anyone opting in.
+    Preserving the stored casing is the better value; ``preserve_column_case`` is
+    how a deployment asks for it.
+    """
+    if identifiers.identifier_config.preserve_column_case:
+        name = semantic_view.stored_column_name(column_name, logical_table_upper)
+    else:
+        name = column_name.upper()
+    return identifiers.snowflake_column_identifier(name)
 
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):

@@ -78,6 +78,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    semantic_column_field_path,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -1293,8 +1294,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                             if lt is not None
                             else semantic_model_urn,
-                            self.snowflake_column_identifier(
-                                self._stored_semantic_column_name(semantic_view, col)
+                            semantic_column_field_path(
+                                self.identifiers, semantic_view, col, lt
                             ),
                         ),
                     )
@@ -1644,14 +1645,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         json_props: Dict[str, Any] = {}
 
-        # Add column subtype if available
-        if col_name in column_subtypes:
-            json_props["columnSubType"] = column_subtypes[col_name]
+        # These maps are keyed by the column's stored name when casing is being
+        # preserved and by its uppercased form otherwise, so look up both rather
+        # than pick one and silently drop the metadata under the other keying.
+        def lookup(mapping: Dict[str, Any]) -> Any:
+            if col_name in mapping:
+                return mapping[col_name]
+            return mapping.get(col_name.upper())
 
-        # Add synonyms if available
-        col_name_upper = col_name.upper()
-        if col_name_upper in column_synonyms:
-            json_props["synonyms"] = column_synonyms[col_name_upper]
+        subtype = lookup(column_subtypes)
+        if subtype is not None:
+            json_props["columnSubType"] = subtype
+
+        synonyms = lookup(column_synonyms)
+        if synonyms is not None:
+            json_props["synonyms"] = synonyms
 
         # Only return jsonProps if there's something to include
         if json_props:
@@ -1689,27 +1697,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if tag_associations:
             return GlobalTagsClass(tags=tag_associations)
         return None
-
-    @staticmethod
-    def _stored_semantic_column_name(
-        semantic_view: "SnowflakeSemanticView", col_name_upper: str
-    ) -> str:
-        """Resolve a semantic-view column key back to the name Snowflake stores.
-
-        Semantic-view lineage threads column references around in uppercase so
-        they match across the view's metadata. That is fine as a key but wrong as
-        an identity: an emitted field path has to carry the stored casing or it
-        will not match the schema built from it.
-        """
-        # column_occurrences is the same source the semantic-model mapper builds
-        # its schema fields from, so consult it first or the two can disagree.
-        for occurrence in semantic_view.column_occurrences.get(col_name_upper, []):
-            if occurrence.name:
-                return occurrence.name
-        for col in semantic_view.columns:
-            if col.name and col.name.upper() == col_name_upper:
-                return col.name
-        return col_name_upper
 
     def _report_column_case_collisions(
         self,
@@ -2306,7 +2293,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         Example: TEST_DERIVED_METRIC with expression
         "ORDERS.ORDER_TOTAL_METRIC+TRANSACTIONS.TRANSACTION_AMOUNT_METRIC"
         """
-        processed_columns = set(semantic_view.column_table_mappings.keys())
+        # Compare on a single normalized form: the mapping is keyed by stored name
+        # when casing is preserved, so an uppercased membership test would treat
+        # already-processed mixed-case columns as unprocessed and emit their
+        # lineage a second time.
+        processed_columns = {key.upper() for key in semantic_view.column_table_mappings}
 
         unprocessed_columns = [
             col
@@ -2326,8 +2317,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             else:
                 downstream_field_urn = make_schema_field_urn(
                     semantic_view_urn,
-                    self.snowflake_column_identifier(
-                        self._stored_semantic_column_name(semantic_view, col_name_upper)
+                    semantic_column_field_path(
+                        self.identifiers, semantic_view, col_name_upper
                     ),
                 )
 
@@ -2377,7 +2368,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # logical table's expression when the same column name is defined
         # differently on multiple tables. Fall back to the merged list (legacy
         # single-dataset mode, where column_occurrences is not populated).
-        for occ in semantic_view.column_occurrences.get(col_name_upper, []):
+        for occ in semantic_view.occurrences_for(col_name_upper):
             if occ.table_name and occ.table_name.upper() == logical_table_upper:
                 return occ.expression
         for col in semantic_view.columns:
@@ -2433,8 +2424,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 return downstream_urn_resolver(col_name_upper, logical_table_upper)
             return make_schema_field_urn(
                 semantic_view_urn,
-                self.snowflake_column_identifier(
-                    self._stored_semantic_column_name(semantic_view, col_name_upper)
+                semantic_column_field_path(
+                    self.identifiers,
+                    semantic_view,
+                    col_name_upper,
+                    logical_table_upper,
                 ),
             )
 
@@ -2626,10 +2620,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Create upstream field URN for direct column lineage
                     upstream_field_urn = make_schema_field_urn(
                         base_table_urn,
-                        self.snowflake_column_identifier(
-                            self._stored_semantic_column_name(
-                                semantic_view, col_name_upper
-                            )
+                        semantic_column_field_path(
+                            self.identifiers,
+                            semantic_view,
+                            col_name_upper,
+                            logical_table_upper,
                         ),
                     )
 
