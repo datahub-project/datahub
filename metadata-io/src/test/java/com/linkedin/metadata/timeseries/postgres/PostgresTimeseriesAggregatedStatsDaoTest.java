@@ -6,6 +6,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.GroupingBucket;
@@ -128,6 +129,75 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     assertEquals(filled.size(), 2);
   }
 
+  @Test
+  public void buildAggregatedStatsSql_dateThenString_usesPerParentRowNumber() {
+    GroupingBucket[] buckets =
+        new GroupingBucket[] {dateBucket(CalendarInterval.DAY), stringBucket("user", 5)};
+    AggregationSpec[] specs =
+        new AggregationSpec[] {
+          new AggregationSpec().setFieldPath("count").setAggregationType(AggregationType.SUM)
+        };
+    String sql =
+        PostgresTimeseriesAggregatedStatsDao.buildAggregatedStatsSql(
+            "public.ts_aspect",
+            List.of("date_trunc('day', ...) AS g0", "document #>> ARRAY['user'] AS g1"),
+            List.of("g0", "g1"),
+            List.of("SUM(...) AS \"sum_count\""),
+            List.of("sum_count"),
+            List.of("document #>> ARRAY['user']"),
+            buckets,
+            specs,
+            "true");
+    assertTrue(sql.contains("ROW_NUMBER() OVER (PARTITION BY g0 "));
+    assertTrue(sql.contains("WHERE _rn <= 5"));
+    assertFalse(sql.trim().endsWith("LIMIT 5"));
+    assertTrue(sql.contains("AT TIME ZONE") || sql.contains("date_trunc('day'"));
+    assertTrue(sql.contains("ORDER BY"));
+  }
+
+  @Test
+  public void buildAggregatedStatsSql_stringOnly_ranksGlobally() {
+    GroupingBucket[] buckets = new GroupingBucket[] {stringBucket("user", 3)};
+    AggregationSpec[] specs =
+        new AggregationSpec[] {
+          new AggregationSpec().setFieldPath("count").setAggregationType(AggregationType.SUM)
+        };
+    String sql =
+        PostgresTimeseriesAggregatedStatsDao.buildAggregatedStatsSql(
+            "public.ts_aspect",
+            List.of("document #>> ARRAY['user'] AS g0"),
+            List.of("g0"),
+            List.of("SUM(...) AS \"sum_count\""),
+            List.of("sum_count"),
+            List.of("document #>> ARRAY['user']"),
+            buckets,
+            specs,
+            "true");
+    assertTrue(sql.contains("ROW_NUMBER() OVER (ORDER BY"));
+    assertFalse(sql.contains("PARTITION BY"));
+    assertTrue(sql.contains("WHERE _rn <= 3"));
+  }
+
+  @Test
+  public void buildGroupOrderBy_stringDefaultAscending() {
+    GroupingBucket[] buckets = new GroupingBucket[] {stringBucket("user", 10)};
+    String order =
+        PostgresTimeseriesAggregatedStatsDao.buildGroupOrderBy(
+            buckets, List.of("g0"), List.of("sum_count"), new AggregationSpec[0]);
+    assertEquals(order, "g0 ASC");
+  }
+
+  @Test
+  public void stringGroupingLimit_defaultsToMaxTermBuckets() {
+    GroupingBucket[] buckets =
+        new GroupingBucket[] {
+          new GroupingBucket().setKey("user").setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+        };
+    assertEquals(
+        PostgresTimeseriesAggregatedStatsDao.stringGroupingLimit(buckets),
+        Integer.valueOf(PostgresTimeseriesAggregatedStatsDao.MAX_TERM_BUCKETS));
+  }
+
   private static TimeWindowSize window(CalendarInterval unit) {
     return new TimeWindowSize().setMultiple(1).setUnit(unit);
   }
@@ -137,6 +207,13 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
         .setKey("@timestamp")
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
         .setTimeWindowSize(window(unit));
+  }
+
+  private static GroupingBucket stringBucket(String key, int size) {
+    return new GroupingBucket()
+        .setKey(key)
+        .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+        .setSize(size);
   }
 
   private static StringArray row(String... cells) {

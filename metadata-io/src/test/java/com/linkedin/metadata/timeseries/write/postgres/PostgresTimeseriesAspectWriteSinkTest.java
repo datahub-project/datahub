@@ -79,6 +79,19 @@ public class PostgresTimeseriesAspectWriteSinkTest {
             eq("dataset"), eq("datasetProfile"), eq("msg-1"), eq(1_700_000_000_000L));
   }
 
+  @Test
+  public void deleteByUrn_delegatesToDao() throws Exception {
+    PostgresTimeseriesAspectDao dao = mock(PostgresTimeseriesAspectDao.class);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    PostgresTimeseriesAspectWriteSink sink =
+        new PostgresTimeseriesAspectWriteSink(registryWithDao(dao), false);
+
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)";
+    sink.deleteByUrn(opContext, "dataset", "datasetProfile", urn);
+
+    verify(dao).deleteByUrn(eq("dataset"), eq("datasetProfile"), eq(urn));
+  }
+
   private static PgTimeseriesStoreRegistry registryWithDao(PostgresTimeseriesAspectDao dao) {
     PgTimeseriesStoreOptions store =
         PgTimeseriesStoreOptions.builder()
