@@ -425,27 +425,9 @@ def _format_numeric_value(value: Any, col_type: ProfilerDataType) -> str:
 class SQLAlchemyProfiler:
     """Custom SQLAlchemy-based profiler replacing Great Expectations."""
 
-    # How many tables to name per database in the post-run "most expensive tables" info
-    # entry. times_taken_per_table resets with each per-inspector profiler instance (one per
-    # database — sql_common.py get_profiling_internal), so this is a per-database top-N, not a
-    # global top-N across the whole run. Each context is db.table-qualified (pretty_name), so the
-    # per-database contexts are self-describing and LossyList caps the total.
-    _EXPENSIVE_TABLES_TOP_N = 5
-
-    # Minimum elapsed time (seconds) the slowest table must meet before the expensive-tables
-    # info entry fires. Below this the guardrail advice is noise — a run where every table
-    # profiled in milliseconds (or failed setup in milliseconds) would otherwise produce the
-    # same "risks OOM" message as a run that genuinely scanned a multi-GB table.
-    _EXPENSIVE_TABLES_SLOWEST_MIN_S = 30
-
     report: SQLSourceReport
     config: ProfilingConfig
     times_taken: List[float]
-    # Per-table (pretty_name, time_taken) pairs, accumulated across this profiler instance's
-    # generate_profiles() calls. Used to emit the post-run "most expensive tables" info
-    # entry (see _report_expensive_tables). Kept separate from times_taken (List[float]) so the
-    # percentile calculation at the telemetry ping below is unchanged.
-    times_taken_per_table: List[Tuple[str, float]]
     total_row_count: int
 
     base_engine: Engine
@@ -463,7 +445,6 @@ class SQLAlchemyProfiler:
         self.report = report
         self.config = config
         self.times_taken = []
-        self.times_taken_per_table = []
         self.total_row_count = 0
 
         self.env = env
@@ -1129,54 +1110,6 @@ class SQLAlchemyProfiler:
         )
 
         self.report.report_from_query_combiner(query_combiner.report)
-
-        self._report_expensive_tables()
-
-    def _report_expensive_tables(self) -> None:
-        # Discoverability mechanism for sources that default to no row/size guardrail (e.g. MySQL):
-        # name the few tables that took the longest to profile so an operator can see the real
-        # cost and set profile_table_row_limit / profile_table_size_limit. Lives in the profiler
-        # run path (here), NOT in generate_profile_candidates — which is dead by default when the
-        # limits are None, so anything placed there would never fire for the users who need it.
-        # Gated on a config flag (default off; MySQL opts in) and independent of whether a limit
-        # is configured, so the info entry and the skip counters behave independently.
-        #
-        # Uses report.info (not report.warning): nothing is wrong, and report.warning counts
-        # toward --strict-warnings failure (run/pipeline.py pretty_print_summary). Emitted at
-        # info level so it surfaces in the report without breaking CI runs.
-        #
-        # message is a constant literal and the formatted table list goes in context= so that
-        # StructuredLogs.report_log (api/source.py:148) dedupes on f"{title}-{message}" — all
-        # databases on a multi-database server group under ONE entry with one context per call,
-        # rather than N entries (one per database, since get_profiling_internal constructs a fresh
-        # profiler per database). message is also LiteralString by convention (teradata.py:1852
-        # etc.).
-        #
-        # Generator caveat: generate_profiles is a generator, so this only runs on full
-        # consumption — the info entry vanishes if the pipeline stops early. Same pre-existing
-        # caveat as the telemetry ping immediately above this call; not introduced here.
-        if not self.config.report_expensive_tables:
-            return
-        if not self.times_taken_per_table:
-            return
-        top = sorted(
-            self.times_taken_per_table, key=lambda pair: pair[1], reverse=True
-        )[: self._EXPENSIVE_TABLES_TOP_N]
-        if top[0][1] < self._EXPENSIVE_TABLES_SLOWEST_MIN_S:
-            return
-        formatted = ", ".join(f"{name} ({t:.1f}s)" for name, t in top)
-        self.report.info(
-            title="Profiling: expensive tables",
-            message=(
-                "These tables took the longest to profile. If profiling is too slow or risks "
-                "OOM, set `profiling.profile_table_row_limit` and/or "
-                "`profiling.profile_table_size_limit` to skip large tables, or lower "
-                "`profiling.max_workers` — concurrent full scans on a single-primary row "
-                "store multiply peak memory rather than increasing throughput, so a low value "
-                "(e.g. 5) can relieve memory pressure on MySQL."
-            ),
-            context=formatted,
-        )
 
     def _generate_profile_from_request(
         self,
@@ -1974,15 +1907,14 @@ class SQLAlchemyProfiler:
                 )
                 return None
             finally:
+                # Record elapsed for every table, including failures: the most expensive
+                # tables are precisely those that OOM/timeout/raise — which exit via the
+                # except branches above and would otherwise never be recorded. `timer`
+                # started at the top of this `with PerfTimer()` block, so elapsed here
+                # covers the full attempt regardless of exit path. Recorded before
+                # adapter.cleanup so a raising cleanup cannot lose the entry.
+                self.report.profiling_time_taken_per_table_secs[pretty_name] = (
+                    timer.elapsed_seconds()
+                )
                 # Cleanup temp resources using adapter
                 adapter.cleanup(context)
-                # Record elapsed for every table, including failures: the
-                # expensive-tables report exists to surface tables that are too
-                # expensive, and the most expensive ones are precisely those that
-                # OOM/timeout/raise — which exit via the except branches above and
-                # would otherwise never be recorded. `timer` started at the top of
-                # this `with PerfTimer()` block, so elapsed here covers the full
-                # attempt regardless of exit path.
-                self.times_taken_per_table.append(
-                    (pretty_name, timer.elapsed_seconds())
-                )

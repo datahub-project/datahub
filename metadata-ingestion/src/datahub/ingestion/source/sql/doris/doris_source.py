@@ -84,25 +84,6 @@ def _catalog_prefix_pattern(catalog: str) -> re.Pattern[str]:
 _DORIS_CATALOG_PREFIX_PATTERN = _catalog_prefix_pattern(DORIS_INTERNAL_CATALOG)
 
 
-class DorisProfilingConfig(MySQLProfilingConfig):
-    # Doris extends MySQLConfig (MySQL-protocol-compatible driver/information_schema), so it
-    # inherits MySQLConfig's narrowed `profiling: MySQLProfilingConfig` type. Doris is an MPP
-    # columnar engine, not a single-primary row store, so the expensive-tables report (which
-    # recommends MySQL-specific row/size limits) is off here.
-    # The two limit fields are not redeclared: they inherit MySQLProfilingConfig's `None` default,
-    # which preserves prior behavior. A non-None default would activate a row/size guardrail using
-    # information_schema.tables.table_rows semantics that Doris (an MPP engine) does not share
-    # with InnoDB — silently dropping profiles for tables over 5M rows on an engine where that
-    # cutoff is not meaningful.
-    # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] type, so
-    # `null` is still accepted and the SupportedSources metadata survives (verified in
-    # test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sources).
-    report_expensive_tables: bool = Field(
-        default=False,
-        description="Emit a post-run report.info entry naming the few tables that took the longest to profile.",
-    )
-
-
 class DorisConfig(MySQLConfig):
     scheme: HiddenFromDocs[str] = Field(default="doris+pymysql")
 
@@ -131,8 +112,8 @@ class DorisConfig(MySQLConfig):
         ),
     )
 
-    profiling: DorisProfilingConfig = Field(
-        default_factory=DorisProfilingConfig,
+    profiling: MySQLProfilingConfig = Field(
+        default_factory=MySQLProfilingConfig,
         description=(
             "Configuration for profiling Doris tables. "
             "Note: Doris types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically "

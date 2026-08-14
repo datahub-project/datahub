@@ -23,31 +23,9 @@ from datahub.ingestion.source.sql.mysql import (
 TIDB_DEFAULT_PORT = 4000
 
 
-class TiDBProfilingConfig(MySQLProfilingConfig):
-    # TiDB inherits MySQLConfig's narrowed `profiling: MySQLProfilingConfig` type, but TiDB is a
-    # distributed HTAP database, not a single-primary row store, so the expensive-tables report
-    # (which recommends MySQL-specific row/size limits) is off here.
-    # The two limit fields are not redeclared: they inherit MySQLProfilingConfig's `None` default,
-    # which preserves prior behavior. A non-None default would activate a row/size guardrail using
-    # information_schema.tables.table_rows semantics that TiDB (distributed HTAP) does not share
-    # with InnoDB — silently dropping profiles for tables over 5M rows on an engine where that
-    # cutoff is not meaningful.
-    # The inherited field keeps its Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] type.
-    #
-    # TiDB also inherits MySQLSource.generate_profile_candidates. TiDB's
-    # `information_schema.tables.table_rows` depends on ANALYZE TABLE and can be zero or badly
-    # stale, so the guardrail is only as good as those stats. With the default None the guardrail
-    # stays dormant; the stale-stats concern only surfaces if an operator opts in by setting a
-    # limit, which is an acceptable documented caveat.
-    report_expensive_tables: bool = Field(
-        default=False,
-        description="Emit a post-run report.info entry naming the few tables that took the longest to profile.",
-    )
-
-
 class TiDBConfig(MySQLConfig):
-    profiling: TiDBProfilingConfig = Field(
-        default_factory=TiDBProfilingConfig,
+    profiling: MySQLProfilingConfig = Field(
+        default_factory=MySQLProfilingConfig,
         description="Configuration for profiling TiDB tables.",
     )
 

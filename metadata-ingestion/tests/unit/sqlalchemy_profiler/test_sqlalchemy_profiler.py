@@ -2,7 +2,6 @@
 
 import logging
 import sqlite3
-from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +18,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
+from datahub.utilities.stats_collections import float_top_k_dict
 
 
 @pytest.fixture
@@ -76,6 +76,9 @@ def mock_report():
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
     report.info = MagicMock()
+    # Dataclass fields with default_factory are not class attributes, so a spec'd mock
+    # does not expose them; wire the real TopKDict so the profiler's finally block can write.
+    report.profiling_time_taken_per_table_secs = float_top_k_dict()
     return report
 
 
@@ -1101,165 +1104,3 @@ class TestProfilingIsolationLevelRejection:
             "Asset: test.my_table; isolation_level=BOGUS_LEVEL"
         )
         assert isinstance(warning_call.kwargs["exc"], sa.exc.ArgumentError)
-
-
-class TestReportExpensiveTables:
-    """The post-run 'most expensive tables' info entry.
-
-    The info entry must live in the profiler run path (here), NOT in
-    generate_profile_candidates — which is dead by default when the limits are None. It must
-    fire with no limits configured (the MySQL default).
-    """
-
-    def _make_profiler(
-        self,
-        sqlite_engine: sa.engine.Engine,
-        mock_report: SQLSourceReport,
-        *,
-        flag: bool,
-        limits: bool,
-    ) -> SQLAlchemyProfiler:
-        # limits=True sets both row/size limits so we can prove the info entry still fires
-        # (independence from the skip path); limits=False leaves them None (the MySQL default).
-        cfg_kwargs: Dict[str, Any] = {"enabled": True, "report_expensive_tables": flag}
-        if limits:
-            cfg_kwargs["profile_table_row_limit"] = 1_000_000_000
-            cfg_kwargs["profile_table_size_limit"] = 1000
-        config = ProfilingConfig(**cfg_kwargs)
-        return SQLAlchemyProfiler(
-            conn=sqlite_engine,
-            report=mock_report,
-            config=config,
-            platform="mysql",
-            env="TEST",
-        )
-
-    def test_fires_with_no_limits_configured(self, sqlite_engine, mock_report):
-        # The default MySQL state: limits None, flag on. The info entry must fire — this is
-        # the state MySQL defaults to, and the whole point of opt-in discoverability.
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=False
-        )
-        profiler.times_taken_per_table = [
-            ("my_db.orders", 120.0),
-            ("my_db.customers", 30.0),
-            ("my_db.events", 300.0),
-        ]
-
-        profiler._report_expensive_tables()
-
-        assert mock_report.info.called
-        _args, kwargs = mock_report.info.call_args
-        assert kwargs["title"] == "Profiling: expensive tables"
-        # message is a constant literal; the formatted table list is in context= (so all
-        # databases on a multi-DB server group under one entry). Top-N is bounded and ordered
-        # by time desc; events (300s) and orders (120s) lead.
-        assert "my_db.events (300.0s)" in kwargs["context"]
-        assert "my_db.orders (120.0s)" in kwargs["context"]
-        # customers (30s) is 3rd — still in top 3 of 3, so included; the cap matters only
-        # when there are more than _EXPENSIVE_TABLES_TOP_N tables (asserted below).
-
-    def test_does_not_fire_when_flag_off(self, sqlite_engine, mock_report):
-        # Non-MySQL sources default the flag off — no info entry, even for expensive tables.
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=False, limits=False
-        )
-        profiler.times_taken_per_table = [("my_db.orders", 120.0)]
-
-        profiler._report_expensive_tables()
-
-        assert not mock_report.info.called
-
-    def test_does_not_fire_when_nothing_profiled(self, sqlite_engine, mock_report):
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=False
-        )
-        profiler.times_taken_per_table = []
-
-        profiler._report_expensive_tables()
-
-        assert not mock_report.info.called
-
-    def test_does_not_fire_below_slowest_threshold(self, sqlite_engine, mock_report):
-        # The advice targets tables expensive enough to warrant a guardrail. Below the
-        # threshold (a run where every table profiled or failed setup in milliseconds)
-        # the message is noise — a multi-GB scan and a millisecond failure must not
-        # produce the same "risks OOM" info entry.
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=False
-        )
-        profiler.times_taken_per_table = [
-            ("my_db.small", 0.2),
-            ("my_db.tiny", 0.1),
-        ]
-
-        profiler._report_expensive_tables()
-
-        assert not mock_report.info.called
-
-    def test_fires_at_slowest_threshold(self, sqlite_engine, mock_report):
-        # Boundary: the slowest table exactly at the threshold still fires (>= comparison).
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=False
-        )
-        threshold = SQLAlchemyProfiler._EXPENSIVE_TABLES_SLOWEST_MIN_S
-        profiler.times_taken_per_table = [("my_db.boundary", float(threshold))]
-
-        profiler._report_expensive_tables()
-
-        assert mock_report.info.called
-
-    def test_top_n_is_bounded(self, sqlite_engine, mock_report):
-        # The info entry must name at most _EXPENSIVE_TABLES_TOP_N tables so it stays one short,
-        # actionable line regardless of how many tables were profiled.
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=False
-        )
-        profiler.times_taken_per_table = [
-            (f"my_db.t{i}", float(100 - i)) for i in range(20)
-        ]
-
-        profiler._report_expensive_tables()
-
-        _args, kwargs = mock_report.info.call_args
-        # The formatted list is in context=, not message=.
-        named = [w for w in kwargs["context"].split(", ") if "s)" in w]
-        assert len(named) <= SQLAlchemyProfiler._EXPENSIVE_TABLES_TOP_N
-
-    def test_failed_table_still_records_timing(self, sqlite_engine, mock_report):
-        # The finally block in _generate_single_profile appends to times_taken_per_table
-        # on every exit path, including the except branches. The expensive-tables report
-        # exists to surface tables that are too expensive — and the most expensive ones are
-        # precisely those that OOM/timeout/raise — so a failed table must still contribute
-        # its timing. Drive the real path (via _generate_profile_from_request) with
-        # setup_profiling raising, and assert the table appears in times_taken_per_table.
-        profiler = self._make_profiler(
-            sqlite_engine, mock_report, flag=True, limits=False
-        )
-        profiler.config.catch_exceptions = True
-        request = ProfilerRequest(
-            pretty_name="my_db.big_table",
-            batch_kwargs={"table": "big_table", "schema": "my_db"},
-        )
-
-        with (
-            sqlite_engine.connect() as conn,
-            patch.object(profiler, "base_engine") as mock_engine,
-            patch(
-                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
-            ) as mock_get_adapter,
-        ):
-            mock_engine.connect.return_value.__enter__.return_value = conn
-            mock_adapter = MagicMock()
-            mock_adapter.setup_profiling.side_effect = PermissionError("denied")
-            mock_get_adapter.return_value = mock_adapter
-
-            result_request, result_profile = profiler._generate_profile_from_request(
-                MagicMock(), request
-            )
-
-        assert result_profile is None
-        # The failed table's timing was still recorded by the finally block.
-        assert len(profiler.times_taken_per_table) == 1
-        assert profiler.times_taken_per_table[0][0] == "my_db.big_table"
-        assert profiler.times_taken_per_table[0][1] >= 0.0

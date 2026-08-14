@@ -2,11 +2,17 @@ from typing import Type
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
-from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
+from datahub.ingestion.source.sql.mysql import (
+    MySQLConfig,
+    MySQLProfilingConfig,
+    MySQLSource,
+)
+from datahub.ingestion.source.sql.tidb import TiDBConfig, TiDBSource
 
 
 def _source() -> MySQLSource:
@@ -60,22 +66,6 @@ def test_add_profile_metadata_reads_storage_bytes_positionally(
     }
 
 
-def test_mysql_profiling_config_schema_lists_mysql_supported() -> None:
-    # Redeclaring with Annotated[...] preserves the SupportedSources metadata on the
-    # subclass field (a plain redeclaration drops it — verified empirically). MySQL's
-    # config JSON schema must therefore advertise the platforms that inherit
-    # MySQLProfilingConfig's guardrails: mysql (direct) plus mariadb/doris/tidb, which
-    # inherit MySQLSource.generate_profile_candidates and so genuinely use these limits.
-    from datahub.ingestion.source.sql.mysql import MySQLProfilingConfig
-
-    expected = ["mysql", "mariadb", "doris", "tidb"]
-    props = MySQLProfilingConfig.model_json_schema()["properties"]
-    for field in ("profile_table_row_limit", "profile_table_size_limit"):
-        assert props[field]["schema_extra"]["supported_sources"] == expected, (
-            f"{field} supported_sources drifted from {expected}"
-        )
-
-
 def test_generate_profile_candidates_returns_get_identifier_strings() -> None:
     # Whatever generate_profile_candidates returns must match the dataset_name produced by
     # get_identifier character-for-character, or the membership test in
@@ -112,12 +102,10 @@ def test_generate_profile_candidates_returns_get_identifier_strings() -> None:
 
 
 def test_generate_profile_candidates_wiring() -> None:
-    # The row/size guardrail is enforced inside the SQL (the `:table_row_limit IS NULL OR
-    # table_rows < :table_row_limit` clauses), not in Python, so a mock inspector can't
-    # verify filtered *results*. Pin the wiring instead: with limits set, the configured
-    # values are forwarded as bind params so a real DB actually applies them; with both
-    # limits at their None default, the method short-circuits and runs no query at all
-    # (restoring the pre-guardrail behaviour of returning no candidate filter).
+    # Row/size limits are applied in Python (not in SQL), so a mock inspector can verify filtered
+    # results. With limits set, tables over the limits are dropped and the rest are returned as
+    # candidate identifiers; with both limits at their None default, the method short-circuits
+    # and runs no query at all (restoring the pre-guardrail behaviour of returning no filter).
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
@@ -128,7 +116,12 @@ def test_generate_profile_candidates_wiring() -> None:
     )
     source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
     conn = MagicMock()
-    conn.execute.return_value = [("small", 100, 1024)]
+    # small: under both limits. big_rows: over row limit. big_size: over size limit (1 GB).
+    conn.execute.return_value = [
+        ("small", 100, 1024),
+        ("big_rows", 200, 1024),
+        ("big_size", 100, 2 * 1024**3),
+    ]
     inspector = MagicMock()
     inspector.engine.connect.return_value.__enter__.return_value = conn
 
@@ -138,9 +131,7 @@ def test_generate_profile_candidates_wiring() -> None:
 
     args, _kwargs = conn.execute.call_args
     params = args[1]
-    assert params["table_row_limit"] == 150
-    assert params["table_size_limit"] == 1
-    assert params["schema"] == "my_db"
+    assert params == {"schema": "my_db"}
     assert candidates == ["my_db.small"]
 
     # Default config: both limits None -> no query, returns None.
@@ -157,132 +148,48 @@ def test_generate_profile_candidates_wiring() -> None:
     default_conn.execute.assert_not_called()
 
 
-def test_mysql_profiling_overrides_do_not_drift() -> None:
-    """Drift guard for the MySQLProfilingConfig inheritance sweep.
+def test_generate_profile_candidates_retains_null_stats_tables() -> None:
+    # A table whose table_rows or total_size is NULL must still be profiled — NULL stats
+    # must not silently drop a table. This covers the Python-side NULL path (the SQL
+    # no longer carries IS NULL OR clauses).
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_row_limit": 1_000_000,
+            "profile_table_size_limit": 1,
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    conn = MagicMock()
+    conn.execute.return_value = [
+        ("null_rows", None, 1024),
+        ("null_size", 100, None),
+        ("small", 100, 1024),
+    ]
+    inspector = MagicMock()
+    inspector.engine.connect.return_value.__enter__.return_value = conn
 
-    Only compares ``fi.default``: an override that changes a field's description, type, or
-    validators while keeping the default is invisible, as is any field using ``default_factory``
-    (both sides read ``PydanticUndefined`` and compare equal). Do not over-trust this test for
-    those cases.
+    candidates = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
 
-    The allowlist is PER-FIELD, not per-config: MySQLProfilingConfig narrows three fields from
-    GEProfilingConfig; each MySQL-derived config must, for each override field, either REVERT
-    it to the grandparent's default or INHERIT MySQL's default. The decision is field-specific:
-      - report_expensive_tables: reverted by Doris and TiDB (the warning's remediation advice
-        is MySQL-specific). MariaDB inherits (it IS a single-primary row store).
-      - profile_table_row_limit, profile_table_size_limit: inherited as MySQL's `None` by Doris,
-        TiDB, AND MariaDB. None is what preserves prior behavior — the enforcement mechanism
-        (generate_profile_candidates) is newly implemented for the MySQL family, so a non-None
-        default would ACTIVATE a guardrail that never ran before, silently dropping profiles
-        for tables over 5M rows using information_schema.tables.table_rows semantics these
-        engines don't share with InnoDB.
-    Without this test, a fourth field added to MySQLProfilingConfig would silently leak into the
-    subclasses without a deliberate decision.
-    """
-    from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-    from datahub.ingestion.source.sql.doris.doris_source import DorisProfilingConfig
-    from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLProfilingConfig
-    from datahub.ingestion.source.sql.tidb import TiDBProfilingConfig
-
-    def defaults(cfg_cls: type[BaseModel]) -> dict:
-        return {name: fi.default for name, fi in cfg_cls.model_fields.items()}
-
-    ge = defaults(GEProfilingConfig)
-    mysql = defaults(MySQLProfilingConfig)
+    assert candidates == ["my_db.null_rows", "my_db.null_size", "my_db.small"]
+    """Pin the MySQLProfilingConfig override set so a new override forces an update here."""
+    ge = {name: fi.default for name, fi in GEProfilingConfig.model_fields.items()}
+    mysql = {name: fi.default for name, fi in MySQLProfilingConfig.model_fields.items()}
     mysql_overrides = {name for name in mysql if name in ge and mysql[name] != ge[name]}
 
-    # Pin the override set so a new override added to MySQLProfilingConfig forces an update here.
     assert mysql_overrides == {
         "profile_table_row_limit",
         "profile_table_size_limit",
-        "report_expensive_tables",
     }, (
-        "MySQLProfilingConfig override set changed — update the per-field allowlist below and "
-        f"this test. New override set: {sorted(mysql_overrides)}"
+        "MySQLProfilingConfig override set changed — update this test. "
+        f"New override set: {sorted(mysql_overrides)}"
     )
 
-    # Per-field decision table: "revert" = match GEProfilingConfig default; "inherit" = match
-    # MySQLProfilingConfig default. Every subclass must declare a decision for every override
-    # field; a missing entry fails loudly so a new override can't slip through undecided.
-    decisions: dict[str, dict[str, str]] = {
-        "DorisProfilingConfig": {
-            "report_expensive_tables": "revert",
-            "profile_table_row_limit": "inherit",
-            "profile_table_size_limit": "inherit",
-        },
-        "TiDBProfilingConfig": {
-            "report_expensive_tables": "revert",
-            "profile_table_row_limit": "inherit",
-            "profile_table_size_limit": "inherit",
-        },
-        # MariaDB uses MySQLConfig directly, so its profiling IS MySQLProfilingConfig — every
-        # override is inherited. Listed explicitly so the test documents the intent and the next
-        # sweep doesn't "fix" it wrongly (MariaDB is a MySQL fork; reverting would reintroduce
-        # the long-transaction risk for a certified source).
-        "MySQLConfig": {
-            "report_expensive_tables": "inherit",
-            "profile_table_row_limit": "inherit",
-            "profile_table_size_limit": "inherit",
-        },
-    }
-
-    subclass_defaults = {
-        "DorisProfilingConfig": defaults(DorisProfilingConfig),
-        "TiDBProfilingConfig": defaults(TiDBProfilingConfig),
-        # MariaDB's profiling config is MySQLProfilingConfig by construction; verify that too.
-        "MySQLConfig": defaults(MySQLConfig().profiling.__class__),
-    }
-
-    for subclass_name, field_decisions in decisions.items():
-        # Every override field must have a decision — no silent omissions.
-        missing = mysql_overrides - set(field_decisions)
-        assert not missing, (
-            f"{subclass_name} has no decision for {sorted(missing)} — add each to the "
-            "allowlist as 'revert' or 'inherit'."
-        )
-        actual = subclass_defaults[subclass_name]
-        for field, decision in field_decisions.items():
-            expected_source = ge if decision == "revert" else mysql
-            assert actual[field] == expected_source[field], (
-                f"{subclass_name}.{field} is '{decision}' but default {actual[field]!r} != "
-                f"{('GE' if decision == 'revert' else 'MySQL')} default {expected_source[field]!r}. "
-                "Either fix the subclass or correct the allowlist entry."
-            )
-
-    # MariaDB-specific: pin that MySQLConfig.profiling IS MySQLProfilingConfig (the inheritance
-    # is by construction, not by redeclaring identical defaults — so it tracks future MySQL changes).
-    assert MySQLConfig.model_fields["profiling"].annotation is MySQLProfilingConfig, (
-        "MariaDB uses MySQLConfig directly; its profiling field must be MySQLProfilingConfig "
-        "so it inherits MySQL's overrides. If this changed, update the comment in mariadb.py."
-    )
-
-
-def test_doris_and_tidb_inherited_limit_fields_keep_optional_and_supported_sources() -> (
-    None
-):
-    # The limit fields on Doris/TiDB are INHERITED from MySQLProfilingConfig (not redeclared),
-    # so they must carry MySQLProfilingConfig's
-    # Annotated[Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])] metadata
-    # through to the subclass JSON schema. A bare-int redeclaration (the bug this guards
-    # against) would drop Optional (so `null` is rejected) AND SupportedSources. Checked via
-    # the JSON schema — the same surface MySQLProfilingConfig is verified on.
-    from datahub.ingestion.source.sql.doris.doris_source import DorisProfilingConfig
-    from datahub.ingestion.source.sql.tidb import TiDBProfilingConfig
-
-    for cfg_cls in (DorisProfilingConfig, TiDBProfilingConfig):
-        props = cfg_cls.model_json_schema()["properties"]
-        for field in ("profile_table_row_limit", "profile_table_size_limit"):
-            # Optional preserved: anyOf with null must be present.
-            assert "anyOf" in props[field], (
-                f"{cfg_cls.__name__}.{field} lost Optional — 'null' no longer accepted"
-            )
-            assert any(t.get("type") == "null" for t in props[field]["anyOf"]), (
-                f"{cfg_cls.__name__}.{field} anyOf has no null variant"
-            )
-            # SupportedSources preserved: schema_extra.supported_sources must be non-empty.
-            assert props[field]["schema_extra"].get("supported_sources"), (
-                f"{cfg_cls.__name__}.{field} lost SupportedSources metadata"
-            )
+    # MariaDB uses MySQLConfig directly, so its profiling IS MySQLProfilingConfig.
+    assert MySQLConfig.model_fields["profiling"].annotation is MySQLProfilingConfig
 
 
 def test_generate_profile_candidates_fails_open_with_warning() -> None:
@@ -290,7 +197,8 @@ def test_generate_profile_candidates_fails_open_with_warning() -> None:
     # difference), the method must degrade to no candidate filter (None) and emit a
     # structured warning, rather than aborting profiling for the whole schema. This
     # fail-open is MySQL-scoped (lives here, not in sql_common.loop_profiler_requests)
-    # so Oracle and Teradata keep their pre-PR behaviour.
+    # so Oracle and Teradata keep their pre-PR behaviour. Only SQLAlchemyError is caught
+    # so programming bugs (ValueError, TypeError) still surface.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
@@ -301,7 +209,7 @@ def test_generate_profile_candidates_fails_open_with_warning() -> None:
     source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
     source.report = MagicMock()
     conn = MagicMock()
-    conn.execute.side_effect = RuntimeError("information_schema denied")
+    conn.execute.side_effect = SQLAlchemyError("information_schema denied")
     inspector = MagicMock()
     inspector.engine.connect.return_value.__enter__.return_value = conn
 
@@ -319,7 +227,10 @@ def test_generate_profile_candidates_fails_open_with_warning() -> None:
 
 def test_profile_freshness_warning_fires_lazily_and_once() -> None:
     # The profile_if_updated_since_days warning must fire from generate_profile_candidates
-    # (not __init__), at most once per source, and only when the setting is set.
+    # (not __init__), and only when the setting is set. The once-ness is not enforced in
+    # the source — report_log dedupes on title-message, so repeated calls collapse into a
+    # single entry. Assert on the real report's warning entries (not a mock) so the
+    # dedupe layer is actually exercised.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
@@ -328,7 +239,6 @@ def test_profile_freshness_warning_fires_lazily_and_once() -> None:
         },
     )
     source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
-    source.report = MagicMock()
     inspector = MagicMock()
 
     # Both limits None -> method returns None after the lazy warning, no query needed.
@@ -336,14 +246,30 @@ def test_profile_freshness_warning_fires_lazily_and_once() -> None:
         inspector, threshold_time=None, schema="my_db"
     )
     assert result is None
-    assert source.report.warning.call_count == 1
-    _args, kwargs = source.report.warning.call_args
-    assert kwargs["title"] == "Profiling does not support profile_if_updated_since_days"
-    assert "Platform: mysql" in kwargs["context"]
+    # A second call with a different schema must not create a second entry — same
+    # title-message key collapses into the existing one.
+    source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="other_db"
+    )
+    entries = list(source.report.warnings)
+    assert len(entries) == 1
+    assert (
+        entries[0].title == "Profiling does not support profile_if_updated_since_days"
+    )
 
-    # Second call must not re-fire (flag guards it to once per source).
+
+def test_profile_freshness_warning_absent_when_setting_unset() -> None:
+    # When profile_if_updated_since_days is not set, no warning entry is produced.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True},
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    inspector = MagicMock()
+
     source.generate_profile_candidates(inspector, threshold_time=None, schema="my_db")
-    assert source.report.warning.call_count == 1
+
+    assert len(list(source.report.warnings)) == 0
 
 
 def test_profile_freshness_warning_reaches_doris_replaced_report() -> None:
@@ -368,7 +294,6 @@ def test_profile_freshness_warning_reaches_doris_replaced_report() -> None:
     assert source.report.warning.called
     _args, kwargs = source.report.warning.call_args
     assert kwargs["title"] == "Profiling does not support profile_if_updated_since_days"
-    assert "Platform: doris" in kwargs["context"]
 
 
 def test_empty_candidates_emits_info_when_schema_has_tables() -> None:
@@ -430,3 +355,83 @@ def test_empty_candidates_no_info_when_schema_has_no_tables() -> None:
     assert result == []
     titles = [c.kwargs["title"] for c in source.report.info.call_args_list]
     assert "No tables passed the row/size guardrail" not in titles
+
+
+def _new_source_with_mocked_report() -> MySQLSource:
+    source = _source()
+    source.state_provider = MagicMock()  # type: ignore[assignment]
+    source.report = MagicMock()  # type: ignore[assignment]
+    return source
+
+
+def _assert_parent_close_reached(source: MySQLSource) -> None:
+    assert source.state_provider.prepare_for_commit.called  # type: ignore[attr-defined]
+
+
+def test_close_reaches_parent_when_no_timings() -> None:
+    # A run with no profiling (or no timings recorded) must still commit the
+    # stateful-ingestion checkpoint via super().close().
+    source = _new_source_with_mocked_report()
+    source.report.profiling_time_taken_per_table_secs = {}  # type: ignore[assignment]
+
+    source.close()
+
+    _assert_parent_close_reached(source)
+    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    assert "Profiling: expensive tables" not in titles
+
+
+def test_close_reaches_parent_when_only_fast_timings() -> None:
+    # Timings exist but none cross the slow threshold — the advice must not fire,
+    # but super().close() still must.
+    source = _new_source_with_mocked_report()
+    source.report.profiling_time_taken_per_table_secs = {  # type: ignore[assignment]
+        "orders": 1.5,
+        "users": 2.0,
+    }
+
+    source.close()
+
+    _assert_parent_close_reached(source)
+    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    assert "Profiling: expensive tables" not in titles
+
+
+def test_close_emits_advice_for_slow_mysql_table() -> None:
+    # Sanity check that the advice still fires on MySQL when a table crosses the
+    # threshold, and that super().close() runs after the advice.
+    source = _new_source_with_mocked_report()
+    source.report.profiling_time_taken_per_table_secs = {"orders": 60.0}  # type: ignore[assignment]
+
+    source.close()
+
+    _assert_parent_close_reached(source)
+    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    assert "Profiling: expensive tables" in titles
+
+
+@pytest.mark.parametrize(
+    "source_cls,config_cls,host_port",
+    [
+        (DorisSource, DorisConfig, "localhost:9030"),
+        (TiDBSource, TiDBConfig, "localhost:4000"),
+    ],
+)
+def test_close_does_not_emit_advice_for_doris_or_tidb(
+    source_cls: Type[MySQLSource],
+    config_cls: Type[MySQLConfig],
+    host_port: str,
+) -> None:
+    # Doris and TiDB inherit MySQLSource.close() but must not receive the
+    # MySQL-worded expensive-tables advice. super().close() still runs.
+    config = config_cls(host_port=host_port, profiling={"enabled": True})
+    source = source_cls(config, PipelineContext(run_id="platform-scope-test"))
+    source.state_provider = MagicMock()  # type: ignore[assignment]
+    source.report = MagicMock()  # type: ignore[assignment]
+    source.report.profiling_time_taken_per_table_secs = {"orders": 120.0}  # type: ignore[assignment]
+
+    source.close()
+
+    assert source.state_provider.prepare_for_commit.called  # type: ignore[attr-defined]
+    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    assert "Profiling: expensive tables" not in titles

@@ -9,14 +9,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
-# MariaDB uses MySQLConfig directly (via @config_class below), so it inherits
-# MySQLProfilingConfig's guardrail overrides (profile_table_row_limit=None,
-# profile_table_size_limit=None, report_expensive_tables=True). MariaDB is a MySQL fork — same
-# single-primary row-store architecture, same information_schema.tables estimates — so those
-# guardrails apply equally.
-# If a new override is added to MySQLProfilingConfig, MariaDB picks it up too — see
-# test_mysql_profiling.py::test_mysql_profiling_overrides_do_not_drift.
-
 
 @platform_name("MariaDB")
 @config_class(MySQLConfig)
