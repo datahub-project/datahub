@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional
 from unittest.mock import MagicMock
 
@@ -14,6 +15,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
+)
+from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
+    SnowflakeUsageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
@@ -187,17 +191,13 @@ def _profile_workunit(field_paths: List[str]) -> MetadataWorkUnit:
 
 def _restored_paths(
     profiler_field_paths: List[str],
-    table_columns: List[str],
     report: Optional[SnowflakeV2Report] = None,
     **overrides: object,
 ) -> List[str]:
     report = report if report is not None else SnowflakeV2Report()
     profiler = SnowflakeProfiler(config=_make_config(**overrides), report=report)
-    name_map = profiler._build_column_name_map(_make_table(table_columns))
     restored = list(
-        profiler._restore_column_case(
-            [_profile_workunit(profiler_field_paths)], {DATASET_URN: name_map}
-        )
+        profiler._to_schema_field_paths([_profile_workunit(profiler_field_paths)])
     )
     profile = restored[0].get_aspect_of_type(DatasetProfileClass)
     assert profile is not None and profile.fieldProfiles is not None
@@ -209,11 +209,11 @@ class TestProfileFieldPathAlignment:
     # test_snowflake_profile_alignment.py; these cover what the flag changes.
 
     def test_profile_paths_match_schema_when_preserving_case(self) -> None:
-        # SQLAlchemy folds CUSTOMER_ID to customer_id; without the rewrite the profile
-        # would never attach to the CUSTOMER_ID field path.
-        assert _restored_paths(
-            ["customer_id"], ["CUSTOMER_ID"], preserve_column_case=True
-        ) == ["CUSTOMER_ID"]
+        # The profiler reports the stored name, and with the flag on the schema
+        # keeps it too, so the path passes through unchanged.
+        assert _restored_paths(["CUSTOMER_ID"], preserve_column_case=True) == [
+            "CUSTOMER_ID"
+        ]
 
     def test_case_only_collision_resolves_to_distinct_paths(self) -> None:
         # The profiler reports case-colliding columns under their as-stored names,
@@ -221,8 +221,41 @@ class TestProfileFieldPathAlignment:
         report = SnowflakeV2Report()
         assert _restored_paths(
             ["COL", "col", "OTHER"],
-            ["COL", "col", "OTHER"],
             report=report,
             preserve_column_case=True,
         ) == ["COL", "col", "OTHER"]
         assert not list(report.warnings)
+
+
+class TestUsageFieldCounts:
+    """Usage field counts name columns too, and land on the same schemaField URNs
+    as the schema aspect. They are built from a separate code path, so they can
+    drift out of step with it independently.
+    """
+
+    @staticmethod
+    def _field_paths(columns: List[str], **overrides: object) -> List[str]:
+        extractor = SnowflakeUsageExtractor(
+            config=_make_config(**overrides),
+            report=SnowflakeV2Report(),
+            connection=MagicMock(),
+            filter=MagicMock(),
+            identifiers=_make_identifiers(**overrides),
+            redundant_run_skip_handler=None,
+        )
+        counts = json.dumps([{"col": column, "total": 1} for column in columns])
+        return [entry.fieldPath for entry in extractor._map_field_counts(counts)]
+
+    def test_default_lowercases(self) -> None:
+        assert self._field_paths(["ORDER_ID", "MixedCol"]) == ["mixedcol", "order_id"]
+
+    def test_preserved_keeps_stored_case(self) -> None:
+        assert self._field_paths(
+            ["ORDER_ID", "MixedCol"], preserve_column_case=True
+        ) == ["MixedCol", "ORDER_ID"]
+
+    def test_case_only_pair_stays_two_distinct_paths(self) -> None:
+        assert self._field_paths(["col", "COL"], preserve_column_case=True) == [
+            "COL",
+            "col",
+        ]
