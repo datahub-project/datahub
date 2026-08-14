@@ -1,3 +1,4 @@
+import json
 from typing import Any, List
 from unittest.mock import MagicMock
 
@@ -284,3 +285,35 @@ class TestColumnExistenceCheck:
         gen = self._gen_with_schema(["order_id"])
 
         assert not gen._verify_column_exists_in_table("DB", "SCHEMA", "TBL", "NO_SUCH")
+
+
+class TestSemanticViewJsonProps:
+    """Subtype and synonym maps are keyed by the column's stored name when casing
+    is preserved and by its uppercased form otherwise, so the lookup tries both.
+    Picking one keying would silently drop the metadata under the other.
+    """
+
+    @staticmethod
+    def _props(col_name: str, subtypes: Any, synonyms: Any) -> Any:
+        gen = _make_gen(SnowflakeV2Report())
+        raw = gen._build_json_props(col_name, subtypes, synonyms)
+        return None if raw is None else json.loads(raw)
+
+    def test_exact_key_supplies_both(self) -> None:
+        assert self._props(
+            MIXED_CASE_COLUMN,
+            {MIXED_CASE_COLUMN: "DIMENSION"},
+            {MIXED_CASE_COLUMN: ["alias_one"]},
+        ) == {"columnSubType": "DIMENSION", "synonyms": ["alias_one"]}
+
+    def test_uppercased_key_still_resolves(self) -> None:
+        # What the default path produces: the maps arrive uppercased while the
+        # column keeps its stored spelling.
+        assert self._props(
+            MIXED_CASE_COLUMN,
+            {MIXED_CASE_COLUMN.upper(): "METRIC"},
+            {MIXED_CASE_COLUMN.upper(): ["alias_two"]},
+        ) == {"columnSubType": "METRIC", "synonyms": ["alias_two"]}
+
+    def test_absent_under_either_keying_yields_nothing(self) -> None:
+        assert self._props(MIXED_CASE_COLUMN, {"OTHER": "FACT"}, {}) is None
