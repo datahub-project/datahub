@@ -53,7 +53,8 @@ public class PostType implements EntityType<Post, String> {
 
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Post", ASPECTS_TO_FETCH, "postKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, Constants.POST_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> postMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.ermodelrelationship;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -104,7 +105,7 @@ public class ERModelRelationshipType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "ERModelRelationship", ASPECTS_TO_RESOLVE, "erModelRelationshipKey");
+              context, name(), ASPECTS_TO_RESOLVE, ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -78,7 +78,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "BusinessAttribute", ASPECTS_TO_FETCH, "businessAttributeKey");
+              context, name(), ASPECTS_TO_FETCH, BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> businessAttributeMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

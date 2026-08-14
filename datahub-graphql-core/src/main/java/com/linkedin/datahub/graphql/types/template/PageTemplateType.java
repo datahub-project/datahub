@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.template;
 
 import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -58,7 +59,7 @@ public class PageTemplateType
           // dataHubPageTemplateProperties is a hydration-required aspect (see
           // AspectUtils.HYDRATION_REQUIRED_ASPECTS) so it is always fetched.
           AspectUtils.getOptimizedAspects(
-              context, "DataHubPageTemplate", ASPECTS_TO_FETCH, "dataHubPageTemplateKey");
+              context, name(), ASPECTS_TO_FETCH, DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

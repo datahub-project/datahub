@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ML_MODEL_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -101,7 +102,8 @@ public class MLModelType
 
     try {
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "MLModel", ASPECTS_TO_FETCH, "mlModelKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, ML_MODEL_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

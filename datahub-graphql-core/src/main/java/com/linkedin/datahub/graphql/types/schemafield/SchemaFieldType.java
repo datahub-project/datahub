@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -76,7 +77,7 @@ public class SchemaFieldType
         // entity — which silently breaks callers such as the per-column getLineageCounts query.
         Set<String> aspectsToResolve =
             AspectUtils.getOptimizedAspects(
-                context, "SchemaFieldEntity", ASPECTS_TO_FETCH, "schemaFieldKey");
+                context, name(), ASPECTS_TO_FETCH, SCHEMA_FIELD_KEY_ASPECT);
         entities =
             _entityClient.batchGetV2(
                 context.getOperationContext(),

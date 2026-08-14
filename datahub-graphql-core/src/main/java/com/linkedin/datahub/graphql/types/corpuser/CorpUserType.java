@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.corpuser;
 import static com.linkedin.datahub.graphql.Constants.DEFAULT_PERSONA_URNS;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CORP_USER_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -99,7 +100,8 @@ public class CorpUserType
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "CorpUser", ASPECTS_TO_FETCH, "corpUserKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, CORP_USER_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> corpUserMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

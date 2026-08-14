@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.tag;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.TAG_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -93,7 +94,7 @@ public class TagType
 
     try {
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Tag", ASPECTS_TO_FETCH, "tagKey");
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, TAG_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> tagMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

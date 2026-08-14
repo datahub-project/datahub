@@ -117,6 +117,35 @@ public class RealSchemaAspectMappingTest {
     return f;
   }
 
+  /**
+   * IsAssignedToMeResolver reads role.getActors() from the parent Role, which RoleMapper only
+   * populates when the actors aspect is fetched. The Access Management query selects isAssignedToMe
+   * without actors, so the field must pull the aspect itself or assigned users see
+   * isAssignedToMe=false.
+   */
+  @Test
+  public void testRoleIsAssignedToMeMapsToActors() {
+    assertEquals(
+        registry.getRequiredAspects("Role", List.of(field("isAssignedToMe", "Role"))),
+        Set.of("actors"));
+  }
+
+  /** DocumentMapper sets exists from the status aspect (soft-delete flag). */
+  @Test
+  public void testDocumentExistsMapsToStatus() {
+    Set<String> aspects =
+        registry.getRequiredAspects("Document", List.of(field("exists", "Document")));
+    assertTrue(aspects.contains("status"), "Got: " + aspects);
+  }
+
+  /** AssertionMapper prefers the standalone assertionNote aspect for info.note. */
+  @Test
+  public void testAssertionInfoMapsToInfoAndNote() {
+    assertEquals(
+        registry.getRequiredAspects("Assertion", List.of(field("info", "Assertion"))),
+        Set.of("assertionInfo", "assertionNote"));
+  }
+
   @Test
   public void testDocumentInfoMapsToInfoAndSemanticText() {
     // DocumentMapper folds the standalone semanticText aspect into info.contents.semanticText, so

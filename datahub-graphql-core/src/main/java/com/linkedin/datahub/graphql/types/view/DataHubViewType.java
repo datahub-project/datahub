@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.view;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DATAHUB_VIEW_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -53,7 +54,7 @@ public class DataHubViewType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataHubView", ASPECTS_TO_FETCH, "dataHubViewKey");
+              context, name(), ASPECTS_TO_FETCH, DATAHUB_VIEW_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

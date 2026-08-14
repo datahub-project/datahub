@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.ownership;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.OWNERSHIP_TYPE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -56,7 +57,7 @@ public class OwnershipType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "OwnershipTypeEntity", ASPECTS_TO_FETCH, "ownershipTypeKey");
+              context, name(), ASPECTS_TO_FETCH, OWNERSHIP_TYPE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

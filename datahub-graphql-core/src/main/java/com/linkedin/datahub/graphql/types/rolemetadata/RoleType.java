@@ -73,7 +73,7 @@ public class RoleType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Role", ASPECTS_TO_FETCH, "roleKey");
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, Constants.ROLE_KEY);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

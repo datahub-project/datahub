@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataplatform;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -60,7 +61,7 @@ public class DataPlatformType
     try {
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataPlatform", ASPECTS_TO_FETCH, "dataPlatformKey");
+              context, name(), ASPECTS_TO_FETCH, DATA_PLATFORM_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> dataPlatformMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

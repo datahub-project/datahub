@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -97,7 +98,7 @@ public class GlossaryTermType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "GlossaryTerm", ASPECTS_TO_RESOLVE, "glossaryTermKey");
+              context, name(), ASPECTS_TO_RESOLVE, GLOSSARY_TERM_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> glossaryTermMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

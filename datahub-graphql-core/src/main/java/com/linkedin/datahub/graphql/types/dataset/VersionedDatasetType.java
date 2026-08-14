@@ -80,7 +80,7 @@ public class VersionedDatasetType
     try {
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "VersionedDataset", ASPECTS_TO_RESOLVE, "datasetKey");
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATASET_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetVersionedV2(
               context.getOperationContext(),

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.structuredproperty;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -68,7 +69,7 @@ public class StructuredPropertyType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "StructuredPropertyEntity", ASPECTS_TO_FETCH, "structuredPropertyKey");
+              context, name(), ASPECTS_TO_FETCH, STRUCTURED_PROPERTY_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -116,7 +116,8 @@ public class DataFlowType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "DataFlow", ASPECTS_TO_RESOLVE, "dataFlowKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATA_FLOW_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> dataFlowMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

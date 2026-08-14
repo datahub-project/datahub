@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.file;
 
 import static com.linkedin.metadata.Constants.DATAHUB_FILE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_FILE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_FILE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -56,7 +57,7 @@ public class DataHubFileType
       // fetched.
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataHubFile", ASPECTS_TO_FETCH, "dataHubFileKey");
+              context, name(), ASPECTS_TO_FETCH, DATAHUB_FILE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

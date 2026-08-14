@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -83,7 +84,7 @@ public class GlossaryNodeType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "GlossaryNode", ASPECTS_TO_RESOLVE, "glossaryNodeKey");
+              context, name(), ASPECTS_TO_RESOLVE, GLOSSARY_NODE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

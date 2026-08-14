@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.notebook;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.NOTEBOOK_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -174,7 +175,8 @@ public class NotebookType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Notebook", ASPECTS_TO_RESOLVE, "notebookKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, NOTEBOOK_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -139,7 +139,8 @@ public class DatasetType
 
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Dataset", ASPECTS_TO_RESOLVE, "datasetKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATASET_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> datasetMap =
           entityClient.batchGetV2(
               context.getOperationContext(),
@@ -260,6 +261,10 @@ public class DatasetType
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urns), e);
     }
 
+    // Direct batchLoad bypasses the DataLoader resolvers that contribute a selection, so widen to
+    // fetch-all first: a narrow Dataset aspect union accumulated earlier in this request would
+    // otherwise under-hydrate the mutation response. update() gets this via LoadableType.load.
+    AspectUtils.ensureFetchAllForDirectLoad(context, name());
     return batchLoad(urns, context).stream()
         .map(DataFetcherResult::getData)
         .collect(Collectors.toList());

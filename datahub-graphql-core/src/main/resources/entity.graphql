@@ -2098,7 +2098,7 @@ type Role implements Entity {
   """
   actors: Actor @aspectMapping(aspects: ["actors"])
 
-  isAssignedToMe: Boolean! @noAspects
+  isAssignedToMe: Boolean! @aspectMapping(aspects: ["actors"])
 }
 
 type Actor {
@@ -8326,7 +8326,7 @@ type Assertion implements EntityWithRelationships & Entity {
   """
   Details about assertion
   """
-  info: AssertionInfo @aspectMapping(aspects: ["assertionInfo"])
+  info: AssertionInfo @aspectMapping(aspects: ["assertionInfo", "assertionNote"])
 
   """
   The specific instance of the data platform that this entity belongs to

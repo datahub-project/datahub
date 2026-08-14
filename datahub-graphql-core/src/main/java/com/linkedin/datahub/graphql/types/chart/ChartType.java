@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.chart;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CHART_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -122,7 +123,8 @@ public class ChartType
 
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Chart", ASPECTS_TO_RESOLVE, "chartKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, CHART_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> chartMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

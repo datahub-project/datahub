@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ML_FEATURE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -82,7 +83,8 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
 
     try {
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "MLFeature", ASPECTS_TO_FETCH, "mlFeatureKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, ML_FEATURE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> mlFeatureMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -165,7 +165,7 @@ type Document implements Entity {
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean @noAspects
+  exists: Boolean @aspectMapping(aspects: ["status"])
 
   """
   Edges extending from this entity

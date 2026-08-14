@@ -151,7 +151,7 @@ public class AspectUtils {
    * direct {@code batchLoad} outside DataLoader, missing registry contributions).
    *
    * <p>Usage in entity type batchLoad: Set&lt;String&gt; aspects =
-   * AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
+   * AspectUtils.getOptimizedAspects(context, name(), ALL_ASPECTS, DATASET_KEY_ASPECT_NAME);
    *
    * @param context the QueryContext carrying the per-entity-type {@link AspectLoadContext} union
    * @param entityTypeName the GraphQL type name (e.g., "Dataset", "CorpUser")

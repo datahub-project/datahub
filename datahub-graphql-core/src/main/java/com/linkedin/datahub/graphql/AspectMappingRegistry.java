@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  * aspects (computed fields, custom resolvers)
  *
  * <p>To use in entity types, add one line to batchLoad: Set&lt;String&gt; aspects =
- * AspectUtils.getOptimizedAspects(context, "Dataset", ALL_ASPECTS, "datasetKey");
+ * AspectUtils.getOptimizedAspects(context, name(), ALL_ASPECTS, DATASET_KEY_ASPECT_NAME);
  *
  * <p>If any field lacks a mapping directive, getRequiredAspects returns null and the entity type
  * falls back to fetching all aspects for safety.

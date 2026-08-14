@@ -121,7 +121,8 @@ public class DashboardType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Dashboard", ASPECTS_TO_RESOLVE, "dashboardKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DASHBOARD_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> dashboardMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

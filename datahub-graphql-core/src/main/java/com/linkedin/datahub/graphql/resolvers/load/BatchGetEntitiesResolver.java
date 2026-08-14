@@ -74,7 +74,12 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
                       .flatMap(future -> future.join().stream())
                       .collect(Collectors.toList());
               for (Object element : returnedList) {
-                Entity entity = null;
+                if (element == null) {
+                  // Loaders return null for entities that do not resolve (missing row, restricted);
+                  // leave the corresponding slots null rather than fail the whole batch.
+                  continue;
+                }
+                Entity entity;
                 if (element instanceof DataFetcherResult) {
                   entity = ((DataFetcherResult<Entity>) element).getData();
                 } else if (element instanceof Entity) {
@@ -84,6 +89,9 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
                       String.format(
                           "Cannot process entity because it is neither an Entity not a DataFetcherResult. %s",
                           element));
+                }
+                if (entity == null) {
+                  continue;
                 }
                 for (int idx : entityIndexMap.get(entity.getUrn())) {
                   finalEntityList[idx] = entity;

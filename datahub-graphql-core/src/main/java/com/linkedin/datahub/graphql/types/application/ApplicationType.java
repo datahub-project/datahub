@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.application;
 
 import static com.linkedin.metadata.Constants.APPLICATION_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.APPLICATION_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.APPLICATION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
@@ -84,7 +85,7 @@ public class ApplicationType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "Application", ASPECTS_TO_FETCH, "applicationKey");
+              context, name(), ASPECTS_TO_FETCH, APPLICATION_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

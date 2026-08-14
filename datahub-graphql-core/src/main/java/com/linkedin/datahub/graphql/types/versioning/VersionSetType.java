@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.versioning;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -55,7 +56,8 @@ public class VersionSetType
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "VersionSet", ASPECTS_TO_FETCH, "versionSetKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, VERSION_SET_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

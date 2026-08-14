@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.corpgroup;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CORP_GROUP_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -93,7 +94,8 @@ public class CorpGroupType
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "CorpGroup", ASPECTS_TO_FETCH, "corpGroupKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, CORP_GROUP_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> corpGroupMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

@@ -77,7 +77,7 @@ public class DataPlatformInstanceType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataPlatformInstance", ASPECTS_TO_FETCH, "dataPlatformInstanceKey");
+              context, name(), ASPECTS_TO_FETCH, Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

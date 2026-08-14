@@ -119,7 +119,8 @@ public class DataJobType
 
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "DataJob", ASPECTS_TO_RESOLVE, "dataJobKey");
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATA_JOB_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> dataJobMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

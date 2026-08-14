@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.form;
 
 import static com.linkedin.metadata.Constants.FORM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.FORM_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -54,7 +55,7 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(context, "Form", ASPECTS_TO_FETCH, "formKey");
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, FORM_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

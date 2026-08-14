@@ -64,7 +64,7 @@ public class DataHubConnectionType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataHubConnection", ASPECTS_TO_FETCH, "dataHubConnectionKey");
+              context, name(), ASPECTS_TO_FETCH, Constants.DATAHUB_CONNECTION_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

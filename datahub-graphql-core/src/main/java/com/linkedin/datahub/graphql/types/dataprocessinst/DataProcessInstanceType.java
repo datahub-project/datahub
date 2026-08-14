@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataprocessinst;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -74,7 +75,7 @@ public class DataProcessInstanceType
       if (_featureFlags.isDataProcessInstanceEntityEnabled()) {
         Set<String> aspectsToResolve =
             AspectUtils.getOptimizedAspects(
-                context, "DataProcessInstance", ASPECTS_TO_FETCH, "dataProcessInstanceKey");
+                context, name(), ASPECTS_TO_FETCH, DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME);
         entities =
             _entityClient.batchGetV2(
                 context.getOperationContext(),

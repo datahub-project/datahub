@@ -90,7 +90,7 @@ public class DataProductType
       // Determine optimal aspects to fetch based on GraphQL field selections
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "DataProduct", ASPECTS_TO_FETCH, "dataProductKey");
+              context, name(), ASPECTS_TO_FETCH, DATA_PRODUCT_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),

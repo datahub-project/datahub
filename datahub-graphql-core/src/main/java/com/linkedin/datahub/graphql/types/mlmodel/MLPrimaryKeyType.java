@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -84,7 +85,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
     try {
       Set<String> aspectsToResolve =
           AspectUtils.getOptimizedAspects(
-              context, "MLPrimaryKey", ASPECTS_TO_FETCH, "mlPrimaryKeyKey");
+              context, name(), ASPECTS_TO_FETCH, ML_PRIMARY_KEY_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> mlPrimaryKeyMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),

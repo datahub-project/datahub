@@ -208,4 +208,65 @@ public class DatasetTypeTest {
     assertThrows(
         RuntimeException.class, () -> type.batchLoad(ImmutableList.of(TEST_DATASET_URN), context));
   }
+
+  /**
+   * batchUpdate calls batchLoad directly, bypassing the DataLoader resolvers that contribute a
+   * selection. If the request already accumulated a narrow Dataset aspect union, the mutation
+   * response must not under-hydrate: batchUpdate widens to fetch-all first (like update() does via
+   * LoadableType.load), so batchGetV2 receives the full default aspect set.
+   */
+  @Test
+  public void testBatchUpdateWidensNarrowAspectContext() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+
+    // Simulate a narrow selection accumulated earlier in the request, honoring merges so
+    // ensureFetchAllForDirectLoad can widen it.
+    final AspectLoadContext[] accumulated = {
+      AspectLoadContext.of(Set.of(Constants.OWNERSHIP_ASPECT_NAME))
+    };
+    Mockito.doAnswer(
+            invocation -> {
+              accumulated[0] = accumulated[0].union(invocation.getArgument(1));
+              return null;
+            })
+        .when(mockContext)
+        .mergeAspectLoadContext(Mockito.eq("Dataset"), any());
+    Mockito.when(mockContext.getAspectLoadContext("Dataset"))
+        .thenAnswer(invocation -> accumulated[0]);
+
+    Urn datasetUrn = Urn.createFromString(TEST_DATASET_URN);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(mockClient.batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), any()))
+        .thenReturn(
+            ImmutableMap.of(
+                datasetUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.DATASET_ENTITY_NAME)
+                    .setUrn(datasetUrn)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.DATASET_KEY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(TEST_DATASET_KEY.data())))))));
+
+    DatasetType type = new DatasetType(mockClient);
+    com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput input =
+        new com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput();
+    input.setUrn(TEST_DATASET_URN);
+    input.setUpdate(new com.linkedin.datahub.graphql.generated.DatasetUpdateInput());
+
+    type.batchUpdate(
+        new com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput[] {input}, mockContext);
+
+    ArgumentCaptor<Set<String>> aspectsCaptor = ArgumentCaptor.forClass(Set.class);
+    Mockito.verify(mockClient)
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), aspectsCaptor.capture());
+    Set<String> fetched = aspectsCaptor.getValue();
+
+    assertTrue(
+        fetched.contains(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
+        "batchUpdate must widen past the narrow {ownership} union; got: " + fetched);
+    assertEquals(fetched, DatasetType.ASPECTS_TO_RESOLVE);
+  }
 }
