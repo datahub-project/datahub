@@ -19,7 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
-    semantic_column_field_path,
+    logical_dataset_field_path,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -1272,7 +1272,7 @@ def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowerca
 
     lineage_anchor_urn = make_schema_field_urn(
         orders_logical_urn,
-        semantic_column_field_path(
+        logical_dataset_field_path(
             mapper.identifiers, semantic_view, "ORDER_DATE", "ORDERS"
         ),
     )

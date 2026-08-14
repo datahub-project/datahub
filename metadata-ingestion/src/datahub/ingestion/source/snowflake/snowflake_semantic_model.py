@@ -26,7 +26,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeIdentifierBuilder,
-    semantic_column_field_path,
+    logical_dataset_field_path,
 )
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -320,14 +320,14 @@ class SnowflakeSemanticModelMapper:
                     # through the uppercased key so the two sides still match even
                     # if the API spells them differently, then emit the stored name.
                     fromColumns=[
-                        semantic_column_field_path(
+                        logical_dataset_field_path(
                             self.identifiers, semantic_view, col, from_table_upper
                         )
                         for col in relationship.from_columns
                     ],
                     to=relationship.to_table.upper(),
                     toColumns=[
-                        semantic_column_field_path(
+                        logical_dataset_field_path(
                             self.identifiers,
                             semantic_view,
                             col,
@@ -572,7 +572,7 @@ class SnowflakeSemanticModelMapper:
                         # Must match the col_name_upper anchor in
                         # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
                         # so column-level lineage resolves.
-                        fieldPath=semantic_column_field_path(
+                        fieldPath=logical_dataset_field_path(
                             self.identifiers,
                             semantic_view,
                             occurrence.name,
@@ -622,7 +622,7 @@ class SnowflakeSemanticModelMapper:
                 )
                 field_urn = SchemaFieldUrn(
                     logical_dataset_urn,
-                    semantic_column_field_path(
+                    logical_dataset_field_path(
                         self.identifiers,
                         semantic_view,
                         occurrence.name,
@@ -947,7 +947,7 @@ class SnowflakeSemanticModelMapper:
                 continue
             field_urn = SchemaFieldUrn(
                 logical_dataset_urn,
-                semantic_column_field_path(
+                logical_dataset_field_path(
                     self.identifiers,
                     semantic_view,
                     occurrence.name,

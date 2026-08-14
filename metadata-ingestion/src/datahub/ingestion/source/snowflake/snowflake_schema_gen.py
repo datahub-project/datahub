@@ -78,6 +78,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    logical_dataset_field_path,
     semantic_column_field_path,
     split_qualified_name,
 )
@@ -1294,7 +1295,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                             if lt is not None
                             else semantic_model_urn,
-                            semantic_column_field_path(
+                            logical_dataset_field_path(
                                 self.identifiers, semantic_view, col, lt
                             ),
                         ),

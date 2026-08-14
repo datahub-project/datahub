@@ -91,12 +91,20 @@ class TestSemanticViewColumnCase:
         assert resolved == expected
 
     @pytest.mark.parametrize("preserve", [True, False])
-    def test_lineage_field_paths_match_the_schema(self, preserve: bool) -> None:
-        # The regression that motivated this: the schema was built from col.name
-        # while lineage was built from col.name.upper(), so with the flag on the
-        # two disagreed and the lineage pointed at a field that did not exist.
+    @pytest.mark.parametrize("lowercase_urns", [True, False])
+    def test_lineage_field_paths_match_the_schema(
+        self, preserve: bool, lowercase_urns: bool
+    ) -> None:
+        # The invariant behind every casing bug here: a semantic view's lineage
+        # anchors on the same field paths its schema declares. Both axes matter —
+        # with convert_urns_to_lowercase off the casing survives into the URN, so
+        # that is the only combination where a mismatch is actually visible.
         report = SnowflakeV2Report()
-        gen = _make_gen(report, preserve_column_case=preserve)
+        gen = _make_gen(
+            report,
+            preserve_column_case=preserve,
+            convert_urns_to_lowercase=lowercase_urns,
+        )
         view = _semantic_view([MIXED_CASE_COLUMN, "AMOUNT"])
 
         schema_paths = {
