@@ -69,9 +69,14 @@ export function structuredPropertyToViewProperty(entity: StructuredPropertyEntit
         };
     }
 
-    // Dates are indexed as epoch millis, so they filter as numbers.
-    if (valueTypeUrn === NUMBER_TYPE_URN || valueTypeUrn === DATE_TYPE_URN) {
+    if (valueTypeUrn === NUMBER_TYPE_URN) {
         return { id, displayName, description: description || undefined, valueType: ValueTypeId.NUMBER };
+    }
+
+    // Dates are indexed as epoch millis, but TIMESTAMP renders a date picker (that stores millis)
+    // rather than a numeric field that would force the user to type epoch millis by hand.
+    if (valueTypeUrn === DATE_TYPE_URN) {
+        return { id, displayName, description: description || undefined, valueType: ValueTypeId.TIMESTAMP };
     }
 
     return { id, displayName, description: description || undefined, valueType: ValueTypeId.STRING };

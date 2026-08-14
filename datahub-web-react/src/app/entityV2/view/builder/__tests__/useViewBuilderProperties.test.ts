@@ -63,7 +63,7 @@ describe('structuredPropertyToViewProperty', () => {
         ]);
     });
 
-    it('maps number and date properties to a numeric input', () => {
+    it('maps number properties to a numeric input and date properties to a timestamp (date-picker) input', () => {
         const number = structuredPropertyToViewProperty(
             makeEntity({ qualifiedName: 'io.acryl.retentionDays', valueType: { urn: NUMBER_TYPE_URN } }),
         );
@@ -72,7 +72,7 @@ describe('structuredPropertyToViewProperty', () => {
         );
 
         expect(number?.valueType).toBe(ValueTypeId.NUMBER);
-        expect(date?.valueType).toBe(ValueTypeId.NUMBER);
+        expect(date?.valueType).toBe(ValueTypeId.TIMESTAMP);
     });
 
     it('falls back to a text input for free-form string properties', () => {

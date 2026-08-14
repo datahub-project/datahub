@@ -12,6 +12,7 @@ import {
 import AggregationValueInput from '@app/sharedV2/queryBuilder/valueInputs/AggregationValueInput';
 import { EntitySearchValueInput } from '@app/sharedV2/queryBuilder/valueInputs/EntitySearchValueInput';
 import SelectValueInput from '@app/sharedV2/queryBuilder/valueInputs/SelectValueInput';
+import TimeSelectValueInput from '@app/sharedV2/queryBuilder/valueInputs/TimeSelectValueInput';
 
 const DEFAULT_SINGLE_MODE = 'single' as const;
 const DEFAULT_MULTIPLE_MODE = 'multiple' as const;
@@ -63,6 +64,13 @@ const ValuesSelect = ({ selectedValues, options, onChangeValues, property, prope
                     placeholder={placeholder}
                     options={(options.options as SelectParams)?.options}
                     mode={(options.options as any)?.mode || DEFAULT_SINGLE_MODE}
+                />
+            )}
+            {options?.inputType === ValueInputType.TIME_SELECT && (
+                <TimeSelectValueInput
+                    selected={selectedValues}
+                    onChangeSelected={(newSelected) => onChangeValues(newSelected)}
+                    placeholder={placeholder}
                 />
             )}
             {options?.inputType === ValueInputType.TEXT && (
