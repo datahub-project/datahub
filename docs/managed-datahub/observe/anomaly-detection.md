@@ -38,8 +38,6 @@ Anomaly Detection can be enabled on the following assertion types:
 
 A new Anomaly Detection assertion collects **14 days of history** before it starts alerting. During that period the assertion evaluates on its normal schedule and records results, but does not raise failures. This gives the model enough data to learn daily and weekly patterns, and avoids noisy false alarms from a thinly-trained model.
 
-Once an assertion is past that point, its predictions are preserved through temporary shortages of retraining data, so a gap in evaluations does not send it back to a cold start.
-
 To skip the wait entirely, enable [Backfill Assertion History](./assertion-backfill.md) at creation time — it populates the assertion's metrics history from your warehouse so predictions are available from day one.
 
 ## Does Anomaly Detection require a warehouse connection?
