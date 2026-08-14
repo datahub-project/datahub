@@ -366,6 +366,14 @@ class SnowflakeSemanticView(BaseView):
             if occurrence.name:
                 return occurrence.name
 
+        # Legacy dataset mode never populates column_occurrences, so this is the
+        # only lookup there — and with a case-only pair both members match
+        # case-insensitively. Prefer the exact spelling or both columns resolve
+        # to the first one and share a single field path.
+        for col in self.columns:
+            if col.name == column_name:
+                return col.name
+
         target = column_name.upper()
         for col in self.columns:
             if col.name and col.name.upper() == target:

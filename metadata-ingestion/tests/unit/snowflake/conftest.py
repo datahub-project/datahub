@@ -56,7 +56,10 @@ def _preserve_column_case_sweep() -> None:
         model.model_rebuild(force=True)
         flipped.append(model.__name__)
 
-    # Fail loudly rather than reporting a green run that proved nothing.
-    assert "SnowflakeV2Config" in flipped, (
-        f"sweep did not reach SnowflakeV2Config; flipped only {flipped}"
-    )
+    # Discovery is dynamic so a new subclass is picked up automatically, but it
+    # only sees classes that have been imported. Assert the ones the suite
+    # actually builds were reached, so an import that stops happening fails here
+    # instead of quietly shrinking the sweep back to a no-op.
+    expected = {"SnowflakeIdentifierConfig", "SnowflakeV2Config"}
+    missing = expected - set(flipped)
+    assert not missing, f"sweep did not reach {sorted(missing)}; flipped {flipped}"

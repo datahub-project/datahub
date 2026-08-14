@@ -2294,16 +2294,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         Example: TEST_DERIVED_METRIC with expression
         "ORDERS.ORDER_TOTAL_METRIC+TRANSACTIONS.TRANSACTION_AMOUNT_METRIC"
         """
-        # Compare on a single normalized form: the mapping is keyed by stored name
-        # when casing is preserved, so an uppercased membership test would treat
-        # already-processed mixed-case columns as unprocessed and emit their
-        # lineage a second time.
-        processed_columns = {key.upper() for key in semantic_view.column_table_mappings}
+        # Both sides are the column's stored name, so compare them as-is. Folding
+        # to uppercase would collapse a case-only pair and skip the sibling that
+        # has no table mapping of its own.
+        processed_columns = set(semantic_view.column_table_mappings)
 
         unprocessed_columns = [
             col
             for col in semantic_view.columns
-            if col.name and col.name.upper() not in processed_columns and col.expression
+            if col.name and col.name not in processed_columns and col.expression
         ]
 
         for col in unprocessed_columns:

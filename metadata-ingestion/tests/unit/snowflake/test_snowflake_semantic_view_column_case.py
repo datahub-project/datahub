@@ -198,6 +198,18 @@ class TestSemanticViewColumnCase:
         assert view.stored_column_name("COL", "ORDERS") == "col"
         assert view.stored_column_name("COL", "CUSTOMERS") == "COL"
 
+    def test_legacy_mode_resolves_without_occurrences(self) -> None:
+        # Legacy dataset mode never populates column_occurrences, so resolution
+        # falls through to the column list — where a case-only pair both match
+        # case-insensitively and would otherwise share one field path.
+        view = _semantic_view(["col", "COL", "OTHER"])
+        assert not view.column_occurrences
+
+        assert view.stored_column_name("col") == "col"
+        assert view.stored_column_name("COL") == "COL"
+        # An uppercased reference to a column stored lowercase still resolves.
+        assert view.stored_column_name("OTHER") == "OTHER"
+
     def test_pair_on_one_table_keeps_both_spellings(self) -> None:
         # Scoping by logical table cannot separate a case-only pair that lives on
         # the same table. Both resolved to whichever came first, so the two fields
