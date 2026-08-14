@@ -24,13 +24,29 @@ export function isDataHubGraphqlUrl(url: URL): boolean {
 }
 
 /**
- * Values accepted by {@link ApiMocker.setFeatureFlags}.
- * Booleans cover feature flags, auth toggles, and platform privileges.
- * String arrays are for authConfig.allowedAccessTokenDurations (ISO-8601 list).
+ * Overrides for {@link ApiMocker.setFeatureFlags}.
+ * Auth toggles are booleans; allowedAccessTokenDurations is an ISO-8601 string list.
+ * All other keys (feature flags, platform privileges) are booleans.
  */
+export type FeatureFlagOverrides = {
+  tokenAuthEnabled?: boolean;
+  allowNoExpiry?: boolean;
+  allowedAccessTokenDurations?: readonly string[];
+} & {
+  [key: string]: boolean | readonly string[] | undefined;
+};
+
+/** Union of values that may appear in {@link FeatureFlagOverrides}. */
 export type FeatureFlagOverrideValue = boolean | readonly string[];
 
-export type FeatureFlagOverrides = Record<string, FeatureFlagOverrideValue>;
+const AUTH_CONFIG_BOOLEAN_KEYS = new Set(['tokenAuthEnabled', 'allowNoExpiry']);
+const AUTH_CONFIG_DURATION_KEY = 'allowedAccessTokenDurations';
+
+type AuthConfigOverrides = {
+  tokenAuthEnabled?: boolean;
+  allowNoExpiry?: boolean;
+  allowedAccessTokenDurations?: readonly string[];
+};
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -155,9 +171,6 @@ export class PageApiMocker implements ApiMocker {
   }
 
   async setFeatureFlags(flags: FeatureFlagOverrides): Promise<void> {
-    // Keys that live in appConfig.authConfig rather than appConfig.featureFlags.
-    const AUTH_CONFIG_KEYS = new Set(['tokenAuthEnabled', 'allowNoExpiry', 'allowedAccessTokenDurations']);
-
     // Keys that map directly to platformPrivileges fields in the getMe response.
     const PLATFORM_PRIVILEGE_KEYS = new Set([
       'generatePersonalAccessTokens',
@@ -169,12 +182,25 @@ export class PageApiMocker implements ApiMocker {
 
     // Separate the flags into their respective buckets.
     const featureFlagOverrides: Record<string, boolean> = {};
-    const authConfigOverrides: Record<string, FeatureFlagOverrideValue> = {};
+    const authConfigOverrides: AuthConfigOverrides = {};
     const platformPrivilegeOverrides: Record<string, boolean> = {};
 
     for (const [key, value] of Object.entries(flags)) {
-      if (AUTH_CONFIG_KEYS.has(key)) {
-        authConfigOverrides[key] = value;
+      if (value === undefined) {
+        continue;
+      }
+      if (key === AUTH_CONFIG_DURATION_KEY) {
+        if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+          throw new Error(
+            `setFeatureFlags: '${AUTH_CONFIG_DURATION_KEY}' requires a string array, got ${typeof value}`,
+          );
+        }
+        authConfigOverrides.allowedAccessTokenDurations = value;
+      } else if (AUTH_CONFIG_BOOLEAN_KEYS.has(key)) {
+        if (typeof value !== 'boolean') {
+          throw new Error(`setFeatureFlags: authConfig '${key}' requires a boolean, got ${typeof value}`);
+        }
+        authConfigOverrides[key as 'tokenAuthEnabled' | 'allowNoExpiry'] = value;
       } else if (PLATFORM_PRIVILEGE_KEYS.has(key)) {
         if (typeof value !== 'boolean') {
           throw new Error(`setFeatureFlags: platform privilege '${key}' requires a boolean, got ${typeof value}`);
@@ -231,7 +257,7 @@ export class PageApiMocker implements ApiMocker {
           }
           // Patch authConfig (booleans + allowedAccessTokenDurations string[]).
           if (Object.keys(authConfigOverrides).length > 0) {
-            const authConfig = appConfig.authConfig as Record<string, FeatureFlagOverrideValue> | undefined;
+            const authConfig = appConfig.authConfig as AuthConfigOverrides | undefined;
             if (authConfig) {
               Object.assign(authConfig, authConfigOverrides);
             }
