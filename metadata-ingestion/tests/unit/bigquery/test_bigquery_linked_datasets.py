@@ -497,11 +497,20 @@ def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
 
 @pytest.mark.parametrize(
     "rm_result",
-    ["publisher-project", PermissionDenied("denied")],
-    ids=["success", "failure"],
+    [
+        "publisher-project",
+        PermissionDenied(
+            "resourcemanager.projects.get denied",
+            error_info=ErrorInfo(
+                reason="IAM_PERMISSION_DENIED",
+                domain="cloudresourcemanager.googleapis.com",
+            ),
+        ),
+    ],
+    ids=["success", "denied"],
 )
 def test_resource_manager_result_is_cached_per_project_number(rm_result):
-    """Publisher project resolution is cached per number, for success and failure."""
+    """Publisher project resolution is cached per number, for success and denial."""
     handler = _make_handler()
     ah = _ah_client_returning(
         {

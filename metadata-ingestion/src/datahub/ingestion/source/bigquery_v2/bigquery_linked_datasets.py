@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from google.api_core import retry
 from google.api_core.exceptions import (
+    Forbidden,
     GoogleAPIError,
     InternalServerError,
     PermissionDenied,
@@ -443,7 +444,7 @@ class BigQueryLinkedDatasetsHandler:
     def _resolve_publisher_project_id(self, project_number: str) -> Optional[str]:
         """Resolve a publisher project number to its project ID via Cloud RM.
 
-        Cached (failures as None) so repeat references resolve with one RM call.
+        Cached so repeat references resolve with one RM call.
         """
         if project_number in self._publisher_project_id_cache:
             return self._publisher_project_id_cache[project_number]
@@ -453,14 +454,22 @@ class BigQueryLinkedDatasetsHandler:
             project = rm_client.get_project(name=f"projects/{project_number}")
             resolved: Optional[str] = project.project_id
         except GoogleAPIError as e:
+            if isinstance(e, Forbidden) and is_iam_permission_denied(e):
+                message = (
+                    "The service account cannot read the publisher project, so no "
+                    "lineage or siblings are emitted for its linked datasets. Grant "
+                    "`resourcemanager.projects.get` on the publisher project."
+                )
+            else:
+                message = (
+                    "`get_project` failed with an unexpected API error, so no "
+                    "lineage or siblings are emitted for this publisher's linked "
+                    "datasets."
+                )
             self.report.num_linked_dataset_project_resolve_errors += 1
             self.report.warning(
                 title="Cannot resolve publisher project ID",
-                message=(
-                    "Lineage will be skipped for subscriptions whose publisher "
-                    "project number cannot be resolved. Grant "
-                    "`resourcemanager.projects.get` on the publisher project."
-                ),
+                message=message,
                 context=f"publisher_project_number={project_number}",
                 exc=e,
             )
