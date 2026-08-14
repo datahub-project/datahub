@@ -1,15 +1,13 @@
 import os
-from typing import Iterator, Type
 
 import pytest
 
-# Imported for their side effect: a subclass must be defined before
-# __subclasses__() can see it, and these are the configs the suite builds.
-from datahub.ingestion.source.snowflake.snowflake_config import (  # noqa: F401
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeConfig,
     SnowflakeIdentifierConfig,
     SnowflakeV2Config,
 )
-from datahub.ingestion.source.snowflake.snowflake_queries import (  # noqa: F401
+from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesSourceConfig,
 )
 
@@ -24,22 +22,19 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (  # noqa: F401
 PRESERVE_COLUMN_CASE_SWEEP = "DATAHUB_TEST_PRESERVE_COLUMN_CASE"
 
 
-def _config_models() -> Iterator[Type[SnowflakeIdentifierConfig]]:
-    """Every config class that carries the flag, base and subclasses alike.
-
-    Pydantic compiles each model's defaults into its own schema at class
-    definition, so rebuilding only the base leaves subclasses untouched — and
-    the suite builds subclasses (`SnowflakeV2Config`, `SnowflakeQueriesSourceConfig`),
-    not the base. Rebuilding just the base makes the sweep a silent no-op.
-    """
-
-    def walk(cls: type) -> Iterator[type]:
-        for subclass in cls.__subclasses__():
-            yield subclass
-            yield from walk(subclass)
-
-    yield SnowflakeIdentifierConfig
-    yield from walk(SnowflakeIdentifierConfig)  # type: ignore[misc]
+# Every class the suite builds that carries the flag. Pydantic compiles each
+# model's defaults at class definition, so each needs its own rebuild — flipping
+# only the base is a silent no-op.
+#
+# SnowflakeQueriesExtractorConfig is deliberately absent: it derives from
+# ConfigModel, not SnowflakeIdentifierConfig, and carries no identifier fields.
+# Only SnowflakeQueriesSourceConfig mixes the two in.
+_CONFIG_MODELS = (
+    SnowflakeIdentifierConfig,
+    SnowflakeConfig,
+    SnowflakeV2Config,
+    SnowflakeQueriesSourceConfig,
+)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -47,26 +42,10 @@ def _preserve_column_case_sweep() -> None:
     if os.environ.get(PRESERVE_COLUMN_CASE_SWEEP) != "1":
         return
 
-    flipped = []
-    for model in _config_models():
+    for model in _CONFIG_MODELS:
         field = model.model_fields.get("preserve_column_case")
-        if field is None or field.default is True:
-            continue
+        # Catches a rename or removal, which would otherwise make the sweep a
+        # no-op for that class without anyone noticing.
+        assert field is not None, f"{model.__name__} no longer carries the flag"
         field.default = True
         model.model_rebuild(force=True)
-        flipped.append(model.__name__)
-
-    # Discovery is dynamic so a new subclass is picked up automatically, but it
-    # only sees classes that have been imported. Assert the ones the suite
-    # actually builds were reached, so an import that stops happening fails here
-    # instead of quietly shrinking the sweep back to a no-op.
-    # SnowflakeQueriesExtractorConfig is deliberately absent: it derives from
-    # ConfigModel, not from SnowflakeIdentifierConfig, and carries no identifier
-    # fields at all. Only SnowflakeQueriesSourceConfig mixes the two in.
-    expected = {
-        "SnowflakeIdentifierConfig",
-        "SnowflakeV2Config",
-        "SnowflakeQueriesSourceConfig",
-    }
-    missing = expected - set(flipped)
-    assert not missing, f"sweep did not reach {sorted(missing)}; flipped {flipped}"

@@ -15,6 +15,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 
 pytestmark = pytest.mark.integration_batch_1
@@ -96,13 +97,6 @@ def _schemas_by_dataset(records: List[dict]) -> Dict[str, List[str]]:
     return schemas
 
 
-def _split_schema_field_urn(urn: str) -> Tuple[str, str]:
-    """`urn:li:schemaField:(<dataset urn>,<field path>)` -> (dataset, field)."""
-    inner = urn[len("urn:li:schemaField:(") : -1]
-    dataset, _, field = inner.rpartition(",")
-    return dataset, field
-
-
 def _referenced_fields(records: List[dict]) -> Set[Tuple[str, str]]:
     """Every (dataset urn, field path) that some aspect other than the schema cites."""
     referenced: Set[Tuple[str, str]] = set()
@@ -114,7 +108,8 @@ def _referenced_fields(records: List[dict]) -> Set[Tuple[str, str]]:
             for edge in body.get("fineGrainedLineages") or []:
                 for side in ("upstreams", "downstreams"):
                     for field_urn in edge.get(side) or []:
-                        referenced.add(_split_schema_field_urn(field_urn))
+                        parsed = SchemaFieldUrn.from_string(field_urn)
+                        referenced.add((str(parsed.parent), parsed.field_path))
 
         elif name == "datasetProfile":
             for field_profile in body.get("fieldProfiles") or []:
@@ -164,25 +159,11 @@ def test_every_referenced_field_is_declared_by_a_schema(
         f"First few: {dangling[:5]}"
     )
 
-
-@pytest.mark.parametrize("preserve", [False, True], ids=["default", "preserve"])
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_no_schema_drops_a_column_to_a_duplicate_path(
-    tmp_path: Path, mock_time: Any, mock_datahub_graph: Any, preserve: bool
-) -> None:
-    """Duplicate field paths are silently dropped downstream, losing the column."""
-    records = _run(
-        tmp_path,
-        f"events_dupes_{preserve}.json",
-        preserve_column_case=preserve,
-    )
-    schemas = _schemas_by_dataset(records)
-    assert schemas, "fixture emitted no schemas; the test would pass vacuously"
-
+    # Same records, second property: a duplicate field path means two columns
+    # collapsed onto one field, and the loser is dropped downstream.
     collisions = {
         dataset: paths
         for dataset, paths in schemas.items()
         if len(paths) != len(set(paths))
     }
-
     assert not collisions
