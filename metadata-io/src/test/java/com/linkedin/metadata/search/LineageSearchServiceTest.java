@@ -1175,7 +1175,7 @@ public class LineageSearchServiceTest {
     List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
 
     OperationContext ghostContext =
-        _operationContext.withLineageFlags(f -> new LineageFlags().setUseLightningMode(true));
+        _operationContext.withLineageFlags(f -> new LineageFlags().setForceLightningMode(true));
 
     EntityLineageResult mockLineageResult = new EntityLineageResult();
     mockLineageResult.setTotal(0);
@@ -1404,7 +1404,7 @@ public class LineageSearchServiceTest {
             .withLineageFlags(
                 f ->
                     new LineageFlags()
-                        .setUseLightningMode(true)
+                        .setForceLightningMode(true)
                         .setValidateSchemaFields(SchemaFieldValidationMode.AUTO))
             // An empty grouping spec keeps schema fields as schema fields, as the counts resolver
             // sets; the service otherwise folds them into their parent dataset
@@ -1432,7 +1432,8 @@ public class LineageSearchServiceTest {
     // Scrolling always reads from the entity index, so answering either of these would mean
     // handing back a short result that reads as the whole answer
     assertThrows(
-        IllegalArgumentException.class, () -> scroll(new LineageFlags().setUseLightningMode(true)));
+        IllegalArgumentException.class,
+        () -> scroll(new LineageFlags().setForceLightningMode(true)));
     assertThrows(
         IllegalArgumentException.class,
         () -> scroll(new LineageFlags().setValidateSchemaFields(SchemaFieldValidationMode.AUTO)));

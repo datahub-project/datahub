@@ -229,18 +229,18 @@ public class SearchAcrossLineageCountsResolverTest {
     input.setIncludeGhostEntities(true);
 
     assertTrue(
-        run(input).lineageFlags().isUseLightningMode(),
+        run(input).lineageFlags().isForceLightningMode(),
         "asking for ghost entities should switch the search service to the graph");
   }
 
   @Test
   public void testCountsComeFromTheIndexByDefault() throws Exception {
     // The graph-only path carries caveats, so it should not be the default
-    assertFalse(Boolean.TRUE.equals(run(input()).lineageFlags().isUseLightningMode()));
+    assertFalse(Boolean.TRUE.equals(run(input()).lineageFlags().isForceLightningMode()));
 
     final SearchAcrossLineageCountsInput explicit = input();
     explicit.setIncludeGhostEntities(false);
-    assertFalse(Boolean.TRUE.equals(run(explicit).lineageFlags().isUseLightningMode()));
+    assertFalse(Boolean.TRUE.equals(run(explicit).lineageFlags().isForceLightningMode()));
   }
 
   @Test

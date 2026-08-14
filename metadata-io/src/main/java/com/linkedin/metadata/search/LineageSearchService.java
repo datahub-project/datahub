@@ -266,13 +266,13 @@ public class LineageSearchService {
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
 
-      boolean useLightningMode =
+      boolean forceLightningMode =
           Optional.ofNullable(finalOpContext.getSearchContext().getLineageFlags())
-              .map(LineageFlags::isUseLightningMode)
+              .map(LineageFlags::isForceLightningMode)
               .orElse(false);
 
       if (canDoLightning(
-          lineageRelationships, finalInput, reducedFilters, sortCriteria, useLightningMode)) {
+          lineageRelationships, finalInput, reducedFilters, sortCriteria, forceLightningMode)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         List<LineageRelationship> countable =
@@ -291,7 +291,7 @@ public class LineageSearchService {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
         return lineageSearchResult;
-      } else if (useLightningMode) {
+      } else if (forceLightningMode) {
         // Falling through would answer from the entity index, which has nothing to return for an
         // entity that does not exist -- so the caller would silently get a short result rather than
         // what it asked for
@@ -330,7 +330,7 @@ public class LineageSearchService {
       String input,
       Filter inputFilters,
       List<SortCriterion> sortCriteria,
-      boolean useLightningMode) {
+      boolean forceLightningMode) {
     boolean simpleFilters =
         inputFilters == null
             || inputFilters.getOr() == null
@@ -342,7 +342,7 @@ public class LineageSearchService {
                                 criterion1 ->
                                     LIGHTNING_FILTER_FIELDS.contains(criterion1.getField())));
     boolean worthwhile =
-        useLightningMode
+        forceLightningMode
             || lineageRelationships.size()
                 > appConfig.getCache().getSearch().getLineage().getLightningThreshold();
     return worthwhile
@@ -444,9 +444,9 @@ public class LineageSearchService {
     if (lineageFlags == null) {
       return;
     }
-    if (Boolean.TRUE.equals(lineageFlags.isUseLightningMode())) {
+    if (Boolean.TRUE.equals(lineageFlags.isForceLightningMode())) {
       throw new IllegalArgumentException(
-          "useLightningMode is not supported by scrollAcrossLineage: "
+          "forceLightningMode is not supported by scrollAcrossLineage: "
               + "lightning mode is only a feature of searchAcrossLineage.");
     }
     final SchemaFieldValidationMode mode = schemaFieldValidationMode(lineageFlags);
@@ -462,7 +462,7 @@ public class LineageSearchService {
   private static String unservableLightningMessage(
       String input, @Nullable List<SortCriterion> sortCriteria, @Nullable Filter filters) {
     return String.format(
-        "useLightningMode reads results off the lineage graph, which cannot serve this query. It "
+        "forceLightningMode reads results off the lineage graph, which cannot serve this query. It "
             + "needs a '*' query, no sort criteria, and filters only on %s, but got query '%s', %d "
             + "sort criteria, and filters on %s.",
         LIGHTNING_FILTER_FIELDS,

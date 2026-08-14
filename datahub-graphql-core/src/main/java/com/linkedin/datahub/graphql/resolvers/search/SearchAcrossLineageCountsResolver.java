@@ -38,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Returning nothing is the point: the counts are wanted for entities that were never
  * materialized, which cannot be hydrated and would be stripped back out of a result set by the
  * existence checks every other lineage search passes through. Counting them means reading the count
- * off the graph instead of the entity index, which is what {@code useLightningMode} switches the
+ * off the graph instead of the entity index, which is what {@code forceLightningMode} switches the
  * search service to -- see the caveats on that flag and on {@code includeGhostEntities}.
  */
 @Slf4j
@@ -75,7 +75,7 @@ public class SearchAcrossLineageCountsResolver
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (Boolean.TRUE.equals(input.getIncludeGhostEntities())) {
-      lineageFlags.setUseLightningMode(true);
+      lineageFlags.setForceLightningMode(true);
     }
     // The service defaults to NONE for the sake of callers that never asked; a count is where a
     // stale column actually misleads, so this query opts in unless told otherwise
