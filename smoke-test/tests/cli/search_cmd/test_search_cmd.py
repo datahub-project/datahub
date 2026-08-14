@@ -186,6 +186,7 @@ class TestSearchFiltersByEntityType:
         for result in data["searchResults"]:
             assert result["entity"]["type"] == "DATASET"
 
+    @pytest.mark.p0
     def test_filter_chart_returns_only_charts(self, auth_session):
         exit_code, stdout, _ = _run_search(
             auth_session, ["*", "--filter", "entity_type=chart", "--limit", "20"]
@@ -235,6 +236,7 @@ class TestSearchFiltersByEntityType:
 class TestSearchFiltersByPlatform:
     """Prove --filter platform=X returns only entities from that platform."""
 
+    @pytest.mark.p0
     def test_filter_snowflake_returns_snowflake_datasets(
         self, auth_session, search_data: SearchTestData
     ):
@@ -335,6 +337,7 @@ class TestSearchFilterCombinations:
         ):
             assert urn in or_urns, f"Expected URN missing from OR results: {urn}"
 
+    @pytest.mark.p0
     def test_complex_filters_json_and(self, auth_session, search_data: SearchTestData):
         """--filters JSON AND logic returns correct entity type."""
         exit_code, stdout, _ = _run_search(

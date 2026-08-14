@@ -17,6 +17,7 @@ def ingest_cleanup_data(auth_session, graph_client):
     )
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_get_full_container(auth_session, ingest_cleanup_data):
     container_urn = "urn:li:container:SCHEMA"
@@ -142,6 +143,7 @@ def test_get_parent_container(auth_session):
     assert dataset["container"]["properties"]["name"] == "datahub_schema"
 
 
+@pytest.mark.p0
 @pytest.mark.dependency(depends=["test_get_full_container"])
 def test_update_container(auth_session):
     container_urn = "urn:li:container:SCHEMA"

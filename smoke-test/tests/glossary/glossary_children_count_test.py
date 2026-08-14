@@ -122,6 +122,7 @@ def _fetch_counts(auth_session, parent_urn: str) -> Dict[str, Dict[str, int]]:
     return counts
 
 
+@pytest.mark.p0
 def test_children_count_is_correct_for_a_batch_of_sibling_nodes(
     auth_session, glossary_tree
 ):

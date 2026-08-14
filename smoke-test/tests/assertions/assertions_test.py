@@ -315,12 +315,14 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
     assert all(row[assertee_urn_index] == urn for row in rows)
 
 
+@pytest.mark.p0
 def test_gms_get_latest_assertions_results_by_partition(
     auth_session, test_run_ingestion
 ):
     _gms_get_latest_assertions_results_by_partition(auth_session)
 
 
+@pytest.mark.p0
 def test_gms_get_assertions_on_dataset(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
     urn = make_dataset_urn("postgres", "foo")

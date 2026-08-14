@@ -116,6 +116,7 @@ def _create_invalid_dataset_mcps() -> List[MetadataChangeProposalWrapper]:
     return bad_mcps
 
 
+@pytest.mark.p0
 def test_restli_batch_ingestion_sync(graph_client):
     # Positive Test (all valid MetadataChangeProposal)
     mcps = _create_valid_dashboard_mcps()

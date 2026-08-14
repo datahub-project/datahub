@@ -68,6 +68,7 @@ def test_dataset_terms_patch(patch_dataset):
     helper_test_entity_terms_patch(graph_client, dataset_urn, DatasetPatchBuilder)
 
 
+@pytest.mark.p0
 def test_dataset_upstream_lineage_patch(patch_dataset):
     graph_client, dataset_urn = patch_dataset
 
@@ -396,6 +397,7 @@ def get_custom_properties(
     return dataset_properties.customProperties
 
 
+@pytest.mark.p0
 def test_custom_properties_patch(patch_dataset):
     graph_client, dataset_urn = patch_dataset
     orig_dataset_properties = DatasetPropertiesClass(

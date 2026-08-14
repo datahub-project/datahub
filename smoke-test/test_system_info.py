@@ -31,6 +31,7 @@ pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)
 # ==============================================
 
 
+@pytest.mark.p0
 def test_system_info_main_endpoint(auth_session):
     """Test that main system info endpoint returns expected structure with authentication."""
     response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info")

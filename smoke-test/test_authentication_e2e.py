@@ -172,6 +172,7 @@ def test_excluded_paths_no_auth(endpoint: str) -> None:
 # ===========================================
 
 
+@pytest.mark.p0
 def test_graphql_endpoint_no_auth() -> None:
     """GraphQL endpoint should return 401 without authentication."""
     query = {"query": "{ me { corpUser { username } } }"}
@@ -220,6 +221,7 @@ def test_graphql_endpoint_via_frontend_uses_gzip(auth_session):
     logger.info("✅ GraphQL via frontend uses gzip compression")
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "endpoint,method",
     [
@@ -261,6 +263,7 @@ def test_protected_endpoints_no_auth(endpoint: str, method: str) -> None:
     logger.info(f"✅ {method} {endpoint} without auth: {response.status_code}")
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "endpoint,method",
     [

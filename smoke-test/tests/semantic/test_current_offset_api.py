@@ -75,6 +75,7 @@ def test_get_current_offset_no_params(auth_session: TestSessionWrapper):
     assert len(offset_id) > 0, "Offset ID should not be empty"
 
 
+@pytest.mark.p0
 def test_poll_with_retrieved_offset(auth_session: TestSessionWrapper):
     """
     Test that we can use the retrieved offset to poll for new events.

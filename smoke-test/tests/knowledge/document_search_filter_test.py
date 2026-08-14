@@ -351,6 +351,7 @@ def test_search_across_entities_filters_documents(auth_session):
         _delete_document(auth_session, published_context_urn)
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_related_documents_shows_context_only_documents(auth_session):
     """
