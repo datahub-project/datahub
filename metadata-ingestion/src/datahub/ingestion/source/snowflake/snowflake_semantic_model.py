@@ -277,6 +277,28 @@ class SnowflakeSemanticModelMapper:
                 context=f"{semantic_view.name}: {sorted(unplaced)}",
             )
 
+    @staticmethod
+    def _stored_column_name(
+        semantic_view: SnowflakeSemanticView, column_name: str
+    ) -> str:
+        """Resolve a column reference to the name Snowflake actually stores.
+
+        Semantic-view metadata canonicalizes column references to uppercase, which
+        is fine for matching but destroys the casing an emitted field path needs.
+        Match on the uppercased form, then return the stored spelling.
+
+        Columns differing only by case share one uppercased key and cannot be told
+        apart here; the connector reports those separately.
+        """
+        target = column_name.upper()
+        for occurrence in semantic_view.column_occurrences.get(target, []):
+            if occurrence.name:
+                return occurrence.name
+        for col in semantic_view.columns:
+            if col.name and col.name.upper() == target:
+                return col.name
+        return column_name
+
     def _build_relationships(
         self, semantic_view: SnowflakeSemanticView
     ) -> Optional[List[SemanticModelRelationshipClass]]:
@@ -313,16 +335,20 @@ class SnowflakeSemanticModelMapper:
                     # semanticModelProperties.alias, so join references resolve.
                     from_=from_table_upper,
                     # Join columns must match the logical-dataset schemaField paths,
-                    # which are built as snowflake_column_identifier(name.upper()).
-                    # Apply the same normalization here or the join keys diverge from
-                    # the field paths and never resolve.
+                    # which are built from the column's as-stored name. Resolve
+                    # through the uppercased key so the two sides still match even
+                    # if the API spells them differently, then emit the stored name.
                     fromColumns=[
-                        self.identifiers.snowflake_column_identifier(col.upper())
+                        self.identifiers.snowflake_column_identifier(
+                            self._stored_column_name(semantic_view, col)
+                        )
                         for col in relationship.from_columns
                     ],
                     to=relationship.to_table.upper(),
                     toColumns=[
-                        self.identifiers.snowflake_column_identifier(col.upper())
+                        self.identifiers.snowflake_column_identifier(
+                            self._stored_column_name(semantic_view, col)
+                        )
                         for col in relationship.to_columns
                     ],
                     cardinality=cardinality,
@@ -563,7 +589,7 @@ class SnowflakeSemanticModelMapper:
                         # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
                         # so column-level lineage resolves.
                         fieldPath=self.identifiers.snowflake_column_identifier(
-                            occurrence.name.upper()
+                            occurrence.name
                         ),
                         type=SchemaFieldDataTypeClass(type_class()),
                         nativeDataType=occurrence.data_type,
@@ -609,9 +635,7 @@ class SnowflakeSemanticModelMapper:
                 )
                 field_urn = SchemaFieldUrn(
                     logical_dataset_urn,
-                    self.identifiers.snowflake_column_identifier(
-                        occurrence.name.upper()
-                    ),
+                    self.identifiers.snowflake_column_identifier(occurrence.name),
                 ).urn()
                 yield MetadataChangeProposalWrapper(
                     entityUrn=field_urn,
@@ -915,7 +939,7 @@ class SnowflakeSemanticModelMapper:
         # tables emits SPs on each logical dataset's schemaField.
         if not self.config.extract_tags_as_structured_properties:
             return
-        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+        for _col_name_upper, occurrences in semantic_view.column_occurrences.items():
             occurrence = next(
                 (
                     o
@@ -931,7 +955,7 @@ class SnowflakeSemanticModelMapper:
                 continue
             field_urn = SchemaFieldUrn(
                 logical_dataset_urn,
-                self.identifiers.snowflake_column_identifier(col_name_upper),
+                self.identifiers.snowflake_column_identifier(occurrence.name),
             ).urn()
             yield from add_structured_properties_to_entity_wu(
                 field_urn,

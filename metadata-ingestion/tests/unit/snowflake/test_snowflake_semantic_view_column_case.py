@@ -1,0 +1,115 @@
+from typing import Any, List
+from unittest.mock import MagicMock
+
+import pytest
+
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeColumn,
+    SnowflakeSemanticView,
+)
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
+
+# Semantic-view code threads column references in uppercase so they match across
+# the view's own metadata. That is a lookup key, not an identity — these tests pin
+# that the emitted field paths carry the stored casing instead, because the
+# existing semantic-view tests mock the identifier builder and cannot see it.
+
+MIXED_CASE_COLUMN = "MixedCol"
+
+
+def _make_gen(report: SnowflakeV2Report, **overrides: Any) -> SnowflakeSchemaGenerator:
+    config = SnowflakeV2Config(
+        account_id="test_account",
+        username="user",
+        password="pass",  # type: ignore[arg-type]
+        **overrides,
+    )
+    return SnowflakeSchemaGenerator(
+        config=config,
+        report=report,
+        connection=MagicMock(),
+        filters=MagicMock(),
+        # A real builder, not a mock: the whole point is what it returns.
+        identifiers=SnowflakeIdentifierBuilder(
+            identifier_config=config, structured_reporter=report
+        ),
+        domain_registry=None,
+        profiler=None,
+        aggregator=MagicMock(),
+        snowsight_url_builder=None,
+    )
+
+
+def _semantic_view(column_names: List[str]) -> SnowflakeSemanticView:
+    return SnowflakeSemanticView(
+        name="MY_SEMANTIC_VIEW",
+        comment=None,
+        created=None,
+        last_altered=None,
+        view_definition=None,
+        columns=[
+            SnowflakeColumn(
+                name=name,
+                ordinal_position=i + 1,
+                is_nullable=True,
+                data_type="TEXT",
+                comment=None,
+                character_maximum_length=None,
+                numeric_precision=None,
+                numeric_scale=None,
+            )
+            for i, name in enumerate(column_names)
+        ],
+    )
+
+
+class TestSemanticViewColumnCase:
+    @pytest.mark.parametrize(
+        ("preserve", "expected"),
+        [(False, "mixedcol"), (True, MIXED_CASE_COLUMN)],
+    )
+    def test_stored_name_resolves_from_uppercase_key(
+        self, preserve: bool, expected: str
+    ) -> None:
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=preserve)
+        view = _semantic_view([MIXED_CASE_COLUMN, "AMOUNT"])
+
+        # This is the conversion every semantic-view field path goes through.
+        resolved = gen.snowflake_column_identifier(
+            gen._stored_semantic_column_name(view, MIXED_CASE_COLUMN.upper())
+        )
+        assert resolved == expected
+
+    @pytest.mark.parametrize("preserve", [True, False])
+    def test_lineage_field_paths_match_the_schema(self, preserve: bool) -> None:
+        # The regression that motivated this: the schema was built from col.name
+        # while lineage was built from col.name.upper(), so with the flag on the
+        # two disagreed and the lineage pointed at a field that did not exist.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, preserve_column_case=preserve)
+        view = _semantic_view([MIXED_CASE_COLUMN, "AMOUNT"])
+
+        schema_paths = {
+            f.fieldPath for f in gen.gen_schema_metadata(view, "SCH", "DB").fields
+        }
+        lineage_paths = {
+            gen.snowflake_column_identifier(
+                gen._stored_semantic_column_name(view, col.name.upper())
+            )
+            for col in view.columns
+        }
+
+        assert lineage_paths == schema_paths
+
+    def test_unknown_column_falls_back_to_the_key(self) -> None:
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+        view = _semantic_view([MIXED_CASE_COLUMN])
+
+        assert gen._stored_semantic_column_name(view, "NOT_A_COLUMN") == "NOT_A_COLUMN"

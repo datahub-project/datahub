@@ -1290,7 +1290,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                             if lt is not None
                             else semantic_model_urn,
-                            self.snowflake_column_identifier(col),
+                            self.snowflake_column_identifier(
+                                self._stored_semantic_column_name(semantic_view, col)
+                            ),
                         ),
                     )
                 except Exception as e:
@@ -1684,6 +1686,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if tag_associations:
             return GlobalTagsClass(tags=tag_associations)
         return None
+
+    @staticmethod
+    def _stored_semantic_column_name(
+        semantic_view: "SnowflakeSemanticView", col_name_upper: str
+    ) -> str:
+        """Resolve a semantic-view column key back to the name Snowflake stores.
+
+        Semantic-view lineage threads column references around in uppercase so
+        they match across the view's metadata. That is fine as a key but wrong as
+        an identity: an emitted field path has to carry the stored casing or it
+        will not match the schema built from it.
+        """
+        # column_occurrences is the same source the semantic-model mapper builds
+        # its schema fields from, so consult it first or the two can disagree.
+        for occurrence in semantic_view.column_occurrences.get(col_name_upper, []):
+            if occurrence.name:
+                return occurrence.name
+        for col in semantic_view.columns:
+            if col.name and col.name.upper() == col_name_upper:
+                return col.name
+        return col_name_upper
 
     def _report_column_case_collisions(
         self,
@@ -2300,7 +2323,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             else:
                 downstream_field_urn = make_schema_field_urn(
                     semantic_view_urn,
-                    self.snowflake_column_identifier(col_name_upper),
+                    self.snowflake_column_identifier(
+                        self._stored_semantic_column_name(semantic_view, col_name_upper)
+                    ),
                 )
 
             # Use depth-limited recursive resolution
@@ -2405,7 +2430,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 return downstream_urn_resolver(col_name_upper, logical_table_upper)
             return make_schema_field_urn(
                 semantic_view_urn,
-                self.snowflake_column_identifier(col_name_upper),
+                self.snowflake_column_identifier(
+                    self._stored_semantic_column_name(semantic_view, col_name_upper)
+                ),
             )
 
         logger.debug(
@@ -2596,7 +2623,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Create upstream field URN for direct column lineage
                     upstream_field_urn = make_schema_field_urn(
                         base_table_urn,
-                        self.snowflake_column_identifier(col_name_upper),
+                        self.snowflake_column_identifier(
+                            self._stored_semantic_column_name(
+                                semantic_view, col_name_upper
+                            )
+                        ),
                     )
 
                     fine_grained_lineages.append(

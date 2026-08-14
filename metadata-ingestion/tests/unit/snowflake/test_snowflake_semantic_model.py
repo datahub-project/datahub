@@ -1233,10 +1233,11 @@ def test_metrics_not_reported_as_unplaced_when_no_logical_tables():
 
 def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowercasing():
     # Regression test: snowflake_schema_gen.py anchors the fine-grained-lineage
-    # downstream field on `snowflake_identifier(col_name_upper)` (the uppercased
-    # column_occurrences key), on the logical dataset URN. The mapper's
-    # schemaMetadata fieldPath must use the same casing so the two match under
-    # convert_urns_to_lowercase=False.
+    # downstream field on the logical dataset URN, resolving the uppercased
+    # column_occurrences key back to the column's stored name. The mapper's
+    # schemaMetadata fieldPath must resolve to the same name, or lineage points at
+    # a field that does not exist. Asserted under convert_urns_to_lowercase=False,
+    # where the casing is visible rather than flattened away.
     mapper = _make_mapper(convert_urns_to_lowercase=False)
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1265,7 +1266,10 @@ def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowerca
     field_path = next(iter(fields_by_path))
 
     lineage_anchor_urn = make_schema_field_urn(
-        orders_logical_urn, mapper.identifiers.snowflake_identifier("ORDER_DATE")
+        orders_logical_urn,
+        mapper.identifiers.snowflake_column_identifier(
+            mapper._stored_column_name(semantic_view, "ORDER_DATE")
+        ),
     )
     semantic_field_urn = make_schema_field_urn(orders_logical_urn, field_path)
     assert semantic_field_urn == lineage_anchor_urn
