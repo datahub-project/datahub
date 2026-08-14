@@ -284,7 +284,7 @@ class HexLineageBuilder:
         rather than dangling against an author-case parent.
         """
         if self._convert_urns_to_lowercase:
-            queried_by_key: Dict[str, str] = {}
+            queried_by_key: Dict[Tuple[str, str, str], str] = {}
             for u in queried_table_urns:
                 key = self._canonical_dataset_key(u)
                 if key is not None:
@@ -372,7 +372,7 @@ class HexLineageBuilder:
         self._report.enterprise_column_fields_emitted += len(validated_fields)
         return validated_fields
 
-    def _canonical_dataset_key(self, urn: str) -> Optional[str]:
+    def _canonical_dataset_key(self, urn: str) -> Optional[Tuple[str, str, str]]:
         """Comparison key for a dataset URN under ``convert_urns_to_lowercase``:
         ``(platform, name.lower(), env)``. Platform and env stay exact so
         distinct upstreams don't collide on casing; only the dataset name is
@@ -381,7 +381,7 @@ class HexLineageBuilder:
             d = DatasetUrn.from_string(urn)
         except Exception:
             return None
-        return f"{d.platform}\x1f{d.name.lower()}\x1f{d.env}"
+        return (d.platform, d.name.lower(), d.env)
 
     def _lookup_connection(
         self, connection_id: Optional[str]
