@@ -134,8 +134,8 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                         unresolved.append(field_profile.fieldPath)
                         kept.append(field_profile)
                         continue
-                    field_profile.fieldPath = (
-                        self.identifiers.snowflake_identifier(original_name)
+                    field_profile.fieldPath = self.identifiers.snowflake_identifier(
+                        original_name
                     )
                     # Columns differing only by case fold to one field path unless
                     # preserve_column_case is set. Keeping the first mirrors the

@@ -195,9 +195,13 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
-        # Reflect the temp table as a real sa.Table
+        # Reflect the temp table as a real sa.Table. CTAS carries case-only
+        # duplicate columns through to the sample, so this needs the same
+        # case-folding repair as a directly reflected table.
         metadata = sa.MetaData()
-        context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
+        context.sql_table = self._restore_case_folded_columns(
+            sa.Table(temp_name, metadata, autoload_with=conn), conn
+        )
         context.is_sampled = True
         context.sample_percentage = bernoulli_pc
         context.temp_table = temp_name

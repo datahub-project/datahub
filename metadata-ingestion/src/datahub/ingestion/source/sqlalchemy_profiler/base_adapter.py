@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
@@ -57,6 +57,7 @@ class PlatformAdapter(ABC):
         self.config = config
         self.report = report
         self.base_engine = base_engine
+        self._inspectors: Dict[int, Any] = {}
 
     # =========================================================================
     # Setup & Teardown
@@ -840,8 +841,24 @@ class PlatformAdapter(ABC):
         )
         return self._restore_case_folded_columns(sql_table, engine)
 
+    def _case_fold_inspector(self, engine: Union[Engine, Connection]) -> Any:
+        """A reused Inspector, so repeated column reflection hits its cache.
+
+        Dialects fetch a whole schema's columns in one query and memoize it on the
+        Inspector's info cache. A fresh ``sa.inspect()`` per table would defeat that
+        and issue one round trip per table; holding one per bind makes it one per
+        schema. Keyed by bind because sampling reflects against the connection that
+        owns the temp table, not the base engine.
+        """
+        key = id(engine)
+        inspector = self._inspectors.get(key)
+        if inspector is None:
+            inspector = sa.inspect(engine)
+            self._inspectors[key] = inspector
+        return inspector
+
     def _restore_case_folded_columns(
-        self, sql_table: sa.Table, engine: Engine
+        self, sql_table: sa.Table, engine: Union[Engine, Connection]
     ) -> sa.Table:
         """Rebuild a reflected table so columns differing only by case survive.
 
@@ -866,7 +883,7 @@ class PlatformAdapter(ABC):
             return sql_table
 
         try:
-            reflected = sa.inspect(engine).get_columns(
+            reflected = self._case_fold_inspector(engine).get_columns(
                 sql_table.name, schema=sql_table.schema
             )
         except SQLAlchemyError as e:

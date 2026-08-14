@@ -9,6 +9,9 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
 
 
 def _engine(dialect: Any) -> Any:
@@ -108,6 +111,42 @@ class TestRestoreCaseFoldedColumns:
         # Postgres cannot fold two columns together, so no re-inspection happens.
         with patch.object(sa, "inspect", side_effect=AssertionError("must not run")):
             assert adapter._restore_case_folded_columns(table, engine) is table
+
+    def test_reuses_one_inspector_per_bind(
+        self, adapter: SnowflakeAdapter, snowflake_engine: Any
+    ) -> None:
+        # Dialects cache a whole schema's columns on the Inspector, so reflecting
+        # each table through a fresh one would cost a round trip per table.
+        table = _folded_table(snowflake_engine, ["col", "id"])
+        inspector = MagicMock()
+        inspector.get_columns.return_value = _reflected(["col", "id"])
+        with patch.object(sa, "inspect", return_value=inspector) as inspect_mock:
+            for _ in range(3):
+                adapter._restore_case_folded_columns(table, snowflake_engine)
+        assert inspect_mock.call_count == 1
+
+    def test_sampled_temp_table_is_repaired(
+        self, adapter: SnowflakeAdapter, snowflake_engine: Any
+    ) -> None:
+        # The sampling path reflects a CTAS temp table, which carries case-only
+        # duplicate columns through from the source, so it needs the same repair
+        # as a directly reflected table.
+        context = ProfilingContext(
+            pretty_name="db.sch.t", schema="sch", table="t", row_count=1_000_000
+        )
+        conn = MagicMock()
+        conn.dialect = snowflake_engine.dialect
+        repaired = _folded_table(snowflake_engine, ["col", "COL", "id"])
+
+        with (
+            patch.object(sa, "Table", return_value=repaired),
+            patch.object(
+                adapter, "_restore_case_folded_columns", return_value=repaired
+            ) as repair,
+        ):
+            adapter._create_sampled_temp_table(context, conn, row_count=1_000_000)
+
+        assert repair.called
 
     def test_falls_back_when_reinspection_fails(
         self, adapter: SnowflakeAdapter, snowflake_engine: Any
