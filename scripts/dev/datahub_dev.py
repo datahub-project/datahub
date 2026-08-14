@@ -926,7 +926,7 @@ def cmd_test(args: argparse.Namespace) -> int:
             _log("Failed to set up smoke-test venv.")
             return 1
 
-    # Set up environment variables (replicate set-test-env-vars.sh and set-cypress-creds.sh)
+    # Set up environment variables (replicate set-test-env-vars.sh)
     env = _dev_env()
     gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
     instance_gms_url = _gms_url()
@@ -943,12 +943,8 @@ def cmd_test(args: argparse.Namespace) -> int:
         )
         env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
 
-    # Cypress creds (used by some test fixtures)
     env.setdefault("ADMIN_USERNAME", "datahub")
     env.setdefault("ADMIN_PASSWORD", "datahub")
-    env.setdefault("CYPRESS_ADMIN_USERNAME", env.get("ADMIN_USERNAME", "datahub"))
-    env.setdefault("CYPRESS_ADMIN_PASSWORD", env.get("ADMIN_PASSWORD", "datahub"))
-    env.setdefault("CYPRESS_ADMIN_DISPLAYNAME", "DataHub")
 
     # Disable telemetry during tests
     env["DATAHUB_TELEMETRY_ENABLED"] = "false"

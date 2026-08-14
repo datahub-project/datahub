@@ -48,7 +48,7 @@ def build_auth_session():
         Frontend URL is not required; GraphQL routes through the GMS directly.
 
     Login-based (default for local dev):
-        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+        Set ADMIN_USERNAME / ADMIN_PASSWORD.
     """
     prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
     if prebuilt_token:
@@ -381,9 +381,6 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
-    if env_vars.get_test_strategy() == "cypress":
-        return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
-
     # Check if FILTERED_TESTS is set (for retry logic)
     filtered_tests_file = env_vars.get_filtered_tests_file()
     if filtered_tests_file:

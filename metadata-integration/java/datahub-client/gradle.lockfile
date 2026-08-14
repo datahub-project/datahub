@@ -3,8 +3,8 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 at.yawk.lz4:lz4-java:1.11.1=runtimeClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.5.32=testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.32=testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.38=testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.38=testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
 com.eclipsesource.minimal-json:minimal-json:0.9.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.ethlo.time:itu:1.7.0=testCompileClasspath,testRuntimeClasspath
@@ -134,8 +134,8 @@ org.apache.commons:commons-digester3:3.2=testCompileClasspath,testRuntimeClasspa
 org.apache.commons:commons-lang3:3.18.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.commons:commons-text:1.10.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents.client5:httpclient5:5.6.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.apache.httpcomponents.core5:httpcore5-h2:5.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.apache.httpcomponents.core5:httpcore5:5.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.apache.httpcomponents.core5:httpcore5-h2:5.4.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.apache.httpcomponents.core5:httpcore5:5.4.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents:httpclient:4.5.13=runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents:httpcore:4.4.13=testCompileClasspath
 org.apache.httpcomponents:httpcore:4.4.16=runtimeClasspath,testRuntimeClasspath
