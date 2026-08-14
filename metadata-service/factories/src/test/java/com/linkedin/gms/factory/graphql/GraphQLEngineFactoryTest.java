@@ -18,6 +18,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -262,7 +263,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @MockitoBean private MetricUtils metricUtils;
 
-  @MockitoBean private EntityRegistry entityRegistry;
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry entityRegistry;
 
   @MockitoBean private QueryFilterRewriteChain queryFilterRewriteChain;
 
@@ -546,6 +549,16 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     @SuppressWarnings("unchecked")
     public EntityService<?> entityService() {
       return Mockito.mock(EntityService.class);
+    }
+
+    // Replaces @MockitoBean so getPluginFactory() can be stubbed before context refresh:
+    // entityRegistryPluginRefresh runs during startup and relies on the @Nonnull contract.
+    @Bean(name = "entityRegistry")
+    @Primary
+    public EntityRegistry entityRegistry() {
+      EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+      Mockito.when(registry.getPluginFactory()).thenReturn(PluginFactory.empty());
+      return registry;
     }
 
     @Bean(name = "baseElasticSearchComponents")
