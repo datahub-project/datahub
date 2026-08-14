@@ -147,7 +147,12 @@ class TestCaseOnlyColumnCollisions:
         field_paths = [f.fieldPath for f in schema_metadata.fields]
         assert field_paths == ["COL", "col", "OTHER"]
         assert len(set(field_paths)) == 3
+        # Nothing is lost, so this is not a warning — but the pair is still
+        # indistinguishable to consumers that match case-insensitively.
         assert not list(report.warnings)
+        assert any(
+            "differing only by case" in (info.title or "") for info in report.infos
+        )
 
     def test_no_warning_without_collisions(self) -> None:
         report = SnowflakeV2Report()

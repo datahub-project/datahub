@@ -1252,6 +1252,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 semantic_view.tags = None
 
         if self.config.semantic_views.emit_semantic_model_entities:
+            # This path never reaches gen_schema_metadata, so the collision check
+            # has to run here too or semantic views are silently exempt from it.
+            self._report_column_case_collisions(
+                semantic_view,
+                self.identifiers.get_dataset_identifier(
+                    semantic_view.name, schema_name, db_name
+                ),
+            )
+
             # Tag entities referenced by the semantic view / its columns. In legacy
             # dataset mode these are emitted by gen_dataset_workunits instead.
             if semantic_view.tags:
@@ -1684,36 +1693,43 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         dataset_name: str,
     ) -> None:
         # Snowflake's quoted identifiers let columns differ only by case (e.g. "col"
-        # and "COL"). Folding them to a common field path silently drops one of them
-        # from the schema and makes its lineage, tags and profile ambiguous, so
-        # surface it even when the operator never enables preserve_column_case.
-        columns_by_field_path: Dict[str, Set[str]] = defaultdict(set)
+        # and "COL"). Detect that on the raw names rather than the emitted field
+        # paths, so it is still reported once preserve_column_case keeps the paths
+        # distinct — the columns remain indistinguishable to any consumer that
+        # matches case-insensitively.
+        columns_by_folded_name: Dict[str, Set[str]] = defaultdict(set)
         for col in table.columns:
-            columns_by_field_path[self.snowflake_column_identifier(col.name)].add(
-                col.name
-            )
+            columns_by_folded_name[col.name.lower()].add(col.name)
 
         collisions = {
-            field_path: names
-            for field_path, names in columns_by_field_path.items()
+            folded_name: names
+            for folded_name, names in columns_by_folded_name.items()
             if len(names) > 1
         }
         if not collisions:
             return
 
-        self.structured_reporter.warning(
-            title="Columns collapsed into a single field path",
-            message="Columns that differ only by case were folded to the same field "
-            "path, so only one of them survives in the schema and its column-level "
-            "lineage, tags and profile are ambiguous. Set `preserve_column_case: true` "
-            "to keep them distinct. Note that enabling it re-keys every column's "
-            "schemaField URN.",
-            context=f"{dataset_name}: "
-            + "; ".join(
-                f"{sorted(names)} -> {field_path}"
-                for field_path, names in sorted(collisions.items())
-            ),
+        context = f"{dataset_name}: " + "; ".join(
+            str(sorted(names)) for _, names in sorted(collisions.items())
         )
+        if self.config.preserve_column_case:
+            self.structured_reporter.info(
+                title="Columns differing only by case",
+                message="These columns are kept as distinct field paths, but any "
+                "consumer that matches column names case-insensitively cannot tell "
+                "them apart.",
+                context=context,
+            )
+        else:
+            self.structured_reporter.warning(
+                title="Columns collapsed into a single field path",
+                message="Columns that differ only by case were folded to the same "
+                "field path, so only one of them survives in the schema and its "
+                "column-level lineage, tags and profile are lost. Set "
+                "`preserve_column_case: true` to keep them distinct. Note that "
+                "enabling it re-keys every column's schemaField URN.",
+                context=context,
+            )
 
     def gen_schema_metadata(
         self,
