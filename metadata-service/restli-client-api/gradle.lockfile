@@ -3,10 +3,8 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.3.15=compileClasspath,testCompileClasspath
-ch.qos.logback:logback-classic:1.5.32=runtimeClasspath,testRuntimeClasspath
-ch.qos.logback:logback-core:1.3.15=compileClasspath,testCompileClasspath
-ch.qos.logback:logback-core:1.5.32=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.38=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.38=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-annotations:2.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-core:2.21.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-databind:2.21.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -269,8 +267,7 @@ org.projectlombok:lombok:1.18.42=annotationProcessor,compileClasspath
 org.reactivestreams:reactive-streams:1.0.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.reflections:reflections:0.9.12=runtimeClasspath,testRuntimeClasspath
 org.roaringbitmap:RoaringBitmap:1.3.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.slf4j:slf4j-api:2.0.13=compileClasspath,testCompileClasspath
-org.slf4j:slf4j-api:2.0.17=runtimeClasspath,testRuntimeClasspath
+org.slf4j:slf4j-api:2.0.17=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.snakeyaml:snakeyaml-engine:2.10=runtimeClasspath,testRuntimeClasspath
 org.xerial.snappy:snappy-java:1.1.10.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.yaml:snakeyaml:2.1=compileClasspath,testCompileClasspath
