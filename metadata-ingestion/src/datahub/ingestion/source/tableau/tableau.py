@@ -7,7 +7,7 @@ from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import (
     Any,
@@ -179,6 +179,10 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.schema_resolver import (
+    SchemaResolver,
+    match_columns_to_schema,
+)
 from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sql_parsing_result_utils import (
@@ -187,6 +191,7 @@ from datahub.sql_parsing.sql_parsing_result_utils import (
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     SqlParsingResult,
+    create_and_cache_schema_resolver,
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
@@ -2298,13 +2303,16 @@ class TableauSiteSource:
                         self.is_snowflake_urn(parent_dataset_urn)
                         and not self.config.ingest_tables_external
                     ):
-                        # This is required for column level lineage to work correctly as
-                        # DataHub Snowflake source lowercases all field names in the schema.
+                        # Snowflake field paths follow that source's own casing
+                        # settings, so match against the schema already in DataHub
+                        # rather than assuming a convention.
                         #
                         # It should not be done if snowflake tables are not pre ingested but
                         # parsed from SQL queries or ingested from Tableau metadata (in this case
                         # it just breaks case sensitive table level linage)
-                        name = name.lower().replace(" ", "_")
+                        name = self._match_snowflake_column_name(
+                            parent_dataset_urn, name
+                        )
                     input_columns.append(
                         builder.make_schema_field_urn(
                             parent_urn=parent_dataset_urn,
@@ -2325,6 +2333,42 @@ class TableauSiteSource:
                 )
 
         return fine_grained_lineages
+
+    @cached_property
+    def _upstream_schema_resolver(self) -> Optional["SchemaResolver"]:
+        """Resolver used to read upstream schemas already in DataHub.
+
+        ``resolve_urn`` keys off the URN itself, so one instance serves every
+        upstream platform; the platform and env below only seed the factory.
+        """
+        if self.ctx.graph is None:
+            return None
+        return create_and_cache_schema_resolver(
+            platform="snowflake",
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
+    def _match_snowflake_column_name(self, dataset_urn: str, name: str) -> str:
+        """Resolve a Tableau field to the field path the Snowflake source emitted.
+
+        Tableau reports the warehouse's own casing. What the Snowflake source
+        stored depends on its `preserve_column_case` setting, so lowercasing here
+        would silently sever column lineage whenever that setting is on. Match
+        case-insensitively against the ingested schema and adopt its spelling.
+
+        Falls back to lowercasing when the dataset has not been ingested, or when
+        there is no graph to ask — which is the behaviour this replaces.
+        """
+        candidate = name.replace(" ", "_")
+
+        resolver = self._upstream_schema_resolver
+        if resolver is not None:
+            _, schema_info = resolver.resolve_urn(dataset_urn)
+            if schema_info:
+                return match_columns_to_schema(schema_info, [candidate])[0]
+
+        return candidate.lower()
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (
