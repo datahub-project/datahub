@@ -38,7 +38,8 @@ public final class AccessTokenDurationPolicy {
       if (!policy.isDurationMillisAllowed(millis)) {
         throw new IllegalArgumentException(
             String.format(
-                "Access token duration '%s' is not allowed. Allowed durations: %s",
+                "Access token duration '%s' is not allowed. Choose a value from"
+                    + " ACCESS_TOKEN_ALLOWED_DURATIONS (currently: %s).",
                 durationIso, policy.getAllowedDurations()));
       }
       return Optional.of(millis);
@@ -47,7 +48,13 @@ public final class AccessTokenDurationPolicy {
     if (duration == AccessTokenDuration.NO_EXPIRY) {
       if (!policy.isAllowNoExpiry()) {
         throw new IllegalArgumentException(
-            "Creating access tokens with no expiry is disabled. Configure authentication.accessTokens.allowNoExpiry=true to enable.");
+            String.format(
+                "Never-expiring access tokens (NO_EXPIRY) cannot be created because"
+                    + " ACCESS_TOKEN_ALLOW_NO_EXPIRY is false. Use a finite duration from"
+                    + " ACCESS_TOKEN_ALLOWED_DURATIONS (currently: %s), or set"
+                    + " ACCESS_TOKEN_ALLOW_NO_EXPIRY=true to allow NO_EXPIRY. Existing"
+                    + " never-expire tokens continue to work.",
+                policy.getAllowedDurations()));
       }
       return Optional.empty();
     }
@@ -62,7 +69,8 @@ public final class AccessTokenDurationPolicy {
     if (!policy.isDurationMillisAllowed(millis)) {
       throw new IllegalArgumentException(
           String.format(
-              "Access token duration %s is not allowed. Allowed durations: %s",
+              "Access token duration %s is not allowed. Choose a value from"
+                  + " ACCESS_TOKEN_ALLOWED_DURATIONS (currently: %s).",
               duration, policy.getAllowedDurations()));
     }
     return Optional.of(millis);

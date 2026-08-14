@@ -26,10 +26,17 @@ public class AccessTokenDurationPolicyTest {
     assertEquals(ms.get().longValue(), 3_600_000L);
   }
 
-  @Test(expectedExceptions = IllegalArgumentException.class)
+  @Test
   public void testRejectNoExpiryWhenDisabled() {
     AccessTokenConfiguration policy = AccessTokenConfiguration.defaults();
-    AccessTokenDurationPolicy.resolveExpiresInMs(policy, AccessTokenDuration.NO_EXPIRY, null);
+    IllegalArgumentException thrown =
+        expectThrows(
+            IllegalArgumentException.class,
+            () ->
+                AccessTokenDurationPolicy.resolveExpiresInMs(
+                    policy, AccessTokenDuration.NO_EXPIRY, null));
+    assertTrue(thrown.getMessage().contains("ACCESS_TOKEN_ALLOW_NO_EXPIRY"), thrown.getMessage());
+    assertTrue(thrown.getMessage().contains("ACCESS_TOKEN_ALLOWED_DURATIONS"), thrown.getMessage());
   }
 
   @Test
