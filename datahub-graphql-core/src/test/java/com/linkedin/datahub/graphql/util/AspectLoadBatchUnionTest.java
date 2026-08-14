@@ -150,6 +150,92 @@ public class AspectLoadBatchUnionTest {
                     new EnvelopedAspect().setValue(new Aspect(key.data())))));
   }
 
+  /**
+   * OwnerTypeResolver must contribute its selection to the request-scoped union and pass it as the
+   * DataLoader key context, like LoadableTypeResolver. Before the fix it loaded by bare URN, so a
+   * narrower CorpUser union accumulated by an earlier selection dictated the fetch and owner fields
+   * (e.g. editableProperties.displayName) silently came back null.
+   */
+  @Test
+  public void testOwnerResolverContributesSelectionToUnion() throws Exception {
+    AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);
+    when(mappingRegistry.getRequiredAspectsForFieldNames(
+            eq("CorpUser"), eq(Set.of("editableProperties"))))
+        .thenReturn(ImmutableSet.of("corpUserEditableInfo"));
+
+    AccumulatingContext context = new AccumulatingContext(getMockAllowContext(), mappingRegistry);
+    // A prior selection left a narrow CorpUser union in the request.
+    context.mergeAspectLoadContext("CorpUser", AspectLoadContext.of(ImmutableSet.of("status")));
+
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:owner_test_user");
+    EntityClient entityClient = mock(EntityClient.class);
+    when(entityClient.batchGetV2(any(), eq(Constants.CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(
+            ImmutableMap.of(
+                userUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.CORP_USER_ENTITY_NAME)
+                    .setUrn(userUrn)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.CORP_USER_KEY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(
+                                        new Aspect(
+                                            new com.linkedin.metadata.key.CorpUserKey()
+                                                .setUsername("owner_test_user")
+                                                .data())))))));
+
+    com.linkedin.datahub.graphql.types.corpuser.CorpUserType corpUserType =
+        new com.linkedin.datahub.graphql.types.corpuser.CorpUserType(entityClient, null);
+    BatchLoaderContextProvider provider = () -> context;
+    DataLoaderOptions options =
+        DataLoaderOptions.newOptions().setBatchLoaderContextProvider(provider);
+    DataLoader<String, Object> loader =
+        DataLoader.newDataLoader(
+            (keys, env) -> {
+              AspectLoadContext fromKeys = AspectUtils.unionKeyContexts(env.getKeyContextsList());
+              if (fromKeys != null) {
+                context.mergeAspectLoadContext("CorpUser", fromKeys);
+              }
+              try {
+                return CompletableFuture.completedFuture(
+                    (List<Object>) (List<?>) corpUserType.batchLoad(keys, context));
+              } catch (Exception e) {
+                return CompletableFuture.failedFuture(e);
+              }
+            },
+            options);
+    DataLoaderRegistry registry = new DataLoaderRegistry();
+    registry.register("CorpUser", loader);
+
+    com.linkedin.datahub.graphql.generated.CorpUser stub =
+        new com.linkedin.datahub.graphql.generated.CorpUser();
+    stub.setUrn(userUrn.toString());
+    stub.setType(com.linkedin.datahub.graphql.generated.EntityType.CORP_USER);
+
+    DataFetchingEnvironment env =
+        envWithSelection(context, registry, "editableProperties", "owner");
+    com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver<Object> resolver =
+        new com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver<>(
+            List.of(corpUserType), e -> stub);
+
+    CompletableFuture<Object> future = resolver.get(env);
+    loader.dispatch();
+    future.get();
+
+    ArgumentCaptor<Set<String>> aspectsCaptor = ArgumentCaptor.forClass(Set.class);
+    Mockito.verify(entityClient)
+        .batchGetV2(any(), eq(Constants.CORP_USER_ENTITY_NAME), any(), aspectsCaptor.capture());
+    Set<String> fetched = new HashSet<>(aspectsCaptor.getValue());
+
+    assertTrue(
+        fetched.contains("corpUserEditableInfo"),
+        "owner resolution must widen the narrow {status} union with its own selection; got: "
+            + fetched);
+  }
+
   @Test
   public void testAliasedSiblingDisjointSelectionsUnionFetched() throws Exception {
     AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);

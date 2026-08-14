@@ -117,6 +117,77 @@ public class AspectLoadCrossDispatchCacheTest {
     }
   }
 
+  /**
+   * BatchLoadUtils (entities(urns:), browse, autocomplete, siblings) widens the request union to
+   * FETCH_ALL, but that alone is not enough: without a key context its loads use the key-only
+   * DataLoader cache key, so a prior dispatch of the same URN under a narrower union would be
+   * served from cache and skip batchLoad entirely. The FETCH_ALL key context must ride along so the
+   * widened load misses the stale entry and re-dispatches with the full aspect set.
+   */
+  @Test
+  public void testBatchLoadUtilsAfterNarrowDispatchDoesNotReuseStaleCache() throws Exception {
+    AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);
+    when(mappingRegistry.getRequiredAspectsForFieldNames(eq("Dataset"), eq(Set.of("ownership"))))
+        .thenReturn(ImmutableSet.of(Constants.OWNERSHIP_ASPECT_NAME));
+
+    AccumulatingContext context = new AccumulatingContext(getMockAllowContext(), mappingRegistry);
+    EntityClient entityClient = mock(EntityClient.class);
+    Urn urn = Urn.createFromString(URN);
+
+    // Return only the aspects that were requested for this batchGetV2 call.
+    when(entityClient.batchGetV2(any(), eq(Constants.DATASET_ENTITY_NAME), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<String> requested = (Set<String>) invocation.getArgument(3);
+              return Map.of(urn, datasetResponse(urn, requested));
+            });
+
+    DatasetType datasetType = new DatasetType(entityClient);
+    Map<String, java.util.function.Function<QueryContext, DataLoader<?, ?>>> suppliers =
+        com.linkedin.datahub.graphql.GmsGraphQLEngine.loaderSuppliers(List.of(datasetType));
+    @SuppressWarnings("unchecked")
+    DataLoader<String, ?> loader = (DataLoader<String, ?>) suppliers.get("Dataset").apply(context);
+    org.dataloader.DataLoaderRegistry registry = new org.dataloader.DataLoaderRegistry();
+    registry.register("Dataset", loader);
+
+    // Dispatch 1: a typed selection needing only ownership hydrates and caches under a narrow key.
+    LoadableTypeResolver<Dataset, String> resolver =
+        new LoadableTypeResolver<>(datasetType, e -> URN);
+    CompletableFuture<Dataset> narrowFuture =
+        resolver.get(envWithSelection(context, registry, "ownership", "ownership"));
+    loader.dispatch();
+    assertNotNull(narrowFuture.get().getOwnership());
+
+    // Dispatch 2: the opaque batch path loads the same URN and must not reuse the narrow result.
+    Dataset stub = new Dataset();
+    stub.setUrn(URN);
+    stub.setType(com.linkedin.datahub.graphql.generated.EntityType.DATASET);
+    CompletableFuture<List<com.linkedin.datahub.graphql.generated.Entity>> batchFuture =
+        com.linkedin.datahub.graphql.resolvers.BatchLoadUtils.batchLoadEntitiesOfSameType(
+            List.of(stub), List.of(datasetType), registry, context);
+    loader.dispatch();
+    Dataset fromBatch = (Dataset) unwrap(batchFuture.get().get(0));
+
+    assertNotNull(
+        fromBatch.getTags(),
+        "batch path must re-dispatch with the widened union, not serve the ownership-only cached"
+            + " result");
+    assertTrue(
+        Mockito.mockingDetails(entityClient).getInvocations().stream()
+                .filter(i -> i.getMethod().getName().equals("batchGetV2"))
+                .count()
+            >= 2,
+        "expected a second batchGetV2 for the FETCH_ALL key context");
+  }
+
+  private static Object unwrap(Object element) {
+    if (element instanceof graphql.execution.DataFetcherResult) {
+      return ((graphql.execution.DataFetcherResult<?>) element).getData();
+    }
+    return element;
+  }
+
   @Test
   public void testSecondDispatchDisjointAspectUsesProductionLoaderNotStaleCache() throws Exception {
     AspectMappingRegistry mappingRegistry = mock(AspectMappingRegistry.class);

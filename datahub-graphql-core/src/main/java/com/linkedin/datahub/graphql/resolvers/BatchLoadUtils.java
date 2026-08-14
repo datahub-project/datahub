@@ -39,13 +39,17 @@ public class BatchLoadUtils {
     // compute its own aspect requirements. Contribute FETCH_ALL to the request-scoped union so the
     // batchLoad does not reuse a narrower AspectLoadContext left by an earlier typed selection in
     // the same request and under-hydrate. Widening to fetch-all is safe (over-fetch, never under).
-    if (context != null) {
-      context.mergeAspectLoadContext(filteredEntity.name(), AspectLoadContext.fetchAll());
-    }
-
     List<Object> keyList = new ArrayList();
     for (Entity entity : entities) {
       keyList.add(filteredEntity.getKeyProvider().apply(entity));
+    }
+    if (context != null) {
+      context.mergeAspectLoadContext(filteredEntity.name(), AspectLoadContext.fetchAll());
+      // FETCH_ALL must also ride along as the DataLoader key context: loads without one use the
+      // legacy key-only cache key, so a prior dispatch of the same URN under a narrower union
+      // would be served from cache and skip batchLoad entirely, undoing the widening above.
+      return loader.loadMany(
+          keyList, Collections.nCopies(keyList.size(), AspectLoadContext.fetchAll()));
     }
     return loader.loadMany(keyList);
   }
