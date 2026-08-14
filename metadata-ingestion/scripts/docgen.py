@@ -615,8 +615,11 @@ def generate_filter_tag_indexes(
             # Every API-only card offers a way to ask for a real connector.
             # Without a default here the card renders the "API" tag and nothing
             # else, which reads as "supported" to anyone scanning the page.
-            entry["requestNativeUrl"] = meta.get(
-                "requestNativeUrl", DEFAULT_REQUEST_CONNECTOR_URL
+            # `or` rather than a get() default: an entry carrying an empty
+            # requestNativeUrl would otherwise pass the falsy value straight
+            # through and reinstate the dead-end card.
+            entry["requestNativeUrl"] = (
+                meta.get("requestNativeUrl") or DEFAULT_REQUEST_CONNECTOR_URL
             )
 
         entries.append(entry)

@@ -39,9 +39,12 @@
   text-transform: uppercase;
 }
 
+// Mirrored by the legend samples in FilterPage/legend.module.scss; change both
+// together. Foregrounds clear WCAG AA's 4.5:1 for normal text, which applies
+// because the badge is well under the 18pt large-text threshold.
 .badgeCertified {
   background: #e6f4ea;
-  color: #1a7f37;
+  color: #136c2e;
 }
 
 .badgeIncubating {
@@ -51,7 +54,7 @@
 
 .badgeTesting {
   background: #f0f0f5;
-  color: #6b7280;
+  color: #585d66;
 }
 
 .featureImage {
