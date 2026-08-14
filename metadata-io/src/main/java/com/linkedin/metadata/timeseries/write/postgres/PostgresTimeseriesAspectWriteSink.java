@@ -95,6 +95,29 @@ public class PostgresTimeseriesAspectWriteSink extends AbstractTimeseriesAspectW
     }
   }
 
+  @Override
+  public void deleteByUrn(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String urn) {
+    try {
+      storeRegistry
+          .resolve(entityName, aspectName)
+          .getDao()
+          .deleteByUrn(entityName, aspectName, urn);
+    } catch (SQLException e) {
+      handleFailure(
+          opContext,
+          DELETE_FAILURE_METRIC,
+          "Postgres timeseries deleteByUrn failed for {} {} urn={}: {}",
+          entityName,
+          aspectName,
+          urn,
+          e);
+    }
+  }
+
   private void handleFailure(
       @Nonnull OperationContext opContext,
       @Nonnull String metricName,

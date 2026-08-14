@@ -5,6 +5,7 @@ import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties.PgCron.Iam;
 import io.ebean.Database;
+import io.ebean.datasource.DataSourceBuilder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -26,6 +27,16 @@ public final class PgTimeseriesStoreConnections {
       @Nonnull Database fallbackServer,
       @Nonnull PostgresSqlSetupProperties props)
       throws SQLException {
+    return open(store, fallbackServer, props, null);
+  }
+
+  @Nonnull
+  public static Connection open(
+      @Nonnull PgTimeseriesStoreOptions store,
+      @Nonnull Database fallbackServer,
+      @Nonnull PostgresSqlSetupProperties props,
+      @Nullable DataSourceBuilder.Settings ebeanDataSourceConfig)
+      throws SQLException {
     String url = store.getPoolUrl();
     if (url == null || url.isBlank()) {
       return fallbackServer.dataSource().getConnection();
@@ -34,13 +45,12 @@ public final class PgTimeseriesStoreConnections {
     String user = blankToNull(store.getPoolUsername());
     String pass = blankToNull(store.getPoolPassword());
     if (user == null || pass == null) {
-      String[] fallbackCreds = credentialsFromDataSource(fallbackServer);
-      if (fallbackCreds != null) {
+      if (ebeanDataSourceConfig != null) {
         if (user == null) {
-          user = fallbackCreds[0];
+          user = blankToNull(ebeanDataSourceConfig.getUsername());
         }
         if (pass == null) {
-          pass = fallbackCreds[1];
+          pass = blankToNull(ebeanDataSourceConfig.getPassword());
         }
       }
     }
@@ -107,40 +117,5 @@ public final class PgTimeseriesStoreConnections {
   @Nullable
   private static String blankToNull(@Nullable String s) {
     return emptyToNull(s);
-  }
-
-  /**
-   * Best-effort read of username/password from the Ebean fallback pool so custom {@code pool.url}
-   * stores without credentials match runtime ebean fallback behavior.
-   */
-  @Nullable
-  private static String[] credentialsFromDataSource(@Nonnull Database fallbackServer) {
-    try {
-      javax.sql.DataSource ds = fallbackServer.dataSource();
-      String u = invokeStringGetter(ds, "getUsername", "getUser");
-      String p = invokeStringGetter(ds, "getPassword");
-      if (u != null || p != null) {
-        return new String[] {u != null ? u : "", p != null ? p : ""};
-      }
-    } catch (Exception ignored) {
-      // Fall through — caller uses empty credentials.
-    }
-    return null;
-  }
-
-  @Nullable
-  private static String invokeStringGetter(@Nonnull Object target, @Nonnull String... methodNames) {
-    for (String name : methodNames) {
-      try {
-        java.lang.reflect.Method m = target.getClass().getMethod(name);
-        Object v = m.invoke(target);
-        if (v instanceof String) {
-          return (String) v;
-        }
-      } catch (ReflectiveOperationException ignored) {
-        // try next
-      }
-    }
-    return null;
   }
 }

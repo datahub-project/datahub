@@ -1075,3 +1075,6 @@ class TestSessionWrapper:
             response.raise_for_status()
             # Clear the token ID after successful revocation to prevent double-call issues
             self._gms_token_id = None
+            # Only clear process env if we still own the published bootstrap token.
+            if os.environ.get("DATAHUB_GMS_TOKEN") == self._gms_token:
+                os.environ.pop("DATAHUB_GMS_TOKEN", None)

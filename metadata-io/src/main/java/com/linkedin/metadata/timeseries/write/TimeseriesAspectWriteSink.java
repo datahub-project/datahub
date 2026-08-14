@@ -62,4 +62,16 @@ public interface TimeseriesAspectWriteSink {
       boolean isExploded) {
     // optional secondary store
   }
+
+  /**
+   * Deletes all dual-write rows for {@code urn} + aspect when an MCL DELETE lacks a previous aspect
+   * snapshot (no per-document keys available).
+   */
+  default void deleteByUrn(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String urn) {
+    // optional secondary store
+  }
 }

@@ -50,7 +50,7 @@ public class PgTimeseriesSchemaStepMultiStoreTest {
     try (MockedStatic<PgTimeseriesStoreConnections> storeConns =
         mockStatic(PgTimeseriesStoreConnections.class)) {
       storeConns
-          .when(() -> PgTimeseriesStoreConnections.open(any(), eq(database), eq(props)))
+          .when(() -> PgTimeseriesStoreConnections.open(any(), eq(database), eq(props), any()))
           .thenAnswer(
               inv -> {
                 PgTimeseriesStoreOptions store = inv.getArgument(0);
@@ -62,7 +62,7 @@ public class PgTimeseriesSchemaStepMultiStoreTest {
 
       assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
       storeConns.verify(
-          () -> PgTimeseriesStoreConnections.open(any(), eq(database), eq(props)), times(2));
+          () -> PgTimeseriesStoreConnections.open(any(), eq(database), eq(props), any()), times(2));
     }
   }
 
