@@ -1,7 +1,7 @@
 import React from 'react';
 
-import dayjs from '@utils/dayjs';
 import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
 
 const DISPLAY_FORMAT = 'll';
 
