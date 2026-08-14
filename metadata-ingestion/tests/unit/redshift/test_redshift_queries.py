@@ -6,6 +6,11 @@ queries from fixed-width character segments (200 bytes provisioned, 4000 bytes s
 """
 
 from datetime import datetime
+from typing import Dict, List
+
+import sqlglot
+from sqlglot import exp
+from sqlglot.optimizer.qualify import qualify
 
 from datahub.ingestion.source.redshift.query import (
     RedshiftCommonQuery,
@@ -15,6 +20,99 @@ from datahub.ingestion.source.redshift.query import (
 
 START_TIME = datetime(2024, 1, 1, 12, 0, 0)
 END_TIME = datetime(2024, 1, 10, 12, 0, 0)
+
+# Enough of the Redshift system catalog for sqlglot to resolve every column these
+# builders reference. Only the log/catalog tables the lineage queries touch.
+# Typed as sqlglot's own `schema` parameter expects (dict values are invariant).
+REDSHIFT_SYSTEM_SCHEMA: Dict[str, object] = {
+    "stl_querytext": {
+        "userid": "INT",
+        "xid": "BIGINT",
+        "pid": "INT",
+        "query": "INT",
+        "sequence": "INT",
+        "text": "VARCHAR",
+    },
+    "stl_query": {
+        "userid": "INT",
+        "query": "INT",
+        "label": "VARCHAR",
+        "xid": "BIGINT",
+        "pid": "INT",
+        "database": "VARCHAR",
+        "querytxt": "VARCHAR",
+        "starttime": "TIMESTAMP",
+        "endtime": "TIMESTAMP",
+        "aborted": "INT",
+    },
+    "stl_insert": {
+        "userid": "INT",
+        "query": "INT",
+        "slice": "INT",
+        "segment": "INT",
+        "step": "INT",
+        "starttime": "TIMESTAMP",
+        "endtime": "TIMESTAMP",
+        "tbl": "INT",
+        "rows": "BIGINT",
+    },
+    "stl_scan": {
+        "userid": "INT",
+        "query": "INT",
+        "slice": "INT",
+        "segment": "INT",
+        "step": "INT",
+        "starttime": "TIMESTAMP",
+        "endtime": "TIMESTAMP",
+        "tbl": "INT",
+        "type": "INT",
+        "rows": "BIGINT",
+    },
+    "stl_load_commits": {"userid": "INT", "query": "INT", "slice": "INT"},
+    "svv_table_info": {
+        "database": "VARCHAR",
+        "schema": "VARCHAR",
+        "table_id": "INT",
+        "table": "VARCHAR",
+        "size": "BIGINT",
+        "tbl_rows": "BIGINT",
+    },
+    "svl_user_info": {"usesysid": "INT", "usename": "VARCHAR"},
+    "sys_query_detail": {
+        "user_id": "INT",
+        "query_id": "BIGINT",
+        "table_id": "INT",
+        "step_name": "VARCHAR",
+        "source": "VARCHAR",
+        "start_time": "TIMESTAMP",
+        "end_time": "TIMESTAMP",
+    },
+    "sys_query_text": {
+        "query_id": "BIGINT",
+        "sequence": "INT",
+        "text": "VARCHAR",
+        "session_id": "INT",
+    },
+    "svv_user_info": {"user_id": "INT", "user_name": "VARCHAR"},
+}
+
+
+def assert_valid_redshift_sql(sql: str, expected_ctes: List[str]) -> None:
+    """Resolve every column reference and check CTE declaration order.
+
+    A CTE projection missing a column its outer SELECT references parses cleanly and
+    fails only on a live cluster; qualify() reports `Unknown column`. A non-recursive
+    WITH can only reference CTEs declared before it, so `expected_ctes` asserts
+    correctness rather than style.
+    """
+    # The bound parameters are placeholders, not SQL; give them a literal to parse.
+    parsed = sqlglot.parse_one(sql.replace("%s", "'?'"), dialect="redshift")
+
+    assert [cte.alias for cte in parsed.find_all(exp.CTE)] == expected_ctes
+
+    # qualify() rewrites in place, so resolve only after reading the CTE order.
+    qualify(parsed, schema=REDSHIFT_SYSTEM_SCHEMA, dialect="redshift")
+
 
 # The boundary-aware LISTAGG pattern for 200-byte segments (provisioned).
 # Appends a space when the trimmed segment is shorter than the segment size,
@@ -209,8 +307,8 @@ class TestQueryTextScopedToWindow:
         sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
             db_name="test_db", start_time=START_TIME, end_time=END_TIME
         )
-        # The in-window insert rows move into a named CTE so both STL_QUERYTEXT and
-        # stl_scan -- neither of which was bounded before -- can be scoped to it.
+        # The in-window insert rows sit in a named CTE so both the STL_QUERYTEXT scan
+        # and the stl_scan subquery can be scoped to it.
         assert "WITH target_tables AS" in sql
         assert "starttime >= '2024-01-01 12:00:00'" in sql
         assert sql.lower().count("query in (select query from target_tables)") == 2
@@ -222,16 +320,16 @@ class TestQueryTextScopedToWindow:
         assert "with target_queries as" in sql.lower()
         assert "query in (select query from target_queries)" in sql.lower()
         # stl_insert is cluster-wide, so the driving set joins SVV_TABLE_INFO to scope
-        # by database too -- otherwise the LISTAGG still reassembles text for inserts
-        # into every other database on the cluster, which the outer query discards.
+        # by database too; without it the LISTAGG reassembles text for inserts into
+        # every other database on the cluster, which the outer query discards.
         assert "sti.database = 'test_db'" in sql
 
     def test_provisioned_list_all_queries_scopes_query_text(self):
         sql = RedshiftProvisionedQuery.list_all_queries_sql()
         assert "in_window_queries" in sql
         assert "query IN (SELECT query FROM in_window_queries)" in sql
-        # The window and database stay bound as three positional parameters in the
-        # caller's order (start_time, end_time, database) -- reordering them would
+        # The window and database are bound as three positional parameters in the
+        # caller's order (start_time, end_time, database); reordering them would
         # silently bind the database name into a timestamp comparison.
         assert sql.count("%s") == 3
         assert (
@@ -247,6 +345,48 @@ class TestQueryTextScopedToWindow:
         # SYS_QUERY_TEXT is de-duplicated with a ROW_NUMBER() window, which the outer
         # join to the time-filtered `queries` CTE cannot bound.
         assert "query_id IN (SELECT query_id FROM queries)" in sql
+
+
+class TestGeneratedSqlResolves:
+    """Each query's driving set lives in a CTE whose projection the outer SELECT
+    depends on. A projection missing a column the outer query still reads parses
+    clean and satisfies every substring assertion, failing only against a live
+    cluster, so the contract needs resolving rather than matching."""
+
+    def test_provisioned_stl_scan_based_lineage_query(self):
+        assert_valid_redshift_sql(
+            RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            expected_ctes=["target_tables", "query_txt"],
+        )
+
+    def test_provisioned_list_insert_create_queries_sql(self):
+        assert_valid_redshift_sql(
+            RedshiftProvisionedQuery.list_insert_create_queries_sql(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            expected_ctes=["target_queries", "query_txt"],
+        )
+
+    def test_provisioned_list_all_queries_sql(self):
+        assert_valid_redshift_sql(
+            RedshiftProvisionedQuery.list_all_queries_sql(),
+            expected_ctes=["in_window_queries", "query_txt"],
+        )
+
+    def test_serverless_stl_scan_based_lineage_query(self):
+        assert_valid_redshift_sql(
+            RedshiftServerlessQuery.stl_scan_based_lineage_query(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            expected_ctes=[
+                "queries",
+                "unique_query_text",
+                "scan_queries",
+                "insert_queries",
+            ],
+        )
 
 
 def _assert_no_inner_join_on(sql: str, view: str) -> None:

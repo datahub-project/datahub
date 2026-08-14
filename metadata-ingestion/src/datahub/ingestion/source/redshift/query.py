@@ -885,7 +885,7 @@ where
         # values never enter the SQL string. Order: start_time, end_time, database.
         return """
             -- The in-window statements are a CTE so the STL_QUERYTEXT scan below can be
-            -- scoped to them while the bound parameters stay at three, in caller order.
+            -- scoped to them without repeating the three bound parameters.
             WITH in_window_queries AS (
                 SELECT sq.query, sq.pid, sq.userid, sq.starttime
                 FROM stl_query sq
