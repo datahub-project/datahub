@@ -32,6 +32,7 @@ import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
@@ -47,6 +48,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -104,6 +106,11 @@ public class AuthServiceController {
   private static final String REQUIRED_GROUPS = "requiredGroups";
   private static final String ACCESS_DENIED_MESSAGE = "accessDeniedMessage";
   private static final String ACCESS_DENIED_REDIRECT_URL = "accessDeniedRedirectUrl";
+
+  private static final String LOGIN_OUTCOME_SUCCESS = "success";
+  private static final String LOGIN_OUTCOME_FAILURE = "failure";
+  private static final String LOGIN_DENIAL_REASON_NONE = "none";
+  private static final String LOGIN_SOURCE_UNKNOWN = "unknown";
 
   @Autowired private StatelessTokenService _statelessTokenService;
 
@@ -200,17 +207,26 @@ public class AuthServiceController {
                   _configProvider.getAuthentication().isVerboseAuthFailureLogging();
               final boolean enforceExistence =
                   _configProvider.getAuthentication().isEnforceExistenceEnabled();
+              final String loginSource =
+                  resolveLoginSource(httpEntity.getHeaders(), LOGIN_SOURCE_UNKNOWN);
               final Optional<LoginDenialReason> eligibilityDenial =
                   _userSessionEligibilityChecker.checkEligibility(
                       opContext, userId.asText(), enforceExistence);
               if (eligibilityDenial.isPresent()) {
+                final LoginDenialReason denialReason = eligibilityDenial.get();
+                recordFailedLoginUsageEvent(
+                    httpEntity,
+                    new CorpuserUrn(userId.asText()).toString(),
+                    denialReason,
+                    "failedLoginSessionEligibility",
+                    loginSource);
                 emitLoginDenialLog(
                     verboseAuthFailureLogging,
                     userId.asText(),
-                    eligibilityDenial.get(),
+                    denialReason,
                     "generateSessionTokenForUser");
                 return new ResponseEntity<>(
-                    buildLoginDenialJsonBody(eligibilityDenial.get()), HttpStatus.FORBIDDEN);
+                    buildLoginDenialJsonBody(denialReason), HttpStatus.FORBIDDEN);
               }
 
               // 2. Generate a new DataHub JWT
@@ -233,16 +249,16 @@ public class AuthServiceController {
                         USER_ID_ATTR, new CorpuserUrn(userId.asText()).toString());
                     loginEventAttributes.put(
                         EVENT_TYPE_ATTR, DataHubUsageEventType.LOG_IN_EVENT.getType());
-                    List<String> loginSource =
-                        httpEntity.getHeaders().getOrEmpty(DATAHUB_LOGIN_SOURCE_HEADER_NAME);
-                    if (!loginSource.isEmpty()) {
-                      loginEventAttributes.put(LOGIN_SOURCE_ATTR, loginSource.get(0));
+                    if (!LOGIN_SOURCE_UNKNOWN.equals(loginSource)) {
+                      loginEventAttributes.put(LOGIN_SOURCE_ATTR, loginSource);
                     }
                     List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
                     if (!sourceIP.isEmpty()) {
                       loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
                     }
                     Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
+                    incrementLoginMetric(
+                        LOGIN_OUTCOME_SUCCESS, loginSource, LOGIN_DENIAL_REASON_NONE);
                     return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
                   });
             } catch (Exception e) {
@@ -512,20 +528,27 @@ public class AuthServiceController {
               }
             }
 
+            final String loginSource =
+                resolveLoginSource(httpEntity.getHeaders(), LoginSource.PASSWORD_LOGIN.getSource());
             if (!doesPasswordMatch) {
-              recordFailedNativeLoginUsageEvent(
+              recordFailedLoginUsageEvent(
                   httpEntity,
                   userUrnString,
                   LoginDenialReason.INVALID_CREDENTIALS,
-                  "failedPasswordLogin");
+                  "failedPasswordLogin",
+                  loginSource);
               emitLoginDenialLog(
                   verboseAuthFailureLogging,
                   userUrnString,
                   LoginDenialReason.INVALID_CREDENTIALS,
                   "verifyNativeUserCredentials");
             } else if (sessionDenial != null) {
-              recordFailedNativeLoginUsageEvent(
-                  httpEntity, userUrnString, sessionDenial, "failedLoginSessionEligibility");
+              recordFailedLoginUsageEvent(
+                  httpEntity,
+                  userUrnString,
+                  sessionDenial,
+                  "failedLoginSessionEligibility",
+                  loginSource);
               emitLoginDenialLog(
                   verboseAuthFailureLogging,
                   userUrnString,
@@ -706,11 +729,46 @@ public class AuthServiceController {
     return json.toString();
   }
 
-  private void recordFailedNativeLoginUsageEvent(
+  @Nonnull
+  private String resolveLoginSource(
+      @Nonnull final HttpHeaders headers, @Nonnull final String defaultSource) {
+    final List<String> loginSourceHeader = headers.getOrEmpty(DATAHUB_LOGIN_SOURCE_HEADER_NAME);
+    if (loginSourceHeader.isEmpty()) {
+      return defaultSource;
+    }
+    // Allow-list against LoginSource to keep Micrometer tag cardinality bounded.
+    final LoginSource knownSource = LoginSource.getSource(loginSourceHeader.get(0));
+    if (knownSource != null) {
+      return knownSource.getSource();
+    }
+    return LOGIN_SOURCE_UNKNOWN;
+  }
+
+  private void incrementLoginMetric(
+      @Nonnull final String outcome,
+      @Nonnull final String loginSource,
+      @Nonnull final String denialReason) {
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metrics ->
+                metrics.incrementMicrometer(
+                    MetricUtils.DATAHUB_LOGIN,
+                    1,
+                    "outcome",
+                    outcome,
+                    "login_source",
+                    loginSource,
+                    "denial_reason",
+                    denialReason));
+  }
+
+  private void recordFailedLoginUsageEvent(
       final HttpEntity<String> httpEntity,
       final String userUrnString,
       final LoginDenialReason denialReason,
-      final String spanName) {
+      final String spanName,
+      @Nonnull final String loginSource) {
     // Uses systemOperationContext for span telemetry only; no entity reads/writes are performed
     // here.
     systemOperationContext.withSpan(
@@ -720,7 +778,7 @@ public class AuthServiceController {
           loginEventAttributes.put(USER_ID_ATTR, UrnUtils.getUrn(userUrnString).toString());
           loginEventAttributes.put(
               EVENT_TYPE_ATTR, DataHubUsageEventType.FAILED_LOGIN_EVENT.getType());
-          loginEventAttributes.put(LOGIN_SOURCE_ATTR, LoginSource.PASSWORD_LOGIN.getSource());
+          loginEventAttributes.put(LOGIN_SOURCE_ATTR, loginSource);
           loginEventAttributes.put(LOGIN_DENIAL_REASON_ATTR, denialReason.name());
           List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
           if (!sourceIP.isEmpty()) {
@@ -728,6 +786,7 @@ public class AuthServiceController {
           }
           Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
         });
+    incrementLoginMetric(LOGIN_OUTCOME_FAILURE, loginSource, denialReason.name());
   }
 
   private void emitLoginDenialLog(
