@@ -186,6 +186,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 not isinstance(config, SnowflakeV2Config)
                 or config.include_technical_schema
             ),
+            preserve_column_case=bool(
+                isinstance(config, SnowflakeV2Config) and config.preserve_column_case
+            ),
         )
         self.report.data_dictionary_cache = self.data_dictionary
 

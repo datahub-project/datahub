@@ -391,7 +391,7 @@ class TestProcessColumnOccurrences:
         semantic_view = self._make_semantic_view()
 
         data_dict._process_column_occurrences(
-            semantic_view, "COL1", self._occurrences(), "TEST_VIEW", 1
+            semantic_view, self._occurrences(), "TEST_VIEW", 1
         )
 
         assert semantic_view.column_occurrences == {}
@@ -409,7 +409,7 @@ class TestProcessColumnOccurrences:
         occurrences = self._occurrences()
 
         data_dict._process_column_occurrences(
-            semantic_view, "COL1", occurrences, "TEST_VIEW", 1
+            semantic_view, occurrences, "TEST_VIEW", 1
         )
 
         assert semantic_view.column_occurrences == {"COL1": occurrences}

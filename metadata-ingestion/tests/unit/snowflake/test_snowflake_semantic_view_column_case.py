@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -107,6 +108,48 @@ class TestSemanticViewColumnCase:
         }
 
         assert lineage_paths == schema_paths
+
+    @pytest.mark.parametrize(
+        ("preserve", "expected_columns"),
+        [
+            # Bucketed by uppercase name, so the pair merges into one column.
+            (False, 1),
+            # Two real columns, kept apart.
+            (True, 2),
+        ],
+    )
+    def test_case_only_columns_split_when_preserving(
+        self, preserve: bool, expected_columns: int
+    ) -> None:
+        from datahub.ingestion.source.snowflake.snowflake_schema import (
+            SemanticViewColumnMetadata,
+            SnowflakeDataDictionary,
+        )
+
+        data_dict = SnowflakeDataDictionary(
+            connection=MagicMock(),
+            report=SnowflakeV2Report(),
+            emit_semantic_model_entities=True,
+            preserve_column_case=preserve,
+        )
+        occurrences = [
+            SemanticViewColumnMetadata(
+                name=name,
+                data_type="TEXT",
+                comment=None,
+                subtype=SemanticViewColumnSubtype.DIMENSION,
+                table_name="ORDERS",
+                synonyms=[],
+                expression=None,
+            )
+            for name in ("col", "COL")
+        ]
+
+        groups = data_dict._group_occurrences_by_case(occurrences)
+
+        assert len(groups) == expected_columns
+        if preserve:
+            assert sorted(g[0].name for g in groups) == ["COL", "col"]
 
     def test_unknown_column_falls_back_to_the_key(self) -> None:
         gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)

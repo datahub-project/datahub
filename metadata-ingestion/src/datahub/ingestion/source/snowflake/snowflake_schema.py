@@ -722,6 +722,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         fetch_views_from_information_schema: bool = False,
         emit_semantic_model_entities: bool = False,
         include_technical_schema: bool = True,
+        preserve_column_case: bool = False,
     ) -> None:
         self.connection = connection
         self.report = report
@@ -733,6 +734,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # dataset schema or new-mode logical datasets), which requires technical
         # schema. Skip those extra per-database queries when it is disabled.
         self._include_technical_schema = include_technical_schema
+        # Semantic-view columns are deduplicated by uppercase name, which merges
+        # columns differing only by case. Preserving casing means keeping them
+        # apart, so the grouping has to follow the same setting.
+        self._preserve_column_case = preserve_column_case
 
     def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
@@ -1677,23 +1682,48 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Sort for deterministic output (synonyms have no inherent order)
         return sorted(unique_synonyms, key=str.lower)
 
+    def _group_occurrences_by_case(
+        self, occurrences: List[SemanticViewColumnMetadata]
+    ) -> List[List[SemanticViewColumnMetadata]]:
+        """Split a bucket of occurrences into the columns it actually represents.
+
+        Occurrences arrive bucketed by uppercase name, so two columns differing
+        only by case share a bucket and would be merged into one. They are
+        distinct columns, so keep them apart when casing is being preserved.
+        """
+        if not self._preserve_column_case:
+            return [occurrences]
+
+        by_stored_name: Dict[str, List[SemanticViewColumnMetadata]] = {}
+        for occurrence in occurrences:
+            by_stored_name.setdefault(occurrence.name, []).append(occurrence)
+        return list(by_stored_name.values())
+
     def _process_column_occurrences(
         self,
         semantic_view: SnowflakeSemanticView,
-        col_name_upper: str,
         occurrences: List[SemanticViewColumnMetadata],
         view_name: str,
         ordinal: int,
     ) -> None:
-        """Process and deduplicate column occurrences for a semantic view."""
+        """Process and deduplicate column occurrences for a semantic view.
+
+        Per-column metadata is keyed by the column's stored name rather than an
+        uppercased form, so a bucket split by case files each column separately
+        and every consumer can look up with the name it already holds.
+        """
         col_name = occurrences[0].name
+        # Uppercase unless casing is being preserved, so the default path keys
+        # metadata exactly as before. When preserved, a bucket split by case needs
+        # a per-column key, and the stored name is the only one that is unique.
+        column_key = col_name if self._preserve_column_case else col_name.upper()
 
         # Only the semanticModel mapper reads column_occurrences (to group fields
         # per logical dataset); gate it behind the same flag as
         # _populate_semantic_view_relationships so legacy dataset-mode ingestion
         # doesn't carry the extra per-column memory for data it never uses.
         if self._emit_semantic_model_entities:
-            semantic_view.column_occurrences[col_name_upper] = occurrences
+            semantic_view.column_occurrences[column_key] = occurrences
 
         # Merge metadata from all occurrences
         data_type, merged_comment, merged_subtype = self._merge_column_metadata(
@@ -1714,19 +1744,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 expression=occurrences[0].expression,
             )
         )
-        semantic_view.column_subtypes[col_name_upper] = merged_subtype
+        semantic_view.column_subtypes[column_key] = merged_subtype
 
         # Store table mappings for column-level lineage
         table_names: List[str] = [
             occ.table_name for occ in occurrences if occ.table_name
         ]
         if table_names:
-            semantic_view.column_table_mappings[col_name_upper] = table_names
+            semantic_view.column_table_mappings[column_key] = table_names
 
         # Store merged synonyms
         unique_synonyms = self._deduplicate_synonyms(occurrences)
         if unique_synonyms:
-            semantic_view.column_synonyms[col_name_upper] = unique_synonyms
+            semantic_view.column_synonyms[column_key] = unique_synonyms
 
     def _merge_column_metadata(
         self,
@@ -1861,11 +1891,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     continue
 
                 ordinal = 1
-                for col_name_upper, occurrences in column_collection.columns.items():
-                    self._process_column_occurrences(
-                        semantic_view, col_name_upper, occurrences, view_key[1], ordinal
-                    )
-                    ordinal += 1
+                for occurrences in column_collection.columns.values():
+                    for grouped in self._group_occurrences_by_case(occurrences):
+                        self._process_column_occurrences(
+                            semantic_view, grouped, view_key[1], ordinal
+                        )
+                        ordinal += 1
 
             logger.info(
                 f"Populated columns for semantic views in database {db_name}. "
