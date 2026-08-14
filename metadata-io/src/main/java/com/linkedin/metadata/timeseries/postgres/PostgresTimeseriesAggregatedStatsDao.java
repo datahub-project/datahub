@@ -138,32 +138,17 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       }
     }
 
-    StringBuilder sql = new StringBuilder("SELECT ");
-    sql.append(String.join(", ", groupSql));
-    if (!groupSql.isEmpty() && !metricSql.isEmpty()) {
-      sql.append(", ");
-    }
-    sql.append(String.join(", ", metricSql));
-    sql.append(" FROM ").append(qualifiedTable);
-    sql.append(" WHERE entity_name = ? AND aspect_name = ? ");
-    sql.append(" AND (").append(filterSql.getExpression()).append(")");
-    for (String pathExpr : stringGroupPathExprs) {
-      sql.append(" AND ")
-          .append(pathExpr)
-          .append(" IS NOT NULL AND ")
-          .append(pathExpr)
-          .append(" <> ''");
-    }
-    if (!groupSql.isEmpty()) {
-      sql.append(" GROUP BY ");
-      sql.append(String.join(", ", groupAliases));
-      sql.append(" ORDER BY ");
-      sql.append(buildGroupOrderBy(buckets, groupAliases, metricColumnNames, aggregationSpecs));
-      Integer stringGroupLimit = stringGroupingLimit(buckets);
-      if (stringGroupLimit != null) {
-        sql.append(" LIMIT ").append(stringGroupLimit);
-      }
-    }
+    String sql =
+        buildAggregatedStatsSql(
+            qualifiedTable,
+            groupSql,
+            groupAliases,
+            metricSql,
+            metricColumnNames,
+            stringGroupPathExprs,
+            buckets,
+            aggregationSpecs,
+            filterSql.getExpression());
 
     List<Object> params = new ArrayList<>();
     params.add(entityName);
@@ -198,7 +183,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     }
 
     List<StringArray> rows = new ArrayList<>();
-    try (PreparedStatement ps = connection.prepareStatement(sql.toString())) {
+    try (PreparedStatement ps = connection.prepareStatement(sql)) {
       bindParams(ps, params);
       try (ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
@@ -411,14 +396,84 @@ public final class PostgresTimeseriesAggregatedStatsDao {
   }
 
   /** Mirrors ES {@code MAX_TERM_BUCKETS} default for string terms aggregations. */
-  private static final int MAX_TERM_BUCKETS = 24 * 60;
+  static final int MAX_TERM_BUCKETS = 24 * 60;
+
+  /**
+   * Builds the aggregation SELECT (no bind params). Package-visible for unit tests covering ORDER
+   * BY, per-parent string limits, and timezone truncation.
+   */
+  @Nonnull
+  static String buildAggregatedStatsSql(
+      @Nonnull String qualifiedTable,
+      @Nonnull List<String> groupSql,
+      @Nonnull List<String> groupAliases,
+      @Nonnull List<String> metricSql,
+      @Nonnull List<String> metricColumnNames,
+      @Nonnull List<String> stringGroupPathExprs,
+      @Nonnull GroupingBucket[] buckets,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nonnull String filterExpression) {
+    StringBuilder inner = new StringBuilder("SELECT ");
+    inner.append(String.join(", ", groupSql));
+    if (!groupSql.isEmpty() && !metricSql.isEmpty()) {
+      inner.append(", ");
+    }
+    inner.append(String.join(", ", metricSql));
+    inner.append(" FROM ").append(qualifiedTable);
+    inner.append(" WHERE entity_name = ? AND aspect_name = ? ");
+    inner.append(" AND (").append(filterExpression).append(")");
+    for (String pathExpr : stringGroupPathExprs) {
+      inner
+          .append(" AND ")
+          .append(pathExpr)
+          .append(" IS NOT NULL AND ")
+          .append(pathExpr)
+          .append(" <> ''");
+    }
+    if (groupSql.isEmpty()) {
+      return inner.toString();
+    }
+    inner.append(" GROUP BY ");
+    inner.append(String.join(", ", groupAliases));
+    String orderBy = buildGroupOrderBy(buckets, groupAliases, metricColumnNames, aggregationSpecs);
+    inner.append(" ORDER BY ");
+    inner.append(orderBy);
+
+    Integer stringGroupLimit = stringGroupingLimit(buckets);
+    if (stringGroupLimit == null) {
+      return inner.toString();
+    }
+
+    // ES applies terms size per parent bucket; wrap with ROW_NUMBER partitioned by parents of the
+    // innermost STRING grouping (date→string production path).
+    int lastStringIdx = lastStringGroupingIndex(buckets);
+    List<String> parentAliases = groupAliases.subList(0, Math.max(0, lastStringIdx));
+    List<String> selectCols = new ArrayList<>(groupAliases);
+    for (String metricCol : metricColumnNames) {
+      selectCols.add(sqlSafeAlias(metricCol));
+    }
+    String selectList = String.join(", ", selectCols);
+    StringBuilder ranked = new StringBuilder("SELECT ");
+    ranked.append(selectList);
+    ranked.append(" FROM (SELECT ");
+    ranked.append(selectList);
+    ranked.append(", ROW_NUMBER() OVER (");
+    if (!parentAliases.isEmpty()) {
+      ranked.append("PARTITION BY ").append(String.join(", ", parentAliases)).append(" ");
+    }
+    ranked.append("ORDER BY ").append(orderBy);
+    ranked.append(") AS _rn FROM (");
+    ranked.append(inner);
+    ranked.append(") _g) _r WHERE _rn <= ").append(stringGroupLimit);
+    return ranked.toString();
+  }
 
   /**
    * ORDER BY for grouped rows: string buckets honor {@code ascending} / {@code orderByMetric}; date
    * buckets keep group-key order.
    */
   @Nonnull
-  private static String buildGroupOrderBy(
+  static String buildGroupOrderBy(
       @Nonnull GroupingBucket[] buckets,
       @Nonnull List<String> groupAliases,
       @Nonnull List<String> metricColumnNames,
@@ -450,23 +505,29 @@ public final class PostgresTimeseriesAggregatedStatsDao {
   }
 
   /**
-   * When any STRING grouping bucket is present, apply the tightest requested {@code size} (ES terms
-   * size). Defaults to {@link #MAX_TERM_BUCKETS}.
+   * Size for the innermost STRING grouping bucket (ES terms size within each parent). Defaults to
+   * {@link #MAX_TERM_BUCKETS}.
    */
   @Nullable
-  private static Integer stringGroupingLimit(@Nonnull GroupingBucket[] buckets) {
-    boolean hasString = false;
-    int limit = MAX_TERM_BUCKETS;
-    for (GroupingBucket b : buckets) {
-      if (b.getType() != GroupingBucketType.STRING_GROUPING_BUCKET) {
-        continue;
-      }
-      hasString = true;
-      if (b.hasSize() && b.getSize() > 0) {
-        limit = Math.min(limit, b.getSize());
+  static Integer stringGroupingLimit(@Nonnull GroupingBucket[] buckets) {
+    int lastStringIdx = lastStringGroupingIndex(buckets);
+    if (lastStringIdx < 0) {
+      return null;
+    }
+    GroupingBucket b = buckets[lastStringIdx];
+    if (b.hasSize() && b.getSize() > 0) {
+      return b.getSize();
+    }
+    return MAX_TERM_BUCKETS;
+  }
+
+  private static int lastStringGroupingIndex(@Nonnull GroupingBucket[] buckets) {
+    for (int i = buckets.length - 1; i >= 0; i--) {
+      if (buckets[i].getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
+        return i;
       }
     }
-    return hasString ? limit : null;
+    return -1;
   }
 
   private static String getAggregationSpecAggDisplayName(AggregationSpec aggregationSpec) {

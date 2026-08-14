@@ -9,7 +9,7 @@ import org.springframework.lang.Nullable;
  * PostgresSqlSetupProperties#buildPgTimeseriesOptions()}.
  */
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class PgTimeseriesStoreOptions {
   /** Store name (e.g. {@code default}, {@code long}). */
   String name;
