@@ -285,6 +285,10 @@ class BigqueryLineageExtractor:
 
         return True
 
+    def skip_audit_log_lineage_for(self, table_refs: Set[str]) -> None:
+        """Leave these refs' upstreamLineage to whoever already wrote it."""
+        self.datasets_skip_audit_log_lineage.update(table_refs)
+
     def get_lineage_workunits_for_views_and_snapshots(
         self,
         projects: List[str],

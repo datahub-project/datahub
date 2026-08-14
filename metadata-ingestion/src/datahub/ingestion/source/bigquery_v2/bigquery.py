@@ -336,6 +336,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.linked_datasets_handler is not None:
             yield from self.linked_datasets_handler.gen_publisher_sibling_workunits()
 
+        self.lineage_extractor.skip_audit_log_lineage_for(
+            self.bq_schema_extractor.linked_dataset_refs
+        )
+
         with self.report.new_stage("*: View and Snapshot Lineage"):
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
                 [p.id for p in projects],

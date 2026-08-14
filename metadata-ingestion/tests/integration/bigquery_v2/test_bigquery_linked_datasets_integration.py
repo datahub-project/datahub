@@ -239,6 +239,8 @@ def test_bigquery_linked_datasets_ingest(
                         name=active_users_view_name,
                         comment="Active users view mirrored from publisher",
                         created=None,
+                        # Deliberately unrealistic: BigQuery hides a linked view's
+                        # DDL, but the suppression guard needs a value to suppress.
                         view_definition="SELECT * FROM users WHERE active",
                         last_altered=None,
                         size_in_bytes=None,
