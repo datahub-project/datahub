@@ -68,13 +68,11 @@ class TestRestoreCaseFoldedColumns:
             [QUOTED_LOWER, FOLDED_UPPER, "id"]
         )
         with patch.object(sa, "inspect", return_value=inspector):
-            rebuilt = adapter._restore_case_folded_columns(table, snowflake_engine)
+            rebuilt = adapter._use_stored_column_names(table, snowflake_engine)
 
-        # The colliding pair takes as-stored identifiers, so they are distinct
-        # strings and each addresses exactly one real column. "id" did not
-        # collide, so it keeps the name reflection gave it -- renaming it would
-        # detach its profile on dialects that do not re-map field paths.
-        assert [str(c.name) for c in rebuilt.columns] == ["col", "COL", "id"]
+        # Every column takes its as-stored identifier, so the colliding pair are
+        # distinct strings and each addresses exactly one real column.
+        assert [str(c.name) for c in rebuilt.columns] == ["col", "COL", "ID"]
         assert len({str(c.name) for c in rebuilt.columns}) == 3
 
     def test_generated_sql_targets_each_column_separately(
@@ -84,7 +82,7 @@ class TestRestoreCaseFoldedColumns:
         inspector = MagicMock()
         inspector.get_columns.return_value = _reflected([QUOTED_LOWER, FOLDED_UPPER])
         with patch.object(sa, "inspect", return_value=inspector):
-            rebuilt = adapter._restore_case_folded_columns(table, snowflake_engine)
+            rebuilt = adapter._use_stored_column_names(table, snowflake_engine)
 
         rendered = [
             str(sa.select([sa.func.min(c)]).compile(dialect=snowflake_engine.dialect))
@@ -93,16 +91,18 @@ class TestRestoreCaseFoldedColumns:
         assert any('"col"' in sql for sql in rendered)
         assert any('"COL"' in sql for sql in rendered)
 
-    def test_untouched_when_no_column_was_folded(
+    def test_uncollided_columns_take_their_stored_names(
         self, adapter: SnowflakeAdapter, snowflake_engine: Any
     ) -> None:
+        # No collision here, but naming is unconditional: SQL always addresses the
+        # stored identifier, and field_path_for translates back at emission.
         table = _folded_table(snowflake_engine, ["customer_id", "amount"])
         inspector = MagicMock()
         inspector.get_columns.return_value = _reflected(["customer_id", "amount"])
         with patch.object(sa, "inspect", return_value=inspector):
-            rebuilt = adapter._restore_case_folded_columns(table, snowflake_engine)
+            rebuilt = adapter._use_stored_column_names(table, snowflake_engine)
 
-        assert rebuilt is table
+        assert [str(c.name) for c in rebuilt.columns] == ["CUSTOMER_ID", "AMOUNT"]
 
     def test_untouched_for_dialects_that_do_not_normalize(
         self, adapter: SnowflakeAdapter
@@ -114,7 +114,7 @@ class TestRestoreCaseFoldedColumns:
 
         # Postgres cannot fold two columns together, so no re-inspection happens.
         with patch.object(sa, "inspect", side_effect=AssertionError("must not run")):
-            assert adapter._restore_case_folded_columns(table, engine) is table
+            assert adapter._use_stored_column_names(table, engine) is table
 
     def test_reuses_one_inspector_per_bind(
         self, adapter: SnowflakeAdapter, snowflake_engine: Any
@@ -126,7 +126,7 @@ class TestRestoreCaseFoldedColumns:
         inspector.get_columns.return_value = _reflected(["col", "id"])
         with patch.object(sa, "inspect", return_value=inspector) as inspect_mock:
             for _ in range(3):
-                adapter._restore_case_folded_columns(table, snowflake_engine)
+                adapter._use_stored_column_names(table, snowflake_engine)
         assert inspect_mock.call_count == 1
 
     def test_sampled_temp_table_is_repaired(
@@ -145,7 +145,7 @@ class TestRestoreCaseFoldedColumns:
         with (
             patch.object(sa, "Table", return_value=repaired),
             patch.object(
-                adapter, "_restore_case_folded_columns", return_value=repaired
+                adapter, "_use_stored_column_names", return_value=repaired
             ) as repair,
         ):
             adapter._create_sampled_temp_table(context, conn, row_count=1_000_000)
@@ -159,9 +159,7 @@ class TestRestoreCaseFoldedColumns:
         inspector = MagicMock()
         inspector.get_columns.side_effect = sa.exc.SQLAlchemyError("boom")
         with patch.object(sa, "inspect", return_value=inspector):
-            assert (
-                adapter._restore_case_folded_columns(table, snowflake_engine) is table
-            )
+            assert adapter._use_stored_column_names(table, snowflake_engine) is table
 
 
 class TestInspectorCaching:
@@ -205,10 +203,18 @@ class TestNonSnowflakeNormalizingDialects:
 
     sql_common hands every SQLAlchemy source the SQLAlchemyProfiler, and a
     platform without its own adapter falls through to the generic one, so the
-    repair runs far beyond Snowflake. Only Snowflake re-maps profile field paths
-    onto the emitted schema afterwards; everywhere else a renamed column simply
-    stops matching its schema field and loses its profile. So the repair has to
-    leave non-colliding columns exactly as reflection produced them.
+    stored-name rebuild runs far beyond Snowflake — unconditionally, for any
+    dialect that normalizes.
+
+    What keeps profiles attached is not leaving names alone but translating them
+    back: ``field_path_for`` maps a stored name to reflection's normalized one,
+    which is what a SQLAlchemy source emitted in schemaMetadata. That is the
+    default for every normalizing dialect, not a Snowflake special case —
+    Snowflake is the one that opts out, because its schema comes from
+    INFORMATION_SCHEMA instead.
+
+    So these pin the round trip rather than the naming: SQL addresses the stored
+    column, the emitted path matches the schema.
     """
 
     @staticmethod
@@ -225,31 +231,55 @@ class TestNonSnowflakeNormalizingDialects:
         )
         return GenericAdapter(ProfilingConfig(), SQLSourceReport(), engine), engine
 
-    def test_non_colliding_columns_keep_their_reflected_names(self) -> None:
-        adapter, engine = self._oracle_adapter()
-        table = _folded_table(engine, ["col", "id", "amount"])
-
-        inspector = MagicMock()
-        inspector.get_columns.return_value = _reflected(
-            [QUOTED_LOWER, FOLDED_UPPER, "id", "amount"]
-        )
-        with patch.object(sa, "inspect", return_value=inspector):
-            rebuilt = adapter._restore_case_folded_columns(table, engine)
-
-        names = [str(c.name) for c in rebuilt.columns]
-        assert "id" in names and "amount" in names, (
-            f"reflected names must survive untouched, got {names}"
-        )
-        # The collision is still repaired: both spellings present, distinctly.
-        assert sorted(n for n in names if n.lower() == "col") == ["COL", "col"]
-
-    def test_table_without_a_collision_is_untouched(self) -> None:
+    def test_stored_name_round_trips_to_the_reflected_one(self) -> None:
+        """The guarantee that matters: SQL uses the stored name, the emitted path
+        is the one the source's schemaMetadata carries."""
         adapter, engine = self._oracle_adapter()
         table = _folded_table(engine, ["id", "amount"])
 
         inspector = MagicMock()
         inspector.get_columns.return_value = _reflected(["id", "amount"])
         with patch.object(sa, "inspect", return_value=inspector):
-            rebuilt = adapter._restore_case_folded_columns(table, engine)
+            rebuilt = adapter._use_stored_column_names(table, engine)
 
-        assert rebuilt is table
+        # SQL side: as stored, so it addresses exactly one physical column.
+        assert [str(c.name) for c in rebuilt.columns] == ["ID", "AMOUNT"]
+        # Emission side: back to what reflection -- and so the schema -- uses.
+        assert [
+            adapter.field_path_for(str(c.name), engine) for c in rebuilt.columns
+        ] == ["id", "amount"]
+
+    def test_collision_repaired_and_both_paths_translate(self) -> None:
+        adapter, engine = self._oracle_adapter()
+        table = _folded_table(engine, ["col", "id"])
+
+        inspector = MagicMock()
+        inspector.get_columns.return_value = _reflected(
+            [QUOTED_LOWER, FOLDED_UPPER, "id"]
+        )
+        with patch.object(sa, "inspect", return_value=inspector):
+            rebuilt = adapter._use_stored_column_names(table, engine)
+
+        names = [str(c.name) for c in rebuilt.columns]
+        # Both spellings survive as distinct SQL identifiers.
+        assert sorted(n for n in names if n.lower() == "col") == ["COL", "col"]
+        # Both fold to the one field path the schema declares, which the profiler
+        # then de-duplicates -- rather than emitting a path nothing backs.
+        assert {
+            adapter.field_path_for(n, engine) for n in names if n.lower() == "col"
+        } == {"col"}
+
+    def test_untouched_for_a_dialect_that_does_not_normalize(self) -> None:
+        from sqlalchemy.dialects import postgresql
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        engine = _engine(postgresql.dialect())  # type: ignore[misc]
+        adapter = GenericAdapter(ProfilingConfig(), SQLSourceReport(), engine)
+        table = _folded_table(engine, ["id", "amount"])
+
+        with patch.object(sa, "inspect", side_effect=AssertionError("must not run")):
+            assert adapter._use_stored_column_names(table, engine) is table
+        assert adapter.field_path_for("Id", engine) == "Id"

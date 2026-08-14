@@ -1,5 +1,4 @@
 import logging
-from collections import defaultdict
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional
 
 from snowflake.sqlalchemy import snowdialect
@@ -60,7 +59,6 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             self.database_default_schema[database.name] = list(db_tables.keys())[0]
 
         profile_requests = []
-        column_name_maps: Dict[str, Dict[str, str]] = {}
         for schema in database.schemas:
             for table in db_tables[schema.name]:
                 if (
@@ -79,80 +77,48 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                 if profile_request is not None:
                     self.report.report_entity_profiled(profile_request.pretty_name)
                     profile_requests.append(profile_request)
-                    column_name_maps[
-                        self.dataset_urn_builder(profile_request.pretty_name)
-                    ] = self._build_column_name_map(table)
 
         if len(profile_requests) == 0:
             return
 
-        yield from self._restore_column_case(
+        yield from self._to_schema_field_paths(
             self.generate_profile_workunits(
                 profile_requests,
                 max_workers=self.config.profiling.max_workers,
                 db_name=database.name,
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
-            ),
-            column_name_maps,
+            )
         )
 
-    def _build_column_name_map(self, table: SnowflakeTable) -> Dict[str, str]:
-        # snowflake-sqlalchemy sets requires_name_normalize, so reflected column names
-        # arrive folded (`CUSTOMER_ID` -> `customer_id`) while field paths are built
-        # from INFORMATION_SCHEMA. Map both spellings a profile can carry — the folded
-        # name, and the as-stored name the profiler uses for case-colliding columns —
-        # back to the column's true name.
-        folded: Dict[str, List[str]] = defaultdict(list)
-        for col in table.columns:
-            folded[col.name.lower()].append(col.name)
-
-        resolved: Dict[str, str] = {col.name: col.name for col in table.columns}
-        for folded_name, original_names in folded.items():
-            # An ambiguous folded name is already covered by the exact entries above.
-            if len(original_names) == 1:
-                resolved.setdefault(folded_name, original_names[0])
-        return resolved
-
-    def _restore_column_case(
-        self,
-        workunits: Iterable[MetadataWorkUnit],
-        column_name_maps: Dict[str, Dict[str, str]],
+    def _to_schema_field_paths(
+        self, workunits: Iterable[MetadataWorkUnit]
     ) -> Iterable[MetadataWorkUnit]:
+        """Rewrite profile field paths with the rule schemaMetadata was built on.
+
+        The profiler names columns as Snowflake stores them, so the same helper
+        that produced the schema's field paths produces these — no lookup table,
+        and no guessing which spelling a profile happens to carry.
+
+        Two columns differing only by case collapse onto one path unless
+        preserve_column_case is set. Keeping the first mirrors the schema, where
+        the duplicate field is dropped; emitting both would put two profiles on
+        one field.
+        """
         for wu in workunits:
             profile = wu.get_aspect_of_type(DatasetProfileClass)
-            name_map = column_name_maps.get(wu.get_urn()) if profile else None
-            if profile and name_map is not None and profile.fieldProfiles:
-                unresolved = []
+            if profile and profile.fieldProfiles:
                 kept = []
                 seen_field_paths = set()
                 for field_profile in profile.fieldProfiles:
-                    original_name = name_map.get(field_profile.fieldPath)
-                    if original_name is None:
-                        original_name = name_map.get(field_profile.fieldPath.lower())
-                    if original_name is None:
-                        unresolved.append(field_profile.fieldPath)
-                        kept.append(field_profile)
-                        continue
                     field_profile.fieldPath = self.identifiers.snowflake_identifier(
-                        original_name
+                        field_profile.fieldPath
                     )
-                    # Columns differing only by case fold to one field path unless
-                    # preserve_column_case is set. Keeping the first mirrors the
-                    # schema, where the duplicate field is dropped; emitting both
-                    # would put two profiles on one field.
                     if field_profile.fieldPath in seen_field_paths:
                         continue
                     seen_field_paths.add(field_profile.fieldPath)
                     kept.append(field_profile)
                 profile.fieldProfiles = kept
-                if unresolved:
-                    self.report.warning(
-                        title="Profile field path does not match any column",
-                        message="These profile statistics keep the profiler's own "
-                        "field path and may not attach to the schema.",
-                        context=f"{wu.get_urn()}: {sorted(unresolved)}",
-                    )
             yield wu
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:

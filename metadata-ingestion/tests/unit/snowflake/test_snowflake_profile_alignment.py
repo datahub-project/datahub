@@ -1,14 +1,10 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeColumn,
-    SnowflakeTable,
-)
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -25,30 +21,6 @@ def _make_config(**overrides: Any) -> SnowflakeV2Config:
         username="user",
         password="pass",  # type: ignore[arg-type]
         **overrides,
-    )
-
-
-def _make_table(column_names: List[str]) -> SnowflakeTable:
-    return SnowflakeTable(
-        name="MY_TABLE",
-        comment=None,
-        created=None,
-        last_altered=None,
-        size_in_bytes=None,
-        rows_count=None,
-        columns=[
-            SnowflakeColumn(
-                name=name,
-                ordinal_position=i + 1,
-                is_nullable=True,
-                data_type="TEXT",
-                comment=None,
-                character_maximum_length=None,
-                numeric_precision=None,
-                numeric_scale=None,
-            )
-            for i, name in enumerate(column_names)
-        ],
     )
 
 
@@ -70,18 +42,13 @@ def _profile_workunit(
 
 def _restore(
     profiler_field_paths: Optional[List[str]],
-    table_columns: List[str],
-    report: Optional[SnowflakeV2Report] = None,
+    **config_overrides: Any,
 ) -> Optional[List[str]]:
-    report = report if report is not None else SnowflakeV2Report()
-    profiler = SnowflakeProfiler(config=_make_config(), report=report)
-    name_map: Dict[str, str] = profiler._build_column_name_map(
-        _make_table(table_columns)
+    profiler = SnowflakeProfiler(
+        config=_make_config(**config_overrides), report=SnowflakeV2Report()
     )
     restored = list(
-        profiler._restore_column_case(
-            [_profile_workunit(profiler_field_paths)], {DATASET_URN: name_map}
-        )
+        profiler._to_schema_field_paths([_profile_workunit(profiler_field_paths)])
     )
     profile = restored[0].get_aspect_of_type(DatasetProfileClass)
     assert profile is not None
@@ -91,30 +58,22 @@ def _restore(
 
 
 class TestProfileFieldPathAlignment:
-    def test_mixed_case_column_aligns_with_schema(self) -> None:
-        # snowflake-sqlalchemy preserves `MixedCol` while the schema lowercases it,
-        # so without the rewrite the profile never attaches to its field.
-        assert _restore(["MixedCol"], ["MixedCol"]) == ["mixedcol"]
+    """The profiler names columns as Snowflake stores them; these pin the
+    translation onto the field paths schemaMetadata was built with."""
 
-    def test_uppercase_column_is_unchanged(self) -> None:
-        assert _restore(["customer_id"], ["CUSTOMER_ID"]) == ["customer_id"]
+    def test_mixed_case_column_aligns_with_schema(self) -> None:
+        # The stored spelling survives profiling, but the schema lowercases it by
+        # default, so without the rewrite the profile never attaches to its field.
+        assert _restore(["MixedCol"]) == ["mixedcol"]
+
+    def test_uppercase_column_is_lowercased_like_the_schema(self) -> None:
+        assert _restore(["CUSTOMER_ID"]) == ["customer_id"]
 
     def test_case_only_duplicates_collapse_to_one_profile(self) -> None:
         # Both columns fold onto one field path, matching the schema where the
         # duplicate field is dropped. Emitting both would put two profiles on it.
-        assert _restore(["col", "COL", "OTHER"], ["col", "COL", "OTHER"]) == [
-            "col",
-            "other",
-        ]
+        assert _restore(["col", "COL", "OTHER"]) == ["col", "other"]
 
     def test_table_level_profile_keeps_absent_field_profiles(self) -> None:
         # Rewriting must leave absent fieldProfiles absent, not turn them into [].
-        assert _restore(None, ["CUSTOMER_ID"]) is None
-
-    def test_unknown_field_path_is_reported(self) -> None:
-        report = SnowflakeV2Report()
-        assert _restore(["ghost"], ["CUSTOMER_ID"], report=report) == ["ghost"]
-        assert any(
-            "does not match any column" in (warning.title or "")
-            for warning in report.warnings
-        )
+        assert _restore(None) is None

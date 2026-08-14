@@ -16,6 +16,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
 )
@@ -1202,6 +1203,36 @@ class SQLAlchemyProfiler:
 
         return row_count
 
+    def _to_emitted_field_paths(
+        self,
+        field_profiles: List[DatasetFieldProfileClass],
+        adapter: "PlatformAdapter",
+        conn: Any,
+    ) -> List[DatasetFieldProfileClass]:
+        """Translate stored column names into the paths the source emitted.
+
+        Profiling addresses columns by their stored identifier so that two columns
+        differing only by case stay distinct all the way through. A profile has to
+        attach to schemaMetadata, though, so the identifier becomes a field path
+        exactly once, here, at the boundary.
+
+        Two stored names can translate to one path — that is what a case collision
+        looks like once folded — and the schema declares a single field for them.
+        Keep the first, since a second profile on one field path is dropped
+        downstream anyway.
+        """
+        translated: List[DatasetFieldProfileClass] = []
+        seen: Set[str] = set()
+        for field_profile in field_profiles:
+            field_profile.fieldPath = adapter.field_path_for(
+                field_profile.fieldPath, conn
+            )
+            if field_profile.fieldPath in seen:
+                continue
+            seen.add(field_profile.fieldPath)
+            translated.append(field_profile)
+        return translated
+
     def _create_field_profiles(
         self, all_columns: List[str], columns_to_profile_set: set
     ) -> List[DatasetFieldProfileClass]:
@@ -1858,7 +1889,9 @@ class SQLAlchemyProfiler:
                         platform=platform,
                     )
 
-                    profile.fieldProfiles = field_profiles
+                    profile.fieldProfiles = self._to_emitted_field_paths(
+                        field_profiles, adapter, conn
+                    )
 
                     time_taken = timer.elapsed_seconds()
                     logger.info(

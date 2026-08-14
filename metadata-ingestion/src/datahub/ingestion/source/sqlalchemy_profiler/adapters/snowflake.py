@@ -33,6 +33,17 @@ class SnowflakeAdapter(PlatformAdapter):
     3. Temp table materialization for large table sampling
     """
 
+    def field_path_for(self, stored_name: str, engine: Any) -> str:
+        """Keep the stored name; the Snowflake source decides the field path.
+
+        Its schema comes from INFORMATION_SCHEMA rather than reflection, and the
+        path it emits depends on config the profiling layer cannot see
+        (``convert_urns_to_lowercase``, ``preserve_column_case``). Handing back
+        the stored name lets ``snowflake_profiler`` apply exactly the rule it used
+        when it built schemaMetadata.
+        """
+        return stored_name
+
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
@@ -199,7 +210,7 @@ class SnowflakeAdapter(PlatformAdapter):
         # duplicate columns through to the sample, so this needs the same
         # case-folding repair as a directly reflected table.
         metadata = sa.MetaData()
-        context.sql_table = self._restore_case_folded_columns(
+        context.sql_table = self._use_stored_column_names(
             sa.Table(temp_name, metadata, autoload_with=conn), conn
         )
         context.is_sampled = True
@@ -240,7 +251,7 @@ class SnowflakeAdapter(PlatformAdapter):
 
         if has_lowercase or has_lowercase_schema:
             try:
-                return self._restore_case_folded_columns(
+                return self._use_stored_column_names(
                     sa.Table(
                         table,
                         metadata,
@@ -258,7 +269,7 @@ class SnowflakeAdapter(PlatformAdapter):
                 )
 
         try:
-            return self._restore_case_folded_columns(
+            return self._use_stored_column_names(
                 sa.Table(
                     table,
                     metadata,
@@ -275,7 +286,7 @@ class SnowflakeAdapter(PlatformAdapter):
                     f"Failed to reflect {schema}.{table} without quoting, "
                     f"trying with quotes: {type(e).__name__}: {str(e)}"
                 )
-                return self._restore_case_folded_columns(
+                return self._use_stored_column_names(
                     sa.Table(
                         table,
                         metadata,
