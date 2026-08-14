@@ -5,7 +5,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +17,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -106,7 +106,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }

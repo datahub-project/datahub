@@ -192,7 +192,10 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             .map(
                 entity -> {
                   String baseIndex =
-                      opContext.getSearchContext().getIndexConvention().getEntityIndexName(entity);
+                      opContext
+                          .getSearchContext()
+                          .getIndexConvention()
+                          .getEntityIndexName(opContext, entity);
                   return appendSemanticSuffix(baseIndex);
                 })
             .collect(Collectors.toList());
@@ -239,7 +242,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         new SemanticIndexConvention(opContext.getSearchContext().getIndexConvention());
     Filter transformedFilters =
         postFilters != null
-            ? SearchUtil.transformFilterForEntities(postFilters, semanticIndexConvention)
+            ? SearchUtil.transformFilterForEntities(opContext, postFilters, semanticIndexConvention)
             : null;
 
     // 6) Build filters using ESUtils with proper field types

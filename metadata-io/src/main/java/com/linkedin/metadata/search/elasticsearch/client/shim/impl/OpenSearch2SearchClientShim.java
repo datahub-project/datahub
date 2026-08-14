@@ -51,6 +51,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -113,6 +114,7 @@ import org.opensearch.client.indices.ResizeResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -147,11 +149,22 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   /** Package-private factory for tests; avoids spinning up a real OS connection. */
   static OpenSearch2SearchClientShim forTest(RestHighLevelClient client) {
-    return new OpenSearch2SearchClientShim(client, new ObjectMapper());
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper(), null);
   }
 
-  private OpenSearch2SearchClientShim(RestHighLevelClient client, ObjectMapper objectMapper) {
-    this.shimConfiguration = null;
+  /** Package-private factory for tests that need a specific configuration. */
+  static OpenSearch2SearchClientShim forTest(RestHighLevelClient client, ShimConfiguration config) {
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper(), config);
+  }
+
+  /** The version probe is only benign when the engine type did not have to be auto-detected. */
+  private boolean isEngineTypeAutoDetected() {
+    return shimConfiguration != null && shimConfiguration.isEngineTypeAutoDetected();
+  }
+
+  private OpenSearch2SearchClientShim(
+      RestHighLevelClient client, ObjectMapper objectMapper, ShimConfiguration config) {
+    this.shimConfiguration = config;
     this.engineType = SearchEngineType.OPENSEARCH_2;
     this.client = client;
     this.objectMapper = objectMapper;
@@ -638,6 +651,20 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       clusterInfo.put("engine_type", "opensearch");
 
       return clusterInfo;
+    } catch (OpenSearchStatusException e) {
+      if (e.status() == RestStatus.FORBIDDEN && !isEngineTypeAutoDetected()) {
+        // Restricted roles (e.g. AWS OpenSearch fine-grained access control without
+        // cluster:monitor/main) cannot call GET /. With an explicitly configured engine type,
+        // callers treat an unreadable version as indeterminate and proceed, so this is an
+        // expected condition in locked-down clusters, not an error. Under auto-detection the
+        // version is required to pick the engine type, so that case stays at ERROR.
+        log.warn(
+            "Cluster info API is restricted for this user (missing cluster:monitor/main?): {}",
+            e.getMessage());
+      } else {
+        log.error("Failed to get cluster info", e);
+      }
+      throw new IOException("Failed to retrieve cluster information", e);
     } catch (Exception e) {
       log.error("Failed to get cluster info", e);
       throw new IOException("Failed to retrieve cluster information", e);
@@ -720,13 +747,14 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       long retryInterval,
       int numRetries,
       int threadCount) {
+    final BulkListener[] listenerHolder = new BulkListener[1];
     Supplier<BulkProcessor> processorSupplier =
         () ->
             BulkProcessor.builder(
                     (request, bulkListener) -> {
                       client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
                     },
-                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                    listenerHolder[0])
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -734,7 +762,16 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                BulkListener.create(
+                    writeRequestRefreshPolicy,
+                    metricUtils,
+                    bulkWriteResultTracker,
+                    bulkItemRequeueSupport));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -748,6 +785,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       long retryInterval,
       int numRetries,
       int threadCount) {
+    final BulkListener[] listenerHolder = new BulkListener[1];
     Supplier<BulkProcessor> processorSupplier =
         () ->
             BulkProcessor.builder(
@@ -760,7 +798,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         throw new RuntimeException(e);
                       }
                     },
-                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                    listenerHolder[0])
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -768,7 +806,16 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                BulkListener.create(
+                    writeRequestRefreshPolicy,
+                    metricUtils,
+                    bulkWriteResultTracker,
+                    bulkItemRequeueSupport));
 
     log.info("Initialized {} bulk processors for parallel execution", threadCount);
   }

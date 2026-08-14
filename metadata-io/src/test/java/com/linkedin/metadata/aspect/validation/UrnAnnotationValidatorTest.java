@@ -148,7 +148,66 @@ public class UrnAnnotationValidatorTest {
     // Assert
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
     assertFalse(exceptions.isEmpty(), "Validation exception should be thrown for invalid URN");
-    assertTrue(exceptions.get(0).getMessage().contains("invalid urn"));
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /urn"), message);
+    assertTrue(message.contains("expected a dataset URN"), message);
+    assertTrue(message.contains(invalidUrn), message);
+  }
+
+  @Test
+  public void testValidateProposedAspects_WithBareStringField() {
+    String bareField = "segment_denial_rate";
+    setupSingleUrnField("field", bareField, true, Collections.singletonList("schemaField"));
+
+    List<AspectValidationException> exceptions = runValidation();
+
+    assertFalse(
+        exceptions.isEmpty(), "Validation exception should be thrown for bare string field");
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /field"), message);
+    assertTrue(
+        message.contains("expected a schemaField URN (urn:li:schemaField:(<dataset>,<column>))"),
+        message);
+    assertTrue(message.contains(bareField), message);
+    assertFalse(message.contains("Failed to retrieve entity"), message);
+  }
+
+  @Test
+  public void testValidateProposedAspects_WithMultipleAllowedEntityTypes() {
+    setupSingleUrnField("entity", "not-a-urn", true, List.of("dataset", "dataJob"));
+
+    List<AspectValidationException> exceptions = runValidation();
+
+    assertFalse(exceptions.isEmpty(), "Validation exception should be thrown for invalid URN");
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /entity"), message);
+    assertTrue(message.contains("[dataset, dataJob]"), message);
+  }
+
+  @Test
+  public void testValidateProposedAspects_WithoutDeclaredEntityTypes() {
+    setupSingleUrnField("entity", "not-a-urn", true, Collections.emptyList());
+
+    List<AspectValidationException> exceptions = runValidation();
+
+    assertFalse(exceptions.isEmpty(), "Validation exception should be thrown for invalid URN");
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /entity"), message);
+    assertTrue(message.contains("expected a valid URN"), message);
+  }
+
+  @Test
+  public void testValidateProposedAspects_WithParseableUrnRejectedByStrictValidation() {
+    // Commas are not permitted in non-tuple URNs, so this parses but fails strict validation.
+    setupSingleUrnField(
+        "urn", "urn:li:corpuser:foo,bar", true, Collections.singletonList("corpuser"));
+
+    List<AspectValidationException> exceptions = runValidation();
+
+    assertFalse(exceptions.isEmpty(), "Validation exception should be thrown for illegal URN");
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN at path /urn"), message);
+    assertTrue(message.contains("comma"), message);
   }
 
   @Test
@@ -194,7 +253,11 @@ public class UrnAnnotationValidatorTest {
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
     assertFalse(
         exceptions.isEmpty(), "Validation exception should be thrown for invalid entity type");
-    assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
+    String message = exceptions.get(0).getMessage();
+    assertTrue(message.contains("Invalid URN entity type at path /urn"), message);
+    assertTrue(message.contains("expected one of [dataset]"), message);
+    assertTrue(message.contains("got corpuser"), message);
+    assertTrue(message.contains(invalidUrn.toString()), message);
   }
 
   @Test
@@ -290,5 +353,35 @@ public class UrnAnnotationValidatorTest {
     List<AspectValidationException> exceptions = result.collect(Collectors.toList());
     assertFalse(exceptions.isEmpty(), "Validation exception should be thrown for non-existent URN");
     assertTrue(exceptions.get(0).getMessage().contains("Urn does not exist"));
+  }
+
+  private void setupSingleUrnField(
+      String fieldName, String value, boolean strict, List<String> entityTypes) {
+    DataMap dataMap = new DataMap();
+    dataMap.put(fieldName, value);
+
+    UrnValidationAnnotation annotation = mock(UrnValidationAnnotation.class);
+    when(annotation.isStrict()).thenReturn(strict);
+    when(annotation.getEntityTypes()).thenReturn(entityTypes);
+
+    UrnValidationFieldSpec fieldSpec = mock(UrnValidationFieldSpec.class);
+    when(fieldSpec.getUrnValidationAnnotation()).thenReturn(annotation);
+
+    when(mockAspectSpec.getUrnValidationFieldSpecMap())
+        .thenReturn(Map.of("/" + fieldName, fieldSpec));
+    when(mockBatchItem.getAspectSpec()).thenReturn(mockAspectSpec);
+    when(mockBatchItem.getRecordTemplate()).thenReturn(mockRecordTemplate);
+    when(mockRecordTemplate.data()).thenReturn(dataMap);
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), any()))
+        .thenReturn(Collections.emptyMap());
+  }
+
+  private List<AspectValidationException> runValidation() {
+    return validator
+        .validateProposedAspects(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(mockBatchItem),
+            mockRetrieverContext)
+        .collect(Collectors.toList());
   }
 }

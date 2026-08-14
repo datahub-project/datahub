@@ -50,11 +50,18 @@ jobs:
         with:
           python-version: "3.10"
           cache: "pip"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore-only: wheel building populates a much narrower uv cache than the
+      # installDev-based jobs sharing this key family; if this job won the first save
+      # for a new key, the broader jobs would exact-hit an under-populated cache
+      # forever. Master copies are written by documentation.yml and
+      # check-datahub-jars.yml, whose builds run :metadata-ingestion:installDev.
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
       - name: Build Python wheel site
         run: |
           ./gradlew :python-build:buildSite

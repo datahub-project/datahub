@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionFieldPath;
+import com.linkedin.datahub.upgrade.system.assertions.MigrateAssertionNoteToAspect;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
@@ -147,6 +148,7 @@ public class NonBlockingConfigs {
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final AspectDao aspectDao,
+      final ConfigurationProvider configurationProvider,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE
@@ -154,9 +156,27 @@ public class NonBlockingConfigs {
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs}") final Integer delayMs,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit,
+      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.reprocess.enabled}")
+          final boolean reprocessEnabled) {
+    var schemaFieldSideEffects =
+        configurationProvider.getMetadataChangeProposal().getSideEffects().getSchemaField();
+    boolean domainEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isDomainEnabled();
+    boolean ownershipEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isOwnershipEnabled();
     return new GenerateSchemaFieldsFromSchemaMetadata(
-        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+        opContext,
+        entityService,
+        aspectDao,
+        enabled,
+        batchSize,
+        delayMs,
+        limit,
+        reprocessEnabled,
+        domainEnabled,
+        ownershipEnabled);
   }
 
   @Bean
@@ -169,6 +189,19 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.assertionEntityField.delayMs}") final Integer delayMs,
       @Value("${systemUpdate.assertionEntityField.limit}") final Integer limit) {
     return new GenerateAssertionEntityField(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade migrateAssertionNoteToAspect(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      @Value("${systemUpdate.assertionNote.enabled}") final boolean enabled,
+      @Value("${systemUpdate.assertionNote.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.assertionNote.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.assertionNote.limit}") final Integer limit) {
+    return new MigrateAssertionNoteToAspect(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 

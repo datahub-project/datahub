@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -64,10 +65,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     mockClient = mock(SearchClientShim.class);
     IndexConvention indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("es_browse_dao_test")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("es_browse_dao_test"),
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =

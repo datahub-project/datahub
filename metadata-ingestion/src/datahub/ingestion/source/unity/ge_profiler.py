@@ -2,7 +2,7 @@ import concurrent.futures
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional
 
 from databricks.sdk.service.catalog import DataSourceFormat
 from sqlalchemy import create_engine
@@ -15,7 +15,6 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.unity.config import (
-    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
@@ -51,17 +50,13 @@ class UnityCatalogSQLGenericTable(BaseTable):
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
-    profiling_config: Union[
-        UnityCatalogGEProfilerConfig, UnityCatalogSQLAlchemyProfilerConfig
-    ]
+    profiling_config: UnityCatalogSQLAlchemyProfilerConfig
     report: UnityCatalogReport
 
     def __init__(
         self,
         config: UnityCatalogSourceConfig,
-        profiling_config: Union[
-            UnityCatalogGEProfilerConfig, UnityCatalogSQLAlchemyProfilerConfig
-        ],
+        profiling_config: UnityCatalogSQLAlchemyProfilerConfig,
         report: UnityCatalogReport,
     ) -> None:
         config = config.model_copy(deep=True)

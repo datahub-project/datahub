@@ -34,8 +34,8 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
-  ext.springVersion = '7.0.7'
+  // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
+  ext.springVersion = '7.0.8'
   // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5
   ext.springBootVersion = '4.0.6'
   // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch
@@ -63,7 +63,8 @@ buildscript {
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   // CVE-2026-34477: Ssl verifyHostName ignored for SMTP/Socket/Syslog appenders; fixed in 2.25.4+
-  ext.log4jVersion = '2.25.4'
+  // CVE-2026-49844: MapMessage.asJson() emits invalid JSON for NaN/Infinity; fixed in 2.25.5+
+  ext.log4jVersion = '2.25.5'
   ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   ext.rhinoVersion = '1.7.15.1' // CVE-2025-66453 (NativeNumber.toFixed / DToA DoS); also 1.8.1, 1.7.14.1
   // Spark-lineage only (acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
@@ -75,7 +76,9 @@ buildscript {
   ext.commonsConfiguration2Version = '2.15.1' // CVE-2024-29131, CVE-2024-29133; CVE-2026-45205 (fixed in 2.15.0+)
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
-  ext.logbackClassic = '1.5.32'
+  // CVE-2026-9828 (HardenedObjectInputStream java.lang/java.util allowlist bypass): fixed in 1.5.33+
+  // CVE-2026-10532 (HardenedObjectInputStream Proxy deserialization): fixed in 1.5.38
+  ext.logbackClassic = '1.5.38'
   // Janino evaluates the <if> conditionals in logback.xml (e.g. gating the optional log-shipping appender).
   ext.janinoVersion = '3.0.12'
   // Loki4j appender for optional log shipping. Pinned to 1.x: 2.x changes the XML config format.
@@ -90,8 +93,8 @@ buildscript {
   // (NameValidator), which breaks LinkedIn avro-util / Pegasus (Avro 1.4–1.11 only).
   ext.kafkaVersion = '8.2.2'
   ext.confluentSerdeVersion = '8.1.0'
-  // at.yawk.lz4 fork (CVE-2025-12183); single version for externalDependency.lz4Java + resolutionStrategy
-  ext.lz4JavaVersion = '1.11.0'
+  // at.yawk.lz4 fork (CVE-2025-12183, CVE-2026-59949); single version for externalDependency.lz4Java + resolutionStrategy
+  ext.lz4JavaVersion = '1.11.1'
   // Hazelcast shades Jackson 2.x/3.x inside hazelcast-*.jar (v5.7.0: jackson-databind 2.21.2, 3.1.2).
   // CVE-2026-54512/54513 require jackson-databind 2.21.4+ / 3.1.4+; ext.jacksonVersion does not replace
   // shaded copies — bump when Hazelcast publishes a fix (https://github.com/hazelcast/hazelcast/issues/26597).
@@ -101,7 +104,7 @@ buildscript {
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.50.0'
   ext.awsSdk2Version = '2.30.33'
-  ext.micrometerVersion = '1.16.4'
+  ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
   ext.vertxVersion = '4.5.27'
   // CVE-2026-41417 (netty-codec-http): 4.1.133+ or 4.2.13+; CVE-2026-42577 (netty-transport-native-epoll): 4.2.13+
@@ -111,6 +114,9 @@ buildscript {
   // CVE-2026-56820/56821/56822 (netty-handler-ssl-ocsp); CVE-2026-59901 (netty-codec-compression):
   // all fixed in 4.2.16+
   ext.nettyVersion = '4.2.16.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
+  // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
+  ext.wireVersion = '6.3.0'
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
@@ -118,7 +124,7 @@ buildscript {
   // gRPC protobuf/stub line from Pegasus/Rest.li transitives (not gRPC transport — grpc-netty-shaded is excluded repo-wide).
   ext.grpcVersion = '1.81.0'
   // Align with Spring Boot 4.0.6 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
-  ext.reactorNettyVersion = '1.3.5'
+  ext.reactorNettyVersion = '1.3.6'
 
   ext.nodeVersion = '22.16.0'
   ext.yarnVersion = '1.22.22'
@@ -153,11 +159,12 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.21.4'
-// Parquet stack: parquet-jackson shades Jackson under shaded/parquet/ (1.17.1 bundles jackson-databind 2.21.3).
-// CVE-2026-54512/54513 require 2.21.4+; CVE-2026-54515 requires 2.21.5+ (not on Maven Central yet); ext.jacksonVersion does not replace shaded copies — bump when Apache
-// releases parquet-java with jackson 2.21.4+ (https://github.com/apache/parquet-java/pull/3594, target 1.18.0).
-ext.parquetVersion = '1.17.1'
+ext.jacksonVersion = '2.21.5'
+// Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
+// 1.18.0+ bundles jackson-databind 2.22.1 (CVE-2026-54512/54513 and related jackson-databind CVEs
+// fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
+// App-classpath jackson-databind remains ext.jacksonVersion (2.21.5); that pin does not replace the shade.
+ext.parquetVersion = '1.18.0'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
@@ -285,6 +292,9 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$confluentSerdeVersion",
     'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$confluentSerdeVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
+    // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184).
+    // 0.9.6 is latest on Maven Central, Kafka-aligned, and patches CVE-2024-29371.
+    'jose4j': 'org.bitbucket.b_c:jose4j:0.9.6',
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'janino': "org.codehaus.janino:janino:$janinoVersion",
     'lokiLogbackAppender': "com.github.loki4j:loki-logback-appender:$lokiLogbackAppenderVersion",
@@ -341,7 +351,7 @@ project.ext.externalDependency = [
     'playServer': "org.playframework:play-server_$playScalaVersion",
     'playTest': "org.playframework:play-test_$playScalaVersion",
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
+    'pac4j': 'org.pac4j:pac4j-oidc:6.4.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
     'postgresql': 'org.postgresql:postgresql:42.7.12',
@@ -396,6 +406,7 @@ project.ext.externalDependency = [
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,
+    'testContainersMysql': 'org.testcontainers:mysql:' + testContainersVersion,
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
     'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
@@ -404,7 +415,7 @@ project.ext.externalDependency = [
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.6',
-    'wire': 'com.squareup.wire:wire-compiler:3.7.1',
+    'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
@@ -441,7 +452,9 @@ allprojects {
     showFailedStandardStreams = true
   }
 
-  tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
+  tasks.withType(Test).configureEach { task ->
+    environment "DATAHUB_SYSTEM_CLIENT_SECRET", "TestOnlyNotASecret"
+    if (task.project.name != "metadata-io") {
       // https://docs.gradle.org/current/userguide/performance.html
       maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
@@ -553,6 +566,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
 
+    resolutionStrategy.force 'io.ebean:ebean-datasource:9.1'
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
@@ -588,7 +602,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget(rootProject.ext.externalDependency.lz4Java)
-        details.because("CVE-2025-12183; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
+        details.because("CVE-2025-12183, CVE-2026-59949; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
       }
       if (details.requested.group == 'org.apache.mina' && details.requested.name == 'mina-core') {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
@@ -617,6 +631,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyVersion)
         details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'com.squareup.wire') {
+        details.useVersion(rootProject.ext.wireVersion)
+        details.because("CVE-2026-45799; wire-runtime skipGroup() negative-length crash (fixed ${rootProject.ext.wireVersion}+)")
       }
       if (details.requested.group == 'io.grpc') {
         details.useVersion(rootProject.ext.grpcVersion)
@@ -647,7 +665,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512, CVE-2026-54513 (54515 pending jackson 2.21.5 release)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512/54513/54514/54516/54517/54518/59888 (2.21.4); CVE-2026-54515/59889, GHSA-mhm7-754m-9p8w (2.21.5)
     resolutionStrategy.force "org.springframework.security:spring-security-oauth2-jose:${rootProject.ext.springSecurityVersion}"  // CVE-2026-22748
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
@@ -711,11 +729,11 @@ configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
 // Also align any other Jetty 12 modules (e.g. future BOM additions). Exclude legacy Jetty 9.x websocket
 // artifacts (websocket-api, websocket-client, websocket-common) used by Hadoop etc.; no 12.x for those.
 allprojects {
-  if (project == rootProject) return
+  if (project == rootProject || project.name == 'acryl-spark-lineage') return
   configurations.all {
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group.startsWith('org.eclipse.jetty') &&
-          !details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common']) {
+          !(details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common'])) {
         details.useVersion(rootProject.ext.jettyVersion)
         details.because("Align all Jetty modules to ${rootProject.ext.jettyVersion}")
       }
@@ -822,6 +840,12 @@ subprojects {
         implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation("org.apache.httpcomponents.client5:httpclient5:${rootProject.ext.httpClient5Version}") // CVE-2026-40542
+        implementation('org.apache.httpcomponents.core5:httpcore5:5.4.3') // CVE-2026-54399
+        implementation('org.apache.httpcomponents.core5:httpcore5-h2:5.4.3') // CVE-2026-54399
+        implementation("ch.qos.logback:logback-classic:${rootProject.ext.logbackClassic}") // CVE-2026-9828, CVE-2026-10532
+        implementation("ch.qos.logback:logback-core:${rootProject.ext.logbackClassic}") // CVE-2026-9828, CVE-2026-10532
+        implementation('org.playframework.netty:netty-reactive-streams:3.0.9')
+        implementation('org.playframework.netty:netty-reactive-streams-http:3.0.9')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
         implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)

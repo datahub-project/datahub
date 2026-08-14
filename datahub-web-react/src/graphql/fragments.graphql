@@ -1569,6 +1569,20 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on Document {
+        info {
+            title
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
 }
 
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {

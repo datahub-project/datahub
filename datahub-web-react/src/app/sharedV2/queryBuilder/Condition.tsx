@@ -1,5 +1,5 @@
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import OperatorSelect from '@app/sharedV2/queryBuilder/OperatorSelect';
 import PropertySelect from '@app/sharedV2/queryBuilder/PropertySelect';
@@ -29,11 +29,17 @@ interface Props {
  */
 
 const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, properties, index, depth }: Props) => {
-    const property =
-        (selectedPredicate &&
-            selectedPredicate.property &&
-            properties.find((prop) => prop.id === selectedPredicate.property)) ||
-        undefined;
+    const selectedPropertyId = selectedPredicate?.property;
+    // A property can be a top-level entry or a child of a parent group (e.g. structured
+    // properties), so resolve the leaf that carries the value type / options either way.
+    const property = useMemo(() => {
+        if (!selectedPropertyId) {
+            return undefined;
+        }
+        return properties
+            .flatMap((candidate) => [candidate, ...(candidate.children ?? [])])
+            .find((candidate) => candidate.id === selectedPropertyId);
+    }, [properties, selectedPropertyId]);
 
     const operatorOptions = (property?.valueType && getOperatorOptions(property.valueType)) || undefined;
     const valueOptions = (property && selectedPredicate && getValueOptions(property, selectedPredicate)) || undefined;

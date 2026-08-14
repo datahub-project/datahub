@@ -290,7 +290,7 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
+          distribution: "temurin"
           java-version: 21
 
       - name: Check out the repo
@@ -302,7 +302,29 @@ jobs:
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-          restore_gradle: true
+
+      # Replaces a hand-rolled actions/cache pair that used the literal key
+      # `gradle-plugins-cache`. Actions cache entries are immutable, so the first
+      # save on master claimed that name and every save after it failed; the entry
+      # froze on 2026-07-22 and was later evicted, leaving this job restoring
+      # nothing. Its path globs were also Gradle 7 (`caches/transforms-*` matches
+      # nothing on 8.14). setup-gradle hashes and versions its own keys, splits the
+      # buckets, and is what the repo's other 19 workflows already use.
+      #
+      # cache-read-only defaults to `ref_name != default_branch`, which is the same
+      # master-only-write rule the hand-rolled version enforced with an `if:` --
+      # important here because pytest_tests and playwright_test each fan out into
+      # many concurrent shard jobs sharing this same branch-scoped cache
+      # namespace. Restricting writes to master keeps every PR's shards from also
+      # saving into it, which would churn/evict entries and contribute to
+      # exhausting the repo's 10GB Actions cache budget (see build-cache-1 below).
+      #
+      # build-cache-1 is excluded: task outputs come from the Depot remote build
+      # cache (cache.depot.dev), and including it here is what has been reported to
+      # exhaust the repo's 10GB Actions cache budget.
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -320,7 +342,17 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - id: uv-creds
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build all Images (For Smoke tests)
+        # --max-workers=$(nproc): gradle.properties caps workers at 2 (a laptop-safe
+        # default); the runner has 4+ vCPU, so that throttles this multi-module build.
+        # Same override build-and-test.yml already applies.
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -331,13 +363,13 @@ jobs:
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
         # The floating quickstart tag is applied only after smoke tests pass (see publish_images).
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew --max-workers="$(nproc)" :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -369,15 +401,6 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
 
   comment_pr_images:
     name: Comment PR image tags
@@ -497,7 +520,7 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
+          distribution: "temurin"
           java-version: 21
 
       - name: Free up disk space
@@ -529,6 +552,14 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
@@ -537,7 +568,7 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
@@ -670,7 +701,7 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
+          distribution: "temurin"
           java-version: 21
 
       - name: Free up disk space
@@ -713,6 +744,14 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
@@ -721,7 +760,7 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
@@ -787,7 +826,17 @@ jobs:
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
           PYTEST_XDIST_WORKERS: "3"
+          # GMS here runs with a 1s bulk-flush and 1s index refresh interval
+          # (see run-quickstart.sh), so the trailing post-wait sleep can match.
+          # The library default stays conservative for other environments.
+          ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
+          # On a retry, fall back to the conservative aggregate-lag wait. It is
+          # the wrong default (under full concurrent load the lag may never
+          # reach zero) but the right choice here: a retry runs a smaller
+          # filtered set under much less write pressure, so a wait-related
+          # flake gets a second chance with the stronger guarantee.
+          DATAHUB_TEST_FORCE_LEGACY_WAIT: ${{ github.run_attempt > 1 && 'true' || '' }}
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
             echo "=========================================="
@@ -911,6 +960,8 @@ jobs:
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
       send_posthog_metrics: true
+      # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
+      workers_per_shard: ${{ github.run_attempt > 1 && '1' || '2' }}
     secrets: inherit
 
   playwright_report:

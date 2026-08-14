@@ -11,6 +11,8 @@ import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.RelationshipEdgeUniquenessValidator;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,6 +84,24 @@ public class MergedEntityRegistry implements EntityRegistry {
               validationResult.validationFailures.stream().collect(Collectors.joining("\n"))));
     }
 
+    // Compute entity merges first and validate relationship uniqueness before mutating
+    // the live maps, so a uniqueness failure leaves the registry unchanged.
+    Map<String, EntitySpec> pendingEntitySpecs = new HashMap<>();
+    for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
+      EntitySpec candidate;
+      if (entityNameToSpec.containsKey(e2Entry.getKey())) {
+        candidate = mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
+      } else {
+        candidate = e2Entry.getValue();
+      }
+      try {
+        RelationshipEdgeUniquenessValidator.validate(candidate);
+      } catch (ModelValidationException e) {
+        throw new RelationshipEdgeUniquenessException(e.getMessage());
+      }
+      pendingEntitySpecs.put(e2Entry.getKey(), candidate);
+    }
+
     // Merge Aspect Specs
     // (Fixed issue where custom defined aspects are not included in the API specification.)
     //
@@ -89,23 +109,12 @@ public class MergedEntityRegistry implements EntityRegistry {
       _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
     }
 
-    // Merge Entity Specs
-    for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
-      if (entityNameToSpec.containsKey(e2Entry.getKey())) {
-        EntitySpec mergeEntitySpec =
-            mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
-        entityNameToSpec.put(e2Entry.getKey(), mergeEntitySpec);
-      } else {
-        // We are inserting a new entity into the registry
-        entityNameToSpec.put(e2Entry.getKey(), e2Entry.getValue());
-      }
-    }
+    entityNameToSpec.putAll(pendingEntitySpecs);
 
     // Merge Event Specs
     if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
-    // TODO: Validate that the entity registries don't have conflicts among each other
 
     // Merge Plugins
     this.pluginFactory =

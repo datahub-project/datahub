@@ -198,6 +198,9 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
     assertNotNull(fieldMapping.get("type"), "URN structured property must have type for reindex");
     assertEquals(fieldMapping.get("type"), "keyword", "URN type should map to keyword");
+    assertFalse(
+        fieldMapping.containsKey("fields"),
+        "URN structured property uses parent keyword; query time skips .keyword");
   }
 
   /**

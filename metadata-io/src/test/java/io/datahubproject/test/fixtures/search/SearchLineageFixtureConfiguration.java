@@ -11,6 +11,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
@@ -43,9 +44,11 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -86,10 +89,8 @@ public abstract class SearchLineageFixtureConfiguration {
   @Bean(name = "searchLineageIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("searchLineagePrefix") String prefix) {
     return new IndexConventionImpl(
-        IndexConventionImpl.IndexConventionConfig.builder()
-            .prefix(prefix)
-            .hashIdAlgo("MD5")
-            .build(),
+        IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+        new ConfiguredIndexPrefixResolver(prefix),
         SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
@@ -111,7 +112,7 @@ public abstract class SearchLineageFixtureConfiguration {
         .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
     conf.getMetadataChangeProposal()
         .getSideEffects()
-        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+        .setSchemaField(new MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig());
     conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
     conf.setElasticSearch(getElasticSearchConfiguration());
     return conf;
@@ -147,7 +148,7 @@ public abstract class SearchLineageFixtureConfiguration {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
@@ -318,7 +319,12 @@ public abstract class SearchLineageFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(null, null, true, preProcessHooks, true),
+        new EntityServiceImpl(
+            null,
+            null,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class)),
         null,
         entitySearchService,
         cachingEntitySearchService,

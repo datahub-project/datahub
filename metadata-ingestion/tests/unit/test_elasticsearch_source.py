@@ -2,14 +2,18 @@ import json
 import logging
 import re
 from typing import Any, Dict, List, Tuple, cast
+from unittest.mock import patch
 
 import pydantic
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
+    ElasticsearchSource,
     ElasticsearchSourceConfig,
     ElasticToSchemaFieldConverter,
+    _api_key_authorization,
     collapse_urn,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -2560,3 +2564,32 @@ def test_composable_template_structure() -> None:
 
     # Check that aliases are under template.aliases
     assert "aliases" in raw_index_metadata["template"]
+
+
+def test_api_key_authorization_encodes_id_key_pair() -> None:
+    # base64("id:key") == "aWQ6a2V5"
+    assert _api_key_authorization(("id", "key")) == "ApiKey aWQ6a2V5"
+
+
+def test_api_key_authorization_passes_through_encoded_string() -> None:
+    assert _api_key_authorization("already-encoded") == "ApiKey already-encoded"
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
+    ElasticsearchSource.create(
+        {"host": "localhost:9200", "api_key": ["id", "key"]},
+        PipelineContext(run_id="test"),
+    )
+    _, kwargs = mock_opensearch.call_args
+    assert kwargs["headers"] == {"Authorization": "ApiKey aWQ6a2V5"}
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
+    ElasticsearchSource.create(
+        {"host": "localhost:9200"},
+        PipelineContext(run_id="test"),
+    )
+    _, kwargs = mock_opensearch.call_args
+    assert "headers" not in kwargs

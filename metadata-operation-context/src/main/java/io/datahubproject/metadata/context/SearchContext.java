@@ -101,13 +101,13 @@ public class SearchContext implements ContextInterface {
    */
   @Override
   public Optional<Integer> getCacheKeyComponent() {
+    // The index-name prefix is intentionally NOT part of this key. It is resolved per operation
+    // (see IndexPrefixResolver) and this context carries no OperationFingerprint to resolve it.
+    // Here the prefix is a static deploy-wide constant (contributes nothing distinguishing); a
+    // deployment that scopes the prefix per operation MUST fold that discriminator into the
+    // OperationContext-level cache key via its enrichment, not here.
     return Optional.of(
-        Stream.of(
-                indexConvention.getPrefix().orElse(""),
-                keySearchFlags().toString(),
-                keyLineageFlags())
-            .mapToInt(String::hashCode)
-            .sum());
+        Stream.of(keySearchFlags().toString(), keyLineageFlags()).mapToInt(String::hashCode).sum());
   }
 
   /**

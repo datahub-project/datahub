@@ -8,12 +8,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.incident.IncidentAssigneeArray;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.IncidentInfoPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -89,6 +91,105 @@ public class IncidentService extends BaseService {
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.INCIDENTS_SUMMARY_ASPECT_NAME, newSummary),
         false);
+  }
+
+  /**
+   * Applies a partial update to an incident without reading or rewriting the full aspect.
+   *
+   * <p>Fields that are null in {@code update} are omitted from the JSON Patch and therefore remain
+   * unchanged. The aspect patch processor applies all supplied field operations atomically. Status
+   * is patched at the sub-field level so a partial status update cannot wipe an unrelated stage or
+   * message set by a previous call.
+   */
+  public void updateIncident(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn incidentUrn,
+      @Nonnull final IncidentInfoPatch update)
+      throws Exception {
+    Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
+    Objects.requireNonNull(update, "update must not be null");
+    if (update.isEmpty()) {
+      return;
+    }
+
+    IncidentInfoPatchBuilder patchBuilder = new IncidentInfoPatchBuilder().urn(incidentUrn);
+    if (update.getTitle() != null) {
+      patchBuilder.setTitle(update.getTitle());
+    }
+    if (update.getDescription() != null) {
+      patchBuilder.setDescription(update.getDescription());
+    }
+    if (update.getStartedAt() != null) {
+      patchBuilder.setStartedAt(update.getStartedAt());
+    }
+    if (update.getStatus() != null) {
+      final IncidentStatus status = update.getStatus();
+      patchBuilder.setStatusState(status.getState());
+      if (status.hasStage()) {
+        patchBuilder.setStatusStage(status.getStage());
+      }
+      if (status.hasMessage()) {
+        patchBuilder.setStatusMessage(status.getMessage());
+      }
+      if (status.hasLastUpdated()) {
+        patchBuilder.setStatusLastUpdated(status.getLastUpdated());
+      }
+    }
+    if (update.getPriority() != null) {
+      patchBuilder.setPriority(update.getPriority());
+    }
+    if (update.getEntities() != null) {
+      patchBuilder.setEntities(update.getEntities());
+    }
+    if (update.getAssignees() != null) {
+      patchBuilder.setAssignees(update.getAssignees());
+    }
+
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
+  }
+
+  /**
+   * Applies the editor's complete field snapshot as a JSON Patch, without reading or rewriting the
+   * full aspect. Nullable editor fields that are null in {@code upsert} are explicitly cleared
+   * (PATCH remove); fields the editor does not own (type, customType, source, created, startedAt)
+   * are never targeted and therefore survive untouched.
+   */
+  public void upsertIncident(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn incidentUrn,
+      @Nonnull final IncidentInfoUpsert upsert)
+      throws Exception {
+    Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
+    Objects.requireNonNull(upsert, "upsert must not be null");
+    if (upsert.getStatus() == null) {
+      throw new IllegalArgumentException("Incident status is required for upsert");
+    }
+    if (upsert.getEntities() == null || upsert.getEntities().isEmpty()) {
+      throw new IllegalArgumentException("Incident resources cannot be empty for upsert");
+    }
+
+    IncidentInfoPatchBuilder patchBuilder = new IncidentInfoPatchBuilder().urn(incidentUrn);
+    if (upsert.getTitle() != null) {
+      patchBuilder.setTitle(upsert.getTitle());
+    } else {
+      patchBuilder.clearTitle();
+    }
+    if (upsert.getDescription() != null) {
+      patchBuilder.setDescription(upsert.getDescription());
+    } else {
+      patchBuilder.clearDescription();
+    }
+    patchBuilder.setStatus(upsert.getStatus());
+    if (upsert.getPriority() != null) {
+      patchBuilder.setPriority(upsert.getPriority());
+    } else {
+      patchBuilder.clearPriority();
+    }
+    patchBuilder.setEntities(upsert.getEntities());
+    patchBuilder.setAssignees(
+        upsert.getAssignees() == null ? new IncidentAssigneeArray() : upsert.getAssignees());
+
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
   }
 
   /** Deletes an incident with a given URN */

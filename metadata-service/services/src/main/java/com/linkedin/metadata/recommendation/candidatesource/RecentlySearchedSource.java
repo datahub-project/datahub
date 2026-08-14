@@ -68,7 +68,7 @@ public class RecentlySearchedSource implements RecommendationSource {
       analyticsEnabled =
           _searchClient.indexExists(
               opContext,
-              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+              new GetIndexRequest(_indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX)),
               RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to check whether DataHub usage index exists");
@@ -82,7 +82,7 @@ public class RecentlySearchedSource implements RecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest =
-        buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
+        buildSearchRequest(opContext, opContext.getSessionActorContext().getActorUrn());
 
     return opContext.withSpan(
         "getRecentlySearched",
@@ -107,7 +107,8 @@ public class RecentlySearchedSource implements RecommendationSource {
         MetricUtils.name(this.getClass(), "getRecentlySearched"));
   }
 
-  private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
+  private SearchRequest buildSearchRequest(
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) {
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
@@ -136,7 +137,7 @@ public class RecentlySearchedSource implements RecommendationSource {
     source.size(0);
 
     request.source(source);
-    request.indices(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX));
+    request.indices(_indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX));
     return request;
   }
 
