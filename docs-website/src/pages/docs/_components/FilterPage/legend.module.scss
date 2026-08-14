@@ -1,0 +1,75 @@
+.legend {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  background: var(--ifm-background-surface-color);
+  font-size: 0.85rem;
+  text-align: left;
+
+  summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--ifm-color-emphasis-800);
+    list-style-position: outside;
+  }
+
+  summary:hover {
+    color: var(--ifm-color-primary);
+  }
+}
+
+.legendGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+
+  h4 {
+    margin-bottom: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--ifm-color-emphasis-800);
+  }
+
+  ul {
+    margin: 0 0 0.35rem;
+    padding-left: 1.1rem;
+  }
+
+  li {
+    margin-bottom: 0.2rem;
+    color: var(--ifm-color-emphasis-700);
+  }
+}
+
+.legendSample {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.sampleCertified {
+  background: #e6f4ea;
+  color: #1a7f37;
+}
+
+.sampleIncubating {
+  background: #fff3e0;
+  color: #b45309;
+}
+
+.sampleTesting {
+  background: #f0f0f5;
+  color: #6b7280;
+}
+
+.sampleApi {
+  background: #e6f0fb;
+  color: #1d4ed8;
+}

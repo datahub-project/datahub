@@ -1,8 +1,85 @@
 import React from "react";
 import Head from "@docusaurus/Head";
 import Layout from "@theme/Layout";
+import clsx from "clsx";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
+import styles from "./legend.module.scss";
+
+// Decodes the two independent labels shown on each card. Support status
+// describes how mature an existing connector is; connection type describes how
+// metadata reaches DataHub, and its "API" value means no connector exists at
+// all. Readers have mistaken "API" for a support level, so both axes are
+// spelled out here rather than left to inference.
+function CardLegend() {
+  return (
+    <details className={styles.legend} open>
+      <summary>
+        Labels on these cards describe two separate things: how mature a
+        connector is, and how metadata reaches DataHub.
+      </summary>
+      <div className={styles.legendGrid}>
+        <div>
+          <h4>Support status (badge in the corner of each card)</h4>
+          <ul>
+            <li>
+              <span
+                className={clsx(styles.legendSample, styles.sampleCertified)}
+              >
+                Certified
+              </span>
+              Well-tested and widely adopted; expected to be stable.
+            </li>
+            <li>
+              <span
+                className={clsx(styles.legendSample, styles.sampleIncubating)}
+              >
+                Incubating
+              </span>
+              Ready for adoption, but not yet tested across a wide variety of
+              edge cases.
+            </li>
+            <li>
+              <span className={clsx(styles.legendSample, styles.sampleTesting)}>
+                Testing
+              </span>
+              Available for experimentation; may change without notice.
+            </li>
+            <li>
+              <b>No badge</b> - the connector does not declare a support status.
+            </li>
+          </ul>
+          <a href="docs/metadata-ingestion/source_overview#metadata-ingestion-source-status">
+            More on support status
+          </a>
+        </div>
+        <div>
+          <h4>Connection type (how metadata reaches DataHub)</h4>
+          <ul>
+            <li>
+              <b>Pull</b> - DataHub connects to the platform and reads metadata
+              on a schedule.
+            </li>
+            <li>
+              <b>Push</b> - the platform sends metadata to DataHub.
+            </li>
+            <li>
+              <span className={clsx(styles.legendSample, styles.sampleApi)}>
+                API
+              </span>
+              <b>No ready-made connector exists.</b> DataHub can model this
+              platform, but you emit the metadata yourself using the SDK or
+              APIs.
+            </li>
+          </ul>
+          <a href="docs/metadata-ingestion/datahub-skills">
+            Build your own integration
+          </a>
+        </div>
+      </div>
+    </details>
+  );
+}
 
 export function FilterPage(
   siteConfig,
@@ -13,7 +90,8 @@ export function FilterPage(
   useTags = false,
   useFilters = false,
   seoTitle = siteConfig.tagline,
-  seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
+  seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
+  showLegend = false
 ) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
@@ -160,6 +238,8 @@ export function FilterPage(
                 setIsExclusive={setIsExclusive}
                 categoryCounts={categoryCounts}
               />
+
+              {showLegend && <CardLegend />}
             </div>
           </div>
         </div>

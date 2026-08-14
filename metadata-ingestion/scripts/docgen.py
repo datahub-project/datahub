@@ -32,6 +32,11 @@ DENY_LIST = {
     "datahub-mock-data",
 }
 
+# Fallback target for the "Request Native Connector" link on API-only cards.
+# Relative so it resolves under a non-root DOCUSAURUS_CONFIG_BASE_URL, matching
+# the other in-page links on the integrations page.
+DEFAULT_REQUEST_CONNECTOR_URL = "docs/metadata-ingestion/request-connector"
+
 
 def get_snippet(long_string: str, max_length: int = 100) -> str:
     snippet = ""
@@ -607,8 +612,12 @@ def generate_filter_tag_indexes(
 
         if is_api:
             entry["isApiConnector"] = True
-            if meta.get("requestNativeUrl"):
-                entry["requestNativeUrl"] = meta["requestNativeUrl"]
+            # Every API-only card offers a way to ask for a real connector.
+            # Without a default here the card renders the "API" tag and nothing
+            # else, which reads as "supported" to anyone scanning the page.
+            entry["requestNativeUrl"] = meta.get(
+                "requestNativeUrl", DEFAULT_REQUEST_CONNECTOR_URL
+            )
 
         entries.append(entry)
 
