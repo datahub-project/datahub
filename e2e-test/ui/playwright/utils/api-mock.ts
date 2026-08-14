@@ -23,6 +23,15 @@ export function isDataHubGraphqlUrl(url: URL): boolean {
   return url.pathname.endsWith(DATAHUB_GRAPHQL_PATH);
 }
 
+/**
+ * Values accepted by {@link ApiMocker.setFeatureFlags}.
+ * Booleans cover feature flags, auth toggles, and platform privileges.
+ * String arrays are for authConfig.allowedAccessTokenDurations (ISO-8601 list).
+ */
+export type FeatureFlagOverrideValue = boolean | readonly string[];
+
+export type FeatureFlagOverrides = Record<string, FeatureFlagOverrideValue>;
+
 // ── Public interface ──────────────────────────────────────────────────────────
 
 export interface ApiMocker {
@@ -45,11 +54,11 @@ export interface ApiMocker {
   mockRoute(urlPattern: string | RegExp, handler: (route: Route) => Promise<void> | void): Promise<void>;
 
   /**
-   * Override one or more appConfig.featureFlags values for the duration
-   * of the test. Both appConfig and getMe responses are patched so that
-   * the flag is consistent across the UI.
+   * Override one or more appConfig.featureFlags / authConfig / platformPrivileges
+   * values for the duration of the test. Both appConfig and getMe responses are
+   * patched so that the flag is consistent across the UI.
    */
-  setFeatureFlags(flags: Record<string, boolean>): Promise<void>;
+  setFeatureFlags(flags: FeatureFlagOverrides): Promise<void>;
 
   /**
    * Mock the batchGetStepStates operation to mark all requested step IDs as
@@ -145,7 +154,7 @@ export class PageApiMocker implements ApiMocker {
     await this.page.route(urlPattern, handler);
   }
 
-  async setFeatureFlags(flags: Record<string, boolean>): Promise<void> {
+  async setFeatureFlags(flags: FeatureFlagOverrides): Promise<void> {
     // Keys that live in appConfig.authConfig rather than appConfig.featureFlags.
     const AUTH_CONFIG_KEYS = new Set(['tokenAuthEnabled', 'allowNoExpiry', 'allowedAccessTokenDurations']);
 
@@ -160,15 +169,21 @@ export class PageApiMocker implements ApiMocker {
 
     // Separate the flags into their respective buckets.
     const featureFlagOverrides: Record<string, boolean> = {};
-    const authConfigOverrides: Record<string, boolean> = {};
+    const authConfigOverrides: Record<string, FeatureFlagOverrideValue> = {};
     const platformPrivilegeOverrides: Record<string, boolean> = {};
 
     for (const [key, value] of Object.entries(flags)) {
       if (AUTH_CONFIG_KEYS.has(key)) {
         authConfigOverrides[key] = value;
       } else if (PLATFORM_PRIVILEGE_KEYS.has(key)) {
+        if (typeof value !== 'boolean') {
+          throw new Error(`setFeatureFlags: platform privilege '${key}' requires a boolean, got ${typeof value}`);
+        }
         platformPrivilegeOverrides[key] = value;
       } else {
+        if (typeof value !== 'boolean') {
+          throw new Error(`setFeatureFlags: feature flag '${key}' requires a boolean, got ${typeof value}`);
+        }
         featureFlagOverrides[key] = value;
       }
     }
@@ -214,9 +229,9 @@ export class PageApiMocker implements ApiMocker {
               Object.assign(featureFlags, featureFlagOverrides);
             }
           }
-          // Patch authConfig (e.g. tokenAuthEnabled).
+          // Patch authConfig (booleans + allowedAccessTokenDurations string[]).
           if (Object.keys(authConfigOverrides).length > 0) {
-            const authConfig = appConfig.authConfig as Record<string, boolean> | undefined;
+            const authConfig = appConfig.authConfig as Record<string, FeatureFlagOverrideValue> | undefined;
             if (authConfig) {
               Object.assign(authConfig, authConfigOverrides);
             }
@@ -236,7 +251,7 @@ export class PageApiMocker implements ApiMocker {
 
         if (meData) {
           // Mirror themeV2Enabled to the user appearance settings.
-          if ('themeV2Enabled' in flags) {
+          if ('themeV2Enabled' in flags && typeof flags.themeV2Enabled === 'boolean') {
             const appearance = meData.corpUser?.settings?.appearance;
             if (appearance) {
               appearance.showThemeV2 = flags.themeV2Enabled;
