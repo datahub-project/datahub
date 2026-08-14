@@ -148,7 +148,7 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 
 </details>
 
-# Connecting to Managed MCP Server with OAuth - Recommended
+# Connecting to Managed MCP Server with OAuth - Recommended {#managed-mcp-server-usage}
 
 _Available in DataHub Cloud v1.0.2+_
 
@@ -261,11 +261,11 @@ Custom MCP connectors require **Developer Mode** and are available on **Plus, Pr
 </details>
 
 <details>
-  <summary>Snowflake Cortex Agents / Snowflake Intelligence</summary>
+  <summary>Snowflake Cortex Agents / Snowflake CoWork</summary>
 
-Snowflake exposes external MCP servers to Cortex Agents through an **API Integration** + **External MCP Server** object pair. Both are created via SQL by an `ACCOUNTADMIN`, then the resulting connector is added to an agent in Snowsight.
+Snowflake exposes external MCP servers to Cortex Agents through an **API Integration** + **External MCP Server** object pair. Both are created via SQL by an `ACCOUNTADMIN`, then the resulting connector is granted to your agent users and added to an agent in Snowsight.
 
-1. Create an API integration using DCR (run as `ACCOUNTADMIN`):
+1. Create an API integration using DCR (run as `ACCOUNTADMIN`). `OAUTH_RESOURCE_URL` must be the origin only — no `/mcp` path — because that is the `resource` value DataHub advertises at `/.well-known/oauth-protected-resource`:
 
    ```sql
    CREATE API INTEGRATION datahub_mcp_api_integration
@@ -273,24 +273,31 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
      API_ALLOWED_PREFIXES = ('https://mcp.datahub.com')
      API_USER_AUTHENTICATION = (
        TYPE = OAUTH_DYNAMIC_CLIENT,
-       OAUTH_RESOURCE_URL = 'https://mcp.datahub.com/mcp'
+       OAUTH_RESOURCE_URL = 'https://mcp.datahub.com'
      )
      ENABLED = TRUE;
    ```
 
-2. Create the MCP server object:
+2. Create the MCP server object. It is schema-level, so place it where your agent users can reach it:
 
    ```sql
-   CREATE EXTERNAL MCP SERVER datahub_mcp_server
+   CREATE EXTERNAL MCP SERVER <db>.<schema>.datahub_mcp_server
      WITH DISPLAY_NAME = 'DataHub'
      URL = 'https://mcp.datahub.com/mcp'
      API_INTEGRATION = datahub_mcp_api_integration;
    ```
 
-3. In Snowsight, navigate to **AI & ML → Agents**, open your agent, choose **MCP Connectors**, and add the DataHub connector.
-4. In Snowflake Intelligence, click **Connect** next to the DataHub connector — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
+3. Grant `USAGE` to every role that will use the agent. Without this the connector silently never appears — Snowflake hides unauthorized objects rather than raising an error:
 
-See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup, or use your tenant URL (`https://<tenant>.acryl.io/integrations/ai/mcp`) in place of `mcp.datahub.com` if you prefer.
+   ```sql
+   GRANT USAGE ON EXTERNAL MCP SERVER <db>.<schema>.datahub_mcp_server TO ROLE <role>;
+   GRANT USAGE ON INTEGRATION datahub_mcp_api_integration TO ROLE <role>;
+   ```
+
+4. In Snowsight, navigate to **AI & ML → Agents**, select your agent, choose **MCP Connectors**, and add the DataHub connector.
+5. In Snowflake CoWork (formerly Snowflake Intelligence), open the sources panel, select **Connectors**, then **Connect** next to DataHub — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
+
+See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup. To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/integrations/ai/mcp` for the MCP server `URL`.
 
 </details>
 

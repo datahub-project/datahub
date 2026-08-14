@@ -2838,6 +2838,11 @@ type GlossaryNode implements Entity {
   The Domain associated with the glossary node
   """
   domain: DomainAssociation
+
+  """
+  The applications associated with the glossary node
+  """
+  applications: [ApplicationAssociation!]
 }
 
 """
