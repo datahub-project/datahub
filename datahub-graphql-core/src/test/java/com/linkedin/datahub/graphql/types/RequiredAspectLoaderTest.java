@@ -240,6 +240,10 @@ public class RequiredAspectLoaderTest {
    */
   @Test
   public void testHydrationRequiredTableMatchesExpectations() {
+    assertEquals(
+        AspectUtils.getHydrationRequiredTypes(),
+        EXPECTED_HYDRATION_REQUIRED_ASPECTS.keySet(),
+        "a type was registered or removed without updating the expectations in this test");
     for (Map.Entry<String, Set<String>> expected : EXPECTED_HYDRATION_REQUIRED_ASPECTS.entrySet()) {
       assertEquals(
           AspectUtils.getHydrationRequiredAspects(expected.getKey()),

@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataprocessinst;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;

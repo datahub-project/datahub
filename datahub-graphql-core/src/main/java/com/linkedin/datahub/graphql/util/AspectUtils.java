@@ -73,6 +73,16 @@ public class AspectUtils {
   }
 
   /**
+   * GraphQL type names with registered hydration-required aspects. Exists so the registration guard
+   * test can enforce an exact contract: an entry added here without a stated expectation in the
+   * test fails, not just a dropped or drifted one.
+   */
+  @Nonnull
+  public static Set<String> getHydrationRequiredTypes() {
+    return HYDRATION_REQUIRED_ASPECTS.keySet();
+  }
+
+  /**
    * Computes the aspect selection for a single GraphQL field invocation from its selection set.
    * Resolvers must merge the result into {@link QueryContext} before enqueueing a DataLoader load:
    * DataLoader may suppress duplicate key contexts when the cache key (URN + {@link
