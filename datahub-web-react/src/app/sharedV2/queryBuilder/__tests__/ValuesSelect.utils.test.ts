@@ -29,4 +29,12 @@ describe('getValuesSelectLabel', () => {
     it('returns undefined when property is missing', () => {
         expect(getValuesSelectLabel(undefined, t)).toBeUndefined();
     });
+
+    it('prefers the display name over the raw field id for structured properties', () => {
+        expect(getValuesSelectLabel('structuredProperties.8f473633-abc', t, 'ListSP')).toBe('ListSP');
+    });
+
+    it('keeps built-in overrides even when a display name is supplied', () => {
+        expect(getValuesSelectLabel('urn', t, 'Something Else')).toBe('Assets');
+    });
 });

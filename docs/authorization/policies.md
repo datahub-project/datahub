@@ -345,17 +345,15 @@ This section covers how to design access policies when **view-based access contr
 | **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
 | **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
 
-When VBAC is enabled (Cloud Search Access Controls **or** OSS `VIEW_AUTHORIZATION_ENABLED`), entity types are
+When VBAC is enabled (`VIEW_AUTHORIZATION_ENABLED` on OSS, or Cloud Search Access Controls), entity types are
 **restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
 `VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
-[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` covers the previous
-unrestricted set minus registry-flagged types; trim with `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` (for example
-`schemaField,document`) when you want those types under view policy. Once `schemaField` is restricted,
-**View Entity Page** inherits from the parent dataset encoded in the schemaField URN (then a direct
-column grant). **Search Access Controls** (query-time search
-filtering) remain **DataHub Cloud–only**; on OSS the unrestricted list only affects entity-page / masking behavior.
-Cloud operators: see also
-[Entity types that bypass view checks](../features/feature-guides/search-access-controls.md#entity-types-that-bypass-view-checks).
+[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` does **not** include
+`document`, `schemaField`, or `container` — those types are under view policy by default (`container` is no longer
+`viewUnrestricted` in the registry). For `schemaField`, **View Entity Page** inherits from the parent dataset
+encoded in the schemaField URN (then a direct column grant). GraphQL container loads use field-strip redaction.
+On OSS the unrestricted list only affects entity-page / masking behavior — query-time search pushdown remains
+**DataHub Cloud–only**.
 
 ### Performance considerations
 
@@ -624,11 +622,8 @@ When `schemaField` is view-restricted, **View Entity Page** on a schema field su
 can view the containing parent URN in the schemaField key (typically a dataset) **or** has a direct
 grant on the schemaField URN. This uses the same parent-candidate order as logical-parent writes.
 
-On **DataHub Cloud** with Search Access Controls, query-time filters for columns are narrower than
-entity-page inheritance: domain / container / resource-owner criteria do not match schemaField docs,
-and `TYPE = dataset` policies exclude them. URN dataset grants can match columns via a Cloud-only
-prefix. Details:
-[Columns (`schemaField`) after you restrict them](../features/feature-guides/search-access-controls.md#columns-schemafield-after-you-restrict-them).
+Entity-page VIEW for schema fields uses parent-dataset inheritance (then a direct column grant). Query-time
+search filtering of columns is a **DataHub Cloud** Search Access Controls concern and is not part of OSS VBAC.
 
 View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
 
