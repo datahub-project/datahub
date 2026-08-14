@@ -1386,21 +1386,24 @@ class TestMultiTableInsert:
         assert entry1.downstream == self.DOWNSTREAM_URN_1
         assert entry1.column_lineage is not None
         assert len(entry1.column_lineage) == 1
-        assert entry1.column_lineage[0].downstream.column == "id"
+        # Compared case-insensitively: which column the lineage points at is what
+        # this test is about, and the casing follows preserve_column_case, which
+        # test_snowflake_column_case.py pins directly.
+        assert entry1.column_lineage[0].downstream.column.lower() == "id"
         assert entry1.column_lineage[0].downstream.table == self.DOWNSTREAM_URN_1
         assert len(entry1.column_lineage[0].upstreams) == 1
         assert entry1.column_lineage[0].upstreams[0].table == self.UPSTREAM_URN
-        assert entry1.column_lineage[0].upstreams[0].column == "reservation_id"
+        assert entry1.column_lineage[0].upstreams[0].column.lower() == "reservation_id"
 
         assert isinstance(entry2, PreparsedQuery)
         assert entry2.downstream == self.DOWNSTREAM_URN_2
         assert entry2.column_lineage is not None
         assert len(entry2.column_lineage) == 1
-        assert entry2.column_lineage[0].downstream.column == "created"
+        assert entry2.column_lineage[0].downstream.column.lower() == "created"
         assert entry2.column_lineage[0].downstream.table == self.DOWNSTREAM_URN_2
         assert len(entry2.column_lineage[0].upstreams) == 1
         assert entry2.column_lineage[0].upstreams[0].table == self.UPSTREAM_URN_2
-        assert entry2.column_lineage[0].upstreams[0].column == "created"
+        assert entry2.column_lineage[0].upstreams[0].column.lower() == "created"
 
         assert entry1.query_text == entry2.query_text
         assert entry1.upstreams == entry2.upstreams
