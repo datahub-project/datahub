@@ -17,7 +17,7 @@ vi.mock('@app/theme/useIsDarkMode', () => ({
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => ({
         config: { visualConfig: { theme: null } },
-        loaded: true,
+        loaded: false,
     }),
 }));
 
@@ -45,7 +45,7 @@ describe('useSetAppTheme', () => {
 
             renderHook(() => useSetAppTheme(), { wrapper });
 
-            expect(updateThemeSpy).toHaveBeenCalled();
+            expect(updateThemeSpy).toHaveBeenCalledWith(themes.themeV2);
         });
 
         it('uses themeV2Dark when isDarkMode is true and no custom theme is set', () => {
@@ -53,7 +53,7 @@ describe('useSetAppTheme', () => {
 
             const mockUpdateThemeDark = vi.fn();
             const mockContextValueDark = {
-                theme: themes.themeV2,
+                theme: themes.themeV2Dark,
                 updateTheme: mockUpdateThemeDark,
             };
 
@@ -63,7 +63,7 @@ describe('useSetAppTheme', () => {
 
             renderHook(() => useSetAppTheme(), { wrapper });
 
-            expect(mockUpdateThemeDark).toHaveBeenCalled();
+            expect(mockUpdateThemeDark).toHaveBeenCalledWith(themes.themeV2Dark);
         });
     });
 
@@ -103,8 +103,33 @@ describe('useSetAppTheme', () => {
 
             renderHook(() => useSetAppTheme(), { wrapper });
 
-            // Should fall back to default theme instead of failing silently
-            expect(updateThemeSpy).toHaveBeenCalled();
+            // Should fall back to themeV2 when dark mode is false and theme ID is invalid
+            expect(updateThemeSpy).toHaveBeenCalledWith(themes.themeV2);
+
+            // Cleanup
+            localStorage.removeItem('customThemeId');
+        });
+
+        it('falls back to dark theme when customThemeId is invalid and dark mode is enabled', () => {
+            // Set localStorage to simulate an invalid custom theme ID being persisted
+            localStorage.setItem('customThemeId', 'invalid-theme-id');
+
+            (useIsDarkMode as any).mockReturnValue([true, vi.fn()]);
+
+            const updateThemeSpy = vi.fn();
+            const contextValue = {
+                theme: themes.themeV2Dark,
+                updateTheme: updateThemeSpy,
+            };
+
+            const wrapper = ({ children }: { children: React.ReactNode }) => (
+                <CustomThemeContext.Provider value={contextValue}>{children}</CustomThemeContext.Provider>
+            );
+
+            renderHook(() => useSetAppTheme(), { wrapper });
+
+            // Should fall back to themeV2Dark when dark mode is true and theme ID is invalid
+            expect(updateThemeSpy).toHaveBeenCalledWith(themes.themeV2Dark);
 
             // Cleanup
             localStorage.removeItem('customThemeId');
@@ -117,7 +142,7 @@ describe('useSetAppTheme', () => {
 
             const updateThemeSpy = vi.fn();
             const contextValue = {
-                theme: themes.themeV2,
+                theme: themes.themeV2Dark,
                 updateTheme: updateThemeSpy,
             };
 
@@ -127,8 +152,7 @@ describe('useSetAppTheme', () => {
 
             renderHook(() => useSetAppTheme(), { wrapper });
 
-            // Verify the hook initialized without error
-            expect(contextValue.updateTheme).toBeDefined();
+            expect(updateThemeSpy).toHaveBeenCalledWith(themes.themeV2Dark);
         });
 
         it('applies themeV2 when dark mode is disabled', () => {
@@ -146,8 +170,7 @@ describe('useSetAppTheme', () => {
 
             renderHook(() => useSetAppTheme(), { wrapper });
 
-            // Verify the hook initialized without error
-            expect(contextValue.updateTheme).toBeDefined();
+            expect(updateThemeSpy).toHaveBeenCalledWith(themes.themeV2);
         });
     });
 
