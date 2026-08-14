@@ -60,6 +60,13 @@ def _preserve_column_case_sweep() -> None:
     # only sees classes that have been imported. Assert the ones the suite
     # actually builds were reached, so an import that stops happening fails here
     # instead of quietly shrinking the sweep back to a no-op.
-    expected = {"SnowflakeIdentifierConfig", "SnowflakeV2Config"}
+    # SnowflakeQueriesExtractorConfig is deliberately absent: it derives from
+    # ConfigModel, not from SnowflakeIdentifierConfig, and carries no identifier
+    # fields at all. Only SnowflakeQueriesSourceConfig mixes the two in.
+    expected = {
+        "SnowflakeIdentifierConfig",
+        "SnowflakeV2Config",
+        "SnowflakeQueriesSourceConfig",
+    }
     missing = expected - set(flipped)
     assert not missing, f"sweep did not reach {sorted(missing)}; flipped {flipped}"

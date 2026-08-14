@@ -238,3 +238,49 @@ class TestSemanticViewColumnCase:
 
         assert view.stored_column_name("col", "SRC") == "col"
         assert view.stored_column_name("COL", "SRC") == "COL"
+
+
+class TestColumnExistenceCheck:
+    """`_verify_column_exists_in_table` gates direct vs. derived column lineage.
+
+    It looks columns up in the schema resolver, which keys on the emitted field
+    path. That path's casing follows the identifier config, so a check hard-coded
+    to one representation reports every column missing under the others.
+    """
+
+    @staticmethod
+    def _gen_with_schema(
+        field_paths: List[str], **overrides: Any
+    ) -> SnowflakeSchemaGenerator:
+        gen = _make_gen(SnowflakeV2Report(), **overrides)
+        assert isinstance(gen.aggregator, MagicMock)
+        gen.aggregator._schema_resolver._resolve_schema_info.return_value = {
+            path: "VARCHAR" for path in field_paths
+        }
+        return gen
+
+    @pytest.mark.parametrize(
+        "field_path,overrides",
+        [
+            ("order_id", {}),
+            ("ORDER_ID", {"preserve_column_case": True}),
+            ("ORDER_ID", {"convert_urns_to_lowercase": False}),
+            (MIXED_CASE_COLUMN, {"preserve_column_case": True}),
+        ],
+        ids=["default", "preserve_column_case", "no_lowercase", "mixed_case"],
+    )
+    def test_column_found_whatever_the_emitted_casing(
+        self, field_path: str, overrides: Any
+    ) -> None:
+        gen = self._gen_with_schema([field_path], **overrides)
+
+        # Semantic-view metadata hands us the uppercase-canonicalized reference,
+        # which matches none of these paths exactly except by luck.
+        assert gen._verify_column_exists_in_table(
+            "DB", "SCHEMA", "TBL", field_path.upper()
+        )
+
+    def test_absent_column_still_reports_missing(self) -> None:
+        gen = self._gen_with_schema(["order_id"])
+
+        assert not gen._verify_column_exists_in_table("DB", "SCHEMA", "TBL", "NO_SUCH")

@@ -2077,9 +2077,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # Schema not found - assume column exists (may not be ingested yet)
             return True
 
-        # Check if column exists in the schema (case-insensitive)
+        if column_name in schema_info:
+            return True
+
+        # schema_info is keyed by the emitted field path, whose casing follows the
+        # configured identifier handling: lowercased by default, but stored case
+        # under preserve_column_case or convert_urns_to_lowercase=False. Matching a
+        # lowercased name against those keys silently fails, so compare case-folded
+        # on both sides. Semantic-view metadata canonicalizes references to
+        # uppercase, so an exact hit is not guaranteed even in the default mode.
         column_name_lower = column_name.lower()
-        return column_name_lower in schema_info
+        return any(
+            field_path.lower() == column_name_lower for field_path in schema_info
+        )
 
     def _extract_columns_from_expression(
         self, expression: str, dialect: str = "snowflake"
