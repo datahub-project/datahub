@@ -29,6 +29,7 @@ import com.linkedin.datahub.graphql.loaders.ContainerEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.EntityExistsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.ParentContainersBatchLoader;
+import com.linkedin.datahub.graphql.loaders.ParentNodesBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -1003,6 +1004,9 @@ public class GmsGraphQLEngine {
         .addDataLoader(
             ParentContainersBatchLoader.LOADER_NAME,
             context -> ParentContainersBatchLoader.create(this.entityClient, context))
+        .addDataLoader(
+            ParentNodesBatchLoader.LOADER_NAME,
+            context -> ParentNodesBatchLoader.create(this.entityClient, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -2234,7 +2238,7 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("schemaMetadata", new AspectResolver())
-                .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
+                .dataFetcher("parentNodes", new ParentNodesResolver(entityClient, featureFlags))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
@@ -2249,7 +2253,7 @@ public class GmsGraphQLEngine {
         "GlossaryNode",
         typeWiring ->
             typeWiring
-                .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
+                .dataFetcher("parentNodes", new ParentNodesResolver(entityClient, featureFlags))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
                 .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver())
