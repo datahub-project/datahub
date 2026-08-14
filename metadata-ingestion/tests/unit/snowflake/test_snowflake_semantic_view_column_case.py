@@ -158,6 +158,11 @@ class TestSemanticViewColumnCase:
         assert len(groups) == expected_columns
         if preserve:
             assert sorted(g[0].name for g in groups) == ["COL", "col"]
+        else:
+            # Merged, not dropped: one entry holding both occurrences, which is
+            # what collapses them to a single field path downstream instead of
+            # emitting two fields that share one.
+            assert [o.name for o in groups[0]] == ["col", "COL"]
 
     def test_unknown_column_falls_back_to_the_key(self) -> None:
         view = _semantic_view([MIXED_CASE_COLUMN])
@@ -207,8 +212,9 @@ class TestSemanticViewColumnCase:
 
         assert view.stored_column_name("col") == "col"
         assert view.stored_column_name("COL") == "COL"
-        # An uppercased reference to a column stored lowercase still resolves.
-        assert view.stored_column_name("OTHER") == "OTHER"
+        # A reference whose casing matches nothing exactly still resolves, via
+        # the case-insensitive fallback rather than the exact-match branch.
+        assert view.stored_column_name("other") == "OTHER"
 
     def test_pair_on_one_table_keeps_both_spellings(self) -> None:
         # Scoping by logical table cannot separate a case-only pair that lives on
