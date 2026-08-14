@@ -351,6 +351,15 @@ def test_dynamic_table_graph_history_query():
     assert "DYNAMIC_TABLE_GRAPH_HISTORY()" in query
     assert "TEST_DB" in query
 
+    # Both filters carry correctness, so assert them rather than just the table function.
+    # The function is account-scoped, so without the database_name predicate this returns
+    # every database's dynamic tables; and it reports history, so without valid_to a
+    # superseded row can win the key.
+    assert "database_name = 'TEST_DB'" in query
+    assert "valid_to IS NULL" in query
+    # The row's own database is needed to key the result; the caller's cannot be assumed.
+    assert "database_name," in query
+
 
 @patch(
     "datahub.ingestion.source.snowflake.snowflake_lineage_v2.SnowflakeLineageExtractor"
