@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import (
     build_pgqueue_sink_config,
     is_pgqueue_transport,
@@ -32,7 +33,10 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM, Domain.CATALOG),
+]
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"

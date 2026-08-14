@@ -7,8 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.constants import TOKEN_SERVICE_KEYS
 from tests.zdu.framework.phases._shared import read_token_passthrough
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 class TestReadTokenPassthrough:

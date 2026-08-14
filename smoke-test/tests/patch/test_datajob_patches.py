@@ -20,6 +20,9 @@ from tests.patch.common_patch_tests import (
     helper_test_ownership_patch,
     helper_test_set_fine_grained_lineages,
 )
+from tests.utilities.domains import Domain
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _make_test_datajob_urn(

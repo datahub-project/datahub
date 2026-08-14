@@ -27,6 +27,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.upgrade import upgrade
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +47,13 @@ requires_env_auth = pytest.mark.skipif(
 # Opt-in: skipped unless a GMS configured for external OAuth AND a Keycloak realm
 # are available (see README). Keeps it out of the default CI smoke run entirely —
 # no Keycloak/GMS-OAuth setup means zero added CI runtime.
-pytestmark = pytest.mark.skipif(
-    not (GMS and TOKEN_ENDPOINT),
-    reason="OAuth smoke test requires DATAHUB_GMS_URL + KEYCLOAK_TOKEN_ENDPOINT (see README)",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        not (GMS and TOKEN_ENDPOINT),
+        reason="OAuth smoke test requires DATAHUB_GMS_URL + KEYCLOAK_TOKEN_ENDPOINT (see README)",
+    ),
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 # Requires the authenticated actor; a token GMS rejects (wrong audience) fails here.
 _ME_QUERY = "{ me { corpUser { urn } } }"
