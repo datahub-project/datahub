@@ -1,3 +1,4 @@
+import asyncio
 import json
 import subprocess
 import sys
@@ -286,3 +287,77 @@ async def test_execute_failure_raises(
         # Logs should be set even on failure
         report = exec_ctx.get_report()
         report.set_logs.assert_called()  # type: ignore[attr-defined]
+
+
+async def test_cancellation_terminates_the_subprocess(
+    task_config: SubProcessTestConnectionTaskConfig,
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+) -> None:
+    """An operator cancelling a connection test must not leave the child running.
+
+    The ingestion task has TestMonitorSubprocessCancellation for the same shape; this
+    task's `except asyncio.CancelledError` branch had no test at all, so the terminate
+    call it makes was never executed by the suite.
+    """
+    task = SubProcessTestConnectionTask(task_config, executor_ctx)
+    args: dict[str, Any] = {
+        **sample_args,
+        "extra_env_vars": {},
+        "extra_pip_requirements": [],
+        "extra_pip_plugins": [],
+    }
+
+    # poll() never completes, so the read loop spins on its `await asyncio.sleep(0)`
+    # -- that yield point is where the cancellation lands.
+    entered_read_loop = asyncio.Event()
+
+    def _readline() -> str:
+        entered_read_loop.set()
+        return ""
+
+    mock_process = Mock()
+    mock_process.returncode = None
+    mock_process.poll = Mock(return_value=None)
+    mock_process.stdout = Mock()
+    mock_process.stdout.readline = Mock(side_effect=_readline)
+    mock_process.stdin = Mock()
+    mock_process.terminate = Mock()
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._resolve_recipe"
+        ) as mock_resolve,
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._get_plugin_from_recipe"
+        ) as mock_get_plugin,
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.setup_venv"
+        ) as mock_setup_venv,
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=mock_process,
+        ),
+        patch("os.path.exists", return_value=False),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
+        ),
+    ):
+        mock_resolve.return_value = ({"source": {"type": "demo-data"}}, {})
+        mock_get_plugin.return_value = "demo-data"
+        mock_venv_ref = Mock()
+        mock_venv_ref.venv_loc = "/tmp/venv-demo-data-test"
+        mock_setup_venv.return_value = mock_venv_ref
+
+        pending = asyncio.ensure_future(task.execute(args, exec_ctx))
+        await asyncio.wait_for(entered_read_loop.wait(), timeout=5)
+        pending.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await pending
+
+    mock_process.terminate.assert_called_once()

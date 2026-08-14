@@ -682,6 +682,45 @@ class TestSubProcessIngestionTaskCompletion:
             )
             mock_remove.assert_called_once_with(exec_out_dir)
 
+    def test_structured_report_is_masked_when_secrets_are_registered(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        """The structured report is published to GMS and rendered in the UI, so a
+        resolved secret must not survive into it.
+
+        The autouse reset_secret_registry fixture leaves the registry empty, so the
+        masking branch is only reachable if a test registers a secret itself -- without
+        this test, nothing in this file exercises it.
+        """
+        secret_value = "s3cr3t-p4ssw0rd"
+        SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
+        assert SecretRegistry.get_instance().get_count() > 0
+
+        mock_process = Mock()
+        mock_process.returncode = 0
+        report_with_secret = json.dumps({"source": {"password": secret_value}})
+
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data=report_with_secret)),
+            patch(_REMOVE_DIRECTORY),
+            patch(_FORMAT_LOG_LINES),
+        ):
+            ingestion_task._handle_subprocess_completion(
+                mock_process,
+                mock_execution_context,
+                "/tmp/report.json",
+                "/tmp/artifacts",
+                {"pipeline_name": "test-pipeline"},
+                "/tmp/exec",
+                LogHolder(),
+            )
+
+        published = mock_execution_context.get_report().set_structured_report.call_args[
+            0
+        ][0]
+        assert secret_value not in published
+
     def test_handle_subprocess_completion_failure_exit_code(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
     ) -> None:
