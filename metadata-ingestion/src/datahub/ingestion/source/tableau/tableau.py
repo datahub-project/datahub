@@ -180,8 +180,8 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.schema_resolver import (
+    SchemaInfo,
     SchemaResolver,
-    match_columns_to_schema,
 )
 from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
@@ -2357,18 +2357,48 @@ class TableauSiteSource:
         would silently sever column lineage whenever that setting is on. Match
         case-insensitively against the ingested schema and adopt its spelling.
 
-        Falls back to lowercasing when the dataset has not been ingested, or when
-        there is no graph to ask — which is the behaviour this replaces.
+        Falls back to lowercasing — the behaviour this replaces — whenever the
+        schema cannot answer: no graph, dataset not ingested, the column absent
+        from the schema we have, or the lookup itself failing.
         """
         candidate = name.replace(" ", "_")
 
-        resolver = self._upstream_schema_resolver
-        if resolver is not None:
-            _, schema_info = resolver.resolve_urn(dataset_urn)
-            if schema_info:
-                return match_columns_to_schema(schema_info, [candidate])[0]
+        schema_info = self._ingested_schema(dataset_urn)
+        if schema_info:
+            # Deliberately not match_columns_to_schema: it returns the input
+            # unchanged on a miss, which here would emit warehouse casing for a
+            # column the schema does not have. A miss must fall through instead.
+            by_folded_name = {column.lower(): column for column in schema_info}
+            matched = by_folded_name.get(candidate.lower())
+            if matched is not None:
+                return matched
 
         return candidate.lower()
+
+    def _ingested_schema(self, dataset_urn: str) -> Optional["SchemaInfo"]:
+        """The upstream's schema as DataHub holds it, or None if unavailable.
+
+        This is a graph call on a path that used to be a local string rewrite, so
+        it must not be able to fail the run: the site ingest loop only catches
+        MetadataQueryException, and one timed-out lookup would otherwise abort
+        every remaining workbook.
+        """
+        resolver = self._upstream_schema_resolver
+        if resolver is None:
+            return None
+
+        try:
+            _, schema_info = resolver.resolve_urn(dataset_urn)
+            return schema_info
+        except Exception as e:
+            self.report.warning(
+                title="Could not read an upstream schema for column lineage",
+                message="Falling back to lowercased column names, which is only "
+                "correct while the upstream source lowercases its field paths. "
+                "Column-level lineage to this dataset may not resolve.",
+                context=f"{dataset_urn}: {type(e).__name__}: {e}",
+            )
+            return None
 
     def is_snowflake_urn(self, urn: str) -> bool:
         return (

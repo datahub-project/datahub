@@ -8,18 +8,29 @@ from datahub.ingestion.source.tableau.tableau import TableauSiteSource
 SNOWFLAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)"
 
 
-def _source(schema_info: Optional[Dict[str, str]]) -> Any:
+def _source(
+    schema_info: Optional[Dict[str, str]], resolve_error: Optional[Exception] = None
+) -> Any:
     """A source stub exercising only the column-name resolution path.
 
-    Tableau's constructor wants a live server, so the two collaborators the
-    method actually uses are supplied directly.
+    Tableau's constructor wants a live server, so the collaborators the method
+    actually uses are supplied directly. `_ingested_schema` is bound to the real
+    implementation so its error handling is under test rather than mocked away.
     """
     source = MagicMock(spec=TableauSiteSource)
+    # spec= omits instance attributes, and the failure path reports through it.
+    source.report = MagicMock()
     resolver = None
-    if schema_info is not None:
+    if schema_info is not None or resolve_error is not None:
         resolver = MagicMock()
-        resolver.resolve_urn.return_value = (SNOWFLAKE_URN, schema_info)
+        if resolve_error is not None:
+            resolver.resolve_urn.side_effect = resolve_error
+        else:
+            resolver.resolve_urn.return_value = (SNOWFLAKE_URN, schema_info)
     source._upstream_schema_resolver = resolver
+    source._ingested_schema = lambda urn: TableauSiteSource._ingested_schema(
+        source, urn
+    )
     return source
 
 
@@ -61,7 +72,19 @@ class TestSnowflakeColumnNameMatching:
         # The dataset resolves to no schema, so there is nothing to match against.
         assert _resolve({}, "CUSTOMER_ID") == "customer_id"
 
-    def test_unknown_column_keeps_the_lowercased_name(self) -> None:
-        # Schema is known but has no such column; match_columns_to_schema returns
-        # the input unchanged, so it must still be normalized.
-        assert _resolve({"OTHER": "VARCHAR"}, "CUSTOMER_ID") == "CUSTOMER_ID"
+    def test_column_absent_from_a_known_schema_falls_back(self) -> None:
+        # A stale or partial schema must not produce warehouse casing: the column
+        # is not there to match, so this is the same unknown case as no schema.
+        assert _resolve({"OTHER": "VARCHAR"}, "CUSTOMER_ID") == "customer_id"
+
+    def test_graph_errors_do_not_abort_the_run(self) -> None:
+        # This path used to be a local string rewrite. A failing graph call must
+        # degrade to that, not propagate out of the site ingest loop.
+        source = _source(None, resolve_error=RuntimeError("gms timeout"))
+
+        result = TableauSiteSource._match_snowflake_column_name(
+            source, SNOWFLAKE_URN, "CUSTOMER ID"
+        )
+
+        assert result == "customer_id"
+        assert source.report.warning.called
