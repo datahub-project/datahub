@@ -26,17 +26,19 @@ Reference Links:
 
 ### Authentication Configuration
 
-| Environment Variable                                | Default    | Description                                                                 | Components                                                      |
-| --------------------------------------------------- | ---------- | --------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `METADATA_SERVICE_AUTH_ENABLED`                     | `true`     | Enable if you want all requests to the Metadata Service to be authenticated | GMS, MAE Consumer, MCE Consumer, PE Consumer, Frontend          |
-| `DATAHUB_SYSTEM_CLIENT_SECRET`                      |            | System client secret used by AuthServiceController                          | GMS, MAE Consumer, MCE Consumer, PE Consumer, Actions, Frontend |
-| `METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED` | `false`    | Normally failures are only warnings, enable this to throw them              | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 | `Empty`    | Key used to validate incoming tokens and sign new tokens                    | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SALT`                        | `Empty`    | Salt used for token validation and signing                                  | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM`           | `HS256`    | Signing algorithm for DataHub tokens                                        | GMS                                                             |
-| `SESSION_TOKEN_DURATION_MS`                         | `86400000` | The max duration of a UI session in milliseconds (defaults to 1 day)        | GMS                                                             |
-| `GUEST_AUTHENTICATION_USER`                         | `guest`    | Guest user for unauthenticated access                                       | GMS                                                             |
-| `GUEST_AUTHENTICATION_ENABLED`                      | `false`    | Enable guest authentication                                                 | GMS                                                             |
+| Environment Variable                                | Default                              | Description                                                                                                      | Components                                                      |
+| --------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `METADATA_SERVICE_AUTH_ENABLED`                     | `true`                               | Enable if you want all requests to the Metadata Service to be authenticated                                      | GMS, MAE Consumer, MCE Consumer, PE Consumer, Frontend          |
+| `DATAHUB_SYSTEM_CLIENT_SECRET`                      |                                      | System client secret used by AuthServiceController                                                               | GMS, MAE Consumer, MCE Consumer, PE Consumer, Actions, Frontend |
+| `METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED` | `false`                              | Normally failures are only warnings, enable this to throw them                                                   | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 | `Empty`                              | Key used to validate incoming tokens and sign new tokens                                                         | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SALT`                        | `Empty`                              | Salt used for token validation and signing                                                                       | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM`           | `HS256`                              | Signing algorithm for DataHub tokens                                                                             | GMS                                                             |
+| `SESSION_TOKEN_DURATION_MS`                         | `86400000`                           | The max duration of a UI session in milliseconds (defaults to 1 day)                                             | GMS                                                             |
+| `ACCESS_TOKEN_ALLOW_NO_EXPIRY`                      | `false`                              | When true, allow creating personal/service access tokens with no expiry (`NO_EXPIRY`)                            | GMS                                                             |
+| `ACCESS_TOKEN_ALLOWED_DURATIONS`                    | `PT1H,P1D,P7D,P30D,P90D,P180D,P365D` | Comma-separated ISO-8601 durations allowed when creating access tokens (create-time only; `P1M`=30d, `P1Y`=365d) | GMS                                                             |
+| `GUEST_AUTHENTICATION_USER`                         | `guest`                              | Guest user for unauthenticated access                                                                            | GMS                                                             |
+| `GUEST_AUTHENTICATION_ENABLED`                      | `false`                              | Enable guest authentication                                                                                      | GMS                                                             |
 
 ### Authorization Configuration
 

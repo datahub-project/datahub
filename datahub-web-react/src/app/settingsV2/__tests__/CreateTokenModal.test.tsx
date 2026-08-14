@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AccessTokenDuration, AccessTokenType } from '@types';
 
@@ -30,28 +31,18 @@ vi.mock('@app/shared/useEnterKeyListener', () => ({
     useEnterKeyListener: vi.fn(),
 }));
 
-// Mock the utils
-vi.mock('@app/settingsV2/utils', () => ({
-    ACCESS_TOKEN_DURATIONS: [
-        { text: '1 Hour', duration: 'ONE_HOUR' },
-        { text: '1 Day', duration: 'ONE_DAY' },
-        { text: '1 Month', duration: 'ONE_MONTH' },
-        { text: '3 Months', duration: 'THREE_MONTHS' },
-        { text: 'Never', duration: 'NO_EXPIRY' },
-    ],
-    getTokenExpireDate: (duration: string) => {
-        const durationMap: Record<string, string> = {
-            ONE_HOUR: 'in 1 hour',
-            ONE_DAY: 'in 1 day',
-            ONE_MONTH: 'in 1 month',
-            THREE_MONTHS: 'in 3 months',
-            SIX_MONTHS: 'in 6 months',
-            ONE_YEAR: 'in 1 year',
-            NO_EXPIRY: 'never',
-        };
-        return durationMap[duration] || '';
-    },
-}));
+vi.mock('@app/settingsV2/utils', async () => {
+    const actual = await vi.importActual<typeof import('@app/settingsV2/utils')>('@app/settingsV2/utils');
+    return {
+        ...actual,
+        getTokenExpireDate: (duration: string) => {
+            if (duration === 'NO_EXPIRY') {
+                return 'never';
+            }
+            return `expires (${duration})`;
+        },
+    };
+});
 
 // Mock analytics
 vi.mock('@app/analytics', () => ({
@@ -62,6 +53,19 @@ vi.mock('@app/analytics', () => ({
         CreateAccessTokenEvent: 'CreateAccessTokenEvent',
     },
 }));
+
+const appConfigValue = {
+    config: {
+        ...DEFAULT_APP_CONFIG,
+        authConfig: {
+            tokenAuthEnabled: true,
+            allowNoExpiry: true,
+            allowedAccessTokenDurations: ['PT1H', 'P1D', 'P30D', 'P90D'],
+        },
+    },
+    loaded: true,
+    refreshContext: () => {},
+};
 
 describe('CreateTokenModal', () => {
     // Using legacy props format for test compatibility
@@ -79,9 +83,11 @@ describe('CreateTokenModal', () => {
 
     const renderWithRouter = (component: React.ReactNode) => {
         return render(
-            <CustomThemeProvider>
-                <MemoryRouter>{component}</MemoryRouter>
-            </CustomThemeProvider>,
+            <AppConfigContext.Provider value={appConfigValue}>
+                <CustomThemeProvider>
+                    <MemoryRouter>{component}</MemoryRouter>
+                </CustomThemeProvider>
+            </AppConfigContext.Provider>,
         );
     };
 
@@ -117,6 +123,31 @@ describe('CreateTokenModal', () => {
             fireEvent.click(cancelButton);
 
             expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+        });
+
+        it('should create token with durationIso by default', async () => {
+            renderWithRouter(<CreateTokenModal {...defaultProps} />);
+
+            const nameInput = screen.getByTestId('create-access-token-name');
+            fireEvent.change(nameInput, { target: { value: 'my-token' } });
+
+            const createButton = document.getElementById('createTokenButton');
+            if (createButton) {
+                fireEvent.click(createButton);
+            }
+
+            await waitFor(() => {
+                expect(mockCreateAccessToken).toHaveBeenCalledWith({
+                    variables: {
+                        input: expect.objectContaining({
+                            actorUrn: 'urn:li:corpuser:test-user',
+                            type: AccessTokenType.Personal,
+                            name: 'my-token',
+                            durationIso: 'P30D',
+                        }),
+                    },
+                });
+            });
         });
     });
 
@@ -162,6 +193,7 @@ describe('CreateTokenModal', () => {
                             actorUrn: 'urn:li:corpuser:service:test-service-account',
                             type: AccessTokenType.ServiceAccount,
                             name: 'my-token',
+                            durationIso: 'P30D',
                         }),
                     },
                 });

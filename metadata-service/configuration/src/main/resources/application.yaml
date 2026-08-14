@@ -82,6 +82,14 @@ authentication:
   # The max duration of a password reset token in milliseconds. Defaults to 1 day.
   passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
 
+  # Personal / service-account access token duration policy (create-time only).
+  accessTokens:
+    # When false, NO_EXPIRY tokens cannot be created. Existing tokens keep working.
+    allowNoExpiry: ${ACCESS_TOKEN_ALLOW_NO_EXPIRY:false}
+    # Comma-separated ISO-8601 durations shown in the UI and enforced on create.
+    # P1M = 30 days, P1Y = 365 days (fixed approximations). Must be non-empty.
+    allowedDurations: ${ACCESS_TOKEN_ALLOWED_DURATIONS:PT1H,P1D,P7D,P30D,P90D,P180D,P365D}
+
 # Authorization-related configurations.
 authorization:
   # Configurations for the default DataHub policies-based authorizer.

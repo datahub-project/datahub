@@ -147,7 +147,7 @@ export class PageApiMocker implements ApiMocker {
 
   async setFeatureFlags(flags: Record<string, boolean>): Promise<void> {
     // Keys that live in appConfig.authConfig rather than appConfig.featureFlags.
-    const AUTH_CONFIG_KEYS = new Set(['tokenAuthEnabled']);
+    const AUTH_CONFIG_KEYS = new Set(['tokenAuthEnabled', 'allowNoExpiry', 'allowedAccessTokenDurations']);
 
     // Keys that map directly to platformPrivileges fields in the getMe response.
     const PLATFORM_PRIVILEGE_KEYS = new Set([
