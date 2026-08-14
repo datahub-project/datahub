@@ -1577,4 +1577,37 @@ public class UpdateIndicesV2StrategyTest {
             any(),
             anyBoolean());
   }
+
+  @Test
+  public void testDeleteTimeseriesFields_previousNull_esSot_callsSinkDeleteByUrn() {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV2Strategy dualWriteStrategy =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(null);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+
+    dualWriteStrategy.deleteTimeseriesFieldsForDeleteEvent(operationContext, mockEvent);
+
+    verify(timeseriesAspectService, never())
+        .deleteAspectValues(any(), anyString(), anyString(), any());
+    verify(sink)
+        .deleteByUrn(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), eq(testUrn.toString()));
+  }
 }

@@ -17,17 +17,16 @@ import com.linkedin.metadata.sqlsetup.postgres.pgtimeseries.PgTimeseriesSqlMigra
 import com.linkedin.metadata.sqlsetup.postgres.pgtimeseries.PgTimeseriesSqlMigrationTokens;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
+import io.ebean.datasource.DataSourceBuilder;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class PgTimeseriesSchemaStep implements UpgradeStep {
 
   private static final Set<String> PGTIMESERIES_PARTMAN_EXTENSIONS = Set.of("pg_partman");
@@ -38,6 +37,20 @@ public class PgTimeseriesSchemaStep implements UpgradeStep {
 
   private final Database server;
   private final PostgresSqlSetupProperties postgresProperties;
+  @Nullable private final DataSourceBuilder.Settings ebeanDataSourceConfig;
+
+  public PgTimeseriesSchemaStep(Database server, PostgresSqlSetupProperties postgresProperties) {
+    this(server, postgresProperties, null);
+  }
+
+  public PgTimeseriesSchemaStep(
+      Database server,
+      PostgresSqlSetupProperties postgresProperties,
+      @Nullable DataSourceBuilder.Settings ebeanDataSourceConfig) {
+    this.server = server;
+    this.postgresProperties = postgresProperties;
+    this.ebeanDataSourceConfig = ebeanDataSourceConfig;
+  }
 
   @Override
   public String id() {
@@ -66,7 +79,8 @@ public class PgTimeseriesSchemaStep implements UpgradeStep {
         for (PgTimeseriesStoreOptions store : registry.getStores().values()) {
           context.report().addLine("Applying pgTimeseries store '" + store.getName() + "'...");
           try (Connection connection =
-              PgTimeseriesStoreConnections.open(store, server, postgresProperties)) {
+              PgTimeseriesStoreConnections.open(
+                  store, server, postgresProperties, ebeanDataSourceConfig)) {
             connection.setAutoCommit(true);
             applyStore(context, store, connection, cronSchema);
           }

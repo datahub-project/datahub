@@ -438,6 +438,11 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
               }
             });
     deleteTasks.put(taskId, future);
+    // Fast-completing deletes can finish before put; remove again so the map does not retain a
+    // completed future forever.
+    if (future.isDone()) {
+      deleteTasks.remove(taskId, future);
+    }
     // Return immediately (ES delete-by-query parity). Batched delete enforces timeoutSeconds.
     return taskId;
   }

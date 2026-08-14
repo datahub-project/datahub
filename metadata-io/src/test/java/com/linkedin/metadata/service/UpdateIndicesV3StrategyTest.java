@@ -1031,6 +1031,46 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testProcessBatch_TimeseriesDelete_previousNull_esSot_callsSinkDeleteByUrn()
+      throws Exception {
+    TimeseriesAspectWriteSink sink = org.mockito.Mockito.mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy dualWriteStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(null);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+
+    try (var mockedStatic = mockStatic(UpdateIndicesUtil.class)) {
+      mockedStatic
+          .when(() -> UpdateIndicesUtil.extractSpecPair(mockEvent))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+      dualWriteStrategy.processBatch(operationContext, groupedEvents, true);
+    }
+
+    verify(timeseriesAspectService, never())
+        .deleteAspectValues(any(), anyString(), anyString(), any());
+    verify(sink)
+        .deleteByUrn(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), eq(testUrn.toString()));
+  }
+
+  @Test
   public void testProcessBatch_Timeseries_rethrowsWhenPostgresSoT() throws Exception {
     TimeseriesAspectWriteSink sink = org.mockito.Mockito.mock(TimeseriesAspectWriteSink.class);
     UpdateIndicesV3Strategy dualWriteStrategy =

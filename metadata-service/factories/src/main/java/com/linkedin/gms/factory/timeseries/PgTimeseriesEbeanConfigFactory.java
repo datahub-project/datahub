@@ -134,18 +134,39 @@ public class PgTimeseriesEbeanConfigFactory {
     return new PgTimeseriesStoreRegistry(options, handles);
   }
 
-  /** Same URL may be reused only when username, password, and pool sizing match. */
-  private static boolean poolIdentityEquals(
+  /** Same URL may be reused only when effective credentials and pool sizing match. */
+  boolean poolIdentityEquals(
       @Nonnull PgTimeseriesStoreOptions a, @Nonnull PgTimeseriesStoreOptions b) {
-    return java.util.Objects.equals(a.getPoolUsername(), b.getPoolUsername())
-        && java.util.Objects.equals(a.getPoolPassword(), b.getPoolPassword())
-        && java.util.Objects.equals(a.getPoolDriver(), b.getPoolDriver())
+    return java.util.Objects.equals(effectiveDriver(a), effectiveDriver(b))
+        && java.util.Objects.equals(effectiveUsername(a), effectiveUsername(b))
+        && java.util.Objects.equals(effectivePassword(a), effectivePassword(b))
         && a.getPoolMinConnections() == b.getPoolMinConnections()
         && a.getPoolMaxConnections() == b.getPoolMaxConnections()
         && a.getPoolMaxInactiveTimeSeconds() == b.getPoolMaxInactiveTimeSeconds()
         && a.getPoolMaxAgeMinutes() == b.getPoolMaxAgeMinutes()
         && a.getPoolLeakTimeMinutes() == b.getPoolLeakTimeMinutes()
         && a.getPoolWaitTimeoutMillis() == b.getPoolWaitTimeoutMillis();
+  }
+
+  @Nonnull
+  private String effectiveDriver(@Nonnull PgTimeseriesStoreOptions store) {
+    return store.getPoolDriver() != null && !store.getPoolDriver().isBlank()
+        ? store.getPoolDriver()
+        : ebeanDriver;
+  }
+
+  @Nonnull
+  private String effectiveUsername(@Nonnull PgTimeseriesStoreOptions store) {
+    return store.getPoolUsername() != null && !store.getPoolUsername().isBlank()
+        ? store.getPoolUsername()
+        : ebeanUsername;
+  }
+
+  @Nonnull
+  private String effectivePassword(@Nonnull PgTimeseriesStoreOptions store) {
+    return store.getPoolPassword() != null && !store.getPoolPassword().isBlank()
+        ? store.getPoolPassword()
+        : ebeanPassword;
   }
 
   /**

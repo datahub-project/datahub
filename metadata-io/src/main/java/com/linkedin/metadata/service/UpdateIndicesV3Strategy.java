@@ -194,22 +194,23 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
     RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
     if (previous == null) {
+      String entityType = deleteEvent.getEntitySpec().getName();
+      String aspectName = aspectSpec.getName();
+      String urn = deleteEvent.getUrn().toString();
       if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
         var urnFilter =
             com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
                 java.util.List.of(
                     com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
-                        "urn",
-                        com.linkedin.metadata.query.filter.Condition.EQUAL,
-                        deleteEvent.getUrn().toString())));
-        timeseriesAspectService.deleteAspectValues(
-            opContext, deleteEvent.getEntitySpec().getName(), aspectSpec.getName(), urnFilter);
+                        "urn", com.linkedin.metadata.query.filter.Condition.EQUAL, urn)));
+        timeseriesAspectService.deleteAspectValues(opContext, entityType, aspectName, urnFilter);
       } else {
         log.debug(
             "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
             deleteEvent.getUrn(),
-            aspectSpec.getName());
+            aspectName);
       }
+      timeseriesAspectWriteSink.deleteByUrn(opContext, entityType, aspectName, urn);
       return;
     }
     Urn urn = deleteEvent.getUrn();
