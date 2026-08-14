@@ -1412,6 +1412,14 @@ Structured Property Hard Delete Effects:
 
 :::
 
+:::caution Cannot recreate the same name until mappings are cleaned up
+
+Because those index mappings remain after hard delete (see [Index Mappings Cleanup](#index-mappings-cleanup)), creating a structured property with the **same** `qualifiedName` — or another name that normalizes to the same search field (`.` → `_`) — is rejected until the orphaned mapping is removed.
+
+That is intentional. Hard delete is a full purge of the property (definition and values). Reusing the search field while leftover mapping or indexed state may still exist would pollute that purge. Prefer **soft delete** if you may need the property again; otherwise use a different `qualifiedName`, or finish assignment cleanup and run Index Mappings Cleanup before recreating the same name.
+
+:::
+
 ### Orphaned assignments and write behavior
 
 If assignment cleanup has not finished (or failed), entities can still hold values that reference a hard-deleted property definition. Upserts, patches, and other writes that include those orphaned assignments would otherwise fail validation.
@@ -1583,6 +1591,9 @@ Example Response:
 After the asynchronous delete of all Structured Property values have been processed, triggered by the above
 hard delete, it is possible to remove the remaining index mappings. Note that if even 1 Structured Property value remains
 the mapping will not be removed for a given entity index.
+
+Until this cleanup runs, you also cannot recreate a property that would reuse the deleted property's search field
+(same `qualifiedName`, or a name that only differs by `.` vs `_`). See the caution under [Hard Delete](#delete-structured-properties).
 
 Run the DataHub system-update job (automatically run with every helm upgrade or install and quickstart) with
 the following environment variables enabled.
