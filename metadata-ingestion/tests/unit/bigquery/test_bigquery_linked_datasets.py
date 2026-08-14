@@ -19,6 +19,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
     _LIST_SUBSCRIPTIONS_RETRY,
+    _LIST_SUBSCRIPTIONS_TIMEOUT,
     BigQueryLinkedDatasetsHandler,
     LinkedDatasetInfo,
     PublisherRef,
@@ -185,16 +186,18 @@ def test_get_rm_client_delegates_to_config_projects_client():
     get_projects.assert_called_once_with()
 
 
-def test_list_subscriptions_uses_transient_retry():
-    # The Analytics Hub client does not auto-retry, so the call must pass our
-    # transient-error retry explicitly.
+def test_list_subscriptions_uses_transient_retry_and_deadline():
+    # The Analytics Hub client neither auto-retries nor applies an RPC deadline,
+    # so the call must pass both explicitly.
     handler = _make_handler()
     ah = _ah_client_returning({"us": []})
     _install_clients(handler, ah=ah, bq=_bq_client_returning({}))
     handler.populate_for_project(
         "consumer-project", [BigqueryDataset(name="d", location="US")]
     )
-    assert ah.list_subscriptions.call_args.kwargs["retry"] is _LIST_SUBSCRIPTIONS_RETRY
+    kwargs = ah.list_subscriptions.call_args.kwargs
+    assert kwargs["retry"] is _LIST_SUBSCRIPTIONS_RETRY
+    assert kwargs["timeout"] == _LIST_SUBSCRIPTIONS_TIMEOUT
 
 
 def test_list_subscriptions_retry_covers_transient_codes_only():

@@ -48,14 +48,14 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-# Retry the transient gRPC codes with the same 600s deadline as DEFAULT_RETRY.
+_LIST_SUBSCRIPTIONS_TIMEOUT = 600.0
 _LIST_SUBSCRIPTIONS_RETRY = retry.Retry(
     predicate=retry.if_exception_type(
         ServiceUnavailable,  # 503 / gRPC UNAVAILABLE
         InternalServerError,  # 500 / gRPC INTERNAL
         ResourceExhausted,  # 429 / gRPC RESOURCE_EXHAUSTED
     ),
-    timeout=600.0,
+    timeout=_LIST_SUBSCRIPTIONS_TIMEOUT,
 )
 
 
@@ -219,7 +219,9 @@ class BigQueryLinkedDatasetsHandler:
             try:
                 subscriptions = list(
                     ah_client.list_subscriptions(
-                        parent=parent, retry=_LIST_SUBSCRIPTIONS_RETRY
+                        parent=parent,
+                        retry=_LIST_SUBSCRIPTIONS_RETRY,
+                        timeout=_LIST_SUBSCRIPTIONS_TIMEOUT,
                     )
                 )
             except PermissionDenied as e:
