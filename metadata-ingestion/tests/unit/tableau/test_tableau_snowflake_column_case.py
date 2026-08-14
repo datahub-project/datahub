@@ -28,6 +28,7 @@ def _source(
         else:
             resolver.resolve_urn.return_value = (SNOWFLAKE_URN, schema_info)
     source._upstream_schema_resolver = resolver
+    source._failed_schema_lookups = set()
     source._ingested_schema = lambda urn: TableauSiteSource._ingested_schema(
         source, urn
     )
@@ -88,3 +89,15 @@ class TestSnowflakeColumnNameMatching:
 
         assert result == "customer_id"
         assert source.report.warning.called
+
+    def test_a_failed_lookup_is_not_retried_per_column(self) -> None:
+        # SchemaResolver caches hits and misses but not exceptions, and this runs
+        # once per column — so a GMS outage would otherwise re-request and re-warn
+        # for every column on the dataset.
+        source = _source(None, resolve_error=RuntimeError("gms timeout"))
+
+        for name in ("CUSTOMER_ID", "AMOUNT", "ORDER_DATE"):
+            TableauSiteSource._match_snowflake_column_name(source, SNOWFLAKE_URN, name)
+
+        assert source._upstream_schema_resolver.resolve_urn.call_count == 1
+        assert source.report.warning.call_count == 1

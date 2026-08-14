@@ -1195,6 +1195,9 @@ class TableauSiteSource:
         self.server: Server = server
         self.ctx: PipelineContext = ctx
         self.platform = platform
+        # Datasets whose schema lookup raised, so it is attempted once per
+        # dataset rather than once per column (see _ingested_schema).
+        self._failed_schema_lookups: Set[str] = set()
 
         self.vc_processor: VirtualConnectionProcessor = VirtualConnectionProcessor(self)
 
@@ -2387,10 +2390,17 @@ class TableauSiteSource:
         if resolver is None:
             return None
 
+        # SchemaResolver caches hits and misses but not exceptions, and this runs
+        # once per upstream column. Without remembering the failure, a single GMS
+        # outage would re-request — and re-warn — for every column on the dataset.
+        if dataset_urn in self._failed_schema_lookups:
+            return None
+
         try:
             _, schema_info = resolver.resolve_urn(dataset_urn)
             return schema_info
         except Exception as e:
+            self._failed_schema_lookups.add(dataset_urn)
             self.report.warning(
                 title="Could not read an upstream schema for column lineage",
                 message="Falling back to lowercased column names, which is only "
