@@ -3,8 +3,8 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.5.32=runtimeClasspath,testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.32=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.38=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.38=runtimeClasspath,testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-annotations:2.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-core:2.21.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -263,9 +263,9 @@ org.apache.httpcomponents:httpclient:4.5.14=compileClasspath,runtimeClasspath,te
 org.apache.httpcomponents:httpcore-nio:4.4.16=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.httpcomponents:httpcore:4.4.16=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.logging.log4j:log4j-api:2.21.0=compileClasspath,testCompileClasspath
-org.apache.logging.log4j:log4j-api:2.25.4=runtimeClasspath,testRuntimeClasspath
-org.apache.logging.log4j:log4j-core:2.25.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-org.apache.logging.log4j:log4j-jul:2.25.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.apache.logging.log4j:log4j-api:2.25.5=runtimeClasspath,testRuntimeClasspath
+org.apache.logging.log4j:log4j-core:2.25.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.apache.logging.log4j:log4j-jul:2.25.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.lucene:lucene-analysis-common:9.12.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.lucene:lucene-backward-codecs:9.12.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.apache.lucene:lucene-core:9.12.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
