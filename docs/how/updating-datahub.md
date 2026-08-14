@@ -63,6 +63,8 @@ Requirements:
 
 ### Deprecations
 
+- **(OpenAPI)** OpenAPI v2 entity and relationship APIs (`/openapi/v2/entity`, `/openapi/v2/relationship`, including generated typed entity endpoints under `/openapi/v2/entity`) are deprecated in favor of `/openapi/v3/entity` and `/openapi/v3/relationship`. They remain available; plan removal in a future release after a deprecation notice period. Timeseries (`/openapi/v2/timeseries`), platform entity ingest (`/openapi/v2/platform/entities/v1`), and timeline (`/openapi/v2/timeline/v1`) under v2 are **not** deprecated by this change.
+
 ### Other Notable Changes
 
 - **(Security / Dependencies)** Logback (`logback-classic` / `logback-core`) bumped from 1.5.32 to **1.5.38** for CVE-2026-9828 (`HardenedObjectInputStream` overly broad `java.lang`/`java.util` deserialization allowlist; fixed in 1.5.33+) and CVE-2026-10532 (Proxy class deserialization; fixed in 1.5.38). **Action:** none for operators; rebuild/redeploy picks up the new JARs. DataHub does not expose Logback `SimpleSocketServer` / `SimpleSSLSocketServer` by default.
