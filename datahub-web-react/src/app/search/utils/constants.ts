@@ -37,7 +37,6 @@ export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const VALUE_TYPE_FIELD_NAME = 'valueType';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
-export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const OUTPUT_PORTS_FIELD = 'isOutputPort';
 export const SCHEMA_FIELD_ALIASES_FILTER_NAME = 'schemaFieldAliases';
 export const IS_DEPRECATED_FILTER_NAME = 'deprecated';
@@ -70,7 +69,6 @@ export const ORDERED_FIELDS = [
     ORIGIN_FILTER_NAME,
     DEGREE_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
 ];
 
 export function getFieldToLabel(): Record<string, string> {
@@ -96,7 +94,6 @@ export function getFieldToLabel(): Record<string, string> {
         degree: i18next.t('search:fieldLabel.degree'),
         [BROWSE_PATH_V2_FILTER_NAME]: i18next.t('search:fieldLabel.browse'),
         hasActiveIncidents: i18next.t('search:filters.incidents.title'),
-        hasFailingAssertions: i18next.t('search:fieldLabel.assertions'),
     };
 }
 
@@ -123,7 +120,6 @@ export const FIELD_TO_LABEL = {
     degree: 'Degree',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Browse',
     hasActiveIncidents: 'Incidents',
-    hasFailingAssertions: 'Assertions',
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = [
