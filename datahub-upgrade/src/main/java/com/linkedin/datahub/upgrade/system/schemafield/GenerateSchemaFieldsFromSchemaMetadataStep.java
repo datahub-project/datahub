@@ -350,8 +350,11 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
     for (MCPItem delete : deletes) {
       try {
+        // Key-aspect DELETE must hard-delete; see EntityServiceImpl.applyPostCommitMcpSideEffects.
+        boolean hardDelete =
+            delete.getAspectName().equals(opContext.getKeyAspectName(delete.getUrn()));
         entityService.deleteAspect(
-            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), false);
+            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
       } catch (Exception e) {
         log.error(
             "Failed schemaField side-effect delete for urn={} aspect={}: {}",

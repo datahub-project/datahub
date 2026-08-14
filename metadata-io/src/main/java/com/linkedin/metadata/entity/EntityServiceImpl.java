@@ -1222,9 +1222,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     for (MCPItem delete : deletes) {
       try {
-        // Soft-delete the aspect so MCL/search/graph hooks run; async MCP DELETE is not supported.
+        // Key-aspect DELETE must hard-delete (deleteUrn). Soft-delete only sets status.removed and
+        // leaves the key; a later status DELETE in the same cascade can remove that flag and leave
+        // the entity looking active. Non-key aspect deletes stay soft (hardDelete=false).
+        boolean hardDelete =
+            delete.getAspectName().equals(opContext.getKeyAspectName(delete.getUrn()));
         deleteAspect(
-            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), false);
+            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
       } catch (Exception e) {
         log.error(
             "Failed post-commit side-effect delete for urn={} aspect={}: {}",

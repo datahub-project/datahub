@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -335,14 +336,22 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
     when(deleteItem.getUrn()).thenReturn(fieldUrn);
     when(deleteItem.getAspectName()).thenReturn(DOMAINS_ASPECT_NAME);
 
+    MCPItem keyDeleteItem = mock(MCPItem.class);
+    when(keyDeleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(keyDeleteItem.getUrn()).thenReturn(fieldUrn);
+    when(keyDeleteItem.getAspectName()).thenReturn(SCHEMA_FIELD_KEY_ASPECT);
+
     MCPItem upsertItem = mock(MCPItem.class);
     when(upsertItem.getChangeType()).thenReturn(ChangeType.UPSERT);
 
-    step.ingestSideEffectProposals(List.of(deleteItem, upsertItem));
+    step.ingestSideEffectProposals(List.of(deleteItem, keyDeleteItem, upsertItem));
 
     verify(mockEntityService, times(1))
         .deleteAspect(
             eq(OP_CONTEXT), eq(fieldUrn.toString()), eq(DOMAINS_ASPECT_NAME), any(), eq(false));
+    verify(mockEntityService, times(1))
+        .deleteAspect(
+            eq(OP_CONTEXT), eq(fieldUrn.toString()), eq(SCHEMA_FIELD_KEY_ASPECT), any(), eq(true));
     verify(mockEntityService, times(1))
         .ingestProposal(eq(OP_CONTEXT), any(AspectsBatch.class), eq(true));
   }

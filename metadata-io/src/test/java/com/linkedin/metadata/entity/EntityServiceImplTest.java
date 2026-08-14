@@ -687,16 +687,25 @@ public class EntityServiceImplTest {
     when(deleteItem.getUrn()).thenReturn(fieldUrn);
     when(deleteItem.getAspectName()).thenReturn(DOMAINS_ASPECT_NAME);
 
+    MCPItem keyDeleteItem = mock(MCPItem.class);
+    when(keyDeleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(keyDeleteItem.getUrn()).thenReturn(fieldUrn);
+    when(keyDeleteItem.getAspectName()).thenReturn(SCHEMA_FIELD_KEY_ASPECT);
+
     MCPItem upsertItem = mock(MCPItem.class);
     when(upsertItem.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(upsertItem.getUrn()).thenReturn(fieldUrn);
     when(upsertItem.getAspectName()).thenReturn(STATUS_ASPECT_NAME);
 
-    entityServiceSpy.applyPostCommitMcpSideEffects(opContext, List.of(deleteItem, upsertItem));
+    entityServiceSpy.applyPostCommitMcpSideEffects(
+        opContext, List.of(deleteItem, keyDeleteItem, upsertItem));
 
     verify(entityServiceSpy, times(1))
         .deleteAspect(
             eq(opContext), eq(fieldUrn.toString()), eq(DOMAINS_ASPECT_NAME), any(), eq(false));
+    verify(entityServiceSpy, times(1))
+        .deleteAspect(
+            eq(opContext), eq(fieldUrn.toString()), eq(SCHEMA_FIELD_KEY_ASPECT), any(), eq(true));
     verify(entityServiceSpy, times(1)).ingestProposalAsync(eq(opContext), any(AspectsBatch.class));
   }
 
