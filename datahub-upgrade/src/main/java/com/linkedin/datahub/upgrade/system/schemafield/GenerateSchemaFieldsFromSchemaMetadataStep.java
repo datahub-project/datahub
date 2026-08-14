@@ -350,9 +350,8 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
     for (MCPItem delete : deletes) {
       try {
-        // Key-aspect DELETE must hard-delete; see EntityServiceImpl.applyPostCommitMcpSideEffects.
         boolean hardDelete =
-            delete.getAspectName().equals(opContext.getKeyAspectName(delete.getUrn()));
+            EntityUtils.shouldHardDeleteAspect(opContext, delete.getUrn(), delete.getAspectName());
         entityService.deleteAspect(
             opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
       } catch (Exception e) {

@@ -1222,11 +1222,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     for (MCPItem delete : deletes) {
       try {
-        // Key-aspect DELETE must hard-delete (deleteUrn). Soft-delete only sets status.removed and
-        // leaves the key; a later status DELETE in the same cascade can remove that flag and leave
-        // the entity looking active. Non-key aspect deletes stay soft (hardDelete=false).
         boolean hardDelete =
-            delete.getAspectName().equals(opContext.getKeyAspectName(delete.getUrn()));
+            EntityUtils.shouldHardDeleteAspect(opContext, delete.getUrn(), delete.getAspectName());
         deleteAspect(
             opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
       } catch (Exception e) {
