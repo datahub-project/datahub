@@ -56,9 +56,9 @@ export function useSetAppTheme() {
         }
     }, [customThemeId, updateTheme]);
 
-    // Apply default theme based on dark mode (when no custom theme is set)
+    // Apply default theme based on dark mode (when no custom theme is set or if custom theme is invalid)
     useEffect(() => {
-        if (!customThemeId) {
+        if (!customThemeId || !themes[customThemeId]) {
             if (isDarkMode) {
                 updateTheme(themes.themeV2Dark);
             } else {

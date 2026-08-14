@@ -17,7 +17,7 @@ vi.mock('@app/theme/useIsDarkMode', () => ({
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => ({
         config: { visualConfig: { theme: null } },
-        loaded: false,
+        loaded: true,
     }),
 }));
 
@@ -83,6 +83,31 @@ describe('useSetAppTheme', () => {
             const { result } = renderHook(() => useSetAppTheme(), { wrapper });
             // The hook should run without error
             expect(result).toBeDefined();
+        });
+
+        it('falls back to default theme when customThemeId is invalid (not in themes object)', () => {
+            // Set localStorage to simulate an invalid custom theme ID being persisted
+            localStorage.setItem('customThemeId', 'invalid-theme-id');
+
+            (useIsDarkMode as any).mockReturnValue([false, vi.fn()]);
+
+            const updateThemeSpy = vi.fn();
+            const contextValue = {
+                theme: themes.themeV2,
+                updateTheme: updateThemeSpy,
+            };
+
+            const wrapper = ({ children }: { children: React.ReactNode }) => (
+                <CustomThemeContext.Provider value={contextValue}>{children}</CustomThemeContext.Provider>
+            );
+
+            renderHook(() => useSetAppTheme(), { wrapper });
+
+            // Should fall back to default theme instead of failing silently
+            expect(updateThemeSpy).toHaveBeenCalled();
+
+            // Cleanup
+            localStorage.removeItem('customThemeId');
         });
     });
 
