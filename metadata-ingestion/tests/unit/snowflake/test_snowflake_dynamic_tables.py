@@ -37,6 +37,7 @@ def test_get_dynamic_table_graph_info(mock_snowflake_data_dictionary):
             # the fully qualified name appear to work when it never did.
             "NAME": "DYNAMIC_TABLE1",
             "SCHEMA_NAME": "PUBLIC",
+            "DATABASE_NAME": "TEST_DB",
             "INPUTS": [{"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}],
             "TARGET_LAG_TYPE": "INTERVAL",
             "TARGET_LAG_SEC": 60,
@@ -503,6 +504,7 @@ def test_dynamic_table_invalid_response_handling(mock_snowflake_data_dictionary)
         {
             "NAME": "DYNAMIC_TABLE1",
             "SCHEMA_NAME": "PUBLIC",
+            "DATABASE_NAME": "TEST_DB",
             # Missing other required fields
         }
     ]

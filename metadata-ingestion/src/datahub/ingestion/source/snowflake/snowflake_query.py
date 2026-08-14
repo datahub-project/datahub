@@ -1639,18 +1639,20 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
-        # schema_name is selected because callers key this data by the fully qualified
-        # name: two schemas in one database may hold dynamic tables of the same name, and
-        # keying on the bare name would cross-wire their inputs.
+        # This function is ACCOUNT-scoped, not database-scoped: invoked from one database's
+        # INFORMATION_SCHEMA it returns rows for every database in the account. Measured on a
+        # live account - 12 rows spanning three other databases and none from the one it was
+        # invoked from. So filter on database_name, and select it so callers can key each row
+        # by its own database rather than the one they asked about; a same-named schema.table
+        # elsewhere would otherwise supply this database's lineage.
         #
-        # valid_to IS NULL keeps only the current version of each graph entry. This is a
-        # *history* function - a live account returned 13 rows for one existing dynamic
-        # table, the rest being versions of dropped ones - so without the filter the row
-        # retained per table is whichever the scan happened to see last.
+        # valid_to IS NULL keeps the current version of each entry, since the function
+        # reports history and superseded rows would otherwise compete for the same key.
         return f"""
             SELECT
-                name,
+                database_name,
                 schema_name,
+                name,
                 inputs,
                 target_lag_type,
                 target_lag_sec,
@@ -1658,6 +1660,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 alter_trigger
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
             WHERE valid_to IS NULL
+              AND database_name = '{_escape_sql_string_literal(db_name)}'
             ORDER BY name
         """
 

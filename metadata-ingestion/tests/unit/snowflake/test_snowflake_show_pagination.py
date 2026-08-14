@@ -641,6 +641,50 @@ def test_dynamic_table_upstreams_come_through_the_graph_history():
     assert tables[0].target_lag == "1 hour"
 
 
+def test_dynamic_table_graph_info_does_not_take_another_databases_row():
+    """DYNAMIC_TABLE_GRAPH_HISTORY is account-scoped: invoked from one database's
+    INFORMATION_SCHEMA it returns rows for every database in the account - measured live, 12
+    rows spanning three other databases and none from the one it was invoked from. So a row
+    must be keyed by its own DATABASE_NAME; stamping the caller's would let a same-named
+    schema.table in a different database supply this one's lineage."""
+    connection = GraphHistoryConnection(
+        {DYNAMIC_TABLES: [("SCHEMA_A", "dt_a")]},
+        graph_rows=[
+            {
+                "NAME": "dt_a",
+                "SCHEMA_NAME": "SCHEMA_A",
+                "DATABASE_NAME": "TEST_DB",
+                "INPUTS": '[{"kind": "TABLE", "name": "TEST_DB.SCHEMA_A.right"}]',
+                "TARGET_LAG_TYPE": "USER_DEFINED",
+                "TARGET_LAG_SEC": 3600,
+                "SCHEDULING_STATE": None,
+                "ALTER_TRIGGER": None,
+            },
+            # Listed AFTER the correct row deliberately: with the caller's db_name stamped
+            # on every row the two collide and the last one wins, so this ordering is what
+            # makes the test fail when the key is wrong.
+            {
+                "NAME": "dt_a",
+                "SCHEMA_NAME": "SCHEMA_A",
+                "DATABASE_NAME": "OTHER_DB",
+                "INPUTS": '[{"kind": "TABLE", "name": "OTHER_DB.SCHEMA_A.wrong"}]',
+                "TARGET_LAG_TYPE": "USER_DEFINED",
+                "TARGET_LAG_SEC": 1,
+                "SCHEDULING_STATE": None,
+                "ALTER_TRIGGER": None,
+            },
+        ],
+    )
+
+    tables = _make_data_dictionary(connection).get_dynamic_tables_for_schema_using_show(
+        db_name="TEST_DB", schema_name="SCHEMA_A"
+    )
+
+    assert [u.name for u in tables[0].upstream_tables] == ["TEST_DB.SCHEMA_A.right"], (
+        "lineage was taken from a same-named dynamic table in a different database"
+    )
+
+
 def test_per_schema_show_dynamic_tables_pages_through_every_table_exactly_once():
     total = SHOW_COMMAND_MAX_PAGE_SIZE + 2000
     connection = FakeShowConnection(

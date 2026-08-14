@@ -2464,7 +2464,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 # _map_show_dynamic_table looks it up. Keying on the bare NAME silently
                 # dropped every dynamic table's upstream lineage and its fallback target
                 # lag - the lookup simply never hit.
-                dt_name = f"{db_name}.{row['SCHEMA_NAME']}.{row['NAME']}"
+                #
+                # The database comes from the row, not from db_name: the underlying function
+                # is account-scoped, so stamping the caller's database would let a same-named
+                # schema.table in another database claim this one's key.
+                dt_name = f"{row['DATABASE_NAME']}.{row['SCHEMA_NAME']}.{row['NAME']}"
                 dt_graph_info[dt_name] = {
                     "inputs": row.get("INPUTS"),
                     "target_lag_type": row.get("TARGET_LAG_TYPE"),
