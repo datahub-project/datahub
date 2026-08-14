@@ -14,6 +14,21 @@ _MAX_COPY_ENTRIES_PER_TABLE = 20
 _PROVISIONED_SEGMENT_SIZE = 200  # STL_QUERYTEXT, SVL_STATEMENTTEXT
 _SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
 
+# Scoping the query-text tables by query id
+#
+# STL_QUERYTEXT (userid/xid/pid/query/sequence/text) and SYS_QUERY_TEXT
+# (query_id/sequence/text) carry no timestamp of their own, so the ingestion window can
+# only reach them through query ids borrowed from a table that has one -- stl_insert,
+# stl_query or SYS_QUERY_DETAIL.
+#
+# Whether a given use needs that scoping written out depends on what sits between the
+# base table and the time predicate. An aggregate (the LISTAGG that stitches segments)
+# or a window function (the ROW_NUMBER that de-duplicates SYS_QUERY_TEXT) has to
+# materialize over the whole table before an outer join can filter anything, so those
+# uses must restrict their own scan or they reassemble the cluster's entire retained
+# query history on every run, however small start_time makes the window. A plain join
+# in the same WHERE has no such barrier and needs nothing extra.
+
 # TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size to decide whether to
 # add a space when stitching segments. This approach can't distinguish between padding
 # and tokens that exactly fill a segment. Edge case: a 199-char token followed by a
@@ -547,20 +562,20 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     -- The in-window insert rows are a CTE so the two scans below can be
                     -- scoped to the query ids that can survive the join on `query`.
                     WITH target_tables AS (
-                            select
-                                distinct tbl as target_table_id,
-                                sti.schema as target_schema,
-                                sti.table as target_table,
-                                sti.database as cluster,
-                                query,
-                                starttime
-                            from
-                                stl_insert
-                            join SVV_TABLE_INFO sti on
-                                sti.table_id = tbl
-                            where starttime >= '{start_time}'
-                            and starttime < '{end_time}'
-                            and cluster = '{db_name}'
+                        select
+                            distinct tbl as target_table_id,
+                            sti.schema as target_schema,
+                            sti.table as target_table,
+                            sti.database as cluster,
+                            query,
+                            starttime
+                        from
+                            stl_insert
+                        join SVV_TABLE_INFO sti on
+                            sti.table_id = tbl
+                        where starttime >= '{start_time}'
+                        and starttime < '{end_time}'
+                        and cluster = '{db_name}'
                     ),
                     query_txt AS (
                         SELECT
@@ -570,10 +585,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                                 WITHIN GROUP (ORDER BY sequence)) AS querytxt
                         FROM STL_QUERYTEXT
                         WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
-                        -- STL_QUERYTEXT has no timestamp column and the window predicate
-                        -- sits on stl_insert, so there is nothing for the optimizer to
-                        -- push down here. Unscoped, this LISTAGG aggregates the whole of
-                        -- the cluster's retained query history regardless of start_time.
+                        -- Scope by query id: the query-text tables carry no timestamp.
                         AND query IN (SELECT query FROM target_tables)
                         GROUP BY query, userid
                     )
@@ -587,7 +599,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             querytxt as ddl,
                             starttime as timestamp
                         from
-                                target_tables
+                            target_tables
                         join ( (
                             select
                                 sui.usename as username,
@@ -606,7 +618,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                                     type as scan_type
                                 from
                                     stl_scan
-                                where query IN (SELECT query FROM target_tables)
+                                where query in (select query from target_tables)
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
@@ -694,9 +706,7 @@ query_txt as (
             STL_QUERYTEXT
         where
             sequence < {_QUERY_SEQUENCE_LIMIT}
-            -- Scope to the window and database, or this LISTAGG aggregates the
-            -- cluster's entire retained query history: STL_QUERYTEXT has no timestamp
-            -- column, so the stl_insert predicates below cannot be pushed down into it.
+            -- Scope by query id: the query-text tables carry no timestamp.
             and query in (select query from target_queries)
         order by
             sequence
@@ -726,6 +736,10 @@ left join query_txt sq on
 left join stl_load_commits slc on
     slc.query = si.query
 where
+        -- These three predicates are a second copy of the ones bounding
+        -- target_queries above, and the two sets must agree: a row that falls out of
+        -- target_queries still reaches the left join to query_txt, so it comes back
+        -- with ddl and query_id NULL rather than raising anything. Edit both together.
         sui.usename <> 'rdsdb'
         and cluster = '{db_name}'
         and slc.query IS NULL
@@ -884,8 +898,6 @@ where
         # RedshiftDataDictionary.get_query_result, so config/catalog-derived
         # values never enter the SQL string. Order: start_time, end_time, database.
         return """
-            -- The in-window statements are a CTE so the STL_QUERYTEXT scan below can be
-            -- scoped to them without repeating the three bound parameters.
             WITH in_window_queries AS (
                 SELECT sq.query, sq.pid, sq.userid, sq.starttime
                 FROM stl_query sq
@@ -904,9 +916,7 @@ where
                     SELECT query, pid, text, sequence
                     FROM STL_QUERYTEXT
                     WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
-                    -- Scope to the window, or this LISTAGG aggregates the cluster's
-                    -- entire retained query history: STL_QUERYTEXT has no timestamp
-                    -- column, so the stl_query window predicate cannot reach it.
+                    -- Scope by query id: the query-text tables carry no timestamp.
                     AND query IN (SELECT query FROM in_window_queries)
                     ORDER BY sequence
                 )
@@ -1076,10 +1086,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         PARTITION BY query_id, sequence
                         ) as rn
                     FROM SYS_QUERY_TEXT
-                    -- The join to the time-filtered `queries` CTE cannot bound this
-                    -- ROW_NUMBER() window, so scope it to the same query ids -- exactly
-                    -- those that survive that join -- rather than de-duplicating all of
-                    -- SYS_QUERY_TEXT.
+                    -- Scope by query id: a ROW_NUMBER() window materializes over the
+                    -- whole table before the join to `queries` can filter anything.
                     WHERE query_id IN (SELECT query_id FROM queries)
                     )
                 WHERE rn = 1
@@ -1203,6 +1211,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     SYS_QUERY_DETAIL qd
                     JOIN SVV_TABLE_INFO sti ON sti.table_id = qd.table_id
                     LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                    -- No id scoping needed: this is a plain join in the same WHERE as
+                    -- the qd.start_time window, with no aggregate or window between.
                     LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qd.query_id
                     LEFT JOIN SYS_LOAD_DETAIL ld ON ld.query_id = qd.query_id
                 WHERE
@@ -1367,6 +1377,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         WITHIN GROUP (ORDER BY qt.sequence)) AS query_text
                 FROM
                     SYS_QUERY_HISTORY qh
+                    -- No id scoping needed: this is a plain join in the same WHERE as
+                    -- the qh.start_time window, with no aggregate or window between.
                     LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qh.query_id
                     LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qh.user_id
                 WHERE

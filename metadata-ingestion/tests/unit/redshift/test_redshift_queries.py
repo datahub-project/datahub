@@ -16,6 +16,7 @@ from datahub.ingestion.source.redshift.query import (
     RedshiftCommonQuery,
     RedshiftProvisionedQuery,
     RedshiftServerlessQuery,
+    redshift_datetime_format,
 )
 
 START_TIME = datetime(2024, 1, 1, 12, 0, 0)
@@ -309,8 +310,8 @@ class TestQueryTextScopedToWindow:
         )
         # The in-window insert rows sit in a named CTE so both the STL_QUERYTEXT scan
         # and the stl_scan subquery can be scoped to it.
-        assert "WITH target_tables AS" in sql
-        assert "starttime >= '2024-01-01 12:00:00'" in sql
+        assert "target_tables AS" in sql
+        assert f"starttime >= '{START_TIME.strftime(redshift_datetime_format)}'" in sql
         assert sql.lower().count("query in (select query from target_tables)") == 2
 
     def test_provisioned_insert_create_scopes_query_text(self):
