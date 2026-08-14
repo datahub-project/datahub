@@ -162,6 +162,28 @@ class TestRestoreCaseFoldedColumns:
             assert adapter._use_stored_column_names(table, snowflake_engine) is table
 
 
+class TestSnowflakeDefersFieldPaths:
+    def test_snowflake_hands_back_the_stored_name(
+        self, adapter: SnowflakeAdapter, snowflake_engine: Any
+    ) -> None:
+        # The contract the two-stage design rests on. Snowflake's schema comes
+        # from INFORMATION_SCHEMA and its field path depends on config this layer
+        # cannot see, so the adapter must not translate -- snowflake_profiler
+        # applies the same rule it used to build schemaMetadata.
+        assert adapter.field_path_for("MixedCol", snowflake_engine) == "MixedCol"
+
+    def test_the_generic_adapter_does_translate(self) -> None:
+        from sqlalchemy.dialects import oracle
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        engine = _engine(oracle.dialect())
+        generic = GenericAdapter(ProfilingConfig(), SQLSourceReport(), engine)
+        assert generic.field_path_for("MIXEDCOL", engine) == "mixedcol"
+
+
 class TestInspectorCaching:
     """Profiling opens one Connection per table, and an Inspector strongly
     references its bind. Caching per-bind would therefore retain a dead Connection

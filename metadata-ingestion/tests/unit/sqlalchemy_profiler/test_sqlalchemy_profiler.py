@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from typing import Any, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +19,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
 
 
 @pytest.fixture
@@ -1099,3 +1101,54 @@ class TestProfilingIsolationLevelRejection:
             "Asset: test.my_table; isolation_level=BOGUS_LEVEL"
         )
         assert isinstance(warning_call.kwargs["exc"], sa.exc.ArgumentError)
+
+
+class TestEmittedFieldPaths:
+    """The seam between the two names a column has.
+
+    Profiling addresses columns by their stored identifier so a case-colliding
+    pair stays distinct; a profile has to attach to the path the source put in
+    schemaMetadata. `_to_emitted_field_paths` is where one becomes the other, and
+    it is the only place two stored names can collapse onto one path.
+    """
+
+    @staticmethod
+    def _profiles(*paths: str) -> List[DatasetFieldProfileClass]:
+        return [DatasetFieldProfileClass(fieldPath=p) for p in paths]
+
+    def test_translates_each_path_through_the_adapter(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("ORDER_ID", "AMOUNT"), adapter, MagicMock()
+        )
+
+        assert [p.fieldPath for p in result] == ["order_id", "amount"]
+
+    def test_two_stored_names_collapsing_to_one_path_keep_one_profile(
+        self, profiler: Any
+    ) -> None:
+        # An Oracle-shaped case: "col" and "COL" are distinct columns and each got
+        # its own statistics, but the schema declares a single folded field. Two
+        # profiles on one path would be dropped downstream, so keep the first.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("col", "COL", "ID"), adapter, MagicMock()
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "id"]
+
+    def test_distinct_paths_all_survive(self, profiler: Any) -> None:
+        # The preserve-case shape: the adapter hands the stored name straight
+        # back, so nothing collapses and both columns keep their statistics.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("col", "COL"), adapter, MagicMock()
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "COL"]
