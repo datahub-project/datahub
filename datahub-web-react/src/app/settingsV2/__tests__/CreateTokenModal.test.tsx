@@ -326,6 +326,7 @@ describe('CreateTokenModal', () => {
             }
 
             await waitFor(() => {
+                expect(mockCreateAccessToken).toHaveBeenCalledTimes(1);
                 const input = mockCreateAccessToken.mock.calls[0][0].variables.input;
                 expect(input).toEqual(
                     expect.objectContaining({

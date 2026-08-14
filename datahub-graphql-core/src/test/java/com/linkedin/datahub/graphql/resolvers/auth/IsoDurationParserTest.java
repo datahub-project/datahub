@@ -88,4 +88,14 @@ public class IsoDurationParserTest {
     AccessTokenConfiguration config = new AccessTokenConfiguration();
     config.setAllowedDurations("P30D,");
   }
+
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testAllowedDurationsIsUnmodifiable() {
+    AccessTokenConfiguration.defaults().getAllowedDurations().add("P1D");
+  }
+
+  @Test(expectedExceptions = UnsupportedOperationException.class)
+  public void testAllowedDurationMillisIsUnmodifiable() {
+    AccessTokenConfiguration.defaults().getAllowedDurationMillis().add(1L);
+  }
 }

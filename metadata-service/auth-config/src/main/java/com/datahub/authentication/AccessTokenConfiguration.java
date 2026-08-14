@@ -23,7 +23,8 @@ public class AccessTokenConfiguration {
   private boolean allowNoExpiry = false;
 
   /** Configured ISO-8601 duration strings in display order. */
-  private List<String> allowedDurations = parseDurationList(DEFAULT_ALLOWED_DURATIONS);
+  private List<String> allowedDurations =
+      Collections.unmodifiableList(parseDurationList(DEFAULT_ALLOWED_DURATIONS));
 
   /** Normalized millisecond lengths corresponding to {@link #allowedDurations}. */
   private Set<Long> allowedDurationMillis = toMillisSet(allowedDurations);
@@ -71,9 +72,11 @@ public class AccessTokenConfiguration {
   }
 
   private static Set<Long> toMillisSet(final List<String> durations) {
-    return durations.stream()
-        .map(IsoDurationParser::parseToMillis)
-        .collect(Collectors.toCollection(LinkedHashSet::new));
+    final Set<Long> millis =
+        durations.stream()
+            .map(IsoDurationParser::parseToMillis)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+    return Collections.unmodifiableSet(millis);
   }
 
   /** Convenience for tests / defaults without going through Spring. */
