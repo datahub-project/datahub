@@ -309,6 +309,14 @@ class BigQueryLinkedDatasetsHandler:
             entity_name,
         )
 
+        # Built before the first yield so a failure cannot leave the pair merged
+        # as siblings with no lineage.
+        fine_grained = self._build_fine_grained_lineages(
+            publisher_urn=publisher_urn,
+            consumer_urn=consumer_urn,
+            columns=columns,
+        )
+
         yield MetadataChangeProposalWrapper(
             entityUrn=consumer_urn,
             aspect=Siblings(primary=False, siblings=[publisher_urn]),
@@ -318,12 +326,6 @@ class BigQueryLinkedDatasetsHandler:
         # its consumers at once. Deferred to gen_publisher_sibling_workunits.
         with self._publisher_siblings_lock:
             self._publisher_siblings[publisher_urn].add(consumer_urn)
-
-        fine_grained = self._build_fine_grained_lineages(
-            publisher_urn=publisher_urn,
-            consumer_urn=consumer_urn,
-            columns=columns,
-        )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=consumer_urn,

@@ -811,6 +811,27 @@ def test_empty_columns_emit_copy_lineage_without_finegrained():
     assert upstreams[0].fineGrainedLineages is None
 
 
+def test_finegrained_failure_emits_nothing():
+    """A failure building column lineage must not leave the pair merged as
+    siblings with no lineage tying them together."""
+    handler = _seed_with_linked_dataset()
+    with patch.object(
+        handler, "_build_fine_grained_lineages", side_effect=ValueError("bad urn")
+    ):
+        with pytest.raises(ValueError):
+            list(
+                handler.gen_lineage_workunits(
+                    consumer_project_id="consumer-project",
+                    consumer_dataset="shared_dataset",
+                    entity_name="users",
+                    columns=[_column("id")],
+                )
+            )
+
+    assert list(handler.gen_publisher_sibling_workunits()) == []
+    assert handler.report.num_linked_dataset_lineage_emitted == 0
+
+
 def test_publisher_siblings_grouped_across_consumers():
     """One publisher shared into several linked datasets gets a single aspect
     listing every consumer, rather than one aspect per consumer."""
