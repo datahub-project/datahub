@@ -200,6 +200,47 @@ public class AspectMappingFieldPopulationTest {
     assertNotNull(view.getDefinition());
   }
 
+  /**
+   * Suggested in review: a soft-deleted Document loaded under an optimized {urn, exists} selection
+   * must report exists == false. The exists field maps to the status aspect and the hydration table
+   * forces documentInfo + subTypes, so the mapper sees exactly these three aspects.
+   */
+  @Test
+  public void testDocumentExistsFalseForRemovedEntityFromStatusAspect() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:document:removed-doc");
+    Urn actor = Urn.createFromString("urn:li:corpuser:test");
+
+    com.linkedin.knowledge.DocumentInfo info =
+        new com.linkedin.knowledge.DocumentInfo()
+            .setStatus(
+                new com.linkedin.knowledge.DocumentStatus()
+                    .setState(com.linkedin.knowledge.DocumentState.PUBLISHED))
+            .setContents(new com.linkedin.knowledge.DocumentContents().setText("contents"))
+            .setCreated(new AuditStamp().setTime(1L).setActor(actor))
+            .setLastModified(new AuditStamp().setTime(1L).setActor(actor));
+    com.linkedin.common.SubTypes subTypes =
+        new com.linkedin.common.SubTypes()
+            .setTypeNames(new StringArray(ImmutableList.of("Document")));
+    com.linkedin.common.Status status = new com.linkedin.common.Status().setRemoved(true);
+
+    EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DOCUMENT_ENTITY_NAME)
+            .setUrn(urn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.DOCUMENT_INFO_ASPECT_NAME, env(info),
+                        Constants.SUB_TYPES_ASPECT_NAME, env(subTypes),
+                        Constants.STATUS_ASPECT_NAME, env(status))));
+
+    com.linkedin.datahub.graphql.generated.Document document =
+        com.linkedin.datahub.graphql.types.knowledge.DocumentMapper.map(null, response);
+
+    assertNotNull(document);
+    assertEquals(document.getExists(), Boolean.FALSE);
+  }
+
   @Test
   public void testTagDescriptionPopulatesFromTagProperties() throws Exception {
     Urn urn = Urn.createFromString("urn:li:tag:my-tag");
