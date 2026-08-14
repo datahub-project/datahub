@@ -1408,8 +1408,15 @@ Structured Property Hard Delete Effects:
 - GMS emits a companion `propertyDefinition` DELETE metadata change log before the entity is removed, so assignment cleanup (`PropertyDefinitionDeleteSideEffect`) can scroll entities and issue PATCH REMOVE operations on their `structuredProperties` aspects
 - Structured Property values are removed from other entities asynchronously via those PATCH operations
 - Rollback is not possible
-- Elasticsearch / OpenSearch index mappings keep the property's search field until you reindex (see [Index Mappings Cleanup](#index-mappings-cleanup))
-- You **cannot** recreate a property with the same `qualifiedName` (or another name that normalizes to the same search field) until that orphaned mapping is removed — this is intentional; see [Why the same name cannot be recreated after hard delete](#why-the-same-name-cannot-be-recreated-after-hard-delete)
+- Elasticsearch index mappings will continue to contain references to the hard deleted property until reindex
+
+:::
+
+:::caution Cannot recreate the same name until mappings are cleaned up
+
+Because those index mappings remain after hard delete (see [Index Mappings Cleanup](#index-mappings-cleanup)), creating a structured property with the **same** `qualifiedName` — or another name that normalizes to the same search field (`.` → `_`) — is rejected until the orphaned mapping is removed.
+
+That is intentional. Hard delete is a full purge of the property (definition and values). Reusing the search field while leftover mapping or indexed state may still exist would pollute that purge. Prefer **soft delete** if you may need the property again; otherwise use a different `qualifiedName`, or finish assignment cleanup and run Index Mappings Cleanup before recreating the same name.
 
 :::
 
@@ -1585,6 +1592,9 @@ After the asynchronous delete of all Structured Property values have been proces
 hard delete, it is possible to remove the remaining index mappings. Note that if even 1 Structured Property value remains
 the mapping will not be removed for a given entity index.
 
+Until this cleanup runs, you also cannot recreate a property that would reuse the deleted property's search field
+(same `qualifiedName`, or a name that only differs by `.` vs `_`). See the caution under [Hard Delete](#delete-structured-properties).
+
 Run the DataHub system-update job (automatically run with every helm upgrade or install and quickstart) with
 the following environment variables enabled.
 
@@ -1594,24 +1604,6 @@ This will trigger an ES index which will take time to complete. During the proce
 ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
 ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true
 ```
-
-#### Why the same name cannot be recreated after hard delete
-
-Hard delete removes the structured property **definition** and (asynchronously) its **assignments** on other entities. It does **not** immediately remove the property's field from Elasticsearch / OpenSearch entity-index **mappings**. Search field names are derived from `qualifiedName` by replacing `.` with `_` (for example `io.acryl.privacy.retentionTime` → `io_acryl_privacy_retentionTime`).
-
-When you create a structured property, `PropertyDefinitionValidator` rejects the write if that normalized field already exists in the active entity-index mappings. That check also applies when you try to recreate the **exact same** `qualifiedName` after a hard delete: the definition is gone, but the orphaned mapping from the deleted property is still present, so create fails with a field-collision error.
-
-This is **by design**, not a bug. A hard delete is meant to fully purge that property — definition and values. Re-attaching a new definition to the same search field while the old mapping (and any residual indexed values) still exist would pollute what should be a clean purge: search and filters could mix leftover index state with a supposedly new property that happens to share the field name. An identical mapping schema does not make reuse safe.
-
-**What to do instead:**
-
-| Goal                                                        | Approach                                                                                                                                                 |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Temporarily hide a property and bring it back later         | Prefer **soft delete**, then clear `status.removed` — no mapping orphan, fully reversible                                                                |
-| Permanently remove a property and reuse the same name later | Wait until assignment cleanup finishes, run [Index Mappings Cleanup](#index-mappings-cleanup) to drop the orphaned field, **then** recreate the property |
-| Permanently remove a property and do not need the same name | Hard delete, then create a property with a **different** `qualifiedName` that does not collide after `.` → `_` normalization                             |
-
-Until mappings are cleaned up, soft-deleted properties and hard-deleted properties with leftover fields both block creates that would share their search field name.
 
 ## Update Structured Property With Breaking Schema Changes
 
