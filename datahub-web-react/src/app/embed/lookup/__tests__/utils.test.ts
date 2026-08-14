@@ -1,16 +1,21 @@
 import { getExternalUrlCandidates, getExternalUrlContainTokens } from '@app/embed/lookup/utils';
 
-const WORKSPACE_REPORT_URL =
-    'https://app.powerbi.com/groups/11111111-1111-1111-1111-111111111111/reports/22222222-2222-2222-2222-222222222222';
-const APP_REPORT_URL =
-    'https://app.powerbi.com/groups/me/apps/33333333-3333-3333-3333-333333333333/reports/22222222-2222-2222-2222-222222222222/44444444444444444444444444444444?experience=power-bi';
+const WORKSPACE_ID = '11111111-1111-1111-1111-111111111111';
+const REPORT_ID = '22222222-2222-2222-2222-222222222222';
+const APP_ID = '33333333-3333-3333-3333-333333333333';
+const PAGE_ID = '44444444444444444444444444444444';
+const DASHBOARD_ID = '66666666-6666-6666-6666-666666666666';
+
+const WORKSPACE_REPORT_URL = `https://app.powerbi.com/groups/${WORKSPACE_ID}/reports/${REPORT_ID}`;
+const APP_REPORT_URL = `https://app.powerbi.com/groups/me/apps/${APP_ID}/reports/${REPORT_ID}/${PAGE_ID}?experience=power-bi`;
+
+const REPORT_TOKEN = `/reports/${REPORT_ID}`;
 
 describe('getExternalUrlCandidates', () => {
-    it('adds Power BI candidates without query params and page segments', () => {
+    it('strips the query string and page segment from a Workspace App URL', () => {
         expect(getExternalUrlCandidates(APP_REPORT_URL)).toEqual([
             APP_REPORT_URL,
-            'https://app.powerbi.com/groups/me/apps/33333333-3333-3333-3333-333333333333/reports/22222222-2222-2222-2222-222222222222/44444444444444444444444444444444',
-            'https://app.powerbi.com/groups/me/apps/33333333-3333-3333-3333-333333333333/reports/22222222-2222-2222-2222-222222222222',
+            `https://app.powerbi.com/groups/me/apps/${APP_ID}/reports/${REPORT_ID}/${PAGE_ID}`,
         ]);
     });
 
@@ -22,6 +27,18 @@ describe('getExternalUrlCandidates', () => {
             `${WORKSPACE_REPORT_URL}/55555555555555555555555555555555`,
             WORKSPACE_REPORT_URL,
         ]);
+    });
+
+    it('rebuilds a workspace URL from an embed URL that carries a group id', () => {
+        const embedUrl = `https://app.powerbi.com/reportEmbed?reportId=${REPORT_ID}&groupId=${WORKSPACE_ID}&autoAuth=true`;
+
+        expect(getExternalUrlCandidates(embedUrl)).toEqual([embedUrl, WORKSPACE_REPORT_URL]);
+    });
+
+    it('does not strip the query string when the id only lives there', () => {
+        const embedUrl = `https://app.powerbi.com/reportEmbed?reportId=${REPORT_ID}`;
+
+        expect(getExternalUrlCandidates(embedUrl)).toEqual([embedUrl]);
     });
 
     it('does not duplicate an already-canonical Power BI URL', () => {
@@ -37,27 +54,53 @@ describe('getExternalUrlCandidates', () => {
 
 describe('getExternalUrlContainTokens', () => {
     it('returns a report path token for Power BI Workspace App URLs', () => {
-        expect(getExternalUrlContainTokens(APP_REPORT_URL)).toEqual(['/reports/22222222-2222-2222-2222-222222222222']);
+        expect(getExternalUrlContainTokens(APP_REPORT_URL)).toEqual([REPORT_TOKEN]);
     });
 
     it('returns a report path token for workspace Power BI URLs', () => {
-        expect(getExternalUrlContainTokens(WORKSPACE_REPORT_URL)).toEqual([
-            '/reports/22222222-2222-2222-2222-222222222222',
-        ]);
+        expect(getExternalUrlContainTokens(WORKSPACE_REPORT_URL)).toEqual([REPORT_TOKEN]);
     });
 
     it('returns a dashboard path token for Power BI dashboards', () => {
-        const dashboardUrl =
-            'https://app.powerbi.com/groups/me/apps/33333333-3333-3333-3333-333333333333/dashboards/66666666-6666-6666-6666-666666666666';
+        const dashboardUrl = `https://app.powerbi.com/groups/me/apps/${APP_ID}/dashboards/${DASHBOARD_ID}`;
 
-        expect(getExternalUrlContainTokens(dashboardUrl)).toEqual(['/dashboards/66666666-6666-6666-6666-666666666666']);
+        expect(getExternalUrlContainTokens(dashboardUrl)).toEqual([`/dashboards/${DASHBOARD_ID}`]);
     });
 
-    it('supports Power BI gov cloud hosts', () => {
-        const govUrl =
-            'https://app.powerbigov.us/groups/me/apps/33333333-3333-3333-3333-333333333333/reports/22222222-2222-2222-2222-222222222222';
+    it('returns a token for paginated reports', () => {
+        const rdlUrl = `https://app.powerbi.com/groups/${WORKSPACE_ID}/rdlreports/${REPORT_ID}`;
 
-        expect(getExternalUrlContainTokens(govUrl)).toEqual(['/reports/22222222-2222-2222-2222-222222222222']);
+        expect(getExternalUrlContainTokens(rdlUrl)).toEqual([`/rdlreports/${REPORT_ID}`]);
+    });
+
+    it('returns a token for ids carried in the query string', () => {
+        const embedUrl = `https://app.powerbi.com/reportEmbed?reportId=${REPORT_ID}&autoAuth=true`;
+
+        expect(getExternalUrlContainTokens(embedUrl)).toEqual([REPORT_TOKEN]);
+    });
+
+    it.each([
+        ['gov cloud', 'app.powerbigov.us'],
+        ['gov high cloud', 'app.high.powerbigov.us'],
+        ['dod cloud', 'app.mil.powerbigov.us'],
+        ['china cloud', 'app.powerbi.cn'],
+        ['fabric', 'app.fabric.microsoft.com'],
+    ])('supports Power BI on %s', (_name, host) => {
+        const url = `https://${host}/groups/me/apps/${APP_ID}/reports/${REPORT_ID}`;
+
+        expect(getExternalUrlContainTokens(url)).toEqual([REPORT_TOKEN]);
+    });
+
+    it('ignores hosts that only look like Power BI', () => {
+        const lookalike = `https://app.powerbi.com.evil.example/groups/${WORKSPACE_ID}/reports/${REPORT_ID}`;
+
+        expect(getExternalUrlContainTokens(lookalike)).toEqual([]);
+    });
+
+    it('ignores non-GUID ids so wildcard patterns cannot be injected', () => {
+        const wildcardUrl = 'https://app.powerbi.com/groups/me/apps/abc/reports/*';
+
+        expect(getExternalUrlContainTokens(wildcardUrl)).toEqual([]);
     });
 
     it('returns no tokens for non-Power BI URLs', () => {
