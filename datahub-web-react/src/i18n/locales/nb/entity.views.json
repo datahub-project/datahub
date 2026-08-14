@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Den spesifikke plattforminstansen der ressursen befinner seg.",
     "prop.softDeleted": "Midlertidig slettet",
     "prop.softDeletedDesc": "Om ressursen er midlertidig slettet.",
+    "prop.structuredPropertyGroup": "Strukturert egenskap",
     "prop.subType": "Undertype",
     "prop.subTypeDesc": "Undertypen til ressursen (f.eks. tabell, visning, emne).",
     "publicTab": "Offentlige visninger",
