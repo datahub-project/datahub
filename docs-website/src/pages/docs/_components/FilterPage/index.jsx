@@ -14,14 +14,10 @@ import { SUPPORT_STATUS_DESCRIPTIONS } from "../supportStatus";
 // spelled out here rather than left to inference.
 function CardLegend() {
   return (
-    <details className={styles.legend} open>
-      <summary>
-        Labels on these cards describe two separate things: how mature a
-        connector is, and how metadata reaches DataHub.
-      </summary>
+    <aside className={styles.legend} aria-label="Card legend">
       <div className={styles.legendGrid}>
         <div>
-          <h4>Support status (badge in the corner of each card)</h4>
+          <h4>Support status</h4>
           <ul>
             <li>
               <span
@@ -54,7 +50,7 @@ function CardLegend() {
           </a>
         </div>
         <div>
-          <h4>Connection type (how metadata reaches DataHub)</h4>
+          <h4>Connection type</h4>
           <ul>
             <li>
               <b>Pull</b> - DataHub connects to the platform and reads metadata
@@ -68,8 +64,8 @@ function CardLegend() {
                 API
               </span>
               <b>No ready-made connector exists.</b> DataHub can model this
-              platform, but you emit the metadata yourself using the SDK or
-              APIs.
+              platform, but you emit the metadata yourself using the DataHub SDK
+              or APIs.
             </li>
           </ul>
           <a href="docs/metadata-ingestion/datahub-skills">
@@ -77,7 +73,7 @@ function CardLegend() {
           </a>
         </div>
       </div>
-    </details>
+    </aside>
   );
 }
 
@@ -226,20 +222,22 @@ export function FilterPage(
       <header className={"hero"}>
         <div className="container">
           <div className="hero__content">
-            <div>
-              <h1 className="hero__title">{title}</h1>
-              <p className="hero__subtitle">{subtitle}</p>
+            <div className={clsx(showLegend && styles.heroLayout)}>
+              <div className={clsx(showLegend && styles.heroMain)}>
+                <h1 className="hero__title">{title}</h1>
+                <p className="hero__subtitle">{subtitle}</p>
 
-              <FilterBar
-                textState={textState}
-                setTextState={setTextState}
-                filterState={filterState}
-                setFilterState={setFilterState}
-                filterOptions={filterOptions}
-                allowExclusivity={allowExclusivity}
-                setIsExclusive={setIsExclusive}
-                categoryCounts={categoryCounts}
-              />
+                <FilterBar
+                  textState={textState}
+                  setTextState={setTextState}
+                  filterState={filterState}
+                  setFilterState={setFilterState}
+                  filterOptions={filterOptions}
+                  allowExclusivity={allowExclusivity}
+                  setIsExclusive={setIsExclusive}
+                  categoryCounts={categoryCounts}
+                />
+              </div>
 
               {showLegend && <CardLegend />}
             </div>

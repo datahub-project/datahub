@@ -1,29 +1,52 @@
+// Three columns keep the hero's title, subtitle and filter bar centred on the
+// page: the empty first column always mirrors the legend in the third, so the
+// middle column stays dead-centre whatever width the legend takes. Below the
+// breakpoint the grid collapses and the legend sits under the filter bar.
+.heroLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 44rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.heroMain {
+  grid-column: 2;
+  min-width: 0;
+}
+
 .legend {
-  margin-top: 1rem;
+  grid-column: 3;
+  justify-self: start;
+  max-width: 17rem;
   padding: 0.75rem 1rem;
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 8px;
   background: var(--ifm-background-surface-color);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-align: left;
+}
 
-  summary {
-    cursor: pointer;
-    font-weight: 500;
-    color: var(--ifm-color-emphasis-800);
-    list-style-position: outside;
+@media (max-width: 996px) {
+  .heroLayout {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  summary:hover {
-    color: var(--ifm-color-primary);
+  .heroMain {
+    grid-column: 1;
+  }
+
+  .legend {
+    grid-column: 1;
+    justify-self: stretch;
+    max-width: none;
+    margin-top: 1rem;
   }
 }
 
 .legendGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 1.25rem;
-  margin-top: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
 
   h4 {
     margin-bottom: 0.35rem;
