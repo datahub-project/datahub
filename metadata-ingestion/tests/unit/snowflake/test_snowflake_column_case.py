@@ -25,6 +25,9 @@ from datahub.metadata.schema_classes import (
 
 
 def _make_config(**overrides: object) -> SnowflakeV2Config:
+    # Pinned rather than inherited: these assert exact field paths, so they
+    # must not follow the ambient default that the flag-on sweep flips.
+    overrides.setdefault("preserve_column_case", False)
     return SnowflakeV2Config(
         account_id="test_account",
         username="user",

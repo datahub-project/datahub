@@ -119,6 +119,9 @@ def _make_mapper(
     platform_instance: Optional[str] = None,
     include_view_definitions: bool = True,
     extract_tags_as_structured_properties: bool = False,
+    # Pinned rather than inherited: these tests assert exact field paths, so they
+    # must not follow the ambient default that the flag-on sweep flips.
+    preserve_column_case: bool = False,
 ) -> SnowflakeSemanticModelMapper:
     config = SnowflakeV2Config.model_validate(
         {
@@ -126,6 +129,7 @@ def _make_mapper(
             "username": "test_user",
             "password": "test_password",
             "convert_urns_to_lowercase": convert_urns_to_lowercase,
+            "preserve_column_case": preserve_column_case,
             "platform_instance": platform_instance,
             "include_view_definitions": include_view_definitions,
             "extract_tags_as_structured_properties": extract_tags_as_structured_properties,
