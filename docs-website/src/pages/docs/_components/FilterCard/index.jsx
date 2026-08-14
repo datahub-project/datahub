@@ -135,6 +135,17 @@ const FilterCard = ({
     return "";
   }
 
+  function getSupportStatusTooltip() {
+    const status = supportStatus.trim().toLowerCase();
+    if (status === "certified")
+      return "Certified: well-tested and widely adopted; expected to be stable.";
+    if (status === "incubating")
+      return "Incubating: ready for adoption, but not yet tested across a wide variety of edge cases.";
+    if (status === "testing")
+      return "Testing: available for experimentation; may change without notice.";
+    return "";
+  }
+
   return (
     <div className={clsx("col col--4", styles.featureCol)}>
       <Link
@@ -143,7 +154,10 @@ const FilterCard = ({
         onClick={handleCardClick}
       >
         {supportStatus && (
-          <div className={clsx(styles.supportBadge, getSupportBadgeClass())}>
+          <div
+            className={clsx(styles.supportBadge, getSupportBadgeClass())}
+            title={getSupportStatusTooltip()}
+          >
             {supportStatus.trim() === "Certified" && "✓ "}
             {supportStatus.trim()}
           </div>
@@ -159,6 +173,7 @@ const FilterCard = ({
             {isApiConnector && (
               <Tag
                 color="blue"
+                title="No ready-made connector exists. DataHub can model this platform, but you emit the metadata yourself using the SDK or APIs."
                 style={{
                   marginLeft: "0.5rem",
                   fontSize: "0.7rem",
