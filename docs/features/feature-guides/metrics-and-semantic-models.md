@@ -99,7 +99,6 @@ Once enabled, the **Metrics** section appears in the left navigation sidebar wit
 
 DataHub's Snowflake connector emits Semantic Models and Metrics directly from **Snowflake Semantic Views**.
 
-
 Enable in the Snowflake recipe:
 
 ```yaml
@@ -111,18 +110,18 @@ source:
     include_technical_schema: true
 
     semantic_views:
-      enabled: true                             # ingest Semantic Views at all
-      emit_semantic_model_entities: null        # tri-state — see below
-      column_lineage: true                      # physical→logical column lineage
+      enabled: true # ingest Semantic Views at all
+      emit_semantic_model_entities: null # tri-state — see below
+      column_lineage: true # physical→logical column lineage
 ```
 
 The `emit_semantic_model_entities` control is tri-state:
 
-| Value | Behavior |
-| --- | --- |
+| Value            | Behavior                                                                                                                                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `null` (default) | Auto-detect. On DataHub Cloud ≥ 2.1.0 with Metrics enabled, emits SM/Metric entities. Elsewhere (older Cloud, OSS/self-hosted without an explicit opt-in, or connectionless runs) falls back to legacy `Semantic View` datasets. |
-| `true` | Request SM/Metric emission. Honored on Cloud when the server + flag support it; on OSS, requires the operator to run a server that registers these entities. |
-| `false` | Force legacy `Semantic View` dataset behavior even if the server supports the new entities. |
+| `true`           | Request SM/Metric emission. Honored on Cloud when the server + flag support it; on OSS, requires the operator to run a server that registers these entities.                                                                     |
+| `false`          | Force legacy `Semantic View` dataset behavior even if the server supports the new entities.                                                                                                                                      |
 
 Snowflake Semantic Views are a native Snowflake capability. If you also use the Cortex Analyst integration on top of Semantic Views, that integration is gated to Snowflake Enterprise Edition and above — cataloging the Semantic Views into DataHub does not depend on Cortex.
 
@@ -211,7 +210,7 @@ We're actively investing in the Metrics experience. Near-term work includes:
 ## FAQ
 
 **Can DataHub query my metric values?**
-No. DataHub is a catalog for metric *definitions* — the calculation, dimensional context, lineage, and governance. Value computation and visualization stay in your BI tool or semantic layer.
+No. DataHub is a catalog for metric _definitions_ — the calculation, dimensional context, lineage, and governance. Value computation and visualization stay in your BI tool or semantic layer.
 
 **Do I need Snowflake to use Metrics?**
 No. The Python SDK lets you emit Semantic Models and Metrics from any source. Snowflake Semantic Views is the first turnkey ingestion path; more are in progress.
