@@ -546,13 +546,38 @@ public class PostgresSqlSetupProperties {
           throw new IllegalStateException(
               "postgres.pgTimeseries.routing values must be non-empty store names.");
         }
-        String key = entry.getKey().trim().toLowerCase(Locale.ROOT);
+        String key = normalizeRoutingKey(entry.getKey());
         String target = entry.getValue().trim().toLowerCase(Locale.ROOT);
         routing.put(key, target);
       }
     }
 
     return new PgTimeseriesSetupOptions(defaultStoreName, stores, routing);
+  }
+
+  /**
+   * Normalizes {@code entity.aspect} routing keys to match {@link
+   * PgTimeseriesSetupOptions#routingKey} (trim each segment, lower-case).
+   */
+  @NonNull
+  static String normalizeRoutingKey(@NonNull String rawKey) {
+    String trimmed = rawKey.trim().toLowerCase(Locale.ROOT);
+    String[] segments = trimmed.split("\\.", -1);
+    if (segments.length != 2) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.routing key '"
+              + rawKey
+              + "' must be exactly entity.aspect (two non-empty segments).");
+    }
+    String entity = segments[0].trim();
+    String aspect = segments[1].trim();
+    if (entity.isEmpty() || aspect.isEmpty()) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.routing key '"
+              + rawKey
+              + "' must be exactly entity.aspect (two non-empty segments).");
+    }
+    return entity + "." + aspect;
   }
 
   /** Normalized {@code postgres.pgTimeseries.tablePrefix} (default-store flat key). */
@@ -790,18 +815,20 @@ public class PostgresSqlSetupProperties {
               cfg.getRetention().getMaxAgeSeconds(),
               "postgres.pgTimeseries.stores." + storeName + ".retention.maxAgeSeconds");
         }
-        if (cfg.getMaintenance() != null
-            && Boolean.TRUE.equals(cfg.getMaintenance().getCronEnabled())) {
-          validateMaintenanceInterval(
-              cfg.getMaintenance().getIntervalSeconds(),
-              "postgres.pgTimeseries.stores." + storeName + ".maintenance.intervalSeconds");
-        }
+        // Raw cronEnabled may be null (inherit); validate after resolution below.
       }
     }
 
     PgTimeseriesSetupOptions options = buildPgTimeseriesOptions();
     if (options == null) {
       return;
+    }
+    for (PgTimeseriesStoreOptions store : options.getStores().values()) {
+      if (store.isMaintenanceCronEnabled()) {
+        validateMaintenanceInterval(
+            store.getMaintenanceIntervalSeconds(),
+            "postgres.pgTimeseries.stores." + store.getName() + ".maintenance.intervalSeconds");
+      }
     }
     if (!options.getStores().containsKey(options.getDefaultStoreName())) {
       throw new IllegalStateException(
@@ -1000,10 +1027,8 @@ public class PostgresSqlSetupProperties {
     }
     PgQueue.Maintenance m = pgQueue.getMaintenance();
     if (m.isCronEnabled()) {
-      if (m.getIntervalSeconds() < 60 || m.getIntervalSeconds() > 86400 * 30) {
-        throw new IllegalStateException(
-            "postgres.pgQueue.maintenance.intervalSeconds must be between 60 and 2592000 inclusive when cron is enabled.");
-      }
+      validateMaintenanceInterval(
+          m.getIntervalSeconds(), "postgres.pgQueue.maintenance.intervalSeconds");
     }
     if (m.getBatchDeleteLimit() < 1 || m.getBatchDeleteLimit() > 100_000) {
       throw new IllegalStateException(

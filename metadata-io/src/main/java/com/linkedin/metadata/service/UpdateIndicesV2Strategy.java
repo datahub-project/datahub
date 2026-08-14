@@ -555,21 +555,23 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
     RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
     if (previous == null) {
+      String entityType = deleteEvent.getEntitySpec().getName();
+      String aspectName = aspectSpec.getName();
+      String urn = deleteEvent.getUrn().toString();
       if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
         // Postgres SoT: delete all rows for this URN/aspect when the MCL lacks a prior snapshot.
         Filter urnFilter =
             QueryUtils.getFilterFromCriteria(
-                java.util.List.of(
-                    CriterionUtils.buildCriterion(
-                        "urn", Condition.EQUAL, deleteEvent.getUrn().toString())));
-        timeseriesAspectService.deleteAspectValues(
-            opContext, deleteEvent.getEntitySpec().getName(), aspectSpec.getName(), urnFilter);
+                java.util.List.of(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn)));
+        timeseriesAspectService.deleteAspectValues(opContext, entityType, aspectName, urnFilter);
       } else {
         log.debug(
             "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
             deleteEvent.getUrn(),
-            aspectSpec.getName());
+            aspectName);
       }
+      // Dual-write secondary store: always attempt URN delete (NOOP when sink disabled).
+      timeseriesAspectWriteSink.deleteByUrn(opContext, entityType, aspectName, urn);
       return;
     }
     Urn urn = deleteEvent.getUrn();
