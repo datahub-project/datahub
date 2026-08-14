@@ -61,6 +61,10 @@ Configure the limit with `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structure
 
 Number properties are not subject to this keyword limit.
 
+### Hard delete and recreating the same property name
+
+Hard-deleting a structured property removes its definition and (asynchronously) its values on assets, but the property's Elasticsearch / OpenSearch field mapping remains until you reindex. Creating a property with the same `qualifiedName` — or another name that normalizes to the same search field (`.` and `_` are treated as equivalent) — is rejected while that mapping exists. That prevents a new definition from attaching to leftover index state from a property that was supposed to be fully purged. Prefer soft delete when you may need the property again; after a hard delete, either use a different name or clean up index mappings before recreating. See [Why the same name cannot be recreated after hard delete](/docs/api/tutorials/structured-properties.md#why-the-same-name-cannot-be-recreated-after-hard-delete).
+
 ## Next Steps
 
 Now that you understand Structured Properties, you’re ready to [Create a Structured Property](create-a-property.md).
