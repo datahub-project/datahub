@@ -214,8 +214,6 @@ def test_list_subscriptions_retry_covers_transient_codes_only():
 
 def test_extra_properties_includes_source_when_publisher_resolved():
     info = LinkedDatasetInfo(
-        consumer_project_id="c-proj",
-        consumer_dataset="shared_dataset",
         publisher=PublisherRef(
             dataset="publisher_dataset",
             project_id="publisher-project",
@@ -238,8 +236,6 @@ def test_extra_properties_includes_source_when_publisher_resolved():
 
 def test_extra_properties_falls_back_to_data_exchange():
     info = LinkedDatasetInfo(
-        consumer_project_id="c-proj",
-        consumer_dataset="shared_dataset",
         publisher=PublisherRef(
             dataset="publisher_dataset",
             project_id="publisher-project",
@@ -253,8 +249,6 @@ def test_extra_properties_falls_back_to_data_exchange():
 
 def test_extra_properties_omits_unpopulated_keys():
     info = LinkedDatasetInfo(
-        consumer_project_id="c-proj",
-        consumer_dataset="shared_dataset",
         publisher=PublisherRef(
             dataset="publisher_dataset",
             project_id="publisher-project",
@@ -273,8 +267,6 @@ def test_extra_properties_omits_unpopulated_keys():
 
 def test_extra_properties_no_source_when_publisher_unresolved():
     info = LinkedDatasetInfo(
-        consumer_project_id="c-proj",
-        consumer_dataset="shared_dataset",
         publisher=None,
         link_state="LINKED",
     )
@@ -642,8 +634,6 @@ def _seed_with_linked_dataset(
     )
     # Populate the lookup directly to exercise emission without detection.
     handler._lookup[("consumer-project", "shared_dataset")] = LinkedDatasetInfo(
-        consumer_project_id="consumer-project",
-        consumer_dataset="shared_dataset",
         publisher=publisher,
     )
     return handler
@@ -849,8 +839,6 @@ def test_publisher_siblings_grouped_across_consumers():
     listing every consumer, rather than one aspect per consumer."""
     handler = _seed_with_linked_dataset()
     handler._lookup[("other-project", "other_shared")] = LinkedDatasetInfo(
-        consumer_project_id="other-project",
-        consumer_dataset="other_shared",
         publisher=PublisherRef(
             dataset="publisher_dataset", project_id="publisher-project"
         ),

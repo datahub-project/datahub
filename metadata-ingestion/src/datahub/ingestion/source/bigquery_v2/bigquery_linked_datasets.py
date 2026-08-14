@@ -80,9 +80,6 @@ class LinkedDatasetInfo:
     publisher project number could not be resolved to an ID.
     """
 
-    consumer_project_id: str
-    consumer_dataset: str
-
     publisher: Optional[PublisherRef] = None
 
     subscription_state: Optional[bigquery_analyticshub_v1.Subscription.State] = None
@@ -429,8 +426,6 @@ class BigQueryLinkedDatasetsHandler:
         last_modify_time = sub.last_modify_time
 
         return LinkedDatasetInfo(
-            consumer_project_id=project_id,
-            consumer_dataset=consumer_dataset,
             publisher=publisher,
             subscription_state=sub.state,
             link_state=link_state,
@@ -523,11 +518,3 @@ class BigQueryLinkedDatasetsHandler:
             )
 
         return lineages
-
-
-__all__ = [
-    "BigQueryLinkedDatasetsHandler",
-    "LinkedDatasetInfo",
-    "PublisherRef",
-    "create_analyticshub_client",
-]
