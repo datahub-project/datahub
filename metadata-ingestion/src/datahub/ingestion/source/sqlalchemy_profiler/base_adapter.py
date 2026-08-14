@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
@@ -57,7 +57,7 @@ class PlatformAdapter(ABC):
         self.config = config
         self.report = report
         self.base_engine = base_engine
-        self._inspectors: Dict[int, Any] = {}
+        self._inspector: Optional[Any] = None
 
     # =========================================================================
     # Setup & Teardown
@@ -842,20 +842,23 @@ class PlatformAdapter(ABC):
         return self._restore_case_folded_columns(sql_table, engine)
 
     def _case_fold_inspector(self, engine: Union[Engine, Connection]) -> Any:
-        """A reused Inspector, so repeated column reflection hits its cache.
+        """A reused Inspector for the base engine, so reflection hits its cache.
 
         Dialects fetch a whole schema's columns in one query and memoize it on the
         Inspector's info cache. A fresh ``sa.inspect()`` per table would defeat that
-        and issue one round trip per table; holding one per bind makes it one per
-        schema. Keyed by bind because sampling reflects against the connection that
-        owns the temp table, not the base engine.
+        and issue one round trip per table; holding one makes it one per schema.
+
+        Only the base engine is cached. Profiling opens a fresh Connection per
+        table, and an Inspector keeps a strong reference to the bind it was built
+        from — caching those would pin one dead Connection per profiled table for
+        the adapter's lifetime. They would not even pay off: a per-table connection
+        exists to reflect its own temp table exactly once.
         """
-        key = id(engine)
-        inspector = self._inspectors.get(key)
-        if inspector is None:
-            inspector = sa.inspect(engine)
-            self._inspectors[key] = inspector
-        return inspector
+        if engine is not self.base_engine:
+            return sa.inspect(engine)
+        if self._inspector is None:
+            self._inspector = sa.inspect(engine)
+        return self._inspector
 
     def _restore_case_folded_columns(
         self, sql_table: sa.Table, engine: Union[Engine, Connection]

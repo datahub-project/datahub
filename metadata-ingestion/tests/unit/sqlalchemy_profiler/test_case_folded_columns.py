@@ -1,3 +1,5 @@
+import gc
+import weakref
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
@@ -158,3 +160,39 @@ class TestRestoreCaseFoldedColumns:
             assert (
                 adapter._restore_case_folded_columns(table, snowflake_engine) is table
             )
+
+
+class TestInspectorCaching:
+    """Profiling opens one Connection per table, and an Inspector strongly
+    references its bind. Caching per-bind would therefore retain a dead Connection
+    for every table profiled, for the lifetime of the adapter.
+    """
+
+    def test_base_engine_inspector_is_reused(
+        self, adapter: SnowflakeAdapter, snowflake_engine: Any
+    ) -> None:
+        with patch.object(sa, "inspect", side_effect=lambda bind: MagicMock()) as insp:
+            first = adapter._case_fold_inspector(snowflake_engine)
+            second = adapter._case_fold_inspector(snowflake_engine)
+
+        assert first is second
+        assert insp.call_count == 1
+
+    def test_per_table_connection_can_be_garbage_collected(self) -> None:
+        # A real engine and a real Inspector: the retention being tested is
+        # SQLAlchemy's own (Inspector.bind), which mocks would not reproduce.
+        engine = sa.create_engine("sqlite://")
+        adapter = SnowflakeAdapter(ProfilingConfig(), SQLSourceReport(), engine)
+
+        connection = engine.connect()
+        adapter._case_fold_inspector(connection)
+        reference = weakref.ref(connection)
+
+        connection.close()
+        del connection
+        gc.collect()
+
+        assert reference() is None, (
+            "the adapter retained a profiled table's connection; over a run this "
+            "pins one dead connection per table"
+        )
