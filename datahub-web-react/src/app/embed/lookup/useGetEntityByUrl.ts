@@ -1,3 +1,4 @@
+import { getExternalUrlCandidates, getExternalUrlContainTokens } from '@app/embed/lookup/utils';
 import { urlEncodeUrn } from '@app/entity/shared/utils';
 import { UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
@@ -5,9 +6,32 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { FilterOperator } from '@types';
+import { FacetFilterInput, FilterOperator } from '@types';
 
 const URL_FIELDS = ['externalUrl', 'chartUrl', 'dashboardUrl'] as const;
+
+function buildUrlFilters(externalUrl: string): FacetFilterInput[] {
+    const equalCandidates = getExternalUrlCandidates(externalUrl);
+    const containTokens = getExternalUrlContainTokens(externalUrl);
+
+    const equalFilters: FacetFilterInput[] = URL_FIELDS.map((field) => ({
+        field,
+        values: equalCandidates,
+        condition: FilterOperator.Equal,
+    }));
+
+    if (!containTokens.length) {
+        return equalFilters;
+    }
+
+    const containFilters: FacetFilterInput[] = URL_FIELDS.map((field) => ({
+        field,
+        values: containTokens,
+        condition: FilterOperator.Contain,
+    }));
+
+    return [...equalFilters, ...containFilters];
+}
 
 const useGetEntityByUrl = (externalUrl: string) => {
     const registry = useEntityRegistry();
@@ -17,14 +41,7 @@ const useGetEntityByUrl = (externalUrl: string) => {
                 query: '*',
                 start: 0,
                 count: 2,
-                orFilters: generateOrFilters(
-                    UnionType.OR,
-                    URL_FIELDS.map((field) => ({
-                        field,
-                        values: [externalUrl],
-                        condition: FilterOperator.Equal,
-                    })),
-                ),
+                orFilters: generateOrFilters(UnionType.OR, buildUrlFilters(externalUrl)),
             },
         },
     });
