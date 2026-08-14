@@ -93,8 +93,7 @@ run_pytest_policy_phases() {
   return 0
 }
 
-# Cypress deprecated 2026-08-11. Always run pytests only.
 # When invoked via the github action, BATCH_COUNT and BATCH_NUMBER env vars are set to run a slice of those tests per
 # worker for parallelism. docker-unified.yml generates a test matrix of pytests in batches. As number of tests
 # increase, the batch_count config (in docker-unified.yml) may need adjustment.
-run_pytest_policy_phases junit.smoke-pytests -k 'not test_run_cypress'
+run_pytest_policy_phases junit.smoke-pytests

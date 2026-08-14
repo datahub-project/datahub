@@ -48,7 +48,7 @@ def build_auth_session():
         Frontend URL is not required; GraphQL routes through the GMS directly.
 
     Login-based (default for local dev):
-        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+        Set ADMIN_USERNAME / ADMIN_PASSWORD.
     """
     prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
     if prebuilt_token:
