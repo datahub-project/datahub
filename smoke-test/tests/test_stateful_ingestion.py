@@ -15,6 +15,7 @@ from tests.utils import get_db_password, get_db_type, get_db_url, get_db_usernam
 pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
+@pytest.mark.p0
 def test_stateful_ingestion(auth_session):
     def create_db_engine(sql_source_config_dict: Dict[str, Any]) -> Any:
         sql_config: Union[MySQLConfig, PostgresConfig]

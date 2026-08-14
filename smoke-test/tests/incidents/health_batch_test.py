@@ -137,6 +137,7 @@ def test_incident_health_survives_soft_deleted_asset(auth_session):
         _set_soft_deleted(auth_session, urn, False)
 
 
+@pytest.mark.p0
 def test_batched_incident_health(auth_session):
     wait_for_writes_to_sync()
     query, variables = _build_query()

@@ -100,6 +100,7 @@ def validate_lineage_results(
         assert len(lineage_result.paths) == paths_len
 
 
+@pytest.mark.p0
 def test_table_level_lineage(
     test_client: DataHubClient, test_datasets: Dict[str, Dataset]
 ):
@@ -142,6 +143,7 @@ def test_table_level_lineage(
     )
 
 
+@pytest.mark.p0
 def test_column_level_lineage(
     test_client: DataHubClient, test_datasets: Dict[str, Dataset]
 ):

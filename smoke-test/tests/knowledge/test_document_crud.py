@@ -43,6 +43,7 @@ class TestDocumentCrudAndMutations:
         del_res = execute_graphql(auth_session, delete_mutation, {"urn": urn})
         assert del_res["data"]["deleteDocument"] is True
 
+    @pytest.mark.p0
     def test_get_document(self, auth_session):
         document_id = unique_id("smoke-doc-get")
 

@@ -103,6 +103,7 @@ def test_gms_ignore_unknown_dashboard_info(graph_client):
     assert dashboard_info.description == invalid_dashboard_info["description"]
 
 
+@pytest.mark.p0
 def test_gms_delete_mcp(graph_client):
     dashboard_urn = make_dashboard_urn(platform="looker", name="test-delete-mcp")
     generated_urns.extend([dashboard_urn])

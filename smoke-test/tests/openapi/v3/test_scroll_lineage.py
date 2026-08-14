@@ -115,6 +115,7 @@ def _assert_lineage_edges(
     )
 
 
+@pytest.mark.p0
 def test_scroll_lineage_all_edges_around_urn(graph_client: DataHubGraph) -> None:
     """With no direction, every lineage edge touching ALPHA is returned. ALPHA is the upstream
     endpoint of all three (the graph is queried undirected, so both sides are matched)."""
@@ -164,6 +165,7 @@ def test_scroll_lineage_produces_source_is_upstream(graph_client: DataHubGraph) 
     logger.info("scroll_lineage GAMMA: 1 upstream (Produces), 0 downstream")
 
 
+@pytest.mark.p0
 def test_scroll_lineage_datajob_directions(graph_client: DataHubGraph) -> None:
     """JOB_1 is the source of both its edges (both stored as OUTGOING), yet one is its upstream
     (Consumes ALPHA) and the other its downstream (Produces GAMMA). Edge direction alone cannot

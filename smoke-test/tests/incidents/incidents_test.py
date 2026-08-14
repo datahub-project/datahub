@@ -23,6 +23,7 @@ TEST_DATASET_URN = (
 TEST_INCIDENT_URN = "urn:li:incident:test"
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_list_dataset_incidents(auth_session):
     # Sleep for eventual consistency (not ideal)

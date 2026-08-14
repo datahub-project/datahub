@@ -162,6 +162,7 @@ query domainEntityCounts($a: String!, $b: String!, $c: String!) {{
 """
 
 
+@pytest.mark.p0
 def test_domain_entities_counts_are_batched_and_correct(auth_session):
     variables: Dict[str, Any] = {
         "a": _DOMAIN_A,

@@ -163,6 +163,7 @@ def test_timeseries_scroll_returns_scrollid(auth_session, setup_timeseries_data)
     )
 
 
+@pytest.mark.p0
 def test_timeseries_scroll_pagination_no_duplicates(
     auth_session, setup_timeseries_data
 ):
