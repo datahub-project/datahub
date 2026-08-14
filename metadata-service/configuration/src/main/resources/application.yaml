@@ -1768,9 +1768,7 @@ cache:
         telemetry:
           telemetryClientId: 86400 # 1 day
         dataHubRetention:
-          # Resolved retention policies rarely change; caching them avoids a second primary-storage
-          # read on every aspect write (see RetentionService#getRetention).
-          dataHubRetentionConfig: 3600 # 1 hour
+          dataHubRetentionConfig: 21600 # 6hrs
 
 graphQL:
   graphiql:
