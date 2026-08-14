@@ -56,10 +56,12 @@ public class AccessTokenConfiguration {
       return Collections.emptyList();
     }
     final List<String> result = new ArrayList<>();
-    for (final String part : csv.split(",")) {
+    for (final String part : csv.split(",", -1)) {
       final String trimmed = part.trim();
       if (trimmed.isEmpty()) {
-        continue;
+        throw new IllegalArgumentException(
+            "authentication.accessTokens.allowedDurations contains an empty entry; "
+                + "remove trailing commas and blank CSV items");
       }
       // Fail fast on invalid entries
       IsoDurationParser.parseToMillis(trimmed);

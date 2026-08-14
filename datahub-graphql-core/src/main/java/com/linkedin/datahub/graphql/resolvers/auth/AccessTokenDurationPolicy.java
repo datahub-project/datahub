@@ -26,7 +26,7 @@ public final class AccessTokenDurationPolicy {
       @Nullable final AccessTokenDuration duration,
       @Nullable final String durationIso) {
     final boolean hasEnum = duration != null;
-    final boolean hasIso = durationIso != null && !durationIso.trim().isEmpty();
+    final boolean hasIso = durationIso != null;
 
     if (hasEnum == hasIso) {
       throw new IllegalArgumentException(

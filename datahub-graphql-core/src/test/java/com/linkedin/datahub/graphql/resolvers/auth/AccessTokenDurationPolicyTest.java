@@ -55,6 +55,18 @@ public class AccessTokenDurationPolicyTest {
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testRejectEnumWithBlankDurationIso() {
+    AccessTokenConfiguration policy = AccessTokenConfiguration.defaults();
+    AccessTokenDurationPolicy.resolveExpiresInMs(policy, AccessTokenDuration.ONE_DAY, "  ");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testRejectBlankDurationIsoAlone() {
+    AccessTokenConfiguration policy = AccessTokenConfiguration.defaults();
+    AccessTokenDurationPolicy.resolveExpiresInMs(policy, null, "  ");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
   public void testRejectNeitherDurationNorIso() {
     AccessTokenConfiguration policy = AccessTokenConfiguration.defaults();
     AccessTokenDurationPolicy.resolveExpiresInMs(policy, null, null);

@@ -76,4 +76,16 @@ public class IsoDurationParserTest {
     AccessTokenConfiguration config = new AccessTokenConfiguration();
     config.setAllowedDurations("");
   }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testAccessTokenConfigurationRejectsEmptyCsvItem() {
+    AccessTokenConfiguration config = new AccessTokenConfiguration();
+    config.setAllowedDurations("P30D,,P1D");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testAccessTokenConfigurationRejectsTrailingComma() {
+    AccessTokenConfiguration config = new AccessTokenConfiguration();
+    config.setAllowedDurations("P30D,");
+  }
 }
