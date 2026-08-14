@@ -140,7 +140,11 @@ mutation createStructuredProperty {
 
 </TabItem>
 
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 ```shell
 curl -X 'POST' -v \
@@ -572,7 +576,11 @@ Example Response:
 
 </TabItem>
 
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 Example Request:
 
@@ -734,7 +742,11 @@ If successful, you should see `Update succeeded for urn:li:dataset:...`
 
 </TabItem>
 
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 Following command will set structured properties `retentionTime` as `60.0` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
 Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using the `datahub docker ingest-sample-data`)
@@ -904,7 +916,11 @@ For this example, we'll extend create a second structured property and apply bot
 After this your system should include both `io.acryl.privacy.retentionTime` and `io.acryl.privacy.retentionTime02`.
 
 <Tabs>
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 Let's start by creating the second structured property.
 
@@ -1101,7 +1117,11 @@ The expected state of our test dataset include 2 structured properties.
 We'd like to remove the first one (`io.acryl.privacy.retentionTime`) and preserve the second property. (`io.acryl.privacy.retentionTime02`).
 
 <Tabs>
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 ```shell
 curl -X 'PATCH' -v \
@@ -1241,7 +1261,11 @@ mutation updateStructuredProperty {
 ```
 
 </TabItem>
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 ```shell
 curl -X 'PATCH' -v \
@@ -1458,7 +1482,11 @@ datahub delete --urn {urn}
 ```
 
 </TabItem>
-<TabItem value="OpenAPI v2" label="OpenAPI v2 (Soft Delete)">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (Soft Delete, deprecated)">
+
+:::caution Deprecated
+Prefer OpenAPI v3 soft-delete examples below (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 The following command will soft delete the test property by writing to the status aspect.
 
