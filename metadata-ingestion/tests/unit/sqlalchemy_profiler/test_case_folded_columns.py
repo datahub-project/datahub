@@ -70,9 +70,11 @@ class TestRestoreCaseFoldedColumns:
         with patch.object(sa, "inspect", return_value=inspector):
             rebuilt = adapter._restore_case_folded_columns(table, snowflake_engine)
 
-        # Names are the as-stored identifiers, so they are distinct strings and
-        # each addresses exactly one real column.
-        assert [str(c.name) for c in rebuilt.columns] == ["col", "COL", "ID"]
+        # The colliding pair takes as-stored identifiers, so they are distinct
+        # strings and each addresses exactly one real column. "id" did not
+        # collide, so it keeps the name reflection gave it -- renaming it would
+        # detach its profile on dialects that do not re-map field paths.
+        assert [str(c.name) for c in rebuilt.columns] == ["col", "COL", "id"]
         assert len({str(c.name) for c in rebuilt.columns}) == 3
 
     def test_generated_sql_targets_each_column_separately(
@@ -196,3 +198,58 @@ class TestInspectorCaching:
             "the adapter retained a profiled table's connection; over a run this "
             "pins one dead connection per table"
         )
+
+
+class TestNonSnowflakeNormalizingDialects:
+    """Oracle normalizes identifiers too, and reaches this code.
+
+    sql_common hands every SQLAlchemy source the SQLAlchemyProfiler, and a
+    platform without its own adapter falls through to the generic one, so the
+    repair runs far beyond Snowflake. Only Snowflake re-maps profile field paths
+    onto the emitted schema afterwards; everywhere else a renamed column simply
+    stops matching its schema field and loses its profile. So the repair has to
+    leave non-colliding columns exactly as reflection produced them.
+    """
+
+    @staticmethod
+    def _oracle_adapter() -> Any:
+        from sqlalchemy.dialects import oracle
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        engine = _engine(oracle.dialect())
+        assert engine.dialect.requires_name_normalize, (
+            "test assumes Oracle normalizes; it is why this path is reachable"
+        )
+        return GenericAdapter(ProfilingConfig(), SQLSourceReport(), engine), engine
+
+    def test_non_colliding_columns_keep_their_reflected_names(self) -> None:
+        adapter, engine = self._oracle_adapter()
+        table = _folded_table(engine, ["col", "id", "amount"])
+
+        inspector = MagicMock()
+        inspector.get_columns.return_value = _reflected(
+            [QUOTED_LOWER, FOLDED_UPPER, "id", "amount"]
+        )
+        with patch.object(sa, "inspect", return_value=inspector):
+            rebuilt = adapter._restore_case_folded_columns(table, engine)
+
+        names = [str(c.name) for c in rebuilt.columns]
+        assert "id" in names and "amount" in names, (
+            f"reflected names must survive untouched, got {names}"
+        )
+        # The collision is still repaired: both spellings present, distinctly.
+        assert sorted(n for n in names if n.lower() == "col") == ["COL", "col"]
+
+    def test_table_without_a_collision_is_untouched(self) -> None:
+        adapter, engine = self._oracle_adapter()
+        table = _folded_table(engine, ["id", "amount"])
+
+        inspector = MagicMock()
+        inspector.get_columns.return_value = _reflected(["id", "amount"])
+        with patch.object(sa, "inspect", return_value=inspector):
+            rebuilt = adapter._restore_case_folded_columns(table, engine)
+
+        assert rebuilt is table

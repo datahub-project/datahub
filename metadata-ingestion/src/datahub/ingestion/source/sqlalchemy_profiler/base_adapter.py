@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
@@ -870,11 +870,19 @@ class PlatformAdapter(ABC):
         quoted identifiers — arrive under the same name. ``sa.Table`` rejects the
         second one, silently dropping a real column before profiling ever sees it.
 
-        Each rebuilt column is named with its denormalized (as-stored) identifier,
-        forced to quote on render. That makes the names distinct strings, so
-        downstream dicts and sets stop collapsing them, while emitting SQL that
-        addresses exactly one real column. Keys are synthetic because ``sa.Table``
-        de-duplicates on a column's name, not only on its key.
+        Only the colliding columns are renamed, to their denormalized (as-stored)
+        identifier, forced to quote on render. That makes their names distinct
+        strings, so downstream dicts and sets stop collapsing them, while emitting
+        SQL that addresses exactly one real column. Their keys are synthetic
+        because ``sa.Table`` de-duplicates on a column's name, not only on its key.
+
+        Every other column keeps the name reflection gave it. That matters beyond
+        tidiness: a profile's field path has to match the one the source emitted
+        for the schema, and only Snowflake re-maps them afterwards. Renaming
+        columns that never collided would detach their profiles on every other
+        normalizing dialect, and this reaches all of them -- ``sql_common`` hands
+        every SQLAlchemy source this profiler, and a platform without its own
+        adapter falls through to the generic one.
 
         Subclasses that build the table themselves must call this on the result.
         Tables without a collision, and dialects that do not normalize, are
@@ -900,14 +908,23 @@ class PlatformAdapter(ABC):
             return sql_table
 
         denormalize = engine.dialect.denormalize_name
-        columns = [
-            sa.Column(
-                sa.sql.quoted_name(denormalize(col["name"]), quote=True),
-                col["type"],
-                key=f"_dh_col_{index}",
+        folded_counts: Dict[str, int] = {}
+        for col in reflected:
+            folded = str(col["name"]).lower()
+            folded_counts[folded] = folded_counts.get(folded, 0) + 1
+
+        columns = []
+        for index, col in enumerate(reflected):
+            if folded_counts[str(col["name"]).lower()] == 1:
+                columns.append(sa.Column(col["name"], col["type"]))
+                continue
+            columns.append(
+                sa.Column(
+                    sa.sql.quoted_name(denormalize(col["name"]), quote=True),
+                    col["type"],
+                    key=f"_dh_col_{index}",
+                )
             )
-            for index, col in enumerate(reflected)
-        ]
         # Reuse the original name objects so any quoting decided by the caller
         # (Snowflake quotes mixed-case table and schema names) is preserved.
         rebuilt = sa.Table(
