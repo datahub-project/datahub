@@ -96,6 +96,22 @@ public class EntityExistsResolverTest {
     verify(_dataFetchingEnvironment, never()).getDataLoaderRegistry();
   }
 
+  /** The legacy single-arg constructor has no flags, so it must keep the per-entity path. */
+  @Test
+  public void testHydrationPathUnbatchedWhenConstructedWithoutFlags() throws Exception {
+    final Entity source = mock(Entity.class);
+    when(source.getUrn()).thenReturn(ENTITY_URN_STRING);
+    when(_dataFetchingEnvironment.getArgument(eq("urn"))).thenReturn(null);
+    when(_dataFetchingEnvironment.getSource()).thenReturn(source);
+    when(_entityService.exists(any(OperationContext.class), any(Collection.class)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+
+    verify(_entityService, times(1)).exists(any(OperationContext.class), any(Collection.class));
+    verify(_dataFetchingEnvironment, never()).getDataLoaderRegistry();
+  }
+
   @Test
   public void testHydrationPathUnbatchedWhenFlagDisabled() throws Exception {
     final FeatureFlags flags = new FeatureFlags();

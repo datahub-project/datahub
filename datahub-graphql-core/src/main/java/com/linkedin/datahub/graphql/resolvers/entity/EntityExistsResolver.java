@@ -24,7 +24,8 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
   // Null when constructed without feature flags (legacy/test path) — treated as "batch disabled".
   @Nullable private final FeatureFlags _featureFlags;
 
-  public EntityExistsResolver(final EntityService<?> entityService) {
+  /** Test-only: no feature flags means the batch path stays off. */
+  EntityExistsResolver(final EntityService<?> entityService) {
     this(entityService, null);
   }
 
@@ -48,8 +49,8 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
 
     final Urn entityUrn = Urn.createFromString(entityUrnString);
 
-    // Only batch when hydrating an entity. A bad urn makes the whole batch fail, and the `urn`
-    // argument is caller-supplied, so that path stays on its own call.
+    // Only batch when hydrating an entity. A caller-supplied urn keeps its own call so a bad urn
+    // cannot fail the batch.
     if (urnArgument == null
         && _featureFlags != null
         && _featureFlags.isEntityExistsBatchLoadEnabled()) {
@@ -66,7 +67,7 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
                 .contains(entityUrn);
           } catch (Exception e) {
             throw new RuntimeException(
-                String.format("Failed to check whether entity %s exists", entityUrn.toString()));
+                String.format("Failed to check whether entity %s exists", entityUrn), e);
           }
         },
         this.getClass().getSimpleName(),

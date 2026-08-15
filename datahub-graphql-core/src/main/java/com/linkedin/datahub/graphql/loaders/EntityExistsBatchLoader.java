@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
@@ -19,8 +18,11 @@ import org.dataloader.DataLoaderOptions;
 /**
  * Per-request DataLoader for the {@code exists} field. Resolves every urn in a request with one
  * read instead of one read per entity.
+ *
+ * <p>Unlike the hierarchy loaders this one does not use {@code Try}. The whole batch is a single
+ * read, so there is no per-key work that could fail on its own — if the read fails, every key in
+ * the batch is unresolved anyway.
  */
-@Slf4j
 public final class EntityExistsBatchLoader {
 
   public static final String LOADER_NAME = "EntityExists";
@@ -33,8 +35,7 @@ public final class EntityExistsBatchLoader {
     final DataLoaderOptions options =
         DataLoaderOptions.newOptions().setBatchLoaderContextProvider(provider);
 
-    // Parent the batchLoad span under the operation, not the executor thread (see
-    // GmsGraphQLEngine#createDataLoader).
+    // Keep the batchLoad span under the operation rather than the executor thread.
     final Context batchContext = Context.current();
 
     return DataLoader.newDataLoader(
@@ -54,13 +55,13 @@ public final class EntityExistsBatchLoader {
   public static List<Boolean> batchLoad(
       final List<Urn> urns, final QueryContext queryContext, final EntityService<?> entityService) {
 
-    // Use the same overload the resolver did, so soft-deleted entities keep counting as existing.
+    // This overload counts soft-deleted entities as existing.
     final Set<Urn> distinct = new LinkedHashSet<>(urns);
     final Set<Urn> existing;
     try {
       existing = entityService.exists(queryContext.getOperationContext(), distinct);
     } catch (Exception e) {
-      // Throw rather than return false: false would look like "entity deleted" to the UI.
+      // Throw rather than return false, which would look like a deleted entity.
       throw new RuntimeException(
           String.format("Failed to check whether %d entities exist", distinct.size()), e);
     }

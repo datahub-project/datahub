@@ -34,7 +34,8 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
   // Null when constructed without feature flags (legacy/test path) — treated as "batch disabled".
   @Nullable private final FeatureFlags _featureFlags;
 
-  public ParentNodesResolver(final EntityClient entityClient) {
+  /** Test-only: no feature flags means the batch path stays off. */
+  ParentNodesResolver(final EntityClient entityClient) {
     this(entityClient, null);
   }
 

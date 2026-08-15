@@ -8,9 +8,7 @@ import com.linkedin.datahub.graphql.generated.ParentContainersResult;
 import com.linkedin.datahub.graphql.types.container.mappers.ContainerMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
 import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
-import com.linkedin.metadata.graph.cache.client.HierarchyReadSpec;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
@@ -18,22 +16,22 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderFactory;
 import org.dataloader.DataLoaderOptions;
+import org.dataloader.Try;
 
 /**
  * Per-request DataLoader for {@code parentContainers}. Fetches the ancestors of every entity in a
  * request with one call instead of one call per entity.
  */
-@Slf4j
 public final class ParentContainersBatchLoader {
 
   public static final String LOADER_NAME = "ParentContainers";
@@ -46,130 +44,150 @@ public final class ParentContainersBatchLoader {
     final DataLoaderOptions options =
         DataLoaderOptions.newOptions().setBatchLoaderContextProvider(provider);
 
-    // Parent the batchLoad span under the operation, not the executor thread (see
-    // GmsGraphQLEngine#createDataLoader).
+    // Keep the batchLoad span under the operation rather than the executor thread.
     final Context batchContext = Context.current();
 
-    return DataLoader.newDataLoader(
-        (keys, env) ->
-            GraphQLConcurrencyUtils.supplyAsync(
-                () -> {
-                  try (Scope ignored = batchContext.makeCurrent()) {
-                    return batchLoad(keys, (QueryContext) env.getContext(), entityClient);
-                  }
-                },
-                LOADER_NAME,
-                "batchLoad"),
+    // withTry so one entity's failure fails only its own field.
+    return DataLoaderFactory.newDataLoaderWithTry(
+        (keys, env) -> {
+          try (Scope ignored = batchContext.makeCurrent()) {
+            return batchLoad(keys, (QueryContext) env.getContext(), entityClient);
+          }
+        },
         options);
   }
 
   @WithSpan
-  public static List<ParentContainersResult> batchLoad(
+  public static CompletableFuture<List<Try<ParentContainersResult>>> batchLoad(
       final List<Urn> urns, final QueryContext queryContext, final EntityClient entityClient) {
 
     final List<Urn> distinct = urns.stream().distinct().collect(Collectors.toList());
-    final Map<Urn, List<Urn>> ancestorsByUrn = resolveAncestors(distinct, queryContext);
-    return assemble(urns, distinct, queryContext, entityClient, ancestorsByUrn);
+    // Captured while the caller's scope is still open; the continuation below runs on a different
+    // thread once the walks finish.
+    final Context batchContext = Context.current();
+
+    return resolveAncestors(distinct, queryContext)
+        .thenCompose(
+            chains ->
+                // Submit the hydration as its own task rather than running it on whichever thread
+                // finished the last walk, since it does blocking I/O.
+                GraphQLConcurrencyUtils.supplyAsync(
+                    () -> {
+                      try (Scope ignored = batchContext.makeCurrent()) {
+                        return assemble(urns, distinct, queryContext, entityClient, chains);
+                      }
+                    },
+                    LOADER_NAME,
+                    "assemble"));
   }
 
-  /**
-   * The half after the ancestor walk, with the chains supplied. Lets the fetch-and-assemble
-   * behaviour be tested without a live hierarchy cache.
-   */
-  static List<ParentContainersResult> batchLoadForTest(
-      final List<Urn> urns,
-      final QueryContext queryContext,
-      final EntityClient entityClient,
-      final Map<Urn, List<Urn>> ancestorsByUrn) {
-    return assemble(
-        urns,
-        urns.stream().distinct().collect(Collectors.toList()),
-        queryContext,
-        entityClient,
-        ancestorsByUrn);
-  }
-
-  private static List<ParentContainersResult> assemble(
+  /** Fetch and assemble, given each entity's already-resolved ancestor chain. */
+  static List<Try<ParentContainersResult>> assemble(
       final List<Urn> urns,
       final List<Urn> distinct,
       final QueryContext queryContext,
       final EntityClient entityClient,
-      final Map<Urn, List<Urn>> ancestorsByUrn) {
+      final Map<Urn, Try<List<Urn>>> ancestorsByUrn) {
 
+    // Only successful chains contribute ancestors.
     final Set<Urn> allAncestors =
-        ancestorsByUrn.values().stream().flatMap(List::stream).collect(Collectors.toSet());
-    final Map<Urn, EntityResponse> responses =
-        fetchContainers(allAncestors, queryContext, entityClient);
+        ancestorsByUrn.values().stream()
+            .filter(Try::isSuccess)
+            .map(Try::get)
+            .flatMap(List::stream)
+            .collect(Collectors.toSet());
 
-    final Map<Urn, ParentContainersResult> resultByUrn = new HashMap<>(distinct.size());
+    final Map<String, Set<Urn>> byEntityType =
+        allAncestors.stream()
+            .collect(
+                Collectors.groupingBy(Urn::getEntityType, Collectors.toCollection(HashSet::new)));
+
+    Map<Urn, EntityResponse> responses = Map.of();
+    Throwable fetchFailure = null;
+    try {
+      responses = fetchContainers(byEntityType, queryContext, entityClient);
+    } catch (Exception e) {
+      fetchFailure = e;
+    }
+
+    final Map<Urn, Try<ParentContainersResult>> resultByUrn = new HashMap<>(distinct.size());
     for (Urn urn : distinct) {
-      final List<Container> containers = new ArrayList<>();
-      // Re-iterate the ancestor list to keep hierarchy order; a missing or unauthorized ancestor is
-      // skipped, matching the unbatched resolver.
-      for (Urn ancestor : ancestorsByUrn.getOrDefault(urn, List.of())) {
-        final EntityResponse response = responses.get(ancestor);
-        if (response != null) {
-          containers.add(ContainerMapper.map(queryContext, response));
-        }
+      // A failed walk arrives as a failed Try, so a missing entry is not a walk failure — it means
+      // the caller passed an incomplete map. Fail loudly rather than report it as this urn's error.
+      final Try<List<Urn>> chain =
+          Objects.requireNonNull(ancestorsByUrn.get(urn), () -> "no ancestor walk for " + urn);
+      if (chain.isFailure()) {
+        resultByUrn.put(urn, Try.failed(chain.getThrowable()));
+        continue;
       }
-      final ParentContainersResult result = new ParentContainersResult();
-      result.setCount(containers.size());
-      result.setContainers(containers);
-      resultByUrn.put(urn, result);
+      if (fetchFailure != null && !chain.get().isEmpty()) {
+        // Only keys that needed the fetch are affected by its failure.
+        resultByUrn.put(urn, Try.failed(fetchFailure));
+        continue;
+      }
+      try {
+        resultByUrn.put(urn, Try.succeeded(resolveOne(chain.get(), responses, queryContext)));
+      } catch (Exception e) {
+        // Keep a mapping failure off the other keys.
+        resultByUrn.put(urn, Try.failed(e));
+      }
     }
 
     // DataLoader contract: results[i] must correspond to keys[i].
-    return urns.stream().map(resultByUrn::get).collect(Collectors.toList());
+    return urns.stream()
+        .map(
+            urn ->
+                Objects.requireNonNull(
+                    resultByUrn.get(urn), () -> "no batch result produced for " + urn))
+        .collect(Collectors.toList());
+  }
+
+  private static ParentContainersResult resolveOne(
+      final List<Urn> ancestors,
+      final Map<Urn, EntityResponse> responses,
+      final QueryContext queryContext) {
+
+    final List<Container> containers = new ArrayList<>();
+    // Iterate the chain to keep hierarchy order. A missing or unauthorized ancestor is skipped.
+    for (Urn ancestor : ancestors) {
+      final EntityResponse response = responses.get(ancestor);
+      if (response != null) {
+        containers.add(ContainerMapper.map(queryContext, response));
+      }
+    }
+    final ParentContainersResult result = new ParentContainersResult();
+    result.setCount(containers.size());
+    result.setContainers(containers);
+    return result;
+  }
+
+  private static CompletableFuture<Map<Urn, Try<List<Urn>>>> resolveAncestors(
+      final List<Urn> urns, final QueryContext queryContext) {
+    final OperationContext opContext = queryContext.getOperationContext();
+    return HierarchyAncestorWalks.resolveConcurrently(
+        urns,
+        opContext,
+        HierarchyBindings.containerSpec(opContext),
+        queryContext.getMaxParentDepth(),
+        LOADER_NAME);
   }
 
   /**
-   * Walks each entity's ancestor chain. A cache hit still costs a Hazelcast read, and a miss reads
-   * one aspect per level, so the walks run concurrently rather than in a loop — batching that
-   * serialised them would cost more than it saves.
+   * Ancestors are containers, but group by type so a mixed chain still works. The unbatched
+   * resolver assumed one type and sent every ancestor under the first one's, which fails a mixed
+   * chain. Chains are homogeneous today, so this only matters if that changes.
    */
-  private static Map<Urn, List<Urn>> resolveAncestors(
-      final List<Urn> urns, final QueryContext queryContext) {
-
-    final OperationContext opContext = queryContext.getOperationContext();
-    final HierarchyReadSpec spec = HierarchyBindings.containerSpec(opContext);
-    final int maxDepth = queryContext.getMaxParentDepth();
-
-    final Map<Urn, CompletableFuture<List<Urn>>> futures = new LinkedHashMap<>(urns.size());
-    for (Urn urn : urns) {
-      futures.put(
-          urn,
-          GraphQLConcurrencyUtils.supplyAsync(
-              () -> BoundHierarchyAccess.orderedParents(opContext, spec, urn, maxDepth),
-              LOADER_NAME,
-              "orderedParents"));
-    }
-    CompletableFuture.allOf(futures.values().toArray(new CompletableFuture[0])).join();
-
-    final Map<Urn, List<Urn>> ancestors = new LinkedHashMap<>(urns.size());
-    futures.forEach((urn, future) -> ancestors.put(urn, future.join()));
-    return ancestors;
-  }
-
-  /** Ancestors of a container hierarchy are containers, but group by type so this stays correct. */
   private static Map<Urn, EntityResponse> fetchContainers(
-      final Set<Urn> ancestors, final QueryContext queryContext, final EntityClient entityClient) {
+      final Map<String, Set<Urn>> byEntityType,
+      final QueryContext queryContext,
+      final EntityClient entityClient)
+      throws Exception {
 
-    if (ancestors.isEmpty()) {
-      return Map.of();
-    }
-    final Map<Urn, EntityResponse> responses = new HashMap<>(ancestors.size());
-    final Map<String, Set<Urn>> byEntityType =
-        ancestors.stream()
-            .collect(
-                Collectors.groupingBy(Urn::getEntityType, Collectors.toCollection(HashSet::new)));
-    try {
-      for (Map.Entry<String, Set<Urn>> group : byEntityType.entrySet()) {
-        responses.putAll(
-            entityClient.batchGetV2(
-                queryContext.getOperationContext(), group.getKey(), group.getValue(), null));
-      }
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to load parent containers", e);
+    final Map<Urn, EntityResponse> responses = new HashMap<>();
+    for (Map.Entry<String, Set<Urn>> group : byEntityType.entrySet()) {
+      responses.putAll(
+          entityClient.batchGetV2(
+              queryContext.getOperationContext(), group.getKey(), group.getValue(), null));
     }
     return responses;
   }

@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.ParentContainersResult;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -35,7 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.dataloader.DataLoader;
+import org.dataloader.Try;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -75,10 +80,13 @@ public class ParentContainersBatchLoaderTest {
             _entityClient.batchGetV2(any(), any(String.class), any(Set.class), nullable(Set.class)))
         .thenAnswer(
             inv -> {
+              // Honour the entity type: a urn asked for under the wrong type resolves to nothing,
+              // the same as the real client.
+              final String entityName = inv.getArgument(1);
               final Set<Urn> requested = inv.getArgument(2);
               final Map<Urn, EntityResponse> out = new HashMap<>();
               for (Urn u : requested) {
-                if (known.contains(u)) {
+                if (known.contains(u) && u.getEntityType().equals(entityName)) {
                   out.put(u, containerResponse(u));
                 }
               }
@@ -104,13 +112,12 @@ public class ParentContainersBatchLoaderTest {
     final Map<Urn, List<Urn>> chains =
         Map.of(LEAF_A, List.of(MID, ROOT), LEAF_B, List.of(MID, ROOT));
 
-    final List<com.linkedin.datahub.graphql.generated.ParentContainersResult> out =
-        ParentContainersBatchLoader.batchLoadForTest(
-            List.of(LEAF_A, LEAF_B), _context, _entityClient, chains);
+    final List<Try<ParentContainersResult>> out =
+        assemble1(List.of(LEAF_A, LEAF_B), _context, _entityClient, chains);
 
     assertEquals(out.size(), 2);
-    assertEquals(out.get(0).getCount(), 2);
-    assertEquals(out.get(1).getCount(), 2);
+    assertEquals(out.get(0).get().getCount(), 2);
+    assertEquals(out.get(1).get().getCount(), 2);
     // One call for both keys, carrying the union of ancestors with no duplicates.
     assertEquals(captureBatchGet(1).getValue(), Set.of(MID, ROOT));
   }
@@ -121,10 +128,8 @@ public class ParentContainersBatchLoaderTest {
     stubBatchGet(Set.of(ROOT, MID));
     final Map<Urn, List<Urn>> chains = Map.of(LEAF_A, List.of(MID, ROOT));
 
-    final var result =
-        ParentContainersBatchLoader.batchLoadForTest(
-                List.of(LEAF_A), _context, _entityClient, chains)
-            .get(0);
+    final ParentContainersResult result =
+        assemble1(List.of(LEAF_A), _context, _entityClient, chains).get(0).get();
 
     assertEquals(result.getContainers().get(0).getUrn(), MID.toString());
     assertEquals(result.getContainers().get(1).getUrn(), ROOT.toString());
@@ -134,11 +139,9 @@ public class ParentContainersBatchLoaderTest {
   @Test
   public void testNoAncestorsIssuesNoFetch() throws Exception {
     stubBatchGet(Set.of());
-    final var out =
-        ParentContainersBatchLoader.batchLoadForTest(
-            List.of(ROOT), _context, _entityClient, Map.of(ROOT, List.of()));
+    final var out = assemble1(List.of(ROOT), _context, _entityClient, Map.of(ROOT, List.of()));
 
-    assertEquals(out.get(0).getCount(), 0);
+    assertEquals(out.get(0).get().getCount(), 0);
     Mockito.verify(_entityClient, Mockito.never())
         .batchGetV2(any(), any(String.class), any(Set.class), nullable(Set.class));
   }
@@ -148,11 +151,10 @@ public class ParentContainersBatchLoaderTest {
   public void testUnauthorizedAncestorSkipped() throws Exception {
     stubBatchGet(Set.of(ROOT)); // MID withheld
     final var out =
-        ParentContainersBatchLoader.batchLoadForTest(
-            List.of(LEAF_A), _context, _entityClient, Map.of(LEAF_A, List.of(MID, ROOT)));
+        assemble1(List.of(LEAF_A), _context, _entityClient, Map.of(LEAF_A, List.of(MID, ROOT)));
 
-    assertEquals(out.get(0).getCount(), 1);
-    assertEquals(out.get(0).getContainers().get(0).getUrn(), ROOT.toString());
+    assertEquals(out.get(0).get().getCount(), 1);
+    assertEquals(out.get(0).get().getContainers().get(0).getUrn(), ROOT.toString());
   }
 
   /**
@@ -165,18 +167,79 @@ public class ParentContainersBatchLoaderTest {
     final QueryContext ctx =
         contextWithAncestors(Map.of(LEAF_A, List.of(MID, ROOT), LEAF_B, List.of(MID, ROOT)));
 
-    final List<com.linkedin.datahub.graphql.generated.ParentContainersResult> out =
-        ParentContainersBatchLoader.batchLoad(List.of(LEAF_A, LEAF_B), ctx, _entityClient);
+    final List<Try<ParentContainersResult>> out =
+        ParentContainersBatchLoader.batchLoad(List.of(LEAF_A, LEAF_B), ctx, _entityClient).join();
 
     assertEquals(out.size(), 2);
-    assertEquals(out.get(0).getCount(), 2);
-    assertEquals(out.get(0).getContainers().get(0).getUrn(), MID.toString());
-    assertEquals(out.get(1).getCount(), 2);
+    assertEquals(out.get(0).get().getCount(), 2);
+    assertEquals(out.get(0).get().getContainers().get(0).getUrn(), MID.toString());
+    assertEquals(out.get(1).get().getCount(), 2);
     assertEquals(captureBatchGet(1).getValue(), Set.of(MID, ROOT));
+  }
+
+  /**
+   * The reported defect: a throwing hierarchy-cache read used to propagate out of the concurrent
+   * walk and fail every key. Goes through the real batchLoad, not the test seam.
+   */
+  @Test
+  public void testThrowingWalkFailsOnlyItsOwnKeyThroughRealBatchLoad() throws Exception {
+    stubBatchGet(Set.of(ROOT, MID));
+    final QueryContext ctx =
+        contextWithAncestors(Map.of(LEAF_B, List.of(MID, ROOT)), LEAF_A, "hazelcast read failed");
+
+    final List<Try<ParentContainersResult>> out =
+        ParentContainersBatchLoader.batchLoad(List.of(LEAF_A, LEAF_B), ctx, _entityClient).join();
+
+    assertEquals(out.size(), 2);
+    assertTrue(out.get(0).isFailure(), "the throwing walk should fail only its own key");
+    assertTrue(out.get(1).isSuccess(), "the other key must still resolve");
+    assertEquals(out.get(1).get().getCount(), 2);
+  }
+
+  /** An entity with no ancestors never used the shared fetch, so its failure must not touch it. */
+  @Test
+  public void testEmptyChainSurvivesFetchFailure() throws Exception {
+    Mockito.when(
+            _entityClient.batchGetV2(any(), any(String.class), any(Set.class), nullable(Set.class)))
+        .thenThrow(new RuntimeException("entity client unavailable"));
+
+    final List<Try<ParentContainersResult>> out =
+        assemble1(
+            List.of(LEAF_A, ROOT),
+            _context,
+            _entityClient,
+            Map.of(LEAF_A, List.of(MID), ROOT, List.of()));
+
+    assertTrue(out.get(0).isFailure(), "the key that needed the fetch should fail");
+    assertTrue(out.get(1).isSuccess(), "a top-level container must not be affected");
+    assertEquals(out.get(1).get().getCount(), 0);
+  }
+
+  /** The wired DataLoader must dispatch and surface per-key failures through the future. */
+  @Test
+  public void testCreatedLoaderDispatchesAndIsolatesFailures() throws Exception {
+    stubBatchGet(Set.of(ROOT, MID));
+    final QueryContext ctx =
+        contextWithAncestors(Map.of(LEAF_B, List.of(MID, ROOT)), LEAF_A, "hazelcast read failed");
+
+    final DataLoader<Urn, ParentContainersResult> loader =
+        ParentContainersBatchLoader.create(_entityClient, ctx);
+    final CompletableFuture<ParentContainersResult> bad = loader.load(LEAF_A);
+    final CompletableFuture<ParentContainersResult> good = loader.load(LEAF_B);
+    loader.dispatch().get(30, TimeUnit.SECONDS);
+
+    assertTrue(
+        bad.isCompletedExceptionally(), "failing key's future should complete exceptionally");
+    assertEquals(good.get().getCount(), 2);
   }
 
   /** A QueryContext whose hierarchy cache answers the walk for each supplied seed. */
   private static QueryContext contextWithAncestors(Map<Urn, List<Urn>> chains) {
+    return contextWithAncestors(chains, null, null);
+  }
+
+  private static QueryContext contextWithAncestors(
+      Map<Urn, List<Urn>> chains, Urn throwingSeed, String throwMessage) {
     final EntityGraphCache cache = Mockito.mock(EntityGraphCache.class);
     final EntityGraphBinding binding =
         EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
@@ -194,6 +257,17 @@ public class ParentContainersBatchLoaderTest {
                 .thenReturn(
                     AncestorWalkResult.fromAncestors(
                         ancestors.stream().map(Urn::toString).collect(Collectors.toList()))));
+
+    if (throwingSeed != null) {
+      Mockito.when(
+              cache.walkOrderedForwardAncestors(
+                  eq("container"),
+                  eq(GraphSnapshotSource.GRAPH),
+                  eq(throwingSeed.toString()),
+                  eq(50),
+                  eq(ReadMode.CACHED)))
+          .thenThrow(new RuntimeException(throwMessage));
+    }
 
     final OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
     final OperationContext opContext =
@@ -214,19 +288,69 @@ public class ParentContainersBatchLoaderTest {
     return ctx;
   }
 
+  /** A walk that failed must fail only its own key, not the batch. */
+  @Test
+  public void testFailedWalkFailsOnlyItsOwnKey() throws Exception {
+    stubBatchGet(Set.of(ROOT, MID));
+    final Map<Urn, Try<List<Urn>>> chains = new java.util.LinkedHashMap<>();
+    chains.put(LEAF_A, Try.failed(new RuntimeException("hierarchy cache read failed")));
+    chains.put(LEAF_B, Try.succeeded(List.of(MID, ROOT)));
+
+    final List<Try<ParentContainersResult>> out =
+        assemble2(List.of(LEAF_A, LEAF_B), _context, _entityClient, chains);
+
+    assertTrue(out.get(0).isFailure(), "the failed walk should fail its own key");
+    assertTrue(out.get(1).isSuccess(), "the other key must still resolve");
+    assertEquals(out.get(1).get().getCount(), 2);
+  }
+
+  /** A hydration failure is shared, so every key in the batch sees it. */
+  @Test
+  public void testFetchFailurePropagatesToAllKeys() throws Exception {
+    Mockito.when(
+            _entityClient.batchGetV2(any(), any(String.class), any(Set.class), nullable(Set.class)))
+        .thenThrow(new RuntimeException("entity client unavailable"));
+
+    final List<Try<ParentContainersResult>> out =
+        assemble1(
+            List.of(LEAF_A, LEAF_B),
+            _context,
+            _entityClient,
+            Map.of(LEAF_A, List.of(ROOT), LEAF_B, List.of(ROOT)));
+
+    assertTrue(out.get(0).isFailure());
+    assertTrue(out.get(1).isFailure());
+  }
+
   /** DataLoader's contract is positional, including when a key repeats in one batch. */
   @Test
   public void testDuplicateKeysMapBackPositionally() throws Exception {
     stubBatchGet(Set.of(ROOT, MID));
     final Map<Urn, List<Urn>> chains = Map.of(LEAF_A, List.of(MID, ROOT), LEAF_B, List.of(ROOT));
 
-    final var out =
-        ParentContainersBatchLoader.batchLoadForTest(
-            List.of(LEAF_A, LEAF_B, LEAF_A), _context, _entityClient, chains);
+    final var out = assemble1(List.of(LEAF_A, LEAF_B, LEAF_A), _context, _entityClient, chains);
 
     assertEquals(out.size(), 3);
-    assertEquals(out.get(0).getCount(), 2);
-    assertEquals(out.get(1).getCount(), 1);
-    assertEquals(out.get(2).getCount(), 2);
+    assertEquals(out.get(0).get().getCount(), 2);
+    assertEquals(out.get(1).get().getCount(), 1);
+    assertEquals(out.get(2).get().getCount(), 2);
+  }
+
+  /** Local seam: wrap plain chains as successful Trys and assemble. */
+  private static List<Try<ParentContainersResult>> assemble1(
+      List<Urn> urns, QueryContext ctx, EntityClient client, Map<Urn, List<Urn>> chains) {
+    Map<Urn, Try<List<Urn>>> asTry = new java.util.LinkedHashMap<>();
+    chains.forEach((urn, chain) -> asTry.put(urn, Try.succeeded(chain)));
+    return assemble2(urns, ctx, client, asTry);
+  }
+
+  private static List<Try<ParentContainersResult>> assemble2(
+      List<Urn> urns, QueryContext ctx, EntityClient client, Map<Urn, Try<List<Urn>>> chains) {
+    return ParentContainersBatchLoader.assemble(
+        urns,
+        urns.stream().distinct().collect(java.util.stream.Collectors.toList()),
+        ctx,
+        client,
+        chains);
   }
 }

@@ -34,7 +34,8 @@ public class ParentContainersResolver
   // Null when constructed without feature flags (legacy/test path) — treated as "batch disabled".
   @Nullable private final FeatureFlags _featureFlags;
 
-  public ParentContainersResolver(final EntityClient entityClient) {
+  /** Test-only: no feature flags means the batch path stays off. */
+  ParentContainersResolver(final EntityClient entityClient) {
     this(entityClient, null);
   }
 
