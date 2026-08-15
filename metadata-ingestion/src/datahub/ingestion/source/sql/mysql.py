@@ -8,6 +8,7 @@ from typing import (
     TYPE_CHECKING,
     Annotated,
     Any,
+    Dict,
     Iterable,
     Iterator,
     List,
@@ -143,28 +144,10 @@ _DML_LEADING_KEYWORDS = frozenset(
 # can't grow it without bound (LRU eviction in _fetch_general_log_queries).
 _MAX_TRACKED_SESSIONS = 10_000
 
-# One row per base table in a schema. `table_rows` is an InnoDB *estimate* from gathered stats
-# (can be off substantially, only refreshed on ANALYZE TABLE) and `data_length` is in bytes.
-# Both are acceptable for a guardrail; neither must be presented as an accurate count.
-# Row/size limits are applied in Python (see generate_profile_candidates), not in SQL, so the
-# GB conversion is visible and NULL stats (table_rows or total_size NULL) retain the table.
-# `table_type = 'BASE TABLE'` excludes views, which have NULL table_rows/data_length and would
-# otherwise pass a Python None check — harmless today (loop_profiler_requests only iterates
-# get_table_names, not views) but explicit intent + smaller result set.
-# The size guardrail uses `data_length + index_length`: profiling reads secondary indexes
-# heavily (COUNT(DISTINCT), min/max), so a table with large indexes can be several times
-# the size `data_length` alone implies. This matches what "table size" means on other
-# platforms better than `data_length` alone, at the cost of consistency with
-# add_profile_metadata's sizeInBytes (which uses data_length only) — the guardrail is the
-# more safety-critical of the two, so it gets the broader measure.
-# MySQL 8 caches data-dictionary stats in `information_schema_stats_expiry` (24h default),
-# so table_rows/data_length can be up to that stale between ANALYZE TABLEs — the estimate
-# is "as of the last stats refresh," not "as of right now."
-_PROFILE_CANDIDATES_QUERY = """
-SELECT table_name, table_rows, data_length + index_length AS total_size
-FROM information_schema.tables
-WHERE table_schema = :schema AND table_type = 'BASE TABLE'
-"""
+# table_rows is an InnoDB *estimate* (stale until ANALYZE TABLE); data_length and
+# index_length are in bytes. Acceptable for a guardrail, not an accurate count.
+# MySQL 8 caches data-dictionary stats in `information_schema_stats_expiry` (24h
+# default), so values can be up to that stale between ANALYZE TABLEs.
 
 # How many of the slowest tables to name in the post-run advice, and the minimum
 # elapsed seconds for the advice to fire at all. Below this threshold profiling
@@ -366,6 +349,15 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
         self._discovered_lower_cache: Optional[Set[str]] = None
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
+        # Guardrail cache populated by add_profile_metadata's information_schema sweep
+        # and consumed by generate_profile_candidates / is_dataset_eligible_for_profiling.
+        # Kept on the source (not on the shared ProfileMetadata) so sql_common.py stays
+        # untouched — these fields are MySQL-specific. Keyed by "{schema}.{table}".
+        self._table_rows_cache: Dict[str, Optional[int]] = {}
+        self._index_length_cache: Dict[str, Optional[int]] = {}
+        self._table_type_cache: Dict[str, str] = {}
+        # dataset_name -> "row" | "size": set while filtering, consumed to attribute skips.
+        self._guardrail_skip: Dict[str, str] = {}
         if config.auth_mode == MySQLAuthMode.AWS_IAM:
             hostname, port = parse_host_port(config.host_port, default_port=3306)
             if port is None:
@@ -501,18 +493,33 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():
             return
+        # One unfiltered information_schema sweep shared with the guardrail (see
+        # generate_profile_candidates). No WHERE clause: sizeInBytes caching for views
+        # is unchanged, and the guardrail filters BASE TABLE in Python. MySQL
+        # upper-cases information_schema labels; MariaDB/Doris/TiDB keep the selected
+        # case — unpack positionally so access is case-independent.
         with inspector.engine.connect() as conn:
-            # MySQL upper-cases information_schema labels; MariaDB/Doris/TiDB keep
-            # the selected case — unpack positionally so access is case-independent.
-            for table_schema, table_name, data_length in conn.execute(
+            for (
+                table_schema,
+                table_name,
+                data_length,
+                table_rows,
+                index_length,
+                table_type,
+            ) in conn.execute(
                 text(
-                    "SELECT table_schema, table_name, data_length "
+                    "SELECT table_schema, table_name, data_length, table_rows, "
+                    "index_length, table_type "
                     "FROM information_schema.tables"
                 )
             ):
-                self.profile_metadata_info.dataset_name_to_storage_bytes[
-                    f"{table_schema}.{table_name}"
-                ] = data_length
+                key = f"{table_schema}.{table_name}"
+                self.profile_metadata_info.dataset_name_to_storage_bytes[key] = (
+                    data_length
+                )
+                self._table_rows_cache[key] = table_rows
+                self._index_length_cache[key] = index_length
+                self._table_type_cache[key] = table_type
 
     def generate_profile_candidates(
         self,
@@ -521,19 +528,18 @@ class MySQLSource(TwoTierSQLAlchemySource):
         schema: str,
     ) -> Optional[List[str]]:
         # profile_if_updated_since_days is not enforced here — candidate selection is row/size
-        # based only. Warn once per source when it is set, so a user does not assume freshness
+        # based only. Info once per source when it is set, so a user does not assume freshness
         # filtering is applied. Emitted here (not in __init__) so it lands in the live report
         # even when a subclass reassigns self.report after super().__init__ (e.g. Doris).
         if self.config.profiling.profile_if_updated_since_days is not None:
-            self.report.warning(
+            self.report.info(
                 title="Profiling does not support profile_if_updated_since_days",
                 message="This setting will be ignored. Tables are selected for profiling by "
                 "row/size limits only (profile_table_row_limit / profile_table_size_limit).",
             )
 
-        # When both row/size limits are None there is nothing to enforce, so skip the per-schema
-        # information_schema query and return no candidate filter (loop_profiler_requests then
-        # falls back to get_table_names).
+        # When both row/size limits are None there is nothing to enforce, so return no candidate
+        # filter (loop_profiler_requests then falls back to get_table_names).
         row_limit = self.config.profiling.profile_table_row_limit
         size_limit_gb = self.config.profiling.profile_table_size_limit
         if row_limit is None and size_limit_gb is None:
@@ -543,44 +549,50 @@ class MySQLSource(TwoTierSQLAlchemySource):
             size_limit_gb * 1024**3 if size_limit_gb is not None else None
         )
 
-        # table_rows is an InnoDB *estimate* (can be stale until ANALYZE TABLE) and data_length
-        # is in bytes — acceptable for a guardrail, not an accurate count.
-        try:
-            with inspector.engine.connect() as conn:
-                # Unpack positionally (case-independent), matching add_profile_metadata above.
-                rows = conn.execute(text(_PROFILE_CANDIDATES_QUERY), {"schema": schema})
-        except SQLAlchemyError as e:
-            # Degrade to no candidate filter rather than aborting profiling for the whole
-            # run; is_dataset_eligible_for_profiling falls back to the no-filter path.
-            self.report.warning(
-                title="Failed to generate profile candidates",
-                message="Could not generate the profile candidate list; profiling will proceed without a row/size guardrail for this schema.",
-                context=f"Schema: {schema}",
-                exc=e,
-            )
+        # The guardrail reads the cache populated by add_profile_metadata (one unfiltered
+        # information_schema sweep, shared with sizeInBytes). add_profile_metadata is called
+        # inside a try/except Exception at sql_common.py:598 that only warns, so an empty cache
+        # means the sweep failed — fail open to no guardrail rather than dropping every profile
+        # in the run (an empty candidate list is additive and would exclude all tables).
+        if not self._table_rows_cache:
             return None
 
-        # Apply row/size limits in Python. A table whose table_rows or total_size is NULL
-        # is retained — NULL stats must not silently drop a table from profiling.
+        # Apply row/size limits in Python. A table whose table_rows or total_size is NULL is
+        # retained — NULL stats must not silently drop a table from profiling. The size
+        # guardrail uses data_length + index_length (profiling reads secondary indexes
+        # heavily); sizeInBytes still uses data_length only, so the two measures differ.
+        # Row limit takes precedence over size limit when both exclude a table — the
+        # cheaper-to-fix reason is reported first.
         candidates: List[str] = []
-        for table_name, table_rows, total_size in rows:
+        for table_name in inspector.get_table_names(schema):
+            dataset_name = self.get_identifier(
+                schema=schema, entity=table_name, inspector=inspector
+            )
+            if self._table_type_cache.get(dataset_name) != "BASE TABLE":
+                continue
+            table_rows = self._table_rows_cache.get(dataset_name)
             if (
                 row_limit is not None
                 and table_rows is not None
                 and table_rows >= row_limit
             ):
+                # >= matches the field description ("less than this"); sql_generic_profiler
+                # uses >, so a table exactly at the limit is profiled there but skipped here.
+                self._guardrail_skip[dataset_name] = "row"
                 continue
+            data_length = self.profile_metadata_info.dataset_name_to_storage_bytes.get(
+                dataset_name
+            )
+            index_length = self._index_length_cache.get(dataset_name)
             if (
                 size_limit_bytes is not None
-                and total_size is not None
-                and total_size >= size_limit_bytes
+                and data_length is not None
+                and index_length is not None
+                and (data_length + index_length) >= size_limit_bytes
             ):
+                self._guardrail_skip[dataset_name] = "size"
                 continue
-            candidates.append(
-                self.get_identifier(
-                    schema=schema, entity=table_name, inspector=inspector
-                )
-            )
+            candidates.append(dataset_name)
 
         # An empty candidate list drops every profile in the schema (the list is additive).
         # Distinguish "schema has no base tables" (no info needed) from "every table exceeded
@@ -610,6 +622,33 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 )
 
         return candidates
+
+    def is_dataset_eligible_for_profiling(
+        self,
+        dataset_name: str,
+        schema: str,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
+    ) -> bool:
+        # Run table/profile pattern checks, but pass profile_candidates=None so the base
+        # does NOT count guardrailed tables into profiling_skipped_other (which would
+        # double-count). We then attribute candidate misses to the bucket recorded at
+        # filter time (_guardrail_skip), falling back to profiling_skipped_other only for
+        # tables excluded for reasons the guardrail didn't record.
+        if not super().is_dataset_eligible_for_profiling(
+            dataset_name, schema, inspector, profile_candidates=None
+        ):
+            return False
+        if profile_candidates is not None and dataset_name not in profile_candidates:
+            reason = self._guardrail_skip.get(dataset_name)
+            if reason == "row":
+                self.report.profiling_skipped_row_limit[schema] += 1
+            elif reason == "size":
+                self.report.profiling_skipped_size_limit[schema] += 1
+            else:
+                self.report.profiling_skipped_other[schema] += 1
+            return False
+        return True
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
