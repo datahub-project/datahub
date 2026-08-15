@@ -1259,8 +1259,13 @@ class SQLAlchemyProfiler:
         translated: List[DatasetFieldProfileClass] = []
         seen: Set[str] = set()
         for field_profile in field_profiles:
+            # str() sheds sqlalchemy's quoted_name, a str subclass whose .lower()
+            # and .upper() return self when the identifier is quoted. That is right
+            # for SQL — folding a quoted name would point it at a different column —
+            # but a field path is metadata, and leaving the subclass in place makes
+            # every downstream fold silently do nothing.
             field_profile.fieldPath = adapter.field_path_for(
-                field_profile.fieldPath, conn
+                str(field_profile.fieldPath), conn
             )
             if field_profile.fieldPath in seen:
                 continue

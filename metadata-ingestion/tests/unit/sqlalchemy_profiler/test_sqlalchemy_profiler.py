@@ -1153,6 +1153,44 @@ class TestEmittedFieldPaths:
 
         assert [p.fieldPath for p in result] == ["col", "COL"]
 
+    def test_a_quoted_name_leaves_as_a_plain_string(self, profiler: Any) -> None:
+        # Profiles are built from sql_table.columns, whose names this module
+        # rebuilds as quoted_name so the generated SQL targets each column
+        # exactly. quoted_name is a str subclass whose .lower()/.upper() return
+        # self while the identifier is quoted, so a path that keeps the subclass
+        # silently survives every later fold -- Snowflake's convert_urns_to_lowercase
+        # became a no-op this way, with no error anywhere.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name
+
+        result = profiler._to_emitted_field_paths(
+            [
+                DatasetFieldProfileClass(
+                    fieldPath=sa.sql.quoted_name("MixedCol", quote=True)
+                )
+            ],
+            adapter,
+            MagicMock(),
+        )
+
+        assert type(result[0].fieldPath) is str
+        assert result[0].fieldPath.lower() == "mixedcol"
+
+    def test_quoted_names_still_fold_and_collapse(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            [
+                DatasetFieldProfileClass(fieldPath=sa.sql.quoted_name(n, quote=True))
+                for n in ("col", "COL", "ID")
+            ],
+            adapter,
+            MagicMock(),
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "id"]
+
 
 class TestIgnoreSamplingColumnNames:
     """tags_to_ignore_sampling is resolved against DataHub, so it arrives as

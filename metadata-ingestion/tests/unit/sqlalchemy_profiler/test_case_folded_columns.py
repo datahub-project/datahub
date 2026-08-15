@@ -14,6 +14,10 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+    SQLAlchemyProfiler,
+)
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
 
 
 def _engine(dialect: Any) -> Any:
@@ -290,6 +294,40 @@ class TestNonSnowflakeNormalizingDialects:
         assert {
             adapter.field_path_for(n, engine) for n in names if n.lower() == "col"
         } == {"col"}
+
+    def test_rebuilt_columns_survive_the_real_emission_boundary(self) -> None:
+        """Hand the boundary the column objects, not str() of their names.
+
+        The two tests above translate `str(c.name)`, which quietly does the one
+        thing the production path was missing. `_use_stored_column_names` names
+        columns with quoted_name, a str subclass whose .lower()/.upper() return
+        self while quoted -- enough to defeat Oracle's normalize_name, which
+        decides by comparing name.upper() to name. Nothing else covers this:
+        tests/integration/oracle runs a real database but sets
+        profiling.enabled: false in every recipe.
+        """
+        adapter, engine = self._oracle_adapter()
+        table = _folded_table(engine, ["id", "amount"])
+
+        inspector = MagicMock()
+        inspector.get_columns.return_value = _reflected(["id", "amount"])
+        with patch.object(sa, "inspect", return_value=inspector):
+            rebuilt = adapter._use_stored_column_names(table, engine)
+
+        profiler = SQLAlchemyProfiler(
+            conn=engine,
+            report=SQLSourceReport(),
+            config=ProfilingConfig(),
+            platform="oracle",
+            env="PROD",
+        )
+        emitted = profiler._to_emitted_field_paths(
+            [DatasetFieldProfileClass(fieldPath=c.name) for c in rebuilt.columns],
+            adapter,
+            engine,
+        )
+
+        assert [p.fieldPath for p in emitted] == ["id", "amount"]
 
     def test_untouched_for_a_dialect_that_does_not_normalize(self) -> None:
         from sqlalchemy.dialects import postgresql
