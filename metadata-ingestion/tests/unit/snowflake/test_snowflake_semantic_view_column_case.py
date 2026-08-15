@@ -348,7 +348,9 @@ class TestLegacyDerivedExpressionLookup:
         for col in view.columns:
             col.expression = f'"{col.name}"'
 
-        assert gen._semantic_column_expression(view, column, "SRC") is not None
+        # The exact expression, not just truthiness -- a non-None check would
+        # pass even if the lookup returned a sibling column's expression.
+        assert gen._semantic_column_expression(view, column, "SRC") == f'"{column}"'
 
 
 class TestExpressionColumnFolding:
