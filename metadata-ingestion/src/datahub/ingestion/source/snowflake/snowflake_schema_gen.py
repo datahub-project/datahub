@@ -2084,8 +2084,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # configured identifier handling: lowercased by default, but stored case
         # under preserve_column_case or convert_urns_to_lowercase=False. Matching a
         # lowercased name against those keys silently fails, so compare case-folded
-        # on both sides. Semantic-view metadata canonicalizes references to
-        # uppercase, so an exact hit is not guaranteed even in the default mode.
+        # on both sides. A semantic-view reference carries whatever spelling its
+        # DDL used, folded up if unquoted, so an exact hit is not guaranteed even
+        # in the default mode.
         column_name_lower = column_name.lower()
         return any(
             field_path.lower() == column_name_lower for field_path in schema_info

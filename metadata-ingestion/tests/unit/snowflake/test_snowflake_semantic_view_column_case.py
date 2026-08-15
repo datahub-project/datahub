@@ -275,8 +275,8 @@ class TestColumnExistenceCheck:
     ) -> None:
         gen = self._gen_with_schema([field_path], **overrides)
 
-        # Semantic-view metadata hands us the uppercase-canonicalized reference,
-        # which matches none of these paths exactly except by luck.
+        # A reference written unquoted in the view's DDL comes back folded up,
+        # so it matches none of these paths exactly except by luck.
         assert gen._verify_column_exists_in_table(
             "DB", "SCHEMA", "TBL", field_path.upper()
         )

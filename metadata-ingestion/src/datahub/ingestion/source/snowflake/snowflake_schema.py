@@ -332,11 +332,15 @@ class SnowflakeSemanticView(BaseView):
     ) -> str:
         """The spelling Snowflake stores for a column reference.
 
-        Semantic-view metadata canonicalizes column references to uppercase,
-        which is fine for matching but wrong for an emitted identity. Resolve on
-        the uppercased form and return the stored name.
+        A reference arrives in whichever spelling the view's DDL used, folded to
+        uppercase if it was written unquoted — ordinary Snowflake identifier
+        folding, not a canonicalization the metadata applies. Verified against
+        INFORMATION_SCHEMA.SEMANTIC_DIMENSIONS, which returns quoted ``"col"``
+        and ``"COL"`` distinctly. Callers may also hand us an uppercased
+        reference of their own, so match case-insensitively either way and
+        return the stored name, which is the only spelling valid to emit.
 
-        ``logical_table_upper`` matters: the same uppercased name can belong to
+        ``logical_table_upper`` matters: one folded name can belong to
         differently-cased columns on two logical tables, and an unscoped lookup
         would return whichever happened to be first — producing a field path that
         does not exist on the table being emitted. Callers that know the table
@@ -384,8 +388,9 @@ class SnowflakeSemanticView(BaseView):
     def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
         """Occurrences for a column reference, matched case-insensitively.
 
-        Entries are keyed by stored name, but semantic-view lineage threads
-        references around uppercased, so a caller may hold either spelling. An
+        Entries are keyed by stored name, but lineage threads references around
+        uppercased and unquoted DDL folds them, so a caller may hold either
+        spelling. An
         uppercase reference legitimately matches both members of a case-only
         pair; callers that must pick one scope by logical table.
         """
