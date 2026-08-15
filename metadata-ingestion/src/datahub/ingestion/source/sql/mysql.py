@@ -49,10 +49,7 @@ from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.ge_profiling_config import (
-    _MYSQL_FAMILY_SOURCES,
-    GEProfilingConfig,
-)
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
@@ -233,7 +230,7 @@ class MySQLProfilingConfig(GEProfilingConfig):
     # Redeclared with Annotated[...] (not plain Optional[int]) so schema_extra.supported_sources
     # is preserved on the subclass field — a plain redeclaration drops it.
     profile_table_row_limit: Annotated[
-        Optional[int], SupportedSources([*_MYSQL_FAMILY_SOURCES])
+        Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])
     ] = Field(
         default=None,
         description="MySQL: profile tables only if their estimated row count is less than this. "
@@ -242,7 +239,7 @@ class MySQLProfilingConfig(GEProfilingConfig):
         "storage-engine stat that can be stale.",
     )
     profile_table_size_limit: Annotated[
-        Optional[int], SupportedSources([*_MYSQL_FAMILY_SOURCES])
+        Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])
     ] = Field(
         default=None,
         description="MySQL: profile tables only if their size is less than specified GBs. "
@@ -373,12 +370,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # MySQL-local here.
         self._table_stats_cache: Dict[str, _TableStats] = {}
         # Set True only after the sweep completes. Load-bearing: add_profile_metadata
-        # is wrapped in try/except at sql_common.py:597 that only warns, so a sweep
-        # that raises leaves this False — which both retries the sweep on the next
-        # inspector and keeps generate_profile_candidates fail-open. It also tells
-        # "sweep failed" (None candidates) from "instance has no tables" (empty
-        # candidate list), so an instance with zero tables is not misreported as a
-        # sweep failure.
+        # is wrapped in try/except in get_profiling_internal that only warns, so a
+        # sweep that raises leaves this False — generate_profile_candidates then
+        # fails open (None candidates). Distinguishes "sweep failed" (None) from
+        # "instance has no tables" (empty candidate list).
         self._profile_sweep_ran: bool = False
         # dataset_name -> "row" | "size": set while filtering, consumed to attribute skips.
         self._guardrail_skip: Dict[str, str] = {}
@@ -520,14 +515,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():
             return
-        # The sweep is instance-wide (information_schema.tables spans every database),
-        # but get_profiling_internal calls add_profile_metadata once per inspector
-        # (two_tier_sql_source.py:133 yields one inspector per database). Skip the
-        # re-scan on the second and later inspectors — the first pass already cached
-        # every database's entries.
-        if self._profile_sweep_ran:
-            return
-        # One unfiltered information_schema sweep shared with the guardrail (see
+        # Unfiltered information_schema sweep shared with the guardrail (see
         # generate_profile_candidates). No WHERE clause on table_type: sizeInBytes is
         # cached for views too, and the dialect's get_table_names already filters to
         # base tables, so a table_type filter here would only drop rows the guardrail
@@ -588,12 +576,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
             size_limit_gb * 1024**3 if size_limit_gb is not None else None
         )
 
-        # The guardrail reads the cache populated by add_profile_metadata (one unfiltered
+        # The guardrail reads the cache populated by add_profile_metadata (an unfiltered
         # information_schema sweep, shared with sizeInBytes). add_profile_metadata is called
-        # inside a try/except Exception at sql_common.py:597 that only warns, so a sweep
-        # that raises leaves _profile_sweep_ran False — fail open to no guardrail rather
-        # than dropping every profile in the run (an empty candidate list is additive and
-        # would exclude all tables).
+        # inside a try/except Exception in get_profiling_internal that only warns, so a
+        # sweep that raises leaves _profile_sweep_ran False — fail open to no guardrail
+        # rather than dropping every profile in the run (an empty candidate list is
+        # additive and would exclude all tables).
         if not self._profile_sweep_ran:
             return None
 
@@ -617,7 +605,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 and table_rows >= row_limit
             ):
                 # >= matches the field description ("less than this"); sql_generic_profiler
-                # uses >, so a table exactly at the limit is profiled there but skipped here.
+                # uses >, so a table exactly at the limit is skipped here and profiled on
+                # Snowflake.
                 self._guardrail_skip[dataset_name] = "row"
                 continue
             data_length = self.profile_metadata_info.dataset_name_to_storage_bytes.get(
@@ -642,8 +631,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # "every table exceeded the limits" (info so the operator knows profiles were
         # dropped). Reuse the table_names already fetched for the loop — a second
         # call would be redundant, and a raise here would surface in
-        # loop_profiler_requests's own get_table_names call (sql_common.py:1430)
-        # regardless, so a handler that emitted a false "guardrail" notice and then
+        # loop_profiler_requests's own get_table_names call regardless, so a
+        # handler that emitted a false "guardrail" notice and then
         # died anyway would be worse than none.
         if not candidates and table_names:
             self.report.info(

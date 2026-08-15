@@ -48,9 +48,12 @@ def _populate_profile_cache(source: MySQLSource, schema: str, rows: list) -> Non
         key = f"{schema}.{table_name}"
         if data_length is None:
             # data_length is NULL for views; the dict is typed Dict[str, int] but the
-            # source stores None too (row values are Any there). Guardrail retains
-            # the table because neither data_length nor index_length is present.
+            # source stores None too (row values are Any there). A 3-tuple would
+            # default index_length to 0, which would exercise "sum is under the
+            # limit" rather than the both-NULL retain path — force None so the
+            # guardrail sees neither data_length nor index_length.
             source.profile_metadata_info.dataset_name_to_storage_bytes[key] = None  # type: ignore[assignment]
+            index_length = None
         else:
             source.profile_metadata_info.dataset_name_to_storage_bytes[key] = (
                 data_length
@@ -105,34 +108,16 @@ def test_add_profile_metadata_reads_storage_bytes_positionally(
     assert source._profile_sweep_ran is True
 
 
-def test_add_profile_metadata_sweeps_once_across_inspectors() -> None:
-    # The information_schema.tables sweep is instance-wide — one pass populates every
-    # database's entries. get_profiling_internal calls add_profile_metadata once per
-    # inspector (two_tier_sql_source.py:133 yields one per database), so the second
-    # and later inspectors must skip the re-scan. Assert the second inspector's
-    # connection is never opened.
-    source = _source()
-    first = _inspector_returning([("my_db", "orders", 4096, 100, 1024)])
-    second = _inspector_returning([("other_db", "customers", 8192, 200, 2048)])
-
-    source.add_profile_metadata(first)
-    source.add_profile_metadata(second)
-
-    # Only the first inspector's connection was opened; the second was short-circuited.
-    first.engine.connect.assert_called_once()
-    second.engine.connect.assert_not_called()
-    # And the cache carries only the first inspector's rows.
-    assert source._table_stats_cache == {
-        "my_db.orders": _TableStats(table_rows=100, index_length=1024),
-    }
-
-
 def test_add_profile_metadata_raising_sweep_leaves_flag_false() -> None:
     # A sweep that raises (restricted grants, a rewriting proxy) must leave
     # _profile_sweep_ran False so generate_profile_candidates fails open to no
-    # guardrail. sql_common.py:597 wraps add_profile_metadata in try/except that
-    # only warns, so the flag staying False also lets the next inspector retry.
-    source = _source()
+    # guardrail. get_profiling_internal wraps add_profile_metadata in try/except
+    # that only warns.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True, "profile_table_row_limit": 1_000_000},
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
     inspector = MagicMock()
     conn = MagicMock()
     conn.execute.side_effect = SQLAlchemyError("information_schema unavailable")
@@ -144,6 +129,8 @@ def test_add_profile_metadata_raising_sweep_leaves_flag_false() -> None:
     assert source._profile_sweep_ran is False
 
     # generate_profile_candidates must fail open (return None) since the sweep never ran.
+    # profile_table_row_limit is set so this reaches the _profile_sweep_ran check
+    # rather than the both-limits-None short-circuit.
     cand_inspector = MagicMock()
     cand_inspector.get_table_names.return_value = ["orders"]
     result = source.generate_profile_candidates(
@@ -277,10 +264,8 @@ def test_generate_profile_candidates_retains_null_stats_tables() -> None:
 def test_generate_profile_candidates_retains_table_absent_from_cache() -> None:
     # A table returned by get_table_names but absent from the information_schema
     # cache (a partial miss — restricted grants, a rewriting proxy, or a catalog
-    # mismatch) must still be a candidate. The cache miss returns None, which must
-    # NOT be treated as "not a base table" — that would fail closed and drop every
-    # table the sweep lacked information about. Only a known non-base-table type is
-    # grounds to skip.
+    # mismatch) must still be a candidate. Missing cache entries yield None stats,
+    # and NULL/missing stats are retained rather than treated as over-limit.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
@@ -398,11 +383,12 @@ def test_profile_limits_accept_null() -> None:
 
 
 def test_generate_profile_candidates_fails_open_on_empty_cache() -> None:
-    # add_profile_metadata is called inside a try/except Exception at sql_common.py:597
-    # that only warns, so the sweep can fail and leave _profile_sweep_ran False. A sweep
-    # that did not run must mean "no guardrail — return None", never "no table qualifies"
-    # (an empty candidate list is additive and would drop every profile in the run). No
-    # warning here: add_profile_metadata is the layer that warned for the sweep failure.
+    # add_profile_metadata is called inside a try/except Exception in
+    # get_profiling_internal that only warns, so the sweep can fail and leave
+    # _profile_sweep_ran False. A sweep that did not run must mean "no guardrail —
+    # return None", never "no table qualifies" (an empty candidate list is additive
+    # and would drop every profile in the run). No warning here: add_profile_metadata
+    # is the layer that warned for the sweep failure.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={
