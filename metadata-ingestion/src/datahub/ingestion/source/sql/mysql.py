@@ -1,9 +1,9 @@
 # This import verifies that the dependencies are available.
-import datetime
 import logging
 import re
 from collections import OrderedDict
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -219,17 +219,9 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
 
 
 class MySQLProfilingConfig(GEProfilingConfig):
-    # Per-source override, following the Athena (AthenaProfilingConfig.partition_profiling_enabled)
-    # and Dremio (ProfileConfig.include_field_median_value) precedent: override the shared default
-    # where the platform's behavior differs.
-    #
-    # profile_table_row_limit / profile_table_size_limit: the shared defaults (5M rows / 5GB) are
-    # tuned to Snowflake/BigQuery billing, not to "InnoDB will melt." A 10-50M row MySQL table
-    # profiles fine; the failure mode appears one to two orders of magnitude higher, so a 5M cut
-    # denies profiles to healthy tables. Default None (opt-in): silently dropping profiles would
-    # break the Volume/Column Metric assertions built on them. The discoverability mechanism for
-    # opt-in is the post-run report.info in MySQLSource.close() naming the slowest tables.
-    #
+    # Per-source override, following the Athena/Dremio precedent
+    # (AthenaProfilingConfig.partition_profiling_enabled,
+    # ProfileConfig.include_field_median_value).
     # Redeclared with Annotated[...] (not plain Optional[int]) so schema_extra.supported_sources
     # is preserved on the subclass field — a plain redeclaration drops it.
     profile_table_row_limit: Annotated[
@@ -392,15 +384,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
             super().close()
 
     def _maybe_emit_expensive_tables_advice(self) -> None:
-        # MySQL defaults to no row/size guardrail, so operators need a way to discover they
-        # should set one. Name the few tables that took the longest to profile, read from the
-        # shared per-table timing map (populated by the SQLAlchemy profiler's finally block).
         # Uses report.info (not report.warning) so it surfaces without counting toward
         # --strict-warnings failure. message is a constant literal and the formatted table
         # list goes in context= so StructuredLogs dedupes on f"{title}-{message}".
-        # Scoped to MySQL/MariaDB: Doris and TiDB inherit this method via MySQLSource but
-        # have different storage engines and tuning posture, so the MySQL-worded advice
-        # (which names InnoDB-shaped config) does not apply to them.
+        # Doris and TiDB inherit this method via MySQLSource; the advice names MySQL-shaped
+        # config, so they opt out here rather than receive it.
         if self.platform not in ("mysql", "mariadb"):
             return
         timings = self.report.profiling_time_taken_per_table_secs
@@ -524,7 +512,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def generate_profile_candidates(
         self,
         inspector: Inspector,
-        threshold_time: Optional[datetime.datetime],
+        threshold_time: Optional[datetime],
         schema: str,
     ) -> Optional[List[str]]:
         # profile_if_updated_since_days is not enforced here — candidate selection is row/size
@@ -847,7 +835,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 # Session is pinned to UTC, so a naive LAST_SEEN is already UTC.
                 timestamp = row.LAST_SEEN
                 if timestamp is not None and timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
 
                 yield ObservedQuery(
                     query=row.DIGEST_TEXT,
@@ -922,7 +910,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
                 timestamp = row.event_time
                 if timestamp is not None and timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
 
                 yield ObservedQuery(
                     query=argument,

@@ -256,7 +256,6 @@ def test_generate_profile_candidates_fails_open_on_empty_cache() -> None:
         },
     )
     source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
-    source.report = MagicMock()
     # Cache left empty (sweep failed upstream).
     inspector = MagicMock()
     inspector.get_table_names.return_value = ["orders", "customers"]
@@ -268,8 +267,8 @@ def test_generate_profile_candidates_fails_open_on_empty_cache() -> None:
     assert result is None
     # No candidate list built, so no skip attribution and no info/warning.
     inspector.get_table_names.assert_not_called()
-    assert not source.report.warning.called
-    assert not source.report.info.called
+    assert not list(source.report.warnings)
+    assert not list(source.report.infos)
 
 
 def test_profile_freshness_info_fires_lazily_and_once() -> None:

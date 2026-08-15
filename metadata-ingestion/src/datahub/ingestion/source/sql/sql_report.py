@@ -40,8 +40,9 @@ class DetailedProfilerReportMixin:
 
     # Per-table profiling elapsed time (seconds), keyed by pretty_name. Survives a
     # run that dies early (islice in run/pipeline.py, or an OOM) — exactly when an
-    # operator most needs to know which table cost the most. TopKDict keeps the
-    # report bounded; the top-N is global across the whole run, not per-database.
+    # operator most needs to know which table cost the most. TopKDict bounds the
+    # rendered top-N, not memory (every entry is retained); the top-N is global across
+    # the whole run, not per-database.
     profiling_time_taken_per_table_secs: TopKDict[str, float] = field(
         default_factory=float_top_k_dict
     )
