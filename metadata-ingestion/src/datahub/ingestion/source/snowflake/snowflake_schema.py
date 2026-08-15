@@ -172,7 +172,10 @@ class SnowflakeSemanticViewRelationship:
 class SemanticViewColumnCollection:
     """Collection of column metadata for a semantic view, organized by column name."""
 
-    # Maps uppercase column name to list of metadata occurrences
+    # Groups a column's occurrences across the view's logical tables. Folded so
+    # that a case-only pair lands in one bucket, which is what makes the default
+    # path collapse them exactly as it always has; _group_occurrences_by_case
+    # splits the bucket again when preserve_column_case asks for it.
     columns: Dict[str, List[SemanticViewColumnMetadata]] = field(default_factory=dict)
 
     def add_column(self, metadata: SemanticViewColumnMetadata) -> None:
@@ -181,19 +184,6 @@ class SemanticViewColumnCollection:
         if col_name_upper not in self.columns:
             self.columns[col_name_upper] = []
         self.columns[col_name_upper].append(metadata)
-
-    def get_occurrences(self, col_name_upper: str) -> List[SemanticViewColumnMetadata]:
-        """Get all occurrences of a column by its uppercase name."""
-        return self.columns.get(col_name_upper, [])
-
-    def has_duplicates(self, col_name_upper: str) -> bool:
-        """Check if a column has multiple occurrences."""
-        return len(self.columns.get(col_name_upper, [])) > 1
-
-    def get_duplicate_count(self, col_name_upper: str) -> int:
-        """Get the number of duplicate occurrences for a column."""
-        occurrences = self.columns.get(col_name_upper, [])
-        return max(0, len(occurrences) - 1)
 
 
 @dataclass
