@@ -1,5 +1,7 @@
 from typing import Any, List, Optional
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -61,18 +63,42 @@ class TestProfileFieldPathAlignment:
     """The profiler names columns as Snowflake stores them; these pin the
     translation onto the field paths schemaMetadata was built with."""
 
-    def test_mixed_case_column_aligns_with_schema(self) -> None:
-        # The stored spelling survives profiling, but the schema lowercases it by
-        # default, so without the rewrite the profile never attaches to its field.
-        assert _restore(["MixedCol"]) == ["mixedcol"]
+    @pytest.mark.parametrize(
+        ("column", "lowercase", "expected"),
+        [
+            # The default: the schema lowercases, so the profile must too, or it
+            # never attaches to its field.
+            ("MixedCol", True, ["mixedcol"]),
+            ("CUSTOMER_ID", True, ["customer_id"]),
+            # With lowercasing off the schema keeps the stored spelling, and a
+            # profile that lowercased anyway would not attach to it.
+            ("MixedCol", False, ["MixedCol"]),
+            ("CUSTOMER_ID", False, ["CUSTOMER_ID"]),
+        ],
+    )
+    def test_field_path_follows_the_schema_rule(
+        self, column: str, lowercase: bool, expected: List[str]
+    ) -> None:
+        assert _restore([column], convert_urns_to_lowercase=lowercase) == expected
 
-    def test_uppercase_column_is_lowercased_like_the_schema(self) -> None:
-        assert _restore(["CUSTOMER_ID"]) == ["customer_id"]
-
-    def test_case_only_duplicates_collapse_to_one_profile(self) -> None:
-        # Both columns fold onto one field path, matching the schema where the
-        # duplicate field is dropped. Emitting both would put two profiles on it.
-        assert _restore(["col", "COL", "OTHER"]) == ["col", "other"]
+    @pytest.mark.parametrize(
+        ("lowercase", "expected"),
+        [
+            # Both fold onto one path, matching the schema where the duplicate
+            # field is dropped. Emitting both would put two profiles on it.
+            (True, ["col", "other"]),
+            # Without lowercasing the two spellings are already distinct paths,
+            # so both profiles attach and nothing is dropped.
+            (False, ["col", "COL", "OTHER"]),
+        ],
+    )
+    def test_case_only_pair_follows_the_schema_too(
+        self, lowercase: bool, expected: List[str]
+    ) -> None:
+        assert (
+            _restore(["col", "COL", "OTHER"], convert_urns_to_lowercase=lowercase)
+            == expected
+        )
 
     def test_table_level_profile_keeps_absent_field_profiles(self) -> None:
         # Rewriting must leave absent fieldProfiles absent, not turn them into [].

@@ -865,7 +865,8 @@ class PlatformAdapter(ABC):
     ) -> sa.Table:
         """Name every column the way the database stores it.
 
-        Dialects that normalize identifiers (Snowflake, Oracle, Firebird) fold
+        Dialects that normalize identifiers -- of the ones DataHub's SQL
+        connectors use, Snowflake and Oracle -- fold
         reflected column names, so two columns differing only by case — legal via
         quoted identifiers — arrive under the same name. ``sa.Table`` rejects the
         second one, silently dropping a real column before profiling ever sees it.
