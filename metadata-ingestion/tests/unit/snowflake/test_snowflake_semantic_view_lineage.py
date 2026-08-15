@@ -322,8 +322,8 @@ class TestSnowflakeSemanticViewDerivationResolution:
     def schema_gen(self):
         """Create a SnowflakeSchemaGenerator with mocked column verification."""
         gen = create_mock_schema_gen()
-        # Mock _verify_column_exists_in_table to return False (forces recursion)
-        gen._verify_column_exists_in_table = MagicMock(return_value=False)
+        # No column resolves, which forces recursion down the derived path.
+        gen._declared_field_path = MagicMock(return_value=None)
         return gen
 
     def test_max_depth_limit_stops_recursion(self, schema_gen):

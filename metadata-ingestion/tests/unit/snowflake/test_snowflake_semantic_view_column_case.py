@@ -162,11 +162,14 @@ class TestSemanticViewColumnCase:
 
 
 class TestColumnExistenceCheck:
-    """`_verify_column_exists_in_table` gates direct vs. derived column lineage.
+    """`_declared_field_path` gates direct vs. derived column lineage, and names
+    the upstream field.
 
     It looks columns up in the schema resolver, which keys on the emitted field
     path. That path's casing follows the identifier config, so a check hard-coded
-    to one representation reports every column missing under the others.
+    to one representation reports every column missing under the others. Because
+    the same answer names the URN, a case-folded hit has to hand back the
+    schema's spelling rather than the reference's.
     """
 
     @staticmethod
@@ -196,15 +199,41 @@ class TestColumnExistenceCheck:
         gen = self._gen_with_schema([field_path], **overrides)
 
         # A reference written unquoted in the view's DDL comes back folded up,
-        # so it matches none of these paths exactly except by luck.
-        assert gen._verify_column_exists_in_table(
-            "DB", "SCHEMA", "TBL", field_path.upper()
+        # so it matches none of these paths exactly except by luck. What comes
+        # back is the schema's spelling, which is what the URN must carry.
+        assert (
+            gen._declared_field_path("DB", "SCHEMA", "TBL", field_path.upper())
+            == field_path
         )
 
     def test_absent_column_still_reports_missing(self) -> None:
         gen = self._gen_with_schema(["order_id"])
 
-        assert not gen._verify_column_exists_in_table("DB", "SCHEMA", "TBL", "NO_SUCH")
+        assert gen._declared_field_path("DB", "SCHEMA", "TBL", "NO_SUCH") is None
+
+    def test_a_folded_hit_never_names_a_path_the_schema_lacks(self) -> None:
+        """The failure this returns a path to prevent.
+
+        With preserve_column_case on, snowflake_column_identifier is the identity,
+        so citing the reference's own spelling after a case-folded match builds a
+        schemaField URN against a path nothing declares. Both halves look correct
+        in isolation, and the lineage just quietly points at nothing.
+        """
+        gen = self._gen_with_schema(["col"], preserve_column_case=True)
+
+        resolved = gen._declared_field_path("DB", "SCHEMA", "TBL", "COL")
+
+        assert resolved == "col"
+        assert gen.snowflake_column_identifier("COL") == "COL"
+
+    def test_an_unresolvable_schema_falls_back_to_this_run_s_naming(self) -> None:
+        # Fail open: the table may simply not be ingested yet, and dropping the
+        # lineage would be worse than naming it the way this run names columns.
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+        assert isinstance(gen.aggregator, MagicMock)
+        gen.aggregator._schema_resolver._resolve_schema_info.return_value = {}
+
+        assert gen._declared_field_path("DB", "SCHEMA", "TBL", "MixedCol") == "MixedCol"
 
 
 class TestSemanticViewJsonProps:

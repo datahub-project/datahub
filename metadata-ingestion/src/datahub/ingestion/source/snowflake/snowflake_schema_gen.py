@@ -2037,24 +2037,30 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             table_identifier, SnowflakeObjectDomain.TABLE
         )
 
-    def _verify_column_exists_in_table(
+    def _declared_field_path(
         self, db_name: str, schema_name: str, table_name: str, column_name: str
-    ) -> bool:
-        """
-        Verify if a column exists in a specific table.
+    ) -> Optional[str]:
+        """The path the table's schema declares for `column_name`, or None if it has none.
 
-        Uses the aggregator's schema resolver to check if the column exists
-        in the already-fetched table schema.
+        Callers use this twice over: as the gate on whether a column reference
+        resolves, and as the name they put in the upstream schemaField URN. Those
+        have to be one answer. A reference matching case-insensitively means the
+        column is real, but citing the reference's own spelling would build a URN
+        against a path the schema never declared -- column lineage that dangles
+        instead of resolving, and silently, since both halves look right on their
+        own. Returning the declared path makes that impossible to get wrong.
 
-        Returns:
-            True if column exists, False otherwise
+        When the schema cannot be resolved the lookup fails open, and the best
+        available guess is the reference named the way this run names columns.
         """
+        fallback = self.snowflake_column_identifier(column_name)
+
         if not self.aggregator:
             # If no aggregator, we can't verify - assume it exists
             logger.debug(
                 f"No aggregator available, assuming column {column_name} exists in {table_name}"
             )
-            return True
+            return fallback
 
         # Build table URN
         table_identifier = self.identifiers.get_dataset_identifier(
@@ -2072,14 +2078,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
         except AttributeError:
             # Schema resolver API changed - fail open (assume column exists)
-            return True
+            return fallback
 
         if not schema_info:
             # Schema not found - assume column exists (may not be ingested yet)
-            return True
+            return fallback
 
         if column_name in schema_info:
-            return True
+            return column_name
 
         # schema_info is keyed by the emitted field path, whose casing follows the
         # configured identifier handling: lowercased by default, but stored case
@@ -2089,9 +2095,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # DDL used, folded up if unquoted, so an exact hit is not guaranteed even
         # in the default mode.
         column_name_lower = column_name.lower()
-        return any(
-            field_path.lower() == column_name_lower for field_path in schema_info
-        )
+        for field_path in schema_info:
+            if field_path.lower() == column_name_lower:
+                return field_path
+        return None
 
     def _extract_columns_from_expression(
         self, expression: str, dialect: str = "snowflake"
@@ -2185,9 +2192,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     rec_table, rec_schema, rec_db
                 )
                 rec_table_urn = self.identifiers.gen_dataset_urn(rec_table_identifier)
-                rec_field_urn = make_schema_field_urn(
-                    rec_table_urn, self.snowflake_column_identifier(rec_col)
-                )
+                # Already the declared path -- see _resolve_derived_column_sources.
+                rec_field_urn = make_schema_field_urn(rec_table_urn, rec_col)
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -2262,14 +2268,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
             source_db, source_schema, source_table = physical_table_tuple
 
-            # Check if source column exists in physical table
-            exists = self._verify_column_exists_in_table(
+            # Check if source column exists in physical table. What comes back is
+            # the path that table's schema declares, which is what the caller cites.
+            declared_path = self._declared_field_path(
                 source_db, source_schema, source_table, source_col
             )
 
-            if exists:
+            if declared_path is not None:
                 resolved_sources.append(
-                    (source_db, source_schema, source_table, source_col)
+                    (source_db, source_schema, source_table, declared_path)
                 )
             else:
                 # Check if it's another derived column (chained derivation).
@@ -2362,10 +2369,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 source_table_urn = self.identifiers.gen_dataset_urn(
                     source_table_identifier
                 )
-                source_field_urn = make_schema_field_urn(
-                    source_table_urn,
-                    self.snowflake_column_identifier(source_col),
-                )
+                # Already the declared path -- see _resolve_derived_column_sources.
+                source_field_urn = make_schema_field_urn(source_table_urn, source_col)
 
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
@@ -2506,11 +2511,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
 
                 # Verify the column actually exists in the upstream table
-                upstream_table_has_column = self._verify_column_exists_in_table(
+                upstream_declared_path = self._declared_field_path(
                     base_db, base_schema, base_table, column_name
                 )
 
-                if not upstream_table_has_column:
+                if upstream_declared_path is None:
                     # Column not found directly - check if it's a derived column with an expression
                     logger.debug(
                         f"Column {column_name} not found in {base_table_full_name}. "
@@ -2569,9 +2574,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 )
 
                                 # Verify source column exists in the resolved table
-                                if not self._verify_column_exists_in_table(
+                                source_declared_path = self._declared_field_path(
                                     source_db, source_schema, source_table, source_col
-                                ):
+                                )
+                                if source_declared_path is None:
                                     # Try chained derivation resolution
                                     # Pass the logical table context for nested unqualified columns
                                     effective_logical_table = (
@@ -2609,8 +2615,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                     source_table_identifier
                                 )
                                 source_field_urn = make_schema_field_urn(
-                                    source_table_urn,
-                                    self.snowflake_column_identifier(source_col),
+                                    source_table_urn, source_declared_path
                                 )
 
                                 # Create FineGrainedLineage for the derived column
@@ -2636,10 +2641,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Move to next column (don't add to lineage list)
                     continue
                 else:
-                    # Create upstream field URN for direct column lineage
+                    # Cite the path the upstream schema declares, not the spelling
+                    # this reference happened to use -- they differ whenever the
+                    # match above was case-folded.
                     upstream_field_urn = make_schema_field_urn(
-                        base_table_urn,
-                        self.snowflake_column_identifier(column_name),
+                        base_table_urn, upstream_declared_path
                     )
 
                     fine_grained_lineages.append(
