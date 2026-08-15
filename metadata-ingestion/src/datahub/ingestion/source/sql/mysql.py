@@ -17,6 +17,7 @@ from typing import (
 )
 
 import pymysql  # noqa: F401
+from pydantic import model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
@@ -144,11 +145,6 @@ _DML_LEADING_KEYWORDS = frozenset(
 # can't grow it without bound (LRU eviction in _fetch_general_log_queries).
 _MAX_TRACKED_SESSIONS = 10_000
 
-# table_rows is an InnoDB *estimate* (stale until ANALYZE TABLE); data_length and
-# index_length are in bytes. Acceptable for a guardrail, not an accurate count.
-# MySQL 8 caches data-dictionary stats in `information_schema_stats_expiry` (24h
-# default), so values can be up to that stale between ANALYZE TABLEs.
-
 # How many of the slowest tables to name in the post-run advice, and the minimum
 # elapsed seconds for the advice to fire at all. Below this threshold profiling
 # is healthy and the advice would be noise.
@@ -243,11 +239,26 @@ class MySQLProfilingConfig(GEProfilingConfig):
         "(profiling reads secondary indexes heavily).",
     )
 
+    @model_validator(mode="after")
+    def _validate_positive_limits(self) -> "MySQLProfilingConfig":
+        # A value of 0 (or any negative) would make every table exceed the limit,
+        # silently excluding the whole instance from profiling — surfaced only as
+        # the generic "No tables passed the row/size guardrail" info. Reject it so
+        # the misconfiguration fails fast; use null to disable either filter.
+        for name in ("profile_table_row_limit", "profile_table_size_limit"):
+            value = getattr(self, name)
+            if value is not None and value <= 0:
+                raise ValueError(
+                    f"{name} must be greater than 0 (or null to disable "
+                    f"filtering); got {value}."
+                )
+        return self
+
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     profiling: MySQLProfilingConfig = Field(
         default_factory=MySQLProfilingConfig,
-        description="Configuration for profiling MySQL tables.",
+        description="Configuration for profiling tables.",
     )
 
     def get_identifier(self, *, schema: str, table: str) -> str:
@@ -378,8 +389,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # StatefulIngestionSourceBase.close(), which commits the ingestion checkpoint
         # (prepare_for_commit) and drives stale-entity soft deletion. An early return
         # here would skip that on every ordinary run — no profiling, or no slow table.
+        # The advice is best-effort: a failure there must not propagate and fail the
+        # pipeline at its last step, so log and swallow.
         try:
             self._maybe_emit_expensive_tables_advice()
+        except Exception:
+            logger.warning("expensive-tables advice failed", exc_info=True)
         finally:
             super().close()
 
@@ -399,6 +414,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
         ]
         if top[0][1] < _EXPENSIVE_TABLES_SLOWEST_MIN_S:
             return
+        # Name only tables that actually crossed the threshold — the top-N sort
+        # otherwise drags fast tables into a list whose headline is "slowest".
+        top = [(name, t) for name, t in top if t >= _EXPENSIVE_TABLES_SLOWEST_MIN_S]
         formatted = ", ".join(f"{name} ({t:.1f}s)" for name, t in top)
         self.report.info(
             title="Profiling: expensive tables",
@@ -486,6 +504,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # is unchanged, and the guardrail filters BASE TABLE in Python. MySQL
         # upper-cases information_schema labels; MariaDB/Doris/TiDB keep the selected
         # case — unpack positionally so access is case-independent.
+        # table_rows is an InnoDB *estimate* (stale until ANALYZE TABLE); data_length and
+        # index_length are in bytes. Acceptable for a guardrail, not an accurate count.
+        # MySQL 8 caches data-dictionary stats in `information_schema_stats_expiry` (24h
+        # default), so values can be up to that stale between ANALYZE TABLEs.
         with inspector.engine.connect() as conn:
             for (
                 table_schema,
@@ -551,12 +573,18 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # heavily); sizeInBytes still uses data_length only, so the two measures differ.
         # Row limit takes precedence over size limit when both exclude a table — the
         # cheaper-to-fix reason is reported first.
+        table_names = inspector.get_table_names(schema)
         candidates: List[str] = []
-        for table_name in inspector.get_table_names(schema):
+        for table_name in table_names:
             dataset_name = self.get_identifier(
                 schema=schema, entity=table_name, inspector=inspector
             )
-            if self._table_type_cache.get(dataset_name) != "BASE TABLE":
+            # Skip only when the type is known and not a base table. A cache miss
+            # returns None and must NOT drop the table — failing closed would exclude
+            # every table the sweep lacked information about. (get_table_names itself
+            # already filters to BASE TABLE, so the known-type branch is defensive.)
+            table_type = self._table_type_cache.get(dataset_name)
+            if table_type is not None and table_type != "BASE TABLE":
                 continue
             table_rows = self._table_rows_cache.get(dataset_name)
             if (
@@ -572,42 +600,38 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 dataset_name
             )
             index_length = self._index_length_cache.get(dataset_name)
+            # Sum whichever of data_length / index_length is present when at least one
+            # is — a NULL index_length must not let a 900 GB table slip past the size
+            # guardrail (asymmetric with the row limit, which checks its one value
+            # independently).
             if (
                 size_limit_bytes is not None
-                and data_length is not None
-                and index_length is not None
-                and (data_length + index_length) >= size_limit_bytes
+                and (data_length is not None or index_length is not None)
+                and (data_length or 0) + (index_length or 0) >= size_limit_bytes
             ):
                 self._guardrail_skip[dataset_name] = "size"
                 continue
             candidates.append(dataset_name)
 
-        # An empty candidate list drops every profile in the schema (the list is additive).
-        # Distinguish "schema has no base tables" (no info needed) from "every table exceeded
-        # the limits" (info so the operator knows profiles were dropped). Only call
-        # get_table_names when candidates is empty, avoiding the extra round-trip otherwise.
-        if not candidates:
-            try:
-                table_names = inspector.get_table_names(schema)
-            except SQLAlchemyError as e:
-                self.report.warning(
-                    title="Failed to generate profile candidates",
-                    message="Could not generate the profile candidate list; profiling will proceed without a row/size guardrail for this schema.",
-                    context=f"Schema: {schema}",
-                    exc=e,
-                )
-                return None
-            if table_names:
-                self.report.info(
-                    title="No tables passed the row/size guardrail",
-                    message=(
-                        "Profiling will be skipped for every table in this schema. Either "
-                        "every table exceeds the configured row/size limits, or "
-                        "information_schema is not returning them (restricted grants, a "
-                        "rewriting proxy, or a catalog mismatch)."
-                    ),
-                    context=f"Schema: {schema}",
-                )
+        # An empty candidate list drops every profile in the schema (the list is
+        # additive). Distinguish "schema has no base tables" (no info needed) from
+        # "every table exceeded the limits" (info so the operator knows profiles were
+        # dropped). Reuse the table_names already fetched for the loop — a second
+        # call would be redundant, and a raise here would surface in
+        # loop_profiler_requests's own get_table_names call (sql_common.py:1430)
+        # regardless, so a handler that emitted a false "guardrail" notice and then
+        # died anyway would be worse than none.
+        if not candidates and table_names:
+            self.report.info(
+                title="No tables passed the row/size guardrail",
+                message=(
+                    "Profiling will be skipped for every table in this schema. Either "
+                    "every table exceeds the configured row/size limits, or "
+                    "information_schema is not returning them (restricted grants, a "
+                    "rewriting proxy, or a catalog mismatch)."
+                ),
+                context=f"Schema: {schema}",
+            )
 
         return candidates
 

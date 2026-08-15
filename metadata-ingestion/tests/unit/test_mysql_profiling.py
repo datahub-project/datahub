@@ -31,21 +31,31 @@ def _inspector_returning(rows: list) -> MagicMock:
 
 
 def _populate_profile_cache(source: MySQLSource, schema: str, rows: list) -> None:
-    # rows: (table_name, table_rows, total_size) — total_size is split into
-    # data_length = total_size, index_length = 0 so the guardrail's
-    # data_length + index_length measure matches the legacy test intent.
-    for table_name, table_rows, total_size in rows:
+    # rows: (table_name, table_rows, data_length[, index_length]).
+    # index_length defaults to 0 when omitted (and data_length not None), so the
+    # common 3-tuple shape keeps the guardrail's data_length + index_length measure
+    # matching the legacy intent. Pass a 4-tuple with None as the fourth element to
+    # express a NULL index_length — the guardrail then sums whichever of
+    # data_length / index_length is present, so a 900 GB / NULL-index table is
+    # still caught by the size limit.
+    for row in rows:
+        table_name = row[0]
+        table_rows = row[1]
+        data_length = row[2]
+        index_length = row[3] if len(row) > 3 else 0
         key = f"{schema}.{table_name}"
         source._table_rows_cache[key] = table_rows
-        if total_size is None:
+        if data_length is None:
             # data_length is NULL for views; the dict is typed Dict[str, int] but the
-            # source stores None too (row values are Any there). Guardrail retains the
-            # table because index_length is None.
+            # source stores None too (row values are Any there). Guardrail retains
+            # the table because neither data_length nor index_length is present.
             source.profile_metadata_info.dataset_name_to_storage_bytes[key] = None  # type: ignore[assignment]
             source._index_length_cache[key] = None
         else:
-            source.profile_metadata_info.dataset_name_to_storage_bytes[key] = total_size
-            source._index_length_cache[key] = 0
+            source.profile_metadata_info.dataset_name_to_storage_bytes[key] = (
+                data_length
+            )
+            source._index_length_cache[key] = index_length
         source._table_type_cache[key] = "BASE TABLE"
 
 
@@ -224,6 +234,68 @@ def test_generate_profile_candidates_retains_null_stats_tables() -> None:
     assert candidates == ["my_db.null_rows", "my_db.null_size", "my_db.small"]
 
 
+def test_generate_profile_candidates_retains_table_absent_from_cache() -> None:
+    # A table returned by get_table_names but absent from the information_schema
+    # cache (a partial miss — restricted grants, a rewriting proxy, or a catalog
+    # mismatch) must still be a candidate. The cache miss returns None, which must
+    # NOT be treated as "not a base table" — that would fail closed and drop every
+    # table the sweep lacked information about. Only a known non-base-table type is
+    # grounds to skip.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_row_limit": 1_000_000,
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    # Cache has "orders" but not "mystery" — a partial miss.
+    _populate_profile_cache(
+        source,
+        "my_db",
+        [("orders", 100, 1024)],
+    )
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["orders", "mystery"]
+
+    candidates = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert candidates == ["my_db.orders", "my_db.mystery"]
+
+
+def test_size_limit_catches_table_with_null_index_length() -> None:
+    # A 900 GB table with a NULL index_length must still be caught by the size
+    # guardrail. Before the fix the guardrail required BOTH data_length and
+    # index_length to be non-None, so a NULL index_length let any-sized table
+    # slip past — asymmetric with the row limit, which checks its one value
+    # independently. The guardrail now sums whichever is present.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_size_limit": 1,  # 1 GB
+        },
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    _populate_profile_cache(
+        source,
+        "my_db",
+        # data_length = 900 GB, index_length = None (4-tuple carries the NULL).
+        [("huge", 100, 900 * 1024**3, None)],
+    )
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["huge"]
+
+    candidates = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert candidates == []
+    assert source._guardrail_skip == {"my_db.huge": "size"}
+
+
 def test_mysql_profiling_config_override_set_pinned() -> None:
     """Pin the MySQLProfilingConfig override set so a new override forces an update here."""
     ge = {name: fi.default for name, fi in GEProfilingConfig.model_fields.items()}
@@ -240,6 +312,49 @@ def test_mysql_profiling_config_override_set_pinned() -> None:
 
     # MariaDB uses MySQLConfig directly, so its profiling IS MySQLProfilingConfig.
     assert MySQLConfig.model_fields["profiling"].annotation is MySQLProfilingConfig
+
+
+def test_profile_table_row_limit_rejects_non_positive() -> None:
+    # A value of 0 (or any negative) would make every table exceed the limit,
+    # silently excluding the whole instance from profiling. Reject it so the
+    # misconfiguration fails fast; null disables the filter.
+    with pytest.raises(ValueError, match="profile_table_row_limit"):
+        MySQLConfig(
+            host_port="localhost:3306",
+            profiling={"enabled": True, "profile_table_row_limit": 0},
+        )
+    with pytest.raises(ValueError, match="profile_table_row_limit"):
+        MySQLConfig(
+            host_port="localhost:3306",
+            profiling={"enabled": True, "profile_table_row_limit": -5},
+        )
+
+
+def test_profile_table_size_limit_rejects_non_positive() -> None:
+    with pytest.raises(ValueError, match="profile_table_size_limit"):
+        MySQLConfig(
+            host_port="localhost:3306",
+            profiling={"enabled": True, "profile_table_size_limit": 0},
+        )
+    with pytest.raises(ValueError, match="profile_table_size_limit"):
+        MySQLConfig(
+            host_port="localhost:3306",
+            profiling={"enabled": True, "profile_table_size_limit": -1},
+        )
+
+
+def test_profile_limits_accept_null() -> None:
+    # null is the documented way to disable either filter and must remain valid.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={
+            "enabled": True,
+            "profile_table_row_limit": None,
+            "profile_table_size_limit": None,
+        },
+    )
+    assert config.profiling.profile_table_row_limit is None
+    assert config.profiling.profile_table_size_limit is None
 
 
 def test_generate_profile_candidates_fails_open_on_empty_cache() -> None:
@@ -359,7 +474,6 @@ def test_empty_candidates_emits_info_when_schema_has_tables() -> None:
         },
     )
     source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
-    source.report = MagicMock()
     # Every table over the row limit -> empty candidate list.
     _populate_profile_cache(
         source,
@@ -377,13 +491,15 @@ def test_empty_candidates_emits_info_when_schema_has_tables() -> None:
     )
 
     assert result == []
-    info_calls = source.report.info.call_args_list
-    titles = [c.kwargs["title"] for c in info_calls]
+    info_entries = list(source.report.infos)
+    titles = [e.title for e in info_entries]
     assert "No tables passed the row/size guardrail" in titles
-    no_tables_call = next(c for c in info_calls if "No tables" in c.kwargs["title"])
-    assert "Schema: my_db" in no_tables_call.kwargs["context"]
+    no_tables_entry = next(
+        e for e in info_entries if e.title and "No tables" in e.title
+    )
+    assert "Schema: my_db" in no_tables_entry.context
     # A warning on this path would break --strict-warnings runs.
-    assert not source.report.warning.called
+    assert len(list(source.report.warnings)) == 0
 
 
 def test_empty_candidates_no_info_when_schema_has_no_tables() -> None:
@@ -398,7 +514,6 @@ def test_empty_candidates_no_info_when_schema_has_no_tables() -> None:
         },
     )
     source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
-    source.report = MagicMock()
     _populate_profile_cache(source, "other_db", [("orders", 100, 1024)])
     inspector = MagicMock()
     inspector.get_table_names.return_value = []
@@ -408,14 +523,17 @@ def test_empty_candidates_no_info_when_schema_has_no_tables() -> None:
     )
 
     assert result == []
-    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]
+    titles = [e.title for e in source.report.infos]
     assert "No tables passed the row/size guardrail" not in titles
 
 
 def _new_source_with_mocked_report() -> MySQLSource:
+    # state_provider must be mocked: super().close() reaches
+    # StatefulIngestionSourceBase.close(), which calls prepare_for_commit on it,
+    # and a real state provider is not wired in a unit test. The report stays real
+    # so the advice path and report counters are exercised end-to-end.
     source = _source()
     source.state_provider = MagicMock()  # type: ignore[assignment]
-    source.report = MagicMock()  # type: ignore[assignment]
     return source
 
 
@@ -427,12 +545,11 @@ def test_close_reaches_parent_when_no_timings() -> None:
     # A run with no profiling (or no timings recorded) must still commit the
     # stateful-ingestion checkpoint via super().close().
     source = _new_source_with_mocked_report()
-    source.report.profiling_time_taken_per_table_secs = {}  # type: ignore[assignment]
 
     source.close()
 
     _assert_parent_close_reached(source)
-    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    titles = [e.title for e in source.report.infos]
     assert "Profiling: expensive tables" not in titles
 
 
@@ -440,15 +557,13 @@ def test_close_reaches_parent_when_only_fast_timings() -> None:
     # Timings exist but none cross the slow threshold — the advice must not fire,
     # but super().close() still must.
     source = _new_source_with_mocked_report()
-    source.report.profiling_time_taken_per_table_secs = {  # type: ignore[assignment]
-        "orders": 1.5,
-        "users": 2.0,
-    }
+    source.report.profiling_time_taken_per_table_secs["orders"] = 1.5
+    source.report.profiling_time_taken_per_table_secs["users"] = 2.0
 
     source.close()
 
     _assert_parent_close_reached(source)
-    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    titles = [e.title for e in source.report.infos]
     assert "Profiling: expensive tables" not in titles
 
 
@@ -456,13 +571,37 @@ def test_close_emits_advice_for_slow_mysql_table() -> None:
     # Sanity check that the advice still fires on MySQL when a table crosses the
     # threshold, and that super().close() runs after the advice.
     source = _new_source_with_mocked_report()
-    source.report.profiling_time_taken_per_table_secs = {"orders": 60.0}  # type: ignore[assignment]
+    source.report.profiling_time_taken_per_table_secs["orders"] = 60.0
 
     source.close()
 
     _assert_parent_close_reached(source)
-    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    titles = [e.title for e in source.report.infos]
     assert "Profiling: expensive tables" in titles
+
+
+def test_close_advice_names_only_slow_tables_with_real_times() -> None:
+    # The advice must name only tables that actually crossed the slow threshold,
+    # with their real elapsed times — not fast tables dragged in by the top-N
+    # sort, and never a fabricated time. Seed one slow table and several fast
+    # ones, then assert the slow table's real time appears and no fast table's
+    # name appears in the emitted context.
+    source = _new_source_with_mocked_report()
+    source.report.profiling_time_taken_per_table_secs["slow_table"] = 60.0
+    source.report.profiling_time_taken_per_table_secs["fast_a"] = 0.4
+    source.report.profiling_time_taken_per_table_secs["fast_b"] = 0.3
+    source.report.profiling_time_taken_per_table_secs["fast_c"] = 0.2
+    source.report.profiling_time_taken_per_table_secs["fast_d"] = 0.1
+
+    source.close()
+
+    advice = next(
+        e for e in source.report.infos if e.title == "Profiling: expensive tables"
+    )
+    context = ", ".join(advice.context)
+    assert "slow_table (60.0s)" in context
+    for fast in ("fast_a", "fast_b", "fast_c", "fast_d"):
+        assert fast not in context
 
 
 @pytest.mark.parametrize(
@@ -482,13 +621,12 @@ def test_close_does_not_emit_advice_for_doris_or_tidb(
     config = config_cls(host_port=host_port, profiling={"enabled": True})
     source = source_cls(config, PipelineContext(run_id="platform-scope-test"))
     source.state_provider = MagicMock()  # type: ignore[assignment]
-    source.report = MagicMock()  # type: ignore[assignment]
-    source.report.profiling_time_taken_per_table_secs = {"orders": 120.0}  # type: ignore[assignment]
+    source.report.profiling_time_taken_per_table_secs["orders"] = 120.0
 
     source.close()
 
     assert source.state_provider.prepare_for_commit.called  # type: ignore[attr-defined]
-    titles = [c.kwargs["title"] for c in source.report.info.call_args_list]  # type: ignore[attr-defined]
+    titles = [e.title for e in source.report.infos]
     assert "Profiling: expensive tables" not in titles
 
 
@@ -531,8 +669,8 @@ def test_guardrail_skips_attributed_without_double_count() -> None:
             dataset_name, "my_db", inspector, candidates
         )
 
-    assert source.report.profiling_skipped_row_limit["my_db"] == 1
-    assert source.report.profiling_skipped_size_limit["my_db"] == 1
+    assert source.report.profiling_skipped_row_limit.get("my_db", 0) == 1
+    assert source.report.profiling_skipped_size_limit.get("my_db", 0) == 1
     assert "my_db" not in source.report.profiling_skipped_other
 
 
@@ -566,6 +704,6 @@ def test_guardrail_row_limit_takes_precedence_when_both_exclude() -> None:
         "my_db.both", "my_db", inspector, candidates
     )
 
-    assert source.report.profiling_skipped_row_limit["my_db"] == 1
-    assert source.report.profiling_skipped_size_limit["my_db"] == 0
+    assert source.report.profiling_skipped_row_limit.get("my_db", 0) == 1
+    assert source.report.profiling_skipped_size_limit.get("my_db", 0) == 0
     assert "my_db" not in source.report.profiling_skipped_other

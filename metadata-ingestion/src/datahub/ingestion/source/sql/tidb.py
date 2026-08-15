@@ -16,7 +16,6 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.sql.mysql import (
     MySQLAuthMode,
     MySQLConfig,
-    MySQLProfilingConfig,
     MySQLSource,
 )
 
@@ -24,11 +23,6 @@ TIDB_DEFAULT_PORT = 4000
 
 
 class TiDBConfig(MySQLConfig):
-    profiling: MySQLProfilingConfig = Field(
-        default_factory=MySQLProfilingConfig,
-        description="Configuration for profiling TiDB tables.",
-    )
-
     host_port: str = Field(
         default=f"localhost:{TIDB_DEFAULT_PORT}",
         description=f"TiDB host and port. Default port is {TIDB_DEFAULT_PORT}.",
