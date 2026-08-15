@@ -1013,9 +1013,9 @@ class TestSessionWrapper:
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
             logger.info("TestSessionWrapper sync wait.")
-            # Pass self so lag polls use the Bearer token even if DATAHUB_GMS_TOKEN
-            # was cleared from the process environment (e.g. CliRunner isolation).
-            wait_for_writes_to_sync(auth_session=self)
+            # Lag polls use the bootstrap admin token (register_lag_monitor_token),
+            # not this wrapper: restricted-user PATs 403 the lag endpoints.
+            wait_for_writes_to_sync()
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
