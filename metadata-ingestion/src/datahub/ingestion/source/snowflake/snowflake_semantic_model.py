@@ -554,8 +554,8 @@ class SnowflakeSemanticModelMapper:
         logical_table_upper: str,
     ) -> List[SchemaFieldClass]:
         fields: List[SchemaFieldClass] = []
-        seen_columns_upper: Set[str] = set()
-        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+        seen_columns: Set[str] = set()
+        for column_name, occurrences in semantic_view.column_occurrences.items():
             for occurrence in occurrences:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
@@ -564,15 +564,15 @@ class SnowflakeSemanticModelMapper:
                     and occurrence.table_name.upper() == logical_table_upper
                 ):
                     continue
-                if col_name_upper in seen_columns_upper:
+                if column_name in seen_columns:
                     continue
-                seen_columns_upper.add(col_name_upper)
+                seen_columns.add(column_name)
                 type_class = SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
                     _base_type(occurrence.data_type), NullType
                 )
                 fields.append(
                     SchemaFieldClass(
-                        # Must match the col_name_upper anchor in
+                        # Must match the column_name anchor in
                         # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
                         # so column-level lineage resolves.
                         fieldPath=logical_dataset_field_path(
@@ -599,8 +599,8 @@ class SnowflakeSemanticModelMapper:
         logical_table_upper: str,
         logical_dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        seen_columns_upper: Set[str] = set()
-        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+        seen_columns: Set[str] = set()
+        for column_name, occurrences in semantic_view.column_occurrences.items():
             for occurrence in occurrences:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
@@ -609,9 +609,9 @@ class SnowflakeSemanticModelMapper:
                     and occurrence.table_name.upper() == logical_table_upper
                 ):
                     continue
-                if col_name_upper in seen_columns_upper:
+                if column_name in seen_columns:
                     continue
-                seen_columns_upper.add(col_name_upper)
+                seen_columns.add(column_name)
                 field_type = (
                     SemanticFieldTypeClass.DIMENSION
                     if occurrence.subtype == SemanticViewColumnSubtype.DIMENSION
@@ -926,7 +926,7 @@ class SnowflakeSemanticModelMapper:
         # tables emits SPs on each logical dataset's schemaField.
         if not self.config.extract_tags_as_structured_properties:
             return
-        for _col_name_upper, occurrences in semantic_view.column_occurrences.items():
+        for _column_name, occurrences in semantic_view.column_occurrences.items():
             occurrence = next(
                 (
                     o

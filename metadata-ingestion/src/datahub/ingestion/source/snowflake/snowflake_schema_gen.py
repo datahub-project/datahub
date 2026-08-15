@@ -2156,7 +2156,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         source_table_full_name: str,
         semantic_view: "SnowflakeSemanticView",
         downstream_field_urn: str,
-        col_name_upper: str,
+        column_name: str,
         fine_grained_lineages: List["FineGrainedLineageClass"],
         context_table: Optional[str] = None,
     ) -> None:
@@ -2414,7 +2414,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         in base tables.
 
         When ``downstream_urn_resolver`` is provided, it is invoked as
-        ``resolver(col_name_upper, logical_table_upper)`` to build each FGL's
+        ``resolver(column_name, logical_table_upper)`` to build each FGL's
         downstream schemaField URN. ``logical_table_upper`` is ``None`` for
         columns with no table association. When omitted, downstreams anchor on
         ``semantic_view_urn`` (legacy dataset-mode behavior).
@@ -2443,12 +2443,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             set()
         )  # Track warned mappings to avoid duplicate logs
 
-        def _downstream_field_urn(col_name_upper: str, logical_table_upper: str) -> str:
+        def _downstream_field_urn(column_name: str, logical_table_upper: str) -> str:
             if downstream_urn_resolver is not None:
-                return downstream_urn_resolver(col_name_upper, logical_table_upper)
+                return downstream_urn_resolver(column_name, logical_table_upper)
             return make_schema_field_urn(
                 semantic_view_urn,
-                self.snowflake_column_identifier(col_name_upper),
+                self.snowflake_column_identifier(column_name),
             )
 
         logger.debug(
@@ -2459,7 +2459,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # Iterate through all columns that have table mappings
         for (
-            col_name_upper,
+            column_name,
             logical_table_names,
         ) in semantic_view.column_table_mappings.items():
             # For each logical table this column appears in
@@ -2495,32 +2495,32 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # Check if the base table is filtered out by table patterns
                 if not self._is_table_allowed(base_db, base_schema, base_table):
                     logger.debug(
-                        f"Skipping lineage from {col_name_upper} to {base_table_full_name}: "
+                        f"Skipping lineage from {column_name} to {base_table_full_name}: "
                         f"table is filtered by table_pattern"
                     )
                     continue
 
                 # Create downstream field URN (needed for both direct and derived lineage)
                 downstream_field_urn = _downstream_field_urn(
-                    col_name_upper, logical_table_upper
+                    column_name, logical_table_upper
                 )
 
                 # Verify the column actually exists in the upstream table
                 upstream_table_has_column = self._verify_column_exists_in_table(
-                    base_db, base_schema, base_table, col_name_upper
+                    base_db, base_schema, base_table, column_name
                 )
 
                 if not upstream_table_has_column:
                     # Column not found directly - check if it's a derived column with an expression
                     logger.debug(
-                        f"Column {col_name_upper} not found in {base_table_full_name}. "
+                        f"Column {column_name} not found in {base_table_full_name}. "
                         f"Checking if it's a derived column with an expression..."
                     )
 
                     # Prefer the occurrence for THIS logical table so a sibling
                     # table's expression doesn't leak in (see helper).
                     column_expression = self._semantic_column_expression(
-                        semantic_view, col_name_upper, logical_table_upper
+                        semantic_view, column_name, logical_table_upper
                     )
 
                     if column_expression:
@@ -2584,7 +2584,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                         source_table_full_name,
                                         semantic_view,
                                         downstream_field_urn,
-                                        col_name_upper,
+                                        column_name,
                                         fine_grained_lineages,
                                         context_table=effective_logical_table,
                                     )
@@ -2629,7 +2629,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                     else:
                         logger.warning(
-                            f"Column {col_name_upper} not found in {base_table_full_name} "
+                            f"Column {column_name} not found in {base_table_full_name} "
                             f"and has no expression. Skipping lineage."
                         )
 
@@ -2639,7 +2639,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Create upstream field URN for direct column lineage
                     upstream_field_urn = make_schema_field_urn(
                         base_table_urn,
-                        self.snowflake_column_identifier(col_name_upper),
+                        self.snowflake_column_identifier(column_name),
                     )
 
                     fine_grained_lineages.append(
