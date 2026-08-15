@@ -26,6 +26,8 @@ Both Terms and Term Groups allow you to add documentation and unique owners.
 
 For Glossary Terms, you are also able to establish relationships between different Terms in the **Related Terms** tab. Here you can create Contains and Inherits relationships. Finally, you can view all of the entities that have been tagged with a Term in the **Related Entities** tab.
 
+On DataHub Cloud, the **Relationships** tab (and **Govern → Ontology**) shows how terms, term groups, domains, data products, and tagged datasets and containers connect. See [Ontology Graph](../managed-datahub/ontology-graph.md).
+
 ## Getting to your Glossary
 
 In order to view a Business Glossary, users must have the Platform Privilege called `Manage Glossaries` which can be granted by creating a new Platform [Policy](../authorization/policies.md).
