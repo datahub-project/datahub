@@ -1203,6 +1203,41 @@ class SQLAlchemyProfiler:
 
         return row_count
 
+    def _ignore_list_as_stored_names(
+        self,
+        ignore_paths: List[str],
+        sql_table: sa.Table,
+        adapter: "PlatformAdapter",
+        conn: Any,
+    ) -> List[str]:
+        """Translate tag-derived field paths into the names profiling uses.
+
+        `tags_to_ignore_sampling` is resolved against the dataset in DataHub, so
+        it comes back as emitted field paths. Profiling addresses columns by
+        their stored name, which on a normalizing dialect is a different string,
+        and the membership tests downstream would simply never hit.
+
+        Translate forwards -- stored name to field path -- then compare folded.
+        Exact comparison is not available here: Snowflake's field_path_for hands
+        the stored name straight back, because the rule that produces its path
+        depends on source config (convert_urns_to_lowercase, preserve_column_case)
+        that the profiling layer cannot see. Folding is what makes this work on
+        the platform the tag is most used on.
+
+        The cost is that a case-only pair is treated as one column, so tagging
+        "col" also skips "COL". That is the safer direction to err for this
+        control -- it exists to keep stats off expensive or sensitive columns, so
+        skipping one extra beats profiling one the operator asked to leave alone.
+        """
+        if not ignore_paths:
+            return ignore_paths
+        wanted = {path.lower() for path in ignore_paths}
+        return [
+            str(column.name)
+            for column in sql_table.columns
+            if adapter.field_path_for(str(column.name), conn).lower() in wanted
+        ]
+
     def _to_emitted_field_paths(
         self,
         field_profiles: List[DatasetFieldProfileClass],
@@ -1831,6 +1866,10 @@ class SQLAlchemyProfiler:
                         self.config.tags_to_ignore_sampling,
                         platform,
                         self.env,
+                    )
+
+                    columns_list_to_ignore_sampling = self._ignore_list_as_stored_names(
+                        columns_list_to_ignore_sampling, sql_table, adapter, conn
                     )
 
                     all_columns = [col.name for col in sql_table.columns]

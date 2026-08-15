@@ -1152,3 +1152,73 @@ class TestEmittedFieldPaths:
         )
 
         assert [p.fieldPath for p in result] == ["col", "COL"]
+
+
+class TestIgnoreSamplingColumnNames:
+    """tags_to_ignore_sampling is resolved against DataHub, so it arrives as
+    emitted field paths. Profiling addresses columns by their stored name, which
+    on a normalizing dialect is a different string -- the membership test would
+    silently never hit and the tag would stop working.
+
+    These use the real adapters on purpose. A stub adapter that lowercases makes
+    this look fixed while Snowflake, whose field_path_for returns the stored name
+    unchanged, still fails.
+    """
+
+    @staticmethod
+    def _table(*names: str) -> sa.Table:
+        return sa.Table("t", sa.MetaData(), *[sa.Column(n, sa.String()) for n in names])
+
+    @staticmethod
+    def _snowflake_adapter() -> Any:
+        from snowflake.sqlalchemy import dialect as snowflake_dialect
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+            SnowflakeAdapter,
+        )
+
+        engine = MagicMock()
+        engine.dialect = snowflake_dialect()
+        return SnowflakeAdapter(ProfilingConfig(), SQLSourceReport(), engine), engine
+
+    def test_snowflake_tag_still_matches_its_column(self, profiler: Any) -> None:
+        # The default recipe lowercases field paths, so DataHub holds
+        # 'customer_id' while profiling holds 'CUSTOMER_ID'.
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["customer_id"], self._table("CUSTOMER_ID", "AMOUNT"), adapter, engine
+        )
+
+        assert kept == ["CUSTOMER_ID"]
+
+    def test_untagged_columns_are_left_alone(self, profiler: Any) -> None:
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["customer_id"], self._table("AMOUNT", "TOTAL"), adapter, engine
+        )
+
+        assert kept == []
+
+    def test_a_case_only_pair_is_treated_as_one(self, profiler: Any) -> None:
+        # Documented trade-off: the emitted path cannot be reconstructed here, so
+        # matching is folded and tagging one spelling skips both. Erring towards
+        # skipping suits a control meant to keep stats off costly or sensitive
+        # columns.
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["col"], self._table("col", "COL"), adapter, engine
+        )
+
+        assert kept == ["col", "COL"]
+
+    def test_empty_list_short_circuits(self, profiler: Any) -> None:
+        adapter = MagicMock()
+
+        assert (
+            profiler._ignore_list_as_stored_names([], self._table("A"), adapter, None)
+            == []
+        )
+        adapter.field_path_for.assert_not_called()
