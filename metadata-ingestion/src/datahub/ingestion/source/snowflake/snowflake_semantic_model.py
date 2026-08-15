@@ -554,8 +554,8 @@ class SnowflakeSemanticModelMapper:
         logical_table_upper: str,
     ) -> List[SchemaFieldClass]:
         fields: List[SchemaFieldClass] = []
-        seen_columns: Set[str] = set()
-        for column_name, occurrences in semantic_view.column_occurrences.items():
+        seen_field_paths: Set[str] = set()
+        for occurrences in semantic_view.column_occurrences.values():
             for occurrence in occurrences:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
@@ -564,20 +564,27 @@ class SnowflakeSemanticModelMapper:
                     and occurrence.table_name.upper() == logical_table_upper
                 ):
                     continue
-                if column_name in seen_columns:
+                # Dedupe on the path actually emitted, not on the dict key. The
+                # key is the stored name and the path may fold it, so whether two
+                # keys land on one field depends on preserve_column_case -- a
+                # decision made in _group_occurrences_by_case, far from here.
+                # Keying the dedupe on the emitted value makes that irrelevant:
+                # one field path, one field, however the bucketing changes.
+                field_path = logical_dataset_field_path(
+                    self.identifiers, occurrence.name
+                )
+                if field_path in seen_field_paths:
                     continue
-                seen_columns.add(column_name)
+                seen_field_paths.add(field_path)
                 type_class = SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
                     _base_type(occurrence.data_type), NullType
                 )
                 fields.append(
                     SchemaFieldClass(
-                        # Must match the column_name anchor in
+                        # Must match the anchor in
                         # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
                         # so column-level lineage resolves.
-                        fieldPath=logical_dataset_field_path(
-                            self.identifiers, occurrence.name
-                        ),
+                        fieldPath=field_path,
                         type=SchemaFieldDataTypeClass(type_class()),
                         nativeDataType=occurrence.data_type,
                         description=occurrence.comment,
@@ -599,8 +606,8 @@ class SnowflakeSemanticModelMapper:
         logical_table_upper: str,
         logical_dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        seen_columns: Set[str] = set()
-        for column_name, occurrences in semantic_view.column_occurrences.items():
+        seen_field_paths: Set[str] = set()
+        for occurrences in semantic_view.column_occurrences.values():
             for occurrence in occurrences:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
@@ -609,9 +616,15 @@ class SnowflakeSemanticModelMapper:
                     and occurrence.table_name.upper() == logical_table_upper
                 ):
                     continue
-                if column_name in seen_columns:
+                # Same dedupe rule as _build_schema_fields, for the same reason:
+                # two annotations on one field URN is what a folded pair produces
+                # if the key is trusted instead of the emitted path.
+                field_path = logical_dataset_field_path(
+                    self.identifiers, occurrence.name
+                )
+                if field_path in seen_field_paths:
                     continue
-                seen_columns.add(column_name)
+                seen_field_paths.add(field_path)
                 field_type = (
                     SemanticFieldTypeClass.DIMENSION
                     if occurrence.subtype == SemanticViewColumnSubtype.DIMENSION
@@ -620,10 +633,7 @@ class SnowflakeSemanticModelMapper:
                 type_class = SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
                     _base_type(occurrence.data_type), NullType
                 )
-                field_urn = SchemaFieldUrn(
-                    logical_dataset_urn,
-                    logical_dataset_field_path(self.identifiers, occurrence.name),
-                ).urn()
+                field_urn = SchemaFieldUrn(logical_dataset_urn, field_path).urn()
                 yield MetadataChangeProposalWrapper(
                     entityUrn=field_urn,
                     aspect=SemanticFieldAnnotationClass(
