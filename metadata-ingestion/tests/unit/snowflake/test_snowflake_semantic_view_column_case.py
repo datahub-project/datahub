@@ -317,3 +317,49 @@ class TestSemanticViewJsonProps:
 
     def test_absent_under_either_keying_yields_nothing(self) -> None:
         assert self._props(MIXED_CASE_COLUMN, {"OTHER": "FACT"}, {}) is None
+
+
+class TestDerivedColumnsKeepTheirSpelling:
+    """Derived columns take the path through _process_unassociated_columns.
+
+    Its input is already the column's stored name. Uppercasing it there and
+    resolving it back collapses a case-only pair: both members fold to the same
+    key, and the resolution hands back whichever matched first, so one column's
+    lineage anchors on the other's field path.
+    """
+
+    def test_a_case_only_derived_pair_resolves_to_two_paths(self) -> None:
+        gen = _make_gen(SnowflakeV2Report())
+        view = _semantic_view(["col", "COL"])
+        # Derived: they carry an expression and no table mapping of their own.
+        for column in view.columns:
+            column.expression = f"\"{column.name}\" || 'x'"
+        view.column_table_mappings = {}
+        view.column_occurrences = {
+            name: [
+                SemanticViewColumnMetadata(
+                    name=name,
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name="SRC",
+                    synonyms=[],
+                    expression=f'"{name}"',
+                )
+            ]
+            for name in ("col", "COL")
+        }
+
+        seen: List[str] = []
+
+        def resolver(column_name: str, logical_table: Any) -> str:
+            seen.append(column_name)
+            return f"urn:li:schemaField:(urn:li:dataset:(x,y,PROD),{column_name})"
+
+        gen._process_unassociated_columns(
+            view, "urn:li:dataset:(x,y,PROD)", [], downstream_urn_resolver=resolver
+        )
+
+        assert sorted(seen) == ["COL", "col"], (
+            f"each derived column must keep its own spelling, got {seen}"
+        )

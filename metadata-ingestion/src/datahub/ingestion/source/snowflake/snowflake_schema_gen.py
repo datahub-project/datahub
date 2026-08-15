@@ -2317,19 +2317,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         ]
 
         for col in unprocessed_columns:
-            col_name_upper = col.name.upper()
+            # col.name is already the stored spelling. Uppercasing it here and
+            # resolving it back would collapse a case-only pair onto whichever
+            # member matched first, so pass it through untouched.
+            column_name = col.name
             column_expression = col.expression
 
             if not column_expression:
                 continue
 
             if downstream_urn_resolver is not None:
-                downstream_field_urn = downstream_urn_resolver(col_name_upper, None)
+                downstream_field_urn = downstream_urn_resolver(column_name, None)
             else:
                 downstream_field_urn = make_schema_field_urn(
                     semantic_view_urn,
                     semantic_column_field_path(
-                        self.identifiers, semantic_view, col_name_upper
+                        self.identifiers, semantic_view, column_name
                     ),
                 )
 
@@ -2339,9 +2342,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
             if not resolved_sources:
-                logger.debug(
-                    f"No physical sources resolved for column {col_name_upper}"
-                )
+                logger.debug(f"No physical sources resolved for column {column_name}")
                 continue
 
             for source_db, source_schema, source_table, source_col in resolved_sources:
