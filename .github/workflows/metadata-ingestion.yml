@@ -226,6 +226,22 @@ jobs:
               "$TEST_PATH" \
               --junit-xml="test-results/junit.${CONNECTOR}.xml"
           fi
+      # preserve_column_case is opt-in, so the suite above is a regression net for
+      # its OFF path and nothing for its ON path. This second pass flips the
+      # default and re-runs the Snowflake unit tests, which catches a test that
+      # reads an exact field path from the ambient config instead of pinning it,
+      # and a source change that only disagrees with itself when the flag is on.
+      # Seconds, because these are unit tests.
+      - name: Snowflake unit tests with preserve_column_case forced on
+        if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.11' }}
+        env:
+          DATAHUB_TEST_PRESERVE_COLUMN_CASE: "1"
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          cd metadata-ingestion
+          source venv/bin/activate
+          pytest tests/unit/snowflake/ \
+            --junit-xml=test-results/junit.snowflake-preserve-column-case.xml
       # Success-only, single matrix leg (parallel legs would race to reserve the same
       # key). On master this workflow usually runs on Depot runners, where this save
       # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
