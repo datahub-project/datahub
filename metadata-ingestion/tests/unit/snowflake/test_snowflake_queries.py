@@ -1388,7 +1388,7 @@ class TestMultiTableInsert:
         assert len(entry1.column_lineage) == 1
         # Compared case-insensitively: which column the lineage points at is what
         # this test is about, and the casing follows preserve_column_case, which
-        # test_snowflake_column_case.py pins directly.
+        # TestColumnCaseInParsedLineage below pins directly.
         assert entry1.column_lineage[0].downstream.column.lower() == "id"
         assert entry1.column_lineage[0].downstream.table == self.DOWNSTREAM_URN_1
         assert len(entry1.column_lineage[0].upstreams) == 1
@@ -3648,3 +3648,143 @@ def test_compose_deny_drops_patterns_past_byte_budget():
 def test_compose_deny_returns_none_when_nothing_fits():
     # Even the first pattern exceeds the budget -> no server-side clause at all.
     assert _compose_deny(["AAAA"], "col", False, deny_budget=5) is None
+
+
+class TestColumnCaseInParsedLineage:
+    """Column casing on the queries-v2 path, which is the default one.
+
+    The extractor names columns through snowflake_column_identifier in three
+    places: the columns of an accessed object, and both ends of a parsed
+    column-lineage edge. Every other test here compares those case-insensitively
+    and defers the casing question elsewhere, so nothing was actually asserting
+    it and this path could have named columns any way at all.
+
+    Snowflake keeps `"MixedCol"` as written because it is quoted, so the stored
+    spelling is what reaches the audit log -- and what a preserved run has to
+    carry through unchanged.
+    """
+
+    UPSTREAM = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,reporting.public.src,PROD)"
+    )
+
+    @staticmethod
+    def _extractor(**identifier_overrides) -> SnowflakeQueriesExtractor:
+        report = Mock(spec=SourceReport)
+        return SnowflakeQueriesExtractor(
+            connection=Mock(query=Mock(return_value=[])),
+            config=SnowflakeQueriesExtractorConfig(
+                window=BaseTimeWindowConfig(
+                    start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                    end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+                ),
+            ),
+            structured_report=report,
+            filters=Mock(spec=SnowflakeFilter),
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=SnowflakeIdentifierConfig(**identifier_overrides),
+                structured_reporter=report,
+            ),
+            redundant_run_skip_handler=None,
+        )
+
+    @staticmethod
+    def _row() -> dict:
+        return {
+            "QUERY_ID": "q1",
+            "QUERY_TEXT": 'INSERT INTO dst ("MixedCol") SELECT "MixedCol" FROM src',
+            "QUERY_START_TIME": datetime(2021, 1, 1, 10, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 1,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "TEST_USER",
+            "ROLE_NAME": "TEST_ROLE",
+            "SESSION_ID": "1",
+            "WAREHOUSE_NAME": "WH",
+            "DATABASE_NAME": "REPORTING",
+            "SCHEMA_NAME": "PUBLIC",
+            "DEFAULT_DB": "REPORTING",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 1,
+            "OBJECTS_MODIFIED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.DST",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {
+                                "columnName": "MixedCol",
+                                "directSources": [
+                                    {
+                                        "objectName": "REPORTING.PUBLIC.SRC",
+                                        "objectDomain": "Table",
+                                        "columnName": "MixedCol",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            ),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.SRC",
+                        "objectDomain": "Table",
+                        "columns": [{"columnName": "MixedCol"}],
+                    }
+                ]
+            ),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected"),
+        [
+            ({}, "mixedcol"),
+            ({"preserve_column_case": True}, "MixedCol"),
+            ({"convert_urns_to_lowercase": False}, "MixedCol"),
+        ],
+        ids=["default", "preserve_column_case", "no_lowercase"],
+    )
+    def test_both_ends_of_a_lineage_edge_follow_the_configured_casing(
+        self, overrides, expected
+    ) -> None:
+        results = list(
+            self._extractor(**overrides)._parse_audit_log_row(self._row(), {})
+        )
+
+        assert len(results) == 1
+        entry = results[0]
+        assert isinstance(entry, PreparsedQuery)
+        assert entry.column_lineage is not None
+        edge = entry.column_lineage[0]
+
+        assert edge.downstream.column == expected
+        assert [ref.column for ref in edge.upstreams] == [expected]
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected"),
+        [({}, "mixedcol"), ({"preserve_column_case": True}, "MixedCol")],
+        ids=["default", "preserve_column_case"],
+    )
+    def test_accessed_columns_follow_the_configured_casing(
+        self, overrides, expected
+    ) -> None:
+        # A separate call site from the lineage edge above, feeding column usage
+        # rather than lineage, so it can drift independently.
+        row = self._row()
+        row["OBJECTS_MODIFIED"] = json.dumps([])
+        row["QUERY_TYPE"] = "SELECT"
+
+        results = list(self._extractor(**overrides)._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        entry = results[0]
+        assert isinstance(entry, PreparsedQuery)
+        assert entry.column_usage is not None
+        assert set(entry.column_usage[self.UPSTREAM]) == {expected}
