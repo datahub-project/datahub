@@ -3670,6 +3670,12 @@ class TestColumnCaseInParsedLineage:
 
     @staticmethod
     def _extractor(**identifier_overrides) -> SnowflakeQueriesExtractor:
+        # Pinned rather than inherited: these assert exact field paths, so they
+        # must not follow the ambient default that the flag-on sweep flips.
+        # Without it the default cases assert the folded spelling while the
+        # config says preserve, and the no_lowercase case passes through the
+        # preserve branch instead of the one it is meant to cover.
+        identifier_overrides.setdefault("preserve_column_case", False)
         report = Mock(spec=SourceReport)
         return SnowflakeQueriesExtractor(
             connection=Mock(query=Mock(return_value=[])),
