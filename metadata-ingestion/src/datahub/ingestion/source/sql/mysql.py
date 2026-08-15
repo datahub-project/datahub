@@ -12,6 +12,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    NamedTuple,
     Optional,
     Set,
 )
@@ -48,7 +49,10 @@ from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import (
+    _MYSQL_FAMILY_SOURCES,
+    GEProfilingConfig,
+)
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
@@ -152,6 +156,14 @@ _EXPENSIVE_TABLES_TOP_N = 5
 _EXPENSIVE_TABLES_SLOWEST_MIN_S = 30
 
 
+class _TableStats(NamedTuple):
+    # Guardrail fields cached from information_schema.tables. data_length lives on
+    # the shared ProfileMetadata (dataset_name_to_storage_bytes) since sizeInBytes
+    # already uses it; only the guardrail-only fields are MySQL-local here.
+    table_rows: Optional[int]
+    index_length: Optional[int]
+
+
 def _parse_general_log_user(user_host: Optional[str]) -> Optional[str]:
     if not user_host:
         return None
@@ -221,7 +233,7 @@ class MySQLProfilingConfig(GEProfilingConfig):
     # Redeclared with Annotated[...] (not plain Optional[int]) so schema_extra.supported_sources
     # is preserved on the subclass field — a plain redeclaration drops it.
     profile_table_row_limit: Annotated[
-        Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])
+        Optional[int], SupportedSources([*_MYSQL_FAMILY_SOURCES])
     ] = Field(
         default=None,
         description="MySQL: profile tables only if their estimated row count is less than this. "
@@ -230,7 +242,7 @@ class MySQLProfilingConfig(GEProfilingConfig):
         "storage-engine stat that can be stale.",
     )
     profile_table_size_limit: Annotated[
-        Optional[int], SupportedSources(["mysql", "mariadb", "doris", "tidb"])
+        Optional[int], SupportedSources([*_MYSQL_FAMILY_SOURCES])
     ] = Field(
         default=None,
         description="MySQL: profile tables only if their size is less than specified GBs. "
@@ -356,9 +368,18 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # and consumed by generate_profile_candidates / is_dataset_eligible_for_profiling.
         # Kept on the source (not on the shared ProfileMetadata) so sql_common.py stays
         # untouched — these fields are MySQL-specific. Keyed by "{schema}.{table}".
-        self._table_rows_cache: Dict[str, Optional[int]] = {}
-        self._index_length_cache: Dict[str, Optional[int]] = {}
-        self._table_type_cache: Dict[str, str] = {}
+        # data_length lives on profile_metadata_info.dataset_name_to_storage_bytes
+        # (base-owned, also feeds sizeInBytes); only table_rows and index_length are
+        # MySQL-local here.
+        self._table_stats_cache: Dict[str, _TableStats] = {}
+        # Set True only after the sweep completes. Load-bearing: add_profile_metadata
+        # is wrapped in try/except at sql_common.py:597 that only warns, so a sweep
+        # that raises leaves this False — which both retries the sweep on the next
+        # inspector and keeps generate_profile_candidates fail-open. It also tells
+        # "sweep failed" (None candidates) from "instance has no tables" (empty
+        # candidate list), so an instance with zero tables is not misreported as a
+        # sweep failure.
+        self._profile_sweep_ran: bool = False
         # dataset_name -> "row" | "size": set while filtering, consumed to attribute skips.
         self._guardrail_skip: Dict[str, str] = {}
         if config.auth_mode == MySQLAuthMode.AWS_IAM:
@@ -412,11 +433,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
         top = sorted(timings.items(), key=lambda pair: pair[1], reverse=True)[
             :_EXPENSIVE_TABLES_TOP_N
         ]
-        if top[0][1] < _EXPENSIVE_TABLES_SLOWEST_MIN_S:
-            return
         # Name only tables that actually crossed the threshold — the top-N sort
         # otherwise drags fast tables into a list whose headline is "slowest".
         top = [(name, t) for name, t in top if t >= _EXPENSIVE_TABLES_SLOWEST_MIN_S]
+        if not top:
+            return
         formatted = ", ".join(f"{name} ({t:.1f}s)" for name, t in top)
         self.report.info(
             title="Profiling: expensive tables",
@@ -499,11 +520,19 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():
             return
+        # The sweep is instance-wide (information_schema.tables spans every database),
+        # but get_profiling_internal calls add_profile_metadata once per inspector
+        # (two_tier_sql_source.py:133 yields one inspector per database). Skip the
+        # re-scan on the second and later inspectors — the first pass already cached
+        # every database's entries.
+        if self._profile_sweep_ran:
+            return
         # One unfiltered information_schema sweep shared with the guardrail (see
-        # generate_profile_candidates). No WHERE clause: sizeInBytes caching for views
-        # is unchanged, and the guardrail filters BASE TABLE in Python. MySQL
-        # upper-cases information_schema labels; MariaDB/Doris/TiDB keep the selected
-        # case — unpack positionally so access is case-independent.
+        # generate_profile_candidates). No WHERE clause on table_type: sizeInBytes is
+        # cached for views too, and the dialect's get_table_names already filters to
+        # base tables, so a table_type filter here would only drop rows the guardrail
+        # would never read. MySQL upper-cases information_schema labels; MariaDB/Doris/
+        # TiDB keep the selected case — unpack positionally so access is case-independent.
         # table_rows is an InnoDB *estimate* (stale until ANALYZE TABLE); data_length and
         # index_length are in bytes. Acceptable for a guardrail, not an accurate count.
         # MySQL 8 caches data-dictionary stats in `information_schema_stats_expiry` (24h
@@ -515,11 +544,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 data_length,
                 table_rows,
                 index_length,
-                table_type,
             ) in conn.execute(
                 text(
                     "SELECT table_schema, table_name, data_length, table_rows, "
-                    "index_length, table_type "
+                    "index_length "
                     "FROM information_schema.tables"
                 )
             ):
@@ -527,9 +555,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[key] = (
                     data_length
                 )
-                self._table_rows_cache[key] = table_rows
-                self._index_length_cache[key] = index_length
-                self._table_type_cache[key] = table_type
+                self._table_stats_cache[key] = _TableStats(
+                    table_rows=table_rows, index_length=index_length
+                )
+        self._profile_sweep_ran = True
 
     def generate_profile_candidates(
         self,
@@ -561,10 +590,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
         # The guardrail reads the cache populated by add_profile_metadata (one unfiltered
         # information_schema sweep, shared with sizeInBytes). add_profile_metadata is called
-        # inside a try/except Exception at sql_common.py:598 that only warns, so an empty cache
-        # means the sweep failed — fail open to no guardrail rather than dropping every profile
-        # in the run (an empty candidate list is additive and would exclude all tables).
-        if not self._table_rows_cache:
+        # inside a try/except Exception at sql_common.py:597 that only warns, so a sweep
+        # that raises leaves _profile_sweep_ran False — fail open to no guardrail rather
+        # than dropping every profile in the run (an empty candidate list is additive and
+        # would exclude all tables).
+        if not self._profile_sweep_ran:
             return None
 
         # Apply row/size limits in Python. A table whose table_rows or total_size is NULL is
@@ -579,14 +609,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table_name, inspector=inspector
             )
-            # Skip only when the type is known and not a base table. A cache miss
-            # returns None and must NOT drop the table — failing closed would exclude
-            # every table the sweep lacked information about. (get_table_names itself
-            # already filters to BASE TABLE, so the known-type branch is defensive.)
-            table_type = self._table_type_cache.get(dataset_name)
-            if table_type is not None and table_type != "BASE TABLE":
-                continue
-            table_rows = self._table_rows_cache.get(dataset_name)
+            stats = self._table_stats_cache.get(dataset_name)
+            table_rows = stats.table_rows if stats is not None else None
             if (
                 row_limit is not None
                 and table_rows is not None
@@ -599,7 +623,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             data_length = self.profile_metadata_info.dataset_name_to_storage_bytes.get(
                 dataset_name
             )
-            index_length = self._index_length_cache.get(dataset_name)
+            index_length = stats.index_length if stats is not None else None
             # Sum whichever of data_length / index_length is present when at least one
             # is — a NULL index_length must not let a 900 GB table slip past the size
             # guardrail (asymmetric with the row limit, which checks its one value

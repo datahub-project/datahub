@@ -13,11 +13,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.sql.mysql import (
-    MySQLAuthMode,
-    MySQLConfig,
-    MySQLSource,
-)
+from datahub.ingestion.source.sql.mysql import MySQLAuthMode, MySQLConfig, MySQLSource
 
 TIDB_DEFAULT_PORT = 4000
 

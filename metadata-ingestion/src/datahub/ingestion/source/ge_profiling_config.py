@@ -19,6 +19,11 @@ _PROFILING_FLAGS_TO_REPORT = {
     # all include_field_ flags are reported.
 }
 
+# Sources that share the MySQL profiling config and the MySQL-family guardrail.
+# Hoisted so the base SupportedSources lists and the MySQLProfilingConfig override
+# reference one source of truth — order matters for the rendered schema.
+_MYSQL_FAMILY_SOURCES = ["mysql", "mariadb", "doris", "tidb"]
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,10 +164,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
                 "unity-catalog",
                 "oracle",
                 "teradata",
-                "mysql",
-                "mariadb",
-                "doris",
-                "tidb",
+                *_MYSQL_FAMILY_SOURCES,
             ]
         ),
     ] = Field(
@@ -175,9 +177,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     profile_table_row_limit: Annotated[
         Optional[int],
-        SupportedSources(
-            ["snowflake", "bigquery", "oracle", "mysql", "mariadb", "doris", "tidb"]
-        ),
+        SupportedSources(["snowflake", "bigquery", "oracle", *_MYSQL_FAMILY_SOURCES]),
     ] = Field(
         default=5000000,
         description="Profile tables only if their row count is less than specified count. "
