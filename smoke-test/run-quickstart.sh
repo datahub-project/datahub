@@ -58,6 +58,22 @@ echo "Resolved service images:"
 resolved_images=$(quickstart_compose config --images)
 echo "$resolved_images"
 
+# A digest-pinned reference has to end at the digest. Trailing text means a
+# compose template appended a variant suffix *outside* its ${VAR:-...}
+# substitution, which the daemon rejects as "invalid reference format" only at
+# `up` time -- minutes later, with no mention of which template is at fault.
+# Fail here, where the offending reference can be named.
+while read -r image; do
+  [[ -n "${image}" ]] || continue
+  if [[ "${image}" == *"@sha256:"* ]] && [[ ! "${image}" =~ @sha256:[0-9a-f]{64}$ ]]; then
+    echo "ERROR: malformed digest reference: ${image}" >&2
+    echo "       A digest must be the last element of the reference. Text after it" >&2
+    echo "       usually means a compose template appends a suffix outside the" >&2
+    echo "       \${VAR:-...} substitution that carries the pinned digest." >&2
+    exit 1
+  fi
+done <<<"${resolved_images}"
+
 # EXPECT_PR_TAGGED_IMAGES lists the docker repos CI built for this run. Each one
 # has to come up on DATAHUB_VERSION; if it resolved to the reused tag instead,
 # the tests would run against binaries that predate the change and still pass,
