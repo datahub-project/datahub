@@ -3669,7 +3669,7 @@ class TestColumnCaseInParsedLineage:
     )
 
     @staticmethod
-    def _extractor(**identifier_overrides) -> SnowflakeQueriesExtractor:
+    def _extractor(**identifier_overrides: object) -> SnowflakeQueriesExtractor:
         # Pinned rather than inherited: these assert exact field paths, so they
         # must not follow the ambient default that the flag-on sweep flips.
         # Without it the default cases assert the folded spelling while the
@@ -3758,7 +3758,7 @@ class TestColumnCaseInParsedLineage:
         ids=["default", "preserve_column_case", "no_lowercase"],
     )
     def test_both_ends_of_a_lineage_edge_follow_the_configured_casing(
-        self, overrides, expected
+        self, overrides: Dict[str, object], expected: str
     ) -> None:
         results = list(
             self._extractor(**overrides)._parse_audit_log_row(self._row(), {})
@@ -3779,7 +3779,7 @@ class TestColumnCaseInParsedLineage:
         ids=["default", "preserve_column_case"],
     )
     def test_accessed_columns_follow_the_configured_casing(
-        self, overrides, expected
+        self, overrides: Dict[str, object], expected: str
     ) -> None:
         # A separate call site from the lineage edge above, feeding column usage
         # rather than lineage, so it can drift independently.
