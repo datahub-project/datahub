@@ -14,6 +14,7 @@ from datahub.cli.snowflake_semantic_view_migration import (
     MigrationDirection,
     SemanticViewMigrationReport,
     SnowflakeViewIdentity,
+    _logical_table_names_from_view_logic,
     _schema_field_is_metric,
     _semantic_model_field_path,
     collect_dataset_field_governance,
@@ -164,6 +165,27 @@ class TestSemanticModelFieldPath:
 
     def test_uppercases_and_preserves_case_when_disabled(self):
         assert _semantic_model_field_path("customer_id", False) == "CUSTOMER_ID"
+
+
+class TestLogicalTableNamesFromViewLogic:
+    def test_skips_sql_query_logical_table(self):
+        """`alias AS (SELECT ...)` must not yield a logical name (no SMD to write to)."""
+        ddl = (
+            "CREATE SEMANTIC VIEW v AS TABLES (\n"
+            "  derived AS (SELECT id, region FROM DB1.SCH1.RAW),\n"
+            "  customers AS DB2.SCH2.CUSTOMERS PRIMARY KEY (id)\n"
+            ")"
+        )
+        assert _logical_table_names_from_view_logic(ddl) == ["customers"]
+
+    def test_alias_and_unaliased_physical_tables(self):
+        ddl = (
+            "CREATE SEMANTIC VIEW v AS TABLES (\n"
+            "  orders AS DB1.SCH1.ORDERS PRIMARY KEY (id),\n"
+            "  DB2.SCH2.CUSTOMERS UNIQUE (email)\n"
+            ")"
+        )
+        assert _logical_table_names_from_view_logic(ddl) == ["orders", "CUSTOMERS"]
 
 
 # --- URN parsing (urn -> identity) and round trips ---
@@ -1198,6 +1220,55 @@ class TestFieldGovernanceFanOut:
         assert any("REGION" in entry for entry in migrated)
         assert not any("CUSTOMER_ID" in entry for entry in migrated)
         assert any("CUSTOMER_ID" in note for note in skipped)
+
+    def test_one_destination_failure_does_not_skip_siblings(self):
+        """One SMD write failure must still migrate the field onto remaining SMDs."""
+        smd_orders = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "test_db.public.sales_analytics.orders,PROD)"
+        )
+        orders_field = f"urn:li:schemaField:({smd_orders},customer_id)"
+        schema = SchemaMetadataClass(
+            schemaName="sales_analytics",
+            platform="urn:li:dataPlatform:snowflake",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                _schema_field("CUSTOMER_ID", tags=[make_tag_urn("pii")]),
+            ],
+        )
+        graph = _graph_with_aspects(
+            schemaMetadata=schema,
+            datasetProperties=DatasetPropertiesClass(
+                customProperties={
+                    "TABLE_SYNONYM_CUSTOMERS": "cust",
+                    "TABLE_SYNONYM_ORDERS": "ord",
+                }
+            ),
+        )
+
+        def emit_side_effect(mcp):
+            if mcp.entityUrn == self.DIM_FIELD:
+                raise RuntimeError("transient write failure")
+
+        graph.emit_mcp.side_effect = emit_side_effect
+
+        migrated, skipped = migrate_dataset_field_governance(
+            graph,
+            self.SRC,
+            self.SM,
+            SnowflakeViewIdentity(
+                db="test_db", schema="public", view="sales_analytics"
+            ),
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+        )
+
+        assert any(orders_field in entry for entry in migrated)
+        assert not any(self.DIM_FIELD in entry for entry in migrated)
+        assert any(self.DIM_FIELD in note for note in skipped)
 
     def test_forward_then_rollback_preserves_dimension_tags(self):
         """migrate-then-rollback must keep non-metric column tags/terms.

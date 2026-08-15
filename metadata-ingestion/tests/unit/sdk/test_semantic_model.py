@@ -141,7 +141,7 @@ def test_semantic_model_add_dataset_rejects_urn_string() -> None:
     model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
     with pytest.raises(SdkUsageError, match="SemanticModelDataset"):
         model.add_dataset(
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"  # type: ignore[arg-type]
         )
 
 
@@ -1140,7 +1140,10 @@ def test_datasets_rejects_bare_urn_string() -> None:
     urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
     with pytest.raises(SdkUsageError, match="SemanticModelDataset"):
         SemanticModel(
-            platform="snowflake", path="analytics", id="orders_model", datasets=urn
+            platform="snowflake",
+            path="analytics",
+            id="orders_model",
+            datasets=urn,  # type: ignore[arg-type]
         )
 
 

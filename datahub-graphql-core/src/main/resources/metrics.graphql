@@ -410,7 +410,10 @@ type SemanticModelInfo {
 
   Deprecated: returns empty. Membership lives on member-side `semanticModelProperties.semanticModel`.
   """
-  datasets: [Dataset!]! @deprecated(reason: "Field returns empty; membership lives on member-side semanticModelProperties.semanticModel / metricInfo.semanticModel.")
+  datasets: [Dataset!]!
+    @deprecated(
+      reason: "Field returns empty; membership lives on member-side semanticModelProperties.semanticModel / metricInfo.semanticModel."
+    )
   relationships: [SemanticModelRelationship!]
   """
   URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).

@@ -681,6 +681,11 @@ def _logical_name_from_tables_entry(entry_tokens: Sequence[object]) -> Optional[
         elif token.token_type == TokenType.R_PAREN:  # type: ignore[attr-defined]
             depth -= 1
         elif depth == 0 and token.token_type == TokenType.ALIAS:  # type: ignore[attr-defined]
+            nxt = entry_tokens[idx + 1] if idx + 1 < len(entry_tokens) else None
+            # SQL-query logical tables (`alias AS (SELECT ...)`) have no SMD to
+            # write governance onto; skip rather than minting an orphan URN.
+            if nxt is not None and nxt.token_type == TokenType.L_PAREN:  # type: ignore[attr-defined]
+                return None
             for prev in reversed(list(entry_tokens[:idx])):
                 if prev.token_type in (TokenType.VAR, TokenType.IDENTIFIER):  # type: ignore[attr-defined]
                     return prev.text.strip('"')  # type: ignore[attr-defined]
@@ -750,8 +755,8 @@ def migrate_dataset_field_governance(
     """Fan out DataHub column tags/terms to metric entities or schemaField URNs.
 
     Returns (migrated entries, skip notes). Destination metric / schemaField URNs
-    need not exist yet (migrate-before-ingest). Each field is migrated independently
-    so one field's failure doesn't discard progress already made on the others.
+    need not exist yet (migrate-before-ingest). Each destination is migrated
+    independently so one SMD write failure doesn't skip the rest of the fan-out.
 
     Non-metric column tags/terms are written onto Semantic Model Dataset
     ``schemaField`` URNs (same anchor as ingest's ``semanticFieldAnnotation``),
@@ -768,42 +773,43 @@ def migrate_dataset_field_governance(
         convert_urns_to_lowercase,
     )
     for field_gov in collect_dataset_field_governance(graph, src_dataset_urn):
-        try:
-            if field_gov.is_metric:
-                dst_urns = [
-                    gen_metric_urn(
-                        identity,
-                        field_gov.column_name,
-                        platform_instance,
-                        convert_urns_to_lowercase,
-                    )
-                ]
-            else:
-                if not logical_dataset_urns:
-                    skipped.append(
-                        f"no logical datasets found for {field_gov.column_name}; "
-                        "cannot derive SMD schemaField URN (need IsPartOf members, "
-                        "TABLE_SYNONYM_* custom properties, or viewProperties.viewLogic)"
-                    )
-                    continue
-                field_path = _semantic_model_field_path(
-                    field_gov.column_name, convert_urns_to_lowercase
+        if field_gov.is_metric:
+            dst_urns = [
+                gen_metric_urn(
+                    identity,
+                    field_gov.column_name,
+                    platform_instance,
+                    convert_urns_to_lowercase,
                 )
-                dst_urns = [
-                    make_schema_field_urn(smd_urn, field_path)
-                    for smd_urn in logical_dataset_urns
-                ]
-            for dst_urn in dst_urns:
+            ]
+        else:
+            if not logical_dataset_urns:
+                skipped.append(
+                    f"no logical datasets found for {field_gov.column_name}; "
+                    "cannot derive SMD schemaField URN (need IsPartOf members, "
+                    "TABLE_SYNONYM_* custom properties, or viewProperties.viewLogic)"
+                )
+                continue
+            field_path = _semantic_model_field_path(
+                field_gov.column_name, convert_urns_to_lowercase
+            )
+            dst_urns = [
+                make_schema_field_urn(smd_urn, field_path)
+                for smd_urn in logical_dataset_urns
+            ]
+        for dst_urn in dst_urns:
+            try:
                 if field_gov.global_tags is not None:
                     _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
                     migrated.append(f"globalTags:{field_gov.column_name}->{dst_urn}")
                 if field_gov.glossary_terms is not None:
                     _emit_aspect(graph, dst_urn, field_gov.glossary_terms, dry_run)
                     migrated.append(f"glossaryTerms:{field_gov.column_name}->{dst_urn}")
-        except Exception as e:
-            skipped.append(
-                f"failed to migrate field governance for {field_gov.column_name}: {e}"
-            )
+            except Exception as e:
+                skipped.append(
+                    f"failed to migrate field governance for {field_gov.column_name} "
+                    f"-> {dst_urn}: {e}"
+                )
     return migrated, skipped
 
 
