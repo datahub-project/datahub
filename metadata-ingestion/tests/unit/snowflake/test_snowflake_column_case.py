@@ -259,3 +259,41 @@ class TestUsageFieldCounts:
             "COL",
             "col",
         ]
+
+
+class TestCollisionReportMatchesReality:
+    """The warning tells operators to enable preserve_column_case. It must only
+    fire when the emitted paths actually collapse, which depends on both knobs:
+    convert_urns_to_lowercase=False keeps the two spellings apart on its own.
+    """
+
+    @pytest.mark.parametrize(
+        ("preserve", "lowercase", "collapses"),
+        [
+            (False, True, True),  # the default: "col" and "COL" fold together
+            (False, False, False),  # no lowercasing, so both survive already
+            (True, True, False),
+            (True, False, False),
+        ],
+    )
+    def test_warns_only_when_paths_actually_collapse(
+        self, preserve: bool, lowercase: bool, collapses: bool
+    ) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_schema_gen(
+            report,
+            preserve_column_case=preserve,
+            convert_urns_to_lowercase=lowercase,
+        )
+        table = _make_table(["col", "COL", "id"])
+
+        paths = [
+            f.fieldPath for f in gen.gen_schema_metadata(table, "SCH", "DB").fields
+        ]
+        assert (len(paths) != len(set(paths))) is collapses
+
+        warned = any(
+            "collapsed into a single field path" in (w.title or "")
+            for w in report.warnings
+        )
+        assert warned is collapses, f"warning={warned} but paths collapsed={collapses}"

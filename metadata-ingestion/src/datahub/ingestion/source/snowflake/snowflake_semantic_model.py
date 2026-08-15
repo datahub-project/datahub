@@ -315,17 +315,27 @@ class SnowflakeSemanticModelMapper:
                     # Uppercased to match each logical dataset's
                     # semanticModelProperties.alias, so join references resolve.
                     from_=from_table_upper,
-                    # Join columns must match the logical-dataset schemaField paths,
-                    # which are built from the column's as-stored name. Resolve
-                    # through the uppercased key so the two sides still match even
-                    # if the API spells them differently, then emit the stored name.
+                    # A relationship key names the base-table column, while the
+                    # logical dataset's field is named after the dimension defined
+                    # over it, and the two can differ in casing. Resolve to the
+                    # dimension name first, then apply the field-path rule.
                     fromColumns=[
-                        logical_dataset_field_path(self.identifiers, col)
+                        logical_dataset_field_path(
+                            self.identifiers,
+                            semantic_view.dimension_name_for_join_key(
+                                col, from_table_upper
+                            ),
+                        )
                         for col in relationship.from_columns
                     ],
                     to=relationship.to_table.upper(),
                     toColumns=[
-                        logical_dataset_field_path(self.identifiers, col)
+                        logical_dataset_field_path(
+                            self.identifiers,
+                            semantic_view.dimension_name_for_join_key(
+                                col, relationship.to_table.upper()
+                            ),
+                        )
                         for col in relationship.to_columns
                     ],
                     cardinality=cardinality,

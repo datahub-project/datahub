@@ -283,3 +283,51 @@ class TestDerivedColumnsKeepTheirSpelling:
         assert sorted(seen) == ["COL", "col"], (
             f"each derived column must keep its own spelling, got {seen}"
         )
+
+
+class TestJoinKeysResolveToDimensionNames:
+    """A relationship key names the base-table column; a logical dataset's field
+    is named after the dimension defined over it. Verified on a live account that
+    these can differ in casing:
+
+        DIMENSIONS   ( chi."fkcol" AS "FkCol" )   -> dimension name 'fkcol'
+        RELATIONSHIPS( rel AS chi ("FkCol") ... ) -> foreign_keys ['FkCol']
+
+    Emitting the join key unresolved anchors the relationship on a field path the
+    logical dataset never declares.
+    """
+
+    @staticmethod
+    def _view_with_diverging_dimension() -> SnowflakeSemanticView:
+        view = _semantic_view(["fkcol"])
+        view.column_occurrences = {
+            "fkcol": [
+                SemanticViewColumnMetadata(
+                    name="fkcol",
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name="CHI",
+                    synonyms=[],
+                    expression='"FkCol"',
+                )
+            ]
+        }
+        return view
+
+    def test_join_key_resolves_to_the_dimension_spelling(self) -> None:
+        view = self._view_with_diverging_dimension()
+
+        assert view.dimension_name_for_join_key("FkCol", "CHI") == "fkcol"
+
+    def test_unresolvable_key_passes_through(self) -> None:
+        # A dimension renamed outright cannot be matched by name; unchanged is
+        # the same behaviour as before the resolution existed.
+        view = self._view_with_diverging_dimension()
+
+        assert view.dimension_name_for_join_key("NO_SUCH", "CHI") == "NO_SUCH"
+
+    def test_scoped_to_the_logical_table(self) -> None:
+        view = self._view_with_diverging_dimension()
+
+        assert view.dimension_name_for_join_key("FkCol", "OTHER_TABLE") == "FkCol"

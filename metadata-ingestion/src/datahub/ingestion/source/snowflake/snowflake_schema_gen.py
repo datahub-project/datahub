@@ -1723,7 +1723,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         context = f"{dataset_name}: " + "; ".join(
             str(sorted(names)) for _, names in sorted(collisions.items())
         )
-        if self.config.preserve_column_case:
+        # Whether they actually collapse depends on the emitted paths, not on
+        # preserve_column_case alone: convert_urns_to_lowercase=False also leaves
+        # the two spellings distinct.
+        emitted = [self.snowflake_column_identifier(col.name) for col in table.columns]
+        if len(emitted) == len(set(emitted)):
             self.structured_reporter.info(
                 title="Columns differing only by case",
                 message="These columns are kept as distinct field paths, but any "

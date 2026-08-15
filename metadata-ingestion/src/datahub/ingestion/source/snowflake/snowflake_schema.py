@@ -327,6 +327,36 @@ class SnowflakeSemanticView(BaseView):
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
 
+    def dimension_name_for_join_key(
+        self, join_key: str, logical_table_upper: Optional[str] = None
+    ) -> str:
+        """The dimension name a relationship's join key refers to.
+
+        Relationship keys name the *base table column*, while a logical dataset's
+        schema fields are named after the *dimension* defined over it, and the two
+        need not agree. Verified on a live account: a view declaring
+
+            DIMENSIONS   ( chi."fkcol" AS "FkCol" )
+            RELATIONSHIPS( rel AS chi ("FkCol") REFERENCES ... )
+
+        reports dimension name ``fkcol`` but foreign_keys ``["FkCol"]``. Emitting
+        the join key as-is would anchor the relationship on a field path the
+        logical dataset does not declare.
+
+        Matching is case-insensitive and scoped to the logical table, which covers
+        the casing divergence above. A dimension renamed outright (``chi."DimName"
+        AS "FkCol"``) is not resolvable this way and falls through unchanged --
+        the same as before this method existed.
+        """
+        for occurrence in self.occurrences_for(join_key):
+            if logical_table_upper is not None and (
+                not occurrence.table_name
+                or occurrence.table_name.upper() != logical_table_upper
+            ):
+                continue
+            return occurrence.name
+        return join_key
+
     def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
         """Occurrences for a column reference, matched case-insensitively.
 
