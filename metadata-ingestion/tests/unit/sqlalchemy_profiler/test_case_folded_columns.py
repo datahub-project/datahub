@@ -1,4 +1,5 @@
 import gc
+import threading
 import weakref
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
@@ -119,6 +120,37 @@ class TestRestoreCaseFoldedColumns:
         # Postgres cannot fold two columns together, so no re-inspection happens.
         with patch.object(sa, "inspect", side_effect=AssertionError("must not run")):
             assert adapter._use_stored_column_names(table, engine) is table
+
+    def test_a_thread_keeps_one_adapter_across_its_tables(self) -> None:
+        """The cache is only worth having if the adapter outlives one table.
+
+        `_generate_single_profile` used to build an adapter per table, so
+        `_inspector` was always None on entry and the schema-wide get_columns ran
+        once per table -- exactly what the cache exists to avoid. Reusing the same
+        adapter three times, as the test below does, never showed it.
+        """
+        profiler = SQLAlchemyProfiler(
+            conn=_engine(MagicMock()),
+            report=SQLSourceReport(),
+            config=ProfilingConfig(),
+            platform="snowflake",
+            env="PROD",
+        )
+        assert profiler._thread_adapter("snowflake") is profiler._thread_adapter(
+            "snowflake"
+        )
+
+        from_other_thread = []
+        thread = threading.Thread(
+            target=lambda: from_other_thread.append(
+                profiler._thread_adapter("snowflake")
+            )
+        )
+        thread.start()
+        thread.join()
+        # Separate thread, separate adapter: an Inspector's info cache is a plain
+        # dict and tables are profiled concurrently.
+        assert from_other_thread[0] is not profiler._thread_adapter("snowflake")
 
     def test_reuses_one_inspector_per_bind(
         self, adapter: SnowflakeAdapter, snowflake_engine: Any

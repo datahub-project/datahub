@@ -6,6 +6,7 @@ import dataclasses
 import json
 import logging
 import re
+import threading
 import traceback
 from datetime import datetime
 from decimal import Decimal
@@ -449,6 +450,10 @@ class SQLAlchemyProfiler:
         self.total_row_count = 0
 
         self.env = env
+
+        # One adapter per worker thread rather than per table, so the Inspector
+        # it caches survives long enough to be worth caching. See _thread_adapter.
+        self._adapter_local = threading.local()
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -1644,6 +1649,24 @@ class SQLAlchemyProfiler:
                     pretty_name=pretty_name,
                 )
 
+    def _thread_adapter(self, platform: str) -> PlatformAdapter:
+        """The calling thread's adapter, built once and reused across its tables.
+
+        An adapter's only state is the Inspector it caches, and dialects memoize
+        a whole schema's columns on that Inspector. Built per table, the cache
+        never outlives its first use and every table on a normalizing dialect
+        pays a schema-wide get_columns. Built per thread, the pool's workers pay
+        one apiece.
+
+        Per thread rather than per profiler because tables are profiled
+        concurrently and an Inspector's info cache is a plain dict.
+        """
+        adapter = getattr(self._adapter_local, platform, None)
+        if adapter is None:
+            adapter = get_adapter(platform, self.config, self.report, self.base_engine)
+            setattr(self._adapter_local, platform, adapter)
+        return adapter
+
     def _generate_single_profile(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -1680,7 +1703,7 @@ class SQLAlchemyProfiler:
         )
 
         # Get platform-specific adapter
-        adapter = get_adapter(platform, self.config, self.report, self.base_engine)
+        adapter = self._thread_adapter(platform)
 
         with PerfTimer() as timer:
             try:
