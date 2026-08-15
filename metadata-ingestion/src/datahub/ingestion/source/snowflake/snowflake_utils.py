@@ -21,7 +21,6 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeSemanticView
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -577,45 +576,24 @@ class SnowflakeIdentifierBuilder:
         )
 
 
-def semantic_column_field_path(
-    identifiers: "SnowflakeIdentifierBuilder",
-    semantic_view: SnowflakeSemanticView,
-    column_name: str,
-    logical_table_upper: Optional[str] = None,
-) -> str:
-    """Field path for a column on a semantic view or a physical table.
-
-    Both schemas are built by ``gen_schema_metadata`` from the column's stored
-    name, so lineage anchored on them must resolve to the same name — including
-    when ``convert_urns_to_lowercase`` is off, where the casing survives into the
-    URN. Uppercasing here would anchor on a field that does not exist.
-
-    ``logical_table_upper`` disambiguates: the same uppercased reference can name
-    differently-cased columns on two logical tables.
-    """
-    return identifiers.snowflake_column_identifier(
-        semantic_view.stored_column_name(column_name, logical_table_upper)
-    )
-
-
 def logical_dataset_field_path(
-    identifiers: "SnowflakeIdentifierBuilder",
-    semantic_view: SnowflakeSemanticView,
-    column_name: str,
-    logical_table_upper: Optional[str] = None,
+    identifiers: "SnowflakeIdentifierBuilder", column_name: str
 ) -> str:
     """Field path for a column on a semantic-model logical dataset.
 
-    These datasets are built by the semantic-model mapper, not by
-    ``gen_schema_metadata``, and it has always uppercased their field paths.
-    Emitting the stored name instead would re-key every one of those URNs for
-    deployments running with ``convert_urns_to_lowercase`` off, so the stored
-    name is used only when ``preserve_column_case`` asks for it.
+    Everywhere else the column's stored name is emitted directly: Snowflake's
+    semantic-view metadata returns stored names, verified against both
+    SEMANTIC_DIMENSIONS and SEMANTIC_RELATIONSHIPS, so no resolution is needed.
+
+    These datasets are the exception. They are built by the semantic-model
+    mapper rather than ``gen_schema_metadata``, and it has always uppercased
+    their field paths. Emitting the stored name unconditionally would re-key
+    every one of those URNs for deployments running with
+    ``convert_urns_to_lowercase`` off, so the stored name is used only when
+    ``preserve_column_case`` asks for it.
     """
     if identifiers.identifier_config.preserve_column_case:
-        return semantic_column_field_path(
-            identifiers, semantic_view, column_name, logical_table_upper
-        )
+        return identifiers.snowflake_column_identifier(column_name)
     return identifiers.snowflake_column_identifier(column_name.upper())
 
 

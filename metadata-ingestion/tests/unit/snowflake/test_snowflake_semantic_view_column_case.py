@@ -17,7 +17,6 @@ from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
-    semantic_column_field_path,
 )
 
 # Semantic-view code threads column references in uppercase so they match across
@@ -79,17 +78,14 @@ class TestSemanticViewColumnCase:
         ("preserve", "expected"),
         [(False, "mixedcol"), (True, MIXED_CASE_COLUMN)],
     )
-    def test_stored_name_resolves_from_uppercase_key(
+    def test_stored_name_becomes_the_field_path(
         self, preserve: bool, expected: str
     ) -> None:
         gen = _make_gen(SnowflakeV2Report(), preserve_column_case=preserve)
-        view = _semantic_view([MIXED_CASE_COLUMN, "AMOUNT"])
 
-        # This is the conversion every semantic-view field path goes through.
-        resolved = semantic_column_field_path(
-            gen.identifiers, view, MIXED_CASE_COLUMN.upper()
-        )
-        assert resolved == expected
+        # The conversion every semantic-view field path goes through. Snowflake
+        # hands back stored names, so this is the whole of it.
+        assert gen.snowflake_column_identifier(MIXED_CASE_COLUMN) == expected
 
     @pytest.mark.parametrize("preserve", [True, False])
     @pytest.mark.parametrize("lowercase_urns", [True, False])
@@ -112,8 +108,7 @@ class TestSemanticViewColumnCase:
             f.fieldPath for f in gen.gen_schema_metadata(view, "SCH", "DB").fields
         }
         lineage_paths = {
-            semantic_column_field_path(gen.identifiers, view, col.name.upper())
-            for col in view.columns
+            gen.snowflake_column_identifier(col.name) for col in view.columns
         }
 
         assert lineage_paths == schema_paths
@@ -164,81 +159,6 @@ class TestSemanticViewColumnCase:
             # what collapses them to a single field path downstream instead of
             # emitting two fields that share one.
             assert [o.name for o in groups[0]] == ["col", "COL"]
-
-    def test_unknown_column_falls_back_to_the_key(self) -> None:
-        view = _semantic_view([MIXED_CASE_COLUMN])
-
-        assert view.stored_column_name("NOT_A_COLUMN") == "NOT_A_COLUMN"
-
-    def test_same_name_on_two_tables_resolves_per_table(self) -> None:
-        # The regression the logical-table argument exists for: one uppercased
-        # key, two logical tables, different stored casing on each. An unscoped
-        # lookup returns whichever came first and anchors lineage on a field path
-        # the other table does not have.
-        view = _semantic_view([])
-        view.column_occurrences = {
-            "col": [
-                SemanticViewColumnMetadata(
-                    name="col",
-                    data_type="TEXT",
-                    comment=None,
-                    subtype=SemanticViewColumnSubtype.DIMENSION,
-                    table_name="ORDERS",
-                    synonyms=[],
-                    expression=None,
-                )
-            ],
-            "COL": [
-                SemanticViewColumnMetadata(
-                    name="COL",
-                    data_type="TEXT",
-                    comment=None,
-                    subtype=SemanticViewColumnSubtype.DIMENSION,
-                    table_name="CUSTOMERS",
-                    synonyms=[],
-                    expression=None,
-                )
-            ],
-        }
-
-        assert view.stored_column_name("COL", "ORDERS") == "col"
-        assert view.stored_column_name("COL", "CUSTOMERS") == "COL"
-
-    def test_legacy_mode_resolves_without_occurrences(self) -> None:
-        # Legacy dataset mode never populates column_occurrences, so resolution
-        # falls through to the column list — where a case-only pair both match
-        # case-insensitively and would otherwise share one field path.
-        view = _semantic_view(["col", "COL", "OTHER"])
-        assert not view.column_occurrences
-
-        assert view.stored_column_name("col") == "col"
-        assert view.stored_column_name("COL") == "COL"
-        # A reference whose casing matches nothing exactly still resolves, via
-        # the case-insensitive fallback rather than the exact-match branch.
-        assert view.stored_column_name("other") == "OTHER"
-
-    def test_pair_on_one_table_keeps_both_spellings(self) -> None:
-        # Scoping by logical table cannot separate a case-only pair that lives on
-        # the same table. Both resolved to whichever came first, so the two fields
-        # shared a path and one was dropped downstream — an exact spelling wins.
-        view = _semantic_view([])
-        view.column_occurrences = {
-            name: [
-                SemanticViewColumnMetadata(
-                    name=name,
-                    data_type="TEXT",
-                    comment=None,
-                    subtype=SemanticViewColumnSubtype.DIMENSION,
-                    table_name="SRC",
-                    synonyms=[],
-                    expression=None,
-                )
-            ]
-            for name in ("col", "COL")
-        }
-
-        assert view.stored_column_name("col", "SRC") == "col"
-        assert view.stored_column_name("COL", "SRC") == "COL"
 
 
 class TestColumnExistenceCheck:

@@ -320,19 +320,12 @@ class SnowflakeSemanticModelMapper:
                     # through the uppercased key so the two sides still match even
                     # if the API spells them differently, then emit the stored name.
                     fromColumns=[
-                        logical_dataset_field_path(
-                            self.identifiers, semantic_view, col, from_table_upper
-                        )
+                        logical_dataset_field_path(self.identifiers, col)
                         for col in relationship.from_columns
                     ],
                     to=relationship.to_table.upper(),
                     toColumns=[
-                        logical_dataset_field_path(
-                            self.identifiers,
-                            semantic_view,
-                            col,
-                            relationship.to_table.upper(),
-                        )
+                        logical_dataset_field_path(self.identifiers, col)
                         for col in relationship.to_columns
                     ],
                     cardinality=cardinality,
@@ -573,10 +566,7 @@ class SnowflakeSemanticModelMapper:
                         # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
                         # so column-level lineage resolves.
                         fieldPath=logical_dataset_field_path(
-                            self.identifiers,
-                            semantic_view,
-                            occurrence.name,
-                            logical_table_upper,
+                            self.identifiers, occurrence.name
                         ),
                         type=SchemaFieldDataTypeClass(type_class()),
                         nativeDataType=occurrence.data_type,
@@ -622,12 +612,7 @@ class SnowflakeSemanticModelMapper:
                 )
                 field_urn = SchemaFieldUrn(
                     logical_dataset_urn,
-                    logical_dataset_field_path(
-                        self.identifiers,
-                        semantic_view,
-                        occurrence.name,
-                        logical_table_upper,
-                    ),
+                    logical_dataset_field_path(self.identifiers, occurrence.name),
                 ).urn()
                 yield MetadataChangeProposalWrapper(
                     entityUrn=field_urn,
@@ -947,12 +932,7 @@ class SnowflakeSemanticModelMapper:
                 continue
             field_urn = SchemaFieldUrn(
                 logical_dataset_urn,
-                logical_dataset_field_path(
-                    self.identifiers,
-                    semantic_view,
-                    occurrence.name,
-                    logical_table_upper,
-                ),
+                logical_dataset_field_path(self.identifiers, occurrence.name),
             ).urn()
             yield from add_structured_properties_to_entity_wu(
                 field_urn,

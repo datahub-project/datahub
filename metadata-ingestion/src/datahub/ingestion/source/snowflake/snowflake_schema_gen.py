@@ -79,7 +79,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
     logical_dataset_field_path,
-    semantic_column_field_path,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -1295,9 +1294,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                             if lt is not None
                             else semantic_model_urn,
-                            logical_dataset_field_path(
-                                self.identifiers, semantic_view, col, lt
-                            ),
+                            logical_dataset_field_path(self.identifiers, col),
                         ),
                     )
                 except Exception as e:
@@ -2331,9 +2328,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             else:
                 downstream_field_urn = make_schema_field_urn(
                     semantic_view_urn,
-                    semantic_column_field_path(
-                        self.identifiers, semantic_view, column_name
-                    ),
+                    self.snowflake_column_identifier(column_name),
                 )
 
             # Use depth-limited recursive resolution
@@ -2436,12 +2431,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 return downstream_urn_resolver(col_name_upper, logical_table_upper)
             return make_schema_field_urn(
                 semantic_view_urn,
-                semantic_column_field_path(
-                    self.identifiers,
-                    semantic_view,
-                    col_name_upper,
-                    logical_table_upper,
-                ),
+                self.snowflake_column_identifier(col_name_upper),
             )
 
         logger.debug(
@@ -2632,12 +2622,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Create upstream field URN for direct column lineage
                     upstream_field_urn = make_schema_field_urn(
                         base_table_urn,
-                        semantic_column_field_path(
-                            self.identifiers,
-                            semantic_view,
-                            col_name_upper,
-                            logical_table_upper,
-                        ),
+                        self.snowflake_column_identifier(col_name_upper),
                     )
 
                     fine_grained_lineages.append(

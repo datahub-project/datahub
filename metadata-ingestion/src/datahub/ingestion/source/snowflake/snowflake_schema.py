@@ -327,64 +327,6 @@ class SnowflakeSemanticView(BaseView):
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
 
-    def stored_column_name(
-        self, column_name: str, logical_table_upper: Optional[str] = None
-    ) -> str:
-        """The spelling Snowflake stores for a column reference.
-
-        A reference arrives in whichever spelling the view's DDL used, folded to
-        uppercase if it was written unquoted — ordinary Snowflake identifier
-        folding, not a canonicalization the metadata applies. Verified against
-        INFORMATION_SCHEMA.SEMANTIC_DIMENSIONS, which returns quoted ``"col"``
-        and ``"COL"`` distinctly. Callers may also hand us an uppercased
-        reference of their own, so match case-insensitively either way and
-        return the stored name, which is the only spelling valid to emit.
-
-        ``logical_table_upper`` matters: one folded name can belong to
-        differently-cased columns on two logical tables, and an unscoped lookup
-        would return whichever happened to be first — producing a field path that
-        does not exist on the table being emitted. Callers that know the table
-        must pass it.
-        """
-        occurrences = self.occurrences_for(column_name)
-        if logical_table_upper is not None:
-            scoped = [
-                occurrence
-                for occurrence in occurrences
-                if occurrence.table_name
-                and occurrence.table_name.upper() == logical_table_upper
-            ]
-            # Fall back to the unscoped list rather than dropping the column: a
-            # view-scoped (table-less) reference has no logical table to match.
-            occurrences = scoped or occurrences
-
-        # An exact spelling wins. Callers often already hold the stored name, and
-        # when a case-only pair shares one logical table the table cannot tell
-        # them apart — without this both would resolve to whichever came first
-        # and collapse onto a single field path.
-        for occurrence in occurrences:
-            if occurrence.name == column_name:
-                return occurrence.name
-
-        for occurrence in occurrences:
-            if occurrence.name:
-                return occurrence.name
-
-        # Legacy dataset mode never populates column_occurrences, so this is the
-        # only lookup there — and with a case-only pair both members match
-        # case-insensitively. Prefer the exact spelling or both columns resolve
-        # to the first one and share a single field path.
-        for col in self.columns:
-            if col.name == column_name:
-                return col.name
-
-        target = column_name.upper()
-        for col in self.columns:
-            if col.name and col.name.upper() == target:
-                return col.name
-
-        return column_name
-
     def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
         """Occurrences for a column reference, matched case-insensitively.
 
