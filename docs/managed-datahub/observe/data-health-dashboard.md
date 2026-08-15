@@ -120,7 +120,7 @@ To create and manage Monitoring Rules, you must have the **`Manage Tests`** plat
 
 ### How It Works
 
-1. **Define a search predicate** — specify the datasets you want to monitor using filters such as DataHub Domain, data platform, schema, tags, or any combination of search criteria.
+1. **Define a search predicate** — specify the datasets you want to monitor using filters such as DataHub Domain, data platform, schema, tags, or any combination of search criteria. Container **Within** includes tables under a selected database (and nested domains for Domain); **Equals** matches that container only.
 2. **Choose assertion types** — enable one or more of Freshness Anomaly Detection, Volume Anomaly Detection, and Schema assertions for matching datasets.
 3. **Configure subscriptions** — set up alert subscriptions so you or your team are notified when issues are detected.
 4. **Save the rule** — DataHub will automatically create the corresponding assertions on all datasets that currently match the predicate.
