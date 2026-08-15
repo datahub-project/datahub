@@ -9,7 +9,7 @@ from dataclasses import Field, dataclass, field
 from datetime import datetime, timezone
 from enum import auto
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import avro.schema
 import click
@@ -1458,6 +1458,114 @@ def get_sorted_entity_names(
     return sorted_entities
 
 
+# Incident support is declared independently in three backend files, and they do not
+# all agree. Deriving the table means the docs cannot drift from the code the way a
+# hand-maintained list does; see https://github.com/datahub-project/datahub/pull/18685.
+_REPO_ROOT = Path(__file__).parent.parent.parent
+_INCIDENT_PDL = (
+    _REPO_ROOT
+    / "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl"
+)
+_INCIDENT_SDL = _REPO_ROOT / "datahub-graphql-core/src/main/resources/incident.graphql"
+
+# Entity names whose GraphQL type is not just the capitalised entity name. A decoy
+# type named SchemaField also exists, so matching on the entity name alone is wrong.
+_INCIDENT_GRAPHQL_TYPE_OVERRIDES: Dict[str, str] = {
+    "schemaField": "SchemaFieldEntity",
+}
+
+
+def _strip_line_comments(text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        stripped = line.split("//")[0]
+        if stripped.lstrip().startswith("#"):
+            stripped = ""
+        lines.append(stripped)
+    return "\n".join(lines)
+
+
+def _matching_brace(text: str, open_brace: int) -> int:
+    depth, i = 1, open_brace + 1
+    while i < len(text) and depth:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    return i
+
+
+def _incident_write_gate() -> List[str]:
+    """Entity types accepted by the IncidentOn relationship, in declaration order."""
+    match = re.search(
+        r'"entityTypes"\s*:\s*\[(.*?)\]',
+        _INCIDENT_PDL.read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    return re.findall(r'"([A-Za-z]+)"', match.group(1)) if match else []
+
+
+def _incident_summary_entities(registry_text: str) -> Set[str]:
+    """Entity types whose registry aspect list declares incidentsSummary."""
+    found: Set[str] = set()
+    current: Optional[str] = None
+    in_aspects = False
+    for raw in registry_text.splitlines():
+        line = raw.split("#")[0].rstrip()
+        if not line.strip():
+            continue
+        entity = re.match(r"\s*-\s*name:\s*([A-Za-z][A-Za-z0-9_]*)\s*$", line)
+        if entity:
+            current, in_aspects = entity.group(1), False
+            continue
+        if re.match(r"\s*aspects:\s*$", line):
+            in_aspects = True
+            continue
+        if in_aspects:
+            aspect = re.match(r"\s*-\s*([A-Za-z][A-Za-z0-9_]*)\s*$", line)
+            if aspect and current:
+                if aspect.group(1) == "incidentsSummary":
+                    found.add(current)
+            elif not aspect:
+                in_aspects = False
+    return found
+
+
+def _incident_graphql_types() -> Set[str]:
+    """GraphQL types given an incidents field by an extend type block in the SDL."""
+    text = _strip_line_comments(_INCIDENT_SDL.read_text(encoding="utf-8"))
+    found: Set[str] = set()
+    for match in re.finditer(r"extend\s+type\s+([A-Za-z][A-Za-z0-9_]*)\s*\{", text):
+        body = text[match.end() : _matching_brace(text, match.end() - 1)]
+        if re.search(r"\bincidents\s*\(", body):
+            found.add(match.group(1))
+    return found
+
+
+def generate_incident_support_table(registry_file: str) -> str:
+    summaries = _incident_summary_entities(
+        Path(registry_file).read_text(encoding="utf-8")
+    )
+    graphql_types = _incident_graphql_types()
+
+    tick = {True: "Yes", False: "No"}
+    rows = [
+        "| Entity type | Incident can be raised | `incidentsSummary` aspect | Readable in GraphQL |",
+        "| --- | --- | --- | --- |",
+    ]
+    for entity in _incident_write_gate():
+        gql = _INCIDENT_GRAPHQL_TYPE_OVERRIDES.get(
+            entity, entity[0:1].upper() + entity[1:]
+        )
+        rows.append(
+            f"| `{entity}` | Yes"
+            f" | {tick[entity in summaries]}"
+            f" | {tick[gql in graphql_types]} |"
+        )
+    return "\n".join(rows) + "\n"
+
+
 @click.command()
 @click.argument("schemas_root", type=click.Path(exists=True), required=True)
 @click.option("--registry", type=click.Path(exists=True), required=True)
@@ -1472,6 +1580,12 @@ def get_sorted_entity_names(
 @click.option(
     "--lineage-output", type=str, required=False, help="generate lineage JSON file"
 )
+@click.option(
+    "--incident-support-output",
+    type=str,
+    required=False,
+    help="generate the incident entity-support table snippet",
+)
 def generate(  # noqa: C901
     schemas_root: str,
     registry: str,
@@ -1482,6 +1596,7 @@ def generate(  # noqa: C901
     png: Optional[str],
     extra_docs: Optional[str],
     lineage_output: Optional[str],
+    incident_support_output: Optional[str],
 ) -> None:
     logger.info(f"server = {server}")
     logger.info(f"file = {file}")
@@ -1511,6 +1626,12 @@ def generate(  # noqa: C901
                 loaded = yaml.safe_load(df) or {}
             if isinstance(loaded, dict):
                 entity_descriptions = {k: str(v) for k, v in loaded.items() if v}
+
+    if incident_support_output:
+        logger.info(f"Generating incident support table to {incident_support_output}")
+        incident_path = Path(incident_support_output)
+        incident_path.parent.mkdir(parents=True, exist_ok=True)
+        incident_path.write_text(generate_incident_support_table(registry))
 
     # registry file
     load_registry_file(registry)

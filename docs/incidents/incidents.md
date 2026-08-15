@@ -100,40 +100,36 @@ input RaiseIncidentInput {
 
 ### Supported entity types
 
-Whether an entity supports incidents is decided in three separate places, and
-they do not all agree today. Every entity passed in `resourceUrn`, and every
-entity in the `resourceUrns` list for a multi-resource incident, is subject to
-all three.
+Incident support is not a single switch. Three separate layers decide what happens
+to an incident raised on a given entity type, and they do not all cover the same
+set today. Every entity passed in `resourceUrn`, and every entity in the
+`resourceUrns` list for a multi-resource incident, goes through all three.
 
-1. **Accepts a write.** The `IncidentOn` relationship on `IncidentInfo.pdl`
-   lists the entity types `raiseIncident` will accept as a destination.
-2. **Carries a summary.** The `incidentsSummary` aspect, declared per entity in
-   the entity registry, is what `IncidentsSummaryHook` maintains on the asset.
-3. **Can be read back.** GraphQL exposes `incidents` only on the types that
-   `incident.graphql` extends and that are wired to a resolver.
+1. **Can it be raised?** The `IncidentOn` relationship in `IncidentInfo.pdl` lists
+   the entity types accepted as incident resources. A type not on this list is
+   rejected and nothing is written.
+2. **Is it summarised?** The `incidentsSummary` aspect on the entity in
+   `entity-registry.yml` is what keeps an entity's active incident count current.
+   Without it, the incident exists but the entity has no rolled-up state.
+3. **Can it be read back?** An `extend type` block in `incident.graphql` is what
+   gives the entity an `incidents` field. Without it, the incident cannot be
+   fetched through the GraphQL API for that entity.
 
-As of the current entity registry:
+An entity can clear layer 1 and fail the other two. That is a worse outcome than a
+clean rejection, because the call succeeds and returns an incident URN while the
+incident is effectively unreadable.
 
-| Entity       | URN prefix            | Accepts a write | Carries a summary | Readable in GraphQL |
-| ------------ | --------------------- | --------------- | ----------------- | ------------------- |
-| Dataset      | `urn:li:dataset:`     | yes             | yes               | yes                 |
-| Data Job     | `urn:li:dataJob:`     | yes             | yes               | yes                 |
-| Data Flow    | `urn:li:dataFlow:`    | yes             | yes               | yes                 |
-| Chart        | `urn:li:chart:`       | yes             | yes               | yes                 |
-| Dashboard    | `urn:li:dashboard:`   | yes             | yes               | yes                 |
-| Service      | `urn:li:service:`     | yes             | yes               | no                  |
-| AI Agent     | `urn:li:aiAgent:`     | yes             | yes               | no                  |
-| ML Model     | `urn:li:mlModel:`     | yes             | no                | no                  |
-| ML Feature   | `urn:li:mlFeature:`   | yes             | no                | no                  |
-| Schema Field | `urn:li:schemaField:` | yes             | no                | no                  |
+The table below is generated at docs build time from those three files, so it
+cannot drift from the code the way a hand-maintained list does.
 
-Only the first five are supported end to end. Any type not listed at all,
-including `mlModelGroup`, `mlFeatureTable` and `dataProcessInstance`, is
-rejected outright and nothing is written.
+{{ inline /docs/generated/incidents/entity-support.md.snippet }}
 
-A rejected destination fails the whole mutation, including any other entity
-sent in the same call. The wording has changed between releases, so search for
-the entity type rather than the sentence:
+Any type absent from the table, including `mlModelGroup`, `mlFeatureTable` and
+`dataProcessInstance`, is rejected at layer 1 and nothing is written.
+
+A rejected destination fails the whole mutation, including any other entity sent
+in the same call. The wording has changed between releases, so search for the
+entity type rather than for the exact sentence. On v1.5.0.6 the rejection reads:
 
 ```
 java.lang.RuntimeException: Invalid format for aspect: incident
@@ -141,17 +137,22 @@ java.lang.RuntimeException: Invalid format for aspect: incident
         Entity type for urn: <urn> is not a valid destination for field path: /entities/*
 ```
 
-ML entities are worth calling out, because they are a natural thing to reach
-for and because a write to one can look like it worked. On a build that
-includes [#18478](https://github.com/datahub-project/datahub/pull/18478),
-`mlModel` and `mlFeature` accept the write and return an incident URN, but
-neither type exposes an `incidents` field in GraphQL, so nothing reads it back
-and nothing renders it on the entity page. On earlier builds the same call is
-rejected. Closing that gap is tracked in
+ML entities are worth calling out, because they are a natural thing to reach for
+and because a write to one can look like it worked. `mlModel` and `mlFeature` are
+on the `IncidentOn` list, so the write is accepted and returns an incident URN,
+but neither carries `incidentsSummary` and neither exposes an `incidents` field in
+GraphQL. Nothing reads the incident back and nothing renders it on the entity
+page. Closing that gap is tracked in
 [#18911](https://github.com/datahub-project/datahub/issues/18911).
 
 Until it closes, raise the incident on a training dataset linked to the model,
 directly or through a training run, and name the model in the title.
+
+The frontend adds two further copies of the same list, in the `activeIncidents`
+badge alias and in the per-type inline fragments of `getEntityIncidents`. They are
+not derived here because they live outside the metadata model, and keeping them
+from drifting is the subject of
+[#19097](https://github.com/datahub-project/datahub/pull/19097).
 
 ### Examples
 

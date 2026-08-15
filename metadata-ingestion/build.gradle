@@ -142,17 +142,24 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
   def schemasRoot = "${datahubRoot}/metadata-events/mxe-schemas/src/mainGeneratedAvroSchema/avro/"
   def entityRegistry = "${datahubRoot}/metadata-models/src/main/resources/entity-registry.yml"
   def metadataModelDocsRoot = "${datahubRoot}/metadata-models/docs"
-  
+  def incidentSupportOutput = "${datahubRoot}/docs/generated/incidents/entity-support.md.snippet"
+  def incidentPdl = "${datahubRoot}/metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl"
+  def incidentSdl = "${datahubRoot}/datahub-graphql-core/src/main/resources/incident.graphql"
+
   inputs.files(
     file('scripts/modeldocgen.py'),
     project.fileTree(dir: "../metadata-models/docs/entities/", include: "**/*.md"),
     file("../metadata-models/docs/entity_descriptions.yaml"),
     project.fileTree(dir: "examples/", include: "**/*.py"),
-    project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
+    project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"),
+    file(entityRegistry),
+    file(incidentPdl),
+    file(incidentSdl)
   )
   outputs.dir('../docs/generated/metamodel')
-  
-  commandLine 'bash', '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir ${docsOutdir} --file ${outdir}/metadata_model_mces.json --extra-docs ${metadataModelDocsRoot}"
+  outputs.file(incidentSupportOutput)
+
+  commandLine 'bash', '-c', "${venv_activate_command} python scripts/modeldocgen.py ${schemasRoot} --registry ${entityRegistry} --generated-docs-dir ${docsOutdir} --file ${outdir}/metadata_model_mces.json --extra-docs ${metadataModelDocsRoot} --incident-support-output ${incidentSupportOutput}"
 }
 
 task lineageGen(type: Exec, dependsOn: [codegen]) {
