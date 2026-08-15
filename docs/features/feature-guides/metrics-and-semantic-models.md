@@ -130,7 +130,12 @@ Snowflake Semantic Views are a native Snowflake capability. If you also use the 
 Emit metrics and semantic models programmatically from any script or connector using the high-level SDK builders (`datahub.sdk.SemanticModel`, `.Metric`, and `.SemanticModelDataset`):
 
 ```python
-from datahub.sdk import DataHubClient, SemanticModel, Metric
+from datahub.sdk import (
+    DataHubClient,
+    DialectExpressionInput,
+    Metric,
+    SemanticModel,
+)
 
 client = DataHubClient(server="...", token="...")
 
@@ -151,7 +156,10 @@ metric = Metric(
     name="Total Revenue",
     description="Sum of order amounts.",
     semantic_model=model.urn,
-    expression={"SNOWFLAKE": "SUM(orders.amount)"},
+    expression=DialectExpressionInput(
+        dialect="SNOWFLAKE",
+        expression="SUM(orders.amount)",
+    ),
 )
 
 for mcp in [*model.as_mcps(), *metric.as_mcps()]:
