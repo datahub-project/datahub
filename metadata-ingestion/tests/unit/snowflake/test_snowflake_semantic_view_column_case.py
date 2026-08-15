@@ -331,3 +331,21 @@ class TestJoinKeysResolveToDimensionNames:
         view = self._view_with_diverging_dimension()
 
         assert view.dimension_name_for_join_key("FkCol", "OTHER_TABLE") == "FkCol"
+
+
+class TestLegacyDerivedExpressionLookup:
+    """Legacy semantic-view mode leaves column_occurrences empty, so the
+    expression lookup falls through to the merged columns list. That fallback
+    compares against a stored name, which an uppercased comparison never matches
+    for a mixed- or lower-case column -- the lineage would just be skipped.
+    """
+
+    @pytest.mark.parametrize("column", ["MixedCol", "UPPER_COL", "lower_col"])
+    def test_expression_resolves_whatever_the_stored_casing(self, column: str) -> None:
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+        view = _semantic_view([column])
+        view.column_occurrences = {}
+        for col in view.columns:
+            col.expression = f'"{col.name}"'
+
+        assert gen._semantic_column_expression(view, column, "SRC") is not None

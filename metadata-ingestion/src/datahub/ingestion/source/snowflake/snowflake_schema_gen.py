@@ -2371,7 +2371,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     @staticmethod
     def _semantic_column_expression(
         semantic_view: SnowflakeSemanticView,
-        col_name_upper: str,
+        column_name: str,
         logical_table_upper: Optional[str],
     ) -> Optional[str]:
         # Prefer the occurrence for this logical table: the merged columns list
@@ -2379,11 +2379,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # logical table's expression when the same column name is defined
         # differently on multiple tables. Fall back to the merged list (legacy
         # single-dataset mode, where column_occurrences is not populated).
-        for occ in semantic_view.occurrences_for(col_name_upper):
+        for occ in semantic_view.occurrences_for(column_name):
             if occ.table_name and occ.table_name.upper() == logical_table_upper:
                 return occ.expression
+        # column_name is the stored spelling, so fold both sides. Comparing an
+        # uppercased column against it never matches a mixed- or lower-case name,
+        # which would silently skip that column's lineage in legacy mode, where
+        # the loop above has no occurrences to scope by.
+        folded = column_name.lower()
         for col in semantic_view.columns:
-            if col.name and col.name.upper() == col_name_upper:
+            if col.name and col.name.lower() == folded:
                 return col.expression
         return None
 
