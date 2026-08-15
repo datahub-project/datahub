@@ -7,7 +7,7 @@ description: "Local development guide for DataHub contributors, including system
 
 ## Requirements
 
-- [Java 21 JDK](https://openjdk.org/projects/jdk/21/) for building (Docker images run Java 25 LTS at runtime)
+- [java 25 JDK](https://openjdk.org/projects/jdk/21/) for building (Docker images run Java 25 LTS at runtime)
 - [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
@@ -712,11 +712,11 @@ You're probably using a Java version that's too new for gradle. Run the followin
 java --version
 ```
 
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 21](https://openjdk.org/projects/jdk/21/) (aka Java 21).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [java 25](https://openjdk.org/projects/jdk/21/) (aka java 25).
 
 #### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
-Similar to the previous issue, please use Java 21 to build the project.
+Similar to the previous issue, please use java 25 to build the project.
 You can install multiple version of Java on a single machine and switch between them using the `JAVA_HOME` environment variable. See [this document](https://docs.oracle.com/cd/E21454_01/html/821-2531/inst_jdk_javahome_t.html) for more details.
 
 #### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error

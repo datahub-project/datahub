@@ -59,7 +59,7 @@ task publishSchema(dependsOn: build) {
         exclude "protobuf/meta/**"
     }.each { f ->
         doLast {
-            javaexec {
+            execOps.javaexec {
                 classpath = configurations.datahub
                 mainClass = "datahub.protobuf.Proto2DataHub"
                 args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).absolutePath]

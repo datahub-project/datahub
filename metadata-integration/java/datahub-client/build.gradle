@@ -81,7 +81,7 @@ task validatePythonEnv(dependsOn: [":metadata-ingestion:installDev"]) {
         def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
         def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
 
-        def result = exec {
+        def result = execOps.exec {
             commandLine pythonExe, "-c", "import sys; print(sys.executable)"
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
@@ -229,8 +229,7 @@ task javadocJar(type: Jar) {
 
 publishing {
   publications {
-    shadow(MavenPublication) { publication ->
-      project.shadow.component(publication)
+    shadow(MavenPublication) { from components.shadow
       pom {
         name = 'Datahub Client'
         group = 'io.acryl'

@@ -260,7 +260,7 @@ def testFile = hasProperty('testFile') ? testFile : 'unknown'
 task testSingle(dependsOn: [installDevTest]) {
   doLast {
   if (testFile != 'unknown')  {
-    exec {
+    execOps.exec {
       commandLine 'bash', '-c',
         "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
@@ -389,6 +389,6 @@ clean.dependsOn(cleanPythonCache, cleanGeneratedFiles)
 idea {
   module {
     sourceDirs += file('src')
-    testSourceDirs += file('tests')
+    testSources.from(file('tests'))
   }
 }

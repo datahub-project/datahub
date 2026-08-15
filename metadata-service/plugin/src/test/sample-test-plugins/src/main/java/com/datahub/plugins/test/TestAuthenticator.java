@@ -18,7 +18,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-// java.security.AccessControlException removed in Java 21
+// java.security.AccessControlException removed in java 25
 // Now caught as RuntimeException or IOException instead
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -86,7 +86,7 @@ public class TestAuthenticator implements Authenticator {
       throw new RuntimeException(
           "Plugin is able to access system properties"); // we should not reach here
     } catch (RuntimeException e) {
-      // Java 21+: SecurityManager removed, caught as RuntimeException
+      // java 25+: SecurityManager removed, caught as RuntimeException
       log.info("Expected: Don't have permission to read system properties");
     }
   }
