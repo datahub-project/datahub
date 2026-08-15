@@ -29,31 +29,6 @@ class _AuthenticatedSession(Protocol):
     def get(self, url: str, **kwargs: object) -> requests.Response: ...
 
 
-# Bootstrap admin PAT used for lag polls. Caller TestSessionWrappers often wrap
-# restricted users whose tokens 403 MANAGE_SYSTEM_OPERATIONS. Cached here so
-# Click CliRunner env isolation cannot drop DATAHUB_GMS_TOKEN mid-wait.
-_LAG_MONITOR_TOKEN: Optional[str] = None
-
-
-def register_lag_monitor_token(token: str) -> None:
-    """Pin the admin token used to poll messaging lag endpoints."""
-    if not token:
-        raise ValueError("lag monitor token must be a non-empty string")
-    global _LAG_MONITOR_TOKEN
-    _LAG_MONITOR_TOKEN = token
-
-
-def clear_lag_monitor_token(token: Optional[str] = None) -> None:
-    """Drop the pinned lag-monitor token.
-
-    If *token* is given, only clear when it matches the currently registered
-    value so restricted-user session teardown cannot wipe the admin pin.
-    """
-    global _LAG_MONITOR_TOKEN
-    if token is None or _LAG_MONITOR_TOKEN == token:
-        _LAG_MONITOR_TOKEN = None
-
-
 def _get_gms_url() -> str:
     return env_vars.get_gms_url() or "http://localhost:8080"
 
@@ -63,12 +38,12 @@ def _get_gms_token() -> Optional[str]:
 
 
 def _lag_monitor_token() -> str:
-    token = _LAG_MONITOR_TOKEN or _get_gms_token()
+    """Bootstrap admin PAT from DATAHUB_GMS_TOKEN (set by conftest)."""
+    token = _get_gms_token()
     if not token:
         raise RuntimeError(
-            "wait_for_writes_to_sync requires a bootstrap admin token "
-            "(DATAHUB_GMS_TOKEN / register_lag_monitor_token) with access to "
-            "messaging lag endpoints."
+            "wait_for_writes_to_sync requires DATAHUB_GMS_TOKEN with access to "
+            "messaging lag endpoints (MANAGE_SYSTEM_OPERATIONS)."
         )
     return token
 
@@ -319,9 +294,8 @@ def wait_for_writes_to_sync(
             ``datahub-usage-event-consumer-job-client`` for audit-event indexing).
             Falls back to ``kafka-consumer-groups`` when the group is not exposed
             via the messaging lag API (Kafka usage-event consumer).
-        auth_session: Ignored. Lag polls always use the bootstrap admin token
-            registered via register_lag_monitor_token / DATAHUB_GMS_TOKEN.
-            Restricted-user TestSessionWrappers 403 MANAGE_SYSTEM_OPERATIONS.
+        auth_session: Ignored. Lag polls always use DATAHUB_GMS_TOKEN (bootstrap
+            admin PAT). Restricted-user sessions 403 MANAGE_SYSTEM_OPERATIONS.
         legacy_wait: If True, use the old aggregate consumer-group-lag polling.
             Defaults to False, which instead captures offset checkpoints and
             waits for the consumers to pass them -- immune to the "lag never

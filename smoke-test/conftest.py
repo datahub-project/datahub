@@ -16,7 +16,6 @@ from datahub.ingestion.graph.client import (
     DataHubGraph,
     get_default_graph,
 )
-from tests.consistency_utils import register_lag_monitor_token, wait_for_writes_to_sync
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utils import (
@@ -30,6 +29,7 @@ from tests.utils import (
     materialize_unique_dataset,
     wait_for_admin_corpuser_system_bootstrap,
     wait_for_healthcheck_util,
+    wait_for_writes_to_sync,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,15 +53,14 @@ def build_auth_session():
     prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
     if prebuilt_token:
         logger.info("Token-based auth: using DATAHUB_GMS_TOKEN (skipping login)")
-        register_lag_monitor_token(prebuilt_token)
         return TestSessionWrapper(requests.Session(), prebuilt_token=prebuilt_token)
 
     wait_for_healthcheck_util(requests)
     auth_session = TestSessionWrapper(get_frontend_session())
-    # Publish bootstrap admin token for wait_for_writes_to_sync() lag polls.
-    # The module-level register survives Click CliRunner env isolation.
+    # Lag polls always use DATAHUB_GMS_TOKEN (MANAGE_SYSTEM_OPERATIONS). Publish
+    # the bootstrap admin PAT here, before any wait_for_writes_to_sync() call.
+    # Restricted-user TestSessionWrappers must not overwrite this.
     os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
-    register_lag_monitor_token(auth_session.gms_token())
     wait_for_admin_corpuser_system_bootstrap(auth_session)
     return auth_session
 
@@ -70,7 +69,6 @@ def build_auth_session():
 def auth_session():
     auth_session = build_auth_session()
     os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
-    register_lag_monitor_token(auth_session.gms_token())
     yield auth_session
     auth_session.destroy()
 
