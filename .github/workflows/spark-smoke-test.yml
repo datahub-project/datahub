@@ -37,11 +37,17 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Set up JDK 21
+      # Compile toolchain is JDK 25 (default JAVA_HOME) — the spark test closure transitively
+      # compiles release-25 modules (e.g. metadata-service:configuration) that javac 21 can't emit.
+      # JDK 21 is also provisioned so the real-Spark test tasks fork on it (javaLauncher pinned to 21
+      # in acryl-spark-lineage/build.gradle) — Spark 3.x/Hadoop can't run on JDK 24+ (JEP 486).
+      - name: Set up JDK 25 (build) + 21 (Spark runtime)
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 21
+          java-version: |
+            21
+            25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -57,11 +63,7 @@ jobs:
         run: df -h . && docker images
       - name: Spark listener unit + real-Spark smoke tests
         run: |
-          # Spark 3.x/4.x + Hadoop don't run on JDK 24+ (JEP 486 kills Subject.getSubject). The
-          # spark-bundled module chain is all Java-17 bytecode, so compile AND test on JDK 21
-          # (the runtime OSS/customers use) by overriding the toolchain for this whole job.
-          ./gradlew -PjdkVersionDefault=21 \
-                    :metadata-integration:java:acryl-spark-lineage:test \
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:test \
                     :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest \
                     :metadata-integration:java:acryl-spark-lineage:sparkSmoke4Test \
                     :metadata-integration:java:acryl-spark-lineage:jacocoTestReport
@@ -78,8 +80,7 @@ jobs:
           verbose: true
       - name: Smoke test
         run: |
-          ./gradlew -PjdkVersionDefault=21 \
-             :metadata-integration:java:acryl-spark-lineage:integrationTest \
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:integrationTest \
              -x :datahub-web-react:yarnTest \
              -x :datahub-web-react:yarnLint \
              -x :datahub-web-react:yarnGenerate \
