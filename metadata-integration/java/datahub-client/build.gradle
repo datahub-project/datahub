@@ -150,6 +150,12 @@ shadowJar {
     exclude(dependency("org.scala-lang::"))
     exclude("org/apache/commons/logging/**")
   }
+  // Gradle-9 / com.gradleup.shadow 9: the dependency-coordinate excludes above no longer strip
+  // these classes from the merged jar (they leak unrelocated -> check_jar.sh fails). slf4j (client
+  // consumers provide their own binding) and antlr2 (pegasus buildtime only) must not ship in the
+  // shaded client jar, so also exclude by file pattern, which shadow 9 still honours.
+  exclude 'org/slf4j/**'
+  exclude 'antlr/**'
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first

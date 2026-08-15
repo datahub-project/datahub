@@ -49,7 +49,7 @@ jobs:
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
