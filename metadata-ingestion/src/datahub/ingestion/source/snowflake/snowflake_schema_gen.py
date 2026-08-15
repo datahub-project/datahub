@@ -2122,11 +2122,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Normalize empty string to None for consistency
                     table_name = table_name.upper() if table_name else None
 
-                    # Normalize column name to uppercase (Snowflake standard)
-                    col_upper = col_name.upper()
+                    # Fold the way Snowflake does rather than uppercasing blindly:
+                    # an unquoted reference folds up, a quoted one is already the
+                    # stored spelling. Uppercasing both makes "col" and "COL"
+                    # indistinguishable, so a derived column's lineage points at
+                    # whichever of the pair is found first.
+                    identifier = col_node.this
+                    if getattr(identifier, "quoted", False):
+                        resolved_name = col_name
+                    else:
+                        resolved_name = col_name.upper()
 
                     # Store as tuple (table, column)
-                    col_ref = (table_name, col_upper)
+                    col_ref = (table_name, resolved_name)
                     if col_ref not in columns:
                         columns.append(col_ref)
 

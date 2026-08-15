@@ -349,3 +349,38 @@ class TestLegacyDerivedExpressionLookup:
             col.expression = f'"{col.name}"'
 
         assert gen._semantic_column_expression(view, column, "SRC") is not None
+
+
+class TestExpressionColumnFolding:
+    """Derived-column lineage starts by parsing the expression. Uppercasing every
+    reference makes "col" and "COL" indistinguishable, so the upstream edge lands
+    on whichever of the pair is found first. Snowflake folds an unquoted
+    reference and leaves a quoted one alone; the parser has to do the same.
+    """
+
+    @pytest.mark.parametrize(
+        ("expression", "expected"),
+        [
+            # Quoted: already the stored spelling, so leave it.
+            ("\"col\" || 'x'", "col"),
+            ("\"COL\" || 'x'", "COL"),
+            ("\"MixedCol\" || 'x'", "MixedCol"),
+            # Unquoted: Snowflake folds it up, so we must too.
+            ("col || 'x'", "COL"),
+            ("MixedCol || 'x'", "MIXEDCOL"),
+        ],
+    )
+    def test_reference_folding_matches_snowflake(
+        self, expression: str, expected: str
+    ) -> None:
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+
+        assert gen._extract_columns_from_expression(expression) == [(None, expected)]
+
+    def test_a_case_only_pair_stays_two_references(self) -> None:
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+
+        assert gen._extract_columns_from_expression('"col" || "COL"') == [
+            (None, "col"),
+            (None, "COL"),
+        ]
