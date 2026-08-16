@@ -169,25 +169,45 @@ class TestRestoreCaseFoldedColumns:
     def test_sampled_temp_table_is_repaired(
         self, adapter: SnowflakeAdapter, snowflake_engine: Any
     ) -> None:
-        # The sampling path reflects a CTAS temp table, which carries case-only
-        # duplicate columns through from the source, so it needs the same repair
-        # as a directly reflected table.
+        """The sampling path reflects a CTAS temp table, which carries case-only
+        duplicates through from the source, so it needs the same repair.
+
+        Patching _use_stored_column_names out and asserting it was called proves
+        the wiring and nothing else -- with the method under test replaced by a
+        mock, the repair could be broken and this would still pass. Patch what it
+        reads instead, and check the columns that come back.
+        """
         context = ProfilingContext(
             pretty_name="db.sch.t", schema="sch", table="t", row_count=1_000_000
         )
         conn = MagicMock()
         conn.dialect = snowflake_engine.dialect
-        repaired = _folded_table(snowflake_engine, ["col", "COL", "id"])
+
+        # As reflection hands it over: the case-only pair already folded to one.
+        folded = _folded_table(snowflake_engine, ["col", "id"])
+        inspector = MagicMock()
+        inspector.get_columns.return_value = _reflected(
+            [QUOTED_LOWER, FOLDED_UPPER, "id"]
+        )
+
+        # Stand in for the reflection only. Replacing sa.Table wholesale also
+        # replaces the rebuild inside the repair, which then hands the folded
+        # table straight back and the test passes while proving nothing.
+        real_table = sa.Table
+
+        def only_the_reflection(*args: Any, **kwargs: Any) -> Any:
+            if "autoload_with" in kwargs:
+                return folded
+            return real_table(*args, **kwargs)
 
         with (
-            patch.object(sa, "Table", return_value=repaired),
-            patch.object(
-                adapter, "_use_stored_column_names", return_value=repaired
-            ) as repair,
+            patch.object(sa, "Table", side_effect=only_the_reflection),
+            patch.object(sa, "inspect", return_value=inspector),
         ):
             adapter._create_sampled_temp_table(context, conn, row_count=1_000_000)
 
-        assert repair.called
+        assert context.sql_table is not None
+        assert [str(c.name) for c in context.sql_table.columns] == ["col", "COL", "ID"]
 
     def test_falls_back_when_reinspection_fails(
         self, adapter: SnowflakeAdapter, snowflake_engine: Any

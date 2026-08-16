@@ -886,6 +886,15 @@ class PlatformAdapter(ABC):
         Subclasses that build the table themselves must call this on the result.
         Dialects that do not normalize are returned untouched — their reflected
         names are already the stored ones.
+
+        The end-to-end win is Snowflake's, because it is the source that can keep
+        both spellings in its schema. On Oracle the recovered column is profiled
+        and then its profile is dropped at emission: normalize_name folds "col"
+        and "COL" to the same path, so schemaMetadata declares one field and the
+        second profile has nothing to attach to. That costs a few queries and
+        gains nothing today; it becomes useful if the Oracle source ever stops
+        folding. Recovering the column is still right — dropping a profile is
+        recoverable, never collecting it is not.
         """
         # Declared on DefaultDialect rather than the Dialect interface, and third
         # party dialects need not set it at all.
