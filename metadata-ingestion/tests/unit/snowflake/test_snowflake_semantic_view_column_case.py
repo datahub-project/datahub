@@ -28,6 +28,10 @@ MIXED_CASE_COLUMN = "MixedCol"
 
 
 def _make_gen(report: SnowflakeV2Report, **overrides: Any) -> SnowflakeSchemaGenerator:
+    # Pinned rather than inherited: these assert exact field paths and exact report
+    # contents, so they must not follow the ambient default that the flag-on sweep
+    # flips.
+    overrides.setdefault("preserve_column_case", False)
     config = SnowflakeV2Config(
         account_id="test_account",
         username="user",
@@ -415,3 +419,93 @@ class TestExpressionColumnFolding:
             (None, "col"),
             (None, "COL"),
         ]
+
+
+class TestSemanticViewCollisionReport:
+    """The report has to fire in the case that loses a column.
+
+    A semantic view's columns are merged per case-insensitive bucket, so with
+    the flag off a case-only pair reaches schema generation as a single column.
+    Detecting on that list means the report can only ever fire when the flag is
+    on -- when both spellings survive and nothing is lost. Exactly backwards.
+    """
+
+    @staticmethod
+    def _view(*, columns: List[str], collisions: Any = None) -> SnowflakeSemanticView:
+        view = SnowflakeSemanticView(
+            name="V",
+            created=None,
+            last_altered=None,
+            comment=None,
+            view_definition=None,
+        )
+        view.columns = [
+            SnowflakeColumn(
+                name=name,
+                ordinal_position=i + 1,
+                data_type="TEXT",
+                is_nullable=True,
+                comment=None,
+                character_maximum_length=None,
+                numeric_precision=None,
+                numeric_scale=None,
+            )
+            for i, name in enumerate(columns)
+        ]
+        if collisions:
+            view.column_case_collisions = collisions
+        return view
+
+    def test_flag_off_warns_even_though_the_pair_arrives_merged(self) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_gen(report)
+
+        # One column reaches schema generation; the second spelling survives only
+        # in column_case_collisions, recorded before the merge.
+        gen._report_column_case_collisions(
+            self._view(columns=["col"], collisions={"col": {"col", "COL"}}),
+            "db.schema.v",
+        )
+
+        assert len(list(report.warnings)) == 1, (
+            "a column was dropped and nothing told the operator"
+        )
+
+    def test_flag_on_stays_quiet_because_nothing_is_lost(self) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, preserve_column_case=True)
+
+        gen._report_column_case_collisions(
+            self._view(columns=["col", "COL"], collisions={"col": {"col", "COL"}}),
+            "db.schema.v",
+        )
+
+        # Both spellings survive as distinct field paths. There is nothing for an
+        # operator to do, and one notice per such table is noise.
+        assert not list(report.warnings)
+        assert not list(report.infos)
+
+    def test_lowercasing_off_also_stays_quiet(self) -> None:
+        # The other way the paths stay distinct. Deciding on the emitted paths
+        # rather than on preserve_column_case is what gets this case right.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, convert_urns_to_lowercase=False)
+
+        gen._report_column_case_collisions(
+            self._view(columns=["col", "COL"], collisions={"col": {"col", "COL"}}),
+            "db.schema.v",
+        )
+
+        assert not list(report.warnings)
+        assert not list(report.infos)
+
+    def test_a_view_without_a_collision_reports_nothing(self) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_gen(report)
+
+        gen._report_column_case_collisions(
+            self._view(columns=["id", "amount"]), "db.schema.v"
+        )
+
+        assert not list(report.warnings)
+        assert not list(report.infos)

@@ -1708,9 +1708,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # paths, so it is still reported once preserve_column_case keeps the paths
         # distinct — the columns remain indistinguishable to any consumer that
         # matches case-insensitively.
+        stored_names: Set[str] = {col.name for col in table.columns}
+        if isinstance(table, SnowflakeSemanticView):
+            # A semantic view's columns are merged per case-insensitive bucket, so
+            # with the flag off the pair arrives here as one column and the loss is
+            # invisible -- which is the case this report exists for. The dictionary
+            # keeps the raw spellings for exactly this.
+            for spellings in table.column_case_collisions.values():
+                stored_names.update(spellings)
+
         columns_by_folded_name: Dict[str, Set[str]] = defaultdict(set)
-        for col in table.columns:
-            columns_by_folded_name[col.name.lower()].add(col.name)
+        for stored_name in stored_names:
+            columns_by_folded_name[stored_name.lower()].add(stored_name)
 
         collisions = {
             folded_name: names
@@ -1720,31 +1729,27 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if not collisions:
             return
 
-        context = f"{dataset_name}: " + "; ".join(
-            str(sorted(names)) for _, names in sorted(collisions.items())
-        )
-        # Whether they actually collapse depends on the emitted paths, not on
-        # preserve_column_case alone: convert_urns_to_lowercase=False also leaves
-        # the two spellings distinct.
-        emitted = [self.snowflake_column_identifier(col.name) for col in table.columns]
+        # Only report the case that loses data. Whether it does depends on the
+        # emitted paths, not on preserve_column_case alone: convert_urns_to_lowercase
+        # false also leaves the two spellings distinct. When they stay distinct the
+        # connector did its job and the operator has nothing to act on -- the
+        # downstream-consumer caveat belongs in the docs, not in a per-table notice.
+        emitted = [self.snowflake_column_identifier(name) for name in stored_names]
         if len(emitted) == len(set(emitted)):
-            self.structured_reporter.info(
-                title="Columns differing only by case",
-                message="These columns are kept as distinct field paths, but any "
-                "consumer that matches column names case-insensitively cannot tell "
-                "them apart.",
-                context=context,
-            )
-        else:
-            self.structured_reporter.warning(
-                title="Columns collapsed into a single field path",
-                message="Columns that differ only by case were folded to the same "
-                "field path, so only one of them survives in the schema and its "
-                "column-level lineage, tags and profile are lost. Set "
-                "`preserve_column_case: true` to keep them distinct. Note that "
-                "enabling it re-keys every column's schemaField URN.",
-                context=context,
-            )
+            return
+
+        self.structured_reporter.warning(
+            title="Columns collapsed into a single field path",
+            message="Columns that differ only by case were folded to the same "
+            "field path, so only one of them survives in the schema and its "
+            "column-level lineage, tags and profile are lost. Set "
+            "`preserve_column_case: true` to keep them distinct. Note that "
+            "enabling it re-keys every column's schemaField URN.",
+            context=f"{dataset_name}: "
+            + "; ".join(
+                ", ".join(sorted(names)) for _, names in sorted(collisions.items())
+            ),
+        )
 
     def gen_schema_metadata(
         self,

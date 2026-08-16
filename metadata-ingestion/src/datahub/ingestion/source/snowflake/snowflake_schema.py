@@ -307,6 +307,12 @@ class SnowflakeSemanticView(BaseView):
     column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
         default_factory=dict
     )
+    # Stored spellings of columns that differ only by case, folded name -> spellings.
+    # Recorded here because `columns` cannot carry it: with preserve_column_case off
+    # the pair is merged into one SnowflakeColumn before anything downstream sees it,
+    # so the one case an operator most needs told about is the one that leaves no
+    # trace. Populated in both modes, unlike column_occurrences.
+    column_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
     # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
     # Only populated when emit_semantic_model_entities is enabled (see
     # _populate_semantic_view_relationships); consumed only by the semanticModel mapper.
@@ -1932,6 +1938,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 ordinal = 1
                 for occurrences in column_collection.columns.values():
+                    # Record the raw spellings before the bucket is merged. Once
+                    # _group_occurrences_by_case has returned a single group, the
+                    # second spelling is gone and the collision is undetectable.
+                    spellings = {occurrence.name for occurrence in occurrences}
+                    if len(spellings) > 1:
+                        semantic_view.column_case_collisions[
+                            next(iter(spellings)).lower()
+                        ] = spellings
                     for grouped in self._group_occurrences_by_case(occurrences):
                         self._process_column_occurrences(
                             semantic_view, grouped, view_key[1], ordinal
