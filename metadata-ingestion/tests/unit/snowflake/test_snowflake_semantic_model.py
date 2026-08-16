@@ -524,11 +524,10 @@ def test_derived_from_preserves_case_when_lowercasing_disabled():
     # convert_urns_to_lowercase is disabled.
     mapper = _make_mapper(convert_urns_to_lowercase=False)
     semantic_view = _make_semantic_view(
-        # column_occurrences is always keyed by the uppercased column name
-        # (see SnowflakeDataDictionary._process_column_occurrences); only the
-        # occurrence's own `name` field preserves the original case.
+        # column_occurrences is keyed by the column's stored name (see
+        # SnowflakeDataDictionary._process_column_occurrences).
         column_occurrences={
-            "ORDER_COUNT": [
+            "Order_Count": [
                 _col(
                     "Order_Count",
                     "NUMBER",
@@ -536,12 +535,17 @@ def test_derived_from_preserves_case_when_lowercasing_disabled():
                     expression="COUNT(orders.order_id)",
                 )
             ],
-            "AVG_ORDER_VALUE": [
+            "Avg_Order_Value": [
                 _col(
                     "Avg_Order_Value",
                     "NUMBER",
                     SemanticViewColumnSubtype.METRIC,
-                    expression="Order_Count * 2",
+                    # Quoted, because that is the only way Snowflake can reference
+                    # a metric stored mixed-case -- an unquoted `Order_Count` folds
+                    # to ORDER_COUNT and is rejected at CREATE SEMANTIC VIEW.
+                    # SEMANTIC_METRICS.EXPRESSION returns the DDL text verbatim,
+                    # so the quotes reach the connector.
+                    expression='"Order_Count" * 2',
                 )
             ],
         },
@@ -567,6 +571,128 @@ def test_derived_from_preserves_case_when_lowercasing_disabled():
 
     relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)[0]
     assert [d.destinationUrn for d in relationships.derivedFrom] == [count_urn]
+
+
+def test_quoted_and_unquoted_refs_resolve_to_different_members_of_a_case_pair():
+    # Snowflake folds an unquoted reference up and takes a quoted one as written,
+    # so with casing preserved the two spellings select DIFFERENT metrics. This
+    # fixture is a transcript of a real semantic view -- verified on Snowflake,
+    # where `orders."Order_Count" * 2` returned 4 (COUNT * 2) and
+    # `orders.Order_Count * 3` returned 90 (SUM * 3), i.e. distinct targets.
+    # Both members of the pair are referenced; exercising only one would pass
+    # even if resolution ignored the quoting entirely.
+    mapper = _make_mapper(preserve_column_case=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "Order_Count": [
+                _col(
+                    "Order_Count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="COUNT(orders.order_id)",
+                )
+            ],
+            "ORDER_COUNT": [
+                _col(
+                    "ORDER_COUNT",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(orders.amt)",
+                )
+            ],
+            "FROM_QUOTED": [
+                _col(
+                    "FROM_QUOTED",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression='orders."Order_Count" * 2',
+                )
+            ],
+            "FROM_UNQUOTED": [
+                _col(
+                    "FROM_UNQUOTED",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="orders.Order_Count * 3",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS_TBL")},
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    def urn_of(metric_name: str) -> str:
+        return mapper.identifiers.gen_metric_urn(
+            metric_name, semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+        )
+
+    def derived_from(metric_name: str) -> List[str]:
+        rels = _aspects_for(workunits, urn_of(metric_name), MetricRelationshipsClass)
+        return [d.destinationUrn for d in rels[0].derivedFrom]
+
+    assert derived_from("FROM_QUOTED") == [urn_of("Order_Count")]
+    assert derived_from("FROM_UNQUOTED") == [urn_of("ORDER_COUNT")]
+
+
+def test_case_only_metric_pair_stays_one_metric_without_preserve_column_case():
+    # preserve_column_case off means case-only spellings are the same metric, and
+    # that must hold however convert_urns_to_lowercase is set. When both are off
+    # the two folds the mapper used to key on both reduce to identity, so the pair
+    # split into two metric entities -- one of them net-new output nobody asked for.
+    for convert_urns_to_lowercase in (True, False):
+        mapper = _make_mapper(convert_urns_to_lowercase=convert_urns_to_lowercase)
+        semantic_view = _make_semantic_view(
+            # One bucket holding both spellings, as _process_column_occurrences
+            # builds it when the bucket is not split by case.
+            column_occurrences={
+                "Rev": [
+                    _col(
+                        "Rev",
+                        "NUMBER",
+                        SemanticViewColumnSubtype.METRIC,
+                        table_name="ORDERS",
+                        expression="SUM(a)",
+                    ),
+                    _col(
+                        "REV",
+                        "NUMBER",
+                        SemanticViewColumnSubtype.METRIC,
+                        table_name="ORDERS",
+                        expression="SUM(b)",
+                    ),
+                ],
+            },
+            logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS_TBL")},
+        )
+        workunits = list(
+            mapper.gen_workunits(
+                semantic_view=semantic_view,
+                schema_name=_SCHEMA,
+                db_name=_DB,
+                fine_grained_lineages=[],
+            )
+        )
+        metric_urns = {
+            wu.metadata.entityUrn
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, MetricInfoClass)
+        }
+        assert len(metric_urns) == 1, (
+            f"convert_urns_to_lowercase={convert_urns_to_lowercase}: {metric_urns}"
+        )
 
 
 def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
@@ -723,14 +849,28 @@ def test_lineage_routing_scoped_by_table_for_shared_metric_fact_name():
     assert not returns_fgls
 
 
-def test_split_lineages_by_metric_handles_multi_downstream_without_crashing():
-    """_split_lineages_by_metric (via _downstream_field_name) assumes each
+def test_route_lineages_handles_multi_downstream_without_crashing():
+    """_route_lineages (via _downstream_field_name) assumes each
     FineGrainedLineageClass has exactly one downstream - true for every current
     producer of semantic view FGLs. If that assumption is ever violated, routing
     must fall back to the first downstream rather than crash."""
     mapper = _make_mapper()
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         "Sales_Analytics", _SCHEMA, _DB
+    )
+    # Both downstreams anchor on the model URN, but route differently: the first
+    # is a view-scoped metric (dropped silently, lineage flows via derivedFrom),
+    # the second a dimension with no logical table (dropped with a warning). So
+    # the absence of a warning is what proves the first downstream was used.
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col("total_revenue", "NUMBER", SemanticViewColumnSubtype.METRIC)
+            ],
+            "ORDER_DATE": [
+                _col("order_date", "DATE", SemanticViewColumnSubtype.DIMENSION)
+            ],
+        },
     )
 
     multi_downstream_fgl = FineGrainedLineageClass(
@@ -743,15 +883,15 @@ def test_split_lineages_by_metric_handles_multi_downstream_without_crashing():
         ],
     )
 
-    model_lineages, metric_lineages = mapper._split_lineages_by_metric(
+    by_dataset = mapper._route_lineages(
         [multi_downstream_fgl],
-        metric_names_upper={"TOTAL_REVENUE"},
-        shadowed_metric_names=set(),
+        logical_dataset_urns={},
+        model_urn=model_urn,
+        semantic_view=semantic_view,
     )
 
-    # Routed using only the first downstream (TOTAL_REVENUE), matching a metric.
-    assert model_lineages == []
-    assert metric_lineages == {"TOTAL_REVENUE": [multi_downstream_fgl]}
+    assert by_dataset == {}
+    assert not mapper.report.warnings
 
 
 def test_logical_dataset_upstream_lineage_uses_base_table_even_without_resolved_upstreams():

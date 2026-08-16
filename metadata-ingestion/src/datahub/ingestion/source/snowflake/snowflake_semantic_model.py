@@ -801,49 +801,34 @@ class SnowflakeSemanticModelMapper:
         # Deduplicate by destination URN, keeping deterministic ordering.
         edges: Dict[str, DerivedMetricInputClass] = {}
         for column in parsed.find_all(sqlglot.expressions.Column):
-            # Snowflake folds an unquoted identifier to uppercase; sqlglot does
-            # not -- it reports what was written, quoted or not. So try what
-            # Snowflake would resolve the reference to first, exactly as
-            # _extract_columns_from_expression folds, and only then what was
-            # written. Folding alone drops the edge for a metric stored
-            # mixed-case; the written form alone drops it for the unquoted
-            # reference Snowflake would have uppercased.
-            identifier = column.this
-            candidates = [column.name]
-            if not getattr(identifier, "quoted", False):
-                candidates.insert(0, column.name.upper())
-            name_keys = [
-                self.identifiers.snowflake_column_identifier(c) for c in candidates
-            ]
+            # Fold the way Snowflake resolves, exactly as
+            # _extract_columns_from_expression does: an unquoted identifier folds
+            # to uppercase, a quoted one is already the stored spelling. sqlglot
+            # does not fold -- it reports what was written plus the quoted flag --
+            # and SEMANTIC_METRICS.EXPRESSION hands back the DDL text with quotes
+            # intact, so the flag survives to here.
+            # There is exactly one spelling a reference can resolve to: verified
+            # against Snowflake, an unquoted reference to a metric stored
+            # `Order_Count` is rejected at CREATE SEMANTIC VIEW with "invalid
+            # identifier 'ORDER_COUNT'". So no second candidate to fall back to.
+            stored_name = (
+                column.name
+                if getattr(column.this, "quoted", False)
+                else column.name.upper()
+            )
+            name_key = self.identifiers.column_identity_key(stored_name)
             if column.table:
                 ref_table = column.table.upper()
-                ref = next(
-                    (
-                        found
-                        for key in name_keys
-                        if (found := table_bound_metrics.get((ref_table, key)))
-                    ),
-                    None,
-                )
+                ref = table_bound_metrics.get((ref_table, name_key))
                 if ref is None:
                     # Qualified fact/dimension column reference, not a metric.
                     continue
             else:
-                # Resolve first, then ask whether *that* spelling is ambiguous.
-                # Testing every candidate instead lets a dimension "col" block an
-                # unquoted reference from reaching a distinct metric "COL" --
-                # spellings _shadowed_metric_names deliberately keeps apart.
-                ref = None
-                for key in name_keys:
-                    found = view_scoped_metrics.get(key)
-                    if found is None:
-                        continue
-                    # Snowflake would resolve to this one; if it is both a metric
-                    # and a column of the same view, the reference is genuinely
-                    # ambiguous and gets no derivedFrom edge.
-                    if key not in shadowed_metric_names:
-                        ref = found
-                    break
+                # A name that is both a metric and a dimension/fact column of the
+                # same view is genuinely ambiguous, so it gets no edge.
+                if name_key in shadowed_metric_names:
+                    continue
+                ref = view_scoped_metrics.get(name_key)
                 if ref is None:
                     continue
                 ref_table = None
@@ -1044,9 +1029,7 @@ class SnowflakeSemanticModelMapper:
                 if occurrence.subtype != SemanticViewColumnSubtype.METRIC:
                     continue
                 key = _MetricKey(
-                    name_key=self.identifiers.snowflake_column_identifier(
-                        occurrence.name
-                    ),
+                    name_key=self.identifiers.column_identity_key(occurrence.name),
                     logical_table_upper=(
                         occurrence.table_name.upper() if occurrence.table_name else None
                     ),
@@ -1071,44 +1054,22 @@ class SnowflakeSemanticModelMapper:
                 )
         return metrics
 
-    def _split_lineages_by_metric(
-        self,
-        fine_grained_lineages: List[FineGrainedLineageClass],
-        metric_names_upper: Set[str],
-        shadowed_metric_names: Set[str],
-    ) -> Tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]:
-        # Retained for the unit test that exercises the routing heuristic in
-        # isolation; production routing goes through _route_lineages, which
-        # drops metric FGLs (no metricUpstreams) and groups the rest by their
-        # downstream schemaField's parent logical dataset.
-        model_lineages: List[FineGrainedLineageClass] = []
-        metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
-        for lineage in fine_grained_lineages:
-            downstream_field = self._downstream_field_name(lineage)
-            downstream_upper = downstream_field.upper() if downstream_field else None
-            if (
-                downstream_upper
-                and downstream_upper in metric_names_upper
-                and downstream_upper not in shadowed_metric_names
-            ):
-                metric_lineages.setdefault(downstream_upper, []).append(lineage)
-            else:
-                model_lineages.append(lineage)
-        return model_lineages, metric_lineages
-
     def _shadowed_metric_names(self, semantic_view: SnowflakeSemanticView) -> Set[str]:
         # A column name that is both a metric and a dimension/fact column of the
-        # same view is ambiguous; used by _derived_from_metrics (avoid a wrong
-        # derivedFrom edge) and _route_lineages (keep the column's own lineage on
-        # its logical dataset rather than dropping it as a metric).
-        # Folded the same way the metric indices are, so the comparison is
-        # like-for-like. Uppercasing here instead would make a dimension "col"
-        # shadow a metric "COL", which are two different things whenever casing
-        # is preserved.
+        # same view is ambiguous; used by _derived_from_metrics to avoid emitting
+        # a wrong derivedFrom edge (isLineage:true, so a wrong edge is worse than
+        # a missing one).
+        # Read from each occurrence's own name, not the bucket key: the key is
+        # only the first occurrence's spelling, which need not be the spelling
+        # the shadowing column is actually stored under.
+        # Keyed the same way the metric indices are, so the comparison is
+        # like-for-like -- with casing preserved a dimension "col" must not
+        # shadow a metric "COL", which are two different objects.
         return {
-            self.identifiers.snowflake_column_identifier(key)
-            for key, occs in semantic_view.column_occurrences.items()
-            if any(o.subtype != SemanticViewColumnSubtype.METRIC for o in occs)
+            self.identifiers.column_identity_key(occurrence.name)
+            for occurrences in semantic_view.column_occurrences.values()
+            for occurrence in occurrences
+            if occurrence.subtype != SemanticViewColumnSubtype.METRIC
         }
 
     @staticmethod

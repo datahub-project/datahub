@@ -415,6 +415,23 @@ class SnowflakeIdentifierBuilder:
             return column_name
         return self.snowflake_identifier(column_name)
 
+    def column_identity_key(self, column_name: str) -> str:
+        """Internal identity of a column/metric name. Never emitted.
+
+        Answers "are these two spellings the same object?", which is what the
+        semantic-model indices need. Distinct from snowflake_column_identifier,
+        which answers "what does this object get called in a URN".
+
+        With preserve_column_case off, case-only variants are one object, so
+        they must fold together whatever convert_urns_to_lowercase says.
+        Delegating to snowflake_column_identifier here makes the fold a no-op
+        when convert_urns_to_lowercase is also off (both reduce to identity),
+        which splits one metric into two entities and blinds the shadow check.
+        """
+        if self.identifier_config.preserve_column_case:
+            return column_name
+        return column_name.upper()
+
     def logical_dataset_field_path(self, column_name: str) -> str:
         """Field path for a column on a semantic-model logical dataset.
 
