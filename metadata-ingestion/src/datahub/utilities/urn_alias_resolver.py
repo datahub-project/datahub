@@ -21,8 +21,11 @@ _URN_FIELD = "urn"
 
 _DATASET_ENTITY_TYPE = "dataset"
 
-# Not the default table name: this shares a sqlite file with the schema cache.
-_ALIAS_TABLE = "urn_aliases"
+# A table per lookup, not the default name: these share a sqlite file with the schema
+# cache, and the two lookups key their rows differently — the index by lowercased URN,
+# the probe by exact URN. A persisted file written by one must not be read by the other.
+_ALIAS_INDEX_TABLE = "urn_aliases"
+_CASING_PROBE_TABLE = "urn_casing_probe"
 
 # Sized to the distinct upstreams a source references rather than to the catalog: a BI
 # tool names the same warehouse table across many charts, so the repeats answer from
@@ -112,20 +115,23 @@ class UrnAliasCache:
     """Stores the dataset URNs a key resolves to. The key is supplied by the caller.
 
     Backed by sqlite: a bulk load holds a whole platform's URNs for the pipeline's
-    lifetime, roughly 500 bytes per dataset on the heap.
+    lifetime, roughly 500 bytes per dataset on the heap. `tablename` keeps callers that
+    key their rows differently from reading each other's.
     """
 
-    def __init__(self, shared_connection: Optional[ConnectionWrapper] = None) -> None:
+    def __init__(
+        self, tablename: str, shared_connection: Optional[ConnectionWrapper] = None
+    ) -> None:
         # A list per key: two datasets differing only by case can both exist.
         self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(
             shared_connection=shared_connection,
-            tablename=_ALIAS_TABLE,
+            tablename=tablename,
             cache_max_size=_ALIAS_CACHE_MAX_SIZE,
         )
         # Seeded rather than zeroed: a reopened file already holds rows. Kept O(1)
         # after, since COUNT(*) scans the whole index.
         self._count = int(
-            self._urns_by_key.sql_query(f"SELECT COUNT(*) FROM {_ALIAS_TABLE}")[0][0]
+            self._urns_by_key.sql_query(f"SELECT COUNT(*) FROM {tablename}")[0][0]
         )
 
     def add(self, key: str, urn: str) -> None:
@@ -386,12 +392,15 @@ class UrnAliasResolver:
         cached: bool = True,
         shared_connection: Optional[ConnectionWrapper] = None,
     ) -> None:
-        self._cache = UrnAliasCache(shared_connection) if cached else None
+        # Read once: the lookup and the table it reads have to agree.
+        aliases_supported = self._aliases_supported()
+        tablename = _ALIAS_INDEX_TABLE if aliases_supported else _CASING_PROBE_TABLE
+        self._cache = UrnAliasCache(tablename, shared_connection) if cached else None
         # platform_instance is read only by the casing probe: the alias index keys on the
         # whole name lowercased, instance prefix included.
         self._lookup: _Lookup = (
             _AliasIndexLookup(graph, self._cache)
-            if self._aliases_supported()
+            if aliases_supported
             else _CasingProbeLookup(graph, platform_instance, self._cache)
         )
 
