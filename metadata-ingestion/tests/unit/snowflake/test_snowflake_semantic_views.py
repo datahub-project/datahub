@@ -1023,7 +1023,12 @@ def test_parse_base_tables_from_ddl_with_alias():
 
 
 def test_parse_base_tables_from_ddl_quoted_identifiers():
-    """Quoted identifiers with mixed case should be stripped of quotes."""
+    """Quoted identifiers keep their casing as the logical table name.
+
+    With no alias the logical name is the base table's own name. Verified against
+    Snowflake: `TABLES ("Db"."Sch"."MyTable")` reports SEMANTIC_TABLES.NAME as
+    'MyTable', so stripping the quotes must not also uppercase it.
+    """
     ddl = """
     CREATE SEMANTIC VIEW my_view AS
     TABLES (
@@ -1032,7 +1037,7 @@ def test_parse_base_tables_from_ddl_quoted_identifiers():
     """
     result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
     assert result == {
-        "MYTABLE": ("MyDB", "MySchema", "MyTable"),
+        "MyTable": ("MyDB", "MySchema", "MyTable"),
     }
 
 

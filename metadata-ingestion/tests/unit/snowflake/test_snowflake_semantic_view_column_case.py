@@ -1,9 +1,10 @@
 import json
-from typing import Any, Dict, List
+from typing import Any, List
 from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -22,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.schema_classes import SemanticModelPropertiesClass
 
 # Semantic-view code threads column references in uppercase so they match across
 # the view's own metadata. That is a lookup key, not an identity — these tests pin
@@ -731,54 +733,25 @@ class TestSemanticViewCollisionReport:
         assert not list(report.infos)
 
 
-class TestLogicalTableCollisionReport:
-    """Two logical tables differing only by case collapse into one dataset.
-
-    Verified against Snowflake: a semantic view can declare `"orders"` and
-    `"ORDERS"` as separate logical tables over separate base tables, and
-    SEMANTIC_METRICS reports each metric against its own one. Every consumer
-    here keys logical tables by `.upper()`, so the second overwrites the first
-    and its dataset, columns and metrics are gone with nothing said.
-
-    Predates preserve_column_case -- the same fold is on master -- so this
-    reports the loss rather than re-keying the dataset URNs to fix it.
+class TestLogicalTableStoredCasing:
+    """Logical table names are folded to uppercase on every path, for no recorded
+    reason: all five INFORMATION_SCHEMA views report the stored spelling, so
+    nothing needed normalising. The fold costs a mangled alias for every
+    mixed-case logical table, and collapses a case-only pair outright.
     """
 
-    @staticmethod
-    def _view(logical_tables: Dict[str, Any]) -> SnowflakeSemanticView:
-        view = _semantic_view(["col"])
-        view.logical_to_physical_table = logical_tables
-        return view
-
-    def test_case_only_logical_tables_are_reported(self) -> None:
-        report = SnowflakeV2Report()
-        gen = _make_gen(report)
-
-        # Both spellings were declared; only one survives the uppercase key.
-        view = self._view({"ORDERS": ("db", "sch", "orders_tbl")})
-        view.logical_table_case_collisions = {"orders": {"orders", "ORDERS"}}
-
-        gen._report_logical_table_case_collisions(view, "db.schema.v")
-
-        assert len(list(report.warnings)) == 1, (
-            "a logical table was dropped and nothing told the operator"
+    def test_ddl_parser_folds_only_unquoted_aliases(self) -> None:
+        # Snowflake folds an unquoted alias and keeps a quoted one, exactly as it
+        # does for columns. The parser tokenizes, so it can tell them apart.
+        ddl = (
+            'CREATE SEMANTIC VIEW v TABLES ("Orders" AS db.sch.o1, plain AS db.sch.o2)'
         )
 
-    def test_no_collision_stays_quiet(self) -> None:
-        report = SnowflakeV2Report()
-        gen = _make_gen(report)
+        parsed = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
 
-        gen._report_logical_table_case_collisions(
-            self._view({"ORDERS": ("db", "sch", "orders_tbl")}), "db.schema.v"
-        )
+        assert set(parsed) == {"Orders", "PLAIN"}
 
-        assert not list(report.warnings)
-
-    def test_the_live_population_path_records_both_spellings(self) -> None:
-        # Guards the half that matters: the reporter above is only useful if
-        # extraction actually captures the losing spelling. Snowflake returns one
-        # SEMANTIC_TABLES row per logical table, and the pair below is a real
-        # shape -- two logical tables over two base tables, differing only by case.
+    def test_population_keeps_both_spellings(self) -> None:
         connection = MagicMock()
         connection.query.return_value = [
             {
@@ -802,29 +775,70 @@ class TestLogicalTableCollisionReport:
 
         data_dict._populate_semantic_view_base_tables("DB", {"SCH": [view]})
 
-        assert view.logical_table_case_collisions == {"ORDERS": {"orders", "ORDERS"}}
-        # One survivor, which is the loss the warning exists to announce.
-        assert len(view.logical_to_physical_table) == 1
+        assert set(view.logical_to_physical_table) == {"orders", "ORDERS"}
 
-    def test_reported_in_legacy_dataset_mode_too(self) -> None:
-        # The fold is in logical_to_physical_table, which is populated under
-        # include_technical_schema rather than the emit flag, so legacy dataset
-        # mode hits it as well -- and there the symptom is worse: the folded key
-        # still resolves, to the surviving table, so the dropped table's columns
-        # get an upstream edge to the wrong physical table and the existing
-        # "Missing logical table mapping" warning never fires.
-        report = SnowflakeV2Report()
-        gen = _make_gen(report)
-        gen.config.semantic_views.emit_semantic_model_entities = False
-
-        view = _semantic_view(["col"])
-        view.logical_to_physical_table = {"ORDERS": ("db", "sch", "ORDERS_TBL")}
-        view.logical_table_case_collisions = {"ORDERS": {"orders", "ORDERS"}}
-
-        schema = MagicMock()
-        schema.name = "SCH"
-        list(gen._process_semantic_view(view, schema, "DB"))
-
-        assert any("logical tables" in (w.title or "") for w in report.warnings), (
-            "legacy dataset mode never reports the collapse"
+    def test_alias_carries_the_stored_casing(self) -> None:
+        mapper = SnowflakeSemanticModelMapper(
+            config=_make_gen(SnowflakeV2Report()).config,
+            report=SnowflakeV2Report(),
+            identifiers=_make_gen(SnowflakeV2Report()).identifiers,
         )
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {"Orders": ("DB", "SCH", "ORDERS_TBL")}
+
+        aliases = [
+            wu.metadata.aspect.alias
+            for wu in mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=[],
+            )
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SemanticModelPropertiesClass)
+        ]
+
+        assert aliases == ["Orders"]
+
+    @pytest.mark.parametrize(
+        ("convert_urns_to_lowercase", "expected_datasets", "expected_warnings"),
+        [
+            # The URN lowercases the name, so both spellings resolve to one
+            # dataset. Emit it once and say so, rather than writing both tables'
+            # schema, alias and lineage to it with the last one winning.
+            (True, 1, 1),
+            # Casing survives into the URN, so they are genuinely two datasets.
+            (False, 2, 0),
+        ],
+    )
+    def test_case_only_pair_emits_one_dataset_per_urn(
+        self,
+        convert_urns_to_lowercase: bool,
+        expected_datasets: int,
+        expected_warnings: int,
+    ) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, convert_urns_to_lowercase=convert_urns_to_lowercase)
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=report, identifiers=gen.identifiers
+        )
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {
+            "orders": ("DB", "SCH", "orders_tbl"),
+            "ORDERS": ("DB", "SCH", "ORDERS_TBL"),
+        }
+
+        aliases = [
+            wu.metadata.aspect.alias
+            for wu in mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=[],
+            )
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SemanticModelPropertiesClass)
+        ]
+
+        assert len(aliases) == expected_datasets
+        assert len(list(report.warnings)) == expected_warnings

@@ -1259,14 +1259,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         dataset_identifier = self.identifiers.get_dataset_identifier(
             semantic_view.name, schema_name, db_name
         )
-        # Outside the mode branch: logical_to_physical_table is populated under
-        # include_technical_schema rather than emit_semantic_model_entities, so
-        # the fold happens in legacy dataset mode too. There it is worse -- the
-        # folded key still resolves, to the surviving table, so the dropped
-        # table's columns get lineage to the wrong physical table and the
-        # "Missing logical table mapping" warning below never fires.
-        self._report_logical_table_case_collisions(semantic_view, dataset_identifier)
-
         if self.config.semantic_views.emit_semantic_model_entities:
             # This path never reaches gen_schema_metadata, so the column collision
             # check has to run here too or semantic views are silently exempt from
@@ -1697,46 +1689,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if tag_associations:
             return GlobalTagsClass(tags=tag_associations)
         return None
-
-    def _report_logical_table_case_collisions(
-        self,
-        semantic_view: SnowflakeSemanticView,
-        dataset_name: str,
-    ) -> None:
-        # Unlike columns, this is not governed by preserve_column_case: that flag
-        # decides column field paths and has no bearing on a logical table's
-        # dataset URN. Logical tables are keyed by their uppercased name whatever
-        # the settings, so the loss is the same in every configuration.
-        #
-        # Reported rather than fixed, and dropping the uppercase key alone would
-        # not fix it: the dataset URN lowercases the name under the default
-        # convert_urns_to_lowercase, so both spellings still collide there. All
-        # five INFORMATION_SCHEMA views (SEMANTIC_TABLES.NAME plus TABLE_NAME on
-        # DIMENSIONS / FACTS / METRICS / RELATIONSHIPS) do report the stored
-        # spelling, so the fold is removable -- it just has to happen together
-        # with carrying the casing into the URN.
-        collisions = {
-            folded_name: spellings
-            for folded_name, spellings in semantic_view.logical_table_case_collisions.items()
-            if len(spellings) > 1
-        }
-        if not collisions:
-            return
-
-        self.structured_reporter.warning(
-            title="Semantic view logical tables collapsed into one",
-            message="DataHub keys a semantic view's logical tables by their "
-            "uppercased name, so logical tables that differ only by case collapse "
-            "into one. With semantic model entities enabled the others' datasets, "
-            "columns and metrics are omitted; in legacy dataset mode their columns "
-            "are given column-level lineage to the surviving table's physical "
-            "table, which is the wrong upstream. This is a limitation of the "
-            "connector rather than a problem with the view: no configuration "
-            "avoids it, because the fold happens during extraction and the "
-            "dataset URN lowercases the name in any case. Renaming the tables to "
-            "differ by more than case works around it.",
-            context=f"{dataset_name}: {sorted(sorted(v) for v in collisions.values())}",
-        )
 
     def _report_column_case_collisions(
         self,
@@ -2446,7 +2398,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # differently on multiple tables. Fall back to the merged list (legacy
         # single-dataset mode, where column_occurrences is not populated).
         for occ in semantic_view.occurrences_for(column_name):
-            if occ.table_name and occ.table_name.upper() == logical_table_upper:
+            if occ.table_name and occ.table_name == logical_table_upper:
                 return occ.expression
         # Exact first, for the same reason as occurrences_for: folding straight
         # away hands back whichever of a case-only pair comes first in the list.
@@ -2528,7 +2480,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             for logical_table_name in logical_table_names:
                 # Find the physical base table for this logical table using the direct mapping
                 # from INFORMATION_SCHEMA.SEMANTIC_TABLES (more reliable than parsed DDL)
-                logical_table_upper = logical_table_name.upper()
+                logical_table_upper = logical_table_name
                 base_table_tuple = semantic_view.logical_to_physical_table.get(
                     logical_table_upper
                 )

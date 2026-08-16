@@ -230,10 +230,33 @@ class SnowflakeSemanticModelMapper:
         # Preserve declaration order so SemanticModelInfo.datasets is stable
         # across re-ingestions (dict iteration order == insertion order).
         urns: Dict[str, str] = {}
-        for logical_table_upper in semantic_view.logical_to_physical_table:
-            urns[logical_table_upper] = self.identifiers.gen_semantic_model_dataset_urn(
-                semantic_view.name, logical_table_upper, schema_name, db_name
+        claimed_by: Dict[str, str] = {}
+        for logical_table in semantic_view.logical_to_physical_table:
+            urn = self.identifiers.gen_semantic_model_dataset_urn(
+                semantic_view.name, logical_table, schema_name, db_name
             )
+            # Logical tables keep their stored casing, but the URN lowercases it
+            # under convert_urns_to_lowercase, so `"orders"` and `"ORDERS"` can
+            # still land on one dataset. Emitting both would write two tables'
+            # schema, alias and lineage to it with the last one winning -- a
+            # silent merge. Keep the first and say so instead.
+            if urn in claimed_by:
+                self.report.warning(
+                    title="Semantic view logical tables share one dataset",
+                    message="A semantic view declares logical tables that differ "
+                    "only by case. DataHub lowercases the dataset name, so they "
+                    "resolve to the same dataset and only the first is kept; the "
+                    "rest are omitted along with their columns and metrics. Set "
+                    "`convert_urns_to_lowercase: false` to keep them apart, or "
+                    "rename them to differ by more than case.",
+                    context=(
+                        f"{semantic_view.name}: {logical_table!r} collides with "
+                        f"{claimed_by[urn]!r}"
+                    ),
+                )
+                continue
+            claimed_by[urn] = logical_table
+            urns[logical_table] = urn
         return urns
 
     def _warn_unplaced_columns(
@@ -257,7 +280,7 @@ class SnowflakeSemanticModelMapper:
             if not non_metric:
                 continue
             if not any(
-                o.table_name and o.table_name.upper() in logical_dataset_urns
+                o.table_name and o.table_name in logical_dataset_urns
                 for o in non_metric
             ):
                 unplaced.add(non_metric[0].name)
@@ -279,7 +302,7 @@ class SnowflakeSemanticModelMapper:
             return None
         relationships: List[SemanticModelRelationshipClass] = []
         for relationship in semantic_view.relationships:
-            from_table_upper = relationship.from_table.upper()
+            from_table_upper = relationship.from_table
             # Snowflake does not store cardinality; it infers one-to-one when the
             # from-side join columns uniquely identify a row - i.e. they are that
             # table's COMPLETE primary key or a COMPLETE declared unique key. A
@@ -319,11 +342,11 @@ class SnowflakeSemanticModelMapper:
                         )
                         for col in relationship.from_columns
                     ],
-                    to=relationship.to_table.upper(),
+                    to=relationship.to_table,
                     toColumns=[
                         self.identifiers.logical_dataset_field_path(
                             semantic_view.dimension_name_for_join_key(
-                                col, relationship.to_table.upper()
+                                col, relationship.to_table
                             ),
                         )
                         for col in relationship.to_columns
@@ -361,7 +384,7 @@ class SnowflakeSemanticModelMapper:
                 if occ.subtype is not SemanticViewColumnSubtype.METRIC:
                     continue
                 if occ.table_name:
-                    dataset_urn = logical_dataset_urns.get(occ.table_name.upper())
+                    dataset_urn = logical_dataset_urns.get(occ.table_name)
                     if dataset_urn:
                         metric_cols_by_urn.setdefault(dataset_urn, set()).add(
                             self.identifiers.logical_dataset_field_path(occ.name)
@@ -556,7 +579,7 @@ class SnowflakeSemanticModelMapper:
                     continue
                 if not (
                     occurrence.table_name
-                    and occurrence.table_name.upper() == logical_table_upper
+                    and occurrence.table_name == logical_table_upper
                 ):
                     continue
                 # Dedupe on the path actually emitted, not on the dict key. The
@@ -608,7 +631,7 @@ class SnowflakeSemanticModelMapper:
                     continue
                 if not (
                     occurrence.table_name
-                    and occurrence.table_name.upper() == logical_table_upper
+                    and occurrence.table_name == logical_table_upper
                 ):
                     continue
                 # Same dedupe rule as _build_schema_fields, for the same reason:
@@ -955,7 +978,7 @@ class SnowflakeSemanticModelMapper:
                     for o in occurrences
                     if o.subtype != SemanticViewColumnSubtype.METRIC
                     and o.table_name
-                    and o.table_name.upper() == logical_table_upper
+                    and o.table_name == logical_table_upper
                     and o.name in semantic_view.column_tags
                 ),
                 None,

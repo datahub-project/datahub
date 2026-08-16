@@ -285,8 +285,11 @@ class TestSemanticViewEndToEndFlow:
         assert customers_id in sv.base_tables
 
         # Verify logical to physical mapping
-        assert "ORDERS" in sv.logical_to_physical_table
-        assert "CUSTOMERS" in sv.logical_to_physical_table
+        # Keyed by the spelling SEMANTIC_TABLES reported, not an uppercased form:
+        # the rest of this fixture names the same tables in the same casing, which
+        # is what Snowflake does across its metadata views.
+        assert "orders" in sv.logical_to_physical_table
+        assert "customers" in sv.logical_to_physical_table
 
         # Verify columns populated (should have merged duplicates)
         column_names = [c.name.upper() for c in sv.columns]

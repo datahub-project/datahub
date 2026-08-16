@@ -318,19 +318,6 @@ class SnowflakeSemanticView(BaseView):
     # so the one case an operator most needs told about is the one that leaves no
     # trace. Populated in both modes, unlike column_occurrences.
     column_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
-    # Stored spellings of logical tables that fold onto one name, folded name ->
-    # spellings. logical_to_physical_table is keyed by the uppercased name, so a
-    # pair like `"orders"` / `"ORDERS"` -- which Snowflake does allow, over two
-    # different base tables -- overwrites rather than collides, and the second
-    # table's dataset, columns and metrics vanish.
-    # Recorded rather than fixed. Keying by the stored name is not enough on its
-    # own: the dataset URN runs the name through snowflake_identifier, which
-    # lowercases under the default convert_urns_to_lowercase, so both spellings
-    # still land on one URN -- and both tables' aspects would then be written to
-    # it, last one winning, which is a worse failure than dropping one. A real
-    # fix needs the logical table's casing carried into the URN, i.e. the
-    # table-level counterpart of preserve_column_case.
-    logical_table_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
     # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
     # Only populated when emit_semantic_model_entities is enabled (see
     # _populate_semantic_view_relationships); consumed only by the semanticModel mapper.
@@ -356,7 +343,7 @@ class SnowflakeSemanticView(BaseView):
         for occurrence in self.occurrences_for(join_key):
             if logical_table_upper is not None and (
                 not occurrence.table_name
-                or occurrence.table_name.upper() != logical_table_upper
+                or occurrence.table_name != logical_table_upper
             ):
                 continue
             return occurrence.name
@@ -1467,11 +1454,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 if base_table_id not in semantic_view_obj.base_tables:
                     semantic_view_obj.base_tables.append(base_table_id)
 
-                # Store the logical-to-physical mapping for lineage generation
-                logical_table_upper = logical_table_name.upper()
-                semantic_view_obj.logical_table_case_collisions.setdefault(
-                    logical_table_upper, set()
-                ).add(logical_table_name)
+                # Keyed by the stored name. Every INFORMATION_SCHEMA view that
+                # names a logical table reports this same spelling, so nothing
+                # needs folding to make them match -- and folding loses a
+                # case-only pair and mangles every mixed-case alias.
+                logical_table_upper = logical_table_name
                 semantic_view_obj.logical_to_physical_table[logical_table_upper] = (
                     base_table_id.as_tuple()
                 )
@@ -1507,7 +1494,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"{logical_table_name} in {schema_name}.{view_name}",
                 )
                 if synonyms and logical_table_name:
-                    logical_table_upper = logical_table_name.upper()
+                    logical_table_upper = logical_table_name
                     if logical_table_upper not in semantic_view_obj.table_synonyms:
                         semantic_view_obj.table_synonyms[logical_table_upper] = []
                     semantic_view_obj.table_synonyms[logical_table_upper].extend(
@@ -1541,10 +1528,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             database=db, schema=schema, table=table
                         )
                         semantic_view.base_tables.append(base_table_id)
-                        # No collision recording here: _parse_base_tables_from_ddl
-                        # returns names already uppercased, so the stored spelling
-                        # is gone before this point and a pair is undetectable on
-                        # the DDL fallback path.
                         semantic_view.logical_to_physical_table[logical_alias_upper] = (
                             base_table_id.as_tuple()
                         )
@@ -1587,15 +1570,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # partially-qualified names and SQL-query logical tables (empty parts).
             if len(parts) != 3:
                 continue
-            db, schema, table = parts
-            logical_name = (alias if alias else table).upper()
+            db, schema, table = (text for text, _quoted in parts)
+            # Resolve the way Snowflake does: an unquoted alias folds up, a quoted
+            # one is already the stored spelling. Falls back to the table name
+            # when the entry has no alias, which Snowflake resolves the same way.
+            name, quoted = alias if alias else parts[-1]
+            logical_name = name if quoted else name.upper()
             result[logical_name] = (db, schema, table)
         return result
 
     @staticmethod
     def _semantic_view_table_entries(
         view_definition: str,
-    ) -> List[Tuple[Optional[str], List[str]]]:
+    ) -> List[Tuple[Optional[Tuple[str, bool]], List[Tuple[str, bool]]]]:
         """Tokenize the semantic-view DDL and return one ``(alias, name_parts)``
         pair per entry in the ``TABLES ( ... )`` clause. ``alias`` is the logical
         alias when the entry is ``alias AS <table>`` (else None); ``name_parts``
@@ -1651,11 +1638,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @staticmethod
     def _entry_alias_and_name(
         entry_tokens: List[Token],
-    ) -> Tuple[Optional[str], List[str]]:
+    ) -> Tuple[Optional[Tuple[str, bool]], List[Tuple[str, bool]]]:
         """Split one TABLES-clause entry into its optional alias and the dotted
         components of the referenced table: ``alias AS db.sch.tab`` -> (alias,
         [db, sch, tab]); ``db.sch.tab`` -> (None, [db, sch, tab])."""
-        alias: Optional[str] = None
+        alias: Optional[Tuple[str, bool]] = None
         ref_tokens = entry_tokens
         # A top-level `AS` separates the alias from the table reference.
         depth = 0
@@ -1674,17 +1661,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return alias, SnowflakeDataDictionary._leading_identifier(ref_tokens)
 
     @staticmethod
-    def _leading_identifier(tokens: List[Token]) -> List[str]:
+    def _leading_identifier(tokens: List[Token]) -> List[Tuple[str, bool]]:
         """Collect the leading ``a.b.c`` identifier from a token run, stopping at
         the first token that is not part of a dotted name (a keyword such as
-        PRIMARY KEY / COMMENT, or an opening paren for a subquery). Quoted
-        identifiers arrive already unquoted from the tokenizer."""
-        parts: List[str] = []
+        PRIMARY KEY / COMMENT, or an opening paren for a subquery).
+
+        Returns ``(text, was_quoted)`` per part. The tokenizer strips the quotes
+        but keeps the distinction in the token type, and the caller needs it:
+        Snowflake folds an unquoted identifier to uppercase and leaves a quoted
+        one alone, so dropping it here would make `"Orders"` and `Orders`
+        indistinguishable."""
+        parts: List[Tuple[str, bool]] = []
         want_identifier = True
         for token in tokens:
             if want_identifier:
                 if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):
-                    parts.append(token.text)
+                    parts.append((token.text, token.token_type == TokenType.IDENTIFIER))
                     want_identifier = False
                 else:
                     break

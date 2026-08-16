@@ -1785,16 +1785,16 @@ def test_relationship_cardinality_inferred_from_primary_key():
         relationships=[
             SnowflakeSemanticViewRelationship(
                 name="profile_to_customer",
-                from_table="profiles",
+                from_table="PROFILES",
                 from_columns=["CUSTOMER_ID"],
-                to_table="customers",
+                to_table="CUSTOMERS",
                 to_columns=["CUSTOMER_ID"],
             ),
             SnowflakeSemanticViewRelationship(
                 name="order_to_customer",
-                from_table="orders",
+                from_table="ORDERS",
                 from_columns=["CUSTOMER_ID"],
-                to_table="customers",
+                to_table="CUSTOMERS",
                 to_columns=["CUSTOMER_ID"],
             ),
         ],
@@ -1868,16 +1868,16 @@ def test_relationship_cardinality_requires_full_composite_primary_key():
         relationships=[
             SnowflakeSemanticViewRelationship(
                 name="partial_key_join",
-                from_table="lineitems",
+                from_table="LINEITEMS",
                 from_columns=["PART_KEY"],  # subset of the composite PK
-                to_table="partsupp",
+                to_table="PARTSUPP",
                 to_columns=["PART_KEY"],
             ),
             SnowflakeSemanticViewRelationship(
                 name="full_key_join",
-                from_table="lineitems",
+                from_table="LINEITEMS",
                 from_columns=["PART_KEY", "SUPP_KEY"],  # complete composite PK
-                to_table="partsupp",
+                to_table="PARTSUPP",
                 to_columns=["PART_KEY", "SUPP_KEY"],
             ),
         ],
@@ -1951,16 +1951,16 @@ def test_relationship_cardinality_from_declared_unique_key():
         relationships=[
             SnowflakeSemanticViewRelationship(
                 name="unique_key_join",
-                from_table="transactions",
+                from_table="TRANSACTIONS",
                 from_columns=["ORDER_ID", "TRANSACTION_ID"],  # the full unique key
-                to_table="orders",
+                to_table="ORDERS",
                 to_columns=["ORDER_ID", "TRANSACTION_ID"],
             ),
             SnowflakeSemanticViewRelationship(
                 name="partial_unique_key_join",
-                from_table="transactions",
+                from_table="TRANSACTIONS",
                 from_columns=["ORDER_ID"],  # subset of the unique key
-                to_table="orders",
+                to_table="ORDERS",
                 to_columns=["ORDER_ID"],
             ),
         ],
@@ -2176,9 +2176,9 @@ def test_relationships_populated_with_aliases_matching_logical_dataset_aliases()
         relationships=[
             SnowflakeSemanticViewRelationship(
                 name="orders_to_customers",
-                from_table="orders",
+                from_table="ORDERS",
                 from_columns=["customer_id"],
-                to_table="customers",
+                to_table="CUSTOMERS",
                 to_columns=["customer_id"],
             ),
         ],
@@ -2246,10 +2246,10 @@ def test_relationship_join_columns_normalized_to_match_field_paths():
         relationships=[
             SnowflakeSemanticViewRelationship(
                 name="orders_to_customers",
-                from_table="orders",
+                from_table="ORDERS",
                 # Uppercase as Snowflake returns them.
                 from_columns=["ORDER_ID"],
-                to_table="customers",
+                to_table="CUSTOMERS",
                 to_columns=["CUSTOMER_ID"],
             ),
         ],
@@ -2329,9 +2329,9 @@ def test_join_key_and_primary_key_columns_on_multiple_tables_do_not_warn():
         relationships=[
             SnowflakeSemanticViewRelationship(
                 name="orders_to_customers",
-                from_table="orders",
+                from_table="ORDERS",
                 from_columns=["order_id"],
-                to_table="customers",
+                to_table="CUSTOMERS",
                 to_columns=["order_id"],
             ),
         ],
