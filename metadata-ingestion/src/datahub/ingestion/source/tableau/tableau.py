@@ -2358,7 +2358,7 @@ class TableauSiteSource:
         Tableau reports the warehouse's own casing. What the Snowflake source
         stored depends on its `preserve_column_case` setting, so lowercasing here
         would silently sever column lineage whenever that setting is on. Match
-        case-insensitively against the ingested schema and adopt its spelling.
+        against the ingested schema and adopt its spelling.
 
         Falls back to lowercasing — the behaviour this replaces — whenever the
         schema cannot answer: no graph, dataset not ingested, the column absent
@@ -2368,6 +2368,16 @@ class TableauSiteSource:
 
         schema_info = self._ingested_schema(dataset_urn)
         if schema_info:
+            # Exact before case-insensitive. With preserve_column_case on, the
+            # schema can hold `col` and `COL` as two real columns, and folding
+            # straight away collapses them into one index entry -- attaching this
+            # column's lineage to its sibling. Tableau reports the warehouse's own
+            # spelling, so an exact hit is the column that was asked for.
+            if candidate in schema_info:
+                return candidate
+
+            # Then folded, for the far more common case: the Snowflake source
+            # lowercased its field paths, so nothing matches exactly.
             # Deliberately not match_columns_to_schema: it returns the input
             # unchanged on a miss, which here would emit warehouse casing for a
             # column the schema does not have. A miss must fall through instead.

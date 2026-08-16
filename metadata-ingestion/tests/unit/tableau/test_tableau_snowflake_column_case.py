@@ -62,6 +62,17 @@ class TestSnowflakeColumnNameMatching:
             == ingested_field_path
         )
 
+    def test_a_case_only_pair_resolves_to_the_column_asked_for(self) -> None:
+        # The schema shape preserve_column_case exists to produce: `col` and `COL`
+        # are two real columns. Folding before matching collapses them into one
+        # index entry, which silently hands a column its sibling's lineage.
+        # Both members are exercised -- asking only for the survivor of the
+        # collapse passes either way.
+        schema = {"col": "VARCHAR", "COL": "VARCHAR"}
+
+        assert _resolve(schema, "col") == "col"
+        assert _resolve(schema, "COL") == "COL"
+
     def test_spaces_become_underscores_before_matching(self) -> None:
         assert _resolve({"CUSTOMER_ID": "VARCHAR"}, "CUSTOMER ID") == "CUSTOMER_ID"
 
