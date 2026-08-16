@@ -494,11 +494,13 @@ source:
     preserve_column_case: true
 ```
 
-This option is independent of `convert_urns_to_lowercase`: you can keep dataset URNs lowercase — which you usually want, so lineage resolves against other sources — while preserving column casing. If `convert_urns_to_lowercase` is already `false`, column casing is preserved regardless and this option has no effect.
+This option is independent of `convert_urns_to_lowercase`: you can keep dataset URNs lowercase — which you usually want, so lineage resolves against other sources — while preserving column casing. If `convert_urns_to_lowercase` is already `false`, ordinary tables and views keep their column casing regardless. Semantic-model logical datasets are the exception: their field paths have always been uppercased, and only `preserve_column_case: true` stops that.
 
 Treat it as a one-way door. The value is part of every column's `schemaField` URN, so changing it after data has been ingested re-keys each column: `...,col)` becomes `...,COL)`. Column-level tags, glossary terms, documentation, and assertions that users attached in the UI point at the old URNs and are orphaned. Choose a value before your first ingestion run and leave it unchanged.
 
 If you also run the `snowflake-queries` source against the same account, set `preserve_column_case` the same way in both recipes. The two sources build field paths independently, and a mismatch means the column-level lineage from one will not resolve against the schema from the other.
+
+Sources that read Snowflake columns from elsewhere need the same consideration, because they decide the casing themselves rather than reading it back from the schema. Tableau lowercases Snowflake column names when building column-level lineage; dbt has its own `convert_column_urns_to_lowercase`, which defaults to `true` for Snowflake targets; ThoughtSpot has its own `preserve_column_case`, which defaults to lowercasing to match Snowflake's historical behaviour. With `preserve_column_case: true` here, those defaults no longer line up, and column-level lineage from those sources will point at field paths this source does not emit.
 
 Profiling handles these columns too. The SQLAlchemy driver folds reflected column names before DataHub sees them, so the profiler re-reads the column list and addresses each column by its as-stored, quoted name. With `preserve_column_case: true` every column gets its own profile, matched to its own schema field. With the option off, the pair shares one field path, so a single profile is emitted for it — mirroring the schema, where the duplicate field is dropped.
 

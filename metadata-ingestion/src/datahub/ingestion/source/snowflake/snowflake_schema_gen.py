@@ -78,7 +78,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
-    logical_dataset_field_path,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -187,9 +186,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 not isinstance(config, SnowflakeV2Config)
                 or config.include_technical_schema
             ),
-            preserve_column_case=bool(
-                isinstance(config, SnowflakeV2Config) and config.preserve_column_case
-            ),
+            # Read from the identifier config rather than repeating the isinstance
+            # dance: that is the same object the emitted field paths come from, so
+            # the dictionary's bucketing cannot disagree with them. Deriving it
+            # separately let the two drift, which is the one place they must not.
+            preserve_column_case=identifiers.identifier_config.preserve_column_case,
         )
         self.report.data_dictionary_cache = self.data_dictionary
 
@@ -1294,7 +1295,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             )
                             if lt is not None
                             else semantic_model_urn,
-                            logical_dataset_field_path(self.identifiers, col),
+                            self.identifiers.logical_dataset_field_path(col),
                         ),
                     )
                 except Exception as e:
@@ -1643,19 +1644,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         json_props: Dict[str, Any] = {}
 
-        # These maps are keyed by the column's stored name when casing is being
-        # preserved and by its uppercased form otherwise, so look up both rather
-        # than pick one and silently drop the metadata under the other keying.
-        def lookup(mapping: Dict[str, Any]) -> Any:
-            if col_name in mapping:
-                return mapping[col_name]
-            return mapping.get(col_name.upper())
-
-        subtype = lookup(column_subtypes)
+        # Both maps are keyed by the stored name, unconditionally -- see
+        # _process_column_occurrences -- and col_name is that same name.
+        subtype = column_subtypes.get(col_name)
         if subtype is not None:
             json_props["columnSubType"] = subtype
 
-        synonyms = lookup(column_synonyms)
+        synonyms = column_synonyms.get(col_name)
         if synonyms is not None:
             json_props["synonyms"] = synonyms
 

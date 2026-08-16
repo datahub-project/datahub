@@ -226,12 +226,13 @@ jobs:
               "$TEST_PATH" \
               --junit-xml="test-results/junit.${CONNECTOR}.xml"
           fi
-      # preserve_column_case is opt-in, so the suite above is a regression net for
-      # its OFF path and nothing for its ON path. This second pass flips the
-      # default and re-runs the Snowflake unit tests, which catches a test that
-      # reads an exact field path from the ambient config instead of pinning it,
-      # and a source change that only disagrees with itself when the flag is on.
-      # Seconds, because these are unit tests.
+      # A lint on the tests, not extra coverage of the source. Flipping the default
+      # and re-running catches a test that reads an exact field path from the
+      # ambient config instead of pinning it -- which passes on its own and then
+      # asserts the wrong spelling for anyone who runs with the flag on. Measured:
+      # it kills no source mutation the explicit tests do not already kill, so do
+      # not read a green leg here as the ON path being covered. The tests that
+      # cover it are the ones that set the flag themselves.
       - name: Snowflake unit tests with preserve_column_case forced on
         if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.11' }}
         env:

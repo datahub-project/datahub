@@ -328,21 +328,12 @@ class SnowflakeSemanticView(BaseView):
     ) -> str:
         """The dimension name a relationship's join key refers to.
 
-        Relationship keys name the *base table column*, while a logical dataset's
-        schema fields are named after the *dimension* defined over it, and the two
-        need not agree. Verified on a live account: a view declaring
-
-            DIMENSIONS   ( chi."fkcol" AS "FkCol" )
-            RELATIONSHIPS( rel AS chi ("FkCol") REFERENCES ... )
-
-        reports dimension name ``fkcol`` but foreign_keys ``["FkCol"]``. Emitting
-        the join key as-is would anchor the relationship on a field path the
-        logical dataset does not declare.
-
-        Matching is case-insensitive and scoped to the logical table, which covers
-        the casing divergence above. A dimension renamed outright (``chi."DimName"
-        AS "FkCol"``) is not resolvable this way and falls through unchanged --
-        the same as before this method existed.
+        A join key names the base table column; a logical dataset's fields are
+        named after the dimension over it. Snowflake reports the two with
+        different casing -- `DIMENSIONS(chi."fkcol" AS "FkCol")` gives dimension
+        `fkcol` and foreign_keys `["FkCol"]` -- so the key as-is can anchor on a
+        path the dataset never declares. A dimension renamed outright is not
+        resolvable this way and falls through unchanged.
         """
         for occurrence in self.occurrences_for(join_key):
             if logical_table_upper is not None and (
@@ -356,15 +347,13 @@ class SnowflakeSemanticView(BaseView):
     def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
         """Occurrences for a column reference, matched case-insensitively.
 
-        Entries are keyed by stored name, but lineage threads references around
-        uppercased and unquoted DDL folds them, so a caller may hold either
-        spelling. An
-        uppercase reference legitimately matches both members of a case-only
-        pair; callers that must pick one scope by logical table.
+        Entries are keyed by stored name, but callers may hold either spelling --
+        Snowflake reports the same column differently across its metadata views,
+        and unquoted DDL folds references up.
         """
-        # Deliberately no exact-match fast path: with a case-only pair, an exact
-        # hit on one key would hide its sibling, and the caller scoping by logical
-        # table would then be handed the wrong column.
+        # No exact-match fast path: with a case-only pair, an exact hit on one key
+        # would hide its sibling, and the caller -- which disambiguates by logical
+        # table, not by spelling -- would be handed the wrong column.
         target = column_name.upper()
         matched: List["SemanticViewColumnMetadata"] = []
         for key, occurrences in self.column_occurrences.items():

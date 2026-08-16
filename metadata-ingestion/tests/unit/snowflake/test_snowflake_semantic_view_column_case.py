@@ -241,9 +241,9 @@ class TestColumnExistenceCheck:
 
 
 class TestSemanticViewJsonProps:
-    """Subtype and synonym maps are keyed by the column's stored name when casing
-    is preserved and by its uppercased form otherwise, so the lookup tries both.
-    Picking one keying would silently drop the metadata under the other.
+    """Subtype and synonym maps are keyed by the column's stored name, in both
+    flag states -- see _process_column_occurrences, which sets column_key from
+    occurrences[0].name unconditionally. The lookup uses that same name.
     """
 
     @staticmethod
@@ -259,17 +259,49 @@ class TestSemanticViewJsonProps:
             {MIXED_CASE_COLUMN: ["alias_one"]},
         ) == {"columnSubType": "DIMENSION", "synonyms": ["alias_one"]}
 
-    def test_uppercased_key_still_resolves(self) -> None:
-        # What the default path produces: the maps arrive uppercased while the
-        # column keeps its stored spelling.
-        assert self._props(
-            MIXED_CASE_COLUMN,
-            {MIXED_CASE_COLUMN.upper(): "METRIC"},
-            {MIXED_CASE_COLUMN.upper(): ["alias_two"]},
-        ) == {"columnSubType": "METRIC", "synonyms": ["alias_two"]}
-
-    def test_absent_under_either_keying_yields_nothing(self) -> None:
+    def test_a_column_the_maps_do_not_mention_yields_nothing(self) -> None:
         assert self._props(MIXED_CASE_COLUMN, {"OTHER": "FACT"}, {}) is None
+
+
+class TestLogicalDatasetFieldPath:
+    """The one field path in the connector that is not the stored name.
+
+    Semantic-model logical datasets are built by the mapper rather than
+    gen_schema_metadata, and it has always uppercased their paths. That has to
+    stay true by default or every one of those schemaField URNs re-keys; it has
+    to stop being true when preserve_column_case is on, or the mapper's paths
+    disagree with the lineage anchored on them. Deleting the branch satisfied the
+    whole suite before this test existed.
+    """
+
+    @staticmethod
+    def _path(column_name: str, **overrides: Any) -> str:
+        overrides.setdefault("preserve_column_case", False)
+        config = SnowflakeV2Config(
+            account_id="a",
+            username="u",
+            password="p",  # type: ignore[arg-type]
+            **overrides,
+        )
+        identifiers = SnowflakeIdentifierBuilder(config, SnowflakeV2Report())
+        return identifiers.logical_dataset_field_path(column_name)
+
+    def test_default_uppercases_then_folds_as_before(self) -> None:
+        # Uppercased first, then lowercased by convert_urns_to_lowercase -- the
+        # historical path, and why the default output is byte-identical.
+        assert self._path(MIXED_CASE_COLUMN) == MIXED_CASE_COLUMN.lower()
+
+    def test_preserving_keeps_the_stored_spelling(self) -> None:
+        assert self._path(MIXED_CASE_COLUMN, preserve_column_case=True) == (
+            MIXED_CASE_COLUMN
+        )
+
+    def test_without_lowercasing_the_default_still_uppercases(self) -> None:
+        # The combination the docs get wrong: with both off, this path is not the
+        # stored name. It is the uppercased one.
+        assert self._path(MIXED_CASE_COLUMN, convert_urns_to_lowercase=False) == (
+            MIXED_CASE_COLUMN.upper()
+        )
 
 
 class TestDerivedColumnsKeepTheirSpelling:

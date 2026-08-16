@@ -26,7 +26,6 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeIdentifierBuilder,
-    logical_dataset_field_path,
 )
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -320,8 +319,7 @@ class SnowflakeSemanticModelMapper:
                     # over it, and the two can differ in casing. Resolve to the
                     # dimension name first, then apply the field-path rule.
                     fromColumns=[
-                        logical_dataset_field_path(
-                            self.identifiers,
+                        self.identifiers.logical_dataset_field_path(
                             semantic_view.dimension_name_for_join_key(
                                 col, from_table_upper
                             ),
@@ -330,8 +328,7 @@ class SnowflakeSemanticModelMapper:
                     ],
                     to=relationship.to_table.upper(),
                     toColumns=[
-                        logical_dataset_field_path(
-                            self.identifiers,
+                        self.identifiers.logical_dataset_field_path(
                             semantic_view.dimension_name_for_join_key(
                                 col, relationship.to_table.upper()
                             ),
@@ -570,8 +567,8 @@ class SnowflakeSemanticModelMapper:
                 # decision made in _group_occurrences_by_case, far from here.
                 # Keying the dedupe on the emitted value makes that irrelevant:
                 # one field path, one field, however the bucketing changes.
-                field_path = logical_dataset_field_path(
-                    self.identifiers, occurrence.name
+                field_path = self.identifiers.logical_dataset_field_path(
+                    occurrence.name
                 )
                 if field_path in seen_field_paths:
                     continue
@@ -619,8 +616,8 @@ class SnowflakeSemanticModelMapper:
                 # Same dedupe rule as _build_schema_fields, for the same reason:
                 # two annotations on one field URN is what a folded pair produces
                 # if the key is trusted instead of the emitted path.
-                field_path = logical_dataset_field_path(
-                    self.identifiers, occurrence.name
+                field_path = self.identifiers.logical_dataset_field_path(
+                    occurrence.name
                 )
                 if field_path in seen_field_paths:
                     continue
@@ -952,7 +949,7 @@ class SnowflakeSemanticModelMapper:
                 continue
             field_urn = SchemaFieldUrn(
                 logical_dataset_urn,
-                logical_dataset_field_path(self.identifiers, occurrence.name),
+                self.identifiers.logical_dataset_field_path(occurrence.name),
             ).urn()
             yield from add_structured_properties_to_entity_wu(
                 field_urn,

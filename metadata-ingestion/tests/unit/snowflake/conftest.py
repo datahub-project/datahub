@@ -1,4 +1,5 @@
 import os
+from typing import Iterator
 
 import pytest
 
@@ -38,8 +39,9 @@ _CONFIG_MODELS = (
 
 
 @pytest.fixture(autouse=True, scope="session")
-def _preserve_column_case_sweep() -> None:
+def _preserve_column_case_sweep() -> Iterator[None]:
     if os.environ.get(PRESERVE_COLUMN_CASE_SWEEP) != "1":
+        yield
         return
 
     for model in _CONFIG_MODELS:
@@ -48,4 +50,13 @@ def _preserve_column_case_sweep() -> None:
         # no-op for that class without anyone noticing.
         assert field is not None, f"{model.__name__} no longer carries the flag"
         field.default = True
+        model.model_rebuild(force=True)
+
+    yield
+
+    # These are class-level defaults, so without this the flip leaks into every
+    # Snowflake config built for the rest of the session -- including tests outside
+    # this directory, when someone runs a wider selection with the env var set.
+    for model in _CONFIG_MODELS:
+        model.model_fields["preserve_column_case"].default = False
         model.model_rebuild(force=True)

@@ -415,6 +415,19 @@ class SnowflakeIdentifierBuilder:
             return column_name
         return self.snowflake_identifier(column_name)
 
+    def logical_dataset_field_path(self, column_name: str) -> str:
+        """Field path for a column on a semantic-model logical dataset.
+
+        These datasets are built by the semantic-model mapper rather than
+        gen_schema_metadata, and it has always uppercased their field paths.
+        Emitting the stored name unconditionally would re-key every one of those
+        URNs for deployments running with convert_urns_to_lowercase off, so the
+        stored name is used only when preserve_column_case asks for it.
+        """
+        if not self.identifier_config.preserve_column_case:
+            column_name = column_name.upper()
+        return self.snowflake_column_identifier(column_name)
+
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
@@ -574,27 +587,6 @@ class SnowflakeIdentifierBuilder:
             platform_instance=self.identifier_config.platform_instance,
             env=self.identifier_config.env,
         )
-
-
-def logical_dataset_field_path(
-    identifiers: "SnowflakeIdentifierBuilder", column_name: str
-) -> str:
-    """Field path for a column on a semantic-model logical dataset.
-
-    Everywhere else the column's stored name is emitted directly: Snowflake's
-    semantic-view metadata returns stored names, verified against both
-    SEMANTIC_DIMENSIONS and SEMANTIC_RELATIONSHIPS, so no resolution is needed.
-
-    These datasets are the exception. They are built by the semantic-model
-    mapper rather than ``gen_schema_metadata``, and it has always uppercased
-    their field paths. Emitting the stored name unconditionally would re-key
-    every one of those URNs for deployments running with
-    ``convert_urns_to_lowercase`` off, so the stored name is used only when
-    ``preserve_column_case`` asks for it.
-    """
-    if identifiers.identifier_config.preserve_column_case:
-        return identifiers.snowflake_column_identifier(column_name)
-    return identifiers.snowflake_column_identifier(column_name.upper())
 
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
