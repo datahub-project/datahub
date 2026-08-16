@@ -192,7 +192,8 @@ def test_provider_skips_the_urn_index_when_no_consumer_needs_it(mock_test_connec
 
     resolver = _load(graph)
 
-    assert resolver.urn_aliases.cached_urn_count() == 0
+    assert resolver.urn_aliases.find_match(_FAKE_URN_UPPERCASED) == []
+    assert resolver.urn_aliases.find_match(_SCHEMALESS_URN_UPPERCASED) == []
     # Schemas are loaded either way.
     assert resolver.schema_count() == 1
 

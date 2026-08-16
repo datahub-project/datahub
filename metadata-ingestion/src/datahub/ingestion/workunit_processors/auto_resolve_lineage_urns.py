@@ -432,9 +432,12 @@ class AutoResolveLineageUrnsProcessor(
                 continue
             # The resolver caches are held for the pipeline's lifetime; log their size,
             # escalating to WARNING once large enough to matter.
-            # Counted from the alias index, not get_urns(): the latter is derived from the
-            # schema cache and would omit every entity that has no schemaMetadata.
-            cache_count = sum(r.urn_aliases.cached_urn_count() for r in resolvers)
+            # Read from the load rather than the stores: get_urns() is derived from the
+            # schema cache and omits schemaless entities, and the alias index is keyed per
+            # name, so a casing collision would count once for two datasets.
+            cache_count = sum(
+                r.report.num_urns_loaded for r in resolvers if r.report is not None
+            )
             message = (
                 f"Loaded {cache_count} '{platform}' dataset URNs for lineage casing "
                 f"reconciliation."

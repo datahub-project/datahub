@@ -128,18 +128,12 @@ class UrnAliasCache:
             tablename=tablename,
             cache_max_size=_ALIAS_CACHE_MAX_SIZE,
         )
-        # Seeded rather than zeroed: a reopened file already holds rows. Kept O(1)
-        # after, since COUNT(*) scans the whole index.
-        self._count = int(
-            self._urns_by_key.sql_query(f"SELECT COUNT(*) FROM {tablename}")[0][0]
-        )
 
     def add(self, key: str, urn: str) -> None:
         """Add `urn` under `key`, keeping any URNs already there."""
         entry = self._urns_by_key.get(key)
         if entry is None:
             self._urns_by_key[key] = [urn]
-            self._count += 1
             return
         if urn in entry:
             return
@@ -154,13 +148,7 @@ class UrnAliasCache:
 
     def replace(self, key: str, urns: List[str]) -> None:
         """Make `urns` the complete set stored under `key`; `[]` records known absent."""
-        if self._urns_by_key.get(key) is None:
-            self._count += 1
         self._urns_by_key[key] = list(dict.fromkeys(urns))
-
-    def count(self) -> int:
-        """Keys held — near enough the dataset count, since casing collisions are rare."""
-        return self._count
 
     def close(self) -> None:
         self._urns_by_key.close()
@@ -181,9 +169,6 @@ class _Lookup(Protocol):
 
     def matches(self, urn: str) -> List[str]:
         """Stored URNs matching `urn` ignoring case."""
-
-    def count(self) -> int:
-        """How many stored URNs are recorded."""
 
 
 class _AliasIndexLookup:
@@ -276,9 +261,6 @@ class _AliasIndexLookup:
                 matches_by_key[key].append(stored_urn)
         return matches_by_key
 
-    def count(self) -> int:
-        return self._cache.count() if self._cache is not None else 0
-
 
 class _CasingProbeLookup:
     """Matches by guessing casings and checking whether each exact URN exists.
@@ -369,9 +351,6 @@ class _CasingProbeLookup:
         # "exists". Not schemaMetadata: a schemaless dataset is exactly what this must find.
         return set(entities)
 
-    def count(self) -> int:
-        return self._cache.count() if self._cache is not None else 0
-
 
 class UrnAliasResolver:
     """Resolves a dataset URN to the dataset URNs DataHub stores for it, ignoring case.
@@ -434,9 +413,6 @@ class UrnAliasResolver:
         if prefer_lowercased:
             return next((m for m in matches if _has_lowercased_name(m)), None)
         return None
-
-    def cached_urn_count(self) -> int:
-        return self._lookup.count()
 
     def close(self) -> None:
         # Safe on a shared connection: the dict flushes and leaves closing to its owner.

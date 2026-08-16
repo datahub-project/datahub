@@ -42,7 +42,6 @@ def test_cache_records_the_same_urn_once() -> None:
     cache.add(_LOWER, _MIXED)
 
     assert cache.get(_LOWER) == [_MIXED]
-    assert cache.count() == 1
 
 
 def test_cache_reopened_on_the_same_file_keeps_what_it_held(
@@ -58,8 +57,6 @@ def test_cache_reopened_on_the_same_file_keeps_what_it_held(
     cache = UrnAliasCache(_TABLE, reopened)
 
     assert cache.get(_LOWER) == [_MIXED]
-    # Seeded from the table, not zeroed.
-    assert cache.count() == 1
     reopened.close()
 
 
@@ -75,7 +72,6 @@ def test_caches_on_different_tables_do_not_see_each_other(
         index.add(_LOWER, _UPPER)
 
         assert probe.get(_LOWER) is None
-        assert probe.count() == 0
 
 
 def test_cache_does_not_hand_out_its_stored_list() -> None:
@@ -118,14 +114,6 @@ def test_lookup_flattens_unknown_and_absent_to_empty() -> None:
 
     # Callers get one "no match" answer and never have to interpret None.
     assert resolver.find_match(_OTHER) == []
-
-
-def test_cached_urn_count_is_the_number_of_names_recorded() -> None:
-    # Per name, not per URN: _LOWER and _UPPER are two casings of one, and the repeat
-    # adds nothing.
-    resolver = _loaded(_LOWER, _UPPER, _LOWER, _OTHER)
-
-    assert resolver.cached_urn_count() == 2
 
 
 def test_resolve_returns_the_stored_urn_for_a_different_casing() -> None:
@@ -306,7 +294,6 @@ def test_cacheless_queries_per_reference_and_retains_nothing() -> None:
 
     # The point of the mode: nothing is held, so a repeated reference is paid for again.
     assert graph.get_urns_by_filter.call_count == 2
-    assert resolver.cached_urn_count() == 0
 
 
 def test_cacheless_add_does_not_accumulate() -> None:
@@ -315,7 +302,6 @@ def test_cacheless_add_does_not_accumulate() -> None:
 
     resolver.add(_LOWER)
 
-    assert resolver.cached_urn_count() == 0
     # A bulk load has nowhere to land, so the reference is still resolved by querying.
     assert resolver.resolve(_UPPER) == _LOWER
     graph.get_urns_by_filter.assert_called_once()
@@ -478,7 +464,6 @@ def test_cacheless_casing_probe_resolves_and_retains_nothing() -> None:
         assert resolver.resolve(_UPPER) == _LOWER
 
     assert graph.get_entities.call_count == 2
-    assert resolver.cached_urn_count() == 0
 
 
 def test_cacheless_casing_probe_ignores_a_non_dataset_reference() -> None:
