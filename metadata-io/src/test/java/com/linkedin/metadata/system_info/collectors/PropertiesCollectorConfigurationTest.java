@@ -189,10 +189,27 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.maintenance.*",
           "postgres.pgQueue.retention.*",
           "postgres.pgQueue.producer.*",
-          // Named pgTimeseries stores/routing from DATAHUB_PGTIMESERIES_CONFIG_FILE
+          // Named pgTimeseries stores/routing from DATAHUB_PGTIMESERIES_CONFIG_FILE.
+          // Do not use stores.*.*.* or stores.*.pool.*: those also match pool.password.
           "postgres.pgTimeseries.stores.*",
-          "postgres.pgTimeseries.stores.*.*",
-          "postgres.pgTimeseries.stores.*.*.*",
+          "postgres.pgTimeseries.stores.*.schema",
+          "postgres.pgTimeseries.stores.*.tablePrefix",
+          "postgres.pgTimeseries.stores.*.partitioning",
+          "postgres.pgTimeseries.stores.*.partitioning.*",
+          "postgres.pgTimeseries.stores.*.retention",
+          "postgres.pgTimeseries.stores.*.retention.*",
+          "postgres.pgTimeseries.stores.*.maintenance",
+          "postgres.pgTimeseries.stores.*.maintenance.*",
+          "postgres.pgTimeseries.stores.*.pool",
+          "postgres.pgTimeseries.stores.*.pool.url",
+          "postgres.pgTimeseries.stores.*.pool.driver",
+          "postgres.pgTimeseries.stores.*.pool.username",
+          "postgres.pgTimeseries.stores.*.pool.minConnections",
+          "postgres.pgTimeseries.stores.*.pool.maxConnections",
+          "postgres.pgTimeseries.stores.*.pool.maxInactiveTimeSeconds",
+          "postgres.pgTimeseries.stores.*.pool.maxAgeMinutes",
+          "postgres.pgTimeseries.stores.*.pool.leakTimeMinutes",
+          "postgres.pgTimeseries.stores.*.pool.waitTimeoutMillis",
           "postgres.pgTimeseries.routing.*",
           "postgres.pgTimeseries.routing.*.*",
           "datahub.gms.rateLimits.capacity.rules[*].*",
@@ -1405,6 +1422,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
   /** Check if a property key matches any of the non-sensitive templates */
   private boolean matchesNonSensitiveTemplate(String key) {
+    if (SENSITIVE_PROPERTIES.contains(key) || matchesSensitiveTemplate(key)) {
+      return false;
+    }
     return NON_SENSITIVE_PROPERTY_TEMPLATES.stream()
         .anyMatch(template -> key.matches(templateToRegex(template)));
   }
@@ -1592,10 +1612,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
             .matches(regex2)); // Too few segments
 
     assertTrue(matchesSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.password"));
+    assertFalse(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.password"));
     assertFalse(matchesSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.url"));
     assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long"));
     assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.tablePrefix"));
     assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.url"));
+    assertTrue(
+        matchesNonSensitiveTemplate(
+            "postgres.pgTimeseries.stores.long.partitioning.partmanPremake"));
     assertTrue(
         matchesNonSensitiveTemplate("postgres.pgTimeseries.routing.[dataset.datasetprofile]"));
 
