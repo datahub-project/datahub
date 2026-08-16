@@ -211,8 +211,10 @@ def _restored_paths(profiler_field_paths: List[str], **overrides: object) -> Lis
     )
     emitted = profiler._to_emitted_field_paths(
         [DatasetFieldProfileClass(fieldPath=path) for path in profiler_field_paths],
+        # Neither is consulted once a transform is supplied -- that is the point
+        # of injecting it.
         MagicMock(),
-        None,
+        MagicMock(),
     )
     return [field.fieldPath for field in emitted]
 
