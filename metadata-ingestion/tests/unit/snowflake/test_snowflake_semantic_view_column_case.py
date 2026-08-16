@@ -10,6 +10,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewColumnMetadata,
     SnowflakeColumn,
+    SnowflakeDataDictionary,
     SnowflakeSemanticView,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
@@ -778,10 +779,6 @@ class TestLogicalTableCollisionReport:
         # extraction actually captures the losing spelling. Snowflake returns one
         # SEMANTIC_TABLES row per logical table, and the pair below is a real
         # shape -- two logical tables over two base tables, differing only by case.
-        from datahub.ingestion.source.snowflake.snowflake_schema import (
-            SnowflakeDataDictionary,
-        )
-
         connection = MagicMock()
         connection.query.return_value = [
             {
@@ -808,3 +805,26 @@ class TestLogicalTableCollisionReport:
         assert view.logical_table_case_collisions == {"ORDERS": {"orders", "ORDERS"}}
         # One survivor, which is the loss the warning exists to announce.
         assert len(view.logical_to_physical_table) == 1
+
+    def test_reported_in_legacy_dataset_mode_too(self) -> None:
+        # The fold is in logical_to_physical_table, which is populated under
+        # include_technical_schema rather than the emit flag, so legacy dataset
+        # mode hits it as well -- and there the symptom is worse: the folded key
+        # still resolves, to the surviving table, so the dropped table's columns
+        # get an upstream edge to the wrong physical table and the existing
+        # "Missing logical table mapping" warning never fires.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report)
+        gen.config.semantic_views.emit_semantic_model_entities = False
+
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {"ORDERS": ("db", "sch", "ORDERS_TBL")}
+        view.logical_table_case_collisions = {"ORDERS": {"orders", "ORDERS"}}
+
+        schema = MagicMock()
+        schema.name = "SCH"
+        list(gen._process_semantic_view(view, schema, "DB"))
+
+        assert any("logical tables" in (w.title or "") for w in report.warnings), (
+            "legacy dataset mode never reports the collapse"
+        )

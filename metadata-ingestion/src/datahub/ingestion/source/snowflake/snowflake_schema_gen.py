@@ -1256,16 +1256,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 semantic_view.tags = None
 
+        dataset_identifier = self.identifiers.get_dataset_identifier(
+            semantic_view.name, schema_name, db_name
+        )
+        # Outside the mode branch: logical_to_physical_table is populated under
+        # include_technical_schema rather than emit_semantic_model_entities, so
+        # the fold happens in legacy dataset mode too. There it is worse -- the
+        # folded key still resolves, to the surviving table, so the dropped
+        # table's columns get lineage to the wrong physical table and the
+        # "Missing logical table mapping" warning below never fires.
+        self._report_logical_table_case_collisions(semantic_view, dataset_identifier)
+
         if self.config.semantic_views.emit_semantic_model_entities:
-            # This path never reaches gen_schema_metadata, so the collision check
-            # has to run here too or semantic views are silently exempt from it.
-            dataset_identifier = self.identifiers.get_dataset_identifier(
-                semantic_view.name, schema_name, db_name
-            )
+            # This path never reaches gen_schema_metadata, so the column collision
+            # check has to run here too or semantic views are silently exempt from
+            # it. Legacy mode gets it via gen_schema_metadata instead.
             self._report_column_case_collisions(semantic_view, dataset_identifier)
-            self._report_logical_table_case_collisions(
-                semantic_view, dataset_identifier
-            )
 
             # Tag entities referenced by the semantic view / its columns. In legacy
             # dataset mode these are emitted by gen_dataset_workunits instead.
@@ -1718,11 +1724,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return
 
         self.structured_reporter.warning(
-            title="Semantic view logical tables collapsed into one dataset",
+            title="Semantic view logical tables collapsed into one",
             message="A semantic view declares logical tables that differ only by "
-            "case. They are keyed by their uppercased name, so only one survives: "
-            "the others' datasets, columns and metrics are omitted. Rename them to "
-            "differ by more than case on the Snowflake side.",
+            "case. They are keyed by their uppercased name, so only one survives. "
+            "With semantic model entities enabled the others' datasets, columns "
+            "and metrics are omitted; in legacy dataset mode their columns are "
+            "instead given column-level lineage to the surviving table's physical "
+            "table, which is the wrong upstream. Rename them to differ by more "
+            "than case on the Snowflake side.",
             context=f"{dataset_name}: {sorted(sorted(v) for v in collisions.values())}",
         )
 
