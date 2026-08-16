@@ -72,7 +72,7 @@ def test_5xx_retries_until_timeout(lag_env, monkeypatch):
 
 
 def test_lag_zero_returns(lag_env, monkeypatch):
-    empty_lag = {"consumerGroups": {}}
+    empty_lag: dict = {"consumerGroups": {}}
     monkeypatch.setattr(
         "tests.consistency_utils.requests.get",
         lambda *args, **kwargs: _json_response(200, empty_lag),
