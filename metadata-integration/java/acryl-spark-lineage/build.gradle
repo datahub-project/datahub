@@ -407,6 +407,18 @@ ext.sparkSmokeJavaLauncher = javaToolchains.launcherFor {
   languageVersion = JavaLanguageVersion.of(21)
 }
 
+// The root build applies the Java-17 bytecode target (ext.javaClassVersionOverride) via
+// options.release to compileJava ONLY — never to the test source sets, so test classes otherwise
+// inherit the build toolchain (JDK 25 -> class-file v69). The real-Spark smoke suites FORK on JDK 21
+// (sparkSmokeJavaLauncher above), and a JDK-21 runtime (v65) cannot load v69 classes. Pin the test
+// and sparkSmoke4 compiles to the same <=17 bytecode so the JDK-21 launcher can run them.
+compileTestJava {
+  options.release = javaClassVersion(project)
+}
+compileSparkSmoke4Java {
+  options.release = javaClassVersion(project)
+}
+
 test {
   forkEvery = 1
   // Keep the default unit-test run fast and Docker-free: the real-Spark smoke test is tagged
