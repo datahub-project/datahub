@@ -10,6 +10,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -22,12 +24,21 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class TimeseriesFilterSqlBuilderTest {
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
+
+  private AspectSpec usageAspect() {
+    return opContext
+        .getEntityRegistry()
+        .getEntitySpec("dataset")
+        .getAspectSpec("datasetUsageStatistics");
+  }
 
   @Test
   public void stripKeywordSuffix_removesTrailingKeyword() {
@@ -251,6 +262,114 @@ public class TimeseriesFilterSqlBuilderTest {
     assertTrue(built.getParams().get(0) instanceof java.time.OffsetDateTime);
     assertEquals(
         ((java.time.OffsetDateTime) built.getParams().get(0)).toInstant().toEpochMilli(), 100L);
+  }
+
+  @Test
+  public void buildDocumentFilter_timeseriesNumericEqual_castsBigint() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("uniqueUserCount", Condition.EQUAL, "10")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter,
+            true,
+            Collections.emptyMap(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            usageAspect());
+
+    assertTrue(built.getExpression().contains(")::bigint = ?"));
+    assertEquals(built.getParams(), List.of(10L));
+  }
+
+  @Test
+  public void buildDocumentFilter_timeseriesNumericRange_castsBigint() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("uniqueUserCount", Condition.GREATER_THAN, "9")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter,
+            true,
+            Collections.emptyMap(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            usageAspect());
+
+    assertTrue(built.getExpression().contains(")::bigint > ?"));
+    assertEquals(built.getParams(), List.of(9L));
+  }
+
+  @Test
+  public void buildDocumentFilter_collectionNumericRange_usesTimeseriesFieldSpec() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("userCounts.count", Condition.GREATER_THAN_OR_EQUAL_TO, "5")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter,
+            true,
+            Collections.emptyMap(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            usageAspect());
+
+    assertTrue(built.getExpression().contains(")::bigint >= ?"));
+    assertEquals(built.getParams().get(built.getParams().size() - 1), 5L);
+  }
+
+  @Test
+  public void buildDocumentFilter_collectionKeyEqual_staysText() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("fieldCounts.fieldPath", Condition.EQUAL, "col_a")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter,
+            true,
+            Collections.emptyMap(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            usageAspect());
+
+    assertTrue(!built.getExpression().contains("::bigint"));
+    assertTrue(built.getParams().contains("col_a"));
+  }
+
+  @Test
+  public void buildDocumentFilter_numericRangeWithoutAspectSpec_fallsBackToText() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("userCounts.count", Condition.GREATER_THAN, "10")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains(")::text > ?"));
+    assertEquals(built.getParams().get(built.getParams().size() - 1), "10");
+  }
+
+  @Test
+  public void buildDocumentFilter_searchableCountFallback_whenNoTimeseriesSpec() {
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(
+            List.of(buildCriterion("rowCount", Condition.GREATER_THAN, "100")));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter,
+            true,
+            Map.of("rowCount", Set.of(SearchableAnnotation.FieldType.COUNT)),
+            opContext,
+            QueryFilterRewriteChain.EMPTY);
+
+    assertTrue(built.getExpression().contains(")::bigint > ?"));
+    assertEquals(built.getParams(), List.of(100L));
   }
 
   @Test

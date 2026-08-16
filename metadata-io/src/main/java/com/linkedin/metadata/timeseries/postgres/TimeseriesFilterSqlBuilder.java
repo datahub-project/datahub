@@ -7,8 +7,12 @@ import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.RELATED_INCL;
 
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
+import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -61,7 +65,24 @@ public final class TimeseriesFilterSqlBuilder {
       boolean isTimeseries,
       @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
-      @SuppressWarnings("unused") @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildDocumentFilter(
+        filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain, null);
+  }
+
+  /**
+   * @param aspectSpec timeseries aspect whose {@link TimeseriesFieldSpec} types drive JDBC casts
+   *     for usage/profile numerics. Entity {@code searchableFieldTypes} miss collection members
+   *     such as {@code userCounts.count}.
+   */
+  @Nonnull
+  public static BuiltSql buildDocumentFilter(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @SuppressWarnings("unused") @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable AspectSpec aspectSpec) {
 
     if (filter == null) {
       return new BuiltSql("TRUE", Collections.emptyList());
@@ -71,7 +92,8 @@ public final class TimeseriesFilterSqlBuilder {
 
     List<Object> params = new ArrayList<>();
     String expr =
-        buildTopLevelFilter(filter, isTimeseries, searchableFieldTypes, opContext, params);
+        buildTopLevelFilter(
+            filter, isTimeseries, searchableFieldTypes, opContext, params, aspectSpec);
 
     if (Boolean.TRUE.equals(
         opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
@@ -90,14 +112,16 @@ public final class TimeseriesFilterSqlBuilder {
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       OperationContext opContext,
-      List<Object> params) {
+      List<Object> params,
+      @Nullable AspectSpec aspectSpec) {
 
     if (filter.getOr() != null && !filter.getOr().isEmpty()) {
       List<String> disjuncts = new ArrayList<>();
       for (ConjunctiveCriterion cc : filter.getOr()) {
         disjuncts.add(
             "("
-                + buildConjunctive(cc, isTimeseries, searchableFieldTypes, opContext, params)
+                + buildConjunctive(
+                    cc, isTimeseries, searchableFieldTypes, opContext, params, aspectSpec)
                 + ")");
       }
       return String.join(" OR ", disjuncts);
@@ -112,7 +136,7 @@ public final class TimeseriesFilterSqlBuilder {
           parts.add(
               "("
                   + buildCriterionSql(
-                      c, isTimeseries, searchableFieldTypes, opContext, params, false)
+                      c, isTimeseries, searchableFieldTypes, opContext, params, false, aspectSpec)
                   + ")");
         }
       }
@@ -127,13 +151,15 @@ public final class TimeseriesFilterSqlBuilder {
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       OperationContext opContext,
-      List<Object> params) {
+      List<Object> params,
+      @Nullable AspectSpec aspectSpec) {
     List<String> parts = new ArrayList<>();
     for (Criterion c : cc.getAnd()) {
       if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(c.getCondition()) || c.hasValues()) {
         // Pass alreadyNegated=false; buildCriterionSql reads criterion.isNegated().
         String inner =
-            buildCriterionSql(c, isTimeseries, searchableFieldTypes, opContext, params, false);
+            buildCriterionSql(
+                c, isTimeseries, searchableFieldTypes, opContext, params, false, aspectSpec);
         parts.add("(" + inner + ")");
       }
     }
@@ -146,7 +172,8 @@ public final class TimeseriesFilterSqlBuilder {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       OperationContext opContext,
       List<Object> params,
-      boolean alreadyNegated) {
+      boolean alreadyNegated,
+      @Nullable AspectSpec aspectSpec) {
     return buildCriterionSql(
         criterion,
         isTimeseries,
@@ -154,7 +181,8 @@ public final class TimeseriesFilterSqlBuilder {
         opContext,
         params,
         alreadyNegated,
-        /* expandFields= */ true);
+        /* expandFields= */ true,
+        aspectSpec);
   }
 
   private static String buildCriterionSql(
@@ -164,7 +192,8 @@ public final class TimeseriesFilterSqlBuilder {
       OperationContext opContext,
       List<Object> params,
       boolean alreadyNegated,
-      boolean expandFields) {
+      boolean expandFields,
+      @Nullable AspectSpec aspectSpec) {
 
     boolean negated = criterion.isNegated() ^ alreadyNegated;
     String expandKey =
@@ -193,7 +222,8 @@ public final class TimeseriesFilterSqlBuilder {
                 opContext,
                 params,
                 /* alreadyNegated= */ false,
-                /* expandFields= */ false));
+                /* expandFields= */ false,
+                aspectSpec));
       }
       String combined =
           String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()));
@@ -244,7 +274,8 @@ public final class TimeseriesFilterSqlBuilder {
               searchableFieldTypes,
               opContext,
               params,
-              condition == Condition.IEQUAL);
+              condition == Condition.IEQUAL,
+              aspectSpec);
     } else if (ESUtils.RANGE_QUERY_CONDITIONS.contains(condition)) {
       core =
           buildRange(
@@ -254,7 +285,8 @@ public final class TimeseriesFilterSqlBuilder {
               isTimeseries,
               searchableFieldTypes,
               opContext,
-              params);
+              params,
+              aspectSpec);
     } else if (condition == Condition.CONTAIN) {
       core = buildLike(fieldName, criterion, params, "%", "%");
     } else if (condition == Condition.START_WITH) {
@@ -373,13 +405,19 @@ public final class TimeseriesFilterSqlBuilder {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       OperationContext opContext,
       List<Object> params,
-      boolean caseInsensitive) {
+      boolean caseInsensitive,
+      @Nullable AspectSpec aspectSpec) {
 
     List<String> values = criterion.getValues();
 
     Set<String> elasticTypes =
         resolveElasticFieldTypes(
-            opContext, fieldName, criterion, searchableFieldTypes, opContext.getAspectRetriever());
+            opContext,
+            fieldName,
+            criterion,
+            searchableFieldTypes,
+            opContext.getAspectRetriever(),
+            aspectSpec);
 
     List<String> ors = new ArrayList<>();
     for (String raw : values) {
@@ -392,11 +430,10 @@ public final class TimeseriesFilterSqlBuilder {
         // Cast jsonb text extraction — same as range — so JDBC typed params bind cleanly.
         ors.add("(" + jsonTextPathExprWithParams(fieldName, params) + ")::boolean = ?");
         params.add(Boolean.parseBoolean(v));
-      } else if (elasticTypes.contains(ESUtils.LONG_FIELD_TYPE)
-          || elasticTypes.contains(ESUtils.DATE_FIELD_TYPE)) {
+      } else if (isIntegralElasticType(elasticTypes)) {
         ors.add("(" + jsonTextPathExprWithParams(fieldName, params) + ")::bigint = ?");
         params.add(Long.parseLong(v));
-      } else if (elasticTypes.contains(ESUtils.DOUBLE_FIELD_TYPE)) {
+      } else if (isFloatingElasticType(elasticTypes)) {
         ors.add("(" + jsonTextPathExprWithParams(fieldName, params) + ")::double precision = ?");
         params.add(Double.parseDouble(v));
       } else if (caseInsensitive) {
@@ -422,29 +459,31 @@ public final class TimeseriesFilterSqlBuilder {
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       OperationContext opContext,
-      List<Object> params) {
+      List<Object> params,
+      @Nullable AspectSpec aspectSpec) {
 
     String v0 = criterion.getValues().get(0).trim();
     Set<String> elasticTypes =
         resolveElasticFieldTypes(
-            opContext, fieldName, criterion, searchableFieldTypes, opContext.getAspectRetriever());
+            opContext,
+            fieldName,
+            criterion,
+            searchableFieldTypes,
+            opContext.getAspectRetriever(),
+            aspectSpec);
     String path = jsonTextPathExprWithParams(fieldName, params);
     String cast =
-        elasticTypes.contains(ESUtils.DOUBLE_FIELD_TYPE)
+        isFloatingElasticType(elasticTypes)
             ? "double precision"
-            : elasticTypes.contains(ESUtils.LONG_FIELD_TYPE)
-                    || elasticTypes.contains(ESUtils.DATE_FIELD_TYPE)
+            : isIntegralElasticType(elasticTypes)
                 ? "bigint"
                 : elasticTypes.contains(ESUtils.BOOLEAN_FIELD_TYPE) ? "boolean" : "text";
 
     String castExpr = "(" + path + ")::" + cast;
     params.add(
-        elasticTypes.contains(ESUtils.DOUBLE_FIELD_TYPE)
+        isFloatingElasticType(elasticTypes)
             ? Double.parseDouble(v0)
-            : elasticTypes.contains(ESUtils.LONG_FIELD_TYPE)
-                    || elasticTypes.contains(ESUtils.DATE_FIELD_TYPE)
-                ? Long.parseLong(v0)
-                : v0);
+            : isIntegralElasticType(elasticTypes) ? Long.parseLong(v0) : v0);
 
     String op;
     switch (condition) {
@@ -493,7 +532,12 @@ public final class TimeseriesFilterSqlBuilder {
       String fieldName,
       Criterion criterion,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
-      AspectRetriever aspectRetriever) {
+      AspectRetriever aspectRetriever,
+      @Nullable AspectSpec aspectSpec) {
+    Set<String> timeseriesTypes = elasticTypesFromTimeseriesSpec(aspectSpec, fieldName);
+    if (!timeseriesTypes.isEmpty()) {
+      return timeseriesTypes;
+    }
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
       finalFieldTypes =
@@ -506,5 +550,70 @@ public final class TimeseriesFilterSqlBuilder {
           fieldTypes.stream().map(ESUtils::getElasticTypeForFieldType).collect(Collectors.toSet());
     }
     return finalFieldTypes;
+  }
+
+  /**
+   * Canonical ES types for a timeseries document field. Collection members ({@code
+   * userCounts.count}) are looked up on {@link TimeseriesFieldCollectionSpec}, not entity {@code
+   * searchableFieldTypes}.
+   */
+  @Nonnull
+  static Set<String> elasticTypesFromTimeseriesSpec(
+      @Nullable AspectSpec aspectSpec, @Nonnull String fieldName) {
+    TimeseriesFieldAnnotation.FieldType ft = timeseriesAnnotationFieldType(aspectSpec, fieldName);
+    if (ft == null) {
+      return Collections.emptySet();
+    }
+    switch (ft) {
+      case INT:
+      case LONG:
+        return Set.of(ESUtils.LONG_FIELD_TYPE);
+      case FLOAT:
+      case DOUBLE:
+        return Set.of(ESUtils.DOUBLE_FIELD_TYPE);
+      case DATETIME:
+        return Set.of(ESUtils.DATE_FIELD_TYPE);
+      case KEYWORD:
+      default:
+        return Set.of(ESUtils.KEYWORD_FIELD_TYPE);
+    }
+  }
+
+  @Nullable
+  static TimeseriesFieldAnnotation.FieldType timeseriesAnnotationFieldType(
+      @Nullable AspectSpec aspectSpec, @Nonnull String fieldName) {
+    if (aspectSpec == null) {
+      return null;
+    }
+    String[] parts = fieldName.split("\\.");
+    if (parts.length == 1) {
+      TimeseriesFieldSpec ts = aspectSpec.getTimeseriesFieldSpecMap().get(parts[0]);
+      return ts == null ? null : ts.getTimeseriesFieldAnnotation().getFieldType();
+    }
+    if (parts.length == 2) {
+      TimeseriesFieldCollectionSpec coll =
+          aspectSpec.getTimeseriesFieldCollectionSpecMap().get(parts[0]);
+      if (coll == null) {
+        return null;
+      }
+      if (coll.getTimeseriesFieldCollectionAnnotation().getKey().equals(parts[1])) {
+        return TimeseriesFieldAnnotation.FieldType.KEYWORD;
+      }
+      TimeseriesFieldSpec inner = coll.getTimeseriesFieldSpecMap().get(parts[1]);
+      return inner == null ? null : inner.getTimeseriesFieldAnnotation().getFieldType();
+    }
+    return null;
+  }
+
+  static boolean isIntegralElasticType(@Nonnull Set<String> elasticTypes) {
+    return elasticTypes.contains(ESUtils.LONG_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.DATE_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.INTEGER_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.SHORT_FIELD_TYPE);
+  }
+
+  static boolean isFloatingElasticType(@Nonnull Set<String> elasticTypes) {
+    return elasticTypes.contains(ESUtils.DOUBLE_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.FLOAT_FIELD_TYPE);
   }
 }

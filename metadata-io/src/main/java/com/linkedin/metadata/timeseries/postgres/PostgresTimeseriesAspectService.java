@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -100,6 +101,22 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     return store(entityName, aspectName).getDatabase();
   }
 
+  @Nonnull
+  private TimeseriesFilterSqlBuilder.BuiltSql documentFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Filter filter) {
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
+    return TimeseriesFilterSqlBuilder.buildDocumentFilter(
+        filter,
+        true,
+        entitySpec.getSearchableFieldTypes(),
+        opContext,
+        queryFilterRewriteChain,
+        entitySpec.getAspectSpec(aspectName));
+  }
+
   @Override
   public long countByFilter(
       @Nonnull OperationContext opContext,
@@ -107,12 +124,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull String aspectName,
       @Nullable Filter filter) {
     TimeseriesFilterSqlBuilder.BuiltSql built =
-        TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            filter,
-            true,
-            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext,
-            queryFilterRewriteChain);
+        documentFilter(opContext, entityName, aspectName, filter);
     String sql =
         "SELECT COUNT(*) FROM "
             + qualifiedTable(entityName, aspectName)
@@ -151,12 +163,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable SortCriterion sort) {
 
     TimeseriesFilterSqlBuilder.BuiltSql built =
-        TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            filter,
-            true,
-            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext,
-            queryFilterRewriteChain);
+        documentFilter(opContext, entityName, aspectName, filter);
 
     List<Object> params = new ArrayList<>();
     StringBuilder where = new StringBuilder();
@@ -182,7 +189,8 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         sort != null
             ? orderByClause(
                 sort,
-                opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes())
+                opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
+                opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(aspectName))
             : "event_time DESC, message_id DESC";
 
     int lim = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, limit);
@@ -214,13 +222,14 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   private static String orderByClause(
       SortCriterion sort,
       Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
-          searchableFieldTypes) {
+          searchableFieldTypes,
+      @Nullable AspectSpec aspectSpec) {
     String f = TimeseriesPgJsonPaths.stripKeywordSuffix(sort.getField());
     if (MappingsBuilder.TIMESTAMP_MILLIS_FIELD.equals(f) || "@timestamp".equals(f)) {
       return "event_time " + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC");
     }
     String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f);
-    String cast = orderByCastSuffix(f, searchableFieldTypes);
+    String cast = orderByCastSuffix(f, searchableFieldTypes, aspectSpec);
     return "("
         + path
         + ")"
@@ -234,21 +243,27 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull String fieldName,
       @Nullable
           Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
-              searchableFieldTypes) {
-    if (searchableFieldTypes == null || searchableFieldTypes.isEmpty()) {
+              searchableFieldTypes,
+      @Nullable AspectSpec aspectSpec) {
+    Set<String> timeseriesTypes =
+        TimeseriesFilterSqlBuilder.elasticTypesFromTimeseriesSpec(aspectSpec, fieldName);
+    Set<String> elasticTypes;
+    if (!timeseriesTypes.isEmpty()) {
+      elasticTypes = timeseriesTypes;
+    } else if (searchableFieldTypes == null || searchableFieldTypes.isEmpty()) {
       return "";
+    } else {
+      Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType> fieldTypes =
+          searchableFieldTypes.getOrDefault(fieldName.split("\\.")[0], Set.of());
+      elasticTypes =
+          fieldTypes.stream()
+              .map(com.linkedin.metadata.search.utils.ESUtils::getElasticTypeForFieldType)
+              .collect(java.util.stream.Collectors.toSet());
     }
-    Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType> fieldTypes =
-        searchableFieldTypes.getOrDefault(fieldName.split("\\.")[0], Set.of());
-    Set<String> elasticTypes =
-        fieldTypes.stream()
-            .map(com.linkedin.metadata.search.utils.ESUtils::getElasticTypeForFieldType)
-            .collect(java.util.stream.Collectors.toSet());
-    if (elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE)) {
+    if (TimeseriesFilterSqlBuilder.isFloatingElasticType(elasticTypes)) {
       return "::double precision";
     }
-    if (elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE)
-        || elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE)) {
+    if (TimeseriesFilterSqlBuilder.isIntegralElasticType(elasticTypes)) {
       return "::bigint";
     }
     if (elasticTypes.contains(com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE)) {
@@ -299,12 +314,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable GroupingBucket[] groupingBuckets) {
 
     TimeseriesFilterSqlBuilder.BuiltSql built =
-        TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            filter,
-            true,
-            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext,
-            queryFilterRewriteChain);
+        documentFilter(opContext, entityName, aspectName, filter);
     AspectSpec aspectSpec =
         opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(aspectName);
     try (Connection c = database(entityName, aspectName).dataSource().getConnection()) {
@@ -347,12 +357,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       long timeoutSeconds) {
 
     TimeseriesFilterSqlBuilder.BuiltSql built =
-        TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            filter,
-            true,
-            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext,
-            queryFilterRewriteChain);
+        documentFilter(opContext, entityName, aspectName, filter);
     List<Object> baseParams = new ArrayList<>();
     baseParams.add(entityName);
     baseParams.add(aspectName);
@@ -601,17 +606,13 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable Long endTimeMillis) {
 
     TimeseriesFilterSqlBuilder.BuiltSql built =
-        TimeseriesFilterSqlBuilder.buildDocumentFilter(
-            filter,
-            true,
-            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext,
-            queryFilterRewriteChain);
+        documentFilter(opContext, entityName, aspectName, filter);
 
     List<SortKey> sortKeys =
         resolveSortKeys(
             sortCriteria,
-            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes());
+            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
+            opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(aspectName));
     List<Object> cursorValues = ScrollCursor.decode(scrollId, sortKeys);
     int lim = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, count);
 
@@ -790,7 +791,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   /** Resolves scroll sort keys; always ends with {@code message_id} for stable paging. */
   @Nonnull
   static List<SortKey> resolveSortKeys(@Nonnull List<SortCriterion> sortCriteria) {
-    return resolveSortKeys(sortCriteria, null);
+    return resolveSortKeys(sortCriteria, null, null);
   }
 
   @Nonnull
@@ -799,6 +800,16 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable
           Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
               searchableFieldTypes) {
+    return resolveSortKeys(sortCriteria, searchableFieldTypes, null);
+  }
+
+  @Nonnull
+  static List<SortKey> resolveSortKeys(
+      @Nonnull List<SortCriterion> sortCriteria,
+      @Nullable
+          Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
+              searchableFieldTypes,
+      @Nullable AspectSpec aspectSpec) {
     List<SortKey> keys = new ArrayList<>();
     if (sortCriteria.isEmpty()) {
       keys.add(new SortKey("event_time", false, SortValueKind.EVENT_TIME));
@@ -806,7 +817,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       return keys;
     }
     for (SortCriterion sc : sortCriteria) {
-      keys.add(SortKey.fromCriterion(sc, searchableFieldTypes));
+      keys.add(SortKey.fromCriterion(sc, searchableFieldTypes, aspectSpec));
     }
     boolean hasMessageId = keys.stream().anyMatch(k -> k.valueKind() == SortValueKind.MESSAGE_ID);
     if (!hasMessageId) {
@@ -914,7 +925,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     }
 
     static SortKey fromCriterion(SortCriterion sc) {
-      return fromCriterion(sc, null);
+      return fromCriterion(sc, null, null);
     }
 
     static SortKey fromCriterion(
@@ -922,6 +933,15 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         @Nullable
             Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
                 searchableFieldTypes) {
+      return fromCriterion(sc, searchableFieldTypes, null);
+    }
+
+    static SortKey fromCriterion(
+        SortCriterion sc,
+        @Nullable
+            Map<String, Set<com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType>>
+                searchableFieldTypes,
+        @Nullable AspectSpec aspectSpec) {
       String f = TimeseriesPgJsonPaths.stripKeywordSuffix(sc.getField());
       boolean ascending = sc.getOrder() == SortOrder.ASCENDING;
       if (MappingsBuilder.TIMESTAMP_MILLIS_FIELD.equals(f)
@@ -932,7 +952,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         return new SortKey("message_id", ascending, SortValueKind.MESSAGE_ID);
       }
       String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f);
-      String cast = orderByCastSuffix(f, searchableFieldTypes);
+      String cast = orderByCastSuffix(f, searchableFieldTypes, aspectSpec);
       return new SortKey("(" + path + ")" + cast, ascending, SortValueKind.DOCUMENT_TEXT);
     }
   }
