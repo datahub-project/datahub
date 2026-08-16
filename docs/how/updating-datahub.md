@@ -69,6 +69,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(GMS / Authorization)** New platform privilege `VIEW_SYSTEM_STATUS` grants read access to non-sensitive system status: messaging consumer lag, messaging transport, and registered consumers. It does **not** include system information (`/openapi/v1/system-info` and related endpoints), full system configuration, raw index access, throttle/rate-limit controls, or other operational mutations. `MANAGE_SYSTEM_OPERATIONS` remains a superset. The privilege is **not** on the default Admin or root boot policies; grant it explicitly (for example to a smoke/release-test PAT).
+
 - **(Security / Dependencies)** Logback (`logback-classic` / `logback-core`) bumped from 1.5.32 to **1.5.38** for CVE-2026-9828 (`HardenedObjectInputStream` overly broad `java.lang`/`java.util` deserialization allowlist; fixed in 1.5.33+) and CVE-2026-10532 (Proxy class deserialization; fixed in 1.5.38). **Action:** none for operators; rebuild/redeploy picks up the new JARs. DataHub does not expose Logback `SimpleSocketServer` / `SimpleSSLSocketServer` by default.
 
 - **(Security / Dependencies)** Apache Log4j API/Core bumped from 2.25.4 to **2.25.5** for CVE-2026-49844 (`MapMessage.asJson()` emitting non-RFC-8259 tokens for NaN/Infinity). **Action:** none for operators; rebuild/redeploy picks up the new JARs.
