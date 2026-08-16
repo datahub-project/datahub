@@ -314,6 +314,27 @@ def test_custom_column(cache_max_size: int, use_sqlite_on_conflict: bool) -> Non
     ]
 
 
+def test_reopening_a_persisted_file_with_extra_columns(tmp_path: pathlib.Path) -> None:
+    filename = tmp_path / "persisted.db"
+    with ConnectionWrapper(filename=filename) as connection:
+        cache = FileBackedDict[Pair](
+            shared_connection=connection,
+            tablename="cache",
+            extra_columns={"x": lambda m: m.x},
+        )
+        cache["a"] = Pair(3, "a")
+
+    # The indexes are already in the file; recreating them unguarded would raise.
+    with ConnectionWrapper(filename=filename) as connection:
+        reopened = FileBackedDict[Pair](
+            shared_connection=connection,
+            tablename="cache",
+            extra_columns={"x": lambda m: m.x},
+        )
+
+        assert reopened["a"] == Pair(3, "a")
+
+
 @pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
 def test_shared_connection(use_sqlite_on_conflict: bool) -> None:
     with ConnectionWrapper() as connection:
