@@ -20,7 +20,11 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import MetricInfoClass, MetricRelationshipsClass
+from datahub.metadata.schema_classes import (
+    MetricInfoClass,
+    MetricRelationshipsClass,
+    SemanticModelPropertiesClass,
+)
 
 _TABLE = "T"
 _DB = "DB"
@@ -336,4 +340,119 @@ def test_a_derived_metric_points_at_the_metric_it_names(
         assert edges[0] in want, (
             f"preserve={preserve} convert={convert}: reference to {target!r} "
             f"pointed at {edges[0]}, expected one of {sorted(want)}"
+        )
+
+
+# Logical tables are the other name space in a semantic view, and the one the
+# column properties above never vary. Generated collision-prone for the same
+# reason: `"orders"` and `"ORDERS"` are two legal logical tables over two
+# different base tables, and folding them is what silently merged them.
+_logical_tables = st.lists(
+    st.tuples(st.sampled_from(_BASES), st.sampled_from(range(len(_CASINGS)))),
+    min_size=1,
+    max_size=4,
+).map(lambda pairs: sorted({_CASINGS[i](base) for base, i in pairs}))
+
+_SHARED_METRIC = "total"
+
+
+def _view_with_logical_tables(logical_tables: List[str]) -> SnowflakeSemanticView:
+    view = SnowflakeSemanticView(
+        name="V", created=None, last_altered=None, comment=None, view_definition=""
+    )
+    view.logical_to_physical_table = {
+        table: (_DB, _SCHEMA, f"{table}_TBL") for table in logical_tables
+    }
+    # The same metric name on every logical table, so a fold that merges the
+    # tables also merges their metrics -- visible as a count.
+    view.column_occurrences = {table: [_metric_on(table)] for table in logical_tables}
+    return view
+
+
+def _metric_on(table: str) -> SemanticViewColumnMetadata:
+    return SemanticViewColumnMetadata(
+        name=_SHARED_METRIC,
+        data_type="NUMBER",
+        comment=None,
+        subtype=SemanticViewColumnSubtype.METRIC,
+        table_name=table,
+        synonyms=[],
+        expression="COUNT(1)",
+    )
+
+
+@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(logical_tables=_logical_tables)
+def test_one_logical_dataset_per_distinct_urn(logical_tables: List[str]) -> None:
+    """Logical datasets correspond one-to-one with the URNs they resolve to.
+
+    Fewer means two tables silently merged; more is impossible. Two tables that
+    differ only by case resolve to one URN while lowercasing is on, and that is a
+    collapse the connector has to make once and report, not emit twice.
+    """
+    view = _view_with_logical_tables(logical_tables)
+
+    for preserve, convert in _CELLS:
+        mapper = _mapper(
+            preserve_column_case=preserve, convert_urns_to_lowercase=convert
+        )
+        expected = {
+            mapper.identifiers.gen_semantic_model_dataset_urn(
+                view.name, table, _SCHEMA, _DB
+            )
+            for table in logical_tables
+        }
+
+        emitted = [
+            urn
+            for urn, _ in _aspects(
+                _workunits(mapper, view), SemanticModelPropertiesClass
+            )
+        ]
+
+        # Counted, not just compared as a set: emitting one dataset twice is the
+        # failure this exists to catch, and two sets would look identical.
+        assert sorted(emitted) == sorted(expected), (
+            f"preserve={preserve} convert={convert}: {logical_tables} -> {emitted}"
+        )
+
+
+@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(logical_tables=_logical_tables)
+def test_every_metric_belongs_to_a_logical_table_that_exists(
+    logical_tables: List[str],
+) -> None:
+    """A metric is only emitted for a logical table that got a dataset.
+
+    A table dropped because its URN was already claimed must take its metrics with
+    it, or they reference a semantic model that never lists their dataset. And two
+    tables that do get separate datasets must get separate metrics, even when the
+    metric name is identical -- folding the table collapsed those into one.
+    """
+    view = _view_with_logical_tables(logical_tables)
+
+    for preserve, convert in _CELLS:
+        mapper = _mapper(
+            preserve_column_case=preserve, convert_urns_to_lowercase=convert
+        )
+        workunits = _workunits(mapper, view)
+
+        retained = {urn for urn, _ in _aspects(workunits, SemanticModelPropertiesClass)}
+        expected = {
+            mapper.identifiers.gen_metric_urn(
+                _SHARED_METRIC, view.name, _SCHEMA, _DB, logical_table=table
+            )
+            for table in logical_tables
+            if mapper.identifiers.gen_semantic_model_dataset_urn(
+                view.name, table, _SCHEMA, _DB
+            )
+            in retained
+        }
+
+        metrics = [urn for urn, _ in _aspects(workunits, MetricInfoClass)]
+
+        # Counted for the same reason: a metric belonging to a discarded logical
+        # table lands on the surviving table's URN, so a set hides it entirely.
+        assert sorted(metrics) == sorted(expected), (
+            f"preserve={preserve} convert={convert}: {logical_tables} -> {metrics}"
         )
