@@ -245,29 +245,22 @@ class SnowflakeSemanticModelMapper:
         # in logical_to_physical_table can't be re-homed onto a logical dataset,
         # so it (and its semanticFieldAnnotation) is silently dropped. Surface
         # that to operators so the column isn't lost without a trace.
-        placed: Set[str] = set()
-        # Both sides of the difference below use the dict key, so the comparison
-        # holds whatever the key's casing is.
-        for column_key, occurrences in semantic_view.column_occurrences.items():
-            for occurrence in occurrences:
-                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
-                    continue
-                if (
-                    occurrence.table_name
-                    and occurrence.table_name.upper() in logical_dataset_urns
-                ):
-                    placed.add(column_key)
-        unplaced = set(semantic_view.column_occurrences.keys()) - placed
-        # Columns that are only metrics (no non-metric occurrence) are not
-        # "unplaced" — they're emitted as metric entities, not fields.
-        unplaced = {
-            col
-            for col in unplaced
-            if any(
-                o.subtype != SemanticViewColumnSubtype.METRIC
-                for o in semantic_view.column_occurrences[col]
-            )
-        }
+        # Judged per group, off the occurrences' own names rather than the dict
+        # key, so a group filed under any other label reports identically.
+        unplaced: Set[str] = set()
+        for occurrences in semantic_view.column_occurrences.values():
+            non_metric = [
+                o for o in occurrences if o.subtype != SemanticViewColumnSubtype.METRIC
+            ]
+            # A group that is only metrics is not "unplaced" -- it is emitted as
+            # metric entities, not as fields.
+            if not non_metric:
+                continue
+            if not any(
+                o.table_name and o.table_name.upper() in logical_dataset_urns
+                for o in non_metric
+            ):
+                unplaced.add(non_metric[0].name)
         if unplaced:
             self.report.warning(
                 title="Semantic view columns without a logical table",

@@ -300,10 +300,15 @@ class SnowflakeSemanticView(BaseView):
     )
     # Pre-computed upstream dataset URNs for column lineage generation
     resolved_upstream_urns: List[str] = field(default_factory=list)
-    # Raw per-logical-table column occurrences (uppercase column name -> occurrences),
-    # preserving each occurrence's own expression/comment/synonyms/subtype for the
-    # semanticModel mapper. Only populated when emit_semantic_model_entities is enabled
-    # (see _process_column_occurrences); the legacy path never reads it.
+    # Raw column occurrences grouped per column, preserving each occurrence's own
+    # expression/comment/synonyms/subtype for the semanticModel mapper. Only
+    # populated when emit_semantic_model_entities is enabled (see
+    # _process_column_occurrences); the legacy path never reads it.
+    # The key is a label, not data: _process_column_occurrences sets it to
+    # occurrences[0].name, so it carries nothing the group does not already hold.
+    # Nothing reads it -- every consumer goes through the occurrences' own `name`
+    # -- which is what keeps a mis-keyed group (a hand-built test fixture, say)
+    # from resolving differently than the same group would in production.
     column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
         default_factory=dict
     )
@@ -347,9 +352,13 @@ class SnowflakeSemanticView(BaseView):
     def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
         """Occurrences for a column reference, matched case-insensitively.
 
-        Entries are keyed by stored name, but callers may hold either spelling --
-        Snowflake reports the same column differently across its metadata views,
-        and unquoted DDL folds references up.
+        Matched on each group's own stored name rather than its dict key: the two
+        are equal by construction, and reading the name means a group that was
+        filed under some other label still resolves the same way.
+
+        Callers may hold either spelling -- Snowflake reports the same column
+        differently across its metadata views, and unquoted DDL folds references
+        up.
 
         Ordered, not filtered: the exact spelling's occurrences come first, then
         the other case variants.
@@ -364,10 +373,11 @@ class SnowflakeSemanticView(BaseView):
         target = column_name.upper()
         exact: List["SemanticViewColumnMetadata"] = []
         folded: List["SemanticViewColumnMetadata"] = []
-        for key, occurrences in self.column_occurrences.items():
-            if key == column_name:
+        for occurrences in self.column_occurrences.values():
+            stored_name = occurrences[0].name
+            if stored_name == column_name:
                 exact.extend(occurrences)
-            elif key.upper() == target:
+            elif stored_name.upper() == target:
                 folded.extend(occurrences)
         return [*exact, *folded]
 

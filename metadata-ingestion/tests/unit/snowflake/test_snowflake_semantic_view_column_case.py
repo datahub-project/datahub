@@ -400,6 +400,22 @@ class TestJoinKeysResolveToDimensionNames:
 
         assert view.dimension_name_for_join_key("FkCol", "OTHER_TABLE") == "FkCol"
 
+    def test_resolution_does_not_depend_on_the_dict_key(self) -> None:
+        # column_occurrences keys are labels: _process_column_occurrences sets
+        # each to occurrences[0].name, so a consumer that reads the key instead
+        # of the occurrence's own name is reading a copy that can drift. Refiling
+        # the group under a different label must not change what resolves.
+        # Most fixtures in this suite key their groups differently from the names
+        # inside them, so without this the drift is invisible to the tests.
+        view = self._view_with_diverging_dimension()
+        view.column_occurrences = {
+            "A_LABEL_NOTHING_SHOULD_MATCH_ON": next(
+                iter(view.column_occurrences.values())
+            )
+        }
+
+        assert view.dimension_name_for_join_key("FkCol", "CHI") == "fkcol"
+
 
 class TestCaseOnlyPairOnOneTable:
     """The scenario the flag exists for, and the one the suite kept missing.
