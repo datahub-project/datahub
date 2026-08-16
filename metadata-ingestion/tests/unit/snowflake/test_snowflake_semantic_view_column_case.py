@@ -517,19 +517,25 @@ class TestSemanticViewCollisionReport:
         assert not list(report.warnings)
         assert not list(report.infos)
 
-    def test_lowercasing_off_also_stays_quiet(self) -> None:
-        # The other way the paths stay distinct. Deciding on the emitted paths
-        # rather than on preserve_column_case is what gets this case right.
+    def test_lowercasing_off_still_loses_the_column(self) -> None:
+        """The case a collapsed-paths test misses.
+
+        With convert_urns_to_lowercase off, `col` and `COL` would have emitted two
+        distinct paths -- nothing needed to collapse. The bucket merged them
+        anyway, so a column is dropped for no reason at all. Deciding from the
+        emitted paths says everything is fine here; deciding from what the dataset
+        actually declares does not.
+        """
         report = SnowflakeV2Report()
         gen = _make_gen(report, convert_urns_to_lowercase=False)
 
+        # One column survived the merge, as the bucketing produces in this config.
         gen._report_column_case_collisions(
-            self._view(columns=["col", "COL"], collisions={"col": {"col", "COL"}}),
+            self._view(columns=["col"], collisions={"col": {"col", "COL"}}),
             "db.schema.v",
         )
 
-        assert not list(report.warnings)
-        assert not list(report.infos)
+        assert len(list(report.warnings)) == 1
 
     def test_a_view_without_a_collision_reports_nothing(self) -> None:
         report = SnowflakeV2Report()

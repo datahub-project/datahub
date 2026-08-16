@@ -1724,13 +1724,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if not collisions:
             return
 
-        # Only report the case that loses data. Whether it does depends on the
-        # emitted paths, not on preserve_column_case alone: convert_urns_to_lowercase
-        # false also leaves the two spellings distinct. When they stay distinct the
-        # connector did its job and the operator has nothing to act on -- the
-        # downstream-consumer caveat belongs in the docs, not in a per-table notice.
-        emitted = [self.snowflake_column_identifier(name) for name in stored_names]
-        if len(emitted) == len(set(emitted)):
+        # Only report the case that loses a column, and there are two ways to lose
+        # one. A table keeps both columns and the emitted paths fold together. A
+        # semantic view merges the pair into a single column before it reaches
+        # here, which happens whatever the paths would have been -- with
+        # convert_urns_to_lowercase off they would have stayed distinct, and the
+        # column is dropped anyway. Comparing what the source stored against what
+        # this dataset actually declares catches both; comparing emitted paths to
+        # each other only catches the first.
+        declared = {self.snowflake_column_identifier(col.name) for col in table.columns}
+        if len(declared) == len(stored_names):
             return
 
         self.structured_reporter.warning(
