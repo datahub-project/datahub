@@ -503,26 +503,7 @@ class TestSemanticViewCollisionReport:
 
     @staticmethod
     def _view(*, columns: List[str], collisions: Any = None) -> SnowflakeSemanticView:
-        view = SnowflakeSemanticView(
-            name="V",
-            created=None,
-            last_altered=None,
-            comment=None,
-            view_definition=None,
-        )
-        view.columns = [
-            SnowflakeColumn(
-                name=name,
-                ordinal_position=i + 1,
-                data_type="TEXT",
-                is_nullable=True,
-                comment=None,
-                character_maximum_length=None,
-                numeric_precision=None,
-                numeric_scale=None,
-            )
-            for i, name in enumerate(columns)
-        ]
+        view = _semantic_view(columns)
         if collisions:
             view.column_case_collisions = collisions
         return view
