@@ -2311,7 +2311,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 nested_expression = self._semantic_column_expression(
                     semantic_view,
                     source_col,
-                    effective_table.upper() if effective_table else None,
+                    # Already resolved per quoting upstream, like the sibling
+                    # call in _handle_chained_derivation. Re-folding undoes it.
+                    effective_table,
                 )
                 if nested_expression:
                     # Recursively resolve, passing effective_table as context.
