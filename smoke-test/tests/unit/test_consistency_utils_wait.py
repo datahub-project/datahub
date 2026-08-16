@@ -78,3 +78,18 @@ def test_lag_zero_returns(lag_env, monkeypatch):
         lambda *args, **kwargs: _json_response(200, empty_lag),
     )
     wait_for_writes_to_sync(legacy_wait=True, max_timeout_in_sec=30)
+    assert lag_env.t < 2
+
+
+def test_auth_retry_window_resets_after_success(lag_env, monkeypatch):
+    lagging: dict = {"consumerGroups": {"g": {"topic": {"metrics": {"totalLag": 5}}}}}
+
+    def fake_get(*args, **kwargs):
+        if 2.0 <= lag_env.t < 3.0:
+            return _json_response(200, lagging)
+        return _json_response(403)
+
+    monkeypatch.setattr("tests.consistency_utils.requests.get", fake_get)
+    with pytest.raises(RuntimeError, match="VIEW_SYSTEM_STATUS"):
+        wait_for_writes_to_sync(legacy_wait=True, max_timeout_in_sec=30)
+    assert lag_env.t >= 5

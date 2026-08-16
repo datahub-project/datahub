@@ -317,6 +317,9 @@ class _LagAuthTracker:
                 "MANAGE_SYSTEM_OPERATIONS to the DATAHUB_GMS_TOKEN user."
             )
 
+    def note_ok(self) -> None:
+        self.denied_since = None
+
 
 def _select_wait_consumers(
     consumer_group: Optional[str], mcp_only: bool, mae_only: bool
@@ -392,6 +395,7 @@ def _poll_aggregate_lag(
         if auth_denied:
             auth.note_denied()
             continue
+        auth.note_ok()
         if (
             consumer_group
             and api_available
