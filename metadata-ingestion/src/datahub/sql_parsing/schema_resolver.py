@@ -39,6 +39,12 @@ class SchemaResolverReport:
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
 
+    # What a bulk load put in, recorded by SchemaResolverProvider. The stores cannot
+    # answer this themselves: the schema cache drops schemaless datasets and the alias
+    # index is keyed per name, so a casing collision is one row for two datasets.
+    num_urns_loaded: int = 0
+    num_schemas_loaded: int = 0
+
 
 class GraphQLSchemaField(TypedDict):
     fieldPath: str

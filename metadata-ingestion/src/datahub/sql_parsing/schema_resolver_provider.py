@@ -74,12 +74,15 @@ class SchemaResolverProvider:
         needs only a subset of a large platform doesn't load the whole platform. A
         prefix is exact (unlike a free-text query, which over-matches shared prefixes).
         """
+        # Always given a report, so callers can read back what the load put in even when
+        # they did not supply one.
+        report = self._report or SchemaResolverReport()
         resolver = SchemaResolver(
             platform=platform,
             platform_instance=platform_instance,
             env=env,
             graph=None,
-            report=self._report,
+            report=report,
         )
         extra_filters: Optional[List[RawSearchFilterRule]] = (
             [
@@ -125,6 +128,8 @@ class SchemaResolverProvider:
                 f"Finished loading {num_urns} urns ({num_schemas} with schemas) in "
                 f"{timer.elapsed_seconds()} seconds"
             )
+        report.num_urns_loaded += num_urns
+        report.num_schemas_loaded += num_schemas
 
         fetched_scope = (
             f"platform={platform}, platform_instance={platform_instance}, env={env}"

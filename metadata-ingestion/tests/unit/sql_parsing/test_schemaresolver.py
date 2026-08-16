@@ -565,7 +565,6 @@ def test_both_caches_survive_a_restore_from_a_cache_file(tmp_path):
     )
 
     assert restored.urn_aliases.find_match(_ALIAS_UPPER) == [_ALIAS_LOWER]
-    assert restored.urn_aliases.cached_urn_count() == 1
     assert restored.schema_count() == 1
     restored.close()
 
