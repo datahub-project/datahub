@@ -15,6 +15,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
+    SnowflakeSemanticModelMapper,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
@@ -568,6 +571,70 @@ class TestMetricNamesFollowTheColumnRule:
         # The pre-existing drop: distinct URNs, but .upper() keying meant only
         # one metric entity was ever emitted.
         assert len(self._urns(convert_urns_to_lowercase=False)) == 2
+
+    def test_a_shadowed_sibling_does_not_block_a_distinct_metric(self) -> None:
+        """Shadowing is a property of the spelling that resolves, not of any.
+
+        An unquoted reference has two candidate spellings -- what Snowflake folds
+        it to, and what was written. Testing both against the shadow set lets a
+        dimension "col" block the reference from ever reaching a distinct metric
+        "COL", the exact pair _shadowed_metric_names keeps separate.
+        """
+        config = SnowflakeV2Config(
+            account_id="a",
+            username="u",
+            password="p",  # type: ignore[arg-type]
+            preserve_column_case=True,
+        )
+        report = SnowflakeV2Report()
+        mapper = SnowflakeSemanticModelMapper(
+            config=config,
+            report=report,
+            identifiers=SnowflakeIdentifierBuilder(config, report),
+            domain_registry=None,
+        )
+
+        def col(
+            name: str, subtype: SemanticViewColumnSubtype, expression: Any = None
+        ) -> SemanticViewColumnMetadata:
+            return SemanticViewColumnMetadata(
+                name=name,
+                data_type="NUMBER",
+                comment=None,
+                subtype=subtype,
+                table_name=(
+                    None if subtype is SemanticViewColumnSubtype.METRIC else "T"
+                ),
+                synonyms=[],
+                expression=expression,
+            )
+
+        view = _semantic_view([])
+        view.column_occurrences = {
+            "col": [col("col", SemanticViewColumnSubtype.DIMENSION)],
+            "COL": [col("COL", SemanticViewColumnSubtype.METRIC, "SUM(x)")],
+            "Derived": [col("Derived", SemanticViewColumnSubtype.METRIC, "col * 2")],
+        }
+        distinct = mapper._distinct_metrics(view)
+
+        edges = list(
+            mapper._derived_from_metrics(
+                occurrence=view.column_occurrences["Derived"][0],
+                semantic_view=view,
+                table_bound_metrics={},
+                view_scoped_metrics={
+                    key.name_key: occ
+                    for key, occ in distinct.items()
+                    if key.logical_table_upper is None
+                },
+                shadowed_metric_names=mapper._shadowed_metric_names(view),
+                schema_name="SCH",
+                db_name="DB",
+                logical_table=None,
+            )
+        )
+
+        assert len(edges) == 1, "the dimension blocked a metric it does not shadow"
 
 
 class TestSemanticViewCollisionReport:

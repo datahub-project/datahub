@@ -829,16 +829,21 @@ class SnowflakeSemanticModelMapper:
                     # Qualified fact/dimension column reference, not a metric.
                     continue
             else:
-                if any(key in shadowed_metric_names for key in name_keys):
-                    continue
-                ref = next(
-                    (
-                        found
-                        for key in name_keys
-                        if (found := view_scoped_metrics.get(key))
-                    ),
-                    None,
-                )
+                # Resolve first, then ask whether *that* spelling is ambiguous.
+                # Testing every candidate instead lets a dimension "col" block an
+                # unquoted reference from reaching a distinct metric "COL" --
+                # spellings _shadowed_metric_names deliberately keeps apart.
+                ref = None
+                for key in name_keys:
+                    found = view_scoped_metrics.get(key)
+                    if found is None:
+                        continue
+                    # Snowflake would resolve to this one; if it is both a metric
+                    # and a column of the same view, the reference is genuinely
+                    # ambiguous and gets no derivedFrom edge.
+                    if key not in shadowed_metric_names:
+                        ref = found
+                    break
                 if ref is None:
                     continue
                 ref_table = None
