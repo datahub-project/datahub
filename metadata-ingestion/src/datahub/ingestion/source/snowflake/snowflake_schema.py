@@ -351,25 +351,25 @@ class SnowflakeSemanticView(BaseView):
         Snowflake reports the same column differently across its metadata views,
         and unquoted DDL folds references up.
 
-        An exact hit wins outright. Folding first looks safer and is not: with a
-        case-only pair it returns both, and callers disambiguate by logical
-        table, which does not separate siblings that live on the same one. Asking
-        for "COL" then got "col"'s expression. When the caller's spelling is
-        exact, hiding the sibling is the whole point.
-        """
-        exact = self.column_occurrences.get(column_name)
-        if exact is not None:
-            return exact
+        Ordered, not filtered: the exact spelling's occurrences come first, then
+        the other case variants.
 
-        # No exact hit: the reference is a fold of the stored name, so match
-        # case-insensitively. A pair cannot both be missed here -- if either
-        # spelling were stored exactly, the lookup above would have found it.
+        Folding without ordering loses a same-table pair -- callers disambiguate
+        by logical table, which cannot separate siblings on the same one, so
+        asking for "COL" got "col"'s expression. Returning only the exact match
+        loses the opposite case -- when the variant lives on another logical
+        table, the caller scoping by table finds nothing and falls through to the
+        raw reference. Ordering is what satisfies both.
+        """
         target = column_name.upper()
-        matched: List["SemanticViewColumnMetadata"] = []
+        exact: List["SemanticViewColumnMetadata"] = []
+        folded: List["SemanticViewColumnMetadata"] = []
         for key, occurrences in self.column_occurrences.items():
-            if key.upper() == target:
-                matched.extend(occurrences)
-        return matched
+            if key == column_name:
+                exact.extend(occurrences)
+            elif key.upper() == target:
+                folded.extend(occurrences)
+        return [*exact, *folded]
 
 
 @dataclass

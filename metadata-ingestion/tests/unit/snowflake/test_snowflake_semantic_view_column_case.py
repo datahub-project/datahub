@@ -432,12 +432,41 @@ class TestCaseOnlyPairOnOneTable:
     def test_each_spelling_resolves_to_its_own_occurrence(self, asked: str) -> None:
         occurrences = self._view().occurrences_for(asked)
 
-        assert [o.name for o in occurrences] == [asked]
+        # The sibling may follow, so a caller scoping by another logical table can
+        # still reach it -- but the spelling that was asked for comes first.
+        assert occurrences[0].name == asked
         assert occurrences[0].expression == f"EXPR_{asked}"
 
     @pytest.mark.parametrize("asked", ["col", "COL"])
     def test_each_spelling_resolves_to_its_own_join_key(self, asked: str) -> None:
         assert self._view().dimension_name_for_join_key(asked, "T") == asked
+
+    def test_a_variant_on_another_table_stays_reachable(self) -> None:
+        """The opposite failure to the one above, and the reason this orders
+        rather than filters.
+
+        Returning only the exact match drops lineage when the variant lives on a
+        different logical table: the caller scoping by table finds nothing behind
+        the exact hit and falls through to the raw reference.
+        """
+        view = _semantic_view(["FkCol"])
+        view.column_occurrences = {
+            name: [
+                SemanticViewColumnMetadata(
+                    name=name,
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name=table,
+                    synonyms=[],
+                    expression=None,
+                )
+            ]
+            for name, table in (("FkCol", "A"), ("fkcol", "B"))
+        }
+
+        assert view.dimension_name_for_join_key("FkCol", "A") == "FkCol"
+        assert view.dimension_name_for_join_key("FkCol", "B") == "fkcol"
 
     def test_a_folded_reference_still_finds_the_pair(self) -> None:
         # No exact hit, so the fold still runs -- that path is what makes an

@@ -371,26 +371,31 @@ class SnowflakeSemanticModelMapper:
                     dataset_urn = logical_dataset_urns.get(occ.table_name.upper())
                     if dataset_urn:
                         metric_cols_by_urn.setdefault(dataset_urn, set()).add(
-                            occ.name.upper()
+                            self.identifiers.logical_dataset_field_path(occ.name)
                         )
                 else:
-                    view_scoped_metric_names.add(occ.name.upper())
+                    view_scoped_metric_names.add(
+                        self.identifiers.logical_dataset_field_path(occ.name)
+                    )
 
         by_dataset: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:
             if not lineage.downstreams:
                 continue
+            # Compared as emitted field paths, not uppercased. The downstream is
+            # already a logical-dataset field path, so folding both sides made a
+            # dimension "col" match a metric "COL" and dropped the dimension's
+            # lineage as if it were the metric's.
             downstream_field = self._downstream_field_name(lineage)
-            downstream_upper = downstream_field.upper() if downstream_field else None
             parent_urn = SchemaFieldUrn.from_string(lineage.downstreams[0]).parent
-            if downstream_upper and downstream_upper in metric_cols_by_urn.get(
+            if downstream_field and downstream_field in metric_cols_by_urn.get(
                 parent_urn, set()
             ):
                 # Metric column on this logical table: lineage flows via the metric
                 # entity, and the logical dataset has no schemaField for it.
                 continue
             if parent_urn == model_urn:
-                if downstream_upper and downstream_upper in view_scoped_metric_names:
+                if downstream_field and downstream_field in view_scoped_metric_names:
                     # View-scoped (derived) metric: lineage flows via the metric
                     # entity's derivedFrom, not a schemaField FGL. Drop silently.
                     continue
@@ -796,20 +801,44 @@ class SnowflakeSemanticModelMapper:
         # Deduplicate by destination URN, keeping deterministic ordering.
         edges: Dict[str, DerivedMetricInputClass] = {}
         for column in parsed.find_all(sqlglot.expressions.Column):
-            # Fold the reference the same way the metric indices were keyed, so a
-            # case-only pair is two metrics here as well. sqlglot reports an
-            # unquoted reference already folded up, and a quoted one as written.
-            name_key = self.identifiers.snowflake_column_identifier(column.name)
+            # Snowflake folds an unquoted identifier to uppercase; sqlglot does
+            # not -- it reports what was written, quoted or not. So try what
+            # Snowflake would resolve the reference to first, exactly as
+            # _extract_columns_from_expression folds, and only then what was
+            # written. Folding alone drops the edge for a metric stored
+            # mixed-case; the written form alone drops it for the unquoted
+            # reference Snowflake would have uppercased.
+            identifier = column.this
+            candidates = [column.name]
+            if not getattr(identifier, "quoted", False):
+                candidates.insert(0, column.name.upper())
+            name_keys = [
+                self.identifiers.snowflake_column_identifier(c) for c in candidates
+            ]
             if column.table:
                 ref_table = column.table.upper()
-                ref = table_bound_metrics.get((ref_table, name_key))
+                ref = next(
+                    (
+                        found
+                        for key in name_keys
+                        if (found := table_bound_metrics.get((ref_table, key)))
+                    ),
+                    None,
+                )
                 if ref is None:
                     # Qualified fact/dimension column reference, not a metric.
                     continue
             else:
-                if name_key in shadowed_metric_names:
+                if any(key in shadowed_metric_names for key in name_keys):
                     continue
-                ref = view_scoped_metrics.get(name_key)
+                ref = next(
+                    (
+                        found
+                        for key in name_keys
+                        if (found := view_scoped_metrics.get(key))
+                    ),
+                    None,
+                )
                 if ref is None:
                     continue
                 ref_table = None
