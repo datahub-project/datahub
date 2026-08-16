@@ -40,6 +40,7 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    snowflake_identity_key,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -521,6 +522,7 @@ def test_semantic_column_expression_resolves_per_logical_table():
         "FOO": [
             SemanticViewColumnMetadata(
                 name="FOO",
+                identity_key=snowflake_identity_key("FOO", preserve_column_case=False),
                 data_type="NUMBER",
                 subtype=SemanticViewColumnSubtype.FACT,
                 table_name="TABLE_A",
@@ -530,6 +532,7 @@ def test_semantic_column_expression_resolves_per_logical_table():
             ),
             SemanticViewColumnMetadata(
                 name="FOO",
+                identity_key=snowflake_identity_key("FOO", preserve_column_case=False),
                 data_type="NUMBER",
                 subtype=SemanticViewColumnSubtype.FACT,
                 table_name="TABLE_B",
@@ -843,6 +846,9 @@ class TestSemanticViewOrchestrationFlow:
             "COL1": [
                 SemanticViewColumnMetadata(
                     name="COL1",
+                    identity_key=snowflake_identity_key(
+                        "COL1", preserve_column_case=False
+                    ),
                     data_type="VARCHAR",
                     subtype=SemanticViewColumnSubtype.DIMENSION,
                     table_name="T1",

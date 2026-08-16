@@ -16,6 +16,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import snowflake_identity_key
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
@@ -230,6 +231,9 @@ class TestSnowflakeSemanticViewColumnMerging:
         occurrences = [
             SemanticViewColumnMetadata(
                 name="ORDER_ID",
+                identity_key=snowflake_identity_key(
+                    "ORDER_ID", preserve_column_case=False
+                ),
                 data_type="NUMBER",
                 comment="Order identifier for lookups",
                 subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -239,6 +243,9 @@ class TestSnowflakeSemanticViewColumnMerging:
             ),
             SemanticViewColumnMetadata(
                 name="ORDER_ID",
+                identity_key=snowflake_identity_key(
+                    "ORDER_ID", preserve_column_case=False
+                ),
                 data_type="NUMBER",
                 comment="Order ID used in aggregations",
                 subtype=SemanticViewColumnSubtype.FACT,
@@ -265,6 +272,9 @@ class TestSnowflakeSemanticViewColumnMerging:
         occurrences = [
             SemanticViewColumnMetadata(
                 name="TOTAL_REVENUE",
+                identity_key=snowflake_identity_key(
+                    "TOTAL_REVENUE", preserve_column_case=False
+                ),
                 data_type="NUMBER",
                 comment="Total revenue calculation",
                 subtype=SemanticViewColumnSubtype.METRIC,
@@ -288,6 +298,9 @@ class TestSnowflakeSemanticViewColumnMerging:
         occurrences = [
             SemanticViewColumnMetadata(
                 name="VALUE",
+                identity_key=snowflake_identity_key(
+                    "VALUE", preserve_column_case=False
+                ),
                 data_type="NUMBER",
                 comment="Numeric value",
                 subtype=SemanticViewColumnSubtype.FACT,
@@ -297,6 +310,9 @@ class TestSnowflakeSemanticViewColumnMerging:
             ),
             SemanticViewColumnMetadata(
                 name="VALUE",
+                identity_key=snowflake_identity_key(
+                    "VALUE", preserve_column_case=False
+                ),
                 data_type="VARCHAR",
                 comment="String value",
                 subtype=SemanticViewColumnSubtype.DIMENSION,

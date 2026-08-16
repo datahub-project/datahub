@@ -19,6 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    snowflake_identity_key,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -56,9 +57,11 @@ def _col(
     comment: Optional[str] = None,
     synonyms: Optional[List[str]] = None,
     expression: Optional[str] = None,
+    preserve: bool = False,
 ) -> SemanticViewColumnMetadata:
     return SemanticViewColumnMetadata(
         name=name,
+        identity_key=snowflake_identity_key(name, preserve_column_case=preserve),
         data_type=data_type,
         comment=comment,
         subtype=subtype,
@@ -591,6 +594,7 @@ def test_quoted_and_unquoted_refs_resolve_to_different_members_of_a_case_pair():
                     SemanticViewColumnSubtype.METRIC,
                     table_name="ORDERS",
                     expression="COUNT(orders.order_id)",
+                    preserve=True,
                 )
             ],
             "ORDER_COUNT": [
@@ -600,6 +604,7 @@ def test_quoted_and_unquoted_refs_resolve_to_different_members_of_a_case_pair():
                     SemanticViewColumnSubtype.METRIC,
                     table_name="ORDERS",
                     expression="SUM(orders.amt)",
+                    preserve=True,
                 )
             ],
             "FROM_QUOTED": [
@@ -609,6 +614,7 @@ def test_quoted_and_unquoted_refs_resolve_to_different_members_of_a_case_pair():
                     SemanticViewColumnSubtype.METRIC,
                     table_name="ORDERS",
                     expression='orders."Order_Count" * 2',
+                    preserve=True,
                 )
             ],
             "FROM_UNQUOTED": [
@@ -618,6 +624,7 @@ def test_quoted_and_unquoted_refs_resolve_to_different_members_of_a_case_pair():
                     SemanticViewColumnSubtype.METRIC,
                     table_name="ORDERS",
                     expression="orders.Order_Count * 3",
+                    preserve=True,
                 )
             ],
         },

@@ -668,7 +668,7 @@ class SnowflakeSemanticModelMapper:
                         description=occurrence.comment,
                         nullable=True,
                         isPartOfKey=(
-                            self.identifiers.column_identity_key(occurrence.name)
+                            occurrence.identity_key
                             in semantic_view.primary_key_columns_by_table.get(
                                 logical_table, set()
                             )
@@ -1109,7 +1109,7 @@ class SnowflakeSemanticModelMapper:
                 if occurrence.subtype != SemanticViewColumnSubtype.METRIC:
                     continue
                 key = _MetricKey(
-                    name_key=self.identifiers.column_identity_key(occurrence.name),
+                    name_key=occurrence.identity_key,
                     # The stored name, matching logical_to_physical_table and the
                     # logical dataset URNs. Uppercasing here collapsed the metrics
                     # of two logical tables that differ only by case.
@@ -1147,7 +1147,7 @@ class SnowflakeSemanticModelMapper:
         # like-for-like -- with casing preserved a dimension "col" must not
         # shadow a metric "COL", which are two different objects.
         return {
-            self.identifiers.column_identity_key(occurrence.name)
+            occurrence.identity_key
             for occurrences in semantic_view.column_occurrences.values()
             for occurrence in occurrences
             if occurrence.subtype != SemanticViewColumnSubtype.METRIC

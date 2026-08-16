@@ -19,6 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    snowflake_identity_key,
 )
 from datahub.metadata.schema_classes import (
     MetricInfoClass,
@@ -67,7 +68,7 @@ def _identifiers(
     )
 
 
-def _view(stored_names: List[str]) -> SnowflakeSemanticView:
+def _view(stored_names: List[str], preserve: bool) -> SnowflakeSemanticView:
     view = SnowflakeSemanticView(
         name="V", created=None, last_altered=None, comment=None, view_definition=""
     )
@@ -77,6 +78,9 @@ def _view(stored_names: List[str]) -> SnowflakeSemanticView:
         name: [
             SemanticViewColumnMetadata(
                 name=name,
+                identity_key=snowflake_identity_key(
+                    name, preserve_column_case=preserve
+                ),
                 data_type="TEXT",
                 comment=None,
                 subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -124,9 +128,8 @@ def test_every_column_resolves_to_itself_not_a_sibling(
     the flag off too: there, case-only spellings are deliberately one column, so
     either answer is correct precisely because both emit the same path.
     """
-    view = _view(stored_names)
-
     for preserve, convert in _CELLS:
+        view = _view(stored_names, preserve)
         identifiers = _identifiers(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )
@@ -207,11 +210,12 @@ def _mapper(
     )
 
 
-def _metric(name: str, expression: str) -> SemanticViewColumnMetadata:
+def _metric(name: str, expression: str, preserve: bool) -> SemanticViewColumnMetadata:
     # View-scoped (no table_name), so references are unqualified and resolve
     # through view_scoped_metrics.
     return SemanticViewColumnMetadata(
         name=name,
+        identity_key=snowflake_identity_key(name, preserve_column_case=preserve),
         data_type="NUMBER",
         comment=None,
         subtype=SemanticViewColumnSubtype.METRIC,
@@ -221,16 +225,18 @@ def _metric(name: str, expression: str) -> SemanticViewColumnMetadata:
     )
 
 
-def _metric_view(stored_names: List[str], derived_from: str) -> SnowflakeSemanticView:
+def _metric_view(
+    stored_names: List[str], derived_from: str, preserve: bool
+) -> SnowflakeSemanticView:
     view = SnowflakeSemanticView(
         name="V", created=None, last_altered=None, comment=None, view_definition=""
     )
     occurrences: Dict[str, List[SemanticViewColumnMetadata]] = {
-        name: [_metric(name, "COUNT(1)")] for name in stored_names
+        name: [_metric(name, "COUNT(1)", preserve)] for name in stored_names
     }
     # Quoted, because that is the only reference Snowflake resolves to a metric
     # whose stored name is not already uppercase.
-    occurrences[_DERIVED] = [_metric(_DERIVED, f'"{derived_from}" * 2')]
+    occurrences[_DERIVED] = [_metric(_DERIVED, f'"{derived_from}" * 2', preserve)]
     view.column_occurrences = occurrences
     return view
 
@@ -277,9 +283,8 @@ def test_one_metric_entity_per_distinct_identity(stored_names: List[str]) -> Non
     too many means a single metric was emitted twice under different URNs. Both
     have happened here, in opposite config cells.
     """
-    view = _metric_view(stored_names, stored_names[0])
-
     for preserve, convert in _CELLS:
+        view = _metric_view(stored_names, stored_names[0], preserve)
         mapper = _mapper(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )
@@ -307,9 +312,8 @@ def test_a_derived_metric_points_at_the_metric_it_names(
     is worse than a missing one, and a dropped edge loses the lineage silently.
     """
     target = stored_names[target_index % len(stored_names)]
-    view = _metric_view(stored_names, target)
-
     for preserve, convert in _CELLS:
+        view = _metric_view(stored_names, target, preserve)
         mapper = _mapper(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )
@@ -357,7 +361,9 @@ _logical_tables = st.lists(
 _SHARED_METRIC = "total"
 
 
-def _view_with_logical_tables(logical_tables: List[str]) -> SnowflakeSemanticView:
+def _view_with_logical_tables(
+    logical_tables: List[str], preserve: bool
+) -> SnowflakeSemanticView:
     view = SnowflakeSemanticView(
         name="V", created=None, last_altered=None, comment=None, view_definition=""
     )
@@ -366,13 +372,18 @@ def _view_with_logical_tables(logical_tables: List[str]) -> SnowflakeSemanticVie
     }
     # The same metric name on every logical table, so a fold that merges the
     # tables also merges their metrics -- visible as a count.
-    view.column_occurrences = {table: [_metric_on(table)] for table in logical_tables}
+    view.column_occurrences = {
+        table: [_metric_on(table, preserve)] for table in logical_tables
+    }
     return view
 
 
-def _metric_on(table: str) -> SemanticViewColumnMetadata:
+def _metric_on(table: str, preserve: bool) -> SemanticViewColumnMetadata:
     return SemanticViewColumnMetadata(
         name=_SHARED_METRIC,
+        identity_key=snowflake_identity_key(
+            _SHARED_METRIC, preserve_column_case=preserve
+        ),
         data_type="NUMBER",
         comment=None,
         subtype=SemanticViewColumnSubtype.METRIC,
@@ -391,9 +402,8 @@ def test_one_logical_dataset_per_distinct_urn(logical_tables: List[str]) -> None
     differ only by case resolve to one URN while lowercasing is on, and that is a
     collapse the connector has to make once and report, not emit twice.
     """
-    view = _view_with_logical_tables(logical_tables)
-
     for preserve, convert in _CELLS:
+        view = _view_with_logical_tables(logical_tables, preserve)
         mapper = _mapper(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )
@@ -430,9 +440,8 @@ def test_every_metric_belongs_to_a_logical_table_that_exists(
     tables that do get separate datasets must get separate metrics, even when the
     metric name is identical -- folding the table collapsed those into one.
     """
-    view = _view_with_logical_tables(logical_tables)
-
     for preserve, convert in _CELLS:
+        view = _view_with_logical_tables(logical_tables, preserve)
         mapper = _mapper(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )
@@ -475,39 +484,49 @@ def test_the_emitted_graph_has_no_dangling_references(
     Scoped to the semantic model's own graph. Physical base tables are referenced
     by upstreamLineage and deliberately live outside it.
     """
-    # Each logical table gets a metric named only for it, so a reference to a
-    # discarded table's metric cannot silently land on a survivor's URN. Sharing
-    # one metric name across the tables makes the dangling edge invisible: the
-    # URNs collide in exactly the configuration where the table is dropped.
-    view = _view_with_logical_tables(logical_tables)
-    view.column_occurrences = {
-        f"m_{table}": [
+    for preserve, convert in _CELLS:
+        # Built per config: identity_key is decided at extraction, so a view
+        # constructed under one setting is not a valid input under another.
+        #
+        # Each logical table gets a metric named only for it, so a reference to a
+        # discarded table's metric cannot silently land on a survivor's URN.
+        # Sharing one metric name across the tables makes the dangling edge
+        # invisible: the URNs collide in exactly the configuration where the
+        # table is dropped.
+        view = _view_with_logical_tables(logical_tables, preserve)
+        view.column_occurrences = {
+            f"m_{table}": [
+                SemanticViewColumnMetadata(
+                    name=f"m_{table}",
+                    identity_key=snowflake_identity_key(
+                        f"m_{table}", preserve_column_case=preserve
+                    ),
+                    data_type="NUMBER",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.METRIC,
+                    table_name=table,
+                    synonyms=[],
+                    expression="COUNT(1)",
+                )
+            ]
+            for table in logical_tables
+        }
+        # One derived metric on the first table, referencing each table's metric.
+        view.column_occurrences["derived"] = [
             SemanticViewColumnMetadata(
-                name=f"m_{table}",
+                name="derived",
+                identity_key=snowflake_identity_key(
+                    "derived", preserve_column_case=preserve
+                ),
                 data_type="NUMBER",
                 comment=None,
                 subtype=SemanticViewColumnSubtype.METRIC,
-                table_name=table,
+                table_name=logical_tables[0],
                 synonyms=[],
-                expression="COUNT(1)",
+                expression=" + ".join(f'"{t}"."m_{t}"' for t in logical_tables),
             )
         ]
-        for table in logical_tables
-    }
-    # One derived metric on the first table, referencing every table's own metric.
-    view.column_occurrences["derived"] = [
-        SemanticViewColumnMetadata(
-            name="derived",
-            data_type="NUMBER",
-            comment=None,
-            subtype=SemanticViewColumnSubtype.METRIC,
-            table_name=logical_tables[0],
-            synonyms=[],
-            expression=" + ".join(f'"{t}"."m_{t}"' for t in logical_tables),
-        )
-    ]
 
-    for preserve, convert in _CELLS:
         mapper = _mapper(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )

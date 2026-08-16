@@ -13,6 +13,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeSemanticView,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import snowflake_identity_key
 
 
 class TestSnowflakeDataDictionary:
@@ -373,6 +374,7 @@ class TestProcessColumnOccurrences:
         return [
             SemanticViewColumnMetadata(
                 name="col1",
+                identity_key=snowflake_identity_key("col1", preserve_column_case=False),
                 data_type="VARCHAR",
                 comment=None,
                 subtype=SemanticViewColumnSubtype.DIMENSION,

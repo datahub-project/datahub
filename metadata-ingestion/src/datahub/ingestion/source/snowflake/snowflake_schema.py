@@ -155,6 +155,12 @@ class SemanticViewColumnMetadata:
     table_name: Optional[str]
     synonyms: List[str]
     expression: Optional[str]
+    # Whether two spellings are the same column, decided once at extraction --
+    # the only place that knows preserve_column_case. Consumers read this rather
+    # than folding `name` themselves; every casing bug in this module began with
+    # a consumer deriving it again and getting it wrong. `name` remains the
+    # stored spelling, and is what gets emitted.
+    identity_key: str
 
 
 @dataclass
@@ -1727,6 +1733,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
             metadata = SemanticViewColumnMetadata(
                 name=col_name,
+                identity_key=self._column_identity_key(col_name),
                 data_type=self._get_data_type_with_default(
                     row, type_label.upper(), col_name, default_data_type
                 ),

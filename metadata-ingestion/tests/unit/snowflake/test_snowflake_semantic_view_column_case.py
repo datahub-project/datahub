@@ -22,6 +22,7 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    snowflake_identity_key,
 )
 from datahub.metadata.schema_classes import (
     MetricInfoClass,
@@ -153,6 +154,7 @@ class TestSemanticViewColumnCase:
         occurrences = [
             SemanticViewColumnMetadata(
                 name=name,
+                identity_key=snowflake_identity_key(name, preserve_column_case=False),
                 data_type="TEXT",
                 comment=None,
                 subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -334,6 +336,9 @@ class TestDerivedColumnsKeepTheirSpelling:
             name: [
                 SemanticViewColumnMetadata(
                     name=name,
+                    identity_key=snowflake_identity_key(
+                        name, preserve_column_case=False
+                    ),
                     data_type="TEXT",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -379,6 +384,9 @@ class TestJoinKeysResolveToDimensionNames:
             "fkcol": [
                 SemanticViewColumnMetadata(
                     name="fkcol",
+                    identity_key=snowflake_identity_key(
+                        "fkcol", preserve_column_case=False
+                    ),
                     data_type="TEXT",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -442,6 +450,9 @@ class TestCaseOnlyPairOnOneTable:
             name: [
                 SemanticViewColumnMetadata(
                     name=name,
+                    identity_key=snowflake_identity_key(
+                        name, preserve_column_case=False
+                    ),
                     data_type="TEXT",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -480,6 +491,9 @@ class TestCaseOnlyPairOnOneTable:
             name: [
                 SemanticViewColumnMetadata(
                     name=name,
+                    identity_key=snowflake_identity_key(
+                        name, preserve_column_case=False
+                    ),
                     data_type="TEXT",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -622,6 +636,7 @@ class TestMetricNamesFollowTheColumnRule:
         ) -> SemanticViewColumnMetadata:
             return SemanticViewColumnMetadata(
                 name=name,
+                identity_key=snowflake_identity_key(name, preserve_column_case=True),
                 data_type="NUMBER",
                 comment=None,
                 subtype=subtype,
@@ -874,6 +889,9 @@ class TestLogicalTableStoredCasing:
             name: [
                 SemanticViewColumnMetadata(
                     name=name,
+                    identity_key=snowflake_identity_key(
+                        name, preserve_column_case=True
+                    ),
                     data_type="TEXT",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.DIMENSION,
@@ -927,6 +945,9 @@ class TestLogicalTableStoredCasing:
             table: [
                 SemanticViewColumnMetadata(
                     name=f"m_{table}",
+                    identity_key=snowflake_identity_key(
+                        f"m_{table}", preserve_column_case=False
+                    ),
                     data_type="NUMBER",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.METRIC,
@@ -971,6 +992,9 @@ class TestLogicalTableStoredCasing:
             "kept": [
                 SemanticViewColumnMetadata(
                     name="kept",
+                    identity_key=snowflake_identity_key(
+                        "kept", preserve_column_case=False
+                    ),
                     data_type="NUMBER",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.METRIC,
@@ -982,6 +1006,9 @@ class TestLogicalTableStoredCasing:
             "gone": [
                 SemanticViewColumnMetadata(
                     name="gone",
+                    identity_key=snowflake_identity_key(
+                        "gone", preserve_column_case=False
+                    ),
                     data_type="NUMBER",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.METRIC,
@@ -993,6 +1020,9 @@ class TestLogicalTableStoredCasing:
             "derived": [
                 SemanticViewColumnMetadata(
                     name="derived",
+                    identity_key=snowflake_identity_key(
+                        "derived", preserve_column_case=False
+                    ),
                     data_type="NUMBER",
                     comment=None,
                     subtype=SemanticViewColumnSubtype.METRIC,
@@ -1027,3 +1057,41 @@ class TestLogicalTableStoredCasing:
 
         # Whatever edges exist must point at metrics that were actually emitted.
         assert set(edges) <= emitted, f"dangling: {set(edges) - emitted}"
+
+    @pytest.mark.parametrize(
+        ("preserve", "expected"), [(False, "MY_COL"), (True, "My_Col")]
+    )
+    def test_extraction_stores_the_identity_key(
+        self, preserve: bool, expected: str
+    ) -> None:
+        # Computed once, where the flag is known. Consumers read it rather than
+        # re-deriving it, which is where every fold bug on this branch started.
+        connection = MagicMock()
+        connection.query.return_value = [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "SCH",
+                "SEMANTIC_VIEW_NAME": "V",
+                "NAME": "My_Col",
+                "TABLE_NAME": "T",
+                "DATA_TYPE": "TEXT",
+            }
+        ]
+        data_dict = SnowflakeDataDictionary(
+            connection=connection,
+            report=SnowflakeV2Report(),
+            emit_semantic_model_entities=True,
+            preserve_column_case=preserve,
+        )
+        collection: Any = {}
+        data_dict._fetch_semantic_columns(
+            "DB",
+            collection,
+            SemanticViewColumnSubtype.DIMENSION,
+            lambda db: "SELECT 1",
+            "TEXT",
+        )
+
+        occurrence = collection[("SCH", "V")].columns["MY_COL"][0]
+
+        assert occurrence.name == "My_Col"
+        assert occurrence.identity_key == expected
