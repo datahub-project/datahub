@@ -2175,9 +2175,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # a same-named intermediate column defined differently on another logical
         # table cannot cross-contaminate; the merged columns list only carries
         # occurrences[0]'s expression (helper falls back to it when unscoped).
+        # Not uppercased: _extract_columns_from_expression already folded this
+        # per its quoting, so it carries the stored spelling and the exact-match
+        # lookup can separate a case-only pair. Uppercasing here threw that away.
         derived_col_expression = self._semantic_column_expression(
             semantic_view,
-            source_col.upper(),
+            source_col,
             context_table.upper() if context_table else None,
         )
 
@@ -2290,7 +2293,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # unscoped, e.g. legacy single-dataset mode).
                 nested_expression = self._semantic_column_expression(
                     semantic_view,
-                    source_col.upper(),
+                    source_col,
                     effective_table.upper() if effective_table else None,
                 )
                 if nested_expression:
@@ -2398,10 +2401,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         for occ in semantic_view.occurrences_for(column_name):
             if occ.table_name and occ.table_name.upper() == logical_table_upper:
                 return occ.expression
-        # column_name is the stored spelling, so fold both sides. Comparing an
-        # uppercased column against it never matches a mixed- or lower-case name,
-        # which would silently skip that column's lineage in legacy mode, where
-        # the loop above has no occurrences to scope by.
+        # Exact first, for the same reason as occurrences_for: folding straight
+        # away hands back whichever of a case-only pair comes first in the list.
+        for col in semantic_view.columns:
+            if col.name == column_name:
+                return col.expression
+        # Then folded, because in legacy mode the reference may be an uppercased
+        # fold of a mixed- or lower-case stored name, and the loop above has no
+        # occurrences to scope by.
         folded = column_name.lower()
         for col in semantic_view.columns:
             if col.name and col.name.lower() == folded:

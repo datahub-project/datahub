@@ -350,10 +350,20 @@ class SnowflakeSemanticView(BaseView):
         Entries are keyed by stored name, but callers may hold either spelling --
         Snowflake reports the same column differently across its metadata views,
         and unquoted DDL folds references up.
+
+        An exact hit wins outright. Folding first looks safer and is not: with a
+        case-only pair it returns both, and callers disambiguate by logical
+        table, which does not separate siblings that live on the same one. Asking
+        for "COL" then got "col"'s expression. When the caller's spelling is
+        exact, hiding the sibling is the whole point.
         """
-        # No exact-match fast path: with a case-only pair, an exact hit on one key
-        # would hide its sibling, and the caller -- which disambiguates by logical
-        # table, not by spelling -- would be handed the wrong column.
+        exact = self.column_occurrences.get(column_name)
+        if exact is not None:
+            return exact
+
+        # No exact hit: the reference is a fold of the stored name, so match
+        # case-insensitively. A pair cannot both be missed here -- if either
+        # spelling were stored exactly, the lookup above would have found it.
         target = column_name.upper()
         matched: List["SemanticViewColumnMetadata"] = []
         for key, occurrences in self.column_occurrences.items():

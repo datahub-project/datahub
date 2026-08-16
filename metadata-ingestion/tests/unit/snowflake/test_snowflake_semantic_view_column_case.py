@@ -398,6 +398,55 @@ class TestJoinKeysResolveToDimensionNames:
         assert view.dimension_name_for_join_key("FkCol", "OTHER_TABLE") == "FkCol"
 
 
+class TestCaseOnlyPairOnOneTable:
+    """The scenario the flag exists for, and the one the suite kept missing.
+
+    Every other test here separates same-named columns by logical table, which
+    is what the resolution was designed around. A case-only pair sits on ONE
+    table, so scoping cannot tell them apart -- and folding the lookup made both
+    candidates match, so the first entry won whichever was asked for. The live
+    fixture missed it too: its derived column references the first of the pair,
+    so first-wins happened to be right.
+    """
+
+    @staticmethod
+    def _view() -> SnowflakeSemanticView:
+        view = _semantic_view(["col", "COL"])
+        view.column_occurrences = {
+            name: [
+                SemanticViewColumnMetadata(
+                    name=name,
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name="T",
+                    synonyms=[],
+                    expression=f"EXPR_{name}",
+                )
+            ]
+            for name in ("col", "COL")
+        }
+        return view
+
+    @pytest.mark.parametrize("asked", ["col", "COL"])
+    def test_each_spelling_resolves_to_its_own_occurrence(self, asked: str) -> None:
+        occurrences = self._view().occurrences_for(asked)
+
+        assert [o.name for o in occurrences] == [asked]
+        assert occurrences[0].expression == f"EXPR_{asked}"
+
+    @pytest.mark.parametrize("asked", ["col", "COL"])
+    def test_each_spelling_resolves_to_its_own_join_key(self, asked: str) -> None:
+        assert self._view().dimension_name_for_join_key(asked, "T") == asked
+
+    def test_a_folded_reference_still_finds_the_pair(self) -> None:
+        # No exact hit, so the fold still runs -- that path is what makes an
+        # unquoted DDL reference resolve at all.
+        occurrences = self._view().occurrences_for("Col")
+
+        assert sorted(o.name for o in occurrences) == ["COL", "col"]
+
+
 class TestLegacyDerivedExpressionLookup:
     """Legacy semantic-view mode leaves column_occurrences empty, so the
     expression lookup falls through to the merged columns list. That fallback
