@@ -616,7 +616,8 @@ plugins: Dict[str, Set[str]] = {
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
-    "elasticsearch": {"opensearch-py>=2.6.0,<4.0.0", *cachetools_lib},
+    # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
