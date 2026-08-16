@@ -9,6 +9,7 @@ _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,P
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
 _MIXED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Db.My_Schema.Events,PROD)"
 _OTHER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
+_TABLE = "test_cache"
 # `_UPPER` with only the platform instance left alone, the casing connectors produce when
 # they lowercase the table name but not the instance.
 _PLATFORM_INSTANCE = "MY_DB"
@@ -28,7 +29,7 @@ def _loaded(*urns: str) -> UrnAliasResolver:
 
 
 def test_cache_distinguishes_unknown_from_known_absent() -> None:
-    cache = UrnAliasCache()
+    cache = UrnAliasCache(_TABLE)
     cache.add(_LOWER, _MIXED)
 
     # None means unknown; an empty list would mean known not to exist.
@@ -36,7 +37,7 @@ def test_cache_distinguishes_unknown_from_known_absent() -> None:
 
 
 def test_cache_records_the_same_urn_once() -> None:
-    cache = UrnAliasCache()
+    cache = UrnAliasCache(_TABLE)
     cache.add(_LOWER, _MIXED)
     cache.add(_LOWER, _MIXED)
 
@@ -50,11 +51,11 @@ def test_cache_reopened_on_the_same_file_keeps_what_it_held(
     # A lost table reads as "nothing matched", so the failure would be silent.
     path = tmp_path / "aliases.db"
     conn = ConnectionWrapper(filename=path)
-    UrnAliasCache(conn).add(_LOWER, _MIXED)
+    UrnAliasCache(_TABLE, conn).add(_LOWER, _MIXED)
     conn.close()
 
     reopened = ConnectionWrapper(filename=path)
-    cache = UrnAliasCache(reopened)
+    cache = UrnAliasCache(_TABLE, reopened)
 
     assert cache.get(_LOWER) == [_MIXED]
     # Seeded from the table, not zeroed.
@@ -62,8 +63,23 @@ def test_cache_reopened_on_the_same_file_keeps_what_it_held(
     reopened.close()
 
 
+def test_caches_on_different_tables_do_not_see_each_other(
+    tmp_path: pathlib.Path,
+) -> None:
+    # The two lookups key their rows differently, so the index's "lowercases to K" row
+    # must never be read by the probe as "K exists".
+    with ConnectionWrapper(filename=tmp_path / "shared.db") as conn:
+        index = UrnAliasCache("urn_aliases", conn)
+        probe = UrnAliasCache("urn_casing_probe", conn)
+
+        index.add(_LOWER, _UPPER)
+
+        assert probe.get(_LOWER) is None
+        assert probe.count() == 0
+
+
 def test_cache_does_not_hand_out_its_stored_list() -> None:
-    cache = UrnAliasCache()
+    cache = UrnAliasCache(_TABLE)
     cache.add(_LOWER, _MIXED)
 
     entry = cache.get(_LOWER)
