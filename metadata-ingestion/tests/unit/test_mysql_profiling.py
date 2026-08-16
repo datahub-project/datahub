@@ -11,7 +11,6 @@ from datahub.ingestion.source.sql.mysql import (
     MySQLConfig,
     MySQLProfilingConfig,
     MySQLSource,
-    _TableStats,
 )
 from datahub.ingestion.source.sql.tidb import TiDBConfig, TiDBSource
 
@@ -33,34 +32,13 @@ def _inspector_returning(rows: list) -> MagicMock:
 
 
 def _populate_profile_cache(source: MySQLSource, schema: str, rows: list) -> None:
-    # rows: (table_name, table_rows, data_length[, index_length]).
-    # index_length defaults to 0 when omitted (and data_length not None), so the
-    # common 3-tuple shape keeps the guardrail's data_length + index_length measure
-    # matching the legacy intent. Pass a 4-tuple with None as the fourth element to
-    # express a NULL index_length — the guardrail then sums whichever of
-    # data_length / index_length is present, so a 900 GB / NULL-index table is
-    # still caught by the size limit.
-    for row in rows:
-        table_name = row[0]
-        table_rows = row[1]
-        data_length = row[2]
-        index_length = row[3] if len(row) > 3 else 0
+    # rows: (table_name, table_rows, data_length).
+    for table_name, table_rows, data_length in rows:
         key = f"{schema}.{table_name}"
-        if data_length is None:
-            # data_length is NULL for views; the dict is typed Dict[str, int] but the
-            # source stores None too (row values are Any there). A 3-tuple would
-            # default index_length to 0, which would exercise "sum is under the
-            # limit" rather than the both-NULL retain path — force None so the
-            # guardrail sees neither data_length nor index_length.
-            source.profile_metadata_info.dataset_name_to_storage_bytes[key] = None  # type: ignore[assignment]
-            index_length = None
-        else:
-            source.profile_metadata_info.dataset_name_to_storage_bytes[key] = (
-                data_length
-            )
-        source._table_stats_cache[key] = _TableStats(
-            table_rows=table_rows, index_length=index_length
-        )
+        # dataset_name_to_storage_bytes is typed Dict[str, int] but the source stores
+        # None too (row values are Any there) — views yield NULL data_length.
+        source.profile_metadata_info.dataset_name_to_storage_bytes[key] = data_length  # type: ignore[assignment]
+        source._table_rows_cache[key] = table_rows
     source._profile_sweep_ran = True
 
 
@@ -79,17 +57,17 @@ def test_add_profile_metadata_reads_storage_bytes_positionally(
     host_port: str,
 ) -> None:
     # Tuple rows (no named attributes) prove access is positional, not by the
-    # label whose case differs across MySQL/MariaDB/Doris/TiDB. The sweep now
-    # also caches table_rows and index_length for the guardrail.
+    # label whose case differs across MySQL/MariaDB/Doris/TiDB. The sweep also
+    # caches table_rows for the guardrail.
     source = source_cls(
         config_cls(host_port=host_port, profiling={"enabled": True}),
         PipelineContext(run_id="mysql-family-profiling-test"),
     )
     inspector = _inspector_returning(
         [
-            ("my_db", "orders", 4096, 100, 1024),
-            ("my_db", "customers", 8192, 200, 2048),
-            ("my_db", "v_orders", None, None, None),
+            ("my_db", "orders", 4096, 100),
+            ("my_db", "customers", 8192, 200),
+            ("my_db", "v_orders", None, None),
         ]
     )
 
@@ -100,19 +78,20 @@ def test_add_profile_metadata_reads_storage_bytes_positionally(
         "my_db.customers": 8192,
         "my_db.v_orders": None,
     }
-    assert source._table_stats_cache == {
-        "my_db.orders": _TableStats(table_rows=100, index_length=1024),
-        "my_db.customers": _TableStats(table_rows=200, index_length=2048),
-        "my_db.v_orders": _TableStats(table_rows=None, index_length=None),
+    assert source._table_rows_cache == {
+        "my_db.orders": 100,
+        "my_db.customers": 200,
+        "my_db.v_orders": None,
     }
     assert source._profile_sweep_ran is True
 
 
 def test_add_profile_metadata_raising_sweep_leaves_flag_false() -> None:
-    # A sweep that raises (restricted grants, a rewriting proxy) must leave
+    # A sweep that raises (a rewriting proxy, a dropped connection) must leave
     # _profile_sweep_ran False so generate_profile_candidates fails open to no
     # guardrail. get_profiling_internal wraps add_profile_metadata in try/except
-    # that only warns.
+    # that only warns. The mock raises on every execute, so primary and
+    # three-column fallback both fail and the error propagates.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={"enabled": True, "profile_table_row_limit": 1_000_000},
@@ -137,6 +116,67 @@ def test_add_profile_metadata_raising_sweep_leaves_flag_false() -> None:
         cand_inspector, threshold_time=None, schema="my_db"
     )
     assert result is None
+
+
+def _inspector_with_failing_primary_sweep() -> MagicMock:
+    inspector = MagicMock()
+    primary_conn = MagicMock()
+    primary_conn.execute.side_effect = SQLAlchemyError("Unknown column 'table_rows'")
+    fallback_conn = MagicMock()
+    fallback_conn.execute.return_value = [
+        ("my_db", "orders", 4096),
+        ("my_db", "customers", 8192),
+    ]
+    inspector.engine.connect.return_value.__enter__.side_effect = [
+        primary_conn,
+        fallback_conn,
+    ]
+    return inspector
+
+
+def test_add_profile_metadata_fallback_populates_storage_bytes_only() -> None:
+    # Primary four-column SELECT fails (e.g. missing table_rows); three-column
+    # fallback succeeds. sizeInBytes cache is filled; guardrail stays off.
+    # No limit is configured here, so the degradation is reported at info: the
+    # guardrail was inert anyway, and a warning would fail --strict-warnings runs.
+    source = _source()
+    inspector = _inspector_with_failing_primary_sweep()
+
+    source.add_profile_metadata(inspector)
+
+    assert source.profile_metadata_info.dataset_name_to_storage_bytes == {
+        "my_db.orders": 4096,
+        "my_db.customers": 8192,
+    }
+    assert source._table_rows_cache == {}
+    assert source._profile_sweep_ran is False
+    assert len(list(source.report.warnings)) == 0
+    infos = [
+        e
+        for e in source.report.infos
+        if e.title == "Profiling row/size guardrail disabled"
+    ]
+    assert len(infos) == 1
+    assert "sizeInBytes is unaffected" in infos[0].message
+
+
+def test_add_profile_metadata_fallback_warns_when_a_limit_is_set() -> None:
+    # With a limit configured the fallback loses filtering the user asked for, so
+    # it is a warning rather than an info.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True, "profile_table_row_limit": 1_000_000},
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    inspector = _inspector_with_failing_primary_sweep()
+
+    source.add_profile_metadata(inspector)
+
+    assert source._profile_sweep_ran is False
+    warnings = list(source.report.warnings)
+    assert len(warnings) == 1
+    assert warnings[0].title == "Profiling row/size guardrail disabled"
+    assert any("mysql" in ctx for ctx in warnings[0].context)
 
 
 def test_generate_profile_candidates_returns_get_identifier_strings() -> None:
@@ -288,37 +328,6 @@ def test_generate_profile_candidates_retains_table_absent_from_cache() -> None:
     )
 
     assert candidates == ["my_db.orders", "my_db.mystery"]
-
-
-def test_size_limit_catches_table_with_null_index_length() -> None:
-    # A 900 GB table with a NULL index_length must still be caught by the size
-    # guardrail. Before the fix the guardrail required BOTH data_length and
-    # index_length to be non-None, so a NULL index_length let any-sized table
-    # slip past — asymmetric with the row limit, which checks its one value
-    # independently. The guardrail now sums whichever is present.
-    config = MySQLConfig(
-        host_port="localhost:3306",
-        profiling={
-            "enabled": True,
-            "profile_table_size_limit": 1,  # 1 GB
-        },
-    )
-    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
-    _populate_profile_cache(
-        source,
-        "my_db",
-        # data_length = 900 GB, index_length = None (4-tuple carries the NULL).
-        [("huge", 100, 900 * 1024**3, None)],
-    )
-    inspector = MagicMock()
-    inspector.get_table_names.return_value = ["huge"]
-
-    candidates = source.generate_profile_candidates(
-        inspector, threshold_time=None, schema="my_db"
-    )
-
-    assert candidates == []
-    assert source._guardrail_skip == {"my_db.huge": "size"}
 
 
 def test_mysql_profiling_config_override_set_pinned() -> None:
