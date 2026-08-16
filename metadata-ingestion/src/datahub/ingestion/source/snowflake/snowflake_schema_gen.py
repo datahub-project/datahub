@@ -1725,13 +1725,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         self.structured_reporter.warning(
             title="Semantic view logical tables collapsed into one",
-            message="A semantic view declares logical tables that differ only by "
-            "case. They are keyed by their uppercased name, so only one survives. "
-            "With semantic model entities enabled the others' datasets, columns "
-            "and metrics are omitted; in legacy dataset mode their columns are "
-            "instead given column-level lineage to the surviving table's physical "
-            "table, which is the wrong upstream. Rename them to differ by more "
-            "than case on the Snowflake side.",
+            message="DataHub keys a semantic view's logical tables by their "
+            "uppercased name, so logical tables that differ only by case collapse "
+            "into one. With semantic model entities enabled the others' datasets, "
+            "columns and metrics are omitted; in legacy dataset mode their columns "
+            "are given column-level lineage to the surviving table's physical "
+            "table, which is the wrong upstream. This is a limitation of the "
+            "connector rather than a problem with the view: no configuration "
+            "avoids it, because the fold happens during extraction and the "
+            "dataset URN lowercases the name in any case. Renaming the tables to "
+            "differ by more than case works around it.",
             context=f"{dataset_name}: {sorted(sorted(v) for v in collisions.values())}",
         )
 
