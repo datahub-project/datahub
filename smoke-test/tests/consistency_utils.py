@@ -29,6 +29,10 @@ class _AuthenticatedSession(Protocol):
     def get(self, url: str, **kwargs: object) -> requests.Response: ...
 
 
+class LagAuthDeniedError(Exception):
+    """Lag or transport endpoint returned HTTP 401/403."""
+
+
 def _get_gms_url() -> str:
     return env_vars.get_gms_url() or "http://localhost:8080"
 
@@ -43,13 +47,18 @@ def _lag_monitor_token() -> str:
     if not token:
         raise RuntimeError(
             "wait_for_writes_to_sync requires DATAHUB_GMS_TOKEN with access to "
-            "messaging lag endpoints (MANAGE_SYSTEM_OPERATIONS)."
+            "messaging lag endpoints (VIEW_SYSTEM_STATUS or MANAGE_SYSTEM_OPERATIONS)."
         )
     return token
 
 
 def _request_headers() -> dict:
     return {"Authorization": f"Bearer {_lag_monitor_token()}"}
+
+
+def _raise_if_auth_denied(resp: requests.Response, endpoint: str) -> None:
+    if resp.status_code in (401, 403):
+        raise LagAuthDeniedError(f"{endpoint} returned HTTP {resp.status_code}")
 
 
 def _fetch_lag_envelope(
@@ -59,8 +68,11 @@ def _fetch_lag_envelope(
     url = f"{gms_url}{endpoint}?skipCache=true"
     try:
         resp = requests.get(url, headers=_request_headers(), timeout=5)
+        _raise_if_auth_denied(resp, endpoint)
         resp.raise_for_status()
         return resp.json()
+    except LagAuthDeniedError:
+        raise
     except Exception as e:
         logger.debug("Lag fetch failed for %s: %s", endpoint, e)
         return None
@@ -125,8 +137,11 @@ def _get_messaging_transport(gms_url: str) -> Optional[str]:
     try:
         url = f"{gms_url}/openapi/operations/messaging/transport"
         resp = requests.get(url, headers=_request_headers(), timeout=5)
+        _raise_if_auth_denied(resp, "/openapi/operations/messaging/transport")
         resp.raise_for_status()
         return resp.json().get("transport")
+    except LagAuthDeniedError:
+        raise
     except Exception as e:
         logger.debug("Failed to read messaging transport: %s", e)
         return None
@@ -136,14 +151,14 @@ def _get_consumer_lag(
     gms_url: str,
     consumers: List[str],
     consumer_group: Optional[str] = None,
-) -> tuple[Optional[int], bool, bool]:
+) -> tuple[Optional[int], bool, bool, bool]:
     """Get combined lag across endpoints.
 
     Fetches each consumer's lag endpoint concurrently rather than sequentially,
     since a broad wait (mcp+mcl+mcl_timeseries) would otherwise pay three
     round-trips per poll tick instead of one.
 
-    Returns (lag, group_found, api_available).
+    Returns (lag, group_found, api_available, auth_denied).
     """
     endpoints = [
         (consumer, _MESSAGING_LAG_ENDPOINTS[consumer])
@@ -151,12 +166,24 @@ def _get_consumer_lag(
         if consumer in _MESSAGING_LAG_ENDPOINTS
     ]
 
+    auth_denied = False
+    envelopes: dict = {}
     with ThreadPoolExecutor(max_workers=max(len(endpoints), 1)) as executor:
         futures = {
             executor.submit(_fetch_lag_envelope, gms_url, endpoint): consumer
             for consumer, endpoint in endpoints
         }
-        envelopes = {futures[future]: future.result() for future in futures}
+        for future in futures:
+            consumer = futures[future]
+            try:
+                envelopes[consumer] = future.result()
+            except LagAuthDeniedError as e:
+                logger.debug("Lag fetch auth denied for %s: %s", consumer, e)
+                auth_denied = True
+                envelopes[consumer] = None
+
+    if auth_denied:
+        return None, False, False, True
 
     total = 0
     group_found = consumer_group is None
@@ -173,10 +200,10 @@ def _get_consumer_lag(
             group_found = True
         total += lag
     if not api_available:
-        return None, False, False
+        return None, False, False, False
     if consumer_group is not None and not group_found:
-        return None, False, True
-    return total, group_found, True
+        return None, False, True, False
+    return total, group_found, True, False
 
 
 def _infer_kafka_broker_container() -> str:
@@ -267,95 +294,90 @@ def _wait_for_kafka_consumer_group_lag(
     return False
 
 
-def wait_for_writes_to_sync(
-    max_timeout_in_sec: int = 120,
-    mcp_only: bool = False,
-    mae_only: bool = False,
-    cdc_only: bool = False,
-    consumer_group: str | None = None,
-    auth_session: Optional[_AuthenticatedSession] = None,
-    legacy_wait: bool = False,
-) -> None:
-    """Wait for consumer lag to reach zero using the GMS messaging operations API.
+class _LagAuthTracker:
+    """Retry 401/403 for a short window, then fail with a grant hint."""
 
-    Polls the transport-neutral consumer lag endpoints until all requested
-    consumers have fully caught up, then waits an additional ES refresh interval
-    for search index updates to become visible. Works with both Kafka and pgQueue
-    transports.
+    def __init__(self) -> None:
+        self.timeout = env_vars.get_lag_auth_timeout_seconds()
+        self.denied_since: Optional[float] = None
 
-    Args:
-        max_timeout_in_sec: Maximum time to wait in seconds (default: 120)
-        mcp_only: If True, wait for MCP and MCL -- the proposal being consumed
-            and the resulting change log being indexed. Skips the timeseries MCL
-            consumer, so it is not sufficient for timeseries aspects.
-        mae_only: If True, only wait for MCL versioned consumer (entity update tests)
-        cdc_only: Ignored (CDC has no dedicated lag endpoint; included for compat)
-        consumer_group: When set, wait only for this consumer group's lag (e.g.
-            ``datahub-usage-event-consumer-job-client`` for audit-event indexing).
-            Falls back to ``kafka-consumer-groups`` when the group is not exposed
-            via the messaging lag API (Kafka usage-event consumer).
-        auth_session: Ignored. Lag polls always use DATAHUB_GMS_TOKEN (bootstrap
-            admin PAT). Restricted-user sessions 403 MANAGE_SYSTEM_OPERATIONS.
-        legacy_wait: If True, use the old aggregate consumer-group-lag polling.
-            Defaults to False, which instead captures offset checkpoints and
-            waits for the consumers to pass them -- immune to the "lag never
-            reaches zero under concurrent writers" problem that aggregate-lag
-            polling has (see wait_for_offsets_to_be_consumed).
-            Always uses the legacy path when consumer_group is set, since the
-            offset-checkpoint path doesn't cover the usage-event consumer group,
-            and when DATAHUB_TEST_FORCE_LEGACY_WAIT is set (CI retry attempts).
-    """
-    if env_vars.get_use_static_sleep():
-        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-        return
-
-    # Lag polls require a bootstrap admin token (restricted-user sessions 403).
-    # Missing auth is not replaced by a sleep; the ES refresh interval still
-    # runs after lag has been awaited (or the wait times out).
-    _lag_monitor_token()
-    del auth_session
-
-    # CI sets this on retry attempts: a batch that failed once re-runs with the
-    # more conservative wait, so a wait-related flake self-recovers.
-    if env_vars.get_force_legacy_wait():
-        legacy_wait = True
-
-    if consumer_group:
-        consumers = _endpoints_for_consumer_group(consumer_group)
-    elif mcp_only:
-        consumers = ["mcp", "mcl"]
-    elif mae_only:
-        consumers = ["mcl"]
-    else:
-        consumers = ["mcp", "mcl", "mcl_timeseries"]
-
-    gms_url = _get_gms_url()
-
-    # Usage events on Kafka are not exposed via trace readers; use broker CLI lag.
-    if consumer_group == _USAGE_EVENT_CONSUMER_GROUP:
-        transport = _get_messaging_transport(gms_url)
-        if transport == "kafka":
-            _wait_for_kafka_consumer_group_lag(
-                consumer_group,
-                max_timeout_in_sec,
-                topic=env_vars.get_datahub_usage_event_topic(),
+    def note_denied(self) -> None:
+        now = time.time()
+        if self.denied_since is None:
+            self.denied_since = now
+            logger.warning(
+                "Messaging lag API returned 401/403; retrying for up to %ss. "
+                "Grant VIEW_SYSTEM_STATUS or MANAGE_SYSTEM_OPERATIONS if this persists.",
+                self.timeout,
             )
-            time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-            return
+        if now - self.denied_since >= self.timeout:
+            raise RuntimeError(
+                "Messaging lag API returned 401/403 for "
+                f"{self.timeout:g}s. Grant VIEW_SYSTEM_STATUS or "
+                "MANAGE_SYSTEM_OPERATIONS to the DATAHUB_GMS_TOKEN user."
+            )
 
-    # The offset-checkpoint path only covers mcp/mcl/mcl_timeseries; fall back
-    # to legacy aggregate-lag polling for any consumer_group-scoped call, and
-    # also if the checkpoint fetch itself fails (transient auth/connection
-    # error) rather than trusting a false-empty checkpoint.
-    if not legacy_wait and not consumer_group:
+
+def _select_wait_consumers(
+    consumer_group: Optional[str], mcp_only: bool, mae_only: bool
+) -> List[str]:
+    if consumer_group:
+        return _endpoints_for_consumer_group(consumer_group)
+    if mcp_only:
+        return ["mcp", "mcl"]
+    if mae_only:
+        return ["mcl"]
+    return ["mcp", "mcl", "mcl_timeseries"]
+
+
+def _try_kafka_usage_event_wait(
+    gms_url: str,
+    consumer_group: str,
+    max_timeout_in_sec: int,
+    auth: _LagAuthTracker,
+) -> bool:
+    try:
+        transport = _get_messaging_transport(gms_url)
+    except LagAuthDeniedError:
+        auth.note_denied()
+        return False
+    if transport != "kafka":
+        return False
+    _wait_for_kafka_consumer_group_lag(
+        consumer_group,
+        max_timeout_in_sec,
+        topic=env_vars.get_datahub_usage_event_topic(),
+    )
+    time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    return True
+
+
+def _try_offset_checkpoint_wait(
+    consumers: List[str],
+    max_timeout_in_sec: int,
+    auth: _LagAuthTracker,
+) -> bool:
+    try:
         checkpoint_established = wait_for_offsets_to_be_consumed(
             consumers,
             max_timeout_in_sec=max_timeout_in_sec,
         )
-        if checkpoint_established:
-            time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-            return
+    except LagAuthDeniedError:
+        auth.note_denied()
+        return False
+    if not checkpoint_established:
+        return False
+    time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    return True
 
+
+def _poll_aggregate_lag(
+    gms_url: str,
+    consumers: List[str],
+    consumer_group: Optional[str],
+    max_timeout_in_sec: int,
+    auth: _LagAuthTracker,
+) -> None:
     start_time = time.time()
     lag_zero = False
     last_lag: Optional[int] = None
@@ -364,9 +386,12 @@ def wait_for_writes_to_sync(
     while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
         time.sleep(1)
 
-        lag, group_found, api_available = _get_consumer_lag(
+        lag, group_found, api_available, auth_denied = _get_consumer_lag(
             gms_url, consumers, consumer_group
         )
+        if auth_denied:
+            auth.note_denied()
+            continue
         if (
             consumer_group
             and api_available
@@ -409,6 +434,83 @@ def wait_for_writes_to_sync(
             f"waiting {ELASTICSEARCH_REFRESH_INTERVAL_SECONDS}s for ES refresh"
         )
 
+
+def wait_for_writes_to_sync(
+    max_timeout_in_sec: int = 120,
+    mcp_only: bool = False,
+    mae_only: bool = False,
+    cdc_only: bool = False,
+    consumer_group: str | None = None,
+    auth_session: Optional[_AuthenticatedSession] = None,
+    legacy_wait: bool = False,
+) -> None:
+    """Wait for consumer lag to reach zero using the GMS messaging operations API.
+
+    Polls the transport-neutral consumer lag endpoints until all requested
+    consumers have fully caught up, then waits an additional ES refresh interval
+    for search index updates to become visible. Works with both Kafka and pgQueue
+    transports.
+
+    Args:
+        max_timeout_in_sec: Maximum time to wait in seconds (default: 120)
+        mcp_only: If True, wait for MCP and MCL -- the proposal being consumed
+            and the resulting change log being indexed. Skips the timeseries MCL
+            consumer, so it is not sufficient for timeseries aspects.
+        mae_only: If True, only wait for MCL versioned consumer (entity update tests)
+        cdc_only: Ignored (CDC has no dedicated lag endpoint; included for compat)
+        consumer_group: When set, wait only for this consumer group's lag (e.g.
+            ``datahub-usage-event-consumer-job-client`` for audit-event indexing).
+            Falls back to ``kafka-consumer-groups`` when the group is not exposed
+            via the messaging lag API (Kafka usage-event consumer).
+        auth_session: Ignored. Lag polls always use DATAHUB_GMS_TOKEN.
+            Restricted-user sessions 403 VIEW_SYSTEM_STATUS / MANAGE_SYSTEM_OPERATIONS.
+        legacy_wait: If True, use the old aggregate consumer-group-lag polling.
+            Defaults to False, which instead captures offset checkpoints and
+            waits for the consumers to pass them -- immune to the "lag never
+            reaches zero under concurrent writers" problem that aggregate-lag
+            polling has (see wait_for_offsets_to_be_consumed).
+            Always uses the legacy path when consumer_group is set, since the
+            offset-checkpoint path doesn't cover the usage-event consumer group,
+            and when DATAHUB_TEST_FORCE_LEGACY_WAIT is set (CI retry attempts).
+    """
+    if env_vars.get_use_static_sleep():
+        time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+        return
+
+    # Lag polls require a token. Missing auth is not replaced by a sleep; the
+    # ES refresh interval still runs after lag has been awaited (or the wait
+    # times out).
+    _lag_monitor_token()
+    del auth_session
+
+    auth = _LagAuthTracker()
+
+    # CI sets this on retry attempts: a batch that failed once re-runs with the
+    # more conservative wait, so a wait-related flake self-recovers.
+    if env_vars.get_force_legacy_wait():
+        legacy_wait = True
+
+    consumers = _select_wait_consumers(consumer_group, mcp_only, mae_only)
+    gms_url = _get_gms_url()
+
+    # Usage events on Kafka are not exposed via trace readers; use broker CLI lag.
+    if consumer_group == _USAGE_EVENT_CONSUMER_GROUP and _try_kafka_usage_event_wait(
+        gms_url, consumer_group, max_timeout_in_sec, auth
+    ):
+        return
+
+    # The offset-checkpoint path only covers mcp/mcl/mcl_timeseries; fall back
+    # to legacy aggregate-lag polling for any consumer_group-scoped call, and
+    # also if the checkpoint fetch itself fails (transient connection
+    # error) rather than trusting a false-empty checkpoint.
+    if (
+        not legacy_wait
+        and not consumer_group
+        and _try_offset_checkpoint_wait(consumers, max_timeout_in_sec, auth)
+    ):
+        return
+
+    _poll_aggregate_lag(gms_url, consumers, consumer_group, max_timeout_in_sec, auth)
     time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
@@ -454,8 +556,11 @@ def _fetch_detailed_lag_envelope(
     url = f"{gms_url}{endpoint}?skipCache=true&detailed=true"
     try:
         resp = requests.get(url, headers=_request_headers(), timeout=5)
+        _raise_if_auth_denied(resp, endpoint)
         resp.raise_for_status()
         return resp.json()
+    except LagAuthDeniedError:
+        raise
     except Exception as e:
         logger.debug("Detailed lag fetch failed for %s: %s", endpoint, e)
         return None
@@ -590,7 +695,7 @@ def wait_for_offsets_to_be_consumed(
     Returns:
         True if checkpoints were established (whether or not every offset was
         consumed within the timeout). False if a checkpoint fetch itself
-        failed (e.g. a transient 401/connection error) -- the caller should
+        failed (e.g. a transient connection error) -- the caller should
         fall back to the legacy lag-polling path rather than trust an empty
         checkpoint, which would otherwise return near-instantly as if there
         were nothing to wait for.

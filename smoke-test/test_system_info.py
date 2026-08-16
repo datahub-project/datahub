@@ -1,9 +1,16 @@
 import logging
+import time
 
 import pytest
 import requests
 
-from tests.privileges.utils import create_user, remove_user
+from tests.privileges.utils import (
+    DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS,
+    create_user,
+    create_user_policy,
+    remove_policy,
+    remove_user,
+)
 from tests.tokens.token_utils import assert_graphql_mutation_succeeded
 from tests.utils import get_admin_credentials, get_frontend_url, get_gms_url, login_as
 
@@ -319,7 +326,7 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
             )
 
             # Verify the error message mentions authorization
-            assert "not authorized for system operations" in response.text, (
+            assert "not authorized" in response.text, (
                 f"Error message should mention authorization: {response.text}"
             )
 
@@ -381,3 +388,79 @@ def test_system_info_unauthorized_access_returns_403():
     logger.info(
         "Unauthenticated access test passed - all system info endpoints require proper authentication"
     )
+
+
+def test_view_system_status_allows_components_and_lag_but_not_properties():
+    """VIEW_SYSTEM_STATUS is a subset of ops: status/lag GETs work, property dumps do not."""
+    (admin_user, admin_pass) = get_admin_credentials()
+    admin_session = login_as(admin_user, admin_pass)
+
+    status_email = "view.system.status@smoke.datahub.test"
+    test_user_urn = f"urn:li:corpuser:{status_email}"
+    token_id = None
+    policy_urn = None
+    status_session = None
+
+    try:
+        admin_session = create_user(admin_session, status_email, "testpass123")
+        policy_urn = create_user_policy(
+            test_user_urn,
+            ["VIEW_SYSTEM_STATUS"],
+            admin_session,
+            name="VIEW_SYSTEM_STATUS smoke policy",
+        )
+        status_session = login_as(status_email, "testpass123")
+        api_token, token_id = extract_api_token_from_session(status_session)
+        headers = {"Authorization": f"Bearer {api_token}"}
+        base_url = get_gms_url()
+
+        deadline = time.time() + DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS
+        last_status = None
+        while time.time() < deadline:
+            last_status = requests.get(
+                f"{base_url}/openapi/v1/system-info", headers=headers
+            ).status_code
+            if last_status == 200:
+                break
+            time.sleep(1)
+        assert last_status == 200, (
+            f"VIEW_SYSTEM_STATUS did not allow /system-info within "
+            f"{DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS}s (last HTTP {last_status})"
+        )
+
+        components = requests.get(
+            f"{base_url}/openapi/v1/system-info/spring-components", headers=headers
+        )
+        assert components.status_code == 200, components.text
+
+        lag = requests.get(
+            f"{base_url}/openapi/operations/messaging/mcp/consumer/lag", headers=headers
+        )
+        assert lag.status_code == 200, lag.text
+
+        properties = requests.get(
+            f"{base_url}/openapi/v1/system-info/properties", headers=headers
+        )
+        assert properties.status_code == 403, properties.text
+        simple = requests.get(
+            f"{base_url}/openapi/v1/system-info/properties/simple", headers=headers
+        )
+        assert simple.status_code == 403, simple.text
+    finally:
+        try:
+            if token_id and status_session is not None:
+                status_session.post(
+                    f"{get_frontend_url()}/api/v2/graphql",
+                    json={
+                        "query": """mutation revokeAccessToken($tokenId: String!) {
+                            revokeAccessToken(tokenId: $tokenId)
+                        }""",
+                        "variables": {"tokenId": token_id},
+                    },
+                )
+            admin_cleanup = login_as(admin_user, admin_pass)
+            if policy_urn:
+                remove_policy(policy_urn, admin_cleanup)
+            remove_user(admin_cleanup, test_user_urn)
+        except Exception as e:
+            logger.warning("Failed to clean up VIEW_SYSTEM_STATUS test user: %s", e)
