@@ -32,7 +32,7 @@ _CASING_PROBE_TABLE = "urn_casing_probe"
 # memory. Costs a few MB, well above the 900 a schema cache is tuned for.
 _ALIAS_CACHE_MAX_SIZE = 10_000
 
-# Off by default: a bulk load holds a whole platform's URNs in memory. Set once per
+# Off by default: a bulk load writes a whole platform's URNs to disk. Set once per
 # ingestion, before any source exists — see PipelineContext.
 _LOAD_URN_ALIASES = False
 
@@ -360,7 +360,7 @@ class UrnAliasResolver:
 
     `cached` keeps what has been learned for the resolver's lifetime, which a bulk load
     requires — it has nowhere else to put a platform's URNs. Uncached, nothing is retained
-    and every lookup queries: memory for round trips, and nothing at all to resolve with
+    and every lookup queries: disk for round trips, and nothing at all to resolve with
     when there is no graph.
     """
 
