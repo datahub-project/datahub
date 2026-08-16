@@ -84,11 +84,11 @@ class _MetricKey:
 
     Snowflake allows the same metric name on different logical tables, so a
     table-bound metric is identified by (name, logical table); a view-scoped
-    (derived) metric has ``logical_table_upper=None``.
+    (derived) metric has ``logical_table=None``.
     """
 
     name_key: str
-    logical_table_upper: Optional[str]
+    logical_table: Optional[str]
 
 
 class SnowflakeSemanticModelMapper:
@@ -132,14 +132,14 @@ class SnowflakeSemanticModelMapper:
         # expressions: a qualified `table.metric` resolves to a table-bound metric,
         # an unqualified `metric` to a view-scoped (derived) metric.
         table_bound_metrics = {
-            (key.logical_table_upper, key.name_key): occ
+            (key.logical_table, key.name_key): occ
             for key, occ in distinct_metrics.items()
-            if key.logical_table_upper is not None
+            if key.logical_table is not None
         }
         view_scoped_metrics = {
             key.name_key: occ
             for key, occ in distinct_metrics.items()
-            if key.logical_table_upper is None
+            if key.logical_table is None
         }
         shadowed_metric_names = self._shadowed_metric_names(semantic_view)
         logical_dataset_urns = self._build_logical_dataset_urns(
@@ -173,10 +173,10 @@ class SnowflakeSemanticModelMapper:
         )
 
         # One dataset entity per logical table.
-        for logical_table_upper, logical_dataset_urn in logical_dataset_urns.items():
+        for logical_table, logical_dataset_urn in logical_dataset_urns.items():
             yield from self._gen_logical_dataset_workunits(
                 semantic_view=semantic_view,
-                logical_table_upper=logical_table_upper,
+                logical_table=logical_table,
                 logical_dataset_urn=logical_dataset_urn,
                 model_urn=model_urn,
                 schema_name=schema_name,
@@ -192,7 +192,7 @@ class SnowflakeSemanticModelMapper:
         for key, occurrence in distinct_metrics.items():
             yield from self._gen_metric_workunits(
                 occurrence=occurrence,
-                logical_table=key.logical_table_upper,
+                logical_table=key.logical_table,
                 table_bound_metrics=table_bound_metrics,
                 view_scoped_metrics=view_scoped_metrics,
                 shadowed_metric_names=shadowed_metric_names,
@@ -302,22 +302,23 @@ class SnowflakeSemanticModelMapper:
             return None
         relationships: List[SemanticModelRelationshipClass] = []
         for relationship in semantic_view.relationships:
-            from_table_upper = relationship.from_table
+            from_table = relationship.from_table
             # Snowflake does not store cardinality; it infers one-to-one when the
             # from-side join columns uniquely identify a row - i.e. they are that
             # table's COMPLETE primary key or a COMPLETE declared unique key. A
             # subset of a composite key does not uniquely identify a row, so many
             # rows can share the value -> many-to-one.
-            from_columns_upper = {col.upper() for col in relationship.from_columns}
-            from_pk = semantic_view.primary_key_columns_by_table.get(
-                from_table_upper, set()
-            )
+            from_columns_key = {
+                self.identifiers.column_identity_key(col)
+                for col in relationship.from_columns
+            }
+            from_pk = semantic_view.primary_key_columns_by_table.get(from_table, set())
             from_unique_keys = semantic_view.unique_key_column_sets_by_table.get(
-                from_table_upper, []
+                from_table, []
             )
-            is_one_to_one = bool(from_columns_upper) and (
-                from_columns_upper == from_pk
-                or any(from_columns_upper == uk for uk in from_unique_keys)
+            is_one_to_one = bool(from_columns_key) and (
+                from_columns_key == from_pk
+                or any(from_columns_key == uk for uk in from_unique_keys)
             )
             cardinality = (
                 ERModelRelationshipCardinalityClass.ONE_ONE
@@ -327,18 +328,16 @@ class SnowflakeSemanticModelMapper:
             relationships.append(
                 SemanticModelRelationshipClass(
                     name=relationship.name,
-                    # Uppercased to match each logical dataset's
+                    # The stored name, matching each logical dataset's
                     # semanticModelProperties.alias, so join references resolve.
-                    from_=from_table_upper,
+                    from_=from_table,
                     # A relationship key names the base-table column, while the
                     # logical dataset's field is named after the dimension defined
                     # over it, and the two can differ in casing. Resolve to the
                     # dimension name first, then apply the field-path rule.
                     fromColumns=[
                         self.identifiers.logical_dataset_field_path(
-                            semantic_view.dimension_name_for_join_key(
-                                col, from_table_upper
-                            ),
+                            semantic_view.dimension_name_for_join_key(col, from_table),
                         )
                         for col in relationship.from_columns
                     ],
@@ -354,7 +353,53 @@ class SnowflakeSemanticModelMapper:
                     cardinality=cardinality,
                 )
             )
+        self._warn_dangling_join_keys(semantic_view, relationships)
         return relationships
+
+    def _warn_dangling_join_keys(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        relationships: List[SemanticModelRelationshipClass],
+    ) -> None:
+        # dimension_name_for_join_key falls through to the raw key when it cannot
+        # resolve one, which anchors the relationship on a field path the logical
+        # dataset never declares. Harmless-looking and invisible: the join simply
+        # never resolves in the UI. Folding used to hide most mismatches; matching
+        # on the stored name exactly means a disagreement now shows up here, so
+        # say so rather than emit an edge that goes nowhere.
+        declared: Dict[str, Set[str]] = {}
+        for occurrences in semantic_view.column_occurrences.values():
+            for occurrence in occurrences:
+                if occurrence.table_name:
+                    declared.setdefault(occurrence.table_name, set()).add(
+                        self.identifiers.logical_dataset_field_path(occurrence.name)
+                    )
+
+        dangling: Set[str] = set()
+        for relationship in relationships:
+            for table, columns in (
+                (relationship.from_, relationship.fromColumns),
+                (relationship.to, relationship.toColumns),
+            ):
+                # Only judge tables we actually have columns for; a table with no
+                # occurrences tells us nothing about whether the key is valid.
+                known = declared.get(table)
+                if not known:
+                    continue
+                for column in columns or []:
+                    if column not in known:
+                        dangling.add(f"{table}.{column}")
+
+        if dangling:
+            self.report.warning(
+                title="Semantic view join key does not match any field",
+                message="A relationship's join column could not be matched to a "
+                "field on the logical dataset it references, so the join will not "
+                "resolve. This happens when the dimension over the base-table "
+                "column is renamed, or when Snowflake reports the column with "
+                "different casing than the dimension that covers it.",
+                context=f"{semantic_view.name}: {sorted(dangling)}",
+            )
 
     def _route_lineages(
         self,
@@ -459,7 +504,7 @@ class SnowflakeSemanticModelMapper:
     def _gen_logical_dataset_workunits(
         self,
         semantic_view: SnowflakeSemanticView,
-        logical_table_upper: str,
+        logical_table: str,
         logical_dataset_urn: str,
         model_urn: str,
         schema_name: str,
@@ -467,7 +512,7 @@ class SnowflakeSemanticModelMapper:
         fine_grained_lineages: List[FineGrainedLineageClass],
     ) -> Iterable[MetadataWorkUnit]:
         physical_db, physical_schema, physical_table_name = (
-            semantic_view.logical_to_physical_table[logical_table_upper]
+            semantic_view.logical_to_physical_table[logical_table]
         )
         base_table_urn = self.identifiers.gen_dataset_urn(
             self.identifiers.get_dataset_identifier(
@@ -487,12 +532,12 @@ class SnowflakeSemanticModelMapper:
         yield MetadataChangeProposalWrapper(
             entityUrn=logical_dataset_urn,
             aspect=SemanticModelPropertiesClass(
-                alias=logical_table_upper,
+                alias=logical_table,
                 semanticModel=model_urn,
             ),
         ).as_workunit()
 
-        schema_fields = self._build_schema_fields(semantic_view, logical_table_upper)
+        schema_fields = self._build_schema_fields(semantic_view, logical_table)
         if schema_fields:
             yield MetadataChangeProposalWrapper(
                 entityUrn=logical_dataset_urn,
@@ -508,7 +553,7 @@ class SnowflakeSemanticModelMapper:
 
             yield from self._gen_semantic_field_annotation_workunits(
                 semantic_view=semantic_view,
-                logical_table_upper=logical_table_upper,
+                logical_table=logical_table,
                 logical_dataset_urn=logical_dataset_urn,
             )
 
@@ -536,7 +581,7 @@ class SnowflakeSemanticModelMapper:
                     urn=model_urn,
                 ),
                 BrowsePathEntryClass(
-                    id=self.identifiers.snowflake_identifier(logical_table_upper),
+                    id=self.identifiers.snowflake_identifier(logical_table),
                     urn=logical_dataset_urn,
                 ),
             ],
@@ -547,21 +592,19 @@ class SnowflakeSemanticModelMapper:
         )
 
         yield from self._gen_field_structured_property_workunits(
-            semantic_view, logical_table_upper, logical_dataset_urn
+            semantic_view, logical_table, logical_dataset_urn
         )
 
         # Table-level synonyms have no aiContext home (aiContext is not
         # registered on dataset), so preserve them on the logical dataset's
         # datasetProperties.customProperties under the legacy key convention.
-        table_synonyms = semantic_view.table_synonyms.get(logical_table_upper, [])
+        table_synonyms = semantic_view.table_synonyms.get(logical_table, [])
         if table_synonyms:
             yield MetadataChangeProposalWrapper(
                 entityUrn=logical_dataset_urn,
                 aspect=DatasetPropertiesClass(
                     customProperties={
-                        f"TABLE_SYNONYM_{logical_table_upper}": ", ".join(
-                            table_synonyms
-                        )
+                        f"TABLE_SYNONYM_{logical_table}": ", ".join(table_synonyms)
                     }
                 ),
             ).as_workunit()
@@ -569,7 +612,7 @@ class SnowflakeSemanticModelMapper:
     def _build_schema_fields(
         self,
         semantic_view: SnowflakeSemanticView,
-        logical_table_upper: str,
+        logical_table: str,
     ) -> List[SchemaFieldClass]:
         fields: List[SchemaFieldClass] = []
         seen_field_paths: Set[str] = set()
@@ -578,8 +621,7 @@ class SnowflakeSemanticModelMapper:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
                 if not (
-                    occurrence.table_name
-                    and occurrence.table_name == logical_table_upper
+                    occurrence.table_name and occurrence.table_name == logical_table
                 ):
                     continue
                 # Dedupe on the path actually emitted, not on the dict key. The
@@ -608,9 +650,9 @@ class SnowflakeSemanticModelMapper:
                         description=occurrence.comment,
                         nullable=True,
                         isPartOfKey=(
-                            occurrence.name.upper()
+                            self.identifiers.column_identity_key(occurrence.name)
                             in semantic_view.primary_key_columns_by_table.get(
-                                logical_table_upper, set()
+                                logical_table, set()
                             )
                         ),
                         globalTags=self._column_tags(occurrence.name, semantic_view),
@@ -621,7 +663,7 @@ class SnowflakeSemanticModelMapper:
     def _gen_semantic_field_annotation_workunits(
         self,
         semantic_view: SnowflakeSemanticView,
-        logical_table_upper: str,
+        logical_table: str,
         logical_dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         seen_field_paths: Set[str] = set()
@@ -630,8 +672,7 @@ class SnowflakeSemanticModelMapper:
                 if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                     continue
                 if not (
-                    occurrence.table_name
-                    and occurrence.table_name == logical_table_upper
+                    occurrence.table_name and occurrence.table_name == logical_table
                 ):
                     continue
                 # Same dedupe rule as _build_schema_fields, for the same reason:
@@ -657,7 +698,7 @@ class SnowflakeSemanticModelMapper:
                     aspect=SemanticFieldAnnotationClass(
                         type=field_type,
                         expression=self._expression_for_field(
-                            occurrence, logical_table_upper
+                            occurrence, logical_table
                         ),
                         dimension=(
                             DimensionClass(isTime=type_class in (DateType, TimeType))
@@ -962,7 +1003,7 @@ class SnowflakeSemanticModelMapper:
     def _gen_field_structured_property_workunits(
         self,
         semantic_view: SnowflakeSemanticView,
-        logical_table_upper: str,
+        logical_table: str,
         logical_dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         # In structured-properties mode there is no field aspect to carry column
@@ -978,7 +1019,7 @@ class SnowflakeSemanticModelMapper:
                     for o in occurrences
                     if o.subtype != SemanticViewColumnSubtype.METRIC
                     and o.table_name
-                    and o.table_name == logical_table_upper
+                    and o.table_name == logical_table
                     and o.name in semantic_view.column_tags
                 ),
                 None,
@@ -1000,7 +1041,7 @@ class SnowflakeSemanticModelMapper:
     def _expression_for_field(
         self,
         occurrence: SemanticViewColumnMetadata,
-        logical_table_upper: str,
+        logical_table: str,
     ) -> MetricExpressionClass:
         # SemanticFieldAnnotation.expression is required, so synthesize a
         # trivial qualified column reference when Snowflake reports no
@@ -1010,8 +1051,7 @@ class SnowflakeSemanticModelMapper:
                 DialectExpressionClass(
                     dialect=DialectClass.SNOWFLAKE,
                     expression=(
-                        occurrence.expression
-                        or f"{logical_table_upper}.{occurrence.name}"
+                        occurrence.expression or f"{logical_table}.{occurrence.name}"
                     ),
                 )
             ]
@@ -1046,7 +1086,7 @@ class SnowflakeSemanticModelMapper:
                     continue
                 key = _MetricKey(
                     name_key=self.identifiers.column_identity_key(occurrence.name),
-                    logical_table_upper=(
+                    logical_table=(
                         occurrence.table_name.upper() if occurrence.table_name else None
                     ),
                 )

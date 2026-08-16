@@ -280,11 +280,13 @@ class SnowflakeSemanticView(BaseView):
     # Primary key columns: Set of column names that are part of the primary key.
     # Flat union across logical tables, consumed by the legacy dataset-mode path.
     primary_key_columns: set = field(default_factory=set)
-    # Primary keys keyed by logical table (uppercase) -> set of PK column names.
+    # Primary keys keyed by logical table (its stored name) -> set of PK column
+    # names, which are uppercased -- the join columns they are compared against
+    # are folded the same way.
     # The semanticModel mapper needs per-table PKs so isPartOfKey and relationship
     # cardinality don't leak across same-named columns on different logical tables.
     primary_key_columns_by_table: Dict[str, Set[str]] = field(default_factory=dict)
-    # Declared unique keys keyed by logical table (uppercase) -> list of column-sets
+    # Declared unique keys keyed by logical table (its stored name) -> list of column-sets
     # (each set is one complete unique key). Snowflake infers a one-to-one
     # relationship when the join columns are a unique key, not only the primary key.
     unique_key_column_sets_by_table: Dict[str, List[Set[str]]] = field(
@@ -329,7 +331,7 @@ class SnowflakeSemanticView(BaseView):
         return DatasetSubTypes.SEMANTIC_VIEW
 
     def dimension_name_for_join_key(
-        self, join_key: str, logical_table_upper: Optional[str] = None
+        self, join_key: str, logical_table: Optional[str] = None
     ) -> str:
         """The dimension name a relationship's join key refers to.
 
@@ -341,9 +343,8 @@ class SnowflakeSemanticView(BaseView):
         resolvable this way and falls through unchanged.
         """
         for occurrence in self.occurrences_for(join_key):
-            if logical_table_upper is not None and (
-                not occurrence.table_name
-                or occurrence.table_name != logical_table_upper
+            if logical_table is not None and (
+                not occurrence.table_name or occurrence.table_name != logical_table
             ):
                 continue
             return occurrence.name
@@ -1376,6 +1377,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
             return []
 
+    def _column_identity_key(self, column_name: str) -> str:
+        """Internal identity of a column name, matching
+        SnowflakeIdentifierBuilder.column_identity_key.
+
+        The data dictionary has no identifier builder, and duplicating four lines
+        beats threading one through purely to fold key columns."""
+        if self._preserve_column_case:
+            return column_name
+        return column_name.upper()
+
     def _parse_unique_key_sets(self, value: Optional[str], context: str) -> List[set]:
         """Parse UNIQUE_KEYS into a list of column-name sets.
 
@@ -1398,7 +1409,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # scalar defensively.
             columns = key if isinstance(key, list) else [key]
             col_set = {
-                str(c).upper()
+                self._column_identity_key(str(c))
                 for c in columns
                 if isinstance(c, (str, int, float, bool))
             }
@@ -1458,8 +1469,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 # names a logical table reports this same spelling, so nothing
                 # needs folding to make them match -- and folding loses a
                 # case-only pair and mangles every mixed-case alias.
-                logical_table_upper = logical_table_name
-                semantic_view_obj.logical_to_physical_table[logical_table_upper] = (
+                logical_table = logical_table_name
+                semantic_view_obj.logical_to_physical_table[logical_table] = (
                     base_table_id.as_tuple()
                 )
 
@@ -1470,13 +1481,18 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 if primary_keys:
                     pk_by_table = (
                         semantic_view_obj.primary_key_columns_by_table.setdefault(
-                            logical_table_upper, set()
+                            logical_table, set()
                         )
                     )
                     for pk_col in primary_keys:
-                        pk_col_upper = pk_col.upper()
-                        semantic_view_obj.primary_key_columns.add(pk_col_upper)
-                        pk_by_table.add(pk_col_upper)
+                        # Verified against Snowflake: PRIMARY_KEYS, FOREIGN_KEYS and
+                        # REF_KEYS all report the column's stored spelling, and a
+                        # quoted mixed-case column can only be referenced by it. So
+                        # fold the way columns fold -- which is still uppercase when
+                        # casing is not being preserved, leaving that path unchanged.
+                        pk_col_key = self._column_identity_key(pk_col)
+                        semantic_view_obj.primary_key_columns.add(pk_col_key)
+                        pk_by_table.add(pk_col_key)
 
                 unique_key_sets = self._parse_unique_key_sets(
                     row.get("UNIQUE_KEYS"),
@@ -1484,7 +1500,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
                 if unique_key_sets:
                     semantic_view_obj.unique_key_column_sets_by_table.setdefault(
-                        logical_table_upper, []
+                        logical_table, []
                     ).extend(unique_key_sets)
 
                 synonyms_raw = row.get("SYNONYMS")
@@ -1494,12 +1510,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"{logical_table_name} in {schema_name}.{view_name}",
                 )
                 if synonyms and logical_table_name:
-                    logical_table_upper = logical_table_name
-                    if logical_table_upper not in semantic_view_obj.table_synonyms:
-                        semantic_view_obj.table_synonyms[logical_table_upper] = []
-                    semantic_view_obj.table_synonyms[logical_table_upper].extend(
-                        synonyms
-                    )
+                    logical_table = logical_table_name
+                    if logical_table not in semantic_view_obj.table_synonyms:
+                        semantic_view_obj.table_synonyms[logical_table] = []
+                    semantic_view_obj.table_synonyms[logical_table].extend(synonyms)
 
             logger.info(
                 f"Populated base tables for {len(semantic_view_map)} semantic views "
@@ -1523,12 +1537,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     parsed = self._parse_base_tables_from_ddl(
                         semantic_view.view_definition
                     )
-                    for logical_alias_upper, (db, schema, table) in parsed.items():
+                    for logical_name, (db, schema, table) in parsed.items():
                         base_table_id = SnowflakeTableIdentifier(
                             database=db, schema=schema, table=table
                         )
                         semantic_view.base_tables.append(base_table_id)
-                        semantic_view.logical_to_physical_table[logical_alias_upper] = (
+                        semantic_view.logical_to_physical_table[logical_name] = (
                             base_table_id.as_tuple()
                         )
                     if parsed:

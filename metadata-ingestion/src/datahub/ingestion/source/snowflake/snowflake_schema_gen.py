@@ -2390,7 +2390,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def _semantic_column_expression(
         semantic_view: SnowflakeSemanticView,
         column_name: str,
-        logical_table_upper: Optional[str],
+        logical_table: Optional[str],
     ) -> Optional[str]:
         # Prefer the occurrence for this logical table: the merged columns list
         # only carries occurrences[0].expression, which would give a sibling
@@ -2398,7 +2398,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # differently on multiple tables. Fall back to the merged list (legacy
         # single-dataset mode, where column_occurrences is not populated).
         for occ in semantic_view.occurrences_for(column_name):
-            if occ.table_name and occ.table_name == logical_table_upper:
+            if occ.table_name and occ.table_name == logical_table:
                 return occ.expression
         # Exact first, for the same reason as occurrences_for: folding straight
         # away hands back whichever of a case-only pair comes first in the list.
@@ -2428,8 +2428,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         in base tables.
 
         When ``downstream_urn_resolver`` is provided, it is invoked as
-        ``resolver(column_name, logical_table_upper)`` to build each FGL's
-        downstream schemaField URN. ``logical_table_upper`` is ``None`` for
+        ``resolver(column_name, logical_table)`` to build each FGL's
+        downstream schemaField URN. ``logical_table`` is ``None`` for
         columns with no table association. When omitted, downstreams anchor on
         ``semantic_view_urn`` (legacy dataset-mode behavior).
 
@@ -2457,9 +2457,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             set()
         )  # Track warned mappings to avoid duplicate logs
 
-        def _downstream_field_urn(column_name: str, logical_table_upper: str) -> str:
+        def _downstream_field_urn(column_name: str, logical_table: str) -> str:
             if downstream_urn_resolver is not None:
-                return downstream_urn_resolver(column_name, logical_table_upper)
+                return downstream_urn_resolver(column_name, logical_table)
             return make_schema_field_urn(
                 semantic_view_urn,
                 self.snowflake_column_identifier(column_name),
@@ -2480,14 +2480,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             for logical_table_name in logical_table_names:
                 # Find the physical base table for this logical table using the direct mapping
                 # from INFORMATION_SCHEMA.SEMANTIC_TABLES (more reliable than parsed DDL)
-                logical_table_upper = logical_table_name
+                logical_table = logical_table_name
                 base_table_tuple = semantic_view.logical_to_physical_table.get(
-                    logical_table_upper
+                    logical_table
                 )
 
                 if not base_table_tuple:
-                    if logical_table_upper not in warned_mappings:
-                        warned_mappings.add(logical_table_upper)
+                    if logical_table not in warned_mappings:
+                        warned_mappings.add(logical_table)
                         logger.warning(
                             f"Could not find physical table mapping for logical table '{logical_table_name}'. "
                             f"Available mappings: {list(semantic_view.logical_to_physical_table.keys())}"
@@ -2515,9 +2515,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     continue
 
                 # Create downstream field URN (needed for both direct and derived lineage)
-                downstream_field_urn = _downstream_field_urn(
-                    column_name, logical_table_upper
-                )
+                downstream_field_urn = _downstream_field_urn(column_name, logical_table)
 
                 # Verify the column actually exists in the upstream table
                 upstream_declared_path = self._declared_field_path(
@@ -2534,7 +2532,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Prefer the occurrence for THIS logical table so a sibling
                     # table's expression doesn't leak in (see helper).
                     column_expression = self._semantic_column_expression(
-                        semantic_view, column_name, logical_table_upper
+                        semantic_view, column_name, logical_table
                     )
 
                     if column_expression:
@@ -2592,7 +2590,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                     effective_logical_table = (
                                         table_qualifier
                                         if table_qualifier
-                                        else logical_table_upper
+                                        else logical_table
                                     )
                                     self._handle_chained_derivation(
                                         source_col,

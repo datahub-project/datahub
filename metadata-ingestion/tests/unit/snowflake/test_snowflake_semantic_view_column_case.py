@@ -644,7 +644,7 @@ class TestMetricNamesFollowTheColumnRule:
                 view_scoped_metrics={
                     key.name_key: occ
                     for key, occ in distinct.items()
-                    if key.logical_table_upper is None
+                    if key.logical_table is None
                 },
                 shadowed_metric_names=mapper._shadowed_metric_names(view),
                 schema_name="SCH",
@@ -842,3 +842,48 @@ class TestLogicalTableStoredCasing:
 
         assert len(aliases) == expected_datasets
         assert len(list(report.warnings)) == expected_warnings
+
+    def test_primary_key_columns_follow_the_column_rule(self) -> None:
+        # Verified against Snowflake: a PK on a quoted column reports
+        # PRIMARY_KEYS=["My_Key"], FOREIGN_KEYS/REF_KEYS agree, and the column can
+        # only be selected as "My_Key" -- unquoted My_Key is an invalid identifier.
+        # So the PK set must keep the stored spelling when casing is preserved,
+        # or isPartOfKey lands on the wrong field of a case-only pair.
+        data_dict = SnowflakeDataDictionary(
+            connection=MagicMock(),
+            report=SnowflakeV2Report(),
+            emit_semantic_model_entities=True,
+            preserve_column_case=True,
+        )
+
+        assert data_dict._parse_unique_key_sets('[["My_Key"]]', "ctx") == [{"My_Key"}]
+
+    def test_is_part_of_key_matches_the_stored_spelling(self) -> None:
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=gen.report, identifiers=gen.identifiers
+        )
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {"T": ("DB", "SCH", "T_TBL")}
+        view.primary_key_columns_by_table = {"T": {"My_Key"}}
+        view.column_occurrences = {
+            name: [
+                SemanticViewColumnMetadata(
+                    name=name,
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name="T",
+                    synonyms=[],
+                    expression=None,
+                )
+            ]
+            for name in ("My_Key", "MY_KEY")
+        }
+
+        fields = {
+            f.fieldPath: f.isPartOfKey for f in mapper._build_schema_fields(view, "T")
+        }
+
+        # Only the column the key actually names.
+        assert fields == {"My_Key": True, "MY_KEY": False}
