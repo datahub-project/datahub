@@ -1,11 +1,13 @@
 import json
-from typing import List, Optional
-from unittest.mock import MagicMock
+from typing import List
+from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -21,6 +23,10 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+)
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+    SQLAlchemyProfiler,
 )
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -187,24 +193,36 @@ def _profile_workunit(field_paths: List[str]) -> MetadataWorkUnit:
     ).as_workunit()
 
 
-def _restored_paths(
-    profiler_field_paths: List[str],
-    report: Optional[SnowflakeV2Report] = None,
-    **overrides: object,
-) -> List[str]:
-    report = report if report is not None else SnowflakeV2Report()
-    profiler = SnowflakeProfiler(config=_make_config(**overrides), report=report)
-    restored = list(
-        profiler._to_schema_field_paths([_profile_workunit(profiler_field_paths)])
+def _restored_paths(profiler_field_paths: List[str], **overrides: object) -> List[str]:
+    """Profile paths as emitted, with the rule the connector hands the profiler.
+
+    The connector no longer translates after the fact; it passes
+    snowflake_column_identifier in and the profiler applies it at its own
+    boundary. So the thing to exercise is that boundary, holding the same rule.
+    """
+    identifiers = _make_identifiers(**overrides)
+    profiler = SQLAlchemyProfiler(
+        conn=sa.create_engine("sqlite:///:memory:"),
+        report=SQLSourceReport(),
+        config=ProfilingConfig(),
+        platform="snowflake",
+        env="PROD",
+        field_path_transform=identifiers.snowflake_column_identifier,
     )
-    profile = restored[0].get_aspect_of_type(DatasetProfileClass)
-    assert profile is not None and profile.fieldProfiles is not None
-    return [f.fieldPath for f in profile.fieldProfiles]
+    emitted = profiler._to_emitted_field_paths(
+        [DatasetFieldProfileClass(fieldPath=path) for path in profiler_field_paths],
+        MagicMock(),
+        None,
+    )
+    return [field.fieldPath for field in emitted]
 
 
 class TestProfileFieldPathAlignment:
-    # Alignment under the default configuration is covered by
-    # test_snowflake_profile_alignment.py; these cover what the flag changes.
+    def test_default_folds_to_the_schema_rule(self) -> None:
+        assert _restored_paths(["CUSTOMER_ID", "MixedCol"]) == [
+            "customer_id",
+            "mixedcol",
+        ]
 
     def test_profile_paths_match_schema_when_preserving_case(self) -> None:
         # The profiler reports the stored name, and with the flag on the schema
@@ -216,13 +234,43 @@ class TestProfileFieldPathAlignment:
     def test_case_only_collision_resolves_to_distinct_paths(self) -> None:
         # The profiler reports case-colliding columns under their as-stored names,
         # so both resolve exactly rather than being dropped as ambiguous.
-        report = SnowflakeV2Report()
-        assert _restored_paths(
-            ["COL", "col", "OTHER"],
-            report=report,
-            preserve_column_case=True,
-        ) == ["COL", "col", "OTHER"]
-        assert not list(report.warnings)
+        assert _restored_paths(["COL", "col", "OTHER"], preserve_column_case=True) == [
+            "COL",
+            "col",
+            "OTHER",
+        ]
+
+    def test_the_pair_collapses_to_one_profile_by_default(self) -> None:
+        # Folded, the two land on one field path, and the schema declares one
+        # field for them -- so one profile, not two on the same path.
+        assert _restored_paths(["COL", "col", "OTHER"]) == ["col", "other"]
+
+    def test_the_connector_hands_the_profiler_the_column_rule(self) -> None:
+        """Guards the injection itself.
+
+        The whole design rests on this one kwarg. Without it the profiler falls
+        back to the dialect's normalize_name, which lowercases an all-uppercase
+        stored name regardless of config -- wrong whenever the flag is on.
+        """
+        profiler = SnowflakeProfiler(
+            config=_make_config(preserve_column_case=True), report=SnowflakeV2Report()
+        )
+        module = "datahub.ingestion.source.snowflake.snowflake_profiler"
+        with (
+            patch(f"{module}.create_engine"),
+            patch(f"{module}.inspect"),
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler."
+                "sqlalchemy_profiler.SQLAlchemyProfiler"
+            ) as built,
+        ):
+            profiler.get_profiler_instance(db_name="DB")
+
+        transform = built.call_args.kwargs["field_path_transform"]
+        assert transform("MixedCol") == "MixedCol"
+        assert (
+            transform.__func__ is type(profiler.identifiers).snowflake_column_identifier
+        )
 
 
 class TestUsageFieldCounts:
