@@ -322,9 +322,14 @@ class SnowflakeSemanticView(BaseView):
     # spellings. logical_to_physical_table is keyed by the uppercased name, so a
     # pair like `"orders"` / `"ORDERS"` -- which Snowflake does allow, over two
     # different base tables -- overwrites rather than collides, and the second
-    # table's dataset, columns and metrics vanish. Recorded so an operator is
-    # told; keying logical tables by their stored name instead would re-key
-    # every logical dataset URN, so that is a deliberate follow-up.
+    # table's dataset, columns and metrics vanish.
+    # Recorded rather than fixed. Keying by the stored name is not enough on its
+    # own: the dataset URN runs the name through snowflake_identifier, which
+    # lowercases under the default convert_urns_to_lowercase, so both spellings
+    # still land on one URN -- and both tables' aspects would then be written to
+    # it, last one winning, which is a worse failure than dropping one. A real
+    # fix needs the logical table's casing carried into the URN, i.e. the
+    # table-level counterpart of preserve_column_case.
     logical_table_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
     # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
     # Only populated when emit_semantic_model_entities is enabled (see

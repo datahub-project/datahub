@@ -1697,10 +1697,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_view: SnowflakeSemanticView,
         dataset_name: str,
     ) -> None:
-        # Unlike columns, this is not governed by preserve_column_case: logical
-        # tables are keyed by their uppercased name whatever the settings, so the
-        # loss is the same in every configuration. Reporting rather than fixing --
-        # keying by the stored name would re-key every logical dataset URN.
+        # Unlike columns, this is not governed by preserve_column_case: that flag
+        # decides column field paths and has no bearing on a logical table's
+        # dataset URN. Logical tables are keyed by their uppercased name whatever
+        # the settings, so the loss is the same in every configuration.
+        #
+        # Reported rather than fixed, and dropping the uppercase key alone would
+        # not fix it: the dataset URN lowercases the name under the default
+        # convert_urns_to_lowercase, so both spellings still collide there. All
+        # five INFORMATION_SCHEMA views (SEMANTIC_TABLES.NAME plus TABLE_NAME on
+        # DIMENSIONS / FACTS / METRICS / RELATIONSHIPS) do report the stored
+        # spelling, so the fold is removable -- it just has to happen together
+        # with carrying the casing into the URN.
         collisions = {
             folded_name: spellings
             for folded_name, spellings in semantic_view.logical_table_case_collisions.items()
