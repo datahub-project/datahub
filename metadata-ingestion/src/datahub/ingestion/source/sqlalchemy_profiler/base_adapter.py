@@ -2,10 +2,11 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -57,7 +58,7 @@ class PlatformAdapter(ABC):
         self.config = config
         self.report = report
         self.base_engine = base_engine
-        self._inspector: Optional[Any] = None
+        self._inspector: Optional[Inspector] = None
 
     # =========================================================================
     # Setup & Teardown
@@ -841,7 +842,7 @@ class PlatformAdapter(ABC):
         )
         return self._use_stored_column_names(sql_table, engine)
 
-    def _case_fold_inspector(self, engine: Union[Engine, Connection]) -> Any:
+    def _case_fold_inspector(self, engine: Union[Engine, Connection]) -> Inspector:
         """A reused Inspector for the base engine, so reflection hits its cache.
 
         Dialects fetch a whole schema's columns in one query and memoize it on the
@@ -854,11 +855,17 @@ class PlatformAdapter(ABC):
         the adapter's lifetime. They would not even pay off: a per-table connection
         exists to reflect its own temp table exactly once.
         """
-        if engine is not self.base_engine:
-            return sa.inspect(engine)
-        if self._inspector is None:
-            self._inspector = sa.inspect(engine)
-        return self._inspector
+        if engine is self.base_engine and self._inspector is not None:
+            return self._inspector
+
+        # cast rather than the house-preferred assert isinstance: sa.inspect is
+        # overloaded and mypy picks InstanceState for a Union[Engine, Connection],
+        # but on a bind it is always an Inspector. A runtime check would only
+        # force every test that patches sa.inspect to use a spec'd mock.
+        inspector = cast(Inspector, sa.inspect(engine))
+        if engine is self.base_engine:
+            self._inspector = inspector
+        return inspector
 
     def _use_stored_column_names(
         self, sql_table: sa.Table, engine: Union[Engine, Connection]

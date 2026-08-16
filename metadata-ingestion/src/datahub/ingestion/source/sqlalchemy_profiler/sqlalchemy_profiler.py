@@ -1221,7 +1221,7 @@ class SQLAlchemyProfiler:
         ignore_paths: List[str],
         sql_table: sa.Table,
         adapter: "PlatformAdapter",
-        conn: Any,
+        conn: Connection,
     ) -> List[str]:
         """Translate tag-derived field paths into the names profiling uses.
 
@@ -1243,7 +1243,7 @@ class SQLAlchemyProfiler:
         ]
 
     def _emitted_field_path(
-        self, stored_name: str, adapter: "PlatformAdapter", conn: Any
+        self, stored_name: str, adapter: "PlatformAdapter", conn: Connection
     ) -> str:
         """The field path the source emitted for a column profiling addresses.
 
@@ -1260,7 +1260,7 @@ class SQLAlchemyProfiler:
         self,
         field_profiles: List[DatasetFieldProfileClass],
         adapter: "PlatformAdapter",
-        conn: Any,
+        conn: Connection,
     ) -> List[DatasetFieldProfileClass]:
         """Translate stored column names into the paths the source emitted.
 
