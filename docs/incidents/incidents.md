@@ -87,9 +87,15 @@ input RaiseIncidentInput {
 
   """
   The resource that the incident is associated with. See the supported entity
-  types below.
+  types below. Must be present if resourceUrns is not defined.
   """
-  resourceUrn: String!
+  resourceUrn: String
+
+  """
+  The resources that the incident is associated with, for a multi-resource
+  incident. Must be present and not empty if resourceUrn is not defined.
+  """
+  resourceUrns: [String!]
 
   """
   The source of the incident, i.e. how it was generated
@@ -113,11 +119,11 @@ set today. Every entity passed in `resourceUrn`, and every entity in the
    Without it, the incident exists but the entity has no rolled-up state.
 3. **Can it be read back?** An `extend type` block in `incident.graphql` is what
    gives the entity an `incidents` field. Without it, the incident cannot be
-   fetched through the GraphQL API for that entity.
+   listed from that entity, though it can still be fetched on its own by URN.
 
 An entity can clear layer 1 and fail the other two. That is a worse outcome than a
 clean rejection, because the call succeeds and returns an incident URN while the
-incident is effectively unreadable.
+entity it names never shows the incident.
 
 The table below is generated at docs build time from those three files, so it
 cannot drift from the code the way a hand-maintained list does.
@@ -141,8 +147,10 @@ ML entities are worth calling out, because they are a natural thing to reach for
 and because a write to one can look like it worked. `mlModel` and `mlFeature` are
 on the `IncidentOn` list, so the write is accepted and returns an incident URN,
 but neither carries `incidentsSummary` and neither exposes an `incidents` field in
-GraphQL. Nothing reads the incident back and nothing renders it on the entity
-page. Closing that gap is tracked in
+GraphQL. The incident itself is still readable: `Incident` implements `Entity`, so
+the returned URN can be passed to the generic `entity(urn: ...)` query. What is
+missing is the asset side. Nothing lists the incident from the model or feature,
+and nothing renders it on the entity page. Closing that gap is tracked in
 [#18911](https://github.com/datahub-project/datahub/issues/18911).
 
 Until it closes, raise the incident on a training dataset linked to the model,
