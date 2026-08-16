@@ -145,6 +145,11 @@ class SnowflakeSemanticModelMapper:
         logical_dataset_urns = self._build_logical_dataset_urns(
             semantic_view, schema_name, db_name
         )
+        # Tables whose URN was already claimed by an earlier one, so they got no
+        # dataset; their metrics would otherwise point at a model that omits them.
+        collided_logical_tables = set(semantic_view.logical_to_physical_table) - set(
+            logical_dataset_urns
+        )
         lineages_by_dataset = self._route_lineages(
             fine_grained_lineages,
             logical_dataset_urns,
@@ -190,6 +195,11 @@ class SnowflakeSemanticModelMapper:
         # name on different logical tables (distinct, table-qualified metrics) plus
         # view-scoped derived metrics, so metrics are keyed by (logical table, name).
         for key, occurrence in distinct_metrics.items():
+            # Only tables _build_logical_dataset_urns discarded for a URN
+            # collision. A table simply absent from logical_to_physical_table is a
+            # different case -- its metrics have always been emitted.
+            if key.logical_table in collided_logical_tables:
+                continue
             yield from self._gen_metric_workunits(
                 occurrence=occurrence,
                 logical_table=key.logical_table,
@@ -370,6 +380,10 @@ class SnowflakeSemanticModelMapper:
         declared: Dict[str, Set[str]] = {}
         for occurrences in semantic_view.column_occurrences.values():
             for occurrence in occurrences:
+                # Metrics become their own entities, never fields on the logical
+                # dataset, so a join key matching a metric name still dangles.
+                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
+                    continue
                 if occurrence.table_name:
                     declared.setdefault(occurrence.table_name, set()).add(
                         self.identifiers.logical_dataset_field_path(occurrence.name)
@@ -875,7 +889,13 @@ class SnowflakeSemanticModelMapper:
             )
             name_key = self.identifiers.column_identity_key(stored_name)
             if column.table:
-                ref_table = column.table.upper()
+                # Same fold as the metric name itself: an unquoted qualifier
+                # resolves up, a quoted one is already the stored spelling.
+                ref_table = (
+                    column.table
+                    if getattr(column.args.get("table"), "quoted", False)
+                    else column.table.upper()
+                )
                 ref = table_bound_metrics.get((ref_table, name_key))
                 if ref is None:
                     # Qualified fact/dimension column reference, not a metric.
@@ -1086,9 +1106,10 @@ class SnowflakeSemanticModelMapper:
                     continue
                 key = _MetricKey(
                     name_key=self.identifiers.column_identity_key(occurrence.name),
-                    logical_table=(
-                        occurrence.table_name.upper() if occurrence.table_name else None
-                    ),
+                    # The stored name, matching logical_to_physical_table and the
+                    # logical dataset URNs. Uppercasing here collapsed the metrics
+                    # of two logical tables that differ only by case.
+                    logical_table=occurrence.table_name or None,
                 )
                 grouped.setdefault(key, []).append(occurrence)
 

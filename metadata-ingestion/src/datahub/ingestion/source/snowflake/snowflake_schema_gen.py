@@ -78,6 +78,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    snowflake_identity_key,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -1804,7 +1805,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         if isinstance(table, SnowflakeTable) and table.pk is not None
                         # For semantic views, use primary_key_columns from SEMANTIC_TABLES
                         else (
-                            col.name.upper() in primary_key_columns
+                            snowflake_identity_key(
+                                col.name,
+                                preserve_column_case=self.config.preserve_column_case,
+                            )
+                            in primary_key_columns
                             if isinstance(table, SnowflakeSemanticView) and col.name
                             else None
                         )
@@ -2129,7 +2134,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Get table qualifier if present (e.g., "ORDERS" in "ORDERS.ORDER_TOTAL_METRIC")
                     table_name = col_node.table if hasattr(col_node, "table") else None
                     # Normalize empty string to None for consistency
-                    table_name = table_name.upper() if table_name else None
+                    # Fold the qualifier the way the column below is folded:
+                    # unquoted resolves up, quoted is already the stored spelling.
+                    table_identifier = col_node.args.get("table")
+                    if table_name:
+                        table_name = (
+                            table_name
+                            if getattr(table_identifier, "quoted", False)
+                            else table_name.upper()
+                        )
+                    else:
+                        table_name = None
 
                     # Fold the way Snowflake does rather than uppercasing blindly:
                     # an unquoted reference folds up, a quoted one is already the

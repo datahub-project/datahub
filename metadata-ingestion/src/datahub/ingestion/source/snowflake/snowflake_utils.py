@@ -79,6 +79,23 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
 }
 
 
+def snowflake_identity_key(name: str, *, preserve_column_case: bool) -> str:
+    """Internal identity of a column, metric or logical-table name. Never emitted.
+
+    Answers "are these two spellings the same object?". Snowflake reports stored
+    spellings, so with casing preserved they are distinct and with casing folded
+    they are one -- and the fold has to be uppercase rather than lowercase,
+    because it must not depend on convert_urns_to_lowercase (which decides how a
+    name is *emitted*, not whether two names are the same thing).
+
+    Module-level so the identifier builder and the data dictionary share one
+    definition; the latter has no builder to call.
+    """
+    if preserve_column_case:
+        return name
+    return name.upper()
+
+
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
@@ -428,9 +445,10 @@ class SnowflakeIdentifierBuilder:
         when convert_urns_to_lowercase is also off (both reduce to identity),
         which splits one metric into two entities and blinds the shadow check.
         """
-        if self.identifier_config.preserve_column_case:
-            return column_name
-        return column_name.upper()
+        return snowflake_identity_key(
+            column_name,
+            preserve_column_case=self.identifier_config.preserve_column_case,
+        )
 
     def logical_dataset_field_path(self, column_name: str) -> str:
         """Field path for a column on a semantic-model logical dataset.

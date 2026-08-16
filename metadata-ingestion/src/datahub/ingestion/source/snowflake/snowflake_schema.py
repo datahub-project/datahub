@@ -33,6 +33,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_utils import snowflake_identity_key
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -1381,11 +1382,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         """Internal identity of a column name, matching
         SnowflakeIdentifierBuilder.column_identity_key.
 
-        The data dictionary has no identifier builder, and duplicating four lines
-        beats threading one through purely to fold key columns."""
-        if self._preserve_column_case:
-            return column_name
-        return column_name.upper()
+        The data dictionary has no identifier builder, so it calls the shared
+        module-level fold directly."""
+        return snowflake_identity_key(
+            column_name, preserve_column_case=self._preserve_column_case
+        )
 
     def _parse_unique_key_sets(self, value: Optional[str], context: str) -> List[set]:
         """Parse UNIQUE_KEYS into a list of column-name sets.

@@ -23,7 +23,10 @@ from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import SemanticModelPropertiesClass
+from datahub.metadata.schema_classes import (
+    MetricInfoClass,
+    SemanticModelPropertiesClass,
+)
 
 # Semantic-view code threads column references in uppercase so they match across
 # the view's own metadata. That is a lookup key, not an identity — these tests pin
@@ -887,3 +890,62 @@ class TestLogicalTableStoredCasing:
 
         # Only the column the key actually names.
         assert fields == {"My_Key": True, "MY_KEY": False}
+
+    def test_legacy_schema_marks_a_mixed_case_primary_key(self) -> None:
+        # The flat primary_key_columns set now keeps the stored spelling when
+        # casing is preserved, and legacy gen_schema_metadata consumes that set.
+        # Uppercasing on only one side leaves mixed-case keys unmarked.
+        gen = _make_gen(SnowflakeV2Report(), preserve_column_case=True)
+        view = _semantic_view(["My_Key", "other"])
+        view.primary_key_columns = {"My_Key"}
+
+        fields = {
+            f.fieldPath: f.isPartOfKey
+            for f in gen.gen_schema_metadata(view, "SCH", "DB").fields
+        }
+
+        assert fields == {"My_Key": True, "other": False}
+
+    def test_metrics_of_a_discarded_logical_table_are_not_emitted(self) -> None:
+        # When two logical tables collapse onto one dataset URN, the second gets
+        # no dataset -- so its table-bound metrics must not be emitted either, or
+        # they reference a model that never lists their dataset.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report)  # convert_urns_to_lowercase on, so the URNs collide
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=report, identifiers=gen.identifiers
+        )
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {
+            "orders": ("DB", "SCH", "lower_tbl"),
+            "ORDERS": ("DB", "SCH", "UPPER_TBL"),
+        }
+        view.column_occurrences = {
+            table: [
+                SemanticViewColumnMetadata(
+                    name=f"m_{table}",
+                    data_type="NUMBER",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.METRIC,
+                    table_name=table,
+                    synonyms=[],
+                    expression="COUNT(1)",
+                )
+            ]
+            for table in ("orders", "ORDERS")
+        }
+
+        metrics = [
+            wu.metadata.aspect.name
+            for wu in mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=[],
+            )
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, MetricInfoClass)
+        ]
+
+        # Only the surviving table's metric.
+        assert metrics == ["m_orders"]
