@@ -820,20 +820,21 @@ class TestLogicalTableStoredCasing:
         assert aliases == ["Orders"]
 
     @pytest.mark.parametrize(
-        ("convert_urns_to_lowercase", "expected_datasets", "expected_warnings"),
+        ("convert_urns_to_lowercase", "expected_aliases", "expected_warnings"),
         [
             # The URN lowercases the name, so both spellings resolve to one
-            # dataset. Emit it once and say so, rather than writing both tables'
-            # schema, alias and lineage to it with the last one winning.
-            (True, 1, 1),
+            # dataset. Emit it once -- the first declared -- and say so, rather
+            # than writing both tables' schema, alias and lineage to it with the
+            # last one winning.
+            (True, ["orders"], 1),
             # Casing survives into the URN, so they are genuinely two datasets.
-            (False, 2, 0),
+            (False, ["orders", "ORDERS"], 0),
         ],
     )
     def test_case_only_pair_emits_one_dataset_per_urn(
         self,
         convert_urns_to_lowercase: bool,
-        expected_datasets: int,
+        expected_aliases: List[str],
         expected_warnings: int,
     ) -> None:
         report = SnowflakeV2Report()
@@ -859,7 +860,10 @@ class TestLogicalTableStoredCasing:
             and isinstance(wu.metadata.aspect, SemanticModelPropertiesClass)
         ]
 
-        assert len(aliases) == expected_datasets
+        # Which one survived, not just how many: the warning promises the first
+        # is kept, and a count passes just as happily if the wrong one won or the
+        # alias came out mangled.
+        assert aliases == expected_aliases
         assert len(list(report.warnings)) == expected_warnings
 
     def test_primary_key_columns_follow_the_column_rule(self) -> None:

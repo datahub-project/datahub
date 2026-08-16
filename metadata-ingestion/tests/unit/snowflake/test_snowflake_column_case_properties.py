@@ -137,6 +137,26 @@ def test_every_column_resolves_to_itself_not_a_sibling(
         for name in stored_names:
             want = identifiers.logical_dataset_field_path(name)
 
+            # An unquoted reference in the DDL folds up before it reaches a
+            # lookup, so the uppercase spelling is the common real case -- and it
+            # is the one that needs occurrences_for's exact-before-folded order.
+            # Asking only with the stored spelling exercises the easy direction.
+            for asked in (name, name.upper()):
+                folded = SnowflakeSchemaGenerator._semantic_column_expression(
+                    view, asked, _TABLE
+                )
+                if folded is None:
+                    # Only legitimate when nothing in the view folds to it.
+                    assert not [
+                        n for n in stored_names if n.upper() == asked.upper()
+                    ], f"{asked!r} matched nothing despite {stored_names}"
+                    continue
+                got = folded.removeprefix("EXPR::")
+                assert got.upper() == asked.upper(), (
+                    f"preserve={preserve} convert={convert}: asked {asked!r}, "
+                    f"got {got!r} which is not even a case variant of it"
+                )
+
             expression = SnowflakeSchemaGenerator._semantic_column_expression(
                 view, name, _TABLE
             )

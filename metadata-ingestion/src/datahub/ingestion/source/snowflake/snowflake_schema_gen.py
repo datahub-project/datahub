@@ -1257,14 +1257,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 semantic_view.tags = None
 
-        dataset_identifier = self.identifiers.get_dataset_identifier(
-            semantic_view.name, schema_name, db_name
-        )
         if self.config.semantic_views.emit_semantic_model_entities:
             # This path never reaches gen_schema_metadata, so the column collision
             # check has to run here too or semantic views are silently exempt from
             # it. Legacy mode gets it via gen_schema_metadata instead.
-            self._report_column_case_collisions(semantic_view, dataset_identifier)
+            self._report_column_case_collisions(semantic_view, semantic_view_name)
 
             # Tag entities referenced by the semantic view / its columns. In legacy
             # dataset mode these are emitted by gen_dataset_workunits instead.
