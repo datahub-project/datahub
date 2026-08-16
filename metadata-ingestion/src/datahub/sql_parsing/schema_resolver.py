@@ -86,21 +86,22 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.graph = graph
         self.report = report
 
+        # One connection for both caches, so the alias index shares this file rather
+        # than opening a second. Falls back to a temp file when given no filename.
+        self._conn = ConnectionWrapper(filename=_cache_filename)
+        self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
+            shared_connection=self._conn,
+            extra_columns={"is_missing": lambda v: v is None},
+        )
+
         # Case-insensitive URN lookup, for callers that need URN identity rather than
         # columns. Unlike the schema cache it can hold URNs with no schemaMetadata.
         # Filled by whoever bulk-loads this resolver; with a graph it also resolves
         # references the bulk load never covered, the trade-off resolve_table makes.
         self.urn_aliases = UrnAliasResolver(
-            graph=graph, platform_instance=self.platform_instance
-        )
-
-        # Init cache, potentially restoring from a previous run.
-        shared_conn = None
-        if _cache_filename:
-            shared_conn = ConnectionWrapper(filename=_cache_filename)
-        self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=shared_conn,
-            extra_columns={"is_missing": lambda v: v is None},
+            graph=graph,
+            platform_instance=self.platform_instance,
+            shared_connection=self._conn,
         )
 
     @property
@@ -373,7 +374,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         }
 
     def close(self) -> None:
-        self._schema_cache.close()
+        # Not the dicts: on a shared connection they only flush, leaving the file open.
+        self._conn.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):

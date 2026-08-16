@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set
 from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
 from datahub.metadata.schema_classes import DatasetKeyClass
 from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -19,6 +20,14 @@ _LOWERCASED_URN_FIELD = "lowercasedUrn"
 _URN_FIELD = "urn"
 
 _DATASET_ENTITY_TYPE = "dataset"
+
+# Not the default table name: this shares a sqlite file with the schema cache.
+_ALIAS_TABLE = "urn_aliases"
+
+# Sized to the distinct upstreams a source references rather than to the catalog: a BI
+# tool names the same warehouse table across many charts, so the repeats answer from
+# memory. Costs a few MB, well above the 900 a schema cache is tuned for.
+_ALIAS_CACHE_MAX_SIZE = 10_000
 
 # Off by default: a bulk load holds a whole platform's URNs in memory. Set once per
 # ingestion, before any source exists — see PipelineContext.
@@ -100,21 +109,36 @@ def _has_lowercased_name(urn: str) -> bool:
 
 
 class UrnAliasCache:
-    """Stores the dataset URNs a key resolves to. The key is supplied by the caller."""
+    """Stores the dataset URNs a key resolves to. The key is supplied by the caller.
 
-    def __init__(self) -> None:
+    Backed by sqlite: a bulk load holds a whole platform's URNs for the pipeline's
+    lifetime, roughly 500 bytes per dataset on the heap.
+    """
+
+    def __init__(self, shared_connection: Optional[ConnectionWrapper] = None) -> None:
         # A list per key: two datasets differing only by case can both exist.
-        self._urns_by_key: Dict[str, List[str]] = {}
-        self._count = 0
+        self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(
+            shared_connection=shared_connection,
+            tablename=_ALIAS_TABLE,
+            cache_max_size=_ALIAS_CACHE_MAX_SIZE,
+        )
+        # Seeded rather than zeroed: a reopened file already holds rows. Kept O(1)
+        # after, since COUNT(*) scans the whole index.
+        self._count = int(
+            self._urns_by_key.sql_query(f"SELECT COUNT(*) FROM {_ALIAS_TABLE}")[0][0]
+        )
 
     def add(self, key: str, urn: str) -> None:
         """Add `urn` under `key`, keeping any URNs already there."""
-        entry = self._urns_by_key.get(key) or []
+        entry = self._urns_by_key.get(key)
+        if entry is None:
+            self._urns_by_key[key] = [urn]
+            self._count += 1
+            return
         if urn in entry:
             return
-        # Reassigned rather than appended in place, so a file-backed store would persist it.
+        # Reassigned rather than appended in place, so the store persists it.
         self._urns_by_key[key] = entry + [urn]
-        self._count += 1
 
     def get(self, key: str) -> Optional[List[str]]:
         """URNs stored under `key`. None means unknown, `[]` means known absent."""
@@ -124,15 +148,16 @@ class UrnAliasCache:
 
     def replace(self, key: str, urns: List[str]) -> None:
         """Make `urns` the complete set stored under `key`; `[]` records known absent."""
-        previous = self._urns_by_key.get(key)
-        if previous is not None:
-            self._count -= len(previous)
-        deduped = list(dict.fromkeys(urns))
-        self._urns_by_key[key] = deduped
-        self._count += len(deduped)
+        if self._urns_by_key.get(key) is None:
+            self._count += 1
+        self._urns_by_key[key] = list(dict.fromkeys(urns))
 
     def count(self) -> int:
+        """Keys held — near enough the dataset count, since casing collisions are rare."""
         return self._count
+
+    def close(self) -> None:
+        self._urns_by_key.close()
 
 
 class _Lookup(Protocol):
@@ -359,14 +384,15 @@ class UrnAliasResolver:
         graph: Optional["DataHubGraph"] = None,
         platform_instance: Optional[str] = None,
         cached: bool = True,
+        shared_connection: Optional[ConnectionWrapper] = None,
     ) -> None:
-        cache = UrnAliasCache() if cached else None
+        self._cache = UrnAliasCache(shared_connection) if cached else None
         # platform_instance is read only by the casing probe: the alias index keys on the
         # whole name lowercased, instance prefix included.
         self._lookup: _Lookup = (
-            _AliasIndexLookup(graph, cache)
+            _AliasIndexLookup(graph, self._cache)
             if self._aliases_supported()
-            else _CasingProbeLookup(graph, platform_instance, cache)
+            else _CasingProbeLookup(graph, platform_instance, self._cache)
         )
 
     def _aliases_supported(self) -> bool:
@@ -402,3 +428,8 @@ class UrnAliasResolver:
 
     def cached_urn_count(self) -> int:
         return self._lookup.count()
+
+    def close(self) -> None:
+        # Safe on a shared connection: the dict flushes and leaves closing to its owner.
+        if self._cache is not None:
+            self._cache.close()

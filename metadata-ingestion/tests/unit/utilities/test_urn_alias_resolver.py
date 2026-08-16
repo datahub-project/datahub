@@ -1,6 +1,8 @@
+import pathlib
 from typing import Dict, List
 from unittest import mock
 
+from datahub.utilities.file_backed_collections import ConnectionWrapper
 from datahub.utilities.urn_alias_resolver import UrnAliasCache, UrnAliasResolver
 
 _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
@@ -40,6 +42,24 @@ def test_cache_records_the_same_urn_once() -> None:
 
     assert cache.get(_LOWER) == [_MIXED]
     assert cache.count() == 1
+
+
+def test_cache_reopened_on_the_same_file_keeps_what_it_held(
+    tmp_path: pathlib.Path,
+) -> None:
+    # A lost table reads as "nothing matched", so the failure would be silent.
+    path = tmp_path / "aliases.db"
+    conn = ConnectionWrapper(filename=path)
+    UrnAliasCache(conn).add(_LOWER, _MIXED)
+    conn.close()
+
+    reopened = ConnectionWrapper(filename=path)
+    cache = UrnAliasCache(reopened)
+
+    assert cache.get(_LOWER) == [_MIXED]
+    # Seeded from the table, not zeroed.
+    assert cache.count() == 1
+    reopened.close()
 
 
 def test_cache_does_not_hand_out_its_stored_list() -> None:
@@ -84,8 +104,10 @@ def test_lookup_flattens_unknown_and_absent_to_empty() -> None:
     assert resolver.find_match(_OTHER) == []
 
 
-def test_cached_urn_count_is_the_number_of_urns_recorded() -> None:
-    resolver = _loaded(_LOWER, _UPPER, _LOWER)
+def test_cached_urn_count_is_the_number_of_names_recorded() -> None:
+    # Per name, not per URN: _LOWER and _UPPER are two casings of one, and the repeat
+    # adds nothing.
+    resolver = _loaded(_LOWER, _UPPER, _LOWER, _OTHER)
 
     assert resolver.cached_urn_count() == 2
 

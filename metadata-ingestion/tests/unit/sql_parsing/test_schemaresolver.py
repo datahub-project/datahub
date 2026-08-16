@@ -549,3 +549,34 @@ def test_a_urn_can_be_recorded_without_a_schema():
     assert resolver.urn_aliases.find_match(_ALIAS_UPPER) == [_ALIAS_LOWER]
     # The schema cache must stay empty: a URN we know exists is not a schema we know.
     assert resolver.schema_count() == 0
+
+
+def test_both_caches_survive_a_restore_from_a_cache_file(tmp_path):
+    cache_file = tmp_path / "resolver.db"
+    resolver = SchemaResolver(
+        platform="redshift", env="PROD", _cache_filename=cache_file
+    )
+    resolver.urn_aliases.add(_ALIAS_LOWER)
+    resolver.add_raw_schema_info(_ALIAS_LOWER, {"col": "string"})
+    resolver.close()
+
+    restored = SchemaResolver(
+        platform="redshift", env="PROD", _cache_filename=cache_file
+    )
+
+    assert restored.urn_aliases.find_match(_ALIAS_UPPER) == [_ALIAS_LOWER]
+    assert restored.urn_aliases.cached_urn_count() == 1
+    assert restored.schema_count() == 1
+    restored.close()
+
+
+def test_closing_the_resolver_releases_the_file_both_caches_share():
+    resolver = SchemaResolver(platform="redshift", env="PROD")
+    resolver.urn_aliases.add(_ALIAS_LOWER)
+    cache_file = resolver._conn.filename
+
+    resolver.close()
+
+    # A FileBackedDict on a shared connection only flushes, so closing it would leave
+    # the file behind.
+    assert not cache_file.exists()
