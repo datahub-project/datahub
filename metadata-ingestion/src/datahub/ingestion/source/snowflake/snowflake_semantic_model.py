@@ -128,20 +128,6 @@ class SnowflakeSemanticModelMapper:
             semantic_view.name, schema_name, db_name
         )
         distinct_metrics = self._distinct_metrics(semantic_view)
-        # Indices for resolving derivedFrom references in derived-metric
-        # expressions: a qualified `table.metric` resolves to a table-bound metric,
-        # an unqualified `metric` to a view-scoped (derived) metric.
-        table_bound_metrics = {
-            (key.logical_table, key.name_key): occ
-            for key, occ in distinct_metrics.items()
-            if key.logical_table is not None
-        }
-        view_scoped_metrics = {
-            key.name_key: occ
-            for key, occ in distinct_metrics.items()
-            if key.logical_table is None
-        }
-        shadowed_metric_names = self._shadowed_metric_names(semantic_view)
         logical_dataset_urns = self._build_logical_dataset_urns(
             semantic_view, schema_name, db_name
         )
@@ -150,6 +136,24 @@ class SnowflakeSemanticModelMapper:
         collided_logical_tables = set(semantic_view.logical_to_physical_table) - set(
             logical_dataset_urns
         )
+        # Indices for resolving derivedFrom references in derived-metric
+        # expressions: a qualified `table.metric` resolves to a table-bound metric,
+        # an unqualified `metric` to a view-scoped (derived) metric.
+        # Excludes metrics on logical tables discarded for a URN collision: those
+        # entities are never emitted, so resolving a reference against them would
+        # produce a derivedFrom edge to a metric that does not exist.
+        table_bound_metrics = {
+            (key.logical_table, key.name_key): occ
+            for key, occ in distinct_metrics.items()
+            if key.logical_table is not None
+            and key.logical_table not in collided_logical_tables
+        }
+        view_scoped_metrics = {
+            key.name_key: occ
+            for key, occ in distinct_metrics.items()
+            if key.logical_table is None
+        }
+        shadowed_metric_names = self._shadowed_metric_names(semantic_view)
         lineages_by_dataset = self._route_lineages(
             fine_grained_lineages,
             logical_dataset_urns,

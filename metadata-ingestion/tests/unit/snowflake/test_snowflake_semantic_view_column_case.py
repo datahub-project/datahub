@@ -25,6 +25,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.schema_classes import (
     MetricInfoClass,
+    MetricRelationshipsClass,
     SemanticModelPropertiesClass,
 )
 
@@ -911,7 +912,9 @@ class TestLogicalTableStoredCasing:
         # no dataset -- so its table-bound metrics must not be emitted either, or
         # they reference a model that never lists their dataset.
         report = SnowflakeV2Report()
-        gen = _make_gen(report)  # convert_urns_to_lowercase on, so the URNs collide
+        # Pinned, not inherited: the whole assertion depends on the two URNs
+        # colliding, which is what lowercasing does.
+        gen = _make_gen(report, convert_urns_to_lowercase=True)
         mapper = SnowflakeSemanticModelMapper(
             config=gen.config, report=report, identifiers=gen.identifiers
         )
@@ -949,3 +952,78 @@ class TestLogicalTableStoredCasing:
 
         # Only the surviving table's metric.
         assert metrics == ["m_orders"]
+
+    def test_no_derived_edge_to_a_discarded_table_s_metric(self) -> None:
+        # A metric on a URN-collided logical table is never emitted, so a
+        # reference to it must not produce a derivedFrom edge -- the destination
+        # entity does not exist, and derivedFrom is isLineage.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, convert_urns_to_lowercase=True)
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=report, identifiers=gen.identifiers
+        )
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {
+            "orders": ("DB", "SCH", "lower_tbl"),
+            "ORDERS": ("DB", "SCH", "UPPER_TBL"),
+        }
+        view.column_occurrences = {
+            "kept": [
+                SemanticViewColumnMetadata(
+                    name="kept",
+                    data_type="NUMBER",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.METRIC,
+                    table_name="orders",
+                    synonyms=[],
+                    expression="COUNT(1)",
+                )
+            ],
+            "gone": [
+                SemanticViewColumnMetadata(
+                    name="gone",
+                    data_type="NUMBER",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    synonyms=[],
+                    expression="COUNT(1)",
+                )
+            ],
+            "derived": [
+                SemanticViewColumnMetadata(
+                    name="derived",
+                    data_type="NUMBER",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.METRIC,
+                    table_name="orders",
+                    synonyms=[],
+                    expression='ORDERS."gone" * 2',
+                )
+            ],
+        }
+
+        workunits = list(
+            mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=[],
+            )
+        )
+        emitted = {
+            wu.metadata.entityUrn
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, MetricInfoClass)
+        }
+        edges = [
+            d.destinationUrn
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, MetricRelationshipsClass)
+            for d in wu.metadata.aspect.derivedFrom
+        ]
+
+        # Whatever edges exist must point at metrics that were actually emitted.
+        assert set(edges) <= emitted, f"dangling: {set(edges) - emitted}"

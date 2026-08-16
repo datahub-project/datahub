@@ -2195,7 +2195,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         derived_col_expression = self._semantic_column_expression(
             semantic_view,
             source_col,
-            context_table.upper() if context_table else None,
+            # Already resolved by _extract_columns_from_expression, which folds
+            # unquoted qualifiers up and leaves quoted ones alone. Re-folding here
+            # would undo that and re-collapse a case-only pair.
+            context_table,
         )
 
         if derived_col_expression:
