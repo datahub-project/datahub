@@ -103,7 +103,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingKey",
           "authentication.tokenService.salt",
           "authentication.authenticators[*].configs.signingKey",
-          "authentication.authenticators[*].configs.salt");
+          "authentication.authenticators[*].configs.salt",
+          // Named-store JDBC passwords from DATAHUB_PGTIMESERIES_CONFIG_FILE / ConfigMap
+          "postgres.pgTimeseries.stores.*.pool.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -187,6 +189,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.maintenance.*",
           "postgres.pgQueue.retention.*",
           "postgres.pgQueue.producer.*",
+          // Named pgTimeseries stores/routing from DATAHUB_PGTIMESERIES_CONFIG_FILE
+          "postgres.pgTimeseries.stores.*",
+          "postgres.pgTimeseries.stores.*.*",
+          "postgres.pgTimeseries.stores.*.*.*",
+          "postgres.pgTimeseries.routing.*",
+          "postgres.pgTimeseries.routing.*.*",
           "datahub.gms.rateLimits.capacity.rules[*].*",
           "datahub.gms.rateLimits.endpoint.rules[*].*",
           "datahub.gms.rateLimits.scoped.heavyResolvers.*.*");
@@ -1582,6 +1590,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     assertFalse(
         "cache.client.entityClient.entityAspectTTLSeconds.corpuser"
             .matches(regex2)); // Too few segments
+
+    assertTrue(matchesSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.password"));
+    assertFalse(matchesSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.url"));
+    assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long"));
+    assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.tablePrefix"));
+    assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.url"));
+    assertTrue(
+        matchesNonSensitiveTemplate("postgres.pgTimeseries.routing.[dataset.datasetprofile]"));
 
     log.info("✅ Template-to-regex conversion working correctly");
   }
