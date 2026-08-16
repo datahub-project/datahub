@@ -47,9 +47,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>All endpoints return pretty-printed JSON for better readability in debugging/admin scenarios.
  * This follows the same pattern used by /config endpoints in the codebase.
  *
- * <p><strong>Security Note:</strong> Component-status endpoints require VIEW_SYSTEM_STATUS or
- * MANAGE_SYSTEM_OPERATIONS. Property/configuration dumps require MANAGE_SYSTEM_OPERATIONS.
- * Sensitive properties (passwords, secrets, keys) are automatically redacted as ***REDACTED***.
+ * <p><strong>Security Note:</strong> These endpoints expose system configuration data and are
+ * restricted to administrators with MANAGE_SYSTEM_OPERATIONS_PRIVILEGE. Sensitive properties
+ * (passwords, secrets, keys) are automatically redacted as ***REDACTED***.
  */
 @Slf4j
 @RestController
@@ -75,42 +75,31 @@ public class SystemInfoController {
     this.systemOperationContext = systemOperationContext;
   }
 
-  private OperationContext sessionContext(HttpServletRequest request) {
+  /**
+   * Checks if the current user is authorized to access system information endpoints.
+   *
+   * @param request The HTTP request
+   * @return ResponseEntity with error if unauthorized, null if authorized
+   */
+  private ResponseEntity<String> checkAuthorization(HttpServletRequest request) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    return OperationContext.asSession(
-        systemOperationContext,
-        RequestContext.builder()
-            .buildOpenapi(actorUrnStr, request, "systemInfo", List.of())
-            .withUsageOperation(UsageOperation.OTHER_READ),
-        authorizerChain,
-        authentication,
-        true);
-  }
 
-  private ResponseEntity<String> forbidden(String message) {
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    return ResponseEntity.status(HttpStatus.FORBIDDEN)
-        .body("{\"error\": \"" + actorUrnStr + " " + message + "\"}");
-  }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "systemInfo", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizerChain,
+            authentication,
+            true);
 
-  /** Component status: VIEW_SYSTEM_STATUS or MANAGE_SYSTEM_OPERATIONS. */
-  private ResponseEntity<String> checkStatusAuthorization(HttpServletRequest request) {
-    if (!AuthUtil.isAPIOperationsAuthorized(
-        sessionContext(request), PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
-      return forbidden("is not authorized for system status.");
+    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN)
+          .body("{\"error\": \"" + actorUrnStr + " is not authorized for system operations.\"}");
     }
-    return null;
-  }
-
-  /** Full configuration dump: MANAGE_SYSTEM_OPERATIONS only. */
-  private ResponseEntity<String> checkOperationsAuthorization(HttpServletRequest request) {
-    if (!AuthUtil.isAPIAuthorized(
-        sessionContext(request), PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
-      return forbidden("is not authorized for system operations.");
-    }
-    return null;
+    return null; // Authorization successful
   }
 
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -120,7 +109,7 @@ public class SystemInfoController {
           "Retrieves Spring component information including GMS, MAE Consumer, and MCE Consumer status. "
               + "For detailed system properties, use the /properties endpoint. "
               + "Returns pretty-printed JSON for better readability. "
-              + "Requires VIEW_SYSTEM_STATUS_PRIVILEGE or MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.")
+              + "Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -132,7 +121,7 @@ public class SystemInfoController {
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
   public ResponseEntity<String> getSystemInfo(HttpServletRequest request) {
-    ResponseEntity<String> authCheck = checkStatusAuthorization(request);
+    ResponseEntity<String> authCheck = checkAuthorization(request);
     if (authCheck != null) return authCheck;
     try {
       log.debug("Request received for complete system information");
@@ -154,7 +143,7 @@ public class SystemInfoController {
       description =
           "Retrieves information about Spring components including GMS, MAE Consumer, and MCE Consumer status. "
               + "Returns pretty-printed JSON for better readability. "
-              + "Requires VIEW_SYSTEM_STATUS_PRIVILEGE or MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.")
+              + "Requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -166,7 +155,7 @@ public class SystemInfoController {
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
   public ResponseEntity<String> getSpringComponentsInfo(HttpServletRequest request) {
-    ResponseEntity<String> authCheck = checkStatusAuthorization(request);
+    ResponseEntity<String> authCheck = checkAuthorization(request);
     if (authCheck != null) return authCheck;
     try {
       log.debug("Request received for Spring components information");
@@ -200,7 +189,7 @@ public class SystemInfoController {
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
   public ResponseEntity<String> getSystemPropertiesInfo(HttpServletRequest request) {
-    ResponseEntity<String> authCheck = checkOperationsAuthorization(request);
+    ResponseEntity<String> authCheck = checkAuthorization(request);
     if (authCheck != null) return authCheck;
     try {
       log.debug("Request received for system properties information");
@@ -234,7 +223,7 @@ public class SystemInfoController {
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
   public ResponseEntity<String> getPropertiesAsMap(HttpServletRequest request) {
-    ResponseEntity<String> authCheck = checkOperationsAuthorization(request);
+    ResponseEntity<String> authCheck = checkAuthorization(request);
     if (authCheck != null) return authCheck;
     try {
       log.debug("Request received for simple system properties map");

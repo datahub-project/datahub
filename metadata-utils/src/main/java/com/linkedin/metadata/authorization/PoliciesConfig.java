@@ -228,7 +228,7 @@ public class PoliciesConfig {
       Privilege.of(
           "VIEW_SYSTEM_STATUS",
           "View System Status",
-          "View non-sensitive system status such as consumer lag, messaging transport, and component health. Does not include full system configuration, raw index access, or operational controls.");
+          "View non-sensitive system status such as consumer lag, messaging transport, and registered consumers. Does not include system information, full system configuration, raw index access, or operational controls.");
 
   public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
       Privilege.of(

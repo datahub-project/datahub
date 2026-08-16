@@ -58,28 +58,12 @@ public class SystemInfoControllerTest {
     when(authentication.getActor()).thenReturn(actor);
     AuthenticationContext.setAuthentication(authentication);
 
-    this.systemInfoController =
+    systemInfoController =
         new SystemInfoController(
             mockSystemInfoService,
             mockObjectMapper,
             mockAuthorizerChain,
             mockSystemOperationContext);
-  }
-
-  private void stubSystemInfoAuthorized(MockedStatic<AuthUtil> authUtilMock) {
-    authUtilMock
-        .when(
-            () ->
-                AuthUtil.isAPIOperationsAuthorized(
-                    any(OperationContext.class), eq(PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)))
-        .thenReturn(true);
-    authUtilMock
-        .when(
-            () ->
-                AuthUtil.isAPIAuthorized(
-                    any(OperationContext.class),
-                    eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
-        .thenReturn(true);
   }
 
   @Test
@@ -94,7 +78,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       SystemInfoResponse systemInfo =
@@ -142,7 +133,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       when(mockSystemInfoService.getSystemInfo())
@@ -171,7 +169,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       SystemInfoResponse systemInfo = SystemInfoResponse.builder().build();
@@ -205,7 +210,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       SpringComponentsInfo springComponentsInfo =
@@ -263,7 +275,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       when(mockSystemInfoService.getSpringComponentsInfo())
@@ -292,7 +311,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       SystemPropertiesInfo propertiesInfo =
@@ -329,7 +355,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       when(mockSystemInfoService.getSystemPropertiesInfo())
@@ -358,7 +391,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       Map<String, Object> propertiesMap =
@@ -398,7 +438,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // Given
       when(mockSystemInfoService.getPropertiesAsMap())
@@ -427,7 +474,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // This test verifies that all endpoints use pretty-printed JSON consistently
       // which is important for debugging and admin scenarios
@@ -473,7 +527,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // This test verifies that all endpoints return the correct JSON content type
 
@@ -502,7 +563,14 @@ public class SystemInfoControllerTest {
           .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
           .thenReturn(mockOpContext);
 
-      stubSystemInfoAuthorized(authUtilMock);
+      // Setup authorization to return true
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
+          .thenReturn(true);
 
       // This test verifies that all endpoints properly handle unexpected exceptions
       // and return appropriate HTTP 500 responses
@@ -530,86 +598,6 @@ public class SystemInfoControllerTest {
       assertEquals(
           systemInfoController.getPropertiesAsMap(mockRequest).getStatusCode(),
           HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  @Test
-  public void testViewSystemStatusAllowsComponentsButNotProperties() throws Exception {
-    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class);
-        MockedStatic<OperationContext> opContextMock = mockStatic(OperationContext.class)) {
-
-      OperationContext mockOpContext = mock(OperationContext.class);
-      opContextMock
-          .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(mockOpContext);
-
-      authUtilMock
-          .when(
-              () ->
-                  AuthUtil.isAPIOperationsAuthorized(
-                      any(OperationContext.class), eq(PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)))
-          .thenReturn(true);
-      authUtilMock
-          .when(
-              () ->
-                  AuthUtil.isAPIAuthorized(
-                      any(OperationContext.class),
-                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
-          .thenReturn(false);
-
-      when(mockSystemInfoService.getSystemInfo()).thenReturn(SystemInfoResponse.builder().build());
-      when(mockSystemInfoService.getSpringComponentsInfo())
-          .thenReturn(SpringComponentsInfo.builder().build());
-      when(mockObjectMapper.writerWithDefaultPrettyPrinter()).thenReturn(mockObjectWriter);
-      when(mockObjectWriter.writeValueAsString(any())).thenReturn("{}");
-
-      assertEquals(systemInfoController.getSystemInfo(mockRequest).getStatusCode(), HttpStatus.OK);
-      assertEquals(
-          systemInfoController.getSpringComponentsInfo(mockRequest).getStatusCode(), HttpStatus.OK);
-      assertEquals(
-          systemInfoController.getSystemPropertiesInfo(mockRequest).getStatusCode(),
-          HttpStatus.FORBIDDEN);
-      assertEquals(
-          systemInfoController.getPropertiesAsMap(mockRequest).getStatusCode(),
-          HttpStatus.FORBIDDEN);
-    }
-  }
-
-  @Test
-  public void testNoPrivilegeForbidsAllSystemInfoEndpoints() {
-    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class);
-        MockedStatic<OperationContext> opContextMock = mockStatic(OperationContext.class)) {
-
-      OperationContext mockOpContext = mock(OperationContext.class);
-      opContextMock
-          .when(() -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()))
-          .thenReturn(mockOpContext);
-
-      authUtilMock
-          .when(
-              () ->
-                  AuthUtil.isAPIOperationsAuthorized(
-                      any(OperationContext.class), eq(PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)))
-          .thenReturn(false);
-      authUtilMock
-          .when(
-              () ->
-                  AuthUtil.isAPIAuthorized(
-                      any(OperationContext.class),
-                      eq(PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)))
-          .thenReturn(false);
-
-      assertEquals(
-          systemInfoController.getSystemInfo(mockRequest).getStatusCode(), HttpStatus.FORBIDDEN);
-      assertEquals(
-          systemInfoController.getSpringComponentsInfo(mockRequest).getStatusCode(),
-          HttpStatus.FORBIDDEN);
-      assertEquals(
-          systemInfoController.getSystemPropertiesInfo(mockRequest).getStatusCode(),
-          HttpStatus.FORBIDDEN);
-      assertEquals(
-          systemInfoController.getPropertiesAsMap(mockRequest).getStatusCode(),
-          HttpStatus.FORBIDDEN);
     }
   }
 }
