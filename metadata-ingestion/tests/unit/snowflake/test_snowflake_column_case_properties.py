@@ -23,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
+    SemanticModelInfoClass,
     SemanticModelPropertiesClass,
 )
 
@@ -455,4 +456,74 @@ def test_every_metric_belongs_to_a_logical_table_that_exists(
         # table lands on the surviving table's URN, so a set hides it entirely.
         assert sorted(metrics) == sorted(expected), (
             f"preserve={preserve} convert={convert}: {logical_tables} -> {metrics}"
+        )
+
+
+@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(logical_tables=_logical_tables)
+def test_the_emitted_graph_has_no_dangling_references(
+    logical_tables: List[str],
+) -> None:
+    """Every entity an emitted aspect points at was itself emitted.
+
+    Mechanism-independent, which is the point: the ways a reference can go
+    dangling are exactly the ways nobody thought of. Two have happened here --
+    a metric index that still held a logical table the emitter had dropped, and
+    a model listing a dataset that was never produced -- and both would have
+    failed this without anyone naming them.
+
+    Scoped to the semantic model's own graph. Physical base tables are referenced
+    by upstreamLineage and deliberately live outside it.
+    """
+    # Each logical table gets a metric named only for it, so a reference to a
+    # discarded table's metric cannot silently land on a survivor's URN. Sharing
+    # one metric name across the tables makes the dangling edge invisible: the
+    # URNs collide in exactly the configuration where the table is dropped.
+    view = _view_with_logical_tables(logical_tables)
+    view.column_occurrences = {
+        f"m_{table}": [
+            SemanticViewColumnMetadata(
+                name=f"m_{table}",
+                data_type="NUMBER",
+                comment=None,
+                subtype=SemanticViewColumnSubtype.METRIC,
+                table_name=table,
+                synonyms=[],
+                expression="COUNT(1)",
+            )
+        ]
+        for table in logical_tables
+    }
+    # One derived metric on the first table, referencing every table's own metric.
+    view.column_occurrences["derived"] = [
+        SemanticViewColumnMetadata(
+            name="derived",
+            data_type="NUMBER",
+            comment=None,
+            subtype=SemanticViewColumnSubtype.METRIC,
+            table_name=logical_tables[0],
+            synonyms=[],
+            expression=" + ".join(f'"{t}"."m_{t}"' for t in logical_tables),
+        )
+    ]
+
+    for preserve, convert in _CELLS:
+        mapper = _mapper(
+            preserve_column_case=preserve, convert_urns_to_lowercase=convert
+        )
+        workunits = _workunits(mapper, view)
+
+        emitted = {urn for urn, _ in _aspects(workunits, MetricInfoClass)} | {
+            urn for urn, _ in _aspects(workunits, SemanticModelPropertiesClass)
+        }
+
+        referenced = set()
+        for _urn, aspect in _aspects(workunits, MetricRelationshipsClass):
+            referenced |= {edge.destinationUrn for edge in aspect.derivedFrom}
+        for _urn, model_info in _aspects(workunits, SemanticModelInfoClass):
+            referenced |= set(model_info.datasets or [])
+
+        assert referenced <= emitted, (
+            f"preserve={preserve} convert={convert}: {logical_tables} -> "
+            f"dangling {sorted(referenced - emitted)}"
         )
