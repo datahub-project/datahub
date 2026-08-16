@@ -1,5 +1,5 @@
 import json
-from typing import Any, List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
@@ -728,3 +728,83 @@ class TestSemanticViewCollisionReport:
 
         assert not list(report.warnings)
         assert not list(report.infos)
+
+
+class TestLogicalTableCollisionReport:
+    """Two logical tables differing only by case collapse into one dataset.
+
+    Verified against Snowflake: a semantic view can declare `"orders"` and
+    `"ORDERS"` as separate logical tables over separate base tables, and
+    SEMANTIC_METRICS reports each metric against its own one. Every consumer
+    here keys logical tables by `.upper()`, so the second overwrites the first
+    and its dataset, columns and metrics are gone with nothing said.
+
+    Predates preserve_column_case -- the same fold is on master -- so this
+    reports the loss rather than re-keying the dataset URNs to fix it.
+    """
+
+    @staticmethod
+    def _view(logical_tables: Dict[str, Any]) -> SnowflakeSemanticView:
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = logical_tables
+        return view
+
+    def test_case_only_logical_tables_are_reported(self) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_gen(report)
+
+        # Both spellings were declared; only one survives the uppercase key.
+        view = self._view({"ORDERS": ("db", "sch", "orders_tbl")})
+        view.logical_table_case_collisions = {"orders": {"orders", "ORDERS"}}
+
+        gen._report_logical_table_case_collisions(view, "db.schema.v")
+
+        assert len(list(report.warnings)) == 1, (
+            "a logical table was dropped and nothing told the operator"
+        )
+
+    def test_no_collision_stays_quiet(self) -> None:
+        report = SnowflakeV2Report()
+        gen = _make_gen(report)
+
+        gen._report_logical_table_case_collisions(
+            self._view({"ORDERS": ("db", "sch", "orders_tbl")}), "db.schema.v"
+        )
+
+        assert not list(report.warnings)
+
+    def test_the_live_population_path_records_both_spellings(self) -> None:
+        # Guards the half that matters: the reporter above is only useful if
+        # extraction actually captures the losing spelling. Snowflake returns one
+        # SEMANTIC_TABLES row per logical table, and the pair below is a real
+        # shape -- two logical tables over two base tables, differing only by case.
+        from datahub.ingestion.source.snowflake.snowflake_schema import (
+            SnowflakeDataDictionary,
+        )
+
+        connection = MagicMock()
+        connection.query.return_value = [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "SCH",
+                "SEMANTIC_VIEW_NAME": "V",
+                "SEMANTIC_TABLE_NAME": name,
+                "BASE_TABLE_CATALOG": "DB",
+                "BASE_TABLE_SCHEMA": "SCH",
+                "BASE_TABLE_NAME": base,
+            }
+            for name, base in (("orders", "orders_tbl"), ("ORDERS", "ORDERS_TBL"))
+        ]
+        data_dict = SnowflakeDataDictionary(
+            connection=connection,
+            report=SnowflakeV2Report(),
+            emit_semantic_model_entities=True,
+            preserve_column_case=False,
+        )
+        view = _semantic_view(["col"])
+        view.name = "V"
+
+        data_dict._populate_semantic_view_base_tables("DB", {"SCH": [view]})
+
+        assert view.logical_table_case_collisions == {"ORDERS": {"orders", "ORDERS"}}
+        # One survivor, which is the loss the warning exists to announce.
+        assert len(view.logical_to_physical_table) == 1

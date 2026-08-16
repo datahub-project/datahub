@@ -318,6 +318,14 @@ class SnowflakeSemanticView(BaseView):
     # so the one case an operator most needs told about is the one that leaves no
     # trace. Populated in both modes, unlike column_occurrences.
     column_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
+    # Stored spellings of logical tables that fold onto one name, folded name ->
+    # spellings. logical_to_physical_table is keyed by the uppercased name, so a
+    # pair like `"orders"` / `"ORDERS"` -- which Snowflake does allow, over two
+    # different base tables -- overwrites rather than collides, and the second
+    # table's dataset, columns and metrics vanish. Recorded so an operator is
+    # told; keying logical tables by their stored name instead would re-key
+    # every logical dataset URN, so that is a deliberate follow-up.
+    logical_table_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
     # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
     # Only populated when emit_semantic_model_entities is enabled (see
     # _populate_semantic_view_relationships); consumed only by the semanticModel mapper.
@@ -1456,6 +1464,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 # Store the logical-to-physical mapping for lineage generation
                 logical_table_upper = logical_table_name.upper()
+                semantic_view_obj.logical_table_case_collisions.setdefault(
+                    logical_table_upper, set()
+                ).add(logical_table_name)
                 semantic_view_obj.logical_to_physical_table[logical_table_upper] = (
                     base_table_id.as_tuple()
                 )
@@ -1525,6 +1536,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             database=db, schema=schema, table=table
                         )
                         semantic_view.base_tables.append(base_table_id)
+                        # No collision recording here: _parse_base_tables_from_ddl
+                        # returns names already uppercased, so the stored spelling
+                        # is gone before this point and a pair is undetectable on
+                        # the DDL fallback path.
                         semantic_view.logical_to_physical_table[logical_alias_upper] = (
                             base_table_id.as_tuple()
                         )

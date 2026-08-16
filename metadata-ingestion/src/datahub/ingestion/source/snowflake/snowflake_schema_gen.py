@@ -1259,11 +1259,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.semantic_views.emit_semantic_model_entities:
             # This path never reaches gen_schema_metadata, so the collision check
             # has to run here too or semantic views are silently exempt from it.
-            self._report_column_case_collisions(
-                semantic_view,
-                self.identifiers.get_dataset_identifier(
-                    semantic_view.name, schema_name, db_name
-                ),
+            dataset_identifier = self.identifiers.get_dataset_identifier(
+                semantic_view.name, schema_name, db_name
+            )
+            self._report_column_case_collisions(semantic_view, dataset_identifier)
+            self._report_logical_table_case_collisions(
+                semantic_view, dataset_identifier
             )
 
             # Tag entities referenced by the semantic view / its columns. In legacy
@@ -1690,6 +1691,32 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if tag_associations:
             return GlobalTagsClass(tags=tag_associations)
         return None
+
+    def _report_logical_table_case_collisions(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        dataset_name: str,
+    ) -> None:
+        # Unlike columns, this is not governed by preserve_column_case: logical
+        # tables are keyed by their uppercased name whatever the settings, so the
+        # loss is the same in every configuration. Reporting rather than fixing --
+        # keying by the stored name would re-key every logical dataset URN.
+        collisions = {
+            folded_name: spellings
+            for folded_name, spellings in semantic_view.logical_table_case_collisions.items()
+            if len(spellings) > 1
+        }
+        if not collisions:
+            return
+
+        self.structured_reporter.warning(
+            title="Semantic view logical tables collapsed into one dataset",
+            message="A semantic view declares logical tables that differ only by "
+            "case. They are keyed by their uppercased name, so only one survives: "
+            "the others' datasets, columns and metrics are omitted. Rename them to "
+            "differ by more than case on the Snowflake side.",
+            context=f"{dataset_name}: {sorted(sorted(v) for v in collisions.values())}",
+        )
 
     def _report_column_case_collisions(
         self,
