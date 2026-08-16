@@ -19,6 +19,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
 
 
 def _engine(dialect: Any) -> Any:
@@ -375,3 +376,67 @@ class TestNonSnowflakeNormalizingDialects:
         with patch.object(sa, "inspect", side_effect=AssertionError("must not run")):
             assert adapter._use_stored_column_names(table, engine) is table
         assert adapter.field_path_for("Id", engine) == "Id"
+
+
+class TestTranslationIsActuallyWired:
+    """Every piece of this was tested alone and none of it was tested connected.
+
+    Each of the three call sites could be deleted with the whole suite still
+    green, because the helpers are exercised directly and the assembly never is.
+    The existing end-to-end tests run on sqlite, which does not set
+    requires_name_normalize, so every translation is an identity there and a
+    missing one looks exactly like a working one.
+
+    Teaching sqlite to normalize is what makes the seam observable: profiling
+    then addresses `MixedCol` while the source emits `mixedcol`, and the profile
+    only lands on its schema field if the wiring is present.
+    """
+
+    @staticmethod
+    def _normalizing_sqlite(engine: Any) -> None:
+        dialect = engine.dialect
+        dialect.requires_name_normalize = True
+        # Same shape as Oracle's: fold an all-uppercase stored name, keep anything
+        # else, and reverse it on the way back to SQL.
+        dialect.normalize_name = lambda name: name.lower()
+        dialect.denormalize_name = lambda name: name
+
+    def test_a_profile_lands_on_the_path_the_source_emitted(self) -> None:
+        engine = sa.create_engine("sqlite:///:memory:")
+        metadata = sa.MetaData()
+        table = sa.Table(
+            "mixed",
+            metadata,
+            sa.Column("MixedCol", sa.Integer),
+            sa.Column("id", sa.Integer),
+        )
+        metadata.create_all(engine)
+        with engine.connect() as conn, conn.begin():
+            conn.execute(sa.insert(table), [{"MixedCol": 1, "id": 1}])
+
+        self._normalizing_sqlite(engine)
+        profiler = SQLAlchemyProfiler(
+            conn=engine,
+            report=SQLSourceReport(),
+            config=ProfilingConfig(enabled=True, include_field_null_count=True),
+            platform="sqlite",
+            env="TEST",
+        )
+
+        profile = profiler._generate_single_profile(
+            query_combiner=SQLAlchemyQueryCombiner(
+                enabled=False,
+                catch_exceptions=True,
+                is_single_row_query_method=lambda query: False,
+                serial_execution_fallback_enabled=True,
+            ),
+            pretty_name="mixed",
+            table="mixed",
+        )
+
+        assert profile is not None and profile.fieldProfiles is not None
+        paths = sorted(p.fieldPath for p in profile.fieldProfiles)
+        # Not MixedCol: the source's schemaMetadata carries the normalized name,
+        # so a profile under the stored spelling would attach to nothing.
+        assert paths == ["id", "mixedcol"], paths
+        assert all(type(p.fieldPath) is str for p in profile.fieldProfiles)

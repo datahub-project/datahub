@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -443,6 +444,7 @@ class SQLAlchemyProfiler:
         config: ProfilingConfig,
         platform: str,
         env: str = "PROD",
+        field_path_transform: Optional[Callable[[str], str]] = None,
     ):
         self.report = report
         self.config = config
@@ -450,6 +452,12 @@ class SQLAlchemyProfiler:
         self.total_row_count = 0
 
         self.env = env
+        # How a stored column name becomes the field path the source emitted.
+        # A SQLAlchemy source emits reflection's normalized name, which is what
+        # the adapters return. A source that names columns by a rule of its own --
+        # Snowflake's depends on config this layer cannot see -- passes that rule
+        # in, so the translation still happens in one place.
+        self.field_path_transform = field_path_transform
 
         # One adapter per worker thread rather than per table, so the Inspector
         # it caches survives long enough to be worth caching. See _thread_adapter.
@@ -1222,26 +1230,31 @@ class SQLAlchemyProfiler:
         their stored name, which on a normalizing dialect is a different string,
         and the membership tests downstream would simply never hit.
 
-        Translate forwards -- stored name to field path -- then compare folded.
-        Exact comparison is not available here: Snowflake's field_path_for hands
-        the stored name straight back, because the rule that produces its path
-        depends on source config (convert_urns_to_lowercase, preserve_column_case)
-        that the profiling layer cannot see. Folding is what makes this work on
-        the platform the tag is most used on.
-
-        The cost is that a case-only pair is treated as one column, so tagging
-        "col" also skips "COL". That is the safer direction to err for this
-        control -- it exists to keep stats off expensive or sensitive columns, so
-        skipping one extra beats profiling one the operator asked to leave alone.
+        Compared exactly. Two columns differing only by case are two columns, and
+        on a platform where both can exist, tagging one must not silence the other.
         """
         if not ignore_paths:
             return ignore_paths
-        wanted = {path.lower() for path in ignore_paths}
+        wanted = set(ignore_paths)
         return [
             str(column.name)
             for column in sql_table.columns
-            if adapter.field_path_for(str(column.name), conn).lower() in wanted
+            if self._emitted_field_path(str(column.name), adapter, conn) in wanted
         ]
+
+    def _emitted_field_path(
+        self, stored_name: str, adapter: "PlatformAdapter", conn: Any
+    ) -> str:
+        """The field path the source emitted for a column profiling addresses.
+
+        str() sheds sqlalchemy's quoted_name, a str subclass whose .lower() and
+        .upper() return self when the identifier is quoted -- right for SQL, but
+        it makes every downstream fold silently do nothing.
+        """
+        stored_name = str(stored_name)
+        if self.field_path_transform is not None:
+            return self.field_path_transform(stored_name)
+        return adapter.field_path_for(stored_name, conn)
 
     def _to_emitted_field_paths(
         self,
@@ -1264,13 +1277,8 @@ class SQLAlchemyProfiler:
         translated: List[DatasetFieldProfileClass] = []
         seen: Set[str] = set()
         for field_profile in field_profiles:
-            # str() sheds sqlalchemy's quoted_name, a str subclass whose .lower()
-            # and .upper() return self when the identifier is quoted. That is right
-            # for SQL — folding a quoted name would point it at a different column —
-            # but a field path is metadata, and leaving the subclass in place makes
-            # every downstream fold silently do nothing.
-            field_profile.fieldPath = adapter.field_path_for(
-                str(field_profile.fieldPath), conn
+            field_profile.fieldPath = self._emitted_field_path(
+                field_profile.fieldPath, adapter, conn
             )
             if field_profile.fieldPath in seen:
                 continue

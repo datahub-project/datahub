@@ -33,17 +33,6 @@ class SnowflakeAdapter(PlatformAdapter):
     3. Temp table materialization for large table sampling
     """
 
-    def field_path_for(self, stored_name: str, engine: Any) -> str:
-        """Keep the stored name; the Snowflake source decides the field path.
-
-        Its schema comes from INFORMATION_SCHEMA rather than reflection, and the
-        path it emits depends on config the profiling layer cannot see
-        (``convert_urns_to_lowercase``, ``preserve_column_case``). Handing back
-        the stored name lets ``snowflake_profiler`` apply exactly the rule it used
-        when it built schemaMetadata.
-        """
-        return stored_name
-
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:

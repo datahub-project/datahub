@@ -897,9 +897,15 @@ class PlatformAdapter(ABC):
                 sql_table.name, schema=sql_table.schema
             )
         except SQLAlchemyError as e:
-            logger.debug(
-                f"Could not re-inspect {sql_table.fullname} for stored column "
-                f"names: {type(e).__name__}: {e}"
+            # Returning the reflected table means any case-only pair stays folded
+            # and one of them goes unprofiled -- the exact loss this method exists
+            # to prevent. Silent recovery from a silent bug is not recovery.
+            self.report.warning(
+                title="Could not read stored column names",
+                message="Re-inspection failed, so columns differing only by case "
+                "stay folded together and only one of each pair is profiled.",
+                context=f"{sql_table.fullname}: {type(e).__name__}: {e}",
+                exc=e,
             )
             return sql_table
 
@@ -921,6 +927,18 @@ class PlatformAdapter(ABC):
             logger.info(
                 f"Recovered case-folded columns for {sql_table.fullname}: "
                 f"{sorted(str(c.name) for c in rebuilt.columns)}"
+            )
+        elif len(rebuilt.columns) < len(sql_table.columns):
+            # The check used to run one way only, so it announced recoveries and
+            # said nothing about losses. sa.Table de-duplicates on name, so two
+            # stored names that denormalize to one string drop a column here.
+            self.report.warning(
+                title="Lost columns while reading stored names",
+                message="Rebuilding the table from its stored column names "
+                "produced fewer columns than reflection did, so some columns "
+                "will not be profiled.",
+                context=f"{sql_table.fullname}: "
+                f"{len(sql_table.columns)} reflected, {len(rebuilt.columns)} rebuilt",
             )
         return rebuilt
 

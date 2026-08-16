@@ -22,7 +22,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMi
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import GenericProfiler
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
-from datahub.metadata.schema_classes import DatasetProfileClass
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
@@ -81,45 +80,13 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         if len(profile_requests) == 0:
             return
 
-        yield from self._to_schema_field_paths(
-            self.generate_profile_workunits(
-                profile_requests,
-                max_workers=self.config.profiling.max_workers,
-                db_name=database.name,
-                platform=self.platform,
-                profiler_args=self.get_profile_args(),
-            )
+        yield from self.generate_profile_workunits(
+            profile_requests,
+            max_workers=self.config.profiling.max_workers,
+            db_name=database.name,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
         )
-
-    def _to_schema_field_paths(
-        self, workunits: Iterable[MetadataWorkUnit]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Rewrite profile field paths with the rule schemaMetadata was built on.
-
-        The profiler names columns as Snowflake stores them, so the same helper
-        that produced the schema's field paths produces these — no lookup table,
-        and no guessing which spelling a profile happens to carry.
-
-        Two columns differing only by case collapse onto one path unless
-        preserve_column_case is set. Keeping the first mirrors the schema, where
-        the duplicate field is dropped; emitting both would put two profiles on
-        one field.
-        """
-        for wu in workunits:
-            profile = wu.get_aspect_of_type(DatasetProfileClass)
-            if profile and profile.fieldProfiles:
-                kept = []
-                seen_field_paths = set()
-                for field_profile in profile.fieldProfiles:
-                    field_profile.fieldPath = self.identifiers.snowflake_identifier(
-                        field_profile.fieldPath
-                    )
-                    if field_profile.fieldPath in seen_field_paths:
-                        continue
-                    seen_field_paths.add(field_profile.fieldPath)
-                    kept.append(field_profile)
-                profile.fieldProfiles = kept
-            yield wu
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return self.identifiers.get_dataset_identifier(table_name, schema_name, db_name)
@@ -167,6 +134,11 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             config=self.config.profiling,
             platform=self.platform,
             env=self.config.env,
+            # Snowflake's schema comes from INFORMATION_SCHEMA, not from
+            # reflection, so its field paths follow source config rather than the
+            # dialect's normalize_name. Handing the rule in lets the profiler make
+            # the translation itself instead of deferring it back to us.
+            field_path_transform=self.identifiers.snowflake_identifier,
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
