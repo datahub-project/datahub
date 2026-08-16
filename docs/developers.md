@@ -21,7 +21,7 @@ On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell
 # Install Java
-brew install openjdk@21
+brew install openjdk@25
 
 # Install Python
 brew install python@3.11  # you may need to add this to your PATH

@@ -33,7 +33,7 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
-  ext.versionGradle = '8.14.3'
+  ext.versionGradle = '9.5.0'
   // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
   ext.springVersion = '7.0.8'
   // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5

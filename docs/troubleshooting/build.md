@@ -14,7 +14,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 java --version
 ```
 
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [java 25](https://openjdk.org/projects/jdk/21/) for building (aka java 25). Docker images run Java 25 LTS at runtime.
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [java 25](https://openjdk.org/projects/jdk/25/) for building (aka java 25). Docker images run Java 25 LTS at runtime.
 
 ## Getting `cannot find symbol` error for `javax.annotation.Generated`
 

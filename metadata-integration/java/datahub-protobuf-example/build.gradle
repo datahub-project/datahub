@@ -8,6 +8,13 @@ ext {
     datahub_protobuf_version = '1.1.0'
 }
 
+// Gradle 9 removed Project.exec/javaexec. This example is a standalone project (not part of the root
+// multi-project build), so it can't rely on the root's `execOps`; inject ExecOperations locally.
+abstract class InjectedExecOps {
+    @javax.inject.Inject abstract org.gradle.process.ExecOperations getExecOps()
+}
+def execOps = objects.newInstance(InjectedExecOps).execOps
+
 configurations {
     datahub
 }
