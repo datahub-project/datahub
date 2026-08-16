@@ -479,7 +479,10 @@ class SnowflakeIdentifierBuilder:
             MetricUrn(
                 platform=make_data_platform_urn(self.platform),
                 path=path,
-                id=self.snowflake_identifier(metric_name),
+                # A metric name is a semantic-view identifier like a dimension's:
+                # same DDL, same extraction, same folding. So it follows the
+                # column rule, which delegates when the flag is off.
+                id=self.snowflake_column_identifier(metric_name),
             )
         )
 

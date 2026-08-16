@@ -453,6 +453,45 @@ class TestExpressionColumnFolding:
         ]
 
 
+class TestMetricNamesFollowTheColumnRule:
+    """A metric name is a semantic-view identifier like a dimension's.
+
+    Both arrive through one extraction into one SemanticViewColumnCollection,
+    differing only by subtype, so they fold the same way. Keying metrics by
+    .upper() instead collapsed two case-only metrics into one entity even where
+    their URNs were distinct -- and let a dimension "col" mark a metric "COL"
+    as shadowed, which are two different things once casing is preserved.
+    """
+
+    @staticmethod
+    def _urns(**overrides: Any) -> set:
+        identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=SnowflakeV2Config(
+                account_id="a",
+                username="u",
+                password="p",  # type: ignore[arg-type]
+                **overrides,
+            ),
+            structured_reporter=SnowflakeV2Report(),
+        )
+        return {
+            identifiers.gen_metric_urn(name, "V", "SCH", "DB", "T")
+            for name in ("col", "COL")
+        }
+
+    def test_default_still_collapses_them(self) -> None:
+        # Unchanged from before the flag existed: one URN, so one entity.
+        assert len(self._urns(preserve_column_case=False)) == 1
+
+    def test_preserving_keeps_them_apart(self) -> None:
+        assert len(self._urns(preserve_column_case=True)) == 2
+
+    def test_lowercasing_off_keeps_them_apart_too(self) -> None:
+        # The pre-existing drop: distinct URNs, but .upper() keying meant only
+        # one metric entity was ever emitted.
+        assert len(self._urns(convert_urns_to_lowercase=False)) == 2
+
+
 class TestSemanticViewCollisionReport:
     """The report has to fire in the case that loses a column.
 

@@ -87,7 +87,7 @@ class _MetricKey:
     (derived) metric has ``logical_table_upper=None``.
     """
 
-    name_upper: str
+    name_key: str
     logical_table_upper: Optional[str]
 
 
@@ -132,12 +132,12 @@ class SnowflakeSemanticModelMapper:
         # expressions: a qualified `table.metric` resolves to a table-bound metric,
         # an unqualified `metric` to a view-scoped (derived) metric.
         table_bound_metrics = {
-            (key.logical_table_upper, key.name_upper): occ
+            (key.logical_table_upper, key.name_key): occ
             for key, occ in distinct_metrics.items()
             if key.logical_table_upper is not None
         }
         view_scoped_metrics = {
-            key.name_upper: occ
+            key.name_key: occ
             for key, occ in distinct_metrics.items()
             if key.logical_table_upper is None
         }
@@ -796,17 +796,20 @@ class SnowflakeSemanticModelMapper:
         # Deduplicate by destination URN, keeping deterministic ordering.
         edges: Dict[str, DerivedMetricInputClass] = {}
         for column in parsed.find_all(sqlglot.expressions.Column):
-            name_upper = column.name.upper()
+            # Fold the reference the same way the metric indices were keyed, so a
+            # case-only pair is two metrics here as well. sqlglot reports an
+            # unquoted reference already folded up, and a quoted one as written.
+            name_key = self.identifiers.snowflake_column_identifier(column.name)
             if column.table:
                 ref_table = column.table.upper()
-                ref = table_bound_metrics.get((ref_table, name_upper))
+                ref = table_bound_metrics.get((ref_table, name_key))
                 if ref is None:
                     # Qualified fact/dimension column reference, not a metric.
                     continue
             else:
-                if name_upper in shadowed_metric_names:
+                if name_key in shadowed_metric_names:
                     continue
-                ref = view_scoped_metrics.get(name_upper)
+                ref = view_scoped_metrics.get(name_key)
                 if ref is None:
                     continue
                 ref_table = None
@@ -1007,7 +1010,9 @@ class SnowflakeSemanticModelMapper:
                 if occurrence.subtype != SemanticViewColumnSubtype.METRIC:
                     continue
                 key = _MetricKey(
-                    name_upper=occurrence.name.upper(),
+                    name_key=self.identifiers.snowflake_column_identifier(
+                        occurrence.name
+                    ),
                     logical_table_upper=(
                         occurrence.table_name.upper() if occurrence.table_name else None
                     ),
@@ -1057,18 +1062,17 @@ class SnowflakeSemanticModelMapper:
                 model_lineages.append(lineage)
         return model_lineages, metric_lineages
 
-    @staticmethod
-    def _shadowed_metric_names(semantic_view: SnowflakeSemanticView) -> Set[str]:
+    def _shadowed_metric_names(self, semantic_view: SnowflakeSemanticView) -> Set[str]:
         # A column name that is both a metric and a dimension/fact column of the
         # same view is ambiguous; used by _derived_from_metrics (avoid a wrong
         # derivedFrom edge) and _route_lineages (keep the column's own lineage on
         # its logical dataset rather than dropping it as a metric).
-        # Normalized on the way out: the map is keyed by stored name when casing
-        # is preserved, while every consumer compares an uppercased reference.
-        # Without this a mixed-case column never matches and a shadowed metric
-        # gets a derivedFrom edge it should not have.
+        # Folded the same way the metric indices are, so the comparison is
+        # like-for-like. Uppercasing here instead would make a dimension "col"
+        # shadow a metric "COL", which are two different things whenever casing
+        # is preserved.
         return {
-            key.upper()
+            self.identifiers.snowflake_column_identifier(key)
             for key, occs in semantic_view.column_occurrences.items()
             if any(o.subtype != SemanticViewColumnSubtype.METRIC for o in occs)
         }
