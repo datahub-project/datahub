@@ -61,8 +61,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Above this many URNs per platform, the bulk-loaded catalog is large enough to warrant
-# an explicit heads-up to operators rather than letting it surface as unexplained memory
-# pressure.
+# an explicit heads-up to operators rather than letting it surface as unexplained disk
+# use and load time.
 _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 # The closed set of matchType verdicts, as a Literal so the if/elif verdict chains that
@@ -444,9 +444,9 @@ class AutoResolveLineageUrnsProcessor(
             )
             if cache_count > _CATALOG_SIZE_WARN_THRESHOLD:
                 logger.warning(
-                    f"{message} This is a large catalog and may use significant memory; "
-                    f"consider narrowing upstream_platforms (platform_instance / env) to "
-                    f"the assets this source references."
+                    f"{message} Its cache uses significant disk; consider narrowing "
+                    f"upstream_platforms (platform_instance / env) to the assets this "
+                    f"source references."
                 )
             else:
                 logger.info(message)
