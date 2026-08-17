@@ -1,4 +1,11 @@
+import { FileDashed } from '@phosphor-icons/react/dist/csr/FileDashed';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
+import i18next from 'i18next';
+
 import { DocumentCreator, DocumentTreeNode } from '@app/document/DocumentTreeContext';
+import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
@@ -32,6 +39,17 @@ export function isExternalDocument(
     doc: { info?: { source?: { sourceType?: DocumentSourceType | null } | null } | null } | null | undefined,
 ): boolean {
     return doc?.info?.source?.sourceType === DocumentSourceType.External;
+}
+
+/**
+ * Resolves the Phosphor icon component for a document row given its branch/published state.
+ * Consumed by the Documents sidebar tree and by any flat list of documents (e.g. Resources)
+ * that wants icon parity with the sidebar. Callers rendering a flat list pass
+ * `hasChildren: false` — the "folder" variants only apply inside the tree.
+ */
+export function pickTreeIcon({ hasChildren, isUnpublished }: { hasChildren: boolean; isUnpublished: boolean }) {
+    if (hasChildren) return isUnpublished ? FolderDashed : Folder;
+    return isUnpublished ? FileDashed : FileText;
 }
 
 /**
@@ -76,6 +94,10 @@ type ActorDisplayShape = {
  */
 export function resolveActorDisplayName(actor: ActorDisplayShape | null | undefined): string {
     if (!actor) return '';
+    // Python SDK default writer — username is literally "__ingestion".
+    if (actor.urn === INGESTION_ACTOR_URN || actor.username === '__ingestion') {
+        return i18next.t('entity.types:user.ingestionActor');
+    }
     const { editableProperties, properties, info, username, name, urn } = actor;
     const firstLast = [properties?.firstName, properties?.lastName].filter(Boolean).join(' ').trim();
     return (
@@ -137,18 +159,19 @@ export function extractDocumentCreator(
  * @param hasChildren - Whether this document has children
  * @returns A DocumentTreeNode representation of the document
  */
-export function documentToTreeNode(doc: Document, hasChildren: boolean): DocumentTreeNode {
+export function documentToTreeNode(doc: Document, hasChildren: boolean, childCount?: number): DocumentTreeNode {
     return {
         urn: doc.urn,
-        /* untranslated-text -- persisted document-title data default, not UI chrome */
-        title: doc.info?.title || 'Untitled',
+        title: doc.info?.title || i18next.t('entity.types:document.untitledFallback'),
         parentUrn: doc.info?.parentDocument?.document?.urn || null,
         hasChildren,
+        childCount,
         children: undefined, // Not loaded yet
         isUnpublished: isDocumentUnpublished(doc),
         isExternal: isExternalDocument(doc),
         platform: doc.platform ?? null,
         creator: extractDocumentCreator(doc),
+        lastModifiedAt: doc.info?.lastModified?.time ?? 0,
     };
 }
 
@@ -180,6 +203,23 @@ export function extractRelatedAssetUrns(
 }
 
 /**
+ * Extracts related document URNs from a document (doc-to-doc links).
+ * Mirrors {@link extractRelatedAssetUrns} for the `relatedDocuments` list.
+ *
+ * @param document - Document with info.relatedDocuments structure
+ * @returns Array of document URNs (empty array if none found)
+ */
+export function extractRelatedDocumentUrns(
+    document: { info?: { relatedDocuments?: Array<{ document?: { urn: string } | null }> | null } | null } | null,
+): string[] {
+    return (
+        document?.info?.relatedDocuments
+            ?.map((related) => related?.document?.urn)
+            .filter((urn): urn is string => Boolean(urn)) || []
+    );
+}
+
+/**
  * Merges multiple arrays of URNs and removes duplicates.
  *
  * @param urnArrays - Variable number of URN arrays to merge
@@ -187,6 +227,56 @@ export function extractRelatedAssetUrns(
  */
 export function mergeUrns(...urnArrays: (string[] | undefined | null)[]): string[] {
     return [...new Set(urnArrays.flat().filter((urn): urn is string => Boolean(urn)))];
+}
+
+export interface RelatedEntitiesLists {
+    relatedAssets: string[];
+    relatedDocuments: string[];
+}
+
+/**
+ * Computes a document's `relatedAssets` / `relatedDocuments` lists after linking or
+ * unlinking a single entity.
+ *
+ * A document links to normal entities through `relatedAssets` and to other documents
+ * through `relatedDocuments`. We only edit the list the entity belongs to — decided by
+ * whether its URN is a document URN — and leave the other list untouched. The mutation
+ * replaces the full list, so callers pass both back even when only one changed.
+ *
+ * @param entityUrn - The entity being linked/unlinked from the document
+ * @param existingAssetUrns - The document's current relatedAssets URNs
+ * @param existingRelatedDocumentUrns - The document's current relatedDocuments URNs
+ * @param shouldBeLinked - true to add the entity, false to remove it
+ * @returns The next relatedAssets/relatedDocuments lists
+ */
+export function computeRelatedEntitiesForLinkChange({
+    entityUrn,
+    existingAssetUrns,
+    existingRelatedDocumentUrns,
+    shouldBeLinked,
+}: {
+    entityUrn: string;
+    existingAssetUrns: string[];
+    existingRelatedDocumentUrns: string[];
+    shouldBeLinked: boolean;
+}): RelatedEntitiesLists {
+    const isDocumentContext = entityUrn.includes(':document:');
+
+    if (shouldBeLinked) {
+        return {
+            relatedAssets: isDocumentContext ? existingAssetUrns : mergeUrns(existingAssetUrns, [entityUrn]),
+            relatedDocuments: isDocumentContext
+                ? mergeUrns(existingRelatedDocumentUrns, [entityUrn])
+                : existingRelatedDocumentUrns,
+        };
+    }
+
+    return {
+        relatedAssets: isDocumentContext ? existingAssetUrns : existingAssetUrns.filter((urn) => urn !== entityUrn),
+        relatedDocuments: isDocumentContext
+            ? existingRelatedDocumentUrns.filter((urn) => urn !== entityUrn)
+            : existingRelatedDocumentUrns,
+    };
 }
 
 /**

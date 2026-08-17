@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.ASSET_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -59,6 +60,7 @@ public class DataProductType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
           ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 

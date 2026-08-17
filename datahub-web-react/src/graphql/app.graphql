@@ -94,7 +94,6 @@ query appConfig {
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
-            lineageGraphV2
             showSeparateSiblings
             showManageStructuredProperties
             schemaFieldCLLEnabled
@@ -109,11 +108,11 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showLineageFilterNodes
             showStatsTabRedesign
             showHomePageRedesign
             showDefaultExternalLinks
             showProductUpdates
-            lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
@@ -123,10 +122,13 @@ query appConfig {
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
+            dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
+            browserTracingEnabled
+            browserWebVitalsEnabled
         }
         chromeExtensionConfig {
             enabled

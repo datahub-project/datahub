@@ -3,14 +3,12 @@ package io.datahubproject.openapi.v3.controller;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,6 +29,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -58,6 +57,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -142,12 +142,13 @@ public class EntityController
                     "getEntityBatch",
                     requestMap.keySet().stream()
                         .map(Urn::getEntityType)
-                        .collect(Collectors.toSet())),
+                        .collect(Collectors.toSet()))
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -214,12 +215,14 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "scrollEntities",
-                    resolvedEntityNames),
+                    resolvedEntityNames)
+                .withUsageOperation(UsageOperation.SEARCH_QUERY),
             authorizationChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, resolvedEntityNames)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, resolvedEntityNames)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -274,7 +277,7 @@ public class EntityController
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -325,11 +328,12 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "linkLatestVersion",
-                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
+                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -377,11 +381,12 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "unlinkVersion",
-                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
+                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -413,23 +418,26 @@ public class EntityController
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
+    long usageQuantity =
+        RequestContext.resolveIngestUsageQuantity(jsonEntityPatchList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "patchEntity", entityName),
+                    authentication.getActor().toUrnStr(), request, "patchEntity", entityName)
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(usageQuantity),
             authorizationChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
-
+    // Per-URN auth after toMCPBatch (existence-aware + domains). Do not gate on type-level
+    // UPDATE: EntitySpec(type, "") has no DOMAIN field, so domain-scoped edit policies cannot
+    // match a type-only check (same rationale as create paths dropping type-level CREATE).
     AspectsBatch batch =
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
+    assertBatchItemsAuthorized(opContext, authentication, batch.getItems());
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -480,17 +488,15 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "createGenericEntities",
-                    entityTypes),
+                    entityTypes)
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(RequestContext.resolveIngestUsageQuantity(root)),
             authorizationChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     // Build a single batch containing all entities from all types by combining individual batches
+    // (per-URN auth below; no type-level CREATE — domain-scoped policies cannot match empty URN).
     List<BatchItem> allBatchItems = new ArrayList<>();
 
     for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
@@ -509,6 +515,7 @@ public class EntityController
             .items(allBatchItems)
             .retrieverContext(opContext.getRetrieverContext())
             .build(opContext);
+    assertBatchItemsAuthorized(opContext, authentication, allBatchItems);
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     // Group results by entity type for response structure

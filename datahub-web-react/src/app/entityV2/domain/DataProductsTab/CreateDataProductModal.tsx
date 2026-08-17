@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -43,7 +42,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success(t('dataProduct.createSuccess'));
+                    toast.success(t('dataProduct.createSuccess'));
                     if (data?.createDataProduct) {
                         const updateDataProduct = { ...data.createDataProduct, domain: { domain } };
                         onCreateDataProduct(updateDataProduct as DataProduct);
@@ -59,8 +58,8 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             })
             .catch(() => {
                 onClose();
-                message.destroy();
-                message.error({ content: t('dataProduct.createError') });
+                toast.destroy();
+                toast.error(t('dataProduct.createError'));
             });
     }
 

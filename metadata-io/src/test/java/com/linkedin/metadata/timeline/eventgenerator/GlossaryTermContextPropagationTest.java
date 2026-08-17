@@ -3,12 +3,16 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldGlossaryTermChangeEvent;
@@ -41,19 +45,17 @@ public class GlossaryTermContextPropagationTest extends AbstractTestNGSpringCont
   public void testEntityGlossaryTermChangeEventWithContext() throws Exception {
     AuditStamp auditStamp = getTestAuditStamp();
 
-    // Test that GlossaryTermChangeEvent can be created with context in parameters
-    Map<String, Object> parameters =
-        com.google.common.collect.ImmutableMap.of(
-            "termUrn", TEST_GLOSSARY_TERM_URN,
-            "context", TEST_CONTEXT);
-
+    // Test that GlossaryTermChangeEvent can be created with context via the association
     GlossaryTermChangeEvent event =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
             .entityUrn(TEST_ENTITY_URN)
             .category(com.linkedin.metadata.timeline.data.ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_GLOSSARY_TERM_URN)
-            .parameters(parameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(com.linkedin.metadata.timeline.data.SemanticChangeType.MINOR)
             .description("Test glossary term added")
@@ -183,22 +185,74 @@ public class GlossaryTermContextPropagationTest extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testGlossaryTermsChangeEventGeneratorEmitsSourceDetails() throws Exception {
+    GlossaryTermsChangeEventGenerator generator = new GlossaryTermsChangeEventGenerator();
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    Urn urn = Urn.createFromString(TEST_ENTITY_URN);
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    StringMap sourceDetail =
+        new StringMap(
+            ImmutableMap.of(
+                "propagated",
+                "true",
+                "propagation_direction",
+                "downstream",
+                "propagation_relationship",
+                "lineage",
+                "propagation_depth",
+                "1"));
+
+    GlossaryTermAssociation termAssociation =
+        new GlossaryTermAssociation()
+            .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN))
+            .setContext(TEST_CONTEXT)
+            .setAttribution(
+                new MetadataAttribution()
+                    .setTime(auditStamp.getTime())
+                    .setActor(auditStamp.getActor())
+                    .setSource(Urn.createFromString("urn:li:dataHubAction:test"))
+                    .setSourceDetail(sourceDetail));
+
+    Aspect<GlossaryTerms> from =
+        new Aspect<>(
+            new GlossaryTerms().setTerms(new GlossaryTermAssociationArray()), new SystemMetadata());
+    Aspect<GlossaryTerms> to =
+        new Aspect<>(
+            new GlossaryTerms()
+                .setTerms(new GlossaryTermAssociationArray(List.of(termAssociation))),
+            new SystemMetadata());
+
+    List<ChangeEvent> actual =
+        generator.getChangeEvents(urn, "dataset", "glossaryTerms", from, to, auditStamp);
+
+    assertEquals(actual.size(), 1);
+    Map<String, Object> parameters = actual.get(0).getParameters();
+    // Both context (legacy) and sourceDetails are populated.
+    assertEquals(parameters.get("context"), TEST_CONTEXT);
+    Map<String, String> parsedSourceDetails =
+        objectMapper.readValue(
+            (String) parameters.get("sourceDetails"),
+            objectMapper.getTypeFactory().constructMapType(Map.class, String.class, String.class));
+    assertEquals(parsedSourceDetails, sourceDetail);
+  }
+
+  @Test
   public void testConvertEntityToSchemaFieldEventWithContext() throws Exception {
     AuditStamp auditStamp = getTestAuditStamp();
 
-    // Create entity-level event with context
-    Map<String, Object> entityParameters =
-        com.google.common.collect.ImmutableMap.of(
-            "termUrn", TEST_GLOSSARY_TERM_URN,
-            "context", TEST_CONTEXT);
-
+    // Create entity-level event with context via the association
     GlossaryTermChangeEvent entityEvent =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
             .entityUrn(TEST_ENTITY_URN)
             .category(com.linkedin.metadata.timeline.data.ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_GLOSSARY_TERM_URN)
-            .parameters(entityParameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(com.linkedin.metadata.timeline.data.SemanticChangeType.MINOR)
             .description("Test glossary term added")

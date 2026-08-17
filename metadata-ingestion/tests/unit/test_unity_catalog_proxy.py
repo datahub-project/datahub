@@ -1839,9 +1839,10 @@ class TestUnityCatalogProxyUsageSystemTables:
         # Simulate the streaming method's internal error path: it catches the DB
         # exception, records a warning, and yields nothing instead of raising.
         def _failing_stream(*a, **kw):
-            mock_proxy.report.report_warning(
+            mock_proxy.report.warning(
                 title="Failed to run SQL query",
                 message="A SQL query against the Databricks warehouse failed.",
+                log=False,
             )
             return (r for r in [])  # type: ignore[var-annotated]
 

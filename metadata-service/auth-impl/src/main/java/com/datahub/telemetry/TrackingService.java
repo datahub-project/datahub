@@ -380,7 +380,8 @@ public class TrackingService {
         }
 
         String eventJson = _objectWriter.writeValueAsString(kafkaEventData);
-        usageEventPublisher.publish(topicsConfiguration.getDataHubUsage(), actorId, eventJson);
+        usageEventPublisher.publish(
+            opContext, topicsConfiguration.getDataHubUsage(), actorId, eventJson);
         numDestinationsSent += 1;
       } catch (Exception e) {
         log.error("Failed to send event to Kafka: {} - Error: {}", eventName, e.getMessage(), e);

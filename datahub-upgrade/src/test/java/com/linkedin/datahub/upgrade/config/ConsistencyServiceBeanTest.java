@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
-    properties = {"kafka.schemaRegistry.type=INTERNAL"},
     args = {"-u", "SystemUpdateNonBlocking"})
 public class ConsistencyServiceBeanTest extends AbstractTestNGSpringContextTests {
 

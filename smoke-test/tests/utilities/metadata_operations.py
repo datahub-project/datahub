@@ -3,7 +3,18 @@
 
 from typing import Any, Dict, Optional
 
+import requests
+
 from tests.utils import execute_graphql, with_test_retry
+
+
+def get_prometheus_metrics(auth_session, gms_url: str) -> str:
+    """Fetch raw Prometheus text from the GMS management endpoint."""
+    prometheus_url = f"{gms_url}/actuator/prometheus"
+    headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
+    response = requests.get(prometheus_url, headers=headers)
+    response.raise_for_status()
+    return response.text
 
 
 def add_tag(
@@ -12,8 +23,14 @@ def add_tag(
     tag_urn: str,
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
+    no_sync_wait: bool = False,
 ) -> bool:
-    """Add a tag to a resource."""
+    """Add a tag to a resource.
+
+    no_sync_wait=True skips the post-mutation sync wait -- use when this call is
+    one of several back-to-back writes in a batch and only the state after the
+    last write in the batch matters.
+    """
     variables: Dict[str, Any] = {
         "input": {"tagUrn": tag_urn, "resourceUrn": resource_urn}
     }
@@ -26,7 +43,9 @@ def add_tag(
         addTag(input: $input)
     }"""
 
-    res_data = execute_graphql(auth_session, query, variables)
+    res_data = execute_graphql(
+        auth_session, query, variables, no_sync_wait=no_sync_wait
+    )
     return res_data["data"]["addTag"]
 
 
@@ -60,8 +79,14 @@ def add_term(
     term_urn: str,
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
+    no_sync_wait: bool = False,
 ) -> bool:
-    """Add a glossary term to a resource."""
+    """Add a glossary term to a resource.
+
+    no_sync_wait=True skips the post-mutation sync wait -- use when this call is
+    one of several back-to-back writes in a batch and only the state after the
+    last write in the batch matters.
+    """
     variables: Dict[str, Any] = {
         "input": {"termUrn": term_urn, "resourceUrn": resource_urn}
     }
@@ -74,7 +99,9 @@ def add_term(
         addTerm(input: $input)
     }"""
 
-    res_data = execute_graphql(auth_session, query, variables)
+    res_data = execute_graphql(
+        auth_session, query, variables, no_sync_wait=no_sync_wait
+    )
     return res_data["data"]["addTerm"]
 
 

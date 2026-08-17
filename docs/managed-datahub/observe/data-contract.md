@@ -1,5 +1,5 @@
 ---
-title: Data Contracts Monitoring
+title: Data Contracts
 description: "Define Data Contracts in DataHub Cloud Observe as agreements between producers and consumers covering schema, freshness, and quality."
 ---
 

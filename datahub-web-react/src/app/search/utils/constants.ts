@@ -15,6 +15,7 @@ export const TAGS_FILTER_NAME = 'tags';
 export const GLOSSARY_TERMS_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const PARENT_DOCUMENT_FILTER_NAME = 'parentDocument';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
@@ -89,6 +90,7 @@ export function getFieldToLabel(): Record<string, string> {
         entityType: i18next.t('search:fieldLabel.entityType'),
         _entityType: i18next.t('search:fieldLabel.entityType'),
         container: i18next.t('search:fieldLabel.container'),
+        parentDocument: i18next.t('search:fieldLabel.parentDocument'),
         typeNames: i18next.t('search:fieldLabel.subType'),
         origin: i18next.t('search:fieldLabel.environment'),
         degree: i18next.t('search:fieldLabel.degree'),
@@ -115,6 +117,7 @@ export const FIELD_TO_LABEL = {
     entityType: 'Entity Type',
     _entityType: 'Entity Type',
     container: 'Container',
+    parentDocument: 'Parent Document',
     typeNames: 'Sub Type',
     origin: 'Environment',
     degree: 'Degree',

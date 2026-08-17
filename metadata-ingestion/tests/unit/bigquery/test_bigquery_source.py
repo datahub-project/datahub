@@ -8,8 +8,10 @@ import pytest
 import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
+from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -20,6 +22,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryUsageConfig,
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
@@ -44,6 +47,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
+)
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BigqueryQuery,
+    BigqueryTableType,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
@@ -1086,7 +1093,7 @@ def test_get_views_for_dataset(
     views = bigquery_data_dictionary.get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
@@ -1190,10 +1197,127 @@ def test_get_snapshots_for_dataset(
     snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(snapshots) == [bigquery_snapshot]
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize(
+    "with_partitions,use_legacy_table_stats,expected_marker,forbidden_marker",
+    [
+        # Default: stats from PARTITIONS, never __TABLES__. `p.total_logical_bytes`
+        # (not the legacy `ts.size_bytes`) is what distinguishes the two templates,
+        # since the legacy query also joins PARTITIONS for partition counts.
+        (True, False, "p.total_logical_bytes as bytes", "__TABLES__"),
+        # Legacy opt-in: stats come from the undocumented __TABLES__ join instead.
+        (True, True, "__TABLES__ as ts", "p.total_logical_bytes"),
+        # No partition data requested: neither stats source is queried.
+        (False, False, "INFORMATION_SCHEMA.TABLES", "INFORMATION_SCHEMA.PARTITIONS"),
+    ],
+)
+def test_get_tables_for_dataset_query_selection(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    with_partitions: bool,
+    use_legacy_table_stats: bool,
+    expected_marker: str,
+    forbidden_marker: str,
+) -> None:
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    list(
+        schema_api.get_tables_for_dataset(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            tables={"table1": MagicMock()},
+            report=BigQueryV2Report(),
+            with_partitions=with_partitions,
+            use_legacy_table_stats=use_legacy_table_stats,
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    assert expected_marker in executed_query
+    assert forbidden_marker not in executed_query
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("entity", ["views", "snapshots"])
+@pytest.mark.parametrize("use_legacy_table_stats", [False, True])
+def test_get_views_and_snapshots_legacy_tables_selection(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    entity: str,
+    use_legacy_table_stats: bool,
+) -> None:
+    # Views/snapshots have no PARTITIONS-based query; the legacy __TABLES__ join is
+    # used only when use_legacy_table_stats=True and never otherwise.
+    # use_legacy_table_stats is the sole switch here.
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    fetch = (
+        schema_api.get_views_for_dataset
+        if entity == "views"
+        else schema_api.get_snapshots_for_dataset
+    )
+    list(
+        fetch(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            use_legacy_table_stats=use_legacy_table_stats,
+            report=BigQueryV2Report(),
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    assert ("__TABLES__" in executed_query) is use_legacy_table_stats
+
+
+def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
+    # _make_bigquery_table reads these columns by name; renaming an alias here would
+    # silently null out row count / size / last-altered rather than raise.
+    query = BigqueryQuery.tables_for_dataset_with_partition_stats
+    assert "p.total_rows as row_count" in query
+    assert "p.total_logical_bytes as bytes" in query
+    assert "p.last_modified_time as last_altered" in query
+    # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
+    # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
+    # silently feed wrong timestamps rather than raise.
+    assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
+
+
+def test_make_bigquery_table_null_partition_stats() -> None:
+    # Tables absent from PARTITIONS get null p.* stats via the LEFT JOIN; the mapper must
+    # keep them None, not default to 0/epoch (documented "empty tables lose lastModified").
+    cols = ["table_name", "table_type", "created", "comment", "ddl"]
+    row = Row(
+        ("my_table", BigqueryTableType.BASE_TABLE, None, None, None),
+        {c: i for i, c in enumerate(cols)},
+    )
+
+    table = BigQuerySchemaApi._make_bigquery_table(row, table_basic=None)
+
+    assert table.last_altered is None
+    assert table.size_in_bytes is None
+    assert table.rows_count is None
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -1399,6 +1523,201 @@ def test_bigquery_config_deprecated_schema_pattern():
     assert config.dataset_pattern == AllowDenyPattern(
         deny=["temp.*"]
     )  # dataset_pattern
+
+
+@pytest.mark.parametrize(
+    "field,usage_value,expected",
+    [
+        (
+            "start_time",
+            "2023-01-01T00:00:00Z",
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+        ("end_time", "2023-01-01T00:00:00Z", datetime(2023, 1, 1, tzinfo=timezone.utc)),
+        ("bucket_duration", "HOUR", BucketDuration.HOUR),
+        ("max_query_duration", "PT30M", timedelta(minutes=30)),
+    ],
+)
+def test_bigquery_config_usage_field_forwarded_to_top_level(
+    field: str, usage_value: str, expected: object
+) -> None:
+    config = BigQueryV2Config.model_validate({"usage": {field: usage_value}})
+    assert getattr(config, field) == expected
+
+
+@pytest.mark.parametrize(
+    "field,top_level_value,usage_value",
+    [
+        ("start_time", "2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"),
+        ("end_time", "2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"),
+        ("bucket_duration", "DAY", "HOUR"),
+        ("max_query_duration", "PT30M", "PT45M"),
+    ],
+)
+def test_bigquery_config_usage_and_top_level_field_conflict_raises(
+    field: str, top_level_value: str, usage_value: str
+) -> None:
+    with pytest.raises(ValidationError):
+        BigQueryV2Config.model_validate(
+            {field: top_level_value, "usage": {field: usage_value}}
+        )
+
+
+def test_bigquery_config_usage_time_window_field_emits_deprecation_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"usage": {"end_time": "2023-01-01T00:00:00Z"}})
+        assert any("deprecated" in record.msg for record in caplog.records)
+
+
+def test_bigquery_config_usage_max_query_duration_warns_legacy_only(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # max_query_duration, unlike start_time/end_time/bucket_duration, is only ever
+    # read on the legacy (non-queries-v2) extraction path, so the warning must not
+    # claim it affects lineage/usage/operations generally under queries-v2.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+        assert any(
+            "legacy" in record.msg or "use_queries_v2" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_top_level_max_query_duration_warns_under_queries_v2(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Setting max_query_duration directly at the top level (as the deprecation
+    # message for usage.max_query_duration instructs) is a no-op under the default
+    # use_queries_v2=True, since queries_extractor.py never reads it - warn about that too.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {"use_queries_v2": True, "max_query_duration": "PT30M"}
+        )
+        assert any(
+            "legacy" in record.msg or "use_queries_v2" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
+    config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+    assert config.usage.max_query_duration == timedelta(minutes=15)  # default
+
+
+@pytest.mark.parametrize(
+    "field", ["start_time", "end_time", "bucket_duration", "max_query_duration"]
+)
+def test_bigquery_usage_config_field_description_mentions_deprecation(
+    field: str,
+) -> None:
+    # The generated connector docs page renders these `description=` strings, so the
+    # deprecation must be visible there too, not just in the runtime warning.
+    description = BigQueryUsageConfig.model_fields[field].description
+    assert description is not None
+    assert "deprecated" in description.lower()
+
+
+def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
+    # Guards the bigquery.py seam that maps self.config.usage.* into
+    # BigQueryQueriesExtractorConfig(...) - a typo'd kwarg here would otherwise only
+    # surface if some other test happened to exercise the full queries-v2 codepath.
+    config = BigQueryV2Config.model_validate(
+        {
+            "usage": {
+                "format_sql_queries": True,
+                "include_top_n_queries": False,
+                "queries_character_limit": 1000,
+                "top_n_queries": 5,
+                "include_operational_stats": False,
+                "user_email_pattern": {"allow": ["^analyst_.*@example\\.com$"]},
+            }
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    queries_config = fake_source._build_queries_extractor_config()
+
+    assert queries_config.format_sql_queries is True
+    assert queries_config.include_top_n_queries is False
+    assert queries_config.queries_character_limit == 1000
+    assert queries_config.top_n_queries == 5
+    assert queries_config.include_operations is False
+    assert queries_config.user_email_pattern == AllowDenyPattern(
+        allow=["^analyst_.*@example\\.com$"]
+    )
+
+
+def test_bigquery_source_reports_legacy_only_usage_fields_under_queries_v2():
+    # The logger.warning fired at config-validation time is easy to miss; this also
+    # surfaces in the structured ingestion report, which is what shows up in the UI.
+    config = BigQueryV2Config.model_validate(
+        {"use_queries_v2": True, "usage": {"apply_view_usage_to_tables": True}}
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert any(
+        "apply_view_usage_to_tables" in w.message for w in fake_source.report.warnings
+    )
+
+
+def test_bigquery_source_no_legacy_only_usage_field_report_warning_under_legacy_path():
+    config = BigQueryV2Config.model_validate(
+        {"use_queries_v2": False, "usage": {"apply_view_usage_to_tables": True}}
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert not any(
+        "apply_view_usage_to_tables" in w.message for w in fake_source.report.warnings
+    )
+
+
+@pytest.mark.parametrize(
+    "field", ["apply_view_usage_to_tables", "include_read_operational_stats"]
+)
+def test_bigquery_config_legacy_only_usage_field_warns_under_queries_v2(
+    field: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {"use_queries_v2": True, "usage": {field: True}}
+        )
+        assert any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_legacy_only_usage_fields_no_warning_under_legacy_path(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "use_queries_v2": False,
+                "max_query_duration": "PT30M",
+                "usage": {
+                    "apply_view_usage_to_tables": True,
+                    "include_read_operational_stats": True,
+                },
+            }
+        )
+        assert not any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")

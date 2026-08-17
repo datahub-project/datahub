@@ -352,10 +352,8 @@ class DremioSource(StatefulIngestionSourceBase):
                 and not mapping.platform_instance
             ):
                 self.report.warning(
-                    "Cross-platform lineage warning",
-                    f"Source '{source_name}' maps to platform '{mapping.platform}' but has no "
-                    f"platform_instance configured. This may cause URN mismatches with the upstream "
-                    f"connector. Consider adding platform_instance to source_mappings configuration.",
+                    message="Cross-platform source mapping has no platform_instance configured, this may cause URN mismatches with the upstream connector",
+                    context=f"source={source_name}, platform={mapping.platform}",
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -371,7 +369,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
                 except Exception as exc:
                     self.report.num_containers_failed += 1
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Dremio container",
                         context=f"{'.'.join(container.path)}.{container.container_name}",
                         exc=exc,
@@ -401,7 +399,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
                 except Exception as exc:
                     self.report.num_datasets_failed += 1
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
@@ -419,7 +417,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Glossary terms",
                         context=f"{glossary_term.glossary_term}",
                         exc=exc,
@@ -452,7 +450,7 @@ class DremioSource(StatefulIngestionSourceBase):
                             self.report.profiling_skipped_other[
                                 target.resource_name
                             ] += 1
-                            self.report.report_failure(
+                            self.report.failure(
                                 message="Failed to profile dataset",
                                 context=target.full_table_name,
                                 exc=exc,
@@ -682,7 +680,7 @@ class DremioSource(StatefulIngestionSourceBase):
             try:
                 self.process_query(query)
             except Exception as exc:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process dremio query",
                     context=f"{query.job_id}: {exc}",
                     exc=exc,
@@ -714,11 +712,8 @@ class DremioSource(StatefulIngestionSourceBase):
                 for pattern, pattern_type in suspicious_patterns:
                     if pattern in queried_ds_lower:
                         self.report.warning(
-                            "Query lineage format mismatch",
-                            f"Query {query.job_id} references dataset '{queried_ds}' which appears to be a "
-                            f"{pattern_type} but was not found in the catalog. This may cause lineage breaks. "
-                            f"Verify that source_mappings configuration correctly maps Dremio sources to "
-                            f"upstream platforms, or that query logs use the same naming as catalog metadata.",
+                            message="Query lineage format mismatch: dataset not found in catalog, this may cause lineage breaks",
+                            context=f"job_id={query.job_id}, dataset={queried_ds}, detected_type={pattern_type}",
                         )
                         break
                 else:

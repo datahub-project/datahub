@@ -726,7 +726,7 @@ class SQLServerSource(SQLAlchemySource):
                 logger.error("Job structure error %s: %s", method_name, e)
                 last_exception = e
                 self.report.failure(
-                    message=f"Job structure error: {e}",
+                    message="Job structure error",
                     title="SQL Server Jobs Extraction",
                     context=f"job_structure_error_{context_suffix}",
                     exc=e,
@@ -735,7 +735,7 @@ class SQLServerSource(SQLAlchemySource):
                 logger.error("Unexpected error %s: %s", method_name, e, exc_info=True)
                 last_exception = e
                 self.report.failure(
-                    message=f"Unexpected error: {e}",
+                    message="Unexpected error during job extraction",
                     title="SQL Server Jobs Extraction",
                     context=f"job_extraction_error_{context_suffix}",
                     exc=e,
@@ -928,9 +928,9 @@ class SQLServerSource(SQLAlchemySource):
                             "Failed to process job %s: %s", job_name, job_error
                         )
                         self.report.warning(
-                            message=f"Failed to process job {job_name}",
+                            message="Failed to process job",
                             title="SQL Server Jobs Extraction",
-                            context="Error occurred while processing individual job",
+                            context=job_name,
                             exc=job_error,
                         )
                         continue
@@ -1331,8 +1331,11 @@ class SQLServerSource(SQLAlchemySource):
                             logger.warning(
                                 f"Error logging in to database {db['name']}: {e}"
                             )
-                            self.report.report_warning(
-                                "Error logging in to database", db["name"], exc=e
+                            self.report.warning(
+                                message="Error logging in to database",
+                                context=db["name"],
+                                exc=e,
+                                log=False,
                             )
                             continue
                         raise
@@ -1409,15 +1412,15 @@ class SQLServerSource(SQLAlchemySource):
                         db_name,
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
-                            f"Query lineage extraction failed for database '{db_name}' "
-                            f"with unexpected error: {e}. "
+                            "Query lineage extraction failed. "
                             "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/mssql"
                         ),
-                        context=f"query_lineage_extraction_failed: {db_name}",
+                        context=db_name,
+                        exc=e,
                     )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -1483,22 +1486,24 @@ class SQLServerSource(SQLAlchemySource):
         if name in self._discovered_table_cache:
             return self._discovered_table_cache[name]
 
+        result = self._compute_is_discovered_table(name)
+        self._discovered_table_cache[name] = result
+        return result
+
+    def _compute_is_discovered_table(self, name: str) -> bool:
+        """Branch logic without caching; the caller caches the result."""
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            result = False
-            self._discovered_table_cache[name] = result
-            return result
+            return False
 
         try:
             parts = name.split(".")
             table_name = parts[-1]
 
             if table_name.startswith("#"):
-                result = False
-                self._discovered_table_cache[name] = result
-                return result
+                return False
 
             standardized_name = self.standardize_identifier_case(name)
 
@@ -1513,9 +1518,7 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 if schema_resolver.has_urn(urn):
-                    result = True
-                    self._discovered_table_cache[name] = result
-                    return result
+                    return True
 
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
@@ -1526,16 +1529,8 @@ class SQLServerSource(SQLAlchemySource):
                     and self.config.schema_pattern.allowed(schema_name)
                     and self.config.table_pattern.allowed(name)
                 ):
-                    if standardized_name not in self.discovered_datasets:
-                        result = False
-                    else:
-                        result = True
-                    self._discovered_table_cache[name] = result
-                    return result
-                else:
-                    result = False
-                    self._discovered_table_cache[name] = result
-                    return result
+                    return standardized_name in self.discovered_datasets
+                return False
 
             # TSQL procedures reference tables as `schema.table` even though
             # discovery records them as `db.schema.table`; match on the
@@ -1548,21 +1543,15 @@ class SQLServerSource(SQLAlchemySource):
                     # Leading "." requires a db-qualified match on a segment
                     # boundary (so "dbo" won't match schema "xdbo").
                     if discovered_name.endswith(f".{standardized_name}"):
-                        result = True
-                        self._discovered_table_cache[name] = result
-                        return result
+                        return True
 
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
             # treat as undiscovered since we can't verify
-            result = False
-            self._discovered_table_cache[name] = result
-            return result
+            return False
 
         except Exception as e:
             logger.warning("Error parsing table name %s: %s", name, e)
-            result = False
-            self._discovered_table_cache[name] = result
-            return result
+            return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (
