@@ -912,3 +912,125 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
         output_path=mcp_output_path,
         golden_path=mcp_golden_path,
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_ingest(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
+    golden_file = "bigquery_linked_dataset_mcp_golden.json"
+    mcp_golden_path = f"{test_resources_dir}/{golden_file}"
+    mcp_output_path = "{}/{}_output.json".format(tmp_path, golden_file)
+
+    dataset_name = "linked-dataset-1"
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US", type="LINKED")
+    ]
+
+    # The source reference lives on the full dataset resource, not the listing, and
+    # names the publisher by project NUMBER. list_projects resolves it to an ID.
+    bq_client = client.return_value
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source-dataset-1",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project-1",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    table_name = "table-1"
+    table_list_item = TableListItem(
+        {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+    )
+    get_core_table_details.return_value = {table_name: table_list_item}
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+        BigqueryColumn(
+            name="email",
+            ordinal_position=2,
+            is_nullable=True,
+            field_path="email",
+            data_type="STRING",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    get_columns_for_dataset.return_value = {table_name: columns}
+    get_sample_data_for_table.return_value = {
+        "age": [random.randint(1, 80) for _ in range(20)],
+        "email": [f"email{i}@example.com" for i in range(20)],
+    }
+
+    bigquery_table = BigqueryTable(
+        name=table_name,
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    get_tables_for_dataset.return_value = iter([bigquery_table])
+    get_views_for_dataset.return_value = iter([])
+    get_snapshots_for_dataset.return_value = iter([])
+
+    # Set explicitly rather than inherited: this suite must keep exercising the
+    # feature regardless of which way the default goes.
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={"include_linked_datasets": True},
+    )
+
+    run_and_get_pipeline(pipeline_config_dict)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=mcp_output_path,
+        golden_path=mcp_golden_path,
+    )

@@ -114,6 +114,11 @@ class BigqueryTableConstraint:
 
 RANGE_PARTITION_NAME: str = "RANGE"
 
+# BigQuery Sharing. `type` arrives on the datasets.list payload; `linkState` only on
+# the full dataset resource from datasets.get.
+LINKED_DATASET_TYPE: str = "LINKED"
+LINK_STATE_LINKED: str = "LINKED"
+
 _POLICY_TAG_TAXONOMY_RE: re.Pattern = re.compile(
     r"(projects/[^/]+/locations/[^/]+/taxonomies/[^/]+)/policyTags/"
 )
@@ -221,10 +226,14 @@ class BigqueryDataset:
     last_altered: Optional[datetime] = None
     location: Optional[str] = None
     comment: Optional[str] = None
+    type: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
+
+    def is_linked_dataset(self) -> bool:
+        return self.type == LINKED_DATASET_TYPE
 
     # Some INFORMATION_SCHEMA views are not available for BigLake tables
     # based on Amazon S3 and Blob Storage data.
@@ -377,15 +386,24 @@ class BigQuerySchemaApi:
                 )
                 continue
 
-            location = (
-                d._properties.get("location")
+            # google-cloud-bigquery exposes neither `location` nor `type` on
+            # DatasetListItem, so both come off the raw payload.
+            properties = (
+                d._properties
                 if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                else None
+                else {}
             )
+            location = properties.get("location")
+            dataset_type = properties.get("type")
+            if dataset_type is None:
+                # A client upgrade that stops returning `type` would make every
+                # dataset read as non-linked. The counter surfaces that in the report.
+                self.report.num_datasets_missing_type += 1
             filtered_datasets.append(
                 BigqueryDataset(
                     name=d.dataset_id,
                     location=location,
+                    type=dataset_type,
                     labels=d.labels,
                 )
             )

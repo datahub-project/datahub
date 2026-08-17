@@ -3,20 +3,20 @@ revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.15' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version >= '3.15' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version >= '3.15' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
-    "(python_full_version < '3.11' and platform_machine != 'arm64') or (python_full_version < '3.11' and sys_platform != 'darwin')",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
+    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
     "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
     "python_full_version == '3.12.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version < '3.11' and platform_machine != 'arm64') or (python_full_version < '3.11' and sys_platform != 'darwin')",
     "python_full_version < '3.11' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 
@@ -139,6 +139,7 @@ all = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -258,6 +259,7 @@ bigid = [
 bigquery = [
     { name = "cachetools" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-logging" },
@@ -515,6 +517,7 @@ dev = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -709,6 +712,7 @@ docs = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -1966,6 +1970,10 @@ requires-dist = [
     { name = "google-cloud-bigquery", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'docs'", specifier = "<4.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'fivetran'", specifier = "<4.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'all'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'bigquery'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'dev'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'docs'", specifier = ">=0.4.19,<1.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'all'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'bigquery'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'bigquery-queries'", specifier = ">=1.5.0,<4.0.0" },
@@ -5455,6 +5463,23 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-bigquery-analyticshub"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/92/97cf7b0f619eb7996d909cdd5503537f1606cc7d118eb27bc26d59ee6f50/google_cloud_bigquery_analyticshub-0.9.0.tar.gz", hash = "sha256:ba88c4a45d083a71c4d3d1d0dc0f39708d83e1af942f99b89dde28b6d6c8ac70", size = 110664, upload-time = "2026-06-03T15:12:52.281Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/78/5edc9e68d0cb9e7faf651516bfe546367f04d02c0ec9ed23f3aef6072f71/google_cloud_bigquery_analyticshub-0.9.0-py3-none-any.whl", hash = "sha256:c848cbe3f139e93cfe1aea2e58e459f7e90e4303e8288c415df2f3f776a0fac9", size = 91304, upload-time = "2026-06-03T15:12:02.813Z" },
+]
+
+[[package]]
 name = "google-cloud-core"
 version = "2.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -7661,18 +7686,18 @@ version = "3.6.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.15' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version >= '3.15' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version >= '3.15' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
+    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
     "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
     "python_full_version == '3.12.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }

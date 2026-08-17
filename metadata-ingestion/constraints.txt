@@ -407,6 +407,7 @@ google-api-core==2.25.2
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
@@ -424,6 +425,7 @@ google-auth==2.49.0
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
@@ -445,6 +447,8 @@ google-cloud-bigquery==3.40.1
     #   acryl-datahub
     #   google-cloud-aiplatform
     #   sqlalchemy-bigquery
+google-cloud-bigquery-analyticshub==0.9.0
+    # via acryl-datahub
 google-cloud-core==2.5.0
     # via
     #   google-cloud-bigquery
@@ -497,6 +501,7 @@ greenlet==3.3.2
     #   sqlalchemy
 grpc-google-iam-v1==0.14.3
     # via
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-dataplex
     #   google-cloud-logging
@@ -507,6 +512,7 @@ grpcio==1.78.0
     #   acryl-datahub
     #   google-api-core
     #   google-cloud-appengine-logging
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
@@ -904,6 +910,7 @@ proto-plus==1.27.1
     #   google-api-core
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
@@ -919,6 +926,7 @@ protobuf==5.29.6
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-audit-log
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex

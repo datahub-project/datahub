@@ -137,6 +137,37 @@ source:
 - **Setup**: Follow [BigQuery audit logs export guide](https://cloud.google.com/bigquery/docs/reference/auditlogs#defining_a_bigquery_log_sink_using_gcloud)
 - **Note**: The `bigquery_audit_metadata_datasets` parameter accepts datasets in `$PROJECT.$DATASET` format, allowing lineage computation from multiple projects.
 
+#### BigQuery Sharing (Linked Datasets)
+
+A linked dataset is a read-only pointer into a dataset published by another project through BigQuery Sharing (formerly Analytics Hub). Subscribing is a console action rather than a query, so lineage derived from query history never observes it. Without this support the tables appear with correct schemas and no upstream.
+
+Set `include_linked_datasets: true` to enable this. It is off by default because it changes the subtype of containers already in your catalogue and points lineage at a project you may not ingest. See the caveats below.
+
+Once enabled it needs no additional permission: linked datasets are detected from the dataset listing the connector already fetches, so detection itself costs nothing.
+
+**On the dataset container**, the subtype becomes `Linked Dataset` rather than `Dataset`, and three custom properties are added. The source is split into project and dataset because the publisher sits in a different project from the `project_id` already on the container:
+
+| Property            | Example             | Meaning                                                                                                     |
+| ------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `source_project_id` | `publisher-project` | The project holding the dataset this one mirrors. BigQuery reports it as a number; it is resolved to its ID |
+| `source_dataset_id` | `shared_data`       | The dataset this one points at, inside that project                                                         |
+| `link_state`        | `LINKED`            | BigQuery's own view of whether the link is live                                                             |
+
+A dataset already catalogued as `Dataset` is reclassified to `Linked Dataset` on the first run after you enable this. No migration or manual step is needed, and turning the flag back off returns it to `Dataset` on the following run.
+
+**On each table and view**, a `COPY` upstream is emitted to the corresponding object in the source dataset, with a 1:1 column mapping, plus reciprocal siblings marking the two as the same object seen from two projects. The column mapping is an identity mapping rather than an inference: a share copies nothing and renames nothing.
+
+If `link_state` is present and reads anything other than `LINKED`, BigQuery is reporting the link as no longer live, and no lineage or siblings are emitted for that dataset. If BigQuery reports no `link_state` at all, lineage and siblings are still emitted, since an absent field is not evidence the link is dead. Either way the dataset and its properties are ingested, so the state is visible on the container.
+
+Set `extract_subscriptions_from_analytics_hub: true` to additionally record the listing and subscription state. That reads the BigQuery Sharing API and needs `analyticshub.subscriptions.list`; see Prerequisites.
+
+| Property             | Example               | Meaning                                                                  |
+| -------------------- | --------------------- | ------------------------------------------------------------------------ |
+| `listing_id`         | `shared_data_listing` | The listing subscribed to                                                |
+| `subscription_state` | `ACTIVE`              | `STALE` means the publisher has changed the listing since you subscribed |
+
+With `include_linked_datasets` unset, a linked dataset is catalogued as an ordinary `Dataset` with no source reference and no lineage. The connector behaves exactly as it did before this feature existed.
+
 #### Profiling Details
 
 :::note Profiling Permission Requirement
@@ -155,6 +186,20 @@ You can set partition explicitly with `partition.partition_datetime` property if
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Linked Dataset Caveats
+
+Lineage from a linked dataset points at the publisher's project, which introduces three conditions worth knowing:
+
+- **The publisher's project must be resolvable.** BigQuery reports the source project as a number, and DataHub URNs use project IDs. If the ingestion account can already see that project in BigQuery the number resolves at no cost; otherwise it needs `resourcemanager.projects.get` there. With neither, no lineage is emitted for datasets shared from that publisher, and the ingestion report names the project it could not resolve.
+- **Ingest the publisher's project as well, because column-level lineage depends on it.** Lineage points at the source table's URN. If that project is in no recipe, DataHub knows only the URN: the upstream node shows its full `project.dataset.table` name rather than the table name, carries no subtype, and has no columns. The column-level edges are still recorded, but there is nothing on the publisher's side to draw them against, so **they do not render**. Ingesting the publisher's project resolves all of this on the next run. In a share between two organisations that is not possible, and table-level lineage is as far as it goes.
+- **Use the same `platform_instance` and `env` for both.** The upstream URN is built with the settings of the recipe reading the linked dataset. If the publisher is ingested by a separate recipe with different settings, the two URNs will not match.
+
+Views inside a linked dataset carry no view definition, because BigQuery does not expose DDL through a share, so `viewProperties` has no logic and view lineage cannot be parsed. The `COPY` edge to the source view is still emitted.
+
+Table snapshots inside a linked dataset are catalogued with their schema but receive no `COPY` upstream. A share does carry snapshots, but BigQuery does not report which table a shared snapshot was taken from, so there is nothing to point the edge at. Tables and views are unaffected.
+
+With `extract_subscriptions_from_analytics_hub` enabled, only subscriptions to BigQuery datasets are read. A project's Pub/Sub subscriptions sit alongside them in the same API and are skipped without comment.
 
 ### Troubleshooting
 
