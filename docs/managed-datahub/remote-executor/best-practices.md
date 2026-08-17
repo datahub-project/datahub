@@ -33,10 +33,13 @@ In the DataHub-provided Helm chart these map to `datahub.executor_ingestions_wor
 If you raise the worker count, raise cores to match — otherwise tasks contend for CPU and every run gets slower.
 
 The general recommendation would be to assign cores to the below formula:
+
 ```
 1 + n + k
 ```
+
 Where:
+
 - `n` - number of expected concurrent ingestion runs handled by the executor
 - `k` - 1 if Observe functionalities are enabled for resources ingested by the executor, else 0
 
@@ -52,11 +55,10 @@ around **4–6 GB** each when profiling or extracting large schemas and lineage.
 Because tasks run concurrently, size memory for the **expected peak of all runs happening at the same time**, not the
 average of a single run: `n` warehouse ingestions scheduled together can momentarily need roughly `n × 6 GB`.
 
-Because of this, **Stagger large ingestions.** Schedule big warehouse runs so they don't overlap. This is the simplest 
+Because of this, **Stagger large ingestions.** Schedule big warehouse runs so they don't overlap. This is the simplest
 and most effective lever — two 6 GB runs an hour apart need 6 GB of headroom; the same two at once need 12 GB.
 
 Note that the executor itself consumes some memory, as does each running Observe task.
-
 
 ### Storage
 
@@ -90,7 +92,7 @@ Size ephemeral storage — Fargate
 Runs that target a **non-[bundled](/docs/docker/bundled-ingestion-venvs.md)** CLI version or connector build a **dynamic
 virtual environment** per execution under `/tmp/datahub/ingest/<execution-id>/`, removed when the run ends. To stop repeated
 installs from filling ephemeral storage, package installs go through the [`uv`](https://docs.astral.sh/uv/) cache: each
-package is unpacked **once** into `UV_CACHE_DIR` (by default: `$HOME/.cache/uv`) and shared across venvs, 
+package is unpacked **once** into `UV_CACHE_DIR` (by default: `$HOME/.cache/uv`) and shared across venvs,
 so many runs that share a dependency pay for its bytes roughly once rather than once per run.
 
 The DataHub-provided Helm chart, Terraform module, and CloudFormation template set **`UV_LINK_MODE=hardlink`** by default,
