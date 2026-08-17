@@ -175,6 +175,40 @@ def test_trino_gen_lineage_workunit_falls_back_to_trino_path_when_source_schema_
     assert make_schema_field_urn(source_dataset_urn, "accountid") in upstreams
 
 
+def test_trino_gen_lineage_workunit_falls_back_when_graph_lookup_raises():
+    """A graph failure degrades to the Trino path instead of aborting the lineage.
+
+    ``get_aspect`` raises on any non-404 response, and the call happens mid-iteration
+    after the sibling workunits were already emitted, so an unguarded failure would
+    leave the dataset half-linked.
+    """
+    graph = mock.Mock(spec=DataHubGraph)
+    graph.get_aspect.side_effect = Exception("GMS unavailable")
+    source = get_test_trino_source(include_column_lineage=True, graph=graph)
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:trino,iceberg_catalog.contextad.accountcontact,PROD)"
+    source_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,contextad.accountcontact,PROD)"
+    )
+    trino_schema = get_test_trino_schema_metadata(["accountid", "accountservicetype"])
+
+    workunits = list(
+        source.gen_lineage_workunit(dataset_urn, source_dataset_urn, trino_schema)
+    )
+    upstream_lineage = workunits[0].get_aspect_of_type(UpstreamLineageClass)
+    assert isinstance(upstream_lineage, UpstreamLineageClass)
+    fgl = upstream_lineage.fineGrainedLineages
+    assert fgl is not None
+    assert len(fgl) == 2
+    upstreams = [fg.upstreams[0] for fg in fgl if fg.upstreams]
+    assert make_schema_field_urn(source_dataset_urn, "accountid") in upstreams
+    assert source.report.warnings
+
+    # The failure is cached, so a second table on the same source does not re-query GMS.
+    list(source.gen_lineage_workunit(dataset_urn, source_dataset_urn, trino_schema))
+    assert graph.get_aspect.call_count == 1
+
+
 def test_trino_gen_lineage_workunit_skips_columns_without_source_match():
     """When the source schema is known but a Trino column has no case-insensitive
     match, that column's lineage is skipped (no invalid upstream URN emitted)."""

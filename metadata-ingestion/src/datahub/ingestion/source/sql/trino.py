@@ -329,26 +329,41 @@ class TrinoSource(SQLAlchemySource):
         looks up the source dataset's ``SchemaMetadata`` in DataHub and returns a map
         of ``lowercased simple field path -> real-cased simple field path``.
 
-        Returns ``None`` when no graph is configured or the source schema is not
-        available (e.g. the connector source has not been ingested yet), in which case
-        callers fall back to Trino's own (lowercased) field path.
+        Returns ``None`` when no graph is configured, the source schema is not
+        available (e.g. the connector source has not been ingested yet), or the lookup
+        failed, in which case callers fall back to Trino's own (lowercased) field path.
         """
         if source_dataset_urn in self._source_field_path_map_cache:
             return self._source_field_path_map_cache[source_dataset_urn]
 
         field_path_map: Optional[Dict[str, str]] = None
         if self.ctx.graph is not None:
-            source_schema = self.ctx.graph.get_aspect(
-                source_dataset_urn, SchemaMetadataClass
-            )
-            if source_schema is not None and source_schema.fields:
-                field_path_map = {}
-                for field in source_schema.fields:
-                    simple_path = get_simple_field_path_from_v2_field_path(
-                        field.fieldPath
-                    )
-                    field_path_map[simple_path.lower()] = simple_path
+            try:
+                source_schema = self.ctx.graph.get_aspect(
+                    source_dataset_urn, SchemaMetadataClass
+                )
+            except Exception as e:
+                # get_aspect raises on any non-404 response, so a GMS hiccup would
+                # otherwise escape mid-iteration and abort this dataset's lineage after
+                # the sibling workunits were already emitted. Degrade to the Trino field
+                # path instead -- exactly the behaviour before schema resolution existed.
+                self.report.warning(
+                    "Could not resolve connector source schema; column lineage falls "
+                    "back to Trino's lowercased column names",
+                    context=source_dataset_urn,
+                    exc=e,
+                )
+            else:
+                if source_schema is not None and source_schema.fields:
+                    field_path_map = {}
+                    for field in source_schema.fields:
+                        simple_path = get_simple_field_path_from_v2_field_path(
+                            field.fieldPath
+                        )
+                        field_path_map[simple_path.lower()] = simple_path
 
+        # Cached even on failure, so one outage does not re-query GMS for every table
+        # that shares this connector source.
         self._source_field_path_map_cache[source_dataset_urn] = field_path_map
         return field_path_map
 
@@ -456,11 +471,10 @@ class TrinoSource(SQLAlchemySource):
                             # The source schema is known but has no column matching
                             # this Trino column; skip rather than emit an upstream
                             # schemaField URN that does not exist on the source.
-                            logging.debug(
-                                "No matching source column for %s on %s; "
-                                "skipping column lineage",
-                                path,
-                                source_dataset_urn,
+                            self.report.warning(
+                                "Skipped column lineage: no matching column on the "
+                                "connector source",
+                                context=f"{source_dataset_urn} column={path}",
                             )
                             continue
                         upstream_path = matched
