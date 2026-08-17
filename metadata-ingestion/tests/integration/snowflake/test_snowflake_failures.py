@@ -471,7 +471,12 @@ def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
             [snowflake_query.SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB")],
             [
                 {
-                    "NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                    # DYNAMIC_TABLE_GRAPH_HISTORY reports NAME unqualified, with
+                    # DATABASE_NAME and SCHEMA_NAME as separate columns. A fully qualified
+                    # NAME here used to look right while leaving the row unmatched.
+                    "NAME": "TABLE_2",
+                    "SCHEMA_NAME": "TEST_SCHEMA",
+                    "DATABASE_NAME": "TEST_DB",
                     "INPUTS": [
                         {"name": "TEST_DB.TEST_SCHEMA.TABLE_1", "kind": "TABLE"}
                     ],
@@ -518,6 +523,13 @@ def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
         assert report.num_dynamic_tables_missing_definition == 1
         assert report.sql_aggregator is not None
         assert report.sql_aggregator.num_known_mapping_lineage >= 1
+        # `>= 1` on a global counter is satisfied by lineage from anywhere in the fixtures,
+        # so it kept passing when a stale graph-history row stopped matching. Assert the
+        # graph history was actually read: a KeyError on a missing column is swallowed into
+        # this warning, leaving the INPUTS path silently untested.
+        assert not [
+            w for w in report.warnings if "dynamic table graph history" in str(w)
+        ], "graph history failed to load, so INPUTS lineage was never exercised"
 
 
 # Tests for known_snowflake_edition config option
