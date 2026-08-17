@@ -105,6 +105,7 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       properties = {
         "datahub.openlineage.env=TEST",
         "datahub.openlineage.orchestrator=airflow",
+        "datahub.openlineage.pipeline-name=warehouse-loads",
         "datahub.openlineage.platform-instance=us-west-2",
         "datahub.openlineage.materialize-dataset=false",
         "datahub.openlineage.include-schema-metadata=false",
@@ -123,6 +124,7 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       // Verify all configured values
       assertEquals(config.getFabricType(), FabricType.TEST);
       assertEquals(config.getOrchestrator(), "airflow");
+      assertEquals(config.getPipelineName(), "warehouse-loads");
       assertEquals(config.getPlatformInstance(), "us-west-2");
       assertEquals(config.isMaterializeDataset(), false);
       assertEquals(config.isIncludeSchemaMetadata(), false);
@@ -282,6 +284,7 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       DatahubOpenlineageProperties props = new DatahubOpenlineageProperties();
       props.setEnv("TEST");
       props.setOrchestrator("airflow");
+      props.setPipelineName("warehouse-loads");
       props.setPlatformInstance("us-west-2");
       props.setMaterializeDataset(false);
       props.setIncludeSchemaMetadata(false);

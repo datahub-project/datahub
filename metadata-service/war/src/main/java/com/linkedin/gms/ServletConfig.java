@@ -93,8 +93,8 @@ public class ServletConfig implements WebMvcConfigurer {
     FilterRegistrationBean<AuthenticationEnforcementFilter> registration =
         new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(
-        Ordered.HIGHEST_PRECEDENCE + 2); // Run after AuthenticationExtractionFilter
+    // Slot 2 is available for endpoint-specific authentication response filters.
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
     registration.setAsyncSupported(true);
 
     // Register filter for all paths - exclusions are handled by shouldNotFilter()
@@ -108,7 +108,7 @@ public class ServletConfig implements WebMvcConfigurer {
       RateLimitFilter filter) {
     FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 4);
     registration.setAsyncSupported(true);
     registration.addUrlPatterns("/*");
     return registration;

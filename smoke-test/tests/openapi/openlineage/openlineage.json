@@ -6,6 +6,8 @@
       "json": {
         "eventType": "START",
         "eventTime": "2020-12-28T19:52:00.001+10:00",
+        "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+        "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
         "run": {
           "runId": "d46e465b-d358-4d32-83d4-df660ff614dd"
         },
@@ -26,8 +28,7 @@
               }
             }
           }
-        ],
-        "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
+        ]
       }
     }
   }

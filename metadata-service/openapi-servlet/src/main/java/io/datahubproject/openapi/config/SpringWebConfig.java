@@ -3,6 +3,7 @@ package io.datahubproject.openapi.config;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.BasePathUtils;
+import io.datahubproject.openapi.openlineage.config.PinnedOpenLineageOpenApiCustomizer;
 import io.datahubproject.openapi.v3.OpenAPIV3Customizer;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -103,9 +104,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("openlineage")
         .displayName("3. OpenLineage")
-        .addOpenApiCustomizer(
-            openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
-        .addOpenApiCustomizer(this::configureServerUrl)
+        .addOpenApiCustomizer(new PinnedOpenLineageOpenApiCustomizer())
+        .addOpenApiCustomizer(this::configureOpenLineageServerUrl)
         .packagesToScan(OPENLINEAGE_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -131,10 +131,16 @@ public class SpringWebConfig implements WebMvcConfigurer {
   }
 
   private void configureServerUrl(io.swagger.v3.oas.models.OpenAPI openApi) {
-    // Clear any existing servers and set a relative server URL with base path
+    replaceServerUrl(openApi, BasePathUtils.addBasePath(datahubBasePath, "/"));
+  }
+
+  private void configureOpenLineageServerUrl(io.swagger.v3.oas.models.OpenAPI openApi) {
+    replaceServerUrl(
+        openApi, BasePathUtils.addBasePath("/openapi/openlineage/api/v1", datahubBasePath));
+  }
+
+  private static void replaceServerUrl(io.swagger.v3.oas.models.OpenAPI openApi, String serverUrl) {
     openApi.setServers(null);
-    // Use datahub.basePath for OpenAPI server URLs since they're accessed through frontend proxy
-    String serverUrl = BasePathUtils.addBasePath(datahubBasePath, "/");
     openApi.addServersItem(new io.swagger.v3.oas.models.servers.Server().url(serverUrl));
   }
 

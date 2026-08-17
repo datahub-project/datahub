@@ -33,7 +33,9 @@ import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {ConfigurationProvider.class, SpringWebConfig.class})
 @Import({SpringWebConfigTestConfiguration.class})
-@TestPropertySource(locations = "classpath:/application.yaml")
+@TestPropertySource(
+    locations = "classpath:/application.yaml",
+    properties = "datahub.basePath=/datahub")
 public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
 
   OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -41,6 +43,7 @@ public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
   @Autowired private ConfigurationProvider configurationProvider;
   @Autowired private ObjectMapperProvider objectMapperProvider;
   @Autowired private List<OpenAPI> openAPIs;
+  @Autowired private SpringWebConfig springWebConfig;
 
   @Test
   void testComponentsMergeWithDuplicateKeys() {
@@ -109,6 +112,19 @@ public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
       assertEquals("Test API", openApi1.getInfo().getTitle());
       assertEquals("2.0", openApi1.getInfo().getVersion());
     }
+  }
+
+  @Test
+  void testOpenLineageGroupUsesTheControllerBaseRoute() {
+    OpenAPI openApi = new OpenAPI();
+
+    springWebConfig
+        .openlineageOpenApiGroup()
+        .getOpenApiCustomizers()
+        .forEach(customizer -> customizer.customise(openApi));
+
+    assertNotNull(openApi.getPaths().get("/lineage"));
+    assertEquals("/datahub/openapi/openlineage/api/v1", openApi.getServers().get(0).getUrl());
   }
 
   @Test

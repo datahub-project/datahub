@@ -10,26 +10,85 @@
     }
   },
   "paths": {
-  "/lineage": {
+    "/lineage": {
       "post": {
         "summary": "Send an event related to the state of a run",
         "description": "Updates a run state for a job.",
         "operationId": "postRunEventRaw",
-        "tags": [
-          "OpenLineage"
-        ],
+        "tags": ["OpenLineage"],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "type": "string"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RunEvent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/JobEvent"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DatasetEvent"
+                  }
+                ]
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "OpenLineage request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenLineageErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "OpenLineage request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenLineageErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "OpenLineage request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenLineageErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "OpenLineage request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenLineageErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type; requests must use application/json",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenLineageErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -42,13 +101,11 @@
         "properties": {
           "eventTime": {
             "description": "the time the event occurred at",
-            "type": "string",
-            "format": "date-time"
+            "type": "string"
           },
           "producer": {
-            "description": "URI identifying the producer of this metadata. For example this could be a git url with a given tag or sha",
+            "description": "URI identifying the producer of this metadata. Legacy producers may send a non-URI identifier.",
             "type": "string",
-            "format": "uri",
             "example": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
           },
           "schemaURL": {
@@ -58,11 +115,7 @@
             "example": "https://openlineage.io/spec/0-0-1/OpenLineage.json"
           }
         },
-        "required": [
-          "eventTime",
-          "producer",
-          "schemaURL"
-        ]
+        "required": ["eventTime", "producer"]
       },
       "BaseFacet": {
         "description": "all fields of the base facet are prefixed with _ to avoid name conflicts in facets",
@@ -81,11 +134,7 @@
             "example": "https://openlineage.io/spec/1-0-2/OpenLineage.json#/$defs/BaseFacet"
           }
         },
-        "additionalProperties": true,
-        "required": [
-          "_producer",
-          "_schemaURL"
-        ]
+        "additionalProperties": true
       },
       "RunFacet": {
         "description": "A Run Facet",
@@ -94,32 +143,83 @@
           {
             "$ref": "#/components/schemas/BaseFacet"
           }
-        ]
+        ],
+        "additionalProperties": true
       },
       "Run": {
         "type": "object",
         "properties": {
           "runId": {
             "description": "The globally unique ID of the run associated with the job.",
-            "type": "string",
-            "format": "uuid"
+            "type": "string"
           },
           "facets": {
             "description": "The run facets.",
             "type": "object",
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/RunFacet"
-                }
+            "properties": {
+              "environmentVariables": {
+                "$ref": "#/components/schemas/EnvironmentVariablesRunFacet"
+              },
+              "errorMessage": {
+                "$ref": "#/components/schemas/ErrorMessageRunFacet"
+              },
+              "externalQuery": {
+                "$ref": "#/components/schemas/ExternalQueryRunFacet"
+              },
+              "extractionError": {
+                "$ref": "#/components/schemas/ExtractionErrorRunFacet"
+              },
+              "nominalTime": {
+                "$ref": "#/components/schemas/NominalTimeRunFacet"
+              },
+              "parent": {
+                "$ref": "#/components/schemas/ParentRunFacet"
+              },
+              "processing_engine": {
+                "$ref": "#/components/schemas/ProcessingEngineRunFacet"
+              },
+              "tags": {
+                "$ref": "#/components/schemas/TagsRunFacet"
+              },
+              "jobDependencies": {
+                "$ref": "#/components/schemas/JobDependenciesRunFacet"
+              },
+              "executionParameters": {
+                "$ref": "#/components/schemas/ExecutionParametersRunFacet"
+              },
+              "gcp_dataproc": {
+                "$ref": "#/components/schemas/GcpDataprocRunFacet"
+              },
+              "gcp_composer_run": {
+                "$ref": "#/components/schemas/GcpComposerRunFacet"
+              },
+              "airflow": {
+                "$ref": "#/components/schemas/BaseFacet"
+              },
+              "spark_jobDetails": {
+                "$ref": "#/components/schemas/BaseFacet"
+              },
+              "spark_properties": {
+                "$ref": "#/components/schemas/BaseFacet"
+              },
+              "spark.logicalPlan": {
+                "$ref": "#/components/schemas/BaseFacet"
+              },
+              "spark_version": {
+                "$ref": "#/components/schemas/BaseFacet",
+                "deprecated": true
+              },
+              "unknownSourceAttribute": {
+                "$ref": "#/components/schemas/BaseFacet",
+                "deprecated": true
               }
-            ]
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BaseFacet"
+            }
           }
         },
-        "required": [
-          "runId"
-        ]
+        "required": ["runId"]
       },
       "JobFacet": {
         "description": "A Job Facet",
@@ -137,7 +237,8 @@
               }
             }
           }
-        ]
+        ],
+        "additionalProperties": true
       },
       "Job": {
         "type": "object",
@@ -155,20 +256,41 @@
           "facets": {
             "description": "The job facets.",
             "type": "object",
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/JobFacet"
-                }
+            "properties": {
+              "jobType": {
+                "$ref": "#/components/schemas/JobTypeJobFacet"
+              },
+              "ownership": {
+                "$ref": "#/components/schemas/OwnershipJobFacet"
+              },
+              "sql": {
+                "$ref": "#/components/schemas/SQLJobFacet"
+              },
+              "sourceCode": {
+                "$ref": "#/components/schemas/SourceCodeJobFacet"
+              },
+              "sourceCodeLocation": {
+                "$ref": "#/components/schemas/SourceCodeLocationJobFacet"
+              },
+              "tags": {
+                "$ref": "#/components/schemas/TagsJobFacet"
+              },
+              "documentation": {
+                "$ref": "#/components/schemas/DocumentationJobFacet"
+              },
+              "gcp_lineage": {
+                "$ref": "#/components/schemas/GcpLineageJobFacet"
+              },
+              "gcp_composer_job": {
+                "$ref": "#/components/schemas/GcpComposerJobFacet"
               }
-            ]
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BaseFacet"
+            }
           }
         },
-        "required": [
-          "namespace",
-          "name"
-        ]
+        "required": ["namespace", "name"]
       },
       "DatasetFacet": {
         "description": "A Dataset Facet",
@@ -186,7 +308,8 @@
               }
             }
           }
-        ]
+        ],
+        "additionalProperties": true
       },
       "Dataset": {
         "type": "object",
@@ -204,20 +327,56 @@
           "facets": {
             "description": "The facets for this dataset",
             "type": "object",
-            "anyOf": [
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/components/schemas/DatasetFacet"
-                }
+            "properties": {
+              "catalog": {
+                "$ref": "#/components/schemas/CatalogDatasetFacet"
+              },
+              "columnLineage": {
+                "$ref": "#/components/schemas/ColumnLineageDatasetFacet"
+              },
+              "datasetType": {
+                "$ref": "#/components/schemas/DatasetTypeDatasetFacet"
+              },
+              "version": {
+                "$ref": "#/components/schemas/DatasetVersionDatasetFacet"
+              },
+              "dataSource": {
+                "$ref": "#/components/schemas/DatasourceDatasetFacet"
+              },
+              "lifecycleStateChange": {
+                "$ref": "#/components/schemas/LifecycleStateChangeDatasetFacet"
+              },
+              "ownership": {
+                "$ref": "#/components/schemas/OwnershipDatasetFacet"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SchemaDatasetFacet"
+              },
+              "storage": {
+                "$ref": "#/components/schemas/StorageDatasetFacet"
+              },
+              "symlinks": {
+                "$ref": "#/components/schemas/SymlinksDatasetFacet"
+              },
+              "tags": {
+                "$ref": "#/components/schemas/TagsDatasetFacet"
+              },
+              "hierarchy": {
+                "$ref": "#/components/schemas/HierarchyDatasetFacet"
+              },
+              "documentation": {
+                "$ref": "#/components/schemas/DocumentationDatasetFacet"
+              },
+              "dataQualityMetrics": {
+                "$ref": "#/components/schemas/DataQualityMetricsDatasetFacet"
               }
-            ]
+            },
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BaseFacet"
+            }
           }
         },
-        "required": [
-          "namespace",
-          "name"
-        ]
+        "required": ["namespace", "name"]
       },
       "InputDatasetFacet": {
         "description": "An Input Dataset Facet",
@@ -226,7 +385,8 @@
           {
             "$ref": "#/components/schemas/BaseFacet"
           }
-        ]
+        ],
+        "additionalProperties": true
       },
       "InputDataset": {
         "description": "An input dataset",
@@ -241,14 +401,26 @@
               "inputFacets": {
                 "description": "The input facets for this dataset.",
                 "type": "object",
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": {
-                      "$ref": "#/components/schemas/InputDatasetFacet"
-                    }
+                "properties": {
+                  "dataQualityMetrics": {
+                    "$ref": "#/components/schemas/DataQualityMetricsInputDatasetFacet"
+                  },
+                  "dataQualityAssertions": {
+                    "$ref": "#/components/schemas/DataQualityAssertionsDatasetFacet"
+                  },
+                  "inputStatistics": {
+                    "$ref": "#/components/schemas/InputStatisticsInputDatasetFacet"
+                  },
+                  "subset": {
+                    "$ref": "#/components/schemas/InputSubsetInputDatasetFacet"
+                  },
+                  "icebergScanReport": {
+                    "$ref": "#/components/schemas/IcebergScanReportInputDatasetFacet"
                   }
-                ]
+                },
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/BaseFacet"
+                }
               }
             }
           }
@@ -261,7 +433,8 @@
           {
             "$ref": "#/components/schemas/BaseFacet"
           }
-        ]
+        ],
+        "additionalProperties": true
       },
       "OutputDataset": {
         "description": "An output dataset",
@@ -276,14 +449,20 @@
               "outputFacets": {
                 "description": "The output facets for this dataset",
                 "type": "object",
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": {
-                      "$ref": "#/components/schemas/OutputDatasetFacet"
-                    }
+                "properties": {
+                  "outputStatistics": {
+                    "$ref": "#/components/schemas/OutputStatisticsOutputDatasetFacet"
+                  },
+                  "subset": {
+                    "$ref": "#/components/schemas/OutputSubsetOutputDatasetFacet"
+                  },
+                  "icebergCommitReport": {
+                    "$ref": "#/components/schemas/IcebergCommitReportOutputDatasetFacet"
                   }
-                ]
+                },
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/BaseFacet"
+                }
               }
             }
           }
@@ -331,10 +510,15 @@
                 }
               }
             },
-            "required": [
-              "run",
-              "job"
-            ]
+            "required": ["run", "job"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaURL": {
+                "type": "string"
+              }
+            }
           }
         ]
       },
@@ -359,14 +543,17 @@
                 "$ref": "#/components/schemas/StaticDataset"
               }
             },
-            "required": [
-              "dataset"
-            ],
+            "required": ["dataset"],
             "not": {
-              "required": [
-                "job",
-                "run"
-              ]
+              "required": ["job", "run"]
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaURL": {
+                "type": "string"
+              }
             }
           }
         ]
@@ -397,17 +584,1859 @@
                 }
               }
             },
-            "required": [
-              "job"
-            ],
+            "required": ["job"],
             "not": {
-              "required": [
-                "run"
-              ]
+              "required": ["run"]
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaURL": {
+                "type": "string"
+              }
             }
           }
         ]
+      },
+      "OpenLineageErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Machine-readable OpenLineage error code."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message."
+          },
+          "details": {
+            "type": "object",
+            "description": "Structured OpenLineage error details.",
+            "oneOf": [
+              {
+                "properties": {
+                  "errors": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/OpenLineageValidationError"
+                    }
+                  }
+                },
+                "required": ["errors"],
+                "additionalProperties": false
+              },
+              {
+                "properties": {
+                  "exception": {
+                    "type": "string"
+                  }
+                },
+                "required": ["exception"],
+                "additionalProperties": false
+              },
+              {
+                "maxProperties": 0
+              }
+            ]
+          }
+        },
+        "required": ["code", "message", "details"]
+      },
+      "CatalogDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "framework": {
+                "description": "The storage framework for which the catalog is configured",
+                "type": "string",
+                "example": "iceberg, delta, hive"
+              },
+              "type": {
+                "description": "Type of the catalog.",
+                "type": "string",
+                "example": "jdbc, glue, polaris"
+              },
+              "name": {
+                "description": "Name of the catalog, as configured in the source system.",
+                "type": "string",
+                "example": "my_iceberg_catalog"
+              },
+              "metadataUri": {
+                "description": "URI or connection string to the catalog, if applicable.",
+                "type": "string",
+                "example": "jdbc:mysql://host:3306/iceberg_database"
+              },
+              "warehouseUri": {
+                "description": "URI or connection string to the physical location of the data that the catalog describes.",
+                "type": "string",
+                "example": "s3://bucket/path/to/iceberg/warehouse"
+              },
+              "source": {
+                "description": "Source system where the catalog is configured.",
+                "type": "string",
+                "example": "spark, flink, hive"
+              }
+            },
+            "required": ["framework", "type", "name"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "ColumnLineageDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "fields": {
+                "description": "Column level lineage that maps output fields into input fields used to evaluate them.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "inputFields": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InputField"
+                      }
+                    },
+                    "transformationDescription": {
+                      "type": "string",
+                      "description": "a string representation of the transformation applied",
+                      "deprecated": true
+                    },
+                    "transformationType": {
+                      "type": "string",
+                      "description": "IDENTITY|MASKED reflects a clearly defined behavior. IDENTITY: exact same as input; MASKED: no original data available (like a hash of PII for example)",
+                      "deprecated": true
+                    }
+                  },
+                  "additionalProperties": true,
+                  "required": ["inputFields"]
+                }
+              },
+              "dataset": {
+                "description": "Column level lineage that affects the whole dataset. This includes filtering, sorting, grouping (aggregates), joining, window functions, etc.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/InputField"
+                }
+              }
+            },
+            "additionalProperties": true,
+            "required": ["fields"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "InputField": {
+        "description": "Represents a single dependency on some field (column).",
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "The input dataset namespace"
+          },
+          "name": {
+            "type": "string",
+            "description": "The input dataset name"
+          },
+          "field": {
+            "type": "string",
+            "description": "The input field"
+          },
+          "transformations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "description": "The type of the transformation. Allowed values are: DIRECT, INDIRECT",
+                  "type": "string"
+                },
+                "subtype": {
+                  "type": "string",
+                  "description": "The subtype of the transformation"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "a string representation of the transformation applied"
+                },
+                "masking": {
+                  "type": "boolean",
+                  "description": "is transformation masking the data or not"
+                }
+              },
+              "required": ["type"],
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true,
+        "required": ["namespace", "name", "field"]
+      },
+      "DataQualityAssertionsDatasetFacet": {
+        "description": "list of tests performed on dataset or dataset columns, and their results",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InputDatasetFacet"
+          },
+          {
+            "type": "object",
+            "required": ["assertions"],
+            "properties": {
+              "assertions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "assertion": {
+                      "type": "string",
+                      "description": "Type of expectation test that dataset is subjected to",
+                      "example": "not_null"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "column": {
+                      "type": "string",
+                      "description": "Column that expectation is testing. It should match the name provided in SchemaDatasetFacet. If column field is empty, then expectation refers to whole dataset.",
+                      "example": "id"
+                    }
+                  },
+                  "required": ["assertion", "success"]
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "DataQualityMetricsInputDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InputDatasetFacet"
+          },
+          {
+            "type": "object",
+            "required": ["columnMetrics"],
+            "properties": {
+              "rowCount": {
+                "description": "The number of rows evaluated",
+                "type": "integer"
+              },
+              "bytes": {
+                "description": "The size in bytes",
+                "type": "integer"
+              },
+              "fileCount": {
+                "description": "The number of files evaluated",
+                "type": "integer"
+              },
+              "columnMetrics": {
+                "description": "The property key is the column name",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "nullCount": {
+                      "description": "The number of null values in this column for the rows evaluated",
+                      "type": "integer"
+                    },
+                    "distinctCount": {
+                      "description": "The number of distinct values in this column for the rows evaluated",
+                      "type": "integer"
+                    },
+                    "sum": {
+                      "description": "The total sum of values in this column for the rows evaluated",
+                      "type": "number"
+                    },
+                    "count": {
+                      "description": "The number of values in this column",
+                      "type": "number"
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "quantiles": {
+                      "description": "The property key is the quantile. Examples: 0.1 0.25 0.5 0.75 1",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "DatasetTypeDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "datasetType": {
+                "description": "Dataset type, for example: FILE|STREAM|MODEL|TABLE|VIEW.",
+                "type": "string",
+                "example": "FILE"
+              },
+              "subType": {
+                "description": "Optional sub-type within the dataset type (e.g., BEST VALIDATION under MODEL CHECKPOINT).",
+                "type": "string"
+              }
+            },
+            "required": ["datasetType"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "DatasetVersionDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "datasetVersion": {
+                "description": "The version of the dataset.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": ["datasetVersion"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "DatasourceDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "uri": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "DocumentationDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "description": {
+                "description": "The description of the dataset.",
+                "type": "string",
+                "example": "canonical representation of entity Foo"
+              }
+            },
+            "required": ["description"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "DocumentationJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "description": {
+                "description": "The description of the job.",
+                "type": "string"
+              }
+            },
+            "required": ["description"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "EnvironmentVariable": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "The name of the environment variable.",
+            "type": "string"
+          },
+          "value": {
+            "description": "The value of the environment variable.",
+            "type": "string"
+          }
+        },
+        "required": ["name", "value"]
+      },
+      "EnvironmentVariablesRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "environmentVariables": {
+                "description": "The environment variables for the run.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EnvironmentVariable"
+                }
+              }
+            },
+            "required": ["environmentVariables"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "ErrorMessageRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "message": {
+                "description": "A human-readable string representing error message generated by observed system",
+                "type": "string",
+                "example": "org.apache.spark.sql.AnalysisException: Table or view not found: wrong_table_name; line 1 pos 14"
+              },
+              "programmingLanguage": {
+                "description": "Programming language the observed system uses.",
+                "type": "string",
+                "example": "JAVA"
+              },
+              "stackTrace": {
+                "description": "A language-specific stack trace generated by observed system",
+                "type": "string",
+                "example": "Exception in thread \"main\" java.lang.RuntimeException: A test exception\nat io.openlineage.SomeClass.method(SomeClass.java:13)\nat io.openlineage.SomeClass.anotherMethod(SomeClass.java:9)"
+              }
+            },
+            "required": ["message", "programmingLanguage"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "ExternalQueryRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "externalQueryId": {
+                "description": "Identifier for the external system",
+                "type": "string",
+                "example": "my-project-1234:US.bquijob_123x456_123y123z123c"
+              },
+              "source": {
+                "description": "source of the external query",
+                "type": "string",
+                "example": "bigquery"
+              }
+            },
+            "required": ["externalQueryId", "source"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "ExtractionErrorRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "totalTasks": {
+                "description": "The number of distinguishable tasks in a run that were processed by OpenLineage, whether successfully or not. Those could be, for example, distinct SQL statements.",
+                "type": "integer"
+              },
+              "failedTasks": {
+                "description": "The number of distinguishable tasks in a run that were processed not successfully by OpenLineage. Those could be, for example, distinct SQL statements.",
+                "type": "integer"
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "errorMessage": {
+                      "description": "Text representation of extraction error message.",
+                      "type": "string"
+                    },
+                    "stackTrace": {
+                      "description": "Stack trace of extraction error message",
+                      "type": "string"
+                    },
+                    "task": {
+                      "description": "Text representation of task that failed. This can be, for example, SQL statement that parser could not interpret.",
+                      "type": "string"
+                    },
+                    "taskNumber": {
+                      "description": "Order of task (counted from 0).",
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["errorMessage"]
+                }
+              }
+            },
+            "required": ["totalTasks", "failedTasks", "errors"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "InputStatisticsInputDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InputDatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "rowCount": {
+                "description": "The number of rows read",
+                "type": "integer"
+              },
+              "size": {
+                "description": "The size in bytes read",
+                "type": "integer"
+              },
+              "fileCount": {
+                "description": "The number of files read",
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "JobTypeJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "processingType": {
+                "description": "Job processing type like: BATCH or STREAMING",
+                "type": "string",
+                "example": "BATCH"
+              },
+              "integration": {
+                "description": "OpenLineage integration type of this job: for example SPARK|DBT|AIRFLOW|FLINK",
+                "type": "string",
+                "example": "SPARK"
+              },
+              "jobType": {
+                "description": "Run type, for example: QUERY|COMMAND|DAG|TASK|JOB|MODEL. This is an integration-specific field.",
+                "type": "string",
+                "example": "QUERY"
+              }
+            },
+            "required": ["processingType", "integration"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "LifecycleStateChangeDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "lifecycleStateChange": {
+                "description": "The lifecycle state change.",
+                "type": "string",
+                "enum": [
+                  "ALTER",
+                  "CREATE",
+                  "DROP",
+                  "OVERWRITE",
+                  "RENAME",
+                  "TRUNCATE"
+                ]
+              },
+              "previousIdentifier": {
+                "description": "Previous name of the dataset in case of renaming it.",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Previous dataset name."
+                  },
+                  "namespace": {
+                    "type": "string",
+                    "description": "Previous dataset namespace."
+                  }
+                },
+                "required": ["name", "namespace"]
+              }
+            },
+            "required": ["lifecycleStateChange"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "NominalTimeRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "nominalStartTime": {
+                "description": "An [ISO-8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp representing the nominal start time (included) of the run. AKA the schedule time",
+                "type": "string",
+                "example": "2020-12-17T03:00:00.000Z"
+              },
+              "nominalEndTime": {
+                "description": "An [ISO-8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp representing the nominal end time (excluded) of the run. (Should be the nominal start time of the next run)",
+                "type": "string",
+                "example": "2020-12-17T04:00:00.000Z"
+              }
+            },
+            "required": ["nominalStartTime"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "OutputStatisticsOutputDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OutputDatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "rowCount": {
+                "description": "The number of rows written to the dataset",
+                "type": "integer"
+              },
+              "size": {
+                "description": "The size in bytes written to the dataset",
+                "type": "integer"
+              },
+              "fileCount": {
+                "description": "The number of files written to the dataset",
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "OwnershipDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "owners": {
+                "description": "The owners of the dataset.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "the identifier of the owner of the Dataset. It is recommended to define this as a URN. For example application:foo, user:jdoe, team:data",
+                      "type": "string",
+                      "example": "application:app_name"
+                    },
+                    "type": {
+                      "description": "The type of ownership (optional)",
+                      "type": "string",
+                      "example": "MAINTAINER"
+                    }
+                  },
+                  "required": ["name"]
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "OwnershipJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "owners": {
+                "description": "The owners of the job.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "description": "the identifier of the owner of the Job. It is recommended to define this as a URN. For example application:foo, user:jdoe, team:data",
+                      "type": "string",
+                      "example": "application:app_name"
+                    },
+                    "type": {
+                      "description": "The type of ownership (optional)",
+                      "type": "string",
+                      "example": "MAINTAINER"
+                    }
+                  },
+                  "required": ["name"]
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "RootRun": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "description": "The globally unique ID of the root run associated with the root job.",
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["runId"]
+      },
+      "RootJob": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "description": "The namespace containing root job",
+            "type": "string",
+            "example": "my-scheduler-namespace"
+          },
+          "name": {
+            "description": "The unique name containing root job within that namespace",
+            "type": "string",
+            "example": "myjob.mytask"
+          }
+        },
+        "required": ["namespace", "name"]
+      },
+      "ParentRunFacet": {
+        "description": "the id of the parent run and job, iff this run was spawn from an other run (for example, the Dag run scheduling its tasks)",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "run": {
+                "type": "object",
+                "properties": {
+                  "runId": {
+                    "description": "The globally unique ID of the run associated with the job.",
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": ["runId"]
+              },
+              "job": {
+                "type": "object",
+                "properties": {
+                  "namespace": {
+                    "description": "The namespace containing that job",
+                    "type": "string",
+                    "example": "my-scheduler-namespace"
+                  },
+                  "name": {
+                    "description": "The unique name for that job within that namespace",
+                    "type": "string",
+                    "example": "myjob.mytask"
+                  }
+                },
+                "required": ["namespace", "name"]
+              },
+              "root": {
+                "type": "object",
+                "properties": {
+                  "run": {
+                    "$ref": "#/components/schemas/RootRun"
+                  },
+                  "job": {
+                    "$ref": "#/components/schemas/RootJob"
+                  }
+                },
+                "required": ["run", "job"]
+              }
+            },
+            "required": ["run", "job"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "ProcessingEngineRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "version": {
+                "description": "Processing engine version. Might be Airflow or Spark version.",
+                "type": "string",
+                "example": "2.5.0"
+              },
+              "name": {
+                "description": "Processing engine name, e.g. Airflow or Spark",
+                "type": "string",
+                "example": "Airflow"
+              },
+              "openlineageAdapterVersion": {
+                "description": "OpenLineage adapter package version. Might be e.g. OpenLineage Airflow integration package version",
+                "type": "string",
+                "example": "0.19.0"
+              }
+            },
+            "required": ["version"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "SQLJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "example": "SELECT * FROM foo"
+              }
+            },
+            "required": ["query"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "SchemaDatasetFacetFields": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "The name of the field.",
+            "type": "string",
+            "example": "column1"
+          },
+          "type": {
+            "description": "The type of the field.",
+            "type": "string",
+            "example": "VARCHAR|INT|..."
+          },
+          "description": {
+            "description": "The description of the field.",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Nested struct fields.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SchemaDatasetFacetFields"
+            }
+          }
+        },
+        "required": ["name"]
+      },
+      "SchemaDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "fields": {
+                "description": "The fields of the data source.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SchemaDatasetFacetFields"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "SourceCodeJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "language": {
+                "description": "Language in which source code of this job was written.",
+                "type": "string"
+              },
+              "sourceCode": {
+                "description": "Source code of this job.",
+                "type": "string"
+              }
+            },
+            "required": ["language", "sourceCode"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "SourceCodeLocationJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "the source control system",
+                "example": "git|svn"
+              },
+              "url": {
+                "type": "string",
+                "description": "the full http URL to locate the file",
+                "format": "uri",
+                "example": "https://github.com/MarquezProject/marquez-airflow-quickstart/blob/693e35482bc2e526ced2b5f9f76ef83dec6ec691/dags/dummy_example.py"
+              },
+              "repoUrl": {
+                "type": "string",
+                "description": "the URL to the repository",
+                "example": "git@github.com:{org}/{repo}.git or https://github.com/{org}/{repo}.git|svn://<your_ip>/<repository_name>"
+              },
+              "path": {
+                "type": "string",
+                "description": "the path in the repo containing the source files",
+                "example": "path/to/my/dags"
+              },
+              "version": {
+                "type": "string",
+                "description": "the current version deployed (not a branch name, the actual unique version)",
+                "example": "git: the git sha | Svn: the revision number"
+              },
+              "tag": {
+                "type": "string",
+                "description": "optional tag name"
+              },
+              "branch": {
+                "type": "string",
+                "description": "optional branch name"
+              }
+            },
+            "required": ["type", "url"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "StorageDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "storageLayer": {
+                "description": "Storage layer provider with allowed values: iceberg, delta.",
+                "type": "string"
+              },
+              "fileFormat": {
+                "description": "File format with allowed values: parquet, orc, avro, json, csv, text, xml.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": ["storageLayer"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "SymlinksDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "identifiers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "namespace": {
+                      "type": "string",
+                      "description": "The dataset namespace"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "The dataset name"
+                    },
+                    "type": {
+                      "type": "string",
+                      "description": "Identifier type",
+                      "example": "table"
+                    }
+                  },
+                  "required": ["namespace", "name", "type"]
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "TagsDatasetFacetFields": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key that identifies the tag",
+            "type": "string",
+            "example": "pii"
+          },
+          "value": {
+            "description": "The value of the field",
+            "type": "string",
+            "example": "true|@user1|production"
+          },
+          "source": {
+            "description": "The source of the tag. INTEGRATION|USER|DBT CORE|SPARK|etc.",
+            "type": "string"
+          },
+          "field": {
+            "description": "Identifies the field in a dataset if a tag applies to one",
+            "type": "string",
+            "example": "email_address"
+          }
+        },
+        "required": ["key", "value"]
+      },
+      "TagsDatasetFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tags": {
+                "description": "The tags applied to the dataset facet",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TagsDatasetFacetFields"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "TagsJobFacetFields": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key that identifies the tag",
+            "type": "string",
+            "example": "pii"
+          },
+          "value": {
+            "description": "The value of the field",
+            "type": "string",
+            "example": "true|@user1|production"
+          },
+          "source": {
+            "description": "The source of the tag. INTEGRATION|USER|DBT CORE|SPARK|etc.",
+            "type": "string",
+            "example": "SPARK"
+          }
+        },
+        "required": ["key", "value"]
+      },
+      "TagsJobFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tags": {
+                "description": "The tags applied to the job facet",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TagsJobFacetFields"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "TagsRunFacetFields": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "description": "Key that identifies the tag",
+            "type": "string",
+            "example": "pii"
+          },
+          "value": {
+            "description": "The value of the field",
+            "type": "string",
+            "example": "true|@user1|production"
+          },
+          "source": {
+            "description": "The source of the tag. INTEGRATION|USER|DBT CORE|SPARK|etc.",
+            "type": "string",
+            "example": "SPARK"
+          }
+        },
+        "required": ["key", "value"]
+      },
+      "TagsRunFacet": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tags": {
+                "description": "The tags applied to the run facet",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TagsRunFacetFields"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "JobIdentifier": {
+        "type": "object",
+        "description": "Used to identify an OpenLineage job.",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "The namespace containing the job"
+          },
+          "name": {
+            "type": "string",
+            "description": "The unique name of a job within that namespace"
+          }
+        },
+        "required": ["namespace", "name"]
+      },
+      "RunIdentifier": {
+        "type": "object",
+        "description": "Used to identify an OpenLineage run.",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The globally unique ID of the run"
+          }
+        },
+        "required": ["runId"]
+      },
+      "JobDependency": {
+        "type": "object",
+        "description": "Execution dependency metadata for an OpenLineage job.",
+        "additionalProperties": true,
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/JobIdentifier"
+          },
+          "run": {
+            "$ref": "#/components/schemas/RunIdentifier"
+          },
+          "dependency_type": {
+            "type": "string",
+            "description": "Whether the dependency directly invokes the downstream job or is implicit."
+          },
+          "sequence_trigger_rule": {
+            "type": "string",
+            "description": "Sequence condition governing downstream execution."
+          },
+          "status_trigger_rule": {
+            "type": "string",
+            "description": "Upstream status condition governing downstream execution."
+          }
+        },
+        "required": ["job"]
+      },
+      "JobDependenciesRunFacet": {
+        "description": "Maps execution dependencies between upstream and downstream job runs.",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RunFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "upstream": {
+                "type": "array",
+                "description": "Job runs that must complete before the current run can start.",
+                "items": {
+                  "$ref": "#/components/schemas/JobDependency"
+                }
+              },
+              "downstream": {
+                "type": "array",
+                "description": "Job runs that will start after completion of the current run.",
+                "items": {
+                  "$ref": "#/components/schemas/JobDependency"
+                }
+              },
+              "trigger_rule": {
+                "type": "string",
+                "description": "Condition under which this job runs based on upstream status."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "HierarchyDatasetFacetLevel": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Dataset hierarchy level type"
+          },
+          "name": {
+            "type": "string",
+            "description": "Dataset hierarchy level name"
+          }
+        },
+        "required": ["type", "name"]
+      },
+      "HierarchyDatasetFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatasetFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "hierarchy": {
+                "type": "array",
+                "description": "Dataset hierarchy levels from highest to lowest; order is significant.",
+                "items": {
+                  "$ref": "#/components/schemas/HierarchyDatasetFacetLevel"
+                }
+              }
+            },
+            "required": ["hierarchy"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ExecutionParameter": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["key"],
+        "additionalProperties": false
+      },
+      "ExecutionParametersRunFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ExecutionParameter"
+                }
+              }
+            },
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "DataQualityMetricsDatasetFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "rowCount": {
+                "type": "integer"
+              },
+              "bytes": {
+                "type": "integer"
+              },
+              "fileCount": {
+                "type": "integer"
+              },
+              "lastUpdated": {
+                "type": "string"
+              },
+              "columnMetrics": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": ["columnMetrics"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "InputSubsetInputDatasetFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "inputCondition": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": ["inputCondition"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "OutputSubsetOutputDatasetFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outputCondition": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": ["outputCondition"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "GcpDataprocRunFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "GcpComposerRunFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "dagRunId": {
+                "type": "string"
+              }
+            },
+            "required": ["dagRunId"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "GcpLineageJobFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "GcpComposerJobFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "IcebergScanReportInputDatasetFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "IcebergCommitReportOutputDatasetFacet": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseFacet"
+          },
+          {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_schemaURL": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "OpenLineageValidationError": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "facet": {
+            "type": "string"
+          },
+          "attachment": {
+            "type": "string",
+            "enum": ["RUN", "JOB", "DATASET", "INPUT_DATASET", "OUTPUT_DATASET"]
+          }
+        },
+        "required": ["path", "rule"]
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "/openapi/openlineage/api/v1",
+      "description": "DataHub OpenLineage endpoint"
+    }
+  ]
 }
