@@ -538,6 +538,7 @@ org.testcontainers:database-commons:1.21.4=testCompileClasspath,testRuntimeClass
 org.testcontainers:elasticsearch:1.21.4=testCompileClasspath,testRuntimeClasspath
 org.testcontainers:jdbc:1.21.4=testCompileClasspath,testRuntimeClasspath
 org.testcontainers:junit-jupiter:1.21.4=testCompileClasspath,testRuntimeClasspath
+org.testcontainers:mysql:1.21.4=testCompileClasspath,testRuntimeClasspath
 org.testcontainers:neo4j:1.21.4=testCompileClasspath,testRuntimeClasspath
 org.testcontainers:postgresql:1.21.4=testCompileClasspath,testRuntimeClasspath
 org.testcontainers:testcontainers:1.21.4=testCompileClasspath,testRuntimeClasspath
