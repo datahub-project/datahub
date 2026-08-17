@@ -1,9 +1,7 @@
 namespace com.linkedin.metadata.recommendation
 
 /**
-/**
  * Recommendation modules that can be requested for a scenario
- */
  */
 enum RecommendationModuleID {
 
