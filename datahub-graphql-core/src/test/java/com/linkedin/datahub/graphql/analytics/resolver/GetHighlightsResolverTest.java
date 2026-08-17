@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -19,8 +20,14 @@ import com.linkedin.datahub.graphql.analytics.service.EntityStats;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Highlight;
+import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
+import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +50,9 @@ public class GetHighlightsResolverTest {
         .thenReturn("datahub_usage_event");
 
     OperationContext mockOpContext = mock(OperationContext.class);
+    // Pass-through canonicalizer: these assert the range shapes the resolver requests, not time
+    // rounding, so the bounds stay the exact clock reading.
+    when(mockOpContext.canonicalNow()).thenReturn(QueryTimeCanonicalizer.DISABLED.now());
     QueryContext mockContext = mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mockOpContext);
     mockEnv = mock(DataFetchingEnvironment.class);
@@ -237,5 +247,106 @@ public class GetHighlightsResolverTest {
         .thenThrow(new RuntimeException("elasticsearch is down"));
 
     assertEquals(resolver.get(mockEnv), Collections.emptyList());
+  }
+
+  /** An enabled 5m/EXPAND canonicalizer pinned to a fixed instant. */
+  private static QueryTimeCanonicalizer canonicalizerAt(String isoInstant) {
+    return QueryTimeCanonicalizer.fromConfig(
+        QueryCanonicalizationConfiguration.builder()
+            .enabled(true)
+            .time(
+                TimeCanonicalizationConfiguration.builder()
+                    .enabled(true)
+                    .bucketSize("5m")
+                    .timezone("UTC")
+                    .rounding("EXPAND")
+                    .build())
+            .build(),
+        null,
+        Clock.fixed(Instant.parse(isoInstant), ZoneOffset.UTC));
+  }
+
+  private Map<String, DateRange> rangesWithCanonicalizerAt(String isoInstant) throws Exception {
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.canonicalNow()).thenReturn(canonicalizerAt(isoInstant).now());
+    QueryContext queryContext = mock(QueryContext.class);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(queryContext);
+
+    mockActiveUsers(0, 0);
+    mockEntityStats(Collections.emptyMap());
+    new GetHighlightsResolver(mockAnalyticsService).get(env);
+
+    ArgumentCaptor<Map<String, DateRange>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(mockAnalyticsService)
+        .getUniqueCountsByRange(any(), anyString(), captor.capture(), anyString());
+    return captor.getValue();
+  }
+
+  /**
+   * Every bound this resolver requests must land on a bucket boundary, otherwise the aggregation is
+   * unique per request and cannot reuse a cached result.
+   */
+  @Test
+  public void testCanonicalizedRangesLandOnBucketBoundaries() throws Exception {
+    Map<String, DateRange> ranges = rangesWithCanonicalizerAt("2026-08-16T19:03:42Z");
+
+    for (Map.Entry<String, DateRange> e : ranges.entrySet()) {
+      for (String bound : List.of(e.getValue().getStart(), e.getValue().getEnd())) {
+        assertEquals(
+            Long.parseLong(bound) % 300_000L,
+            0L,
+            e.getKey() + " bound " + bound + " is not on a 5m boundary");
+      }
+    }
+  }
+
+  /**
+   * The highlights render a percent change between the current and previous period, so
+   * canonicalization must not make the current window wider than the previous one. Ceiling the
+   * current window's end while flooring everything else did exactly that, biasing the percentage
+   * upward.
+   *
+   * <p>Weekly windows are a fixed length and must match exactly. Monthly windows differ by calendar
+   * month length (Jul-Aug is 31 days, Jun-Jul is 30) both before and after this change, so the
+   * assertion there is that the window still ends on the floored reference rather than a ceiled
+   * one.
+   */
+  @Test
+  public void testCanonicalizationDoesNotWidenTheCurrentWindow() throws Exception {
+    Map<String, DateRange> ranges = rangesWithCanonicalizerAt("2026-08-16T19:03:42Z");
+    // 19:03:42 floors to 19:00:00; the buggy version ceiled the end to 19:05:00.
+    String flooredReference = String.valueOf(Instant.parse("2026-08-16T19:00:00Z").toEpochMilli());
+
+    DateRange weeklyCurrent = ranges.get("weekly_current");
+    DateRange weeklyPrevious = ranges.get("weekly_previous");
+    assertEquals(
+        Long.parseLong(weeklyCurrent.getEnd()) - Long.parseLong(weeklyCurrent.getStart()),
+        Long.parseLong(weeklyPrevious.getEnd()) - Long.parseLong(weeklyPrevious.getStart()),
+        "weekly comparison windows differ in width");
+
+    for (String period : List.of("weekly", "monthly")) {
+      assertEquals(
+          ranges.get(period + "_current").getEnd(),
+          flooredReference,
+          period + " current window must end on the floored reference, not a ceiled bound");
+      assertEquals(
+          ranges.get(period + "_previous").getEnd(),
+          ranges.get(period + "_current").getStart(),
+          period + " windows are not contiguous");
+    }
+  }
+
+  /** Two requests inside one bucket must ask for byte-identical ranges. */
+  @Test
+  public void testRequestsInsideOneBucketProduceIdenticalRanges() throws Exception {
+    Map<String, DateRange> first = rangesWithCanonicalizerAt("2026-08-16T19:01:03Z");
+    reset(mockAnalyticsService);
+    when(mockAnalyticsService.getUsageIndexName(any(OperationContext.class)))
+        .thenReturn("datahub_usage_event");
+    Map<String, DateRange> second = rangesWithCanonicalizerAt("2026-08-16T19:04:59Z");
+
+    assertEquals(second.toString(), first.toString());
   }
 }
