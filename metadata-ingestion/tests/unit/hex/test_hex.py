@@ -452,6 +452,54 @@ class TestResolveConnections:
         assert c.default_schema == "public"
 
 
+def test_pipeline_blanket_urn_lowercasing_stays_disabled(tmp_path) -> None:
+    """The pipeline-level AutoLowercaseUrnsProcessor duck-types on a top-level
+    source config attribute named ``convert_urns_to_lowercase``. Hex must never
+    expose that name at the source level: blanket lowercasing would rewrite
+    every URN in the stream — including BigQuery / db2 connections whose table
+    IDs are case-sensitive — and would also lowercase ``platform_instance``
+    inside ``DatasetUrn.name``, dangling lineage for instanced connections.
+
+    Hex instead buries ``convert_urns_to_lowercase`` one level down, on
+    ``HexConnectionDetail``, so the top-level key stays absent and the global
+    processor never fires. The builder then applies the rule per connection,
+    mirroring ``SchemaResolver._prefers_urn_lower()`` (case-insensitive
+    platforms lowercase, case-sensitive platforms preserve case), with the
+    per-connection flag as an override. This pins that design decision."""
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+    from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+        AutoLowercaseUrnsProcessor,
+    )
+
+    config = HexSourceConfig.model_validate(
+        {
+            "workspace_name": "ws",
+            "token": "t",
+            "connection_platform_map": {
+                "conn-sf": {
+                    "platform": "snowflake",
+                    "platform_instance": "prod_sf",
+                    "convert_urns_to_lowercase": True,
+                },
+                "conn-bq": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                },
+            },
+        }
+    )
+    src = HexSource(config, PipelineContext(run_id="pipeline-lower-test"))
+    ctx = WorkunitProcessorContext(
+        source_report=src.report,
+        pipeline_context=src.ctx,
+        source_config=src.source_config,
+        platform="hex",
+    )
+    assert not AutoLowercaseUrnsProcessor.should_enable(ctx)
+    # And the per-connection flag is read off HexConnectionDetail, not the source.
+    assert not hasattr(src.source_config, "convert_urns_to_lowercase")
+
+
 class TestHexTestConnection:
     """Tests for test_connection() — especially the cells access probe."""
 
