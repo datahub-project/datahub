@@ -1153,7 +1153,9 @@ def _processor_for(
     resolver: SchemaResolver,
     seed: List[str],
     slices: Sequence[CatalogSlice],
+    provide: Optional[mock.MagicMock] = None,
 ) -> Tuple[AutoResolveLineageUrnsProcessor, Any, Any]:
+    """`provide` overrides the patched provide_schema_resolver, for a load that fails."""
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
@@ -1161,7 +1163,7 @@ def _processor_for(
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    provide_mock = mock.MagicMock(return_value=resolver)
+    provide_mock = provide or mock.MagicMock(return_value=resolver)
     patcher = mock.patch(_PATCH_TARGET, provide_mock)
     patcher.start()
     return AutoResolveLineageUrnsProcessor.create(ctx), pipeline_ctx.graph, patcher
@@ -1360,3 +1362,134 @@ def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
     # No catalog is read; every reference is resolved by asking instead.
     provide_mock.assert_not_called()
     assert _stored_upstream(out) == LOWER
+
+
+# --- a catalog load that failed is not a catalog we hold ------------------------------
+#
+# A slice is claimed only by a scroll that finished. Claiming one the config merely asked
+# for would tell the fallbacks below that a miss there is an answer, when in truth nothing
+# was ever fetched.
+
+_MY_INSTANCE = "my_instance"
+_OTHER_INSTANCE = "other_instance"
+
+
+def _two_instance_config(
+    resolve_all_platforms: bool = False,
+) -> AutoResolveLineageUrnsConfig:
+    return AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+            ),
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance=_OTHER_INSTANCE, env="PROD"
+            ),
+        ],
+        resolve_all_platforms=resolve_all_platforms,
+    )
+
+
+def _catalog_not_loaded_warnings(source_report: mock.MagicMock) -> List[Any]:
+    return [
+        c
+        for c in source_report.warning.call_args_list
+        if "upstream catalog not loaded" in c.kwargs.get("title", "").lower()
+    ]
+
+
+def test_a_failed_catalog_load_still_gets_column_casing_when_scope_is_widened():
+    # Nothing was read, so nothing about this slice is known locally. With scope widened
+    # the reference's identity is asked for and healed — and its columns have to be
+    # fetched the same way. Reading the config as coverage would answer "DataHub holds no
+    # columns for this" without ever having looked.
+    processor, graph, patcher = _processor_for(
+        _widened(),
+        _resolver({}),
+        [],
+        [],  # the scroll failed, so it recorded no coverage
+        provide=mock.MagicMock(side_effect=RuntimeError("boom")),
+    )
+    graph.get_urns_by_filter.return_value = [LOWER]
+    graph.get_aspect.return_value = _schema_metadata("snowflake", ["amount"])
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="AMOUNT")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "amount")]
+    assert (
+        len(
+            _catalog_not_loaded_warnings(
+                cast(mock.MagicMock, processor.ctx.source_report)
+            )
+        )
+        == 1
+    )
+
+
+def test_one_failed_instance_does_not_disable_the_one_that_loaded():
+    # Each configured entry is its own scroll. A platform configured for two instances
+    # whose second load fails must keep healing references to the first, rather than
+    # writing off the platform and discarding a catalog it already paid for.
+    stored = _instanced("db.schema.table", _MY_INSTANCE)
+    referenced = _instanced("DB.SCHEMA.TABLE", _MY_INSTANCE)
+    loaded_slice = CatalogSlice(
+        platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+    )
+    provide = mock.MagicMock(
+        side_effect=[_resolver({stored: {"amount": "int"}}), RuntimeError("boom")]
+    )
+
+    processor, graph, patcher = _processor_for(
+        _two_instance_config(), _resolver({}), [stored], [loaded_slice], provide=provide
+    )
+    try:
+        [out] = list(
+            processor.process(
+                iter([_upstream_wu(referenced, fine_grained_field="AMOUNT")])
+            )
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(stored, "amount")]
+    assert processor.report.num_column_urns_normalized == 1
+    # The instance that loaded answers locally; only the failed one is reported.
+    graph.get_urns_by_filter.assert_not_called()
+    assert (
+        len(
+            _catalog_not_loaded_warnings(
+                cast(mock.MagicMock, processor.ctx.source_report)
+            )
+        )
+        == 1
+    )
+
+
+def test_a_reference_into_the_failed_instance_is_flagged_not_silently_passed():
+    # The platform is in scope because a sibling loaded, so this reference is examined and
+    # cannot be matched — which is the UNRESOLVED signal, not a clean pass-through. Being
+    # unable to check is exactly what the operator needs to see.
+    referenced = _instanced("DB.SCHEMA.TABLE", _OTHER_INSTANCE)
+    loaded_slice = CatalogSlice(
+        platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+    )
+    provide = mock.MagicMock(side_effect=[_resolver({}), RuntimeError("boom")])
+
+    processor, _graph, patcher = _processor_for(
+        _two_instance_config(), _resolver({}), [], [loaded_slice], provide=provide
+    )
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(referenced)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == referenced  # left exactly as emitted
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+    )
+    assert processor.report.num_refs_unresolved == 1
