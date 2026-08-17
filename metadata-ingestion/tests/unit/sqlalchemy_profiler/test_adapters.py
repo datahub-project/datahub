@@ -1380,7 +1380,7 @@ class TestDatabricksAdapter:
         pattern = r"\bapprox_percentile\b.*\blatency\b.*\b0\.5\b"
         assert_sql_matches_pattern(sql, pattern)
 
-    def test_map_databricks_column_type_variant(self, adapter) -> None:
+    def test_map_databricks_column_type_variant(self, adapter):
         from databricks.sqlalchemy.dialect import DatabricksTimestamp
         from sqlalchemy.sql import sqltypes
 
@@ -1395,9 +1395,7 @@ class TestDatabricksAdapter:
         assert map_databricks_column_type("timestamp_ntz") is DatabricksTimestamp
         assert map_databricks_column_type("timestamp_ltz") is DatabricksTimestamp
 
-    def test_get_columns_tolerates_variant(
-        self, adapter, mock_databricks_engine
-    ) -> None:
+    def test_get_columns_tolerates_variant(self, adapter, mock_databricks_engine):
         from databricks.sqlalchemy.dialect import DatabricksTimestamp
         from sqlalchemy.sql import sqltypes
 

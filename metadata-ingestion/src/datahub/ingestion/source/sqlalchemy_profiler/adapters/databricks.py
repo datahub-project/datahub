@@ -14,6 +14,7 @@ from databricks.sqlalchemy.dialect import (
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.type_api import TypeEngine
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -23,7 +24,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
 logger = logging.getLogger(__name__)
 
 # Vendor get_columns _type_map has no VARIANT; KeyError aborts the whole table.
-_DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[sqltypes.TypeEngine]] = {
+_DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[TypeEngine]] = {
     "boolean": sqltypes.Boolean,
     "smallint": sqltypes.SmallInteger,
     "int": sqltypes.Integer,
@@ -47,7 +48,7 @@ _DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[sqltypes.TypeEngine]] = {
 }
 
 
-def map_databricks_column_type(type_name: str) -> Type[sqltypes.TypeEngine]:
+def map_databricks_column_type(type_name: str) -> Type[TypeEngine]:
     match = re.search(r"^\w+", type_name or "")
     if not match:
         return sqltypes.NullType
