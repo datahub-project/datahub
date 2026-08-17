@@ -77,8 +77,8 @@ public class BrowsePathV2Utils {
           }
         }
         break;
-        // Some sources produce charts and dashboards with containers. If we have containers, use
-        // them, otherwise use default folder
+      // Some sources produce charts and dashboards with containers. If we have containers, use
+      // them, otherwise use default folder
       case Constants.CHART_ENTITY_NAME:
       case Constants.DASHBOARD_ENTITY_NAME:
         BrowsePathEntryArray containerPathEntries =

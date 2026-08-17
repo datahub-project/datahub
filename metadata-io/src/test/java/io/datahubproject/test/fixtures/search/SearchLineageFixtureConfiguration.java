@@ -20,6 +20,8 @@ import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchLineageConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
@@ -107,6 +109,9 @@ public abstract class SearchLineageFixtureConfiguration {
     conf.getCache().getSearch().setLineage(new SearchLineageCacheConfiguration());
     conf.getCache().getSearch().getLineage().setLightningThreshold(300);
     conf.getCache().getSearch().getLineage().setTtlSeconds(30);
+    conf.setSearchService(new SearchServiceConfiguration());
+    conf.getSearchService().setLineage(new SearchLineageConfiguration());
+    conf.getSearchService().getLineage().setMaxParentsToValidate(1000);
     conf.setMetadataChangeProposal(new MetadataChangeProposalConfig());
     conf.getMetadataChangeProposal()
         .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());

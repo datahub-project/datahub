@@ -6,7 +6,7 @@ actionlint = "1.7.11"
 # `betterleaks` not found" — which reads as a broken hook rather than a
 # missing tool.
 "ubi:betterleaks/betterleaks" = "1.6.1"
-java = "21"
+java = "25"
 node = "22"
 python = "3.11"
 shellcheck = "0.11.0"
