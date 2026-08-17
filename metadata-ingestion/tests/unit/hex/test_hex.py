@@ -453,50 +453,62 @@ class TestResolveConnections:
 
 
 def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
-    """The pipeline-level AutoLowercaseUrnsProcessor duck-types on a top-level
-    source config attribute named ``convert_urns_to_lowercase``. Hex must never
-    expose that name at the source level: blanket lowercasing would rewrite
-    every URN in the stream — including BigQuery / db2 connections whose table
-    IDs are case-sensitive — and would also lowercase ``platform_instance``
-    inside ``DatasetUrn.name``, dangling lineage for instanced connections.
+    """Pin that ``AutoLowercaseUrnsProcessor`` never fires for Hex: the
+    ``convert_urns_to_lowercase`` flag lives on ``HexConnectionDetail``, not
+    ``HexSourceConfig``, so the top-level recipe key stays absent and the
+    global processor doesn't rewrite every URN (which would dangle
+    case-sensitive platforms and lowercase ``platform_instance``).
 
-    Hex instead buries ``convert_urns_to_lowercase`` one level down, on
-    ``HexConnectionDetail``, so the top-level key stays absent and the global
-    processor never fires. The builder then applies the rule per connection,
-    mirroring ``SchemaResolver._prefers_urn_lower()`` (case-insensitive
-    platforms lowercase, case-sensitive platforms preserve case), with the
-    per-connection flag as an override. This pins that design decision."""
+    ``should_enable`` reads the raw recipe off
+    ``pipeline_config.source.config``, so the context carries a real recipe
+    dict. The positive control (key set at top level) proves the check is
+    actually reading the recipe rather than passing trivially."""
     from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
     from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
         AutoLowercaseUrnsProcessor,
     )
 
-    config = HexSourceConfig.model_validate(
-        {
-            "workspace_name": "ws",
-            "token": "t",
-            "connection_platform_map": {
-                "conn-sf": {
-                    "platform": "snowflake",
-                    "platform_instance": "prod_sf",
-                    "convert_urns_to_lowercase": True,
-                },
-                "conn-bq": {
-                    "platform": "bigquery",
-                    "convert_urns_to_lowercase": False,
-                },
+    raw_recipe = {
+        "workspace_name": "ws",
+        "token": "t",
+        "connection_platform_map": {
+            "conn-sf": {
+                "platform": "snowflake",
+                "platform_instance": "prod_sf",
+                "convert_urns_to_lowercase": True,
             },
-        }
-    )
+            "conn-bq": {
+                "platform": "bigquery",
+                "convert_urns_to_lowercase": False,
+            },
+        },
+    }
+    config = HexSourceConfig.model_validate(raw_recipe)
     src = HexSource(config, PipelineContext(run_id="pipeline-lower-test"))
-    ctx = WorkunitProcessorContext(
-        source_report=src.report,
-        pipeline_context=src.ctx,
-        source_config=src.source_config,
-        platform="hex",
+
+    from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
+
+    def _ctx_for_recipe(recipe: dict) -> WorkunitProcessorContext:
+        pipeline_config = PipelineConfig(source=SourceConfig(type="hex", config=recipe))
+        return WorkunitProcessorContext(
+            source_report=src.report,
+            pipeline_context=PipelineContext(
+                run_id="pipeline-lower-test", pipeline_config=pipeline_config
+            ),
+            source_config=src.source_config,
+            platform="hex",
+        )
+
+    # Per-connection flags live under connection_platform_map → no top-level key.
+    assert not AutoLowercaseUrnsProcessor.should_enable(_ctx_for_recipe(raw_recipe))
+
+    # Positive control: a top-level key would enable the processor, proving the
+    # negative assertion above reads the recipe rather than passing trivially.
+    recipe_with_top_level_key = {**raw_recipe, "convert_urns_to_lowercase": True}
+    assert AutoLowercaseUrnsProcessor.should_enable(
+        _ctx_for_recipe(recipe_with_top_level_key)
     )
-    assert not AutoLowercaseUrnsProcessor.should_enable(ctx)
-    # And the per-connection flag is read off HexConnectionDetail, not the source.
+
     assert not hasattr(src.source_config, "convert_urns_to_lowercase")
 
 

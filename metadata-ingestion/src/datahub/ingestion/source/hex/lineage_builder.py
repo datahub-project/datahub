@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -18,6 +18,13 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 _MAX_SAMPLE_MISMATCHES = 5
+
+
+def _exact_urn(urn: str) -> str:
+    """Identity key for case-sensitive connections — preserves the URN so
+    ``Proj.DataSet.Tbl`` and ``proj.dataset.tbl`` are not collapsed."""
+    return urn
+
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -267,22 +274,29 @@ class HexLineageBuilder:
 
         Mismatches are recorded in the report with sample cells for diagnostics.
 
-        The comparison key is ``lowercase_dataset_urn(urn)`` — the same function
-        ``AutoLowercaseUrnsProcessor`` uses on the way out — so "two URNs this
-        source considered equal" and "two URNs the processor will emit
-        identically" are the same predicate by construction. Note the key
-        deliberately folds ``platform_instance`` into ``DatasetUrn.name.lower()``
-        (the instance lives inside ``name``); this is load-bearing because the
-        SQL-cell path's ``SchemaResolver.get_urn_for_table(lower=True)`` also
-        lowercases the instance, so without the fold an instanced Snowflake
-        connection (e.g. ``Prod_SF``) would never match between tiers. Each
-        emitted SchemaFieldUrn is rebuilt against the *exact* matched queried
-        URN so column-lineage edges resolve to the same dataset as
-        ``datasetEdges``.
+        The comparison key is per-connection. Case-insensitive connections
+        (``_should_lowercase`` True) key on ``lowercase_dataset_urn(urn)`` —
+        the same function ``AutoLowercaseUrnsProcessor`` uses on the way out —
+        so URNs this source considers equal are also emitted identically.
+        Case-sensitive connections (bigquery, db2, or an explicit
+        ``convert_urns_to_lowercase: false`` override) key on the exact URN:
+        ``Proj.DataSet.Tbl`` and ``proj.dataset.tbl`` are different tables on
+        BigQuery and must not collapse.
+
+        The lowercase key folds ``platform_instance`` into
+        ``DatasetUrn.name.lower()`` (the instance lives inside ``name``);
+        this is load-bearing because the SQL-cell path's
+        ``SchemaResolver.get_urn_for_table(lower=True)`` lowercases the
+        instance too — without the fold an instanced Snowflake connection
+        (e.g. ``Prod_SF``) would never match between tiers. Each emitted
+        SchemaFieldUrn is rebuilt against the exact matched queried URN so
+        column-lineage edges resolve to the same dataset as ``datasetEdges``.
         """
-        queried_by_key: Dict[str, str] = {}
+        queried_by_lower: Dict[str, str] = {}
+        queried_by_exact: Dict[str, str] = {}
         for u in queried_table_urns:
-            queried_by_key.setdefault(lowercase_dataset_urn(u), u)
+            queried_by_lower.setdefault(lowercase_dataset_urn(u), u)
+            queried_by_exact.setdefault(u, u)
 
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
@@ -295,6 +309,13 @@ class HexLineageBuilder:
             _, field_urns = self._parse_cell(cell, connection)
             if not field_urns:
                 continue
+
+            if self._should_lowercase(connection):
+                match_map = queried_by_lower
+                key_fn: Callable[[str], str] = lowercase_dataset_urn
+            else:
+                match_map = queried_by_exact
+                key_fn = _exact_urn
 
             matched: List[str] = []
             unmatched_tables: Set[str] = set()
@@ -313,7 +334,7 @@ class HexLineageBuilder:
                     )
                     continue
 
-                queried_parent = queried_by_key.get(lowercase_dataset_urn(parent_urn))
+                queried_parent = match_map.get(key_fn(parent_urn))
                 if queried_parent is not None:
                     # Rebuild the field URN against the exact queried URN so
                     # column lineage points to the same dataset as datasetEdges.

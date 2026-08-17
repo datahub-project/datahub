@@ -670,12 +670,13 @@ def test_build_from_queried_tables_snowflake_lowercases_by_default():
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "MY_DB.MY_SCHEMA.MY_TABLE"}]
     )
-    assert len(urns) == 1
-    assert "my_db.my_schema.my_table" in urns[0]
-    assert "MY_DB.MY_SCHEMA.MY_TABLE" not in urns[0]
-    # Platform and env are not affected.
-    assert "snowflake" in urns[0]
-    assert urns[0].endswith("PROD)")
+    expected = make_dataset_urn_with_platform_instance(
+        platform="snowflake",
+        name="my_db.my_schema.my_table",
+        platform_instance="prod_sf",
+        env="PROD",
+    )
+    assert urns == [expected]
 
 
 def test_build_from_queried_tables_bigquery_preserves_case_by_default():
@@ -690,9 +691,13 @@ def test_build_from_queried_tables_bigquery_preserves_case_by_default():
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": BIGQUERY_CONN, "tableName": "Proj.DataSet.Tbl"}]
     )
-    assert len(urns) == 1
-    assert "Proj.DataSet.Tbl" in urns[0]
-    assert "proj.dataset.tbl" not in urns[0]
+    expected = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="Proj.DataSet.Tbl",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
 
 
 def test_build_from_queried_tables_override_false_preserves_snowflake_case():
@@ -711,9 +716,13 @@ def test_build_from_queried_tables_override_false_preserves_snowflake_case():
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "MY_DB.MY_SCHEMA.MY_TABLE"}]
     )
-    assert len(urns) == 1
-    assert "MY_DB.MY_SCHEMA.MY_TABLE" in urns[0]
-    assert "my_db.my_schema.my_table" not in urns[0]
+    expected = make_dataset_urn_with_platform_instance(
+        platform="snowflake",
+        name="MY_DB.MY_SCHEMA.MY_TABLE",
+        platform_instance="prod_sf",
+        env="PROD",
+    )
+    assert urns == [expected]
 
 
 def test_build_from_queried_tables_override_true_lowercases_bigquery():
@@ -731,9 +740,13 @@ def test_build_from_queried_tables_override_true_lowercases_bigquery():
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": BIGQUERY_CONN, "tableName": "Proj.DataSet.Tbl"}]
     )
-    assert len(urns) == 1
-    assert "proj.dataset.tbl" in urns[0]
-    assert "Proj.DataSet.Tbl" not in urns[0]
+    expected = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="proj.dataset.tbl",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
 
 
 def test_build_from_queried_tables_builder_does_not_lowercase_platform_instance():
@@ -753,7 +766,16 @@ def test_build_from_queried_tables_builder_does_not_lowercase_platform_instance(
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.T"}]
     )
-    assert "Prod_Snowflake" in urns[0]
+    # name is lowercased (db.schema.t) but platform_instance "Prod_Snowflake"
+    # is preserved verbatim — the instance lives inside name as a prefix, but
+    # the builder does not touch it.
+    expected = make_dataset_urn_with_platform_instance(
+        platform="snowflake",
+        name="db.schema.t",
+        platform_instance="Prod_Snowflake",
+        env="PROD",
+    )
+    assert urns == [expected]
 
 
 def test_build_from_queried_tables_dedup_collapses_case_variants():
@@ -770,7 +792,13 @@ def test_build_from_queried_tables_dedup_collapses_case_variants():
             {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema.t"},
         ]
     )
-    assert len(urns) == 1
+    expected = make_dataset_urn_with_platform_instance(
+        platform="snowflake",
+        name="db.schema.t",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
 
 
 def test_validated_cll_mixed_case_platform_instance_matches():
@@ -791,9 +819,8 @@ def test_validated_cll_mixed_case_platform_instance_matches():
             ),
         },
     )
-    # queried URN carries a mixed-case platform_instance prefix in the name.
-    # make_dataset_urn_with_platform_instance prepends the instance to the name,
-    # so name is just the db.schema.table portion.
+    # make_dataset_urn_with_platform_instance prepends the instance to name, so
+    # name is just the db.schema.table portion.
     queried = [
         make_dataset_urn_with_platform_instance(
             platform="snowflake",
@@ -865,13 +892,52 @@ def test_validated_cll_mismatch_still_reported():
     assert report.enterprise_cells_with_mismatch == 1
 
 
+def test_validated_cll_bigquery_matches_by_exact_urn_not_lowercase():
+    """Case-sensitive connections (bigquery) match by exact URN, not the
+    lowercase key — ``Proj.DataSet.Tbl`` and ``proj.dataset.tbl`` are
+    different tables on BigQuery and must not collapse."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
+    )
+    queried = [
+        make_dataset_urn_with_platform_instance(
+            platform="bigquery",
+            name="Proj.DataSet.Tbl",
+            platform_instance=None,
+            env="PROD",
+        )
+    ]
+    # Same casing → matches.
+    sql_match = "SELECT id FROM Proj.DataSet.Tbl"
+    fields_match = b.build_validated_column_lineage(
+        [_cell(sql_match, conn_id=BIGQUERY_CONN)], queried
+    )
+    assert len(fields_match) == 1
+    assert SchemaFieldUrn.from_string(fields_match[0]).parent == queried[0]
+    assert report.enterprise_column_fields_skipped_mismatch == 0
+
+    # Different casing only → distinct table on BigQuery → mismatch, not stitched.
+    report2 = LineageBuilderReport()
+    b2 = _builder(
+        report=report2,
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
+    )
+    sql_nomatch = "SELECT id FROM proj.dataset.tbl"
+    fields_nomatch = b2.build_validated_column_lineage(
+        [_cell(sql_nomatch, conn_id=BIGQUERY_CONN)], queried
+    )
+    assert fields_nomatch == []
+    assert report2.enterprise_column_fields_skipped_mismatch > 0
+    assert report2.enterprise_cells_with_mismatch == 1
+
+
 def test_build_upstream_urns_preserves_case_for_bigquery():
-    """The SQL-cell path uses SchemaResolver, which lowercases for
-    case-insensitive platforms (snowflake) but NOT for bigquery. A per-connection
-    convert_urns_to_lowercase override on the Hex side only affects the
-    queriedTables path; it must not leak into the SQL-cell path. This pins that
-    scope boundary: even with the override set on a BigQuery connection, the
-    SQL-cell path still preserves case."""
+    """The SQL-cell path uses SchemaResolver, which preserves case for
+    bigquery. A per-connection ``convert_urns_to_lowercase`` override only
+    affects the queriedTables path — pin that it doesn't leak into SQL-cell
+    parsing."""
     b = _builder(
         connections={
             BIGQUERY_CONN: HexConnection(
@@ -884,7 +950,10 @@ def test_build_upstream_urns_preserves_case_for_bigquery():
     datasets, _ = b.build_upstream_urns(
         [_cell("SELECT id FROM proj.dataset.Tbl", conn_id=BIGQUERY_CONN)]
     )
-    assert len(datasets) == 1
-    # BigQuery is case-sensitive — SchemaResolver preserves case regardless of
-    # the Hex-side convert_urns_to_lowercase override.
-    assert "proj.dataset.Tbl" in datasets[0]
+    expected = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="proj.dataset.Tbl",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert datasets == [expected]
