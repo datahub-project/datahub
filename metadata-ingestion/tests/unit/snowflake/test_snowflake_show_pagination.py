@@ -15,6 +15,9 @@ import pytest
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeShowKind
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
     SHOW_STREAM_MAX_PAGE_SIZE,
@@ -230,6 +233,30 @@ class FailsEverySchemaConnection(FakeShowConnection):
         if SHOW_IN_DATABASE.search(query) or SHOW_IN_SCHEMA.search(query):
             raise ValueError("SHOW failed")
         return []
+
+
+class DeniesEveryShowConnection(FakeShowConnection):
+    """A missing grant. The connection layer classifies Snowflake's "does not exist or not
+    authorized" as SnowflakePermissionError, which is not a size problem - so the per-schema
+    fallback cannot recover it and must not be attempted."""
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        super().query(query)
+        raise SnowflakePermissionError(
+            "002003 (02000): SQL compilation error: "
+            "Database 'TEST_DB' does not exist or not authorized."
+        )
+
+
+class ReturnsAnUnmappableRowConnection(FakeShowConnection):
+    """A row the mapper cannot handle: _map_show_view lowercases is_materialized, which a
+    NULL column value breaks."""
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        rows = super().query(query)
+        for row in rows:
+            row["is_materialized"] = None
+        return rows
 
 
 class FailsAfterFirstPageConnection(FakeShowConnection):
@@ -579,6 +606,40 @@ def test_a_failed_database_wide_show_falls_back_per_schema(kind, fetch):
     objects = fetch(_make_schema_gen(connection))
 
     assert [o.name for o in objects] == ["obj_a"]
+
+
+def test_a_denied_show_propagates_instead_of_falling_back_per_schema():
+    """A missing grant is not a size problem, so the fallback cannot recover it. Swallowing
+    it cost the operator the permission classification the callers already implement (see
+    SnowflakeSchemaGenerator.fetch_views_for_schema) and issued one doomed query per schema
+    in a database it could not read."""
+    connection = DeniesEveryShowConnection({VIEWS: [("SCHEMA_A", "view_a")]})
+    data_dictionary = _make_data_dictionary(connection)
+
+    with pytest.raises(SnowflakePermissionError):
+        data_dictionary.get_views_for_database("TEST_DB")
+
+    assert len(connection.queries) == 1, (
+        f"a denial must not be retried per schema; issued {connection.queries}"
+    )
+    # Reporting it here would pre-empt the caller's permission-specific failure with a
+    # generic one, so this handler must stay silent.
+    assert not data_dictionary.report.failures
+    assert not data_dictionary.report.warnings
+
+
+def test_an_unmappable_row_does_not_re_issue_the_database_wide_query():
+    """The mapping runs inside the same try as the query because get_views_for_database is
+    cached and serialized_lru_cache does not cache exceptions - a mapper error escaping it
+    would re-issue the 10,000-row database-wide SHOW once per schema."""
+    connection = ReturnsAnUnmappableRowConnection({VIEWS: [("SCHEMA_A", "view_a")]})
+    data_dictionary = _make_data_dictionary(connection)
+
+    assert data_dictionary.get_views_for_database("TEST_DB") is None, (
+        "an unmappable row must be answered with 'unusable', not raised"
+    )
+    assert len(connection.queries) == 1
+    assert data_dictionary.report.warnings
 
 
 def test_a_mid_paging_failure_reports_how_many_rows_were_kept():

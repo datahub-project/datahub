@@ -30,7 +30,10 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeObjectDomain,
     SnowflakeShowKind,
 )
-from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
     SHOW_STREAM_MAX_PAGE_SIZE,
@@ -998,7 +1001,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         Failures are caught here rather than per caller so all three object kinds share one
         policy, and because serialized_lru_cache does not cache exceptions - an uncaught one
-        would re-run this query once per schema.
+        would re-run this query once per schema. The mapping runs inside the same try for
+        that second reason: a row that breaks the mapper would otherwise escape the cached
+        caller and re-issue this whole page-sized query per schema.
+
+        A permission error is the exception, and propagates: see the handler.
         """
         try:
             rows = list(
@@ -1008,6 +1015,28 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     )
                 )
             )
+
+            # Check the page size before mapping: on a full page every mapped object is
+            # discarded, and for dynamic tables each one parses JSON.
+            if len(rows) >= page_limit:
+                logger.info(
+                    f"Database-wide 'SHOW {object_kind}' for {db_name} filled its "
+                    f"{page_limit}-row page; falling back to per-schema queries, which "
+                    "paginate reliably."
+                )
+                return None
+
+            grouped: Dict[str, List[_ShowRowT]] = {}
+            for row in rows:
+                grouped.setdefault(row["schema_name"], []).append(mapper(row))
+
+            return grouped
+        except SnowflakePermissionError:
+            # Not a size problem, so the per-schema fallback cannot help: it would be denied
+            # too, once per schema. Propagate instead, so the caller reports it as a
+            # permission error with actionable guidance - the classification the callers
+            # already implement, and which swallowing this downgraded to a generic warning.
+            raise
         except Exception as e:
             self.report.warning(
                 message="Database-wide SHOW failed; retrying per schema",
@@ -1015,22 +1044,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 exc=e,
             )
             return None
-
-        # Check the page size before mapping: on a full page every mapped object is
-        # discarded, and for dynamic tables each one parses JSON.
-        if len(rows) >= page_limit:
-            logger.info(
-                f"Database-wide 'SHOW {object_kind}' for {db_name} filled its "
-                f"{page_limit}-row page; falling back to per-schema queries, which "
-                "paginate reliably."
-            )
-            return None
-
-        grouped: Dict[str, List[_ShowRowT]] = {}
-        for row in rows:
-            grouped.setdefault(row["schema_name"], []).append(mapper(row))
-
-        return grouped
 
     def _get_views_for_database_using_show(
         self, db_name: str
@@ -1097,6 +1110,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
             try:
                 page = list(self.connection.query(query))
+            except SnowflakePermissionError:
+                # As in _probe_database_wide_show: a denial is reported by the caller as a
+                # permission error, which names the missing grant. Reporting it here as an
+                # incomplete listing would be true but far less actionable.
+                raise
             except Exception as e:
                 # Rows already yielded stand - a later page failing does not invalidate an
                 # earlier one - but the caller cannot tell a truncated schema from a small
