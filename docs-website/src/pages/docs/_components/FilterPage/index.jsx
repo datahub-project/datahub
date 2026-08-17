@@ -221,7 +221,7 @@ export function FilterPage(
       </Head>
       <header className={"hero"}>
         <div className="container">
-          <div className="hero__content">
+          <div className={clsx("hero__content", styles.heroContent)}>
             <div>
               <h1 className="hero__title">{title}</h1>
               <p className="hero__subtitle">{subtitle}</p>

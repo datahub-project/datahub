@@ -1,3 +1,16 @@
+// global.scss gives .hero 5vh of vertical padding and then .hero__content
+// another 2rem inside it, so the header carries both before a single card is
+// reached. Drop the inner one.
+//
+// Scoped here rather than fixed in global.scss because the Learn list page
+// uses .hero__content too and is not ours to restyle. The class is doubled to
+// out-specify global.scss's `.hero .hero__content` without resorting to
+// !important or depending on stylesheet order.
+:global(.hero) .heroContent.heroContent {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 // Sticks below the fixed navbar so the legend stays on screen while the cards
 // scroll past it. Sticky only engages while the rail is shorter than its grid
 // column, which is why the card grid sets `align-items: start`.

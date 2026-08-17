@@ -25,6 +25,14 @@
   }
 }
 
+// Infima pads .card__header with --ifm-card-vertical-spacing (1rem), which is
+// generous for a logo-plus-title header and makes the grid taller than it
+// needs to be. Scoped to these cards via a descendant selector so the value
+// wins on specificity rather than on stylesheet order.
+.feature :global(.card__header) {
+  padding: 0.5rem;
+}
+
 // Support Status Badge
 .supportBadge {
   position: absolute;
