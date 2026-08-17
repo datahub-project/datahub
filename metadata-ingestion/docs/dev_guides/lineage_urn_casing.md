@@ -185,6 +185,11 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   only those are found, preloaded or queried alike, and anything else is reported `UNRESOLVED`. A server
   that registers the aspect but has its `aliases` side effect switched off looks capable and heals
   nothing.
+- **Datasets ingested before the `aliases` aspect existed need the backfill.** They carry no alias until
+  it reaches them, so in the meantime they are findable only under their own URN: a reference is healed
+  only where the stored URN is already lowercase (the usual warehouse default), and one stored in any
+  other casing is reported `UNRESOLVED` until the backfill completes. Run it before reading a run's
+  `UNRESOLVED` count as broken lineage.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it (the normal order for scheduled pipelines). A
   reference whose target doesn't yet exist is left unchanged and self-heals once the warehouse is ingested
