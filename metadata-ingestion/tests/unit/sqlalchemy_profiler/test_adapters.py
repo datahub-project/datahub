@@ -1380,6 +1380,56 @@ class TestDatabricksAdapter:
         pattern = r"\bapprox_percentile\b.*\blatency\b.*\b0\.5\b"
         assert_sql_matches_pattern(sql, pattern)
 
+    def test_map_databricks_column_type_variant(self, adapter) -> None:
+        """VARIANT and other unknown types must not KeyError during reflection."""
+        from sqlalchemy.sql import sqltypes
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            map_databricks_column_type,
+        )
+
+        assert map_databricks_column_type("variant") is sqltypes.NullType
+        assert map_databricks_column_type("VARIANT") is sqltypes.NullType
+        assert map_databricks_column_type("decimal(10,2)") is not sqltypes.NullType
+        assert map_databricks_column_type("int") is sqltypes.Integer
+        assert map_databricks_column_type("timestamp_ntz") is sqltypes.NullType
+
+    def test_get_columns_tolerates_variant(
+        self, adapter, mock_databricks_engine
+    ) -> None:
+        """Dialect get_columns must succeed when a table has a VARIANT column."""
+        from sqlalchemy.sql import sqltypes
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "it_sbx"
+        dialect.schema = "gold"
+
+        class _Col:
+            TYPE_NAME = "variant"
+            COLUMN_NAME = "payload"
+            NULLABLE = 1
+            COLUMN_DEF = None
+            IS_AUTO_INCREMENT = "NO"
+
+        class _Cursor:
+            def columns(self, **kwargs: Any) -> "_Cursor":
+                return self
+
+            def fetchall(self) -> list:
+                return [_Col()]
+
+            def __enter__(self) -> "_Cursor":
+                return self
+
+            def __exit__(self, *args: Any) -> None:
+                return None
+
+        dialect.get_connection_cursor = lambda connection: _Cursor()
+        columns = dialect.get_columns(None, "events_with_variant")
+        assert len(columns) == 1
+        assert columns[0]["name"] == "payload"
+        assert columns[0]["type"] is sqltypes.NullType
+
 
 class TestTrinoAdapter:
     """Test cases for TrinoAdapter."""
