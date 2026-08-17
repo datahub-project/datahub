@@ -89,7 +89,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
         }
 
         const renderIcon = (
-            icon: React.ComponentType<any>,
+            icon: NonNullable<PillProps['leftIcon']>,
             onClick?: (e: React.MouseEvent<HTMLElement>) => void,
             ariaLabel?: string,
             testId?: string,

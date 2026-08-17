@@ -152,19 +152,6 @@ export const Card = ({
                             $size={size}
                             $collapsible={collapsible}
                             onClick={handleHeaderClick}
-                            role={collapsible ? 'button' : undefined}
-                            tabIndex={collapsible ? 0 : undefined}
-                            aria-expanded={collapsible ? isExpanded : undefined}
-                            onKeyDown={
-                                collapsible
-                                    ? (e) => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                              e.preventDefault();
-                                              handleExpandToggle();
-                                          }
-                                      }
-                                    : undefined
-                            }
                         >
                             {icon && <div style={iconStyles}>{icon}</div>}
 
