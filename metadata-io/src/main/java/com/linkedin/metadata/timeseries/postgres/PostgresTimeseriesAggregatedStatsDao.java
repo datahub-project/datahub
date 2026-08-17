@@ -465,6 +465,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     ranked.append(") AS _rn FROM (");
     ranked.append(inner);
     ranked.append(") _g) _r WHERE _rn <= ").append(stringGroupLimit);
+    ranked.append(" ORDER BY ").append(orderBy);
     return ranked.toString();
   }
 
