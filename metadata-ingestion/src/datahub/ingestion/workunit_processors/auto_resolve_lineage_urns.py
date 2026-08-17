@@ -91,6 +91,8 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
     num_refs_unresolved: int = 0  # In scope, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
+    # Per-URN schema fetch failed; table casing still healed, column casing left alone.
+    num_schema_fetches_failed: int = 0
     # Lineage aspect emitted as a PATCH (not UPSERT); can't be reconciled, so skipped.
     num_patch_lineage_skipped: int = 0
     num_workunits_with_lineage_aspect: int = 0
@@ -572,6 +574,9 @@ class AutoResolveLineageUrnsProcessor(
         know. Outside them nothing was loaded, so the columns are fetched. A slice whose
         load failed is not one we loaded, so its references fall through to the fetch
         rather than being told, wrongly, that DataHub has no columns for them.
+
+        A failed fetch answers None: columns are an enrichment on top of an identity that
+        is already resolved, so losing them must not unwind the reference itself.
         """
         for resolver in resolvers:
             schema = resolver.resolve_urn(urn)[1]
@@ -579,7 +584,12 @@ class AutoResolveLineageUrnsProcessor(
                 return schema
         if covered_by(urn, self._loaded_slices):
             return None
-        return self._graph_resolver_for(platform).resolve_urn(urn)[1]
+        try:
+            return self._graph_resolver_for(platform).resolve_urn(urn)[1]
+        except Exception:
+            self.report.num_schema_fetches_failed += 1
+            logger.debug(f"Failed to fetch schema for {urn}", exc_info=True)
+            return None
 
     def _graph_resolver_for(self, platform: str) -> "SchemaResolver":
         """A lazily-fetching SchemaResolver for `platform`.
