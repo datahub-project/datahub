@@ -1353,14 +1353,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                 final Set<Pair<Urn, String>> committedKeys = new HashSet<>();
                                 committedKeys.addAll(committedKeysOf(attempt.batchWriteResult));
 
-                                // (urn, aspect) pairs already recorded as failed. A terminally
-                                // validation-failing aspect on a URN that also has a conflicting
-                                // sibling is re-included in every scoped-retry sub-batch (scoped by
-                                // URN) and re-fails validation on each pass; without this guard the
-                                // same failure is appended — and, on the consumer path,
-                                // dead-letter-emitted — once per pass. Seed from the first pass so
-                                // a
-                                // pass-0 failure is not re-counted on a later pass.
+                                // (urn, aspect) pairs already recorded as failed. Dedups failures
+                                // across scoped-retry passes: a terminally validation-failing
+                                // aspect
+                                // on a URN whose sibling also conflicts is re-included in every
+                                // URN-scoped retry sub-batch and re-fails each pass, so without
+                                // this
+                                // guard it would be dead-lettered once per pass on the consumer
+                                // path.
+                                // Seeded from the first pass's failures.
                                 final Set<Pair<Urn, String>> seenFailedKeys =
                                     new HashSet<>(failedKeysOf(failedUpsertResults));
 
@@ -4015,21 +4016,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> failedResults) {
     return failedResults.stream()
         .map(failed -> Pair.of(failed.getFirst().getUrn(), failed.getFirst().getAspectName()))
-        .collect(Collectors.toSet());
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   /**
-   * Append only the failed results whose (urn, aspect) has not been recorded yet, updating {@code
-   * seenFailedKeys} in place. A scoped-retry sub-batch is scoped by URN, so an aspect that
-   * terminally fails validation is re-validated (and re-fails) on every pass while its conflicting
-   * sibling is retried; deduping by (urn, aspect) records that failure exactly once instead of once
-   * per pass (which on the consumer path would emit duplicate dead-letter events). Package-private
-   * for unit testing.
+   * Append only the failed results whose (urn, aspect) has not been recorded yet. A scoped-retry
+   * sub-batch is scoped by URN, so an aspect that terminally fails validation is re-validated (and
+   * re-fails) on every pass while its conflicting sibling is retried; deduping by (urn, aspect)
+   * records that failure exactly once instead of once per pass (which on the consumer path would
+   * emit duplicate dead-letter events). Package-private for unit testing.
+   *
+   * <p>Mutates both {@code accumulator} (appends the new failures) and {@code seenFailedKeys}
+   * (records every incoming key).
    */
   static void appendNewFailedResults(
-      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> accumulator,
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> accumulator, // mutated
       @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> incoming,
-      @Nonnull Set<Pair<Urn, String>> seenFailedKeys) {
+      @Nonnull Set<Pair<Urn, String>> seenFailedKeys) { // mutated
     // Suppress only keys recorded in EARLIER passes. Snapshot seenFailedKeys before this pass so
     // that two distinct items sharing a (urn, aspect) WITHIN this pass are both kept — matching the
     // un-deduped first-pass behavior — while a key that already failed in a prior pass is dropped.
@@ -4043,6 +4046,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       if (!priorPassKeys.contains(key)) {
         accumulator.add(failed);
       }
+      // Record unconditionally (no-op if already present) so a later pass sees this key as
+      // prior-seen and suppresses a repeat of it.
       seenFailedKeys.add(key);
     }
   }
