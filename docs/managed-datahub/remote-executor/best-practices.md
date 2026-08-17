@@ -32,7 +32,7 @@ The number of parallel tasks is capped by environment variables:
 In the DataHub-provided Helm chart these map to `datahub.executor_ingestions_workers` / `datahub.executor_monitors_workers`.
 If you raise the worker count, raise cores to match — otherwise tasks contend for CPU and every run gets slower.
 
-The general recommendation would be to assign cores to below formula:
+The general recommendation would be to assign cores to the below formula:
 ```
 1 + n + k
 ```
