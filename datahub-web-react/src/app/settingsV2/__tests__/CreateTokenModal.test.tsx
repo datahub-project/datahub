@@ -311,10 +311,7 @@ describe('CreateTokenModal', () => {
         });
 
         it('should not lock remote executor to Never when never-expire is disallowed', async () => {
-            renderWithRouter(
-                <CreateTokenModal {...defaultProps} forRemoteExecutor />,
-                noExpiryDisabledConfig,
-            );
+            renderWithRouter(<CreateTokenModal {...defaultProps} forRemoteExecutor />, noExpiryDisabledConfig);
 
             expect(screen.getByText('expires (P30D)')).toBeInTheDocument();
             expect(screen.queryByText('never')).not.toBeInTheDocument();
