@@ -313,12 +313,6 @@ raw alchemy palette imports, then:
 
 - Non-blocking note: use semantic theme tokens from `colorThemes/types.ts`.
 
-## Deprecated test stacks
-
-If a PR adds or extends tests under `smoke-test/tests/cypress/`, then:
-
-- Flag: Cypress is deprecated; new UI automation must use Playwright.
-
 ## Confidentiality
 
 Never suggest or invent customer-identifiable names, hostnames, account IDs, or
