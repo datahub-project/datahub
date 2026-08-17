@@ -297,7 +297,9 @@ describe('CreateTokenModal', () => {
 
             await waitFor(() => {
                 expect(mockCreateAccessToken).toHaveBeenCalledTimes(1);
-                const input = mockCreateAccessToken.mock.calls[0][0].variables.input;
+                const {
+                    variables: { input },
+                } = mockCreateAccessToken.mock.calls[0][0];
                 expect(input).toEqual(
                     expect.objectContaining({
                         name: 'finite-token',
@@ -327,7 +329,9 @@ describe('CreateTokenModal', () => {
 
             await waitFor(() => {
                 expect(mockCreateAccessToken).toHaveBeenCalledTimes(1);
-                const input = mockCreateAccessToken.mock.calls[0][0].variables.input;
+                const {
+                    variables: { input },
+                } = mockCreateAccessToken.mock.calls[0][0];
                 expect(input).toEqual(
                     expect.objectContaining({
                         durationIso: 'P30D',
