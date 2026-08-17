@@ -864,6 +864,37 @@ class TestJdbcSinkParserFactory:
 
         assert schema == "mps"
 
+    def test_extract_schema_from_url_oracle_mixed_case_schema_preserved(self) -> None:
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("oracle://host:1521/svc")
+
+        schema = factory._extract_schema_from_url(
+            url_instance, "oracle", {"schema.name": "MySchema"}
+        )
+
+        assert schema == "MySchema"
+
+    def test_create_parser_from_fields_mssql_defaults_to_dbo(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-mssql-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "connection.port": "1433",
+                "db.name": "targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "mssql")
+
+        assert parser.schema_name == "dbo"
+        assert parser.database_name == "targetdb"
+
     def test_create_parser_from_url_oracle_missing_schema_raises(self) -> None:
         manifest = ConnectorManifest(
             name="test-oracle-sink",

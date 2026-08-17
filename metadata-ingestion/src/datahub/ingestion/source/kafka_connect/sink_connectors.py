@@ -1022,11 +1022,8 @@ class JdbcSinkParserFactory:
 
         # Extract schema from config or use defaults
         schema_name = config.get("db.schema") or config.get("schema.name")
-
-        # Use platform-specific defaults if not specified
-        if not schema_name and has_three_level_hierarchy(platform):
-            if platform == "postgres":
-                schema_name = "public"  # PostgreSQL default schema
+        if not schema_name:
+            schema_name = self._default_schema_for_platform(platform)
 
         # Get table name format (how topics map to tables)
         table_name_format = config.get("table.name.format", "${topic}")
@@ -1083,27 +1080,32 @@ class JdbcSinkParserFactory:
         if not schema:
             schema = config.get("schema.name") or config.get("db.schema")
 
-        # Use platform-specific defaults
-        if not schema and has_three_level_hierarchy(platform):
-            if platform == "postgres":
-                schema = "public"
-            elif platform == "mssql":
-                schema = "dbo"
+        if not schema:
+            schema = self._default_schema_for_platform(platform)
 
-        # Oracle: connecting user = schema owner. Fold to lowercase to match the
-        # Oracle source's normalize_name convention. connection.user is a typed
-        # credential, not a name read back from Oracle, so mixed-case values
-        # (e.g. Mps) still need .lower() — Oracle folds unquoted identifiers to
-        # uppercase and the source then lowercases them.
+        # Oracle: connecting user = schema owner. Fold unquoted credentials to
+        # lowercase to match the Oracle source's normalize_name convention.
+        # connection.user is a typed credential, not a name read back from
+        # Oracle, so mixed-case values (e.g. Mps) still need .lower() — Oracle
+        # folds unquoted identifiers to uppercase and the source then
+        # lowercases them. Explicit schema.name / db.schema only fold when the
+        # value is ALL-UPPERCASE, so a quoted mixed-case schema is preserved.
         if not schema and platform == "oracle":
             raw = config.get("connection.user") or config.get("connection.username")
             if raw:
-                schema = raw
-
-        if schema and platform == "oracle":
+                schema = raw.lower()
+        elif schema and platform == "oracle" and schema.isupper():
             schema = schema.lower()
 
         return schema
+
+    @staticmethod
+    def _default_schema_for_platform(platform: str) -> Optional[str]:
+        if platform == "postgres":
+            return "public"
+        if platform == "mssql":
+            return "dbo"
+        return None
 
 
 @dataclass

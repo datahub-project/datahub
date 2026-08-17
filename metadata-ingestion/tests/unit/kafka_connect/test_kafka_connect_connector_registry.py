@@ -462,6 +462,37 @@ class TestConnectorRegistryGenericConnectors:
                 target_dataset="mps.my_table",
             )
 
+    def test_empty_target_dataset_is_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="target_dataset and target_platform"):
+            GenericConnectorConfig(
+                connector_name="my-oracle-sink",
+                source_platform="kafka",
+                source_dataset="my-topic",
+                target_dataset="",
+                target_platform="oracle",
+            )
+
+    def test_sink_generic_does_not_override_source_connector(self) -> None:
+        manifest = create_manifest(
+            SOURCE, "com.custom.CustomSource", name="my-custom-source"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-custom-source",
+            source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is None
+
 
 class TestConnectorRegistryUnknownTypes:
     """Test handling of unknown connector types."""

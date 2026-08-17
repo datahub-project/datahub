@@ -4699,6 +4699,27 @@ class TestPlatformDetection:
         )
         assert platform == "db2"
 
+    def test_extract_platform_from_jdbc_url_unknown_vendor_stays_unknown(self) -> None:
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:mycompany://localhost:1234/mydb",
+        }
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:mycompany://localhost:1234/mydb"
+        )
+        assert platform == "unknown"
+
     def test_extract_platform_from_invalid_jdbc_url(self) -> None:
         """Test platform extraction for invalid JDBC URL returns 'unknown'."""
         connector_config = {

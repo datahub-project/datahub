@@ -190,7 +190,15 @@ class ConnectorRegistry:
         elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
             return MongoSourceConnector(manifest, config, report)
 
-        return ConnectorRegistry._generic_connector_for_name(manifest, config, report)
+        generic = ConnectorRegistry._generic_connector_for_name(
+            manifest, config, report
+        )
+        if generic and not (
+            generic.generic_config.target_dataset
+            or generic.generic_config.target_platform
+        ):
+            return generic
+        return None
 
     @staticmethod
     def _get_sink_connector(

@@ -159,7 +159,9 @@ class GenericConnectorConfig(ConfigModel):
 
     @model_validator(mode="after")
     def target_fields_together(self) -> "GenericConnectorConfig":
-        if (self.target_dataset is None) != (self.target_platform is None):
+        if self.target_dataset is None and self.target_platform is None:
+            return self
+        if not self.target_dataset or not self.target_platform:
             raise ValueError(
                 "target_dataset and target_platform must be provided together"
             )

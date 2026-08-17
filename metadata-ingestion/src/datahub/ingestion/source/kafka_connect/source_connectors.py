@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Final, FrozenSet, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import make_url
 
@@ -39,6 +39,13 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
+
+# JDBC subprotocols the SQLAlchemy mapper does not recognize but that are real
+# DataHub platforms. Anything else falls through as "unknown" so a mistyped URL
+# cannot invent a lineage platform.
+_JDBC_PROTOCOL_PLATFORM_FALLBACK: Final[FrozenSet[str]] = frozenset(
+    {"db2", "teradata", "cassandra"}
+)
 
 
 @dataclass(frozen=True)
@@ -1471,9 +1478,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             protocol = normalized[:protocol_end].lower()
             if protocol == "postgresql":
                 return "postgres"
-            if not protocol or protocol == "unknown":
-                return "unknown"
-            return protocol
+            if protocol in _JDBC_PROTOCOL_PLATFORM_FALLBACK:
+                return protocol
+            return "unknown"
         except Exception:
             return "unknown"
 
