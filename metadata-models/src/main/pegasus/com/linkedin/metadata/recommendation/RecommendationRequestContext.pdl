@@ -12,8 +12,8 @@ record RecommendationRequestContext {
 
   /**
    * List of recommendation modules to fetch.
-     When set, acts as an additional filter to selectively load modules for a given scenario.
-     Does NOT take precedence over scenario.
+   * When set, acts as an additional filter to selectively load modules for a given scenario.
+   * Does NOT take precedence over scenario.
    */
   modules: optional array[RecommendationModuleID]
 
