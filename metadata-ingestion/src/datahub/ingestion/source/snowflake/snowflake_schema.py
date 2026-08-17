@@ -1083,7 +1083,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         views it is ignored and every page repeats the first - so termination is decided by
         whether a full page yielded a name not already seen. Deliberately not by comparing
         markers: that re-derives Snowflake's collation in Python and could call a working
-        cursor stalled on mixed-case identifiers. A short result plus a warning beats a hang.
+        cursor stalled on mixed-case identifiers. A short result plus a failure beats a hang.
         """
         context = f"{db_name}.{schema_name}"
         seen_names: Set[str] = set()
@@ -1102,10 +1102,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 # earlier one - but the caller cannot tell a truncated schema from a small
                 # one, so the count has to be reported. Handled here so views, streams and
                 # dynamic tables share one policy.
-                self.report.warning(
-                    message=f"Paginated 'SHOW {object_kind}' failed for schema; "
+                #
+                # failure, not warning: this returns a knowingly incomplete object list, and
+                # stale-entity removal only skips soft-deletion when the source reported a
+                # failure (stale_entity_removal_handler: `if self.report.failures`). A warning
+                # would let the schema's missing objects be soft-deleted as if they were gone
+                # from Snowflake - and the fail-safe threshold (75% by default) is far too
+                # coarse to catch one schema out of hundreds.
+                self.report.failure(
+                    message="Paginated 'SHOW' failed for schema; "
                     "results may be incomplete",
-                    context=f"{context} (kept {len(seen_names)})",
+                    context=f"SHOW {object_kind} in {context} (kept {len(seen_names)})",
                     exc=e,
                 )
                 return
@@ -1123,11 +1130,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 return
 
             if new_in_page == 0:
-                self.report.warning(
-                    message=f"Paginated 'SHOW {object_kind}' stopped early because "
-                    "Snowflake did not honour the pagination cursor; some objects "
-                    "may be missing.",
-                    context=f"{context} after {marker}",
+                # Same incompleteness, same severity as the failed-page case above: a cursor
+                # Snowflake ignores leaves objects unlisted, so soft-deletion must not run.
+                self.report.failure(
+                    message="Paginated 'SHOW' stopped early because Snowflake did not "
+                    "honour the pagination cursor; some objects may be missing.",
+                    context=f"SHOW {object_kind} in {context} after {marker}",
                 )
                 return
 

@@ -37,14 +37,20 @@ DYNAMIC_TABLES = SnowflakeShowKind.DYNAMIC_TABLES
 # connector can ask for - a new kind cannot be paged without this fixture understanding it.
 _KINDS = "|".join(kind.value for kind in SnowflakeShowKind)
 
-SHOW_IN_SCHEMA = re.compile(
-    rf'SHOW (?P<kind>{_KINDS}) IN SCHEMA "(?P<db>[^"]+)"\."(?P<schema>[^"]+)"'
+# The object name is captured loosely, up to the LIMIT that every SHOW this fake sees
+# carries, so that a badly quoted identifier reaches _parse_identifiers as a hard error
+# rather than failing the match and being answered with an empty result set.
+SHOW_IN_SCHEMA = re.compile(rf"SHOW (?P<kind>{_KINDS}) IN SCHEMA (?P<name>.+?) LIMIT ")
+SHOW_IN_DATABASE = re.compile(
+    rf"SHOW (?P<kind>{_KINDS}) IN DATABASE (?P<name>.+?) LIMIT "
 )
-SHOW_IN_DATABASE = re.compile(rf'SHOW (?P<kind>{_KINDS}) IN DATABASE "(?P<db>[^"]+)"')
 LIMIT_CLAUSE = re.compile(r"LIMIT (?P<limit>\d+)")
 # Spans the whole literal, including any doubled quotes, so that a badly escaped marker is
 # visible to _parse_marker rather than being silently truncated at the first quote.
 FROM_CLAUSE = re.compile(r"FROM '(?P<marker>.*)'\s*;", re.DOTALL)
+# A double-quoted identifier: any run of non-quote characters, with a literal quote
+# written doubled.
+LEADING_QUOTED_IDENTIFIER = re.compile(r'"((?:[^"]|"")*)"')
 
 
 def _parse_marker(query: str) -> Optional[str]:
@@ -62,6 +68,30 @@ def _parse_marker(query: str) -> Optional[str]:
     if "'" in literal.replace("''", ""):
         raise ValueError(f"Malformed SQL - unescaped quote in literal: {query!r}")
     return literal.replace("''", "'").replace("\\\\", "\\")
+
+
+def _parse_identifiers(name: str, query: str) -> List[str]:
+    """Split a dot-qualified quoted identifier the way Snowflake would.
+
+    The counterpart to _parse_marker, for the other escaping rule the same statement
+    relies on: inside a double-quoted identifier a literal quote is written doubled, and
+    a bare one ends the identifier early - a syntax error to Snowflake, so a hard error
+    here too. A fake that instead read a truncated schema name would let the connector
+    ship a statement Snowflake rejects and still pass.
+    """
+    identifiers: List[str] = []
+    rest = name
+    while True:
+        match = LEADING_QUOTED_IDENTIFIER.match(rest)
+        if match is None:
+            raise ValueError(f"Malformed SQL - bad quoted identifier in: {query!r}")
+        identifiers.append(match.group(1).replace('""', '"'))
+        rest = rest[match.end() :]
+        if not rest:
+            return identifiers
+        if not rest.startswith("."):
+            raise ValueError(f"Malformed SQL - bad quoted identifier in: {query!r}")
+        rest = rest[1:]
 
 
 def _row(kind: SnowflakeShowKind, schema_name: str, name: str) -> Dict[str, Any]:
@@ -142,13 +172,11 @@ class FakeShowConnection:
         in_database = SHOW_IN_DATABASE.search(effective)
         if in_schema:
             kind = SnowflakeShowKind(in_schema.group("kind"))
-            rows = [
-                o
-                for o in self._objects.get(kind, [])
-                if o[0] == in_schema.group("schema")
-            ]
+            _, schema = _parse_identifiers(in_schema.group("name"), effective)
+            rows = [o for o in self._objects.get(kind, []) if o[0] == schema]
         elif in_database:
             kind = SnowflakeShowKind(in_database.group("kind"))
+            _parse_identifiers(in_database.group("name"), effective)
             rows = list(self._objects.get(kind, []))
         else:
             # Non-SHOW metadata queries (e.g. the dynamic-table graph history) play no
@@ -382,8 +410,27 @@ def test_per_schema_paging_survives_an_object_name_needing_escaping(
     )
 
 
+def test_per_schema_paging_escapes_a_schema_name_containing_a_quote():
+    """The other half of the escaping the same statement depends on. A quoted Snowflake
+    identifier may contain a quote, doubled - so a schema named a"b closes the identifier
+    early unless escaped, and the statement is rejected. The fake enforces that rule (see
+    _parse_identifiers), so an unescaped identifier fails here rather than silently
+    reading a truncated schema name."""
+    schema = 'SCHEMA"A'
+    connection = FakeShowConnection(
+        {VIEWS: [(schema, "view_a"), ("SCHEMA_B", "view_b")]}
+    )
+
+    views = _make_data_dictionary(connection).get_views_for_schema_using_show(
+        db_name='TEST"DB', schema_name=schema
+    )
+
+    assert [v.name for v in views] == ["view_a"]
+    assert 'IN SCHEMA "TEST""DB"."SCHEMA""A"' in connection.show_queries(VIEWS)[0]
+
+
 def test_per_schema_paging_stops_when_the_cursor_does_not_advance():
-    """A broken cursor must produce a bounded, duplicate-free result plus a warning --
+    """A broken cursor must produce a bounded, duplicate-free result plus a failure --
     never an endless loop. Observed live against INFORMATION_SCHEMA views."""
     connection = IgnoresFromClauseConnection(
         {
@@ -403,7 +450,11 @@ def test_per_schema_paging_stops_when_the_cursor_does_not_advance():
     assert len(names) == len(set(names)) == SHOW_COMMAND_MAX_PAGE_SIZE
     issued = connection.show_queries(VIEWS)
     assert len(issued) == 2
-    assert data_dictionary.report.warnings
+    # Must be a failure, not a warning: the result is knowingly short, and stale-entity
+    # removal only skips soft-deletion when the source reported a failure. Asserting the
+    # severity is the point - a warning here would soft-delete the objects left unlisted.
+    assert data_dictionary.report.failures
+    assert not data_dictionary.report.warnings
     # The recorded statement is what the connector built, not what this fake pretended
     # Snowflake acted on: page 2 did carry a cursor, and the server disregarded it.
     assert "FROM '" in issued[1], (
@@ -502,7 +553,7 @@ def test_a_failed_dynamic_table_fetch_is_reported_not_only_logged():
         {"SCHEMA_A": [_dynamic_table("dt_a")]}, "TEST_DB"
     )
 
-    messages = [w.message for w in data_dictionary.report.warnings]
+    messages = [f.message for f in data_dictionary.report.failures]
     # Assert the per-schema handler specifically. The database-wide failure warns first, so
     # a bare `assert report.warnings` passes even with the terminal handler silenced - which
     # is the handler that actually loses data.
@@ -545,7 +596,7 @@ def test_a_mid_paging_failure_reports_how_many_rows_were_kept():
     )
 
     assert len(tables) == SHOW_COMMAND_MAX_PAGE_SIZE, "page 1 should still be salvaged"
-    reported = " ".join(str(w) for w in data_dictionary.report.warnings)
+    reported = " ".join(str(f) for f in data_dictionary.report.failures)
     assert f"kept {SHOW_COMMAND_MAX_PAGE_SIZE}" in reported, (
         f"the kept row count must be reported; got {reported!r}"
     )
