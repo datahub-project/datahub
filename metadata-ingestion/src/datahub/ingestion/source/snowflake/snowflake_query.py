@@ -11,6 +11,9 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 logger = logging.getLogger(__name__)
@@ -582,7 +585,10 @@ class SnowflakeQuery:
         https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
         """
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-        return f"""SHOW {kind} IN DATABASE "{db_name}" LIMIT {limit};"""
+        database = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database(
+            db_name
+        )
+        return f"""SHOW {kind} IN DATABASE {database} LIMIT {limit};"""
 
     @staticmethod
     def show_objects_for_schema(
@@ -605,10 +611,13 @@ class SnowflakeQuery:
         from_clause = (
             f"""FROM '{_escape_sql_string_literal(marker)}'""" if marker else ""
         )
-        return (
-            f"""SHOW {kind} IN SCHEMA "{db_name}"."{schema_name}" """
-            f"""LIMIT {limit} {from_clause};"""
+        # The identifiers need escaping for the same reason, by the other rule: inside a
+        # double-quoted identifier a literal quote is doubled, so a schema named a"b
+        # closes the identifier early without this.
+        schema = SnowflakeIdentifierBuilder.get_quoted_identifier_for_schema(
+            db_name, schema_name
         )
+        return f"""SHOW {kind} IN SCHEMA {schema} LIMIT {limit} {from_clause};"""
 
     @staticmethod
     def show_views_for_database(
