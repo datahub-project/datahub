@@ -202,16 +202,11 @@ class AutoResolveLineageUrnsProcessor(
                 if entry.platform_instance
             ],
         )
-        # The catalogs this processor reads up front, and so the entities whose schemas
-        # it holds locally. See _schema_of.
-        self._own_slices: List[CatalogSlice] = [
-            CatalogSlice(
-                platform=entry.platform,
-                platform_instance=entry.platform_instance,
-                env=entry.env,
-            )
-            for entry in self._config
-        ]
+        # The catalogs this processor actually read, and so the entities whose schemas it
+        # holds locally. Filled by _load_catalogs per scroll that finished, never from
+        # the config: a slice whose load failed holds nothing, and claiming it would
+        # suppress the per-URN fallbacks that make up for it. See _schema_of.
+        self._loaded_slices: List[CatalogSlice] = []
         # Resolve the sqlglot-backed schema_resolver callables once, here — a single
         # honest chokepoint rather than imports buried in two leaf methods. Deferred into
         # __init__ (not module level) so importing this module stays sqlglot-free
@@ -434,6 +429,10 @@ class AutoResolveLineageUrnsProcessor(
         ``resolve_urn`` calls in _resolve_dataset stay local. It also fills the shared
         URN alias index, which is what makes identity answerable without a round trip.
 
+        One scroll per configured entry, each standing or falling on its own: a platform
+        configured for several instances keeps the ones that loaded, and only the slices
+        that scrolled to completion are recorded as held locally.
+
         Driven by ``upstream_platforms`` alone, so widening scope adds references
         answered per URN rather than changing what is read here.
         """
@@ -449,29 +448,46 @@ class AutoResolveLineageUrnsProcessor(
                 f"reconciliation; this may take a while on large warehouses..."
             )
             resolvers: List[SchemaResolver] = []
-            try:
-                for entry in entries:
-                    resolvers.append(
-                        self._provide_schema_resolver(
-                            graph=self._graph,
-                            platform=entry.platform,
-                            platform_instance=entry.platform_instance,
-                            env=entry.env,
-                        )
+            for entry in entries:
+                try:
+                    resolver = self._provide_schema_resolver(
+                        graph=self._graph,
+                        platform=entry.platform,
+                        platform_instance=entry.platform_instance,
+                        env=entry.env,
                     )
-            except Exception as e:
-                # A catalog-load failure must not crash the pipeline: report it and leave
-                # the platform unloaded, so its references are emitted unchanged.
-                self.ctx.source_report.warning(
-                    title="Lineage URN casing: upstream catalog not loaded",
-                    message="Failed to bulk-load an upstream platform's catalog from "
-                    "DataHub; references to it are emitted unchanged.",
-                    context=platform,
-                    exc=e,
+                except Exception as e:
+                    # A catalog-load failure must not crash the pipeline: report it and
+                    # leave the slice unloaded, so its references are emitted unchanged.
+                    # Scoped to the entry that failed, so a sibling instance or env that
+                    # loaded stays usable.
+                    self.ctx.source_report.warning(
+                        title="Lineage URN casing: upstream catalog not loaded",
+                        message="Failed to bulk-load an upstream platform's catalog "
+                        "from DataHub; references to it are emitted unchanged.",
+                        context=f"{entry.platform}, platform_instance="
+                        f"{entry.platform_instance}, env={entry.env}",
+                        exc=e,
+                    )
+                    continue
+                resolvers.append(resolver)
+                # Recorded only now the scroll has finished, which is what lets
+                # _schema_of read a column miss here as an answer rather than a gap.
+                self._loaded_slices.append(
+                    CatalogSlice(
+                        platform=entry.platform,
+                        platform_instance=entry.platform_instance,
+                        env=entry.env,
+                    )
                 )
+            if not resolvers:
+                # Nothing loaded for this platform, so it stays absent from
+                # _resolvers_by_platform and out of scope. The warnings above already
+                # said why; a "loaded 0 URNs" line on top would only be noise.
                 continue
             # The resolver caches are held for the pipeline's lifetime; log their size,
-            # escalating to WARNING once large enough to matter.
+            # escalating to WARNING once large enough to matter. Summed across the
+            # platform's slices, since their combined disk use is what matters.
             # Read from the load rather than the stores: get_urns() is derived from the
             # schema cache, which omits entities that have no schemaMetadata.
             cache_count = sum(
@@ -523,11 +539,12 @@ class AutoResolveLineageUrnsProcessor(
         # the lowercase-named entity rather than leaving the lineage broken.
         # within: the index is shared per DataHub instance, so it can hold entities some
         # other consumer loaded — a platform_instance or env this run was not configured
-        # for. Confining the answer to our own slices keeps the reference inside what the
-        # operator asked for, and keeps identity paired with the columns we hold: anything
-        # we resolve to, we loaded, so _schema_of finds its schema whenever it has one.
-        # Widened, there is nothing to confine it to and columns come from the graph.
-        within = None if self._resolve_all_platforms else self._own_slices
+        # for. Confining the answer to the slices we loaded keeps the reference inside
+        # what the operator asked for, and keeps identity paired with the columns we hold:
+        # anything we resolve to, we loaded, so _schema_of finds its schema whenever it
+        # has one. Widened, there is nothing to confine it to and columns come from the
+        # graph.
+        within = None if self._resolve_all_platforms else self._loaded_slices
         resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True, within=within)
         if resolved is None:
             # In scope but no single existing entity matched: leave the URN unchanged
@@ -549,15 +566,17 @@ class AutoResolveLineageUrnsProcessor(
         env), so its resolvers are tried in turn; only the one whose slice holds `urn`
         can answer, so the first hit is the only hit.
 
-        Inside a slice we preloaded, a miss is the answer — that load fetched every
-        schema the slice holds — so asking the server would spend a round trip on
-        something we know. Outside them nothing was loaded, so the columns are fetched.
+        Inside a slice we loaded, a miss is the answer — that load fetched every schema
+        the slice holds — so asking the server would spend a round trip on something we
+        know. Outside them nothing was loaded, so the columns are fetched. A slice whose
+        load failed is not one we loaded, so its references fall through to the fetch
+        rather than being told, wrongly, that DataHub has no columns for them.
         """
         for resolver in resolvers:
             schema = resolver.resolve_urn(urn)[1]
             if schema is not None:
                 return schema
-        if covered_by(urn, self._own_slices):
+        if covered_by(urn, self._loaded_slices):
             return None
         return self._graph_resolver_for(platform).resolve_urn(urn)[1]
 
