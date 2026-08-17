@@ -55,7 +55,7 @@ average of a single run: `n` warehouse ingestions scheduled together can momenta
 Because of this, **Stagger large ingestions.** Schedule big warehouse runs so they don't overlap. This is the simplest 
 and most effective lever — two 6 GB runs an hour apart need 6 GB of headroom; the same two at once need 12 GB.
 
-Note that the executor itself consume some memory, as well as Observe tasks which are run.
+Note that the executor itself consumes some memory, as does each running Observe task.
 
 
 ### Storage
