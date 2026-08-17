@@ -363,10 +363,12 @@ def merge_additive_aspects(
         aspect = src_aspects["upstreamLineage"]
         assert isinstance(aspect, UpstreamLineageClass)
         has_lineage = bool(aspect.upstreams) or bool(aspect.fineGrainedLineages)
-        # JSON PATCH against a missing aspect is a no-op in GMS (it logs
-        # "Did not find ... aspect: upstreamLineage version: 0" and never
-        # writes). UPSERT creates the aspect; PATCH is only for unioning
-        # into lineage that already exists. Empty source lineage is a no-op.
+        # DatasetPatchBuilder lineage PATCH is a GMS no-op when the target has
+        # no upstreamLineage: it is a plain JSON Patch (no GenericJsonPatch /
+        # arrayPrimaryKeys), and GMS never writes. Ownership, globalTags, and
+        # glossaryTerms PATCH through GenericJsonPatch + aspect templates, which
+        # create the aspect from a default. UPSERT is lineage-only. Empty source
+        # lineage is a no-op; PATCH is only for unioning into existing lineage.
         if has_lineage:
             existing_lineage = graph.get_aspect(dst_urn, UpstreamLineageClass)
             if existing_lineage is None:
