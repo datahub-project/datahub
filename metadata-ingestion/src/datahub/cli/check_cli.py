@@ -534,13 +534,18 @@ def get_kafka_consumer_offsets() -> None:
         "Total Lag",
     ]
 
-    for consumer_type, consumers in result.items():
-        if not isinstance(consumers, dict):
+    for consumer_type, payload in result.items():
+        if not isinstance(payload, dict):
             continue
-        if "consumerGroupId" in consumers:
-            # Some servers return {"consumerGroupId": ..., "topics": {...}} instead of
-            # the {consumer group: {topic: ...}} map.
-            consumers = {consumers["consumerGroupId"]: consumers.get("topics", {})}
+        if "consumerGroups" in payload:
+            # /openapi/operations/messaging envelope: {"transport": ..., "consumerGroups": {group: {topic: ...}}}
+            consumers = payload["consumerGroups"]
+        elif "consumerGroupId" in payload:
+            # /openapi/operations/kafka object format: {"consumerGroupId": ..., "topics": {topic: ...}}
+            consumers = {payload["consumerGroupId"]: payload.get("topics", {})}
+        else:
+            # /openapi/operations/kafka map format: {group: {topic: ...}}
+            consumers = payload
         for consumer_group, topics in consumers.items():
             for topic, data in topics.items():
                 metrics = data.get("metrics", {})
