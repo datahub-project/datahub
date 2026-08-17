@@ -90,7 +90,7 @@ public class IncidentService extends BaseService {
         opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.INCIDENTS_SUMMARY_ASPECT_NAME, newSummary),
-        false);
+        true);
   }
 
   /**
@@ -239,7 +239,7 @@ public class IncidentService extends BaseService {
     this.entityClient.ingestProposal(
         opContext,
         AspectUtils.buildMetadataChangeProposal(urn, Constants.INCIDENT_INFO_ASPECT_NAME, newInfo),
-        false);
+        true);
     return urn;
   }
 
@@ -266,7 +266,7 @@ public class IncidentService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               urn, Constants.INCIDENT_INFO_ASPECT_NAME, existingInfo),
-          false);
+          true);
     } else {
       throw new IllegalArgumentException(
           String.format("Failed to find incident with urn %s. Incident may not exist!", urn));
