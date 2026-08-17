@@ -47,11 +47,19 @@ sourceSets {
 // the Spark 4 / Scala 2.13 test dependencies are not part of the shipped artifact and shouldn't
 // enter the production lockfile — mirroring the detached-configuration approach used for the
 // per-Scala shadow jars.
+// The root build forces kafka-clients to ${kafkaVersion}-ccs (Kafka 4.x) repo-wide, but Spark 4.0's
+// spark-sql-kafka-0-10 is compiled against 3.9 and every streaming query then dies with
+// NoSuchMethodError on DescribeTopicsResult.all(). Pin this test-only classpath back to the version
+// the connector expects — same "align with Spark, not the repo" reasoning as the antlr force below.
+def sparkSmoke4KafkaClients = 'org.apache.kafka:kafka-clients:3.9.0'
+
 configurations.sparkSmoke4RuntimeClasspath {
   resolutionStrategy.force 'org.antlr:antlr4-runtime:4.13.1'
+  resolutionStrategy.force sparkSmoke4KafkaClients
   resolutionStrategy.deactivateDependencyLocking()
 }
 configurations.sparkSmoke4CompileClasspath {
+  resolutionStrategy.force sparkSmoke4KafkaClients
   resolutionStrategy.deactivateDependencyLocking()
 }
 
@@ -159,6 +167,18 @@ dependencies {
   // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),
   // so only Spark 4 itself and JUnit are needed to compile/run the test.
   sparkSmoke4Implementation "org.apache.spark:spark-sql_2.13:4.0.0"
+  // Structured-streaming Kafka source, a real broker, and — transitively — the *unshaded*
+  // kafka-clients that both Kafka tests need: ShadedReflectionClassNameTest wants a genuine
+  // org.apache.kafka.common.TopicPartition, and KafkaStreamingLineageTest drives the whole read path
+  // end to end (issue #19005).
+  //
+  // Deliberately NOT pinned to the repo's kafkaVersion: Spark 4.0's connector is compiled against
+  // kafka-clients 3.9, and forcing a 4.x client onto this classpath makes every streaming query fail
+  // with NoSuchMethodError on DescribeTopicsResult.all(). Let the connector choose its own client,
+  // which is also what a real deployment has.
+  sparkSmoke4Implementation "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0"
+  sparkSmoke4Implementation externalDependency.testContainersKafka
+  sparkSmoke4Implementation externalDependency.testContainersJunit
   // Align jupiter-api/engine + platform-launcher via the BOM (a custom source set doesn't get
   // Gradle's auto-aligned launcher, which otherwise fails discovery with "OutputDirectoryProvider
   // not available").
@@ -192,6 +212,23 @@ scalaVersions.each { sv ->
     archiveClassifier = 'javadoc'
     archiveBaseName = "acryl-spark-lineage_${sv}"
     from javadoc.destinationDir
+  }
+}
+
+// Paths (without the .class suffix) of the OpenLineage classes we vendor under
+// src/main/java/io/openlineage. A ShadowJar writes both our copy and openlineage-spark's copy at the
+// same path — Gradle's default duplicates strategy is INCLUDE — and the JVM resolves the LAST entry,
+// which is the dependency's. Dropping the upstream copies is what actually makes the documented
+// "project classes beat dependency classes" override work; without it every patch under
+// patches/datahub-customizations/ is silently inert in the shipped jar.
+//
+// Deliberately scoped to the classes we vendor rather than setting duplicatesStrategy = EXCLUDE
+// globally: the jar also contains ~500 dependency-vs-dependency duplicates (antlr runtime and
+// friends) whose current last-wins resolution the relocations added in #14989 rely on.
+def vendoredOpenLineageClassPaths = [] as Set
+fileTree("$projectDir/src/main/java").matching { include 'io/openlineage/**/*.java' }.visit { details ->
+  if (!details.directory) {
+    vendoredOpenLineageClassPaths << details.path.replaceAll(/\.java$/, '')
   }
 }
 
@@ -239,9 +276,16 @@ scalaVersions.each { sv ->
     scalaConfig.canBeResolved = true
     inputs.files(scalaConfig)
     // Manually add resolved dependencies from scalaConfig during task execution
-    doFirst {
-      scalaConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-        from zipTree(artifact.file)
+    // Passed as a closure so the artifacts resolve at execution time (avoiding eager resolution at
+    // configuration time) while the child spec carrying the exclude below is still created during
+    // configuration — Gradle rejects child specs added from doFirst.
+    from({ scalaConfig.resolvedConfiguration.resolvedArtifacts.collect { zipTree(it.file) } }) {
+      // Paths here are pre-relocation (straight out of the dependency jar), so match on the
+      // canonical io/openlineage/... names. Inner classes ($1, $Mixin, …) go with their outer class.
+      exclude { details ->
+        !details.directory && vendoredOpenLineageClassPaths.any { vendored ->
+          details.path == "${vendored}.class" || details.path.startsWith("${vendored}\$")
+        }
       }
     }
 
@@ -265,14 +309,36 @@ scalaVersions.each { sv ->
     }
 
     exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
-    exclude '**/libzstd-jni.*'
+
+    // Do not ship JNI-backed libraries. Their native binaries export symbols compiled under the
+    // canonical package name (Java_org_xerial_snappy_*, Java_com_github_luben_zstd_*, …), which
+    // shading cannot rewrite — the same trap as io.openlineage.sql in issue #18558. Relocating them
+    // produced UnsatisfiedLinkError the moment a user enabled compression on the Kafka emitter via
+    // spark.datahub.kafka.producer_config.compression.type. Spark supplies all of these itself
+    // (snappy-java, zstd-jni and an lz4-java fork), so the agent drops its copies and the relocation
+    // rules below are omitted, leaving the bundled Kafka client's references at the canonical names.
+    // NOTE: excluding the classes alone is not enough — without also dropping the relocation the
+    // shaded Kafka client keeps referencing io.acryl.shaded.* and fails with NoClassDefFoundError.
+    exclude 'org/xerial/snappy/**'      // snappy-java  (Java_org_xerial_snappy_*)
+    exclude 'net/jpountz/**'            // lz4-java     (Java_net_jpountz_*)
+    exclude 'com/github/luben/zstd/**'  // zstd-jni     (Java_com_github_luben_zstd_*)
+    exclude 'com/sun/jna/**'            // JNA          (Java_com_sun_jna_*); nothing here referenced it
+    // zstd-jni ships its natives at the jar root (<os>/<arch>/libzstd-jni-<version>.so), so they are
+    // not covered by the package exclude above. The previous pattern used a literal '.' and therefore
+    // never matched the real filenames.
+    exclude '**/libzstd-jni*'
     exclude '**/com_github_luben_zstd_*'
 
 
     // Apply all the relocations
     relocate 'avro.com', 'io.acryl.shaded.avro.com'
     relocate 'org.json', 'io.acryl.shaded.org.json'
-    relocate 'com.github', 'io.acryl.shaded.com.github'
+    relocate('com.github', 'io.acryl.shaded.com.github') {
+      // zstd-jni is JNI-backed: its natives export Java_com_github_luben_zstd_*, which shading cannot
+      // rewrite. Not bundled at all (excluded above) — Spark supplies it — so the Kafka client must
+      // reference it at its canonical name. See the JNI note by the excludes.
+      exclude 'com.github.luben.zstd.**'
+    }
     relocate 'avroutil1', 'io.acryl.shaded.avroutil1'
     relocate 'com.sun.activation', 'io.acryl.shaded.com.sun.activation'
     relocate 'com.sun.codemodel', 'io.acryl.shaded.com.sun.codemodel'
@@ -316,7 +382,8 @@ scalaVersions.each { sv ->
     relocate 'com.github.benmanes.caffeine', 'io.acryl.shaded.com.github.benmanes.caffeine'
     relocate 'org.checkerframework', 'io.acryl.shaded.org.checkerframework'
     relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
-    relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
+    // NOTE: com.sun.jna, net.jpountz and org.xerial are deliberately NOT relocated — see the
+    // JNI-backed exclusions above. Relocating them breaks native symbol resolution.
 
     // Additional relocations to prevent classloading conflicts (issue #14989)
     relocate 'antlr', 'io.acryl.shaded.antlr'
@@ -326,15 +393,22 @@ scalaVersions.each { sv ->
     relocate 'org.eclipse.jetty', 'io.acryl.shaded.org.eclipse.jetty'
     relocate 'jakarta.json', 'io.acryl.shaded.jakarta.json'
     relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
-    relocate 'net.jpountz', 'io.acryl.shaded.net.jpountz'
-    relocate 'org.xerial', 'io.acryl.shaded.org.xerial'
+    // net.jpountz (lz4-java) and org.xerial (snappy-java) intentionally omitted here: both are
+    // JNI-backed and excluded from the jar instead. See the JNI-backed exclusions above.
     relocate 'software.amazon', 'io.acryl.shaded.software.amazon'
     relocate 'nonapi.io', 'io.acryl.shaded.nonapi.io'
     relocate 'org.publicsuffix', 'io.acryl.shaded.org.publicsuffix'
     relocate 'io.swagger', 'io.acryl.shaded.io.swagger'
     relocate 'io.micrometer', 'io.acryl.shaded.io.micrometer'
     relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
-    relocate 'io.github', 'io.acryl.shaded.io.github'
+    relocate('io.github', 'io.acryl.shaded.io.github') {
+      // spark-redshift-community is compileOnly: never bundled here, always supplied at runtime by
+      // the user's Spark classpath. Relocating it rewrote both the loadClass() name constants in
+      // RedshiftRelationVisitor/Constants/RedshiftVendor and their checkcast targets to a class that
+      // exists nowhere, so isDefinedAt() silently returned false forever and Redshift relation
+      // lineage was never emitted (issue #19005).
+      exclude 'io.github.spark_redshift_community.**'
+    }
     relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
     relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
 

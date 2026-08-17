@@ -1,0 +1,28 @@
+# Patch for DataHub customizations in TopicPartitionProxy.java
+# Upstream version: OpenLineage 1.50.0
+# Generated: 2026-08-17 11:26:27 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/TopicPartitionProxy.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.50.0/spark/agent/lifecycle/plan/TopicPartitionProxy.java	2026-08-17 13:25:55.186103652 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/lifecycle/plan/TopicPartitionProxy.java	2026-08-17 13:26:05.204581209 +0200
+@@ -17,7 +17,17 @@
+  */
+ @Slf4j
+ public final class TopicPartitionProxy {
+-  private static final String EXPECTED_CLASS_NAME = "org.apache.kafka.common.TopicPartition";
++  // DataHub customization (issue #19005): assembled at runtime rather than written as a single
++  // literal. The shadow-jar relocator rewrites string constants in the constant pool, so as one
++  // literal this became "io.acryl.shaded.org.apache.kafka.common.TopicPartition" — while the
++  // TopicPartition instances in KafkaSourceOffset.partitionToOffsets come from Spark's own
++  // spark-sql-kafka-0-10 at the canonical name. The check below therefore failed for every
++  // partition of every micro-batch, PlanUtils.safeApply swallowed it at INFO, and Kafka streaming
++  // reads produced no input datasets at all. Joining the segments keeps each literal too short to
++  // match the org.apache.kafka relocation pattern, and also un-folds the message below so it finally
++  // reports the name that was actually compared.
++  private static final String EXPECTED_CLASS_NAME =
++      String.join(".", "org", "apache", "kafka", "common", "TopicPartition");
+   private final Object topicPartition;
+ 
+   /**

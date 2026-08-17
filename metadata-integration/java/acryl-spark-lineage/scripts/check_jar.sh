@@ -39,6 +39,65 @@ for jarFile in ${jarFiles}; do
     exit 1
   fi
 
+  # The OpenLineage SQL parser's libraries are the ONLY natives this agent may ship, and they must
+  # stay at the canonical io/openlineage/sql/ path (issue #18558). Any other native library means a
+  # JNI-backed dependency got bundled: its symbols are compiled as Java_<canonical_package>_*, which
+  # shading cannot rewrite, so relocating it yields UnsatisfiedLinkError at the first native call —
+  # how snappy-java, zstd-jni, lz4-java and JNA were all silently broken. Spark supplies these, so the
+  # fix is to exclude them (both the classes and the relocation), not to bundle them unrelocated.
+  strayNatives=$(jar -tf "$jarFile" | grep -E '\.(so|dylib|dll|jnilib)$' | grep -v '^io/openlineage/sql/')
+  if [ -n "$strayNatives" ]; then
+    echo "💥 Found native libraries outside io/openlineage/sql/ in ${jarFile}:"
+    echo "$strayNatives"
+    echo "   JNI symbols cannot be relocated. Exclude the library (see the JNI notes in build.gradle)."
+    exit 1
+  fi
+
+  # Our vendored OpenLineage classes (src/main/java/io/openlineage, tracked as patches under
+  # patches/datahub-customizations/) must appear EXACTLY ONCE. If the dependency's copy is also
+  # present at the same path the JVM resolves the last entry — the dependency's — and every DataHub
+  # customization is silently inert in the shipped jar while the unshaded unit/integration suites
+  # still pass. Duplicates elsewhere in the jar (dependency-vs-dependency, e.g. the antlr runtime)
+  # are pre-existing and intentionally left alone.
+  dupOl=$(jar -tf "$jarFile" | grep -E '^io/acryl/shaded/io/openlineage/.*\.class$' | sort | uniq -d)
+  if [ -n "$dupOl" ]; then
+    echo "💥 Vendored OpenLineage classes are duplicated in ${jarFile} (upstream copy would win):"
+    echo "$dupOl"
+    echo "   The JVM resolves the last jar entry, so these DataHub customizations would have no"
+    echo "   effect at runtime. See vendoredOpenLineageClassPaths in build.gradle."
+    exit 1
+  fi
+
+  # Guard against shading rewriting reflection class-name *string constants* (issue #19005).
+  #
+  # Shadow rewrites string constants in the constant pool, not just bytecode symbols. Where our code
+  # identifies a class by name — Class.forName, loadClass, or comparing getCanonicalName() — and the
+  # runtime supplies that class from the HOST classpath, a rewritten literal can never match what we
+  # are handed, so the visitor silently stops matching and lineage is dropped with no error:
+  #   - org.apache.kafka.common.TopicPartition: TopicPartitionProxy's expected-name constant was
+  #     rewritten, but Spark's spark-sql-kafka-0-10 supplies the canonical class → Kafka streaming
+  #     inputs were always empty.
+  #   - io.github.spark_redshift_community.*: compileOnly (never bundled), so the rewritten name
+  #     resolves nowhere → the Redshift relation visitor never fired.
+  # Scoped to OpenLineage/DataHub classes on purpose: bundled third-party libs legitimately contain
+  # rewritten self-references (a shaded Kafka client must load its own shaded serializers).
+  # Note: do NOT use `strings` here — a .class file starts with 0xCAFEBABE, the same magic as a
+  # Mach-O universal binary, so macOS `strings` errors out instead of scanning. `grep -a` is portable.
+  hostSupplied='org\.apache\.kafka|org\.apache\.spark|org\.apache\.hadoop|io\.github\.spark_redshift_community'
+  scanDir=$(mktemp -d)
+  unzip -o -q "$jarFile" 'io/acryl/shaded/io/openlineage/*' 'datahub/*' 'io/acryl/shaded/io/datahubproject/*' -d "$scanDir"
+  rewrittenNames=$(LC_ALL=C grep -raoE "io\.acryl\.shaded\.(${hostSupplied})[A-Za-z0-9_.\$]*" "$scanDir" | sed "s|^${scanDir}/||" | sort -u)
+  rm -rf "$scanDir"
+  if [ -n "$rewrittenNames" ]; then
+    echo "💥 Shading rewrote reflection class-name constants for host-supplied packages in ${jarFile}:"
+    echo "$rewrittenNames"
+    echo "   These name classes the host classpath provides, so the rewritten value can never match"
+    echo "   at runtime and the affected lineage is silently dropped (issue #19005)."
+    echo "   Fix: exclude the package from relocation in build.gradle when it is never bundled, or"
+    echo "   assemble the name at runtime so the relocator cannot fold it into one literal."
+    exit 1
+  fi
+
   jar -tvf $jarFile |\
       grep -v "log4j.xml" |\
       grep -v "log4j2.xml" |\

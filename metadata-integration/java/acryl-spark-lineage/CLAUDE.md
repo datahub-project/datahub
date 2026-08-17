@@ -82,6 +82,9 @@ Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
 8. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
 9. **`MergeIntoCommandInputDatasetBuilder.patch`**: Enables recursive traversal for merge command subqueries
 10. **`SparkOpenLineageExtensionVisitorWrapper.patch`**: Extension visitor customizations
+11. **`TopicPartitionProxy.patch`**: Assembles the expected `org.apache.kafka.common.TopicPartition`
+    name at runtime so the shadow-jar relocator cannot rewrite it (issue #19005) — see
+    "Shading vs. reflection by class name" below
 
 **DataHub-specific files (not patch-tracked — no upstream equivalent to diff against):**
 
@@ -90,6 +93,39 @@ Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
   is maintained as a standalone DataHub file rather than a patch.
 - **`JdbcSparkUtils`**, **`FileStreamMicroBatchStreamStrategy`**: DataHub additions.
 - **Redshift vendor** (`spark/agent/vendor/redshift/*`): Complete custom implementation.
+
+### Shading vs. reflection by class name (recurring hazard)
+
+Shadow rewrites **string constants** in the constant pool, not just bytecode symbols. A relocation is
+only safe if every runtime reference to the package is a bytecode symbol. The moment a class name
+crosses into a `String` — `Class.forName`, `loadClass`, comparing `getCanonicalName()`, an SPI
+descriptor — shading rewrites it too, and the failure is silent: visitors stop matching and lineage
+is simply absent, with no stack trace an operator would notice.
+
+This has now bitten three times, so treat it as a standing review item when touching relocations:
+
+| Case                                    | Why it broke                                                       | Fix                          |
+| --------------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
+| `io.openlineage.sql` (#18558)           | JNI symbols baked into the Rust lib as `Java_io_openlineage_sql_*` | `exclude` from relocation    |
+| `io.openlineage.spark.extension`        | SPI that connectors implement at its canonical name                | `exclude` from relocation    |
+| `org.apache.kafka` (#19005)             | `TopicPartitionProxy` compares `getCanonicalName()` to a constant  | assemble the name at runtime |
+| `io.github.spark_redshift_...` (#19005) | `compileOnly`, so the rewritten name resolves nowhere              | `exclude` from relocation    |
+
+**Choosing between the two fixes:**
+
+- The package is **never bundled** (`compileOnly`/`provided`) or must keep its canonical name →
+  `exclude` it from the relocation. This also fixes `checkcast`/method references, which a
+  string-level workaround cannot.
+- The package **is** bundled and genuinely needs relocating (the agent ships a Kafka client for its
+  emitter) → keep the relocation and stop the _name_ from being a single relocatable literal, e.g.
+  `String.join(".", "org", "apache", "kafka", "common", "TopicPartition")`. Note that
+  `"prefix " + CONSTANT` does **not** work: javac folds compile-time constants into one literal.
+
+Both are enforced by `scripts/check_jar.sh`, which scans the constant pools of the shaded
+OpenLineage/DataHub classes for host-supplied package names rewritten under `io.acryl.shaded.`.
+`ShadedReflectionClassNameTest` (in `sparkSmoke4`) covers the same invariant behaviourally against
+the real jar. When debugging by hand, use `grep -a`, **not** `strings`: a `.class` file begins with
+`0xCAFEBABE`, the same magic as a Mach-O universal binary, so macOS `strings` refuses to scan it.
 
 ### Relationship to upstream trimmers & the CLL consistency gap
 

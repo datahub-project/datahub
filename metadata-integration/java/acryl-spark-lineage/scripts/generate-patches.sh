@@ -25,6 +25,7 @@ FILES=(
   "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
   "spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
+  "spark/agent/lifecycle/plan/TopicPartitionProxy.java"
   "spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
