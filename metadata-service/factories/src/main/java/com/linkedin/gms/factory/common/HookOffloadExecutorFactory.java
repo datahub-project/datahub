@@ -151,6 +151,13 @@ public class HookOffloadExecutorFactory {
     if (effectiveQueueSize != queueSize) {
       log.warn("{} queueSize={} is invalid (min 1); using 1", threadPrefix, queueSize);
     }
+    // ThreadPoolExecutor rejects a negative keepAlive; clamp to >=0 (0 = threads never time out)
+    // so a bad env value degrades gracefully instead of failing context startup.
+    final long effectiveKeepAliveSeconds = Math.max(0L, keepAliveSeconds);
+    if (effectiveKeepAliveSeconds != keepAliveSeconds) {
+      log.warn(
+          "{} keepAliveSeconds={} is invalid (min 0); using 0", threadPrefix, keepAliveSeconds);
+    }
     // Saturation (queue full + all threads busy) runs the task inline on the caller, never drops.
     // Count it, then run. See class javadoc for why this is not
     // ThreadPoolExecutor.CallerRunsPolicy.
@@ -163,7 +170,7 @@ public class HookOffloadExecutorFactory {
         new ThreadPoolExecutor(
             effectiveConcurrency,
             effectiveConcurrency,
-            keepAliveSeconds,
+            effectiveKeepAliveSeconds,
             TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(effectiveQueueSize),
             daemonThreadFactory(threadPrefix),
