@@ -298,7 +298,7 @@ public class ElasticSearchSystemMetadataService
     return List.of(
         _indexBuilder.buildReindexState(
             opContext,
-            _indexConvention.getIndexName(INDEX_NAME),
+            _indexConvention.getIndexName(opContext, INDEX_NAME),
             SystemMetadataMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
@@ -306,7 +306,7 @@ public class ElasticSearchSystemMetadataService
   @Override
   public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = _indexConvention.getIndexName(INDEX_NAME);
+    String indexName = _indexConvention.getIndexName(opContext, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =

@@ -39,7 +39,8 @@ public class GetHighlightsResolverTest {
   @BeforeMethod
   public void setup() {
     mockAnalyticsService = mock(AnalyticsService.class);
-    when(mockAnalyticsService.getUsageIndexName()).thenReturn("datahub_usage_event");
+    when(mockAnalyticsService.getUsageIndexName(any(OperationContext.class)))
+        .thenReturn("datahub_usage_event");
 
     OperationContext mockOpContext = mock(OperationContext.class);
     QueryContext mockContext = mock(QueryContext.class);
@@ -86,7 +87,7 @@ public class GetHighlightsResolverTest {
     verify(mockAnalyticsService, times(1))
         .getUniqueCountsByRange(any(), anyString(), anyMap(), anyString());
     verify(mockAnalyticsService, times(1)).getEntityStats(any(), anyList(), anyList());
-    verify(mockAnalyticsService, times(1)).getUsageIndexName();
+    verify(mockAnalyticsService, times(1)).getUsageIndexName(any(OperationContext.class));
     verifyNoMoreInteractions(mockAnalyticsService);
   }
 

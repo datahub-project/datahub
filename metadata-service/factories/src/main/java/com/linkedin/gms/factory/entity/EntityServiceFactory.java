@@ -8,6 +8,7 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.lock.EntityWriteLock;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import java.util.List;
@@ -38,7 +39,8 @@ public class EntityServiceFactory {
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
       final List<ThrottleSensor> throttleSensors,
       @javax.annotation.Nullable final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils,
-      final ObjectProvider<RetentionBuffer> retentionBufferProvider) {
+      final ObjectProvider<RetentionBuffer> retentionBufferProvider,
+      final EntityWriteLock entityWriteLock) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
 
@@ -57,6 +59,9 @@ public class EntityServiceFactory {
 
     // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.
     entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());
+
+    // No-op unless entityWriteLockBackend selects a real gate (e.g. Hazelcast).
+    entityService.setEntityWriteLock(entityWriteLock);
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()
