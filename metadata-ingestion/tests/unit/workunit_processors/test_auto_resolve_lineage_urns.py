@@ -1195,7 +1195,7 @@ def test_on_demand_mode_skips_the_bulk_scroll():
     cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
-        lookup_mode="on_demand",
+        on_demand_lookup=True,
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
