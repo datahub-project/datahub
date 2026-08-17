@@ -15,7 +15,10 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeShowKind,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SHOW_STREAM_MAX_PAGE_SIZE,
+    SnowflakeQuery,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.integration.snowflake.common import (
@@ -174,7 +177,13 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.STREAMS,
+                    "TEST_DB",
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                )
+            ],
             [],
         )
 
@@ -224,7 +233,13 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.STREAMS,
+                    "TEST_DB",
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                )
+            ],
             [],
         )
 

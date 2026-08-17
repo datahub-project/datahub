@@ -249,6 +249,23 @@ class DeniesEveryShowConnection(FakeShowConnection):
         )
 
 
+class DeniesOnlyPerSchemaConnection(FakeShowConnection):
+    """The database-wide SHOW succeeds but fills its page, so the caller falls back per
+    schema - and only there is the denial hit. This is the shape of a role holding USAGE on
+    the database while lacking it on one schema, and the only way to reach the per-schema
+    handler's permission branch: when every query is denied, the database-wide probe raises
+    first and the fallback never runs."""
+
+    def query(self, query: str) -> List[Dict[str, Any]]:
+        if SHOW_IN_SCHEMA.search(query):
+            self.queries.append(query)
+            raise SnowflakePermissionError(
+                "002003 (02000): SQL compilation error: "
+                "Schema 'SCHEMA_A' does not exist or not authorized."
+            )
+        return super().query(query)
+
+
 class ReturnsAnUnmappableRowConnection(FakeShowConnection):
     """A row the mapper cannot handle: _map_show_view lowercases is_materialized, which a
     NULL column value breaks."""
@@ -656,6 +673,45 @@ def test_a_denied_listing_reaches_the_permission_classifier(kind, fetch):
 
     with pytest.raises(SnowflakePermissionError):
         fetch(schema_gen, schema)
+
+
+def test_a_denial_only_on_the_per_schema_fallback_still_propagates():
+    """The per-schema handler has its own permission branch, reached when the database-wide
+    query succeeds and only the narrower one is denied - a role with database USAGE but not
+    schema USAGE. Reporting it as an incomplete listing here would hide the missing grant."""
+    connection = DeniesOnlyPerSchemaConnection(
+        {VIEWS: [("SCHEMA_A", f"v_{i:05d}") for i in range(SHOW_COMMAND_MAX_PAGE_SIZE)]}
+    )
+    data_dictionary = _make_data_dictionary(connection)
+
+    with pytest.raises(SnowflakePermissionError):
+        data_dictionary.get_views_for_schema_using_show(
+            db_name="TEST_DB", schema_name="SCHEMA_A"
+        )
+
+    assert not data_dictionary.report.failures, (
+        "the denial must reach the caller's permission classifier, "
+        "not be pre-empted by a generic incomplete-listing failure"
+    )
+
+
+def test_a_non_permission_stream_failure_still_degrades_to_a_warning():
+    """Only a denial escalates. Anything else must stay the warning-and-return-[] it always
+    was, or a transient error would abort the run. Raised from the filter rather than the
+    connection because a failing query is already absorbed by the per-schema pager - this
+    handler only ever sees what gets past it."""
+    connection = FakeShowConnection({STREAMS: [("SCHEMA_A", "stream_a")]})
+    schema_gen = _make_schema_gen(connection)
+    schema_gen.filters.is_dataset_pattern_allowed.side_effect = ValueError("boom")  # type: ignore[attr-defined]
+    schema = SnowflakeSchema(
+        name="SCHEMA_A", created=None, last_altered=None, comment=None
+    )
+
+    assert schema_gen.fetch_streams_for_schema(schema, "TEST_DB") == []
+    titles = [w.title for w in schema_gen.report.warnings]
+    assert "Failed to get streams for schema" in titles, (
+        f"expected the stream warning; got {titles}"
+    )
 
 
 def test_an_unmappable_row_does_not_re_issue_the_database_wide_query():

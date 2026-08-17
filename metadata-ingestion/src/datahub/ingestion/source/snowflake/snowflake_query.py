@@ -1569,32 +1569,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
 
     @staticmethod
-    def streams_for_database(
-        db_name: str,
-        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
-    ) -> str:
-        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
-        return SnowflakeQuery.show_objects_for_database(
-            SnowflakeShowKind.STREAMS, db_name, limit=limit
-        )
-
-    @staticmethod
-    def streams_for_schema(
-        db_name: str,
-        schema_name: str,
-        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
-        stream_pagination_marker: Optional[str] = None,
-    ) -> str:
-        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
-        return SnowflakeQuery.show_objects_for_schema(
-            SnowflakeShowKind.STREAMS,
-            db_name,
-            schema_name,
-            limit=limit,
-            marker=stream_pagination_marker,
-        )
-
-    @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
         # This function is ACCOUNT-scoped, not database-scoped: invoked from one database's
