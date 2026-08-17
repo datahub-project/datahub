@@ -86,7 +86,8 @@ public class ListIngestionSourcesResolver
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
             result.setIngestionSources(mapUnresolvedIngestionSources(gmsResult.getEntities()));
-            if (gmsResult.getMetadata() != null && gmsResult.getMetadata().getAggregations() != null) {
+            if (gmsResult.getMetadata() != null
+                && gmsResult.getMetadata().getAggregations() != null) {
               result.setFacets(
                   gmsResult.getMetadata().getAggregations().stream()
                       .map(facet -> MapperUtils.mapFacet(context, facet))
