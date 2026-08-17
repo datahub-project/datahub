@@ -614,19 +614,19 @@ def _search_results_contain_urns(auth_session, urns: List[str]) -> Optional[Set[
         )
     except Exception as exc:
         logger.warning(
-            "searchAcrossEntities failed during ingest wait; skipping: %s", exc
+            "searchAcrossEntities failed during ingest wait; retrying: %s", exc
         )
         return None
     if res_data.get("errors") or not res_data.get("data"):
         logger.warning(
-            "searchAcrossEntities failed during ingest wait; skipping: %s",
+            "searchAcrossEntities failed during ingest wait; retrying: %s",
             res_data.get("errors"),
         )
         return None
     search = res_data["data"].get("searchAcrossEntities")
     if not search:
         logger.warning(
-            "searchAcrossEntities returned no data during ingest wait; skipping"
+            "searchAcrossEntities returned no data during ingest wait; retrying"
         )
         return None
     results = search.get("searchResults", []) or []
@@ -648,11 +648,10 @@ def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
     sleep_sec, sleep_times = get_sleep_info()
     for attempt in range(sleep_times):
         found = _search_results_contain_urns(auth_session, sorted(remaining))
-        if found is None:
-            return
-        remaining -= found
-        if not remaining:
-            return
+        if found is not None:
+            remaining -= found
+            if not remaining:
+                return
         if attempt < sleep_times - 1:
             time.sleep(sleep_sec)
 
@@ -674,21 +673,31 @@ def wait_for_browse_path_entities(
     sleep_sec, sleep_times = get_sleep_info()
     found: Set[str] = set()
     for attempt in range(sleep_times):
-        res_data = execute_graphql(
-            auth_session,
-            _BROWSE_ENTITIES_QUERY,
-            {
-                "input": {
-                    "type": entity_type,
-                    "path": path,
-                    "start": 0,
-                    "count": 100,
-                }
-            },
-            no_sync_wait=True,
-        )
-        entities = res_data.get("data", {}).get("browse", {}).get("entities", []) or []
-        found = {entity.get("urn") for entity in entities if entity.get("urn")}
+        try:
+            res_data = execute_graphql(
+                auth_session,
+                _BROWSE_ENTITIES_QUERY,
+                {
+                    "input": {
+                        "type": entity_type,
+                        "path": path,
+                        "start": 0,
+                        "count": 100,
+                    }
+                },
+                expect_errors=True,
+                no_sync_wait=True,
+            )
+        except Exception as exc:
+            logger.warning("browse failed during ingest wait; retrying: %s", exc)
+            res_data = {}
+        if res_data.get("errors") or not res_data.get("data"):
+            found = set()
+        else:
+            entities = (
+                res_data.get("data", {}).get("browse", {}).get("entities", []) or []
+            )
+            found = {entity.get("urn") for entity in entities if entity.get("urn")}
         if remaining <= found:
             return
         if attempt < sleep_times - 1:

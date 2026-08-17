@@ -244,6 +244,20 @@ class TestMergeAdditiveAspects:
         assert isinstance(mcp.aspect, UpstreamLineageClass)
         assert mcp.aspect.upstreams[0].dataset == upstream.dataset
 
+    def test_skips_empty_lineage_upsert(self):
+        src_aspects: Dict[str, DictWrapper] = {
+            "upstreamLineage": UpstreamLineageClass(upstreams=[])
+        }
+        graph = MagicMock()
+        graph.get_aspect.return_value = None
+
+        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
+
+        assert result == 0
+        graph.get_aspect.assert_not_called()
+        graph.emit.assert_not_called()
+        graph.emit_mcp.assert_not_called()
+
     def test_upserts_lineage_dry_run_does_not_emit(self):
         """Dry-run still counts a lineage UPSERT but does not emit it."""
         upstream = UpstreamClass(
