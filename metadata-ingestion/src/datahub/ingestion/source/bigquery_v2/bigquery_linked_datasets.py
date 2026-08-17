@@ -208,7 +208,7 @@ class BigQueryLinkedDatasetsHandler:
             return
 
         # The API is location-scoped, so query once per distinct dataset location.
-        locations: Set[str] = {(ds.location or "US").lower() for ds in datasets}
+        locations: Set[str] = {ds.location.lower() for ds in datasets if ds.location}
 
         ah_client = self._get_ah_client()
 
