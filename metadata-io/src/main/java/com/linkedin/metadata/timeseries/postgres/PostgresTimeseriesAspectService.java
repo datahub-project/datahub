@@ -273,6 +273,20 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   }
 
   @Nonnull
+  private static SortValueKind documentValueKind(@Nonnull String orderByCast) {
+    switch (orderByCast) {
+      case "::double precision":
+        return SortValueKind.DOCUMENT_DOUBLE;
+      case "::bigint":
+        return SortValueKind.DOCUMENT_LONG;
+      case "::boolean":
+        return SortValueKind.DOCUMENT_BOOLEAN;
+      default:
+        return SortValueKind.DOCUMENT_TEXT;
+    }
+  }
+
+  @Nonnull
   @Override
   public Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValues(
       @Nonnull OperationContext opContext,
@@ -860,35 +874,68 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   }
 
   @Nullable
-  private static Object toBindValue(@Nonnull SortKey key, @Nullable Object raw) {
+  static Object toBindValue(@Nonnull SortKey key, @Nullable Object raw) {
     if (raw == null) {
       return null;
     }
-    if (key.valueKind() == SortValueKind.EVENT_TIME) {
-      if (raw instanceof java.sql.Timestamp) {
-        return raw;
-      }
-      if (raw instanceof Number) {
-        return new java.sql.Timestamp(((Number) raw).longValue());
-      }
-      return java.sql.Timestamp.from(
-          java.time.Instant.ofEpochMilli(Long.parseLong(raw.toString())));
+    switch (key.valueKind()) {
+      case EVENT_TIME:
+        if (raw instanceof java.sql.Timestamp) {
+          return raw;
+        }
+        if (raw instanceof Number) {
+          return new java.sql.Timestamp(((Number) raw).longValue());
+        }
+        return java.sql.Timestamp.from(
+            java.time.Instant.ofEpochMilli(Long.parseLong(raw.toString())));
+      case DOCUMENT_LONG:
+        if (raw instanceof Number) {
+          return ((Number) raw).longValue();
+        }
+        return Long.parseLong(raw.toString());
+      case DOCUMENT_DOUBLE:
+        if (raw instanceof Number) {
+          return ((Number) raw).doubleValue();
+        }
+        return Double.parseDouble(raw.toString());
+      case DOCUMENT_BOOLEAN:
+        if (raw instanceof Boolean) {
+          return raw;
+        }
+        return Boolean.parseBoolean(raw.toString());
+      default:
+        return raw.toString();
     }
-    return raw.toString();
   }
 
   @Nonnull
-  private static List<Object> readSortValues(@Nonnull ResultSet rs, @Nonnull List<SortKey> sortKeys)
+  static List<Object> readSortValues(@Nonnull ResultSet rs, @Nonnull List<SortKey> sortKeys)
       throws SQLException {
     List<Object> values = new ArrayList<>(sortKeys.size());
     for (int i = 0; i < sortKeys.size(); i++) {
       String col = "_sk" + i;
-      if (sortKeys.get(i).valueKind() == SortValueKind.EVENT_TIME) {
-        java.sql.Timestamp ts = rs.getTimestamp(col);
-        values.add(rs.wasNull() || ts == null ? null : ts.getTime());
-      } else {
-        String s = rs.getString(col);
-        values.add(rs.wasNull() ? null : s);
+      SortValueKind kind = sortKeys.get(i).valueKind();
+      switch (kind) {
+        case EVENT_TIME:
+          java.sql.Timestamp ts = rs.getTimestamp(col);
+          values.add(rs.wasNull() || ts == null ? null : ts.getTime());
+          break;
+        case DOCUMENT_LONG:
+          long longVal = rs.getLong(col);
+          values.add(rs.wasNull() ? null : longVal);
+          break;
+        case DOCUMENT_DOUBLE:
+          double doubleVal = rs.getDouble(col);
+          values.add(rs.wasNull() ? null : doubleVal);
+          break;
+        case DOCUMENT_BOOLEAN:
+          boolean boolVal = rs.getBoolean(col);
+          values.add(rs.wasNull() ? null : boolVal);
+          break;
+        default:
+          String s = rs.getString(col);
+          values.add(rs.wasNull() ? null : s);
+          break;
       }
     }
     return values;
@@ -897,6 +944,9 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   enum SortValueKind {
     EVENT_TIME,
     MESSAGE_ID,
+    DOCUMENT_LONG,
+    DOCUMENT_DOUBLE,
+    DOCUMENT_BOOLEAN,
     DOCUMENT_TEXT
   }
 
@@ -953,7 +1003,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       }
       String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f);
       String cast = orderByCastSuffix(f, searchableFieldTypes, aspectSpec);
-      return new SortKey("(" + path + ")" + cast, ascending, SortValueKind.DOCUMENT_TEXT);
+      return new SortKey("(" + path + ")" + cast, ascending, documentValueKind(cast));
     }
   }
 
@@ -979,10 +1029,22 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
           JsonNode el = v.get(i);
           if (el == null || el.isNull()) {
             values.add(null);
-          } else if (sortKeys.get(i).valueKind() == SortValueKind.EVENT_TIME) {
-            values.add(el.asLong());
           } else {
-            values.add(el.asText());
+            switch (sortKeys.get(i).valueKind()) {
+              case EVENT_TIME:
+              case DOCUMENT_LONG:
+                values.add(el.asLong());
+                break;
+              case DOCUMENT_DOUBLE:
+                values.add(el.asDouble());
+                break;
+              case DOCUMENT_BOOLEAN:
+                values.add(el.asBoolean());
+                break;
+              default:
+                values.add(el.asText());
+                break;
+            }
           }
         }
         return values;
@@ -1000,6 +1062,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         for (Object value : values) {
           if (value == null) {
             arr.addNull();
+          } else if (value instanceof Boolean) {
+            arr.add((Boolean) value);
+          } else if (value instanceof Double || value instanceof Float) {
+            arr.add(((Number) value).doubleValue());
           } else if (value instanceof Number) {
             arr.add(((Number) value).longValue());
           } else {
@@ -1013,6 +1079,17 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         return null;
       }
     }
+  }
+
+  @Nullable
+  static List<Object> decodeScrollCursor(
+      @Nullable String scrollId, @Nonnull List<SortKey> sortKeys) {
+    return ScrollCursor.decode(scrollId, sortKeys);
+  }
+
+  @Nullable
+  static String encodeScrollCursor(@Nonnull List<Object> values) {
+    return ScrollCursor.encode(values);
   }
 
   @Override
