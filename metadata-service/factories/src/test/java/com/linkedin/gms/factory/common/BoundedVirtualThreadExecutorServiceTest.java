@@ -32,8 +32,12 @@ public class BoundedVirtualThreadExecutorServiceTest {
   public void saturationRunsInlineWithoutDropOrDeadlock() throws Exception {
     // concurrency=1: park a task that holds the only permit, then submit a second task. With no
     // permit free it must run INLINE on the caller and complete even while the first is still
-    // parked — proving the saturation path never drops and never blocks the caller.
-    final ExecutorService ex = new BoundedVirtualThreadExecutorService(1, "test-vt-sat-");
+    // parked — proving the saturation path never drops and never blocks the caller — and it must
+    // fire the onSaturation callback exactly once (the caller-runs metric hook).
+    final AtomicInteger saturationCount = new AtomicInteger();
+    final ExecutorService ex =
+        new BoundedVirtualThreadExecutorService(
+            1, "test-vt-sat-", saturationCount::incrementAndGet);
     try {
       final CountDownLatch parked = new CountDownLatch(1);
       final CountDownLatch release = new CountDownLatch(1);
@@ -57,6 +61,7 @@ public class BoundedVirtualThreadExecutorServiceTest {
             }
           });
       assertEquals(ranInline.get(), 1, "saturated submission must run inline on the caller");
+      assertEquals(saturationCount.get(), 1, "the inline run must record one saturation event");
       release.countDown();
     } finally {
       ex.shutdown();

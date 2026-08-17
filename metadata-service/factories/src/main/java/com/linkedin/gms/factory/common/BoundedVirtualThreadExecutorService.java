@@ -34,14 +34,23 @@ public final class BoundedVirtualThreadExecutorService extends AbstractExecutorS
 
   private final ExecutorService delegate;
   private final Semaphore permits;
+  private final Runnable onSaturation;
 
   public BoundedVirtualThreadExecutorService(
       final int concurrency, @Nonnull final String threadPrefix) {
+    this(concurrency, threadPrefix, () -> {});
+  }
+
+  public BoundedVirtualThreadExecutorService(
+      final int concurrency,
+      @Nonnull final String threadPrefix,
+      @Nonnull final Runnable onSaturation) {
     // At least one permit; a non-positive bound would make every task run inline (pointless) or,
     // worse, block forever.
     this.permits = new Semaphore(Math.max(1, concurrency));
     final ThreadFactory factory = Thread.ofVirtual().name(threadPrefix, 0).factory();
     this.delegate = Executors.newThreadPerTaskExecutor(factory);
+    this.onSaturation = onSaturation;
   }
 
   @Override
@@ -64,6 +73,8 @@ public final class BoundedVirtualThreadExecutorService extends AbstractExecutorS
         command.run();
       }
     } else {
+      // No permit free: run inline on the caller (backpressure). Record the saturation first.
+      onSaturation.run();
       command.run();
     }
   }
