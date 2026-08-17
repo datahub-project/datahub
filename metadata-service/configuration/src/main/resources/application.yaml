@@ -1777,6 +1777,10 @@ cache:
           telemetryClientId: 86400 # 1 day
         dataHubRetention:
           dataHubRetentionConfig: 21600 # 6hrs
+        dataPlatform:
+          dataPlatformInfo: 86400 # 1 day
+        dataPlatformInstance:
+          dataPlatformInstanceKey: 300 # 5 min
 
 graphQL:
   graphiql:
