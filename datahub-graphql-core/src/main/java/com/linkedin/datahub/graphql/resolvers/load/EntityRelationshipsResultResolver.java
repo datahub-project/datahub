@@ -184,6 +184,7 @@ public class EntityRelationshipsResultResolver
                     urn, relationshipTypes, resolvedDirection, start, count, context.getActorUrn()),
                 resolvedDirection,
                 includeSoftDelete,
+                true,
                 relatedEntityTypes),
         this.getClass().getSimpleName(),
         "get");
@@ -458,6 +459,7 @@ public class EntityRelationshipsResultResolver
         entityRelationships,
         RelationshipDirection.valueOf(relationshipDirection.toString()),
         includeSoftDelete,
+        false,
         null);
   }
 
@@ -529,8 +531,11 @@ public class EntityRelationshipsResultResolver
             context.getOperationContext(), spec, UrnUtils.getUrn(urn), includeSoftDelete);
 
     Set<Urn> existentChildUrns;
-    if (!includeSoftDelete && _entityService != null) {
-      existentChildUrns = _entityService.exists(context.getOperationContext(), childUrns, false);
+    if (_entityService != null) {
+      // Same dangling-edge guard as mapEntityRelationships: exclude hard-deleted children even when
+      // includeSoftDelete keeps soft-deleted ones.
+      existentChildUrns =
+          _entityService.exists(context.getOperationContext(), childUrns, includeSoftDelete);
     } else {
       existentChildUrns = null;
     }
@@ -594,16 +599,22 @@ public class EntityRelationshipsResultResolver
       final EntityRelationships entityRelationships,
       final RelationshipDirection relationshipDirection,
       final boolean includeSoftDelete,
+      final boolean filterNonExistent,
       @Nullable final Set<String> relatedEntityTypes) {
     final EntityRelationshipsResult result = new EntityRelationshipsResult();
 
     final Set<Urn> existentUrns;
-    if (context != null && _entityService != null && !includeSoftDelete) {
+    if (filterNonExistent && context != null && _entityService != null) {
       Set<Urn> allRelatedUrns =
           entityRelationships.getRelationships().stream()
               .map(EntityRelationship::getEntity)
               .collect(Collectors.toSet());
-      existentUrns = _entityService.exists(context.getOperationContext(), allRelatedUrns, false);
+      // Drop edges whose target no longer exists (stale graph edges left by a hard delete). With
+      // includeSoftDelete=true we keep soft-deleted targets but still exclude hard-deleted ones,
+      // which otherwise leak as dangling edges that resolve to a non-existent entity. Only applied
+      // to graph-sourced relationships; the session/membership path builds from live identity data.
+      existentUrns =
+          _entityService.exists(context.getOperationContext(), allRelatedUrns, includeSoftDelete);
     } else {
       existentUrns = null;
     }

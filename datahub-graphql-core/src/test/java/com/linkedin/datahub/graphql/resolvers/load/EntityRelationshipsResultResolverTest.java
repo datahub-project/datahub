@@ -171,6 +171,46 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testExcludeHardDeletedDanglingEdgeEvenWhenIncludingSoftDeleted()
+      throws ExecutionException, InterruptedException {
+    // includeSoftDelete=true keeps soft-deleted targets, but a hard-deleted target no longer exists
+    // at all and must not leak as a dangling edge that resolves to a non-existent entity.
+    Urn hardDeletedUser = UrnUtils.getUrn("urn:li:corpuser:hardDeletedUser");
+    EntityRelationships withDangling =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(3)
+            .setTotal(3)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    new EntityRelationship().setEntity(existentUser).setType("SomeType"),
+                    new EntityRelationship().setEntity(softDeletedUser).setType("SomeType"),
+                    new EntityRelationship().setEntity(hardDeletedUser).setType("SomeType")));
+    // urn:li:corpGroup:group1 is the @BeforeMethod source; override its edges for this test.
+    when(_graphClient.getRelatedEntities(
+            eq("urn:li:corpGroup:group1"),
+            eq(new HashSet<>(input.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(input.getStart()),
+            eq(input.getCount()),
+            any()))
+        .thenReturn(withDangling);
+    // hard-deleted urn is absent from exists() even when soft-deleted are included
+    when(_entityService.exists(
+            any(), eq(Set.of(existentUser, softDeletedUser, hardDeletedUser)), eq(true)))
+        .thenReturn(Set.of(existentUser, softDeletedUser));
+
+    // default includeSoftDelete = true
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getTotal().intValue(), 2);
+    assertFalse(
+        result.getRelationships().stream()
+            .anyMatch(r -> r.getEntity().getUrn().equals(hardDeletedUser.toString())));
+  }
+
+  @Test
   public void testFilterByRelatedEntityTypesExcludesNonMatching()
       throws ExecutionException, InterruptedException {
     // The graph returns corpuser relationships; restricting to dataHubPolicy should drop them all.
@@ -229,6 +269,9 @@ public class EntityRelationshipsResultResolverTest {
                         .setType("IsAssociatedWithRole")));
     when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
         .thenReturn(roleEdges);
+    // Both targets exist; the relatedEntityTypes filter (not existence) excludes globalSettings.
+    when(_entityService.exists(any(), eq(Set.of(policyUrn, globalSettingsUrn)), eq(true)))
+        .thenReturn(Set.of(policyUrn, globalSettingsUrn));
 
     RelationshipsInput rolePoliciesInput = new RelationshipsInput();
     rolePoliciesInput.setStart(0);
@@ -276,6 +319,11 @@ public class EntityRelationshipsResultResolverTest {
                         .setType("IsAssociatedWithRole")));
     when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
         .thenReturn(roleEdges);
+    // Both targets exist; globalSettings is a real entity that simply has no GraphQL mapping, so
+    // the
+    // dangling-edge filter keeps it and the leak this test documents still occurs without a filter.
+    when(_entityService.exists(any(), eq(Set.of(policyUrn, globalSettingsUrn)), eq(true)))
+        .thenReturn(Set.of(policyUrn, globalSettingsUrn));
 
     RelationshipsInput unfilteredInput = new RelationshipsInput();
     unfilteredInput.setStart(0);
