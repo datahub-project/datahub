@@ -59,12 +59,32 @@ for jarFile in ${jarFiles}; do
   # customization is silently inert in the shipped jar while the unshaded unit/integration suites
   # still pass. Duplicates elsewhere in the jar (dependency-vs-dependency, e.g. the antlr runtime)
   # are pre-existing and intentionally left alone.
-  dupOl=$(jar -tf "$jarFile" | grep -E '^io/acryl/shaded/io/openlineage/.*\.class$' | sort | uniq -d)
+  jarEntries=$(jar -tf "$jarFile")
+  dupOl=$(echo "$jarEntries" | grep -E '^io/acryl/shaded/io/openlineage/.*\.class$' | sort | uniq -d)
   if [ -n "$dupOl" ]; then
     echo "💥 Vendored OpenLineage classes are duplicated in ${jarFile} (upstream copy would win):"
     echo "$dupOl"
     echo "   The JVM resolves the last jar entry, so these DataHub customizations would have no"
     echo "   effect at runtime. See vendoredOpenLineageClassPaths in build.gradle."
+    exit 1
+  fi
+
+  # ...and each must be PRESENT. Rejecting duplicates alone still allows the opposite failure: if a
+  # vendored class is dropped from the jar entirely (an over-broad exclude, a renamed upstream path)
+  # the customization is just as absent at runtime, and the duplicate check would happily pass. Assert
+  # one entry per vendored source file so both directions are covered.
+  missingOl=""
+  for olSrc in $(find src/main/java/io/openlineage -name '*.java' 2>/dev/null); do
+    olClass="io/acryl/shaded/${olSrc#src/main/java/}"
+    olClass="${olClass%.java}.class"
+    echo "$jarEntries" | grep -qx "$olClass" || missingOl="${missingOl}${olClass}
+"
+  done
+  if [ -n "$missingOl" ]; then
+    echo "💥 Vendored OpenLineage classes are MISSING from ${jarFile}:"
+    echo "$missingOl"
+    echo "   Each file under src/main/java/io/openlineage must ship as exactly one relocated class,"
+    echo "   otherwise that DataHub customization has no effect at runtime."
     exit 1
   fi
 
@@ -85,7 +105,18 @@ for jarFile in ${jarFiles}; do
   # Mach-O universal binary, so macOS `strings` errors out instead of scanning. `grep -a` is portable.
   hostSupplied='org\.apache\.kafka|org\.apache\.spark|org\.apache\.hadoop|io\.github\.spark_redshift_community'
   scanDir=$(mktemp -d)
-  unzip -o -q "$jarFile" 'io/acryl/shaded/io/openlineage/*' 'datahub/*' 'io/acryl/shaded/io/datahubproject/*' -d "$scanDir"
+  # `|| true` because unzip exits 11 when a pattern matches nothing, which is not fatal on its own.
+  # What IS fatal is scanning nothing at all: an absent unzip or a failed extraction would leave an
+  # empty directory, the grep below would find no matches, and this guard would report success while
+  # checking nothing — the same silently-passing failure this whole check exists to prevent.
+  unzip -o -q "$jarFile" 'io/acryl/shaded/io/openlineage/*' 'datahub/*' 'io/acryl/shaded/io/datahubproject/*' -d "$scanDir" || true
+  scannedClasses=$(find "$scanDir" -name '*.class' | wc -l | tr -d ' ')
+  if [ "$scannedClasses" -eq 0 ]; then
+    echo "💥 Extracted no classes from ${jarFile} for the reflection scan (is unzip available?)."
+    echo "   Refusing to pass on an empty scan — that would silently disable this guard."
+    rm -rf "$scanDir"
+    exit 1
+  fi
   rewrittenNames=$(LC_ALL=C grep -raoE "io\.acryl\.shaded\.(${hostSupplied})[A-Za-z0-9_.\$]*" "$scanDir" | sed "s|^${scanDir}/||" | sort -u)
   rm -rf "$scanDir"
   if [ -n "$rewrittenNames" ]; then
