@@ -2,9 +2,8 @@ from unittest.mock import MagicMock, patch
 
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
-# Mirrors the response shape of /openapi/operations/kafka/*/consumer/offsets
-# as returned by get_kafka_consumer_offsets(): one entry per consumer type,
-# each with a consumerGroupId string and a topics map.
+# /openapi/operations/kafka/*/consumer/offsets has two shapes in the wild.
+# Object shape: {"consumerGroupId": ..., "topics": {topic: ...}} per consumer type.
 _KAFKA_CONSUMER_OFFSETS_RESPONSE = {
     "mcp": {
         "consumerGroupId": "generic-mce-consumer-job-client",
@@ -41,6 +40,13 @@ _KAFKA_CONSUMER_OFFSETS_RESPONSE = {
     },
 }
 
+# Map shape: {consumer group: {topic: ...}} per consumer type
+# (KafkaOffsetResponse extends LinkedHashMap in KafkaController).
+_KAFKA_CONSUMER_OFFSETS_LEGACY_RESPONSE = {
+    consumer_type: {payload["consumerGroupId"]: payload["topics"]}
+    for consumer_type, payload in _KAFKA_CONSUMER_OFFSETS_RESPONSE.items()
+}
+
 
 def test_cli_help():
     result = run_datahub_cmd(["--help"])
@@ -65,6 +71,23 @@ def test_get_kafka_consumer_offsets(mock_get_default_graph):
     mock_graph = MagicMock()
     mock_graph.get_kafka_consumer_offsets.return_value = (
         _KAFKA_CONSUMER_OFFSETS_RESPONSE
+    )
+    mock_get_default_graph.return_value = mock_graph
+
+    result = run_datahub_cmd(["check", "get-kafka-consumer-offsets"])
+
+    assert "MetadataChangeProposal_v1" in result.output
+    assert "generic-mce-consumer-job-client" in result.output
+    assert "MetadataChangeLog_Versioned_v1" in result.output
+    assert "generic-mae-consumer-job-client" in result.output
+    assert "24532" in result.output
+
+
+@patch("datahub.cli.check_cli.get_default_graph")
+def test_get_kafka_consumer_offsets_legacy_shape(mock_get_default_graph):
+    mock_graph = MagicMock()
+    mock_graph.get_kafka_consumer_offsets.return_value = (
+        _KAFKA_CONSUMER_OFFSETS_LEGACY_RESPONSE
     )
     mock_get_default_graph.return_value = mock_graph
 
