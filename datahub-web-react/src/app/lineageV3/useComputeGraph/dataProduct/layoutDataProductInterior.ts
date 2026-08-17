@@ -12,9 +12,7 @@ import {
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
     LineageEntity,
-    addToAdjacencyList,
     isTransformational,
-    parseEdgeId,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
@@ -29,9 +27,9 @@ import { EntityType, LineageDirection } from '@types';
 const COMPONENT_SEPARATION = 24 + LINEAGE_NODE_HEIGHT;
 
 /**
- * Lays out the displayed members of one data product, plus any query nodes placed inside its box,
- * via NodeBuilder, as in the standard impact-analysis view but with layers computed from
- * intra-product topology (members lack a shared home node).
+ * Lays out one data product's displayed members, plus the query nodes placed in its box, via
+ * NodeBuilder, as in the standard impact-analysis view but with layers computed from intra-product
+ * topology (members lack a shared home node).
  * Members with revealed lineage to each other are placed horizontally; disconnected components are
  * stacked vertically.
  * Returns member nodes positioned relative to the resulting bounding box, and the box's dimensions.
@@ -57,15 +55,6 @@ export default function layoutDataProductInterior(
         ),
         rootType: graphStore.rootType,
     };
-    // A query (`via`) node is linked to its neighbors in one direction only: outward from the query.
-    // Add the reverse links, so a query inside the box is sorted and laid out between the members it
-    // connects rather than as a component of its own.
-    subStore.edges.forEach((edge, edgeId) => {
-        if (!edge.via || !subStore.nodes.has(edge.via)) return;
-        const [upstream, downstream] = parseEdgeId(edgeId);
-        addToAdjacencyList(subStore.adjacencyList, LineageDirection.Downstream, upstream, edge.via);
-        addToAdjacencyList(subStore.adjacencyList, LineageDirection.Downstream, edge.via, downstream);
-    });
 
     const { displayedNodesByRoots, parents } = computeConnectedComponents(subStore);
     const relativeNodes: LineageVisualizationNode[] = [];
@@ -136,8 +125,7 @@ export default function layoutDataProductInterior(
         };
     });
 
-    // Query nodes placed in the box aren't members of the data product, so they don't count toward
-    // the number of assets shown
+    // Don't include query nodes in count
     const memberCount = memberNodes.filter((node) => group.memberUrns.has((node.data as LineageEntity).urn)).length;
 
     return { group, memberNodes, memberCount, width, height };

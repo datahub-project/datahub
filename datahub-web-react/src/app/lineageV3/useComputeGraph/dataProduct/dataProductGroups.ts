@@ -44,18 +44,11 @@ export function collectDataProductGroups(
 }
 
 /**
- * Assigns each displayed query node to a data product's bounding box, if it lies entirely within
- * one: some displayed edge routed through the query connects two displayed members of that product.
- * Such a query renders inside the box, so lineage between two members doesn't leave the box and
- * come back through a free node outside it.
- *
- * A query enclosed by several data products goes to the one whose members it connects most of,
- * ties broken toward the home data product, then by group order. A query that only borders data
- * products — downstream of one product's members and upstream of another's — is left outside them
- * all, as placing it in either would pull an edge out of the other box.
- *
- * Queries are never members of a data product (`useBulkDataProductMemberships` doesn't fetch them),
- * so this is purely a layout decision; the counts shown on each box exclude them.
+ * Places a displayed query node in a data product's bounding box if a displayed edge through the
+ * query connects two of the product's displayed members, so that lineage between members doesn't
+ * leave the box and come back. Queries can't be data product members, so this is layout only.
+ * If multiple data products qualify, chooses the one whose members the query connects most of,
+ * preferring the home data product. A query only bordering data products is left outside them all.
  */
 export function assignQueriesToGroups(
     groups: Map<Urn, DataProductGroup>,

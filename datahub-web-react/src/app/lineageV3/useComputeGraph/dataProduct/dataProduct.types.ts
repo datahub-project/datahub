@@ -13,8 +13,7 @@ export interface DataProductGroup {
     entity?: FetchedEntityV2;
     colorHex?: string;
     memberUrns: Set<Urn>;
-    /** Query nodes rendered inside this product's bounding box. Queries can't belong to a data
-     * product; these are placed by `assignQueriesToGroups`, from the lineage they connect. */
+    /** Query nodes rendered in this product's bounding box; see `assignQueriesToGroups`. */
     queryUrns: Set<Urn>;
 }
 
@@ -22,7 +21,7 @@ export interface BoxLayout {
     group: DataProductGroup;
     /** Member and query nodes with data-product-qualified ids, positioned relative to the box. */
     memberNodes: LineageVisualizationNode[];
-    /** Number of the product's own members shown, excluding query nodes placed inside the box. */
+    /** Number of members shown, excluding query nodes. */
     memberCount: number;
     width: number;
     height: number;

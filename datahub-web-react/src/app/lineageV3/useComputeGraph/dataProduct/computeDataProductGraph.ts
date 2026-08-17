@@ -51,11 +51,10 @@ function createDataProductNodeFilter(
  *    lineage of its own), using the standard impact analysis display rules (per-node filters,
  *    expansion state, lineage filter nodes). Members of data products sort before other children,
  *    so they're prioritized by pagination.
- * 2. Displayed entities are grouped by data product membership, and each query node connecting two
- *    members of the same data product is placed in that product too (`assignQueriesToGroups`).
- *    Displayed members of each data product are laid out horizontally via NodeBuilder, determining
- *    the size of the data product's bounding box. An entity in multiple data products gets one node
- *    per data product.
+ * 2. Displayed entities are grouped by data product membership, along with query nodes connecting
+ *    two members of the same data product. Displayed members of each data product are laid out
+ *    horizontally via NodeBuilder, determining the size of the data product's bounding box. An
+ *    entity in multiple data products gets one node per data product.
  * 3. Bounding boxes and free entities (displayed entities not rendered in a box) are positioned
  *    together via BoundingBoxNodeBuilder, in a single graph rooted at the home data product's
  *    bounding box: lineage between two data products' members becomes an edge between their boxes,
@@ -159,8 +158,7 @@ export default function computeDataProductGraph(
         : displayedNodes;
     const displayedIds = new Set(shownNodes.map((node) => node.id));
 
-    // Step 2 (+ 4): Lay out the displayed members within each data product, sizing its bounding box.
-    // Query nodes enclosed by a single data product are laid out inside it, rather than as free nodes.
+    // Step 2: Lay out the displayed members within each data product, sizing its bounding box
     assignQueriesToGroups(groups, revealedGraphStore, displayedIds);
     const boxes = new Map<Urn, BoxLayout>();
     groups.forEach((group) => {

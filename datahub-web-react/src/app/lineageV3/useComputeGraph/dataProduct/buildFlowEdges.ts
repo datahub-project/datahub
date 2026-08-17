@@ -53,7 +53,7 @@ export default function buildFlowEdges(
 
     graphStore.edges.forEach((edge, edgeId) => {
         const [upstream, downstream] = parseEdgeId(edgeId);
-        // Query nodes are routed through wherever they're rendered: free, or inside a bounding box
+        // Route through query nodes wherever they're rendered: free or in a bounding box
         const via = edge.via && endpointsFor(edge.via).length ? edge.via : undefined;
         const segments: [Urn, Urn][] = via
             ? [
