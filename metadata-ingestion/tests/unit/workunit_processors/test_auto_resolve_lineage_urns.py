@@ -1308,6 +1308,32 @@ def test_an_unlisted_platform_gets_column_casing_too():
     assert _fine_grained(out).upstreams == [make_schema_field_urn(BQ_LOWER, "amount")]
 
 
+def test_a_failed_schema_fetch_keeps_the_table_level_healing():
+    # The fetch is column enrichment on top of an identity that already resolved; a
+    # network failure there must not take the resolved table reference down with it.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_urns_by_filter.return_value = [BQ_LOWER]
+    graph.get_aspect.side_effect = Exception("boom")
+    try:
+        [out] = list(
+            processor.process(
+                iter([_upstream_wu(BQ_UPPER, fine_grained_field="AMOUNT")])
+            )
+        )
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == BQ_LOWER
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(BQ_LOWER, "AMOUNT")]
+    assert processor.report.num_dataset_urns_normalized == 1
+    # Both the table-level upstream and the field's parent ask, and a failed fetch is not
+    # negative-cached, so each one counts (and a transient failure can recover later).
+    assert processor.report.num_schema_fetches_failed == 2
+    assert processor.report.num_exceptions == 0
+
+
 def test_a_listed_platform_is_still_answered_locally_when_scope_is_widened():
     # Widening scope must not turn a preloaded catalog back into a stream of questions.
     processor, graph, patcher = _processor_for(
