@@ -3,7 +3,7 @@
 Generate test weight files from historical CI test results.
 
 This script parses JUnit XML files from multiple CI runs, calculates median
-test durations, and generates JSON weight files for both Cypress and Pytest tests.
+test durations, and generates JSON weight files for Pytest, Gradle, and Playwright tests.
 """
 
 import argparse
@@ -41,57 +41,6 @@ def _parse_finite_duration(time_str: str, xml_file: Path) -> Optional[float]:
     return duration
 
 
-def parse_cypress_results(artifact_dir: Path) -> Dict[str, List[float]]:
-    """
-    Parse Cypress JUnit XML files from multiple runs.
-
-    Args:
-        artifact_dir: Root directory containing run-* subdirectories
-
-    Returns:
-        Dictionary mapping test file paths to lists of durations across runs
-        Example: {"glossaryV2/v2_glossary_navigation.js": [94.8, 95.2, 94.5]}
-    """
-    test_durations: Dict[str, List[float]] = {}
-
-    # Find all cypress-test-*.xml files
-    xml_files = list(artifact_dir.rglob("cypress-test-*.xml"))
-
-    print(f"Found {len(xml_files)} Cypress XML files")
-
-    for xml_file in xml_files:
-        root = _safe_parse_root(xml_file)
-        if root is None:
-            continue
-
-        # Find the root suite with file attribute
-        root_suite = root.find(".//testsuite[@file]")
-        if root_suite is None:
-            continue
-
-        file_path = root_suite.get("file")
-
-        # Strip "cypress/e2e/" prefix to get relative path
-        if file_path.startswith("cypress/e2e/"):
-            relative_path = file_path.replace("cypress/e2e/", "")
-        else:
-            relative_path = file_path
-
-        # Find all other testsuites (not the root suite) to get actual test durations
-        for testsuite in root.findall(".//testsuite"):
-            # Skip if this is the root suite with file attribute
-            if testsuite.get("file"):
-                continue
-
-            duration = _parse_finite_duration(testsuite.get("time", "0"), xml_file)
-            if duration is not None and duration > 0:
-                test_durations.setdefault(relative_path, []).append(duration)
-                # Only take the first non-zero duration per file
-                break
-
-    return test_durations
-
-
 def parse_pytest_results(artifact_dir: Path) -> Dict[str, List[float]]:
     """
     Parse Pytest JUnit XML files from multiple runs.
@@ -105,8 +54,7 @@ def parse_pytest_results(artifact_dir: Path) -> Dict[str, List[float]]:
     """
     test_durations: Dict[str, List[float]] = {}
 
-    # Find all junit.*.xml files (exclude Cypress ones)
-    xml_files = [f for f in artifact_dir.rglob("junit*.xml") if "cypress" not in f.name]
+    xml_files = list(artifact_dir.rglob("junit*.xml"))
 
     print(f"Found {len(xml_files)} Pytest XML files")
 
@@ -187,8 +135,8 @@ def parse_playwright_results(artifact_dir: Path) -> Dict[str, List[float]]:
     Parse Playwright JUnit XML files from multiple runs.
 
     Playwright's junit reporter emits one flat <testsuite name="path/to/file.spec.ts"
-    time="22.9"> per spec file, relative to testDir -- no nested root suite to unwrap
-    (unlike Cypress). But Playwright's --shard=N/M splits by test *count*, not by file,
+    time="22.9"> per spec file, relative to testDir -- no nested root suite to unwrap.
+    But Playwright's --shard=N/M splits by test *count*, not by file,
     so one file's tests can land in two different shards' junit.xml within the same run.
     Sum a file's duration across all of a run's shard XMLs before treating it as one
     sample -- otherwise each fragment is counted as an independent (much smaller) sample,
@@ -269,12 +217,6 @@ def main():
         help="Directory containing test artifacts (organized by run ID)",
     )
     parser.add_argument(
-        "--cypress-output",
-        type=Path,
-        required=False,
-        help="Output path for Cypress test weights JSON",
-    )
-    parser.add_argument(
         "--pytest-output",
         type=Path,
         required=False,
@@ -295,27 +237,14 @@ def main():
 
     args = parser.parse_args()
 
-    if not (
-        args.pytest_output
-        or args.cypress_output
-        or args.gradle_output
-        or args.playwright_output
-    ):
+    if not (args.pytest_output or args.gradle_output or args.playwright_output):
         parser.error(
-            "at least one of --pytest-output/--cypress-output/--gradle-output/--playwright-output is required"
+            "at least one of --pytest-output/--gradle-output/--playwright-output is required"
         )
 
     if not args.input_dir.exists():
         print(f"Error: Input directory does not exist: {args.input_dir}")
         sys.exit(1)
-
-    cypress_durations = {}
-    if args.cypress_output:
-        print("=" * 60)
-        print("Parsing Cypress test results...")
-        print("=" * 60)
-        cypress_durations = parse_cypress_results(args.input_dir)
-        print(f"Found {len(cypress_durations)} unique Cypress tests")
 
     pytest_durations = {}
     if args.pytest_output:
@@ -345,11 +274,6 @@ def main():
     print("Calculating median weights...")
     print("=" * 60)
 
-    cypress_weights = (
-        calculate_median_weights(cypress_durations, key_name="filePath")
-        if args.cypress_output
-        else []
-    )
     pytest_weights = (
         calculate_median_weights(pytest_durations, key_name="testId")
         if args.pytest_output
@@ -372,7 +296,6 @@ def main():
     print("=" * 60)
 
     for output_path, weights, label in (
-        (args.cypress_output, cypress_weights, "Cypress"),
         (args.pytest_output, pytest_weights, "Pytest"),
         (args.gradle_output, gradle_weights, "Gradle"),
         (args.playwright_output, playwright_weights, "Playwright"),
