@@ -2364,29 +2364,33 @@ class TableauSiteSource:
         schema cannot answer: no graph, dataset not ingested, the column absent
         from the schema we have, or the lookup itself failing.
         """
-        candidate = name.replace(" ", "_")
-
         schema_info = self._ingested_schema(dataset_urn)
         if schema_info:
-            # Exact before case-insensitive. With preserve_column_case on, the
-            # schema can hold `col` and `COL` as two real columns, and folding
-            # straight away collapses them into one index entry -- attaching this
-            # column's lineage to its sibling. Tableau reports the warehouse's own
-            # spelling, so an exact hit is the column that was asked for.
-            if candidate in schema_info:
-                return candidate
-
-            # Then folded, for the far more common case: the Snowflake source
-            # lowercased its field paths, so nothing matches exactly.
-            # Deliberately not match_columns_to_schema: it returns the input
-            # unchanged on a miss, which here would emit warehouse casing for a
-            # column the schema does not have. A miss must fall through instead.
             by_folded_name = {column.lower(): column for column in schema_info}
-            matched = by_folded_name.get(candidate.lower())
-            if matched is not None:
-                return matched
+            # The space-to-underscore substitution is a candidate, not a
+            # pre-transform: Snowflake allows a space in a quoted identifier and
+            # keeps it, so a column really named `My Col` is only findable by the
+            # unsubstituted name. Doing it up front made that column unmatchable
+            # under either casing setting.
+            for candidate in (name, name.replace(" ", "_")):
+                # Exact before case-insensitive. With preserve_column_case on, the
+                # schema can hold `col` and `COL` as two real columns, and folding
+                # straight away collapses them into one index entry -- attaching
+                # this column's lineage to its sibling. Tableau reports the
+                # warehouse's own spelling, so an exact hit is the column asked for.
+                if candidate in schema_info:
+                    return candidate
 
-        return candidate.lower()
+                # Then folded, for the far more common case: the Snowflake source
+                # lowercased its field paths, so nothing matches exactly.
+                # Deliberately not match_columns_to_schema: it returns the input
+                # unchanged on a miss, which here would emit warehouse casing for a
+                # column the schema does not have. A miss must fall through instead.
+                matched = by_folded_name.get(candidate.lower())
+                if matched is not None:
+                    return matched
+
+        return name.replace(" ", "_").lower()
 
     def _ingested_schema(self, dataset_urn: str) -> Optional["SchemaInfo"]:
         """The upstream's schema as DataHub holds it, or None if unavailable.

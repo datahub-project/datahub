@@ -112,3 +112,23 @@ class TestSnowflakeColumnNameMatching:
 
         assert source._upstream_schema_resolver.resolve_urn.call_count == 1
         assert source.report.warning.call_count == 1
+
+    @pytest.mark.parametrize(
+        "ingested_field_path",
+        [
+            # Snowflake keeps the space in a quoted identifier, and lowercasing
+            # keeps it too -- so the schema can hold either of these.
+            "my col",
+            "My Col",
+        ],
+    )
+    def test_a_column_whose_name_contains_a_space(
+        self, ingested_field_path: str
+    ) -> None:
+        # Substituting the underscore before the lookup means a column that
+        # really does contain a space can never be matched. The sibling test uses
+        # a schema holding CUSTOMER_ID, where the substitution is a no-op, so it
+        # cannot tell a working transform from a wrong one.
+        assert (
+            _resolve({ingested_field_path: "VARCHAR"}, "My Col") == ingested_field_path
+        )
