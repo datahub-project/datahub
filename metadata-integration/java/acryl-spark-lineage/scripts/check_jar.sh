@@ -4,13 +4,29 @@ libName=acryl-spark-lineage
 jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
 jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
 for jarFile in ${jarFiles}; do
+  # Read the entry listing ONCE and require it to be non-empty before any guard runs. Every check
+  # below decides from the emptiness of a command substitution, so an unreadable jar (missing file,
+  # corrupt archive, absent `jar` binary) would make all of them look clean and the script would exit
+  # 0 having verified nothing — the fail-open trap this file already fell into once.
+  #
+  # `set -e` is deliberately NOT used to achieve this: nearly every guard here is a
+  # `var=$(... | grep ...)` whose *success* case is grep exiting 1 because it found nothing, so -e
+  # would abort the script on the healthy path. `set -o pipefail` is not an option either — this
+  # script has no shebang and CI runs it under dash, which rejects it outright ("Illegal option").
+  jarEntries=$(jar -tf "$jarFile")
+  if [ -z "$jarEntries" ]; then
+    echo "💥 Could not read any entries from ${jarFile} — refusing to report success on an"
+    echo "   uninspectable jar, since every check below would trivially pass."
+    exit 1
+  fi
+
   # OpenLineage must be shaded under io.acryl.shaded so this agent can coexist with environments
   # that ship their own io.openlineage.* (e.g. EMR/DataZone). Two packages MUST stay unrelocated:
   #  - io.openlineage.spark.extension: the SPI connectors implement at its canonical name.
   #  - io.openlineage.sql: JNI-backed; its native symbols are baked into the Rust .so/.dylib as
   #    Java_io_openlineage_sql_*, which shading can't rewrite. Relocating it → UnsatisfiedLinkError
   #    on JDBC/SQL parsing (issue #18558), so it must remain at its canonical name.
-  unrelocatedOl=$(jar -tf "$jarFile" | grep '^io/openlineage/' | grep -v '^io/openlineage/spark/extension/' | grep -v '^io/openlineage/sql/' | grep -E '\.class$')
+  unrelocatedOl=$(echo "$jarEntries" | grep '^io/openlineage/' | grep -v '^io/openlineage/spark/extension/' | grep -v '^io/openlineage/sql/' | grep -E '\.class$')
   if [ -n "$unrelocatedOl" ]; then
     echo "💥 Found unrelocated OpenLineage classes in ${jarFile}:"
     echo "$unrelocatedOl"
@@ -21,8 +37,8 @@ for jarFile in ${jarFiles}; do
   # live at the canonical io/openlineage/sql/ path so the Rust-compiled Java_io_openlineage_sql_*
   # symbols resolve. If a future relocation change moves them under io/acryl/shaded/, JDBC/SQL
   # parsing crashes with UnsatisfiedLinkError — fail the build here instead of shipping it.
-  sqlClass=$(jar -tf "$jarFile" | grep -E '^io/openlineage/sql/OpenLineageSql\.class$')
-  sqlNativeLibs=$(jar -tf "$jarFile" | grep -E '^io/openlineage/sql/libopenlineage_sql_java.*\.(so|dylib|dll)$')
+  sqlClass=$(echo "$jarEntries" | grep -E '^io/openlineage/sql/OpenLineageSql\.class$')
+  sqlNativeLibs=$(echo "$jarEntries" | grep -E '^io/openlineage/sql/libopenlineage_sql_java.*\.(so|dylib|dll)$')
   if [ -z "$sqlClass" ] || [ -z "$sqlNativeLibs" ]; then
     echo "💥 JNI SQL parser missing at canonical io/openlineage/sql/ in ${jarFile}"
     echo "   OpenLineageSql.class present: ${sqlClass:-NO}"
@@ -33,7 +49,7 @@ for jarFile in ${jarFiles}; do
 
   # Positive guard: the extension SPI must stay canonical so connectors implement it at its
   # canonical name — same "must not be relocated" reason as io.openlineage.sql above.
-  extClasses=$(jar -tf "$jarFile" | grep -E '^io/openlineage/spark/extension/.*\.class$')
+  extClasses=$(echo "$jarEntries" | grep -E '^io/openlineage/spark/extension/.*\.class$')
   if [ -z "$extClasses" ]; then
     echo "💥 Extension SPI missing at canonical io/openlineage/spark/extension/ in ${jarFile}"
     exit 1
@@ -45,7 +61,7 @@ for jarFile in ${jarFiles}; do
   # shading cannot rewrite, so relocating it yields UnsatisfiedLinkError at the first native call —
   # how snappy-java, zstd-jni, lz4-java and JNA were all silently broken. Spark supplies these, so the
   # fix is to exclude them (both the classes and the relocation), not to bundle them unrelocated.
-  strayNatives=$(jar -tf "$jarFile" | grep -E '\.(so|dylib|dll|jnilib)$' | grep -v '^io/openlineage/sql/')
+  strayNatives=$(echo "$jarEntries" | grep -E '\.(so|dylib|dll|jnilib)$' | grep -v '^io/openlineage/sql/')
   if [ -n "$strayNatives" ]; then
     echo "💥 Found native libraries outside io/openlineage/sql/ in ${jarFile}:"
     echo "$strayNatives"
@@ -59,7 +75,6 @@ for jarFile in ${jarFiles}; do
   # customization is silently inert in the shipped jar while the unshaded unit/integration suites
   # still pass. Duplicates elsewhere in the jar (dependency-vs-dependency, e.g. the antlr runtime)
   # are pre-existing and intentionally left alone.
-  jarEntries=$(jar -tf "$jarFile")
   dupOl=$(echo "$jarEntries" | grep -E '^io/acryl/shaded/io/openlineage/.*\.class$' | sort | uniq -d)
   if [ -n "$dupOl" ]; then
     echo "💥 Vendored OpenLineage classes are duplicated in ${jarFile} (upstream copy would win):"
@@ -145,11 +160,10 @@ for jarFile in ${jarFiles}; do
   # the host's logging), commons-io (relocated, since its 51 consumers must keep the version we
   # bundle), guava's j2objc annotations, kafka-clients' protocol schemas, and a stray source file.
   # Only two entries remain below, and neither is a leak.
-  unexpected=$(jar -tf "$jarFile" |
+  unexpected=$(echo "$jarEntries" |
       grep -v '/$' |
       grep -v "log4j.xml" |
       grep -v "log4j2.xml" |
-      grep -v "org/apache/log4j" |
       grep -v "io/acryl/" |
       grep -v "datahub/shaded" |
       grep -v "licenses" |
@@ -170,7 +184,12 @@ for jarFile in ${jarFiles}; do
       grep -v "license.header" |
       grep -v "module-info.class" |
       grep -v "client.properties" |
-      grep -v "kafka" |
+      # NOTE: a blanket `grep -v "kafka"` used to sit here. Kafka is relocated, so it hid nothing
+      # legitimate beyond the one resource below — while silently excusing exactly the unrelocated
+      # Kafka collision this check should catch. Same for a stale "org/apache/log4j" entry, now
+      # removed: log4j is relocated and the canonical path is empty.
+      grep -v "^kafka/kafka-version.properties$" |   # kafka-clients version stamp, read by
+                                                     # AppInfoParser from an unrelocatable path
       grep -v "win/" |
       grep -v "include/" |
       grep -v "linux/" |
