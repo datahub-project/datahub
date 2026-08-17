@@ -276,7 +276,6 @@ entities:
       - displayProperties
       - assetSettings
   - name: container
-    viewUnrestricted: true
     doc: A container of related data assets.
     category: core
     keyAspect: containerKey
@@ -350,6 +349,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
       - globalTags
   - name: document
     category: core

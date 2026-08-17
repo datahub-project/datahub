@@ -81,6 +81,7 @@ export default class DescriptionEditorPage extends BasePage {
       await this.uploadFileButton.click();
       await this.fileUploadInput.waitFor({ state: 'attached', timeout: TIMEOUTS.MEDIUM });
       await this.fileUploadInput.setInputFiles(tempFilePath);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(TABLE_LOAD_DELAY);
       // For invalid files, backend validation rejects silently - verify file wasn't added
       const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
@@ -155,6 +156,7 @@ export default class DescriptionEditorPage extends BasePage {
     }
     await this.clearDescription();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TABLE_LOAD_DELAY);
   }
 }
