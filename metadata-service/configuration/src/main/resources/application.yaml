@@ -982,6 +982,17 @@ elasticsearch:
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
       sliceFutureDrainTimeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_SLICE_FUTURE_DRAIN_TIMEOUT_SECONDS:2} # seconds (single allOf wait) after canceling slice futures before PIT/scroll cleanup
+    # Query canonicalization rounds query time windows onto a fixed bucket so that requests asking
+    # the same logical question produce an identical query, which is a precondition for the
+    # Elasticsearch/OpenSearch shard request cache to be reused. NOTE: bucketSize is NOT a cache TTL.
+    # Misconfiguration disables the feature rather than failing startup.
+    canonicalization:
+      enabled: ${SEARCH_QUERY_CANONICALIZATION_ENABLED:true} # master switch; set false to restore exact per-request timestamps
+      time:
+        enabled: ${SEARCH_QUERY_CANONICALIZATION_TIME_ENABLED:true} # only active when the master switch is on
+        bucketSize: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_SIZE:5m} # any <number><unit> with unit ms/s/m/h/d, max 1d
+        timezone: ${SEARCH_QUERY_CANONICALIZATION_TIME_TIMEZONE:UTC} # anchors bucket boundaries; UTC anchors at the epoch
+        rounding: ${SEARCH_QUERY_CANONICALIZATION_TIME_ROUNDING:EXPAND} # EXPAND floors lower bounds and ceils upper bounds (never hides data); SHRINK floors both
     validation:
       enabled: ${SEARCH_VALIDATION_ENABLED:true}
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}

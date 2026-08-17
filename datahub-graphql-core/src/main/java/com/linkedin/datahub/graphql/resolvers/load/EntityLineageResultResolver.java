@@ -68,7 +68,8 @@ public class EntityLineageResultResolver
     @Nullable final Long startTimeMillis = input.getStartTimeMillis();
     @Nullable
     final Long endTimeMillis =
-        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
+        ResolverUtils.getLineageEndTimeMillis(
+            context.getOperationContext(), input.getStartTimeMillis(), input.getEndTimeMillis());
     final Boolean includeGhostEntities =
         Optional.ofNullable(input.getIncludeGhostEntities()).orElse(false);
 
