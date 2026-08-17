@@ -1,4 +1,5 @@
 from typing import List
+from unittest import mock
 
 from datahub.utilities.urn_alias.index import (
     CatalogSlice,
@@ -18,9 +19,9 @@ _SNOWFLAKE_PROD = CatalogSlice(platform="snowflake", platform_instance=None, env
 
 
 def _loaded(*urns: str) -> UrnAliasResolver:
-    """A resolver over a bulk load of `urns`, with no server to ask."""
+    """A resolver over a bulk load of `urns`, not allowed to ask the server."""
     index = UrnAliasIndex()
-    resolver = UrnAliasResolver(index, AliasIndexLookup(index))
+    resolver = UrnAliasResolver(index, AliasIndexLookup(index, mock.MagicMock()))
     for urn in urns:
         resolver.add(urn)
     return resolver
@@ -53,7 +54,9 @@ class _RecordingLookup:
 
 def _asking(*stored: str) -> UrnAliasResolver:
     index = UrnAliasIndex()
-    return UrnAliasResolver(index, _RecordingLookup(index, *stored))
+    return UrnAliasResolver(
+        index, _RecordingLookup(index, *stored), query_on_demand=True
+    )
 
 
 # --- choosing a URN out of the matches ---------------------------------------------
@@ -106,7 +109,7 @@ def test_a_miss_inside_a_loaded_slice_is_answered_without_asking() -> None:
     # cost a round trip.
     index = UrnAliasIndex()
     lookup = _RecordingLookup(index)
-    resolver = UrnAliasResolver(index, lookup)
+    resolver = UrnAliasResolver(index, lookup, query_on_demand=True)
     resolver.record_slice_loaded(_SNOWFLAKE_PROD)
 
     assert resolver.resolve(_OTHER) is None
@@ -116,7 +119,7 @@ def test_a_miss_inside_a_loaded_slice_is_answered_without_asking() -> None:
 def test_a_miss_outside_every_loaded_slice_is_asked_about() -> None:
     index = UrnAliasIndex()
     lookup = _RecordingLookup(index, _LOWER)
-    resolver = UrnAliasResolver(index, lookup)
+    resolver = UrnAliasResolver(index, lookup, query_on_demand=True)
 
     assert resolver.resolve(_UPPER) == _LOWER
     assert lookup.asked == [[_UPPER]]
@@ -125,7 +128,7 @@ def test_a_miss_outside_every_loaded_slice_is_asked_about() -> None:
 def test_prefetch_asks_only_about_references_no_loaded_slice_answers() -> None:
     index = UrnAliasIndex()
     lookup = _RecordingLookup(index)
-    resolver = UrnAliasResolver(index, lookup)
+    resolver = UrnAliasResolver(index, lookup, query_on_demand=True)
     resolver.record_slice_loaded(_SNOWFLAKE_PROD)
 
     resolver.prefetch([_UPPER, _REDSHIFT])

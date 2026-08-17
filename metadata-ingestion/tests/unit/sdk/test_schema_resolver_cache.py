@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata, SchemaResolver
 from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
@@ -20,6 +21,24 @@ _FAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,
 _FAKE_SCHEMA: GraphQLSchemaMetadata = {
     "fields": [{"fieldPath": "id", "nativeDataType": "INT64"}]
 }
+
+
+@pytest.fixture(autouse=True)
+def server_registers_aliases():
+    """Pin the server as one registering the dataset `aliases` aspect.
+
+    Filling the index reads the server's entity specs to pick a lookup, which these tests
+    must not send to the fake host. The casing-probe fallback is covered where it lives, in
+    tests/unit/utilities/urn_alias.
+    """
+    with patch.object(
+        DataHubGraph,
+        "get_entity_aspect_specs",
+        return_value=EntityAspectSpecs(
+            entity_aspects={"dataset": {"datasetKey", "aliases"}}
+        ),
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)

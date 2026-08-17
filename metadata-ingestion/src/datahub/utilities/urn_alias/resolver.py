@@ -36,9 +36,16 @@ class UrnAliasResolver:
     scroll has already answered.
     """
 
-    def __init__(self, index: UrnAliasIndex, lookup: UrnLookup) -> None:
+    def __init__(
+        self, index: UrnAliasIndex, lookup: UrnLookup, query_on_demand: bool = False
+    ) -> None:
         self._index = index
         self._lookup = lookup
+        # Whether this consumer's scope reaches past the catalogs it loaded. A policy of the
+        # consumer, not of the server, which is why it sits here and not on the lookup: the
+        # lookup is shared by everything resolving against one server and has to key the
+        # index the same way for all of them.
+        self._query_on_demand = query_on_demand
 
     def add(self, urn: str) -> None:
         """Record that DataHub holds `urn`, from a scroll that enumerated it."""
@@ -55,7 +62,12 @@ class UrnAliasResolver:
             self._index.loaded_slices.append(catalog_slice)
 
     def prefetch(self, urns: List[str]) -> None:
-        """Learn what is not already known about `urns`, in as few queries as possible."""
+        """Learn what is not already known about `urns`, in as few queries as possible.
+
+        A no-op for a consumer that may not query, which resolves from loaded rows alone.
+        """
+        if not self._query_on_demand:
+            return
         # A reference inside a fully scrolled slice needs no query: that load answered it
         # already, whether or not it found the entity.
         unanswered = [
@@ -115,7 +127,7 @@ def get_urn_alias_resolver(
     instance from a URN and has to be told which ones exist.
     """
     index = shared_index(graph)
-    lookup = select_lookup(
-        index, graph if query_on_demand else None, platform_instances
-    )
-    return UrnAliasResolver(index, lookup)
+    # The lookup is chosen by what the server supports, never by `query_on_demand`: every
+    # consumer of one graph shares the index, so all of them must key it the same way.
+    lookup = select_lookup(index, graph, platform_instances)
+    return UrnAliasResolver(index, lookup, query_on_demand)

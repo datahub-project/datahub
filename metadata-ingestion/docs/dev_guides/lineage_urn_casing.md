@@ -178,11 +178,13 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
 
 - **Requires a DataHub backend connection.** Resolution looks up existing entities, so it is a no-op for
   offline / file-only ingestion.
-- **Reaching any stored casing needs the server to maintain the dataset `aliases` aspect.** That is what
-  lets one lookup cover every casing of a name. Against a server that does not, only casings the client
-  can construct are found — the reference as written, its lowercased form, and that form with the
-  `platform_instance` left as-is — whether the entity was preloaded or queried for; anything else is
-  reported `UNRESOLVED`.
+- **Reaching any stored casing needs the server to register the dataset `aliases` aspect.** That is what
+  lets one lookup cover every casing of a name. Older servers do not, and are detected from their own
+  model registry: resolution then falls back to probing the casings the client can construct — the
+  reference as written, its lowercased form, and that form with the `platform_instance` left as-is — so
+  only those are found, preloaded or queried alike, and anything else is reported `UNRESOLVED`. A server
+  that registers the aspect but has its `aliases` side effect switched off looks capable and heals
+  nothing.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it (the normal order for scheduled pipelines). A
   reference whose target doesn't yet exist is left unchanged and self-heals once the warehouse is ingested
