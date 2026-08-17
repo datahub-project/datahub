@@ -10,6 +10,8 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,6 +50,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -1140,5 +1143,72 @@ public class UpdateIndicesV3StrategyTest {
 
     // Soft path: swallow and continue (search batch still proceeds).
     dualWriteStrategy.processBatch(operationContext, groupedEvents, true);
+  }
+
+  @Test
+  public void testProcessBatch_Timeseries_deleteThenUpsertAppliesInListOrder() throws Exception {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy dualWriteStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    MCLItem deleteEvent = mock(MCLItem.class);
+    MCLItem upsertEvent = mock(MCLItem.class);
+    for (MCLItem event : List.of(deleteEvent, upsertEvent)) {
+      when(event.getUrn()).thenReturn(testUrn);
+      when(event.getEntitySpec()).thenReturn(mockEntitySpec);
+      when(event.getAspectSpec()).thenReturn(mockAspectSpec);
+      when(event.getRecordTemplate()).thenReturn(mockAspect);
+      when(event.getSystemMetadata()).thenReturn(mockSystemMetadata);
+      when(event.getAuditStamp()).thenReturn(mockAuditStamp);
+      when(event.getAspectName()).thenReturn("datasetProfile");
+    }
+    when(deleteEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteEvent.getPreviousRecordTemplate()).thenReturn(null);
+    when(upsertEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    try (var mockedStatic = mockStatic(UpdateIndicesUtil.class)) {
+      mockedStatic
+          .when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, List.of(deleteEvent, upsertEvent));
+      dualWriteStrategy.processBatch(operationContext, groupedEvents, true);
+    }
+
+    InOrder inOrder = inOrder(timeseriesAspectService, sink);
+    inOrder
+        .verify(sink)
+        .deleteByUrn(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), eq(testUrn.toString()));
+    inOrder
+        .verify(timeseriesAspectService)
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
+    inOrder.verify(sink).upsertDocument(any(), anyString(), anyString(), anyString(), any());
   }
 }

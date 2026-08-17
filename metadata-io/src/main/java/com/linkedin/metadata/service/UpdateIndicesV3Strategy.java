@@ -125,34 +125,28 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * When V2 is disabled, V3 must drive dedicated timeseries indices (and optional Postgres sink)
    * the same way V2 does. When V2 is enabled, that strategy already handles these writes.
+   *
+   * <p>Apply events in original list order. A same-URN batch of no-snapshot DELETE then timeseries
+   * UPSERT must not run {@code deleteByUrn} after the upsert, which would wipe the later row.
    */
   private void processTimeseriesAspectEventsForUrnGroup(
       @Nonnull OperationContext opContext, @Nonnull List<MCLItem> urnEvents) {
-    List<MCLItem> updateEvents =
-        urnEvents.stream()
-            .filter(event -> UPDATE_CHANGE_TYPES.contains(event.getChangeType()))
-            .collect(Collectors.toList());
-    for (MCLItem event : updateEvents) {
-      try {
-        updateTimeseriesFieldsForEvent(opContext, event);
-      } catch (RuntimeException e) {
-        handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
-      }
-    }
-
-    List<MCLItem> deleteEvents =
-        urnEvents.stream()
-            .filter(event -> event.getChangeType() == ChangeType.DELETE)
-            .collect(Collectors.toList());
-    for (MCLItem deleteEvent : deleteEvents) {
-      try {
-        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
-        if (specPair.getSecond().isTimeseries()) {
-          deleteTimeseriesFieldsForDeleteEvent(opContext, deleteEvent);
+    for (MCLItem event : urnEvents) {
+      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+        try {
+          updateTimeseriesFieldsForEvent(opContext, event);
+        } catch (RuntimeException e) {
+          handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
         }
-      } catch (RuntimeException e) {
-        handleTimeseriesWriteFailure(
-            opContext, deleteEvent, e, "timeseries_delete_failed", "delete");
+      } else if (event.getChangeType() == ChangeType.DELETE) {
+        try {
+          Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(event);
+          if (specPair.getSecond().isTimeseries()) {
+            deleteTimeseriesFieldsForDeleteEvent(opContext, event);
+          }
+        } catch (RuntimeException e) {
+          handleTimeseriesWriteFailure(opContext, event, e, "timeseries_delete_failed", "delete");
+        }
       }
     }
   }

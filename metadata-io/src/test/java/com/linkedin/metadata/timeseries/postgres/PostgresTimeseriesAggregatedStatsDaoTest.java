@@ -149,7 +149,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
             specs,
             "true");
     assertTrue(sql.contains("ROW_NUMBER() OVER (PARTITION BY g0 "));
-    assertTrue(sql.contains("WHERE _rn <= 5"));
+    assertTrue(sql.contains("WHERE _rn <= 5 ORDER BY"));
     assertFalse(sql.trim().endsWith("LIMIT 5"));
     assertTrue(sql.contains("AT TIME ZONE") || sql.contains("date_trunc('day'"));
     assertTrue(sql.contains("ORDER BY"));
@@ -175,7 +175,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
             "true");
     assertTrue(sql.contains("ROW_NUMBER() OVER (ORDER BY"));
     assertFalse(sql.contains("PARTITION BY"));
-    assertTrue(sql.contains("WHERE _rn <= 3"));
+    assertTrue(sql.contains("WHERE _rn <= 3 ORDER BY"));
   }
 
   @Test
