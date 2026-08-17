@@ -304,9 +304,13 @@ class SnowflakeIdentifierConfig(
     preserve_column_case: bool = Field(
         default=False,
         description="Preserve Snowflake's column casing in field paths and column-level "
-        "lineage instead of lowercasing them. Enable this when a table has quoted "
-        'identifiers that differ only by case (e.g. `"col"` and `"COL"`), which would '
-        "otherwise collapse into a single field. This value is part of each column's "
+        "lineage instead of lowercasing them. Useful whenever a table has quoted "
+        "identifiers, because a quoted mixed-case column can only be queried by its "
+        'stored spelling — `SELECT "MixedCol"` works where `SELECT "mixedcol"` is an '
+        "invalid identifier — so the lowercased field path does not name anything you "
+        "can query. It is required when two quoted identifiers differ only by case "
+        '(e.g. `"col"` and `"COL"`), which would otherwise collapse into a single '
+        "field and lose one of them entirely. This value is part of each column's "
         "schemaField URN identity, so changing it after data has been ingested re-keys "
         "every column, orphaning column-level tags, glossary terms and documentation. "
         "Pick one value before the first run and leave it unchanged. It must also match "
