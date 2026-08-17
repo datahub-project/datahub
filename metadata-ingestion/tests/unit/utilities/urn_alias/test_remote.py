@@ -1,6 +1,7 @@
-from typing import Dict, List
+from typing import Dict, List, Optional, Set
 from unittest import mock
 
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.utilities.urn_alias.index import UrnAliasIndex
 from datahub.utilities.urn_alias.remote import (
     AliasIndexLookup,
@@ -26,9 +27,19 @@ _INSTANCE_KEPT = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.my_schema.events,PROD)"
 )
 
-# What `select_lookup` reads the capability from. Patched to reach the fallback, which this
-# client's own model can never select on its own — the aspect is right there in it.
-_ALIASES_SUPPORTED = "datahub.utilities.urn_alias.remote._aliases_supported"
+
+def _specs(*dataset_aspects: str) -> EntityAspectSpecs:
+    """The server's entity registry, registering `dataset_aspects` on datasets."""
+    aspects: Set[str] = {"datasetKey", *dataset_aspects}
+    return EntityAspectSpecs(entity_aspects={"dataset": aspects})
+
+
+def _reporting(
+    graph: mock.MagicMock, specs: Optional[EntityAspectSpecs]
+) -> mock.MagicMock:
+    """Make `graph` answer the capability check with `specs`; None if unfetchable."""
+    graph.get_entity_aspect_specs.return_value = specs
+    return graph
 
 
 # --- alias search --------------------------------------------------------------------
@@ -37,7 +48,7 @@ _ALIASES_SUPPORTED = "datahub.utilities.urn_alias.remote._aliases_supported"
 def _search_graph(*matches: str) -> mock.MagicMock:
     graph = mock.MagicMock()
     graph.get_urns_by_filter.return_value = iter(matches)
-    return graph
+    return _reporting(graph, _specs("aliases"))
 
 
 def _queried(graph: mock.MagicMock) -> Dict[str, List[str]]:
@@ -49,7 +60,7 @@ def _queried(graph: mock.MagicMock) -> Dict[str, List[str]]:
 
 def _searching(graph: mock.MagicMock) -> UrnAliasResolver:
     index = UrnAliasIndex()
-    return UrnAliasResolver(index, AliasIndexLookup(index, graph))
+    return UrnAliasResolver(index, AliasIndexLookup(index, graph), query_on_demand=True)
 
 
 def test_the_search_asks_under_the_key_gms_indexes() -> None:
@@ -115,7 +126,9 @@ def test_a_bulk_loaded_name_is_never_asked_about() -> None:
     # A load wrote the same table the search fills, so its rows answer outright.
     graph = _search_graph()
     index = UrnAliasIndex()
-    resolver = UrnAliasResolver(index, AliasIndexLookup(index, graph))
+    resolver = UrnAliasResolver(
+        index, AliasIndexLookup(index, graph), query_on_demand=True
+    )
     resolver.add(_LOWER)
 
     assert resolver.resolve(_UPPER) == _LOWER
@@ -139,12 +152,14 @@ def _probe_graph(*existing: str) -> mock.MagicMock:
     graph.get_entities.side_effect = lambda **kwargs: {
         urn: {} for urn in kwargs["urns"] if urn in existing
     }
-    return graph
+    return _reporting(graph, _specs())
 
 
 def _probing(graph: mock.MagicMock, *platform_instances: str) -> UrnAliasResolver:
     index = UrnAliasIndex()
-    return UrnAliasResolver(index, CasingProbeLookup(index, graph, platform_instances))
+    return UrnAliasResolver(
+        index, CasingProbeLookup(index, graph, platform_instances), query_on_demand=True
+    )
 
 
 def test_the_probe_finds_a_guessable_casing() -> None:
@@ -201,8 +216,12 @@ def test_what_the_probe_asked_is_shared_by_every_consumer_of_the_index() -> None
     # asked, so a second consumer of the same graph does not re-ask the same questions.
     graph = _probe_graph(_LOWER)
     index = UrnAliasIndex()
-    first = UrnAliasResolver(index, CasingProbeLookup(index, graph))
-    second = UrnAliasResolver(index, CasingProbeLookup(index, graph))
+    first = UrnAliasResolver(
+        index, CasingProbeLookup(index, graph), query_on_demand=True
+    )
+    second = UrnAliasResolver(
+        index, CasingProbeLookup(index, graph), query_on_demand=True
+    )
 
     assert first.resolve(_UPPER) == _LOWER
     assert second.resolve(_UPPER) == _LOWER
@@ -212,7 +231,9 @@ def test_what_the_probe_asked_is_shared_by_every_consumer_of_the_index() -> None
 
 def _probing_a_load(graph: mock.MagicMock, *loaded: str) -> UrnAliasResolver:
     index = UrnAliasIndex()
-    resolver = UrnAliasResolver(index, CasingProbeLookup(index, graph))
+    resolver = UrnAliasResolver(
+        index, CasingProbeLookup(index, graph), query_on_demand=True
+    )
     for urn in loaded:
         resolver.add(urn)
     return resolver
@@ -251,38 +272,52 @@ def test_a_failed_probe_records_nothing() -> None:
 # --- picking the one way to ask -------------------------------------------------------
 
 
-def test_the_search_is_used_where_the_aliases_aspect_exists() -> None:
-    assert isinstance(
-        select_lookup(UrnAliasIndex(), mock.MagicMock()), AliasIndexLookup
-    )
+def test_the_search_is_used_where_the_server_registers_the_aspect() -> None:
+    graph = _reporting(mock.MagicMock(), _specs("aliases"))
+
+    assert isinstance(select_lookup(UrnAliasIndex(), graph), AliasIndexLookup)
 
 
 def test_the_probe_is_used_where_it_does_not() -> None:
-    # Nothing indexes an alias there, so the search would answer every reference with zero
+    # Nothing there computes an alias, so the search would answer every reference with zero
     # hits — and record each as a settled absence.
-    with mock.patch(_ALIASES_SUPPORTED, return_value=False):
-        lookup = select_lookup(UrnAliasIndex(), mock.MagicMock())
+    graph = _reporting(mock.MagicMock(), _specs())
 
-    assert isinstance(lookup, CasingProbeLookup)
-
-
-def test_choosing_asks_the_server_nothing() -> None:
-    # It is answered from the metadata model this client is built on.
-    graph = mock.MagicMock()
-
-    select_lookup(UrnAliasIndex(), graph)
-
-    graph.execute_graphql.assert_not_called()
-    graph.get_urns_by_filter.assert_not_called()
+    assert isinstance(select_lookup(UrnAliasIndex(), graph), CasingProbeLookup)
 
 
-def test_a_consumer_that_may_not_query_never_reaches_the_server() -> None:
-    # A bulk load keys by the lowercased URN whatever the server maintains, so its rows
-    # resolve any casing on their own.
+def test_the_probe_is_used_when_the_server_cannot_be_asked() -> None:
+    graph = _reporting(mock.MagicMock(), None)
+
+    assert isinstance(select_lookup(UrnAliasIndex(), graph), CasingProbeLookup)
+
+
+def test_the_probe_is_used_when_the_specs_are_unusable() -> None:
+    # A payload registering no `dataset` entity type at all is malformed, not a verdict, and
+    # must not take the pipeline down with it.
+    graph = _reporting(mock.MagicMock(), EntityAspectSpecs(entity_aspects={}))
+
+    assert isinstance(select_lookup(UrnAliasIndex(), graph), CasingProbeLookup)
+
+
+def test_every_consumer_of_a_server_gets_the_same_lookup() -> None:
+    # They share one index, so they must key it the same way. Whether a consumer may query
+    # is its own business and must not change the choice.
+    graph = _reporting(mock.MagicMock(), _specs())
+
+    bulk_only = get_urn_alias_resolver(graph)
+    querying = get_urn_alias_resolver(graph, query_on_demand=True)
+
+    assert type(bulk_only._lookup) is type(querying._lookup) is CasingProbeLookup
+
+
+def test_a_consumer_that_may_not_query_issues_no_lookup() -> None:
+    # It resolves from the rows a bulk load left, and never asks about anything else.
     graph = _search_graph(_LOWER)
     resolver = get_urn_alias_resolver(graph)
     resolver.add(_LOWER)
 
     assert resolver.resolve(_UPPER) == _LOWER
+    assert resolver.resolve(_OTHER) is None
 
     graph.get_urns_by_filter.assert_not_called()

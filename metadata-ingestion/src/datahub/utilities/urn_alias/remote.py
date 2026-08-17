@@ -2,11 +2,7 @@ import logging
 from typing import TYPE_CHECKING, Collection, Dict, List, Optional, Protocol, Set
 
 from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
-from datahub.metadata.schema_classes import (
-    ASPECT_NAME_MAP,
-    AliasesClass,
-    DatasetKeyClass,
-)
+from datahub.metadata.schema_classes import AliasesClass, DatasetKeyClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urn_alias.index import UrnAliasIndex, lowercased_urn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -49,12 +45,9 @@ class AliasIndexLookup:
     casing of a name, including casings nothing could have guessed.
 
     Keys the index by the lowercased URN, so one row answers for every casing of a name.
-    Without a graph it asks nothing and answers from what bulk loads recorded.
     """
 
-    def __init__(
-        self, index: UrnAliasIndex, graph: Optional["DataHubGraph"] = None
-    ) -> None:
+    def __init__(self, index: UrnAliasIndex, graph: "DataHubGraph") -> None:
         self._index = index
         self._graph = graph
 
@@ -71,8 +64,6 @@ class AliasIndexLookup:
         return self._index.get(key) or []
 
     def prefetch(self, urns: List[str]) -> None:
-        if self._graph is None:
-            return
         # One key covers every casing of a name, so a batch of references collapses to
         # far fewer questions.
         keys: List[str] = []
@@ -95,7 +86,6 @@ class AliasIndexLookup:
 
     def _search(self, keys: List[str]) -> Optional[Dict[str, List[str]]]:
         """Stored URNs for each of `keys`, from one search, or None if the search failed."""
-        assert self._graph is not None
         or_filters: RawSearchFilter = [
             {
                 "and": [
@@ -150,7 +140,7 @@ class CasingProbeLookup:
     def __init__(
         self,
         index: UrnAliasIndex,
-        graph: Optional["DataHubGraph"] = None,
+        graph: "DataHubGraph",
         platform_instances: Collection[str] = (),
     ) -> None:
         self._index = index
@@ -173,8 +163,6 @@ class CasingProbeLookup:
         ]
 
     def prefetch(self, urns: List[str]) -> None:
-        if self._graph is None:
-            return
         # Checked per candidate rather than against the whole table, which can be far
         # larger than the batch.
         unchecked: List[str] = []
@@ -208,7 +196,6 @@ class CasingProbeLookup:
 
     def _probe(self, candidates: List[str]) -> Optional[Set[str]]:
         """Which of `candidates` exist, or None if the probe failed."""
-        assert self._graph is not None
         try:
             entities = self._graph.get_entities(
                 entity_name=_DATASET_ENTITY_TYPE,
@@ -251,27 +238,45 @@ def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:
     )
 
 
-def _aliases_supported() -> bool:
-    """Whether the `aliases` aspect exists in the metadata model this client is built on.
+def _server_supports_aliases(graph: "DataHubGraph") -> bool:
+    """Whether the server registers the dataset `aliases` aspect the search reads.
 
-    Local only: nothing is asked of the server, so this settles whether an alias search can
-    be expressed at all, not whether the server it would be issued against maintains the
-    aspect. A server-side signal for that is not read here yet.
+    Its own entity registry answers, which DataHubGraph memoizes and caches on disk per
+    commit hash, so this costs one request per server per upgrade.
+
+    False whenever that cannot be established. The probe then resolves less, but trusting
+    the search against a server with no such aspect is worse: every casing it fails to find
+    would be recorded as a settled absence.
     """
-    return AliasesClass.ASPECT_NAME in ASPECT_NAME_MAP
+    specs = graph.get_entity_aspect_specs()
+    if specs is None:
+        return False
+    try:
+        return specs.supports(_DATASET_ENTITY_TYPE, AliasesClass.ASPECT_NAME)
+    except ValueError:
+        # Raised for an entity type the server does not register at all, which a usable
+        # specs payload never omits for `dataset` — so this is a malformed one, not a
+        # verdict, and must not take the pipeline down with it.
+        logger.warning(
+            "Server registers no `dataset` entity type; resolving URN casing by probing "
+            "candidate casings instead.",
+            exc_info=True,
+        )
+        return False
 
 
 def select_lookup(
     index: UrnAliasIndex,
-    graph: Optional["DataHubGraph"] = None,
+    graph: "DataHubGraph",
     platform_instances: Collection[str] = (),
 ) -> UrnLookup:
     """The one way references are matched against this server, for every consumer of it.
 
     One per server, never both: each keys the index its own way, so a row written by one
-    must not be read by the other. `graph` is None for a consumer that may not query — it
-    still fills and reads the index, just never asks.
+    must not be read by the other. Which is why the choice turns only on the server, and
+    not on whether this particular consumer is allowed to query — that is the resolver's
+    business, and a consumer that may not query still fills and reads the same rows.
     """
-    if _aliases_supported():
+    if _server_supports_aliases(graph):
         return AliasIndexLookup(index, graph)
     return CasingProbeLookup(index, graph, platform_instances)

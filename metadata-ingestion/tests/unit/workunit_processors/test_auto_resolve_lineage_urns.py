@@ -14,6 +14,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.run.pipeline_config import (
     AutoResolveLineageUrnsConfig,
     UpstreamPlatformCasing,
@@ -74,6 +75,15 @@ def _resolver(
     return resolver
 
 
+def _registers_aliases(graph: Any) -> Any:
+    """Pin `graph` as a server registering the dataset `aliases` aspect, which is what
+    selects the alias search over the casing-probe fallback these tests do not exercise."""
+    graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
+        entity_aspects={"dataset": {"datasetKey", "aliases"}}
+    )
+    return graph
+
+
 def _seed_index(
     graph: Any,
     urns: List[str],
@@ -87,7 +97,7 @@ def _seed_index(
     entity findable. Recording the slice is part of the imitation: a real scroll that
     finished says so, which is what turns a miss inside it into an answer.
     """
-    urn_aliases = get_urn_alias_resolver(graph)
+    urn_aliases = get_urn_alias_resolver(_registers_aliases(graph))
     for urn in urns:
         urn_aliases.add(urn)
     for catalog_slice in slices:
@@ -1336,6 +1346,7 @@ def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = _widened(upstream_platforms=[])
+    _registers_aliases(pipeline_ctx.graph)
     pipeline_ctx.graph.get_urns_by_filter.return_value = [LOWER]
     pipeline_ctx.graph.get_aspect.return_value = None
     ctx = mock.MagicMock()
