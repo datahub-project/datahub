@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeObjectDomain,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -103,6 +106,57 @@ def test_get_dynamic_tables_with_definitions(mock_snowflake_data_dictionary):
     assert dt.upstream_tables == [
         SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "TABLE")
     ]
+
+
+@pytest.mark.parametrize(
+    "graph_info,expected_missing,expected_upstreams",
+    [
+        (
+            {
+                "TEST_DB.PUBLIC.DYNAMIC_TABLE1": {
+                    "inputs": [{"name": "TEST_DB.PUBLIC.SOURCE_TABLE", "kind": "TABLE"}]
+                }
+            },
+            0,
+            [SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "TABLE")],
+        ),
+        ({}, 1, []),
+    ],
+    ids=["matched", "no_graph_row"],
+)
+def test_a_dynamic_table_without_a_graph_row_is_counted(
+    graph_info, expected_missing, expected_upstreams
+):
+    """Losing the graph row loses INPUTS upstreams and the target_lag fallback silently -
+    which is exactly how the keying bug went unnoticed. The counter is the signal: it
+    equalling the dynamic-table count means every lookup missed, whether from a bad key or
+    from the graph-history query's filters excluding everything on some edition."""
+    report = SnowflakeV2Report()
+    data_dictionary = SnowflakeDataDictionary(
+        cast(SnowflakeConnection, MagicMock()), report
+    )
+    data_dictionary.get_dynamic_table_graph_info = MagicMock(return_value=graph_info)  # type: ignore[method-assign]
+
+    mock_cursor = MagicMock()
+    mock_cursor.__iter__.return_value = [
+        {
+            "name": "DYNAMIC_TABLE1",
+            "schema_name": "PUBLIC",
+            "created_on": "2024-01-01 00:00:00",
+            "text": "SELECT * FROM source_table",
+            "target_lag": "1 minute",
+            "bytes": 1000,
+            "rows": 100,
+            "comment": None,
+        }
+    ]
+    data_dictionary.connection.query.return_value = mock_cursor  # type: ignore[attr-defined]
+
+    result = data_dictionary.get_dynamic_tables_with_definitions("TEST_DB")
+
+    assert result is not None
+    assert result["PUBLIC"][0].upstream_tables == expected_upstreams
+    assert report.num_dynamic_tables_missing_graph_info == expected_missing
 
 
 def test_get_dynamic_tables_with_definitions_inputs_as_json_string(
@@ -333,10 +387,11 @@ def test_dynamic_table_pagination():
     # Pagination is only sound at schema scope, where the output is ordered by name
     # alone and so matches what the `FROM '<name>'` cursor compares against. The
     # database-wide variant is ordered by (schema, name) and therefore takes no marker.
-    query = SnowflakeQuery.show_dynamic_tables_for_schema(
+    query = SnowflakeQuery.show_objects_for_schema(
+        SnowflakeShowKind.DYNAMIC_TABLES,
         db_name="TEST_DB",
         schema_name="TEST_SCHEMA",
-        dynamic_table_pagination_marker="LAST_TABLE",
+        marker="LAST_TABLE",
     )
 
     assert 'IN SCHEMA "TEST_DB"."TEST_SCHEMA"' in query

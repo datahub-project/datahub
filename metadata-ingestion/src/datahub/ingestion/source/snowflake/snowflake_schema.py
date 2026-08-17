@@ -1048,6 +1048,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def _get_views_for_database_using_show(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        # SHOW is the default path for views because information_schema.views only exposes a
+        # definition to the view's owner:
+        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         views = self._probe_database_wide_show(
@@ -2565,9 +2568,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
         target_lag = row.get("target_lag")
         upstream_tables: List[SnowflakeDynamicTableInput] = []
 
-        if dt_graph_info:
-            qualified_name = f"{db_name}.{schema_name}.{dt_name}"
-            graph_info = dt_graph_info.get(qualified_name, {})
+        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+        graph_info = dt_graph_info.get(qualified_name, {})
+        if not graph_info:
+            # Counted, not warned: on a database whose dynamic tables are all outside the
+            # graph history's 7-day window this is expected and per-table noise would drown
+            # the report. The count is what makes a total miss legible.
+            self.report.num_dynamic_tables_missing_graph_info += 1
+        else:
             if not target_lag:
                 if graph_info.get("target_lag_type") and graph_info.get(
                     "target_lag_sec"
