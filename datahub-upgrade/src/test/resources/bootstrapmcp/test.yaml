@@ -13,3 +13,8 @@ bootstrap:
       optional: true
       mcps_location: "bootstrapmcp/datahub-test-mcp.yaml"
       enabledEnvVar: "MY_FEATURE_ENABLED"
+    - name: datahub-test-gated-force
+      version: v1
+      force: true
+      mcps_location: "bootstrapmcp/datahub-test-mcp.yaml"
+      enabledEnvVar: "MY_FEATURE_ENABLED"

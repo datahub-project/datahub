@@ -44,8 +44,10 @@ public class BootstrapMCPConfigFile {
 
     /**
      * Name of an environment variable acting as a per-template kill switch. When the variable
-     * resolves to {@code "false"}, the template is skipped and nothing is written. An unset
-     * variable leaves the template enabled, so templates that do not opt in are unaffected.
+     * resolves to a falsey value ({@code false}, {@code off}, {@code no} or {@code 0}, trimmed and
+     * case-insensitive, matching Spring's boolean binding), the template is skipped and nothing is
+     * written. An unset variable leaves the template enabled, so templates that do not opt in are
+     * unaffected. The switch takes precedence over {@link #force}.
      */
     @Nullable private String enabledEnvVar;
 
