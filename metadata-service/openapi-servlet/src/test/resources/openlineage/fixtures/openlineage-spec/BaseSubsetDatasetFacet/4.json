@@ -1,0 +1,24 @@
+{
+  "subset": {
+    "inputCondition": {
+      "type": "partition",
+      "partitions": [
+        {
+          "identifier": "2024-10-15-PL",
+          "dimensions": {
+            "business_date": "2024-10-15",
+            "country": "PL"
+          }
+        },
+        {
+          "dimensions": {
+            "business_date": "2024-10-15",
+            "country": "DE"
+          }
+        }
+      ]
+    },
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/BaseSubsetDatasetFacet.json#/$defs/InputSubsetDatasetFacet"
+  }
+}

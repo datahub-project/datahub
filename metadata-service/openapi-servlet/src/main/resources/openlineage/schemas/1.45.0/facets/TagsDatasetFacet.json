@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/TagsDatasetFacet.json",
+  "$defs": {
+    "TagsDatasetFacetFields": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Key that identifies the tag",
+          "type": "string",
+          "example": "pii"
+        },
+        "value": {
+          "description": "The value of the field",
+          "type": "string",
+          "example": "true|@user1|production"
+        },
+        "source": {
+          "description": "The source of the tag. INTEGRATION|USER|DBT CORE|SPARK|etc.",
+          "type": "string"
+        },
+        "field": {
+          "description": "Identifies the field in a dataset if a tag applies to one",
+          "type": "string",
+          "example": "email_address"
+        }
+      },
+      "required": ["key", "value"]
+    },
+    "TagsDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tags": {
+              "description": "The tags applied to the dataset facet",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TagsDatasetFacetFields"
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "tags": {
+      "$ref": "#/$defs/TagsDatasetFacet"
+    }
+  }
+}

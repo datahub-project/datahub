@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/GcpComposerJobFacet.json",
+  "$defs": {
+    "GcpComposerJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "environmentName": {
+              "description": "Cloud Composer Environment name",
+              "type": "string"
+            },
+            "dagId": {
+              "description": "The id of the DAG",
+              "type": "string"
+            },
+            "operator": {
+              "description": "Operator class name. Only present for tasks, not for DAGs. For example `PythonOperator`",
+              "type": "string"
+            },
+            "taskId": {
+              "description": "The id of the task. Only present for tasks, not for DAGs",
+              "type": "string"
+            },
+            "airflowVersion": {
+              "description": "Version of Airflow, suffixed by `+composer`",
+              "type": "string"
+            },
+            "composerVersion": {
+              "description": "Version of the Cloud Composer environment",
+              "type": "string"
+            }
+          },
+          "required": ["environmentName", "dagId", "airflowVersion", "composerVersion"],
+          "additionalProperties": true
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "gcp_composer_job": {
+      "$ref": "#/$defs/GcpComposerJobFacet"
+    }
+  }
+}

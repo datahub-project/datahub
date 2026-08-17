@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json",
+  "$defs": {
+    "SymlinksDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "identifiers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "namespace": {
+                    "type": "string",
+                    "description": "The dataset namespace"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The dataset name"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Identifier type",
+                    "example": "table"
+                  }
+                },
+                "required": ["namespace", "name", "type"]
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "symlinks": {
+      "$ref": "#/$defs/SymlinksDatasetFacet"
+    }
+  }
+}

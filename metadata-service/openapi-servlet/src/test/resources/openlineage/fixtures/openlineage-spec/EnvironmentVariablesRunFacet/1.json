@@ -1,0 +1,16 @@
+{
+  "environmentVariables": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/EnvironmentVariablesRunFacet.json",
+    "environmentVariables": [
+      {
+        "name": "JAVA_HOME",
+        "value": "/usr/lib/jvm/java-11-openjdk"
+      },
+      {
+        "name": "PATH",
+        "value": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      }
+    ]
+  }
+}

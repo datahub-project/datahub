@@ -1,0 +1,157 @@
+{
+  "eventTime": "2024-11-26T13:10:46.074886+00:00",
+  "eventType": "COMPLETE",
+  "inputs": [
+    {
+      "facets": {},
+      "name": "uploaded_file.txt",
+      "namespace": "gs://mock-bucket"
+    },
+    {
+      "facets": {},
+      "name": "uploaded_data.txt",
+      "namespace": "gs://mock-bucket"
+    },
+    {
+      "facets": {},
+      "name": "copy_of_uploaded_data.txt",
+      "namespace": "gs://mock-bucket"
+    },
+    {
+      "facets": {},
+      "name": "copy_of_uploaded_file.txt",
+      "namespace": "gs://mock-bucket"
+    }
+  ],
+  "job": {
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "TASK",
+        "processingType": "BATCH"
+      },
+      "sourceCode": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json#/$defs/SourceCodeJobFacet",
+        "language": "python",
+        "sourceCode": "def compose():\n    GCSHook().compose(\n        bucket_name=B,\n        source_objects=[\n            \"uploaded_file.txt\",\n            \"uploaded_data.txt\",\n            \"copy_of_uploaded_data.txt\",\n            \"copy_of_uploaded_file.txt\",\n        ],\n        destination_object=\"compose_result.txt\"\n    )\n"
+      }
+    },
+    "name": "gcs_hook.compose_task",
+    "namespace": "airflow"
+  },
+  "outputs": [
+    {
+      "facets": {},
+      "name": "compose_result.txt",
+      "namespace": "gs://mock-bucket"
+    }
+  ],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dag": {
+          "dag_id": "gcs_hook",
+          "fileloc": "/files/dags/dag_gcs_hook.py",
+          "owner": "airflow",
+          "start_date": "2024-07-03T00:00:00+00:00",
+          "tags": "[]",
+          "timetable": {},
+          "timetable_summary": "None"
+        },
+        "dagRun": {
+          "conf": {},
+          "dag_id": "gcs_hook",
+          "data_interval_end": "2024-11-26T13:10:35.729678+00:00",
+          "data_interval_start": "2024-11-26T13:10:35.729678+00:00",
+          "external_trigger": true,
+          "run_id": "manual__2024-11-26T13:10:35.729678+00:00",
+          "run_type": "manual",
+          "start_date": "2024-11-26T13:10:36.695796+00:00"
+        },
+        "task": {
+          "depends_on_past": false,
+          "downstream_task_ids": "[]",
+          "executor_config": {},
+          "ignore_first_depends_on_past": false,
+          "inlets": "[]",
+          "mapped": false,
+          "multiple_outputs": false,
+          "operator_class": "PythonOperator",
+          "operator_class_path": "***.providers.standard.operators.python.PythonOperator",
+          "outlets": "[]",
+          "owner": "***",
+          "priority_weight": 1,
+          "queue": "default",
+          "retries": 0,
+          "retry_exponential_backoff": false,
+          "task_id": "compose_task",
+          "trigger_rule": "all_success",
+          "upstream_task_ids": "['rewrite_task', 'copy_task']",
+          "wait_for_downstream": false,
+          "wait_for_past_depends_before_skipping": false,
+          "weight_rule": "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+        },
+        "taskInstance": {
+          "duration": 0.760883,
+          "log_url": "http://localhost:8080/dags/gcs_hook/grid?dag_run_id=manual__2024-11-26T13%3A10%3A35.729678%2B00%3A00&task_id=compose_task&base_date=2024-11-26T13%3A10%3A35%2B0000&tab=logs",
+          "pool": "default_pool",
+          "queued_dttm": "2024-11-26T13:10:45.069261+00:00",
+          "try_number": 1
+        },
+        "taskUuid": "01936898-5bd1-7511-9abf-a140907e6cb3"
+      },
+      "parent": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "job": {
+          "name": "gcs_hook",
+          "namespace": "airflow"
+        },
+        "run": {
+          "runId": "01936898-5bd1-70bf-9ca2-4953116e45e1"
+        }
+      },
+      "unknownSourceAttribute": {
+        "_producer": "https://github.com/apache/***/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "unknownItems": [
+          {
+            "name": "PythonOperator",
+            "properties": {
+              "depends_on_past": false,
+              "downstream_task_ids": "[]",
+              "executor_config": {},
+              "ignore_first_depends_on_past": false,
+              "inlets": "[]",
+              "mapped": false,
+              "multiple_outputs": false,
+              "operator_class": "PythonOperator",
+              "operator_class_path": "***.providers.standard.operators.python.PythonOperator",
+              "outlets": "[]",
+              "owner": "***",
+              "priority_weight": 1,
+              "queue": "default",
+              "retries": 0,
+              "retry_exponential_backoff": false,
+              "task_id": "compose_task",
+              "trigger_rule": "all_success",
+              "upstream_task_ids": "['rewrite_task', 'copy_task']",
+              "wait_for_downstream": false,
+              "wait_for_past_depends_before_skipping": false,
+              "weight_rule": "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+            },
+            "type": "operator"
+          }
+        ]
+      }
+    },
+    "runId": "01936898-5bd1-7511-9abf-a140907e6cb3"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}

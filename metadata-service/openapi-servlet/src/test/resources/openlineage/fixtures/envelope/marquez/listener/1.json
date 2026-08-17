@@ -1,0 +1,28 @@
+{
+  "eventType": "RUNNING",
+  "eventTime": "2020-12-28T19:52:00.001+10:00",
+  "run": {
+    "runId": "5e58a95c-1c71-4231-8984-ac172d5566cf"
+  },
+  "job": {
+    "namespace": "my-scheduler-namespace",
+    "name": "myjob"
+  },
+  "inputs": [
+    {
+      "namespace": "file.localhost",
+      "name": "file://localhost/in_file1.txt"
+    },
+    {
+      "namespace": "file.localhost",
+      "name": "file://localhost/in_file2.txt"
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "file.localhost",
+      "name": "file://localhost/out_file1.txt"
+    }
+  ],
+  "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
+}

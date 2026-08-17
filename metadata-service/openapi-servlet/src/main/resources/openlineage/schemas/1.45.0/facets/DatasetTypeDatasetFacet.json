@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/DatasetTypeDatasetFacet.json",
+  "$defs": {
+    "DatasetTypeDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "datasetType": {
+              "description": "Dataset type, for example: TABLE|VIEW|FILE|TOPIC|STREAM|MODEL|JOB_OUTPUT.",
+              "type": "string",
+              "example": "FILE"
+            },
+            "subType": {
+              "description": "Optional sub-type within the dataset type (e.g., MATERIALIZED, EXTERNAL, TEMPORARY).",
+              "type": "string"
+            }
+          },
+          "required": ["datasetType"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "datasetType": {
+      "$ref": "#/$defs/DatasetTypeDatasetFacet"
+    }
+  }
+}

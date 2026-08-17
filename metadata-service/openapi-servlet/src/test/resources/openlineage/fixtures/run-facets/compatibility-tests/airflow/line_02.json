@@ -1,0 +1,113 @@
+{
+  "eventTime": "2024-11-26T13:05:25.547948+00:00",
+  "eventType": "START",
+  "inputs": [],
+  "job": {
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "TASK",
+        "processingType": "BATCH"
+      },
+      "ownership": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json#/$defs/OwnershipJobFacet",
+        "owners": [
+          {
+            "name": "***"
+          }
+        ]
+      }
+    },
+    "name": "BQ.upload",
+    "namespace": "airflow"
+  },
+  "outputs": [],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dag": {
+          "dag_id": "BQ",
+          "fileloc": "/files/dags/bq.py",
+          "owner": "airflow",
+          "start_date": "2024-01-01T00:00:00+00:00",
+          "tags": "[]",
+          "timetable": {},
+          "timetable_summary": "None"
+        },
+        "dagRun": {
+          "conf": {},
+          "dag_id": "BQ",
+          "data_interval_end": "2024-11-26T13:05:23.281750+00:00",
+          "data_interval_start": "2024-11-26T13:05:23.281750+00:00",
+          "external_trigger": true,
+          "run_id": "manual__2024-11-26T13:05:23.281750+00:00",
+          "run_type": "manual",
+          "start_date": "2024-11-26T13:05:23.809955+00:00"
+        },
+        "task": {
+          "deferrable": false,
+          "depends_on_past": false,
+          "downstream_task_ids": "['copy']",
+          "executor_config": {},
+          "ignore_first_depends_on_past": false,
+          "inlets": "[]",
+          "mapped": false,
+          "multiple_outputs": false,
+          "operator_class": "GCSToBigQueryOperator",
+          "operator_class_path": "***.providers.google.cloud.transfers.gcs_to_bigquery.GCSToBigQueryOperator",
+          "outlets": "[]",
+          "owner": "***",
+          "priority_weight": 1,
+          "queue": "default",
+          "retries": 0,
+          "retry_exponential_backoff": false,
+          "task_id": "upload",
+          "trigger_rule": "all_success",
+          "upstream_task_ids": "[]",
+          "wait_for_downstream": false,
+          "wait_for_past_depends_before_skipping": false,
+          "weight_rule": "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+        },
+        "taskInstance": {
+          "log_url": "http://localhost:8080/dags/BQ/grid?dag_run_id=manual__2024-11-26T13%3A05%3A23.281750%2B00%3A00&task_id=upload&base_date=2024-11-26T13%3A05%3A23%2B0000&tab=logs",
+          "pool": "default_pool",
+          "queued_dttm": "2024-11-26T13:05:23.862617+00:00",
+          "try_number": 1
+        },
+        "taskUuid": "01936893-9751-7b3c-8f76-8ac6d0e5f8a3"
+      },
+      "nominalTime": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/NominalTimeRunFacet.json#/$defs/NominalTimeRunFacet",
+        "nominalEndTime": "2024-11-26T13:05:23.281750+00:00",
+        "nominalStartTime": "2024-11-26T13:05:23.281750+00:00"
+      },
+      "parent": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "job": {
+          "name": "BQ",
+          "namespace": "airflow"
+        },
+        "run": {
+          "runId": "01936893-9751-7a91-a2a0-a51101a3970c"
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "name": "Airflow",
+        "openlineageAdapterVersion": "1.14.0",
+        "version": "3.0.0.dev0"
+      }
+    },
+    "runId": "01936893-9751-7b3c-8f76-8ac6d0e5f8a3"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}

@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/BaseSubsetDatasetFacet.json",
+  "$defs": {
+    "BaseSubsetDatasetFacet": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/InputSubsetInputDatasetFacet"
+        },
+        {
+          "$ref": "#/$defs/OutputSubsetOutputDatasetFacet"
+        }
+      ]
+    },
+    "OutputSubsetOutputDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/OutputDatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "outputCondition": {
+              "$ref": "#/$defs/BaseSubsetCondition"
+            }
+          },
+          "required": ["outputCondition"]
+        }
+      ]
+    },
+    "InputSubsetInputDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/InputDatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "inputCondition": {
+              "$ref": "#/$defs/BaseSubsetCondition"
+            }
+          },
+          "required": ["inputCondition"]
+        }
+      ]
+    },
+    "BaseSubsetCondition": {
+      "description": "The condition to define a subset",
+      "type": "object",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LocationSubsetCondition"
+        },
+        {
+          "$ref": "#/$defs/PartitionSubsetCondition"
+        },
+        {
+          "$ref": "#/$defs/BinarySubsetCondition"
+        },
+        {
+          "$ref": "#/$defs/CompareSubsetCondition"
+        }
+      ]
+    },
+    "BinarySubsetCondition": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "$ref": "#/$defs/BaseSubsetCondition"
+        },
+        "right": {
+          "$ref": "#/$defs/BaseSubsetCondition"
+        },
+        "type": {
+          "const": "binary"
+        },
+        "operator": {
+          "type": "string",
+          "example": "AND",
+          "description": "Allowed values: 'AND' or 'OR'"
+        }
+      },
+      "required": ["left", "right", "operator", "type"]
+    },
+    "CompareSubsetCondition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "compare"
+        },
+        "left": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FieldBaseCompareExpression"
+            },
+            {
+              "$ref": "#/$defs/LiteralCompareExpression"
+            }
+          ]
+        },
+        "right": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FieldBaseCompareExpression"
+            },
+            {
+              "$ref": "#/$defs/LiteralCompareExpression"
+            }
+          ]
+        },
+        "comparison": {
+          "type": "string",
+          "example": "EQUAL",
+          "description": "Allowed values: 'EQUAL', 'GREATER_THAN', 'GREATER_EQUAL_THAN', 'LESS_THAN', 'LESS_EQUAL_THAN'"
+        }
+      },
+      "required": ["left", "right", "comparison", "type"]
+    },
+    "FieldBaseCompareExpression": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "field"
+        },
+        "field": {
+          "type": "string"
+        }
+      },
+      "required": ["field", "type"]
+    },
+    "LiteralCompareExpression": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "literal"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": ["value", "type"]
+    },
+    "PartitionSubsetCondition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "partition"
+        },
+        "partitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "identifier": {
+                "type": "string",
+                "description": "Optionally provided identifier of the partition specified"
+              },
+              "dimensions": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": ["dimensions"]
+          }
+        }
+      },
+      "required": ["partitions", "type"]
+    },
+    "LocationSubsetCondition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "location"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["locations", "type"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "subset": {
+      "$ref": "#/$defs/BaseSubsetDatasetFacet"
+    }
+  },
+  "required": ["subset"]
+}

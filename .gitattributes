@@ -3,4 +3,6 @@
 *.tsx text eol=lf
 gradlew text eol=lf
 metadata-utils/src/test/resources/filterQuery/* text eol=lf
+metadata-service/openapi-servlet/src/main/resources/openlineage/schemas/** linguist-vendored
+metadata-service/openapi-servlet/src/test/resources/openlineage/fixtures/** linguist-vendored
 

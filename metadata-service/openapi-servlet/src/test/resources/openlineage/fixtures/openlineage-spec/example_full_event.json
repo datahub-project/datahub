@@ -1,0 +1,24 @@
+{
+  "eventTime": "2023-07-17T10:54:22.355067Z",
+  "eventType": "COMPLETE",
+  "inputs": [],
+  "job": {
+    "facets": {
+      "sql": {
+        "query": "SELECT 1",
+        "_producer": "http://123",
+        "_schemaURL": "http://123"
+      }
+    },
+    "name": "dbt",
+    "namespace": "food_delivery"
+  },
+  "outputs": [],
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/0.30.0/integration/airflow",
+  "run": {
+    "facets": {},
+    "runId": "f69a6e9b-9bac-3c9a-9cf6-eacb70ecc9a9"
+  },
+  "dataset": { "namespace": "123", "name": "1" },
+  "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
+}

@@ -1,0 +1,34 @@
+{
+  "subset": {
+    "inputCondition": {
+      "type": "binary",
+      "left": {
+        "type": "compare",
+        "left": {
+          "type": "field",
+          "field": "first_name"
+        },
+        "right": {
+          "type": "literal",
+          "value": "John"
+        },
+        "comparison": "EQUAL"
+      },
+      "right": {
+        "type": "compare",
+        "left": {
+          "type": "field",
+          "field": "last_name"
+        },
+        "right": {
+          "type": "literal",
+          "value": "Smith"
+        },
+        "comparison": "EQUAL"
+      },
+      "operator": "AND"
+    },
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/BaseSubsetDatasetFacet.json#/$defs/InputSubsetDatasetFacet"
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "columnLineage": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0-SNAPSHOT/integration/spark",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+    "fields": {
+      "id": {
+        "inputFields": [
+          {
+            "namespace": "s3://test-bucket",
+            "name": "/iceberg_warehouse/some-database/people",
+            "field": "id",
+            "transformations": [
+              {
+                "type": "DIRECT",
+                "subtype": "IDENTITY",
+                "description": "",
+                "masking": false
+              }
+            ]
+          }
+        ]
+      },
+      "firstName": {
+        "inputFields": [
+          {
+            "namespace": "s3://test-bucket",
+            "name": "/iceberg_warehouse/some-database/people",
+            "field": "first_name",
+            "transformations": [
+              {
+                "type": "DIRECT",
+                "subtype": "IDENTITY",
+                "description": "",
+                "masking": false
+              }
+            ]
+          }
+        ]
+      },
+      "lastName": {
+        "inputFields": [
+          {
+            "namespace": "s3://test-bucket",
+            "name": "/iceberg_warehouse/some-database/people",
+            "field": "last_name",
+            "transformations": [
+              {
+                "type": "DIRECT",
+                "subtype": "IDENTITY",
+                "description": "",
+                "masking": false
+              }
+            ]
+          }
+        ]
+      },
+      "ageNextYear": {
+        "inputFields": [
+          {
+            "namespace": "s3://test-bucket",
+            "name": "/iceberg_warehouse/some-database/people",
+            "field": "age",
+            "transformations": [
+              {
+                "type": "DIRECT",
+                "subtype": "TRANSFORMATION",
+                "description": "",
+                "masking": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "dataset": [
+      {
+        "namespace": "s3://test-bucket",
+        "name": "/iceberg_warehouse/some-database/people",
+        "field": "last_name",
+        "transformations": [
+          {
+            "type": "INDIRECT",
+            "subtype": "SORT",
+            "description": "",
+            "masking": false
+          }
+        ]
+      },
+      {
+        "namespace": "s3://test-bucket",
+        "name": "/iceberg_warehouse/some-database/people",
+        "field": "first_name",
+        "transformations": [
+          {
+            "type": "INDIRECT",
+            "subtype": "SORT",
+            "description": "",
+            "masking": false
+          }
+        ]
+      },
+      {
+        "namespace": "s3://test-bucket",
+        "name": "/iceberg_warehouse/some-database/people",
+        "field": "age",
+        "transformations": [
+          {
+            "type": "INDIRECT",
+            "subtype": "FILTER",
+            "description": "",
+            "masking": false
+          }
+        ]
+      }
+    ]
+  }
+}

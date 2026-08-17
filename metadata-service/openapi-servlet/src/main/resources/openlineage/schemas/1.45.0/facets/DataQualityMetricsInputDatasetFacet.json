@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-3/DataQualityMetricsInputDatasetFacet.json",
+  "$defs": {
+    "DataQualityMetricsInputDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/InputDatasetFacet"
+        },
+        {
+          "type": "object",
+          "required": ["columnMetrics"],
+          "properties": {
+            "rowCount": {
+              "description": "The number of rows evaluated",
+              "type": "integer"
+            },
+            "bytes": {
+              "description": "The size in bytes",
+              "type": "integer"
+            },
+            "fileCount": {
+              "description": "The number of files evaluated",
+              "type": "integer"
+            },
+            "lastUpdated": {
+              "description": "The last time the dataset was changed",
+              "type": "string",
+              "format": "date-time"
+            },
+            "columnMetrics": {
+              "description": "The property key is the column name",
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "nullCount": {
+                    "description": "The number of null values in this column for the rows evaluated",
+                    "type": "integer"
+                  },
+                  "distinctCount": {
+                    "description": "The number of distinct values in this column for the rows evaluated",
+                    "type": "integer"
+                  },
+                  "sum": {
+                    "description": "The total sum of values in this column for the rows evaluated",
+                    "type": "number"
+                  },
+                  "count": {
+                    "description": "The number of values in this column",
+                    "type": "number"
+                  },
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  },
+                  "quantiles": {
+                    "description": "The property key is the quantile. Examples: 0.1 0.25 0.5 0.75 1",
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "dataQualityMetrics": {
+      "$ref": "#/$defs/DataQualityMetricsInputDatasetFacet"
+    }
+  }
+}

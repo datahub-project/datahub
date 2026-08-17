@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-2/DataQualityAssertionsDatasetFacet.json",
+  "$defs": {
+    "DataQualityAssertionsDatasetFacet": {
+      "description": "list of tests performed on dataset or dataset columns, and their results",
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/InputDatasetFacet"
+        },
+        {
+          "type": "object",
+          "required": ["assertions"],
+          "properties": {
+            "assertions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "assertion": {
+                    "type": "string",
+                    "description": "Type of expectation test that dataset is subjected to",
+                    "example": "not_null"
+                  },
+                  "success": {
+                    "type": "boolean"
+                  },
+                  "column": {
+                    "type": "string",
+                    "description": "Column that expectation is testing. It should match the name provided in SchemaDatasetFacet. If column field is empty, then expectation refers to whole dataset.",
+                    "example": "id"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "description": "The configured severity level of the assertion. Common values are 'error' (test failure blocks pipeline) or 'warn' (test failure produces warning only).",
+                    "example": "error"
+                  }
+                },
+                "required": ["assertion", "success"]
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "dataQualityAssertions": {
+      "$ref": "#/$defs/DataQualityAssertionsDatasetFacet"
+    }
+  }
+}

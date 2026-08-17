@@ -1,0 +1,15 @@
+{
+  "extractionError": {
+    "totalTasks": 1,
+    "failedTasks": 1,
+    "errors": [
+      {
+        "errorMessage": "Expected TABLE, VIEW, INDEX, ROLE, SCHEMA, FUNCTION, STAGE or SEQUENCE after DROP, found: POLICY at Line: 1, Column 6",
+        "task": "DROP POLICY IF EXISTS name ON table_name",
+        "taskNumber": 0
+      }
+    ],
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/0.0.1/integration/dbt",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ExtractionErrorRunFacet.json"
+  }
+}

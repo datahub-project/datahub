@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/IcebergScanReportInputDatasetFacet.json",
+  "$defs": {
+    "IcebergScanReportInputDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/InputDatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "snapshotId": {
+              "description": "Snapshot ID of the iceberg table",
+              "type": "number"
+            },
+            "filterDescription": {
+              "description": "Filter used to scan the iceberg table",
+              "type": "string"
+            },
+            "schemaId": {
+              "description": "Schema ID of the iceberg table",
+              "type": "number"
+            },
+            "projectedFieldNames": {
+              "description": "List of field names that are projected from the iceberg table",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "scanMetrics": {
+              "type": "object",
+              "properties": {
+                "totalPlanningDuration": {
+                  "description": "Duration of the scan in MILLISECONDS",
+                  "type": "number"
+                },
+                "resultDataFiles": {
+                  "description": "List of data files that are read during the scan",
+                  "type": "number"
+                },
+                "resultDeleteFiles": {
+                  "description": "List of delete files that are read during the scan",
+                  "type": "number"
+                },
+                "totalDataManifests": {
+                  "description": "Total number of manifests that are scanned during the scan",
+                  "type": "number"
+                },
+                "totalDeleteManifests": {
+                  "description": "Total number of delete manifests that are scanned during the scan",
+                  "type": "number"
+                },
+                "scannedDataManifests": {
+                  "description": "Number of data manifests that are scanned during the scan",
+                  "type": "number"
+                },
+                "skippedDataManifests": {
+                  "description": "Number of data manifests that are skipped during the scan",
+                  "type": "number"
+                },
+                "totalFileSizeInBytes": {
+                  "description": "Total file size in bytes that are read during the scan",
+                  "type": "number"
+                },
+                "totalDeleteFileSizeInBytes": {
+                  "description": "Total delete file size in bytes that are read during the scan",
+                  "type": "number"
+                },
+                "skippedDataFiles": {
+                  "description": "Number of data files that are skipped during the scan",
+                  "type": "number"
+                },
+                "skippedDeleteFiles": {
+                  "description": "Number of delete files that are skipped during the scan",
+                  "type": "number"
+                },
+                "scannedDeleteManifests": {
+                  "description": "Number of delete manifests that are scanned during the scan",
+                  "type": "number"
+                },
+                "skippedDeleteManifests": {
+                  "description": "Number of delete manifests that are skipped during the scan",
+                  "type": "number"
+                },
+                "indexedDeleteFiles": {
+                  "description": "Number of delete files that are indexed during the scan",
+                  "type": "number"
+                },
+                "equalityDeleteFiles": {
+                  "description": "Number of delete files that are equality indexed during the scan",
+                  "type": "number"
+                },
+                "positionalDeleteFiles": {
+                  "description": "Number of delete files that are positional indexed during the scan",
+                  "type": "number"
+                }
+              }
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "icebergScanReport": {
+      "$ref": "#/$defs/IcebergScanReportInputDatasetFacet"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json",
+  "$defs": {
+    "SourceCodeJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "language": {
+              "description": "Language in which source code of this job was written.",
+              "type": "string"
+            },
+            "sourceCode": {
+              "description": "Source code of this job.",
+              "type": "string"
+            }
+          },
+          "required": ["language", "sourceCode"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "sourceCode": {
+      "$ref": "#/$defs/SourceCodeJobFacet"
+    }
+  }
+}

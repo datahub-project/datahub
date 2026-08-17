@@ -1,0 +1,130 @@
+{
+  "eventTime": "2024-11-26T13:06:09.683986+00:00",
+  "eventType": "COMPLETE",
+  "inputs": [],
+  "job": {
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "TASK",
+        "processingType": "BATCH"
+      },
+      "sourceCode": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SourceCodeJobFacet.json#/$defs/SourceCodeJobFacet",
+        "language": "bash",
+        "sourceCode": "exit 0;"
+      }
+    },
+    "name": "dag.task_0",
+    "namespace": "airflow"
+  },
+  "outputs": [],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dag": {
+          "dag_id": "dag",
+          "fileloc": "/files/dags/dag.py",
+          "owner": "airflow",
+          "start_date": "2024-07-03T00:00:00+00:00",
+          "tags": "[]",
+          "timetable": {},
+          "timetable_summary": "None"
+        },
+        "dagRun": {
+          "conf": {},
+          "dag_id": "dag",
+          "data_interval_end": "2024-11-26T13:06:08.846147+00:00",
+          "data_interval_start": "2024-11-26T13:06:08.846147+00:00",
+          "external_trigger": true,
+          "run_id": "manual__2024-11-26T13:06:08.846147+00:00",
+          "run_type": "manual",
+          "start_date": "2024-11-26T13:06:09.256873+00:00"
+        },
+        "task": {
+          "depends_on_past": false,
+          "downstream_task_ids": "[]",
+          "executor_config": {},
+          "ignore_first_depends_on_past": false,
+          "inlets": "[]",
+          "mapped": false,
+          "multiple_outputs": false,
+          "operator_class": "BashOperator",
+          "operator_class_path": "***.providers.standard.operators.bash.BashOperator",
+          "outlets": "[]",
+          "owner": "***",
+          "priority_weight": 1,
+          "queue": "default",
+          "retries": 0,
+          "retry_exponential_backoff": false,
+          "task_id": "task_0",
+          "trigger_rule": "all_success",
+          "upstream_task_ids": "[]",
+          "wait_for_downstream": false,
+          "wait_for_past_depends_before_skipping": false,
+          "weight_rule": "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+        },
+        "taskInstance": {
+          "duration": 0.224147,
+          "log_url": "http://localhost:8080/dags/dag/grid?dag_run_id=manual__2024-11-26T13%3A06%3A08.846147%2B00%3A00&task_id=task_0&base_date=2024-11-26T13%3A06%3A08%2B0000&tab=logs",
+          "pool": "default_pool",
+          "queued_dttm": "2024-11-26T13:06:09.287821+00:00",
+          "try_number": 1
+        },
+        "taskUuid": "01936894-494e-7c48-be1c-4a3656eb1868"
+      },
+      "parent": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "job": {
+          "name": "dag",
+          "namespace": "airflow"
+        },
+        "run": {
+          "runId": "01936894-494e-7b5c-938a-7b0fcc5f8eb9"
+        }
+      },
+      "unknownSourceAttribute": {
+        "_producer": "https://github.com/apache/***/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "unknownItems": [
+          {
+            "name": "BashOperator",
+            "properties": {
+              "depends_on_past": false,
+              "downstream_task_ids": "[]",
+              "executor_config": {},
+              "ignore_first_depends_on_past": false,
+              "inlets": "[]",
+              "mapped": false,
+              "multiple_outputs": false,
+              "operator_class": "BashOperator",
+              "operator_class_path": "***.providers.standard.operators.bash.BashOperator",
+              "outlets": "[]",
+              "owner": "***",
+              "priority_weight": 1,
+              "queue": "default",
+              "retries": 0,
+              "retry_exponential_backoff": false,
+              "task_id": "task_0",
+              "trigger_rule": "all_success",
+              "upstream_task_ids": "[]",
+              "wait_for_downstream": false,
+              "wait_for_past_depends_before_skipping": false,
+              "weight_rule": "<<non-serializable: _DownstreamPriorityWeightStrategy>>"
+            },
+            "type": "operator"
+          }
+        ]
+      }
+    },
+    "runId": "01936894-494e-7c48-be1c-4a3656eb1868"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}

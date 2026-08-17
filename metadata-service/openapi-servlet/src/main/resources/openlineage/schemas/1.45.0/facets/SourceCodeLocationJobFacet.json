@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/SourceCodeLocationJobFacet.json",
+  "$defs": {
+    "SourceCodeLocationJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "the source control system",
+              "example": "git|svn"
+            },
+            "url": {
+              "type": "string",
+              "description": "the full http URL to locate the file",
+              "format": "uri",
+              "example": "https://github.com/MarquezProject/marquez-airflow-quickstart/blob/693e35482bc2e526ced2b5f9f76ef83dec6ec691/dags/dummy_example.py"
+            },
+            "repoUrl": {
+              "type": "string",
+              "description": "the URL to the repository",
+              "example": "git@github.com:{org}/{repo}.git or https://github.com/{org}/{repo}.git|svn://<your_ip>/<repository_name>"
+            },
+            "path": {
+              "type": "string",
+              "description": "the path in the repo containing the source files",
+              "example": "path/to/my/dags"
+            },
+            "version": {
+              "type": "string",
+              "description": "the current version deployed (not a branch name, the actual unique version)",
+              "example": "git: the git sha | Svn: the revision number"
+            },
+            "tag": {
+              "type": "string",
+              "description": "optional tag name"
+            },
+            "branch": {
+              "type": "string",
+              "description": "optional branch name"
+            }
+          },
+          "required": ["type", "url"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "sourceCodeLocation": {
+      "$ref": "#/$defs/SourceCodeLocationJobFacet"
+    }
+  }
+}

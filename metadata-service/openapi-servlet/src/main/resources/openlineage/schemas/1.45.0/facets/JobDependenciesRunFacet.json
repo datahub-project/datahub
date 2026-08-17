@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/JobDependenciesRunFacet.json",
+  "$defs": {
+    "RunIdentifier": {
+      "type": "object",
+      "description": "Used to store information about run (e.g., runId).",
+      "properties": {
+        "runId": {
+          "description": "The globally unique ID of the run.",
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": ["runId"]
+    },
+    "JobIdentifier": {
+      "type": "object",
+      "description": "Used to store information about job (e.g., namespace and name).",
+      "properties": {
+        "namespace": {
+          "description": "The namespace containing the job",
+          "type": "string"
+        },
+        "name": {
+          "description": "The unique name of a job within that namespace",
+          "type": "string"
+        }
+      },
+      "required": ["namespace", "name"]
+    },
+    "JobDependency": {
+      "type": "object",
+      "description": "Used to store all information about job dependency (e.g., job, run, etc.).",
+      "additionalProperties": true,
+      "properties": {
+        "job": {
+          "$ref": "#/$defs/JobIdentifier"
+        },
+        "run": {
+          "$ref": "#/$defs/RunIdentifier"
+        },
+        "dependency_type": {
+          "type": "string",
+          "description": "Used to describe whether the upstream job directly triggers the downstream job, or whether the dependency is implicit (e.g. time-based).",
+          "example": "DIRECT_INVOCATION|IMPLICIT_DEPENDENCY"
+        },
+        "sequence_trigger_rule": {
+          "type": "string",
+          "description": "Used to describe the exact sequence condition on which the downstream job can be executed (FINISH_TO_START - downstream job can start when upstream finished; FINISH_TO_FINISH - job executions can overlap, but need to finish in specified order; START_TO_START - jobs need to start at the same time in parallel).",
+          "example": "FINISH_TO_START|FINISH_TO_FINISH|START_TO_START"
+        },
+        "status_trigger_rule": {
+          "type": "string",
+          "description": "Used to describe if the downstream job should be run based on the status of the upstream job.",
+          "example": "EXECUTE_EVERY_TIME|EXECUTE_ON_SUCCESS|EXECUTE_ON_FAILURE"
+        }
+      },
+      "required": ["job"]
+    },
+    "JobDependenciesRunFacet": {
+      "description": "Maps execution dependencies (control flow relationships) between upstream and downstream job runs",
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "upstream": {
+              "description": "Job runs that must complete before the current run can start.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/JobDependency"
+              }
+            },
+            "downstream": {
+              "description": "Job runs that will start after completion of the current run.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/JobDependency"
+              }
+            },
+            "trigger_rule": {
+              "type": "string",
+              "description": "Specifies the condition under which this job will run based on the status of upstream jobs.",
+              "example": "ALL_SUCCESS|ALL_DONE|ONE_SUCCESS|NONE_FAILED"
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "jobDependencies": {
+      "$ref": "#/$defs/JobDependenciesRunFacet"
+    }
+  }
+}

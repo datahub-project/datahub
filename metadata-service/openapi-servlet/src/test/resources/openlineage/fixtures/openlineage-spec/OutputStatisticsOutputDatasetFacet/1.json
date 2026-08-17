@@ -1,0 +1,9 @@
+{
+  "outputStatistics": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/1-0-1/OpenLineage.json#/definitions/OutputStatisticsOutputDatasetFacet",
+    "rowCount": 2000,
+    "size": 2097152,
+    "fileCount": 5
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "parent": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/0.0.1/integration/dbt",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/ParentRunFacet.json",
+    "run": {
+      "runId": "f99310b4-3c3c-1a1a-2b2b-c1b95c24ff11"
+    },
+    "job": {
+      "namespace": "dbt",
+      "name": "dbt-job-name"
+    }
+  }
+}

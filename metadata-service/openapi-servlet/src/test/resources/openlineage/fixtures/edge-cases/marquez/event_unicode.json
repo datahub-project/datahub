@@ -1,0 +1,29 @@
+{
+  "eventType": "COMPLETE",
+  "eventTime": "2020-12-28T19:52:00.001+10:00",
+  "run": {
+    "runId": "1d8f4596-b3f2-4ebb-9e75-8ecc955b834a"
+  },
+  "job": {
+    "namespace": "my-scheduler-namespace",
+    "name": "myjob.buggy_task🕷"
+  },
+  "inputs": [
+    {
+      "namespace": "my-datasource-namespace",
+      "name": "instance.schema.input-1"
+    },
+    {
+      "namespace": "my-datasource-namespace",
+      "name": "instance.schema.input-2"
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "my-datasource-namespace",
+      "name": "instance.schema.output-1"
+    }
+  ],
+  "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+  "schemaURL": "https://openlineage.io/spec/1-0-1/OpenLineage.json#/definitions/RunEvent"
+}

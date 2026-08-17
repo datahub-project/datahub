@@ -1,0 +1,10 @@
+{
+  "subset": {
+    "inputCondition": {
+      "type": "location",
+      "locations": ["s3://some/bucket/location1", "s3://some/bucket/location2", "s3://some/bucket/location3"]
+    },
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/BaseSubsetDatasetFacet.json#/$defs/InputSubsetDatasetFacet"
+  }
+}

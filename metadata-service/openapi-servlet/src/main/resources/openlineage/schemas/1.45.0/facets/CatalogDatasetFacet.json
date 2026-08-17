@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-1-0/CatalogDatasetFacet.json",
+  "$defs": {
+    "CatalogDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "framework": {
+              "description": "The storage framework for which the catalog is configured",
+              "type": "string",
+              "example": "iceberg, delta, hive"
+            },
+            "type": {
+              "description": "Type of the catalog.",
+              "type": "string",
+              "example": "jdbc, glue, polaris"
+            },
+            "name": {
+              "description": "Name of the catalog, as configured in the source system.",
+              "type": "string",
+              "example": "my_iceberg_catalog"
+            },
+            "metadataUri": {
+              "description": "URI or connection string to the catalog, if applicable.",
+              "type": "string",
+              "example": "jdbc:mysql://host:3306/iceberg_database"
+            },
+            "warehouseUri": {
+              "description": "URI or connection string to the physical location of the data that the catalog describes.",
+              "type": "string",
+              "example": "s3://bucket/path/to/iceberg/warehouse"
+            },
+            "source": {
+              "description": "Source system where the catalog is configured.",
+              "type": "string",
+              "example": "spark, flink, hive"
+            },
+            "catalogProperties": {
+              "description": "Additional catalog properties",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["framework", "type", "name"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "catalog": {
+      "$ref": "#/$defs/CatalogDatasetFacet"
+    }
+  }
+}

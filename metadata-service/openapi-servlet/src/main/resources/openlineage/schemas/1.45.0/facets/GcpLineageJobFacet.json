@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/GcpLineageJobFacet.json",
+  "$defs": {
+    "GcpLineageJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "displayName": {
+              "description": "The name of the job to be used on UI",
+              "type": "string"
+            },
+            "origin": {
+              "type": "object",
+              "properties": {
+                "sourceType": {
+                  "description": "Type of the source. Possible values can be found in GCP documentation (https://cloud.google.com/data-catalog/docs/reference/data-lineage/rest/v1/projects.locations.processes#SourceType) ",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "If the sourceType isn't CUSTOM, the value of this field should be a GCP resource name of the system, which reports lineage. The project and location parts of the resource name must match the project and location of the lineage resource being created. More details in GCP documentation https://cloud.google.com/data-catalog/docs/reference/data-lineage/rest/v1/projects.locations.processes#origin",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "gcp_lineage": {
+      "$ref": "#/$defs/GcpLineageJobFacet"
+    }
+  }
+}

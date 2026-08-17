@@ -1,0 +1,12 @@
+{
+  "eventTime": "2020-12-28T19:51:01.641Z",
+  "run": {
+    "runId": "43d7db3b-8984-4cda-b237-8c6919b36670"
+  },
+  "job": {
+    "namespace": "my-namespace",
+    "name": "myjob"
+  },
+  "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+  "schemaURL": "https://openlineage.io/spec/1-0-1/OpenLineage.json#/definitions/RunEvent"
+}

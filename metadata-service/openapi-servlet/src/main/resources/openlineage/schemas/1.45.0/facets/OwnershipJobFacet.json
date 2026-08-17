@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/OwnershipJobFacet.json",
+  "$defs": {
+    "OwnershipJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "owners": {
+              "description": "The owners of the job.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "the identifier of the owner of the Job. It is recommended to define this as a URN. For example application:foo, user:jdoe, team:data",
+                    "type": "string",
+                    "example": "application:app_name"
+                  },
+                  "type": {
+                    "description": "The type of ownership (optional)",
+                    "type": "string",
+                    "example": "MAINTAINER"
+                  }
+                },
+                "required": ["name"]
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "ownership": {
+      "$ref": "#/$defs/OwnershipJobFacet"
+    }
+  }
+}

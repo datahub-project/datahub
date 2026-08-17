@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json",
+  "$defs": {
+    "ColumnLineageDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "description": "Column level lineage that maps output fields into input fields used to evaluate them.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "inputFields": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/InputField"
+                    }
+                  },
+                  "transformationDescription": {
+                    "type": "string",
+                    "description": "a string representation of the transformation applied",
+                    "deprecated": true
+                  },
+                  "transformationType": {
+                    "type": "string",
+                    "description": "IDENTITY|MASKED reflects a clearly defined behavior. IDENTITY: exact same as input; MASKED: no original data available (like a hash of PII for example)",
+                    "deprecated": true
+                  }
+                },
+                "additionalProperties": true,
+                "required": ["inputFields"]
+              }
+            },
+            "dataset": {
+              "description": "Column level lineage that affects the whole dataset. This includes filtering, sorting, grouping (aggregates), joining, window functions, etc.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/InputField"
+              }
+            }
+          },
+          "additionalProperties": true,
+          "required": ["fields"]
+        }
+      ],
+      "type": "object"
+    },
+    "InputField": {
+      "description": "Represents a single dependency on some field (column).",
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "The input dataset namespace"
+        },
+        "name": {
+          "type": "string",
+          "description": "The input dataset name"
+        },
+        "field": {
+          "type": "string",
+          "description": "The input field"
+        },
+        "transformations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "description": "The type of the transformation. Allowed values are: DIRECT, INDIRECT",
+                "type": "string"
+              },
+              "subtype": {
+                "type": "string",
+                "description": "The subtype of the transformation"
+              },
+              "description": {
+                "type": "string",
+                "description": "a string representation of the transformation applied"
+              },
+              "masking": {
+                "type": "boolean",
+                "description": "is transformation masking the data or not"
+              }
+            },
+            "required": ["type"],
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true,
+      "required": ["namespace", "name", "field"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "columnLineage": {
+      "$ref": "#/$defs/ColumnLineageDatasetFacet"
+    }
+  }
+}

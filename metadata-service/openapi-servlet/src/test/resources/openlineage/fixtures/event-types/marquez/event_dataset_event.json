@@ -1,0 +1,22 @@
+{
+  "eventTime": "2020-12-28T19:52:00.001+10:00",
+  "dataset": {
+    "namespace": "my-dataset-namespace",
+    "name": "my-dataset-name",
+    "facets": {
+      "schema": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+        "_schemaURL": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/spec/OpenLineage.yml#MyCustomJobFacet",
+        "fields": [
+          {
+            "name": "col_a",
+            "type": "VARCHAR",
+            "description": "string"
+          }
+        ]
+      }
+    }
+  },
+  "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+  "schemaURL": "https://openlineage.io/spec/2-8-9/OpenLineage.json#/definitions/DatasetEvent"
+}

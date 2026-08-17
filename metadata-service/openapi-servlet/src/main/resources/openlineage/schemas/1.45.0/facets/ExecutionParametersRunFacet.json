@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/ExecutionParametersRunFacet.json",
+  "$defs": {
+    "ExecutionParameter": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Unique identifier of the property.",
+          "example": "task.timeout"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name of the property.",
+          "example": "Task timeout"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the property.",
+          "example": "How long (in seconds) can individual task run without timing out."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value of the property.",
+          "example": 3600
+        }
+      },
+      "required": ["key"],
+      "additionalProperties": false
+    },
+    "ExecutionParametersRunFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "parameters": {
+              "description": "The parameters passed to the Job at runtime",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ExecutionParameter"
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "executionParameters": {
+      "$ref": "#/$defs/ExecutionParametersRunFacet"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "eventType": "COMPLETE",
+  "eventTime": "2020-12-28T19:52:00.001+10:00",
+  "job": {
+    "namespace": "my-scheduler-namespace",
+    "name": "myjob"
+  },
+  "inputs": [
+    {
+      "namespace": "my-datasource-namespace",
+      "name": "instance.schema.input-1",
+      "facets": {
+        "documentation": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+          "_schemaURL": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/spec/OpenLineage.yml#MyCustomJobFacet",
+          "description": "input documentation"
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "my-datasource-namespace",
+      "name": "instance.schema.output-1",
+      "facets": {
+        "documentation": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+          "_schemaURL": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/spec/OpenLineage.yml#MyCustomJobFacet",
+          "description": "output documentation"
+        }
+      }
+    }
+  ],
+  "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+  "schemaURL": "https://openlineage.io/spec/1-0-1/OpenLineage.json#/definitions/JobEvent"
+}

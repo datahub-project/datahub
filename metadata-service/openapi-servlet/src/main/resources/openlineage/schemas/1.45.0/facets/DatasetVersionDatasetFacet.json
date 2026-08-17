@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/DatasetVersionDatasetFacet.json",
+  "$defs": {
+    "DatasetVersionDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "datasetVersion": {
+              "description": "The version of the dataset.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "required": ["datasetVersion"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "#/$defs/DatasetVersionDatasetFacet"
+    }
+  }
+}

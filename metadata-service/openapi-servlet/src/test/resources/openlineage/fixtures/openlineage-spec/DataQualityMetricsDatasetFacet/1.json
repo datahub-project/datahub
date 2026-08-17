@@ -1,0 +1,24 @@
+{
+  "dataQualityMetrics": {
+    "columnMetrics": {
+      "amount": {
+        "count": 10,
+        "max": 1500,
+        "min": 100,
+        "sum": 6600
+      },
+      "counterparty_id": {
+        "nullCount": 0
+      },
+      "user_id": {
+        "distinctCount": 3,
+        "nullCount": 0
+      }
+    },
+    "rowCount": 10,
+    "fileCount": 5,
+    "lastUpdated": "2023-05-30T10:54:22.355067Z",
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityMetricsDatasetFacet.json"
+  }
+}

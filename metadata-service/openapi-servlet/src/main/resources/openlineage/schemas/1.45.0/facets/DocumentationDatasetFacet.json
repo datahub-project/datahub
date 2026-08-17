@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-1-0/DocumentationDatasetFacet.json",
+  "$defs": {
+    "DocumentationDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "description": {
+              "description": "The description of the dataset.",
+              "type": "string",
+              "example": "canonical representation of entity Foo"
+            },
+            "contentType": {
+              "description": "MIME type of the description field content.",
+              "type": "string",
+              "example": "application/json, text/markdown"
+            }
+          },
+          "required": ["description"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "documentation": {
+      "$ref": "#/$defs/DocumentationDatasetFacet"
+    }
+  }
+}

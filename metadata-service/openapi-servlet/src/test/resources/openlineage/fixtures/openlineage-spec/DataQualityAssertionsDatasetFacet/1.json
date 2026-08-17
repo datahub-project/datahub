@@ -1,0 +1,58 @@
+{
+  "dataQualityAssertions": {
+    "assertions": [
+      {
+        "assertion": "accepted_values",
+        "column": "status",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "amount",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "bank_transfer_amount",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "coupon_amount",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "credit_card_amount",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "customer_id",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "gift_card_amount",
+        "success": true
+      },
+      {
+        "assertion": "not_null",
+        "column": "order_id",
+        "success": true
+      },
+      {
+        "assertion": "relationships",
+        "column": "customer_id",
+        "success": true
+      },
+      {
+        "assertion": "unique",
+        "column": "order_id",
+        "success": true
+      }
+    ],
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DataQualityAssertionsDatasetFacet.json"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/TagsJobFacet.json",
+  "$defs": {
+    "TagsJobFacetFields": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Key that identifies the tag",
+          "type": "string",
+          "example": "pii"
+        },
+        "value": {
+          "description": "The value of the field",
+          "type": "string",
+          "example": "true|@user1|production"
+        },
+        "source": {
+          "description": "The source of the tag. INTEGRATION|USER|DBT CORE|SPARK|etc.",
+          "type": "string",
+          "example": "SPARK"
+        }
+      },
+      "required": ["key", "value"]
+    },
+    "TagsJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tags": {
+              "description": "The tags applied to the job facet",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TagsJobFacetFields"
+              }
+            }
+          }
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "tags": {
+      "$ref": "#/$defs/TagsJobFacet"
+    }
+  }
+}

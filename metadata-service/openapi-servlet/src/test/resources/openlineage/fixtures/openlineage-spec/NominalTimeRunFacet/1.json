@@ -1,0 +1,8 @@
+{
+  "nominalTime": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/0.0.1/client/python",
+    "_schemaURL": "https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/NominalTimeRunFacet",
+    "nominalEndTime": "2020-01-02T04:00:00.001Z",
+    "nominalStartTime": "2020-01-01T04:00:00.001Z"
+  }
+}

@@ -8,6 +8,21 @@ Unless required by applicable law or agreed to in writing, software distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied.
 
+This product includes unchanged OpenLineage specification schemas and test fixtures
+(https://github.com/OpenLineage/OpenLineage), pinned at commit
+a19f9e2e05173649605559136d39a7ec0b7fa7ee.
+License: Apache-2.0 - http://www.apache.org/licenses/LICENSE-2.0
+
+This product includes unchanged OpenLineage test fixtures from Marquez
+(https://github.com/MarquezProject/marquez), pinned at commit
+180f37b22387146187af1ef0279e3ee1d1ccd789.
+License: Apache-2.0 - http://www.apache.org/licenses/LICENSE-2.0
+
+This product includes unchanged event fixtures from OpenLineage Compatibility Tests
+(https://github.com/OpenLineage/compatibility-tests), pinned at commit
+ba613ab15679ae768a764afa1adfa8907820da8c.
+License: Apache-2.0 - https://github.com/OpenLineage/compatibility-tests/blob/3d00d4369f9f6041a165d5158a8e8229973f80ab/LICENSE
+
 ================================================================================
 
 This product uses Gradle (https://github.com/gradle/gradle) as its build system

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json",
+  "$defs": {
+    "ProcessingEngineRunFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "description": "Processing engine version. Might be Airflow or Spark version.",
+              "type": "string",
+              "example": "2.5.0"
+            },
+            "name": {
+              "description": "Processing engine name, e.g. Airflow or Spark",
+              "type": "string",
+              "example": "Airflow"
+            },
+            "openlineageAdapterVersion": {
+              "description": "OpenLineage adapter package version. Might be e.g. OpenLineage Airflow integration package version",
+              "type": "string",
+              "example": "0.19.0"
+            }
+          },
+          "required": ["version"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "processing_engine": {
+      "$ref": "#/$defs/ProcessingEngineRunFacet"
+    }
+  }
+}

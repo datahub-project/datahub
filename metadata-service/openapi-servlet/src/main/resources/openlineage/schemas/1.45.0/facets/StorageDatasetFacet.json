@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/StorageDatasetFacet.json",
+  "$defs": {
+    "StorageDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "storageLayer": {
+              "description": "Storage layer provider with allowed values: iceberg, delta.",
+              "type": "string"
+            },
+            "fileFormat": {
+              "description": "File format with allowed values: parquet, orc, avro, json, csv, text, xml.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": true,
+          "required": ["storageLayer"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "storage": {
+      "$ref": "#/$defs/StorageDatasetFacet"
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-1-2/ExtractionErrorRunFacet.json",
+  "$defs": {
+    "ExtractionErrorRunFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "totalTasks": {
+              "description": "The number of distinguishable tasks in a run that were processed by OpenLineage, whether successfully or not. Those could be, for example, distinct SQL statements.",
+              "type": "integer"
+            },
+            "failedTasks": {
+              "description": "The number of distinguishable tasks in a run that were processed not successfully by OpenLineage. Those could be, for example, distinct SQL statements.",
+              "type": "integer"
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "errorMessage": {
+                    "description": "Text representation of extraction error message.",
+                    "type": "string"
+                  },
+                  "stackTrace": {
+                    "description": "Stack trace of extraction error message",
+                    "type": "string"
+                  },
+                  "task": {
+                    "description": "Text representation of task that failed. This can be, for example, SQL statement that parser could not interpret.",
+                    "type": "string"
+                  },
+                  "taskNumber": {
+                    "description": "Order of task (counted from 0).",
+                    "type": "integer"
+                  }
+                },
+                "required": ["errorMessage"]
+              }
+            }
+          },
+          "required": ["totalTasks", "failedTasks", "errors"]
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "extractionError": {
+      "$ref": "#/$defs/ExtractionErrorRunFacet"
+    }
+  }
+}

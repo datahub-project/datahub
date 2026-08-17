@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/InputStatisticsInputDatasetFacet.json",
+  "$defs": {
+    "InputStatisticsInputDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/InputDatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rowCount": {
+              "description": "The number of rows read",
+              "type": "integer"
+            },
+            "size": {
+              "description": "The size in bytes read",
+              "type": "integer"
+            },
+            "fileCount": {
+              "description": "The number of files read",
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "inputStatistics": {
+      "$ref": "#/$defs/InputStatisticsInputDatasetFacet"
+    }
+  }
+}

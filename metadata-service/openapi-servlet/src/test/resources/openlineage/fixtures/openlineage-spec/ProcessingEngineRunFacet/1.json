@@ -1,0 +1,9 @@
+{
+  "processing_engine": {
+    "version": "2.5.0",
+    "name": "Airflow",
+    "openlineageAdapterVersion": "0.29.2",
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/ProcessingEngineRunFacet.json"
+  }
+}

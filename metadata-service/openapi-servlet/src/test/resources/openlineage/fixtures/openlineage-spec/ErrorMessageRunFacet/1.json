@@ -1,0 +1,9 @@
+{
+  "errorMessage": {
+    "message": "failed",
+    "programmingLanguage": "JAVA",
+    "stackTrace": "<stack_trace>",
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/ErrorMessageRunFacet.json"
+  }
+}

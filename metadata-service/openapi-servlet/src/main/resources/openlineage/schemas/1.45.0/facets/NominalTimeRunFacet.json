@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/NominalTimeRunFacet.json",
+  "$defs": {
+    "NominalTimeRunFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nominalStartTime": {
+              "description": "An [ISO-8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp representing the nominal start time (included) of the run. AKA the schedule time",
+              "type": "string",
+              "format": "date-time",
+              "example": "2020-12-17T03:00:00.000Z"
+            },
+            "nominalEndTime": {
+              "description": "An [ISO-8601](https://en.wikipedia.org/wiki/ISO_8601) timestamp representing the nominal end time (excluded) of the run. (Should be the nominal start time of the next run)",
+              "type": "string",
+              "format": "date-time",
+              "example": "2020-12-17T04:00:00.000Z"
+            }
+          },
+          "required": ["nominalStartTime"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "nominalTime": {
+      "$ref": "#/$defs/NominalTimeRunFacet"
+    }
+  }
+}

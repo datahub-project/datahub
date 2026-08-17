@@ -1,0 +1,17 @@
+{
+  "tags": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.27.0/client/python",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/TagsJobFacet.json#/$defs/TagsJobFacet",
+    "tags": [
+      {
+        "key": "test_tag",
+        "value": "test_value",
+        "source": "test_source"
+      },
+      {
+        "key": "test_tag2",
+        "value": "test_value2"
+      }
+    ]
+  }
+}

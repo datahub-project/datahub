@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/EnvironmentVariablesRunFacet.json",
+  "$defs": {
+    "EnvironmentVariable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the environment variable.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value of the environment variable.",
+          "type": "string"
+        }
+      },
+      "required": ["name", "value"]
+    },
+    "EnvironmentVariablesRunFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "environmentVariables": {
+              "description": "The environment variables for the run.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/EnvironmentVariable"
+              }
+            }
+          },
+          "required": ["environmentVariables"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "environmentVariables": {
+      "$ref": "#/$defs/EnvironmentVariablesRunFacet"
+    }
+  }
+}

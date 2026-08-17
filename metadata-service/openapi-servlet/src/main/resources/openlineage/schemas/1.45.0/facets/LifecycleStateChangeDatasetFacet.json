@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-1/LifecycleStateChangeDatasetFacet.json",
+  "$defs": {
+    "LifecycleStateChangeDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycleStateChange": {
+              "description": "The lifecycle state change.",
+              "type": "string",
+              "enum": ["ALTER", "CREATE", "DROP", "OVERWRITE", "RENAME", "TRUNCATE"]
+            },
+            "previousIdentifier": {
+              "description": "Previous name of the dataset in case of renaming it.",
+              "type": "object",
+              "properties": {
+                "name": {
+                  "documentation": "Previous dataset name.",
+                  "type": "string"
+                },
+                "namespace": {
+                  "documentation": "Previous dataset namespace.",
+                  "type": "string"
+                }
+              },
+              "required": ["name", "namespace"]
+            }
+          },
+          "required": ["lifecycleStateChange"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "lifecycleStateChange": {
+      "$ref": "#/$defs/LifecycleStateChangeDatasetFacet"
+    }
+  }
+}

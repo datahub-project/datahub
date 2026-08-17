@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json",
+  "$defs": {
+    "HierarchyDatasetFacetLevel": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Dataset hierarchy level type",
+          "example": "DATABASE|SCHEMA|TABLE"
+        },
+        "name": {
+          "description": "Dataset hierarchy level name",
+          "type": "string",
+          "example": "my_db|my_schema|my_table"
+        }
+      },
+      "required": ["type", "name"]
+    },
+    "HierarchyDatasetFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "hierarchy": {
+              "type": "array",
+              "description": "Dataset hierarchy levels (e.g. DATABASE -> SCHEMA -> TABLE), from highest to lowest level. The order is important",
+              "items": {
+                "$ref": "#/$defs/HierarchyDatasetFacetLevel"
+              }
+            }
+          },
+          "required": ["hierarchy"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "hierarchy": {
+      "$ref": "#/$defs/HierarchyDatasetFacet"
+    }
+  }
+}

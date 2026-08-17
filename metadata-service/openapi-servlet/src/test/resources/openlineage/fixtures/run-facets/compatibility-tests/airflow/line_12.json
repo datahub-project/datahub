@@ -1,0 +1,34 @@
+{
+  "eventTime": "2024-11-26T13:06:10.140104+00:00",
+  "eventType": "COMPLETE",
+  "inputs": [],
+  "job": {
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "integration": "AIRFLOW",
+        "jobType": "DAG",
+        "processingType": "BATCH"
+      }
+    },
+    "name": "dag",
+    "namespace": "airflow"
+  },
+  "outputs": [],
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+  "run": {
+    "facets": {
+      "airflowState": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/1.14.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dagRunState": "success",
+        "tasksState": {
+          "task_0": "success"
+        }
+      }
+    },
+    "runId": "01936894-494e-7b5c-938a-7b0fcc5f8eb9"
+  },
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent"
+}

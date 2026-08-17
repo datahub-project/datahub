@@ -1,0 +1,20 @@
+{
+  "hierarchy": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.27.0/client/python",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/HierarchyDatasetFacet.json#/$defs/HierarchyDatasetFacet",
+    "hierarchy": [
+      {
+        "type": "DATABASE",
+        "name": "my_db"
+      },
+      {
+        "type": "SCHEMA",
+        "name": "my_schema"
+      },
+      {
+        "type": "TABLE",
+        "name": "my_table"
+      }
+    ]
+  }
+}

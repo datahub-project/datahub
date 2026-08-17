@@ -1,0 +1,8 @@
+{
+  "externalQuery": {
+    "_producer": "https://github.com/OpenLineage/OpenLineage/tree/0.0.1/integration/airflow",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/ExternalQueryRunFacet.json",
+    "externalQueryId": "bigquery_1690280798993890_f4ade238a8121576708e1892f69e67fe",
+    "source": "bigquery"
+  }
+}

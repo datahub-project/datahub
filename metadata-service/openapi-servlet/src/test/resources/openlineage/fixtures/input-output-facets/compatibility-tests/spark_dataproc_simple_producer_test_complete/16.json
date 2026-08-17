@@ -1,0 +1,56 @@
+{
+  "eventTime": "2024-10-17T09:18:32.504Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "019299c5-12f5-7946-b5b2-c6abab662e20",
+    "facets": {
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "local",
+          "spark.app.name": "CLI test application"
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.5.1",
+        "name": "spark",
+        "openlineageAdapterVersion": "1.23.0"
+      },
+      "gcp_dataproc_spark": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpDataprocRunFacet.json#/$defs/GcpDataprocRunFacet",
+        "appName": "CLI test application",
+        "appId": "local-1729156674719",
+        "projectId": "gcp-open-lineage-testing"
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "cl_i_test_application",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "NONE",
+        "integration": "SPARK",
+        "jobType": "APPLICATION"
+      },
+      "gcp_lineage": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.23.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/GcpLineageJobFacet.json#/$defs/GcpLineageJobFacet",
+        "origin": {
+          "sourceType": "DATAPROC",
+          "name": "projects/gcp-open-lineage-testing/regions/us-west1/unknown/"
+        }
+      }
+    }
+  },
+  "inputs": [],
+  "outputs": []
+}

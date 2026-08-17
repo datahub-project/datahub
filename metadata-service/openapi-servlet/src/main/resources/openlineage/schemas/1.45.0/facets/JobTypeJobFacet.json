@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json",
+  "$defs": {
+    "JobTypeJobFacet": {
+      "allOf": [
+        {
+          "$ref": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobFacet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "processingType": {
+              "description": "Job processing type like: BATCH or STREAMING",
+              "type": "string",
+              "example": "BATCH"
+            },
+            "integration": {
+              "description": "OpenLineage integration type of this job: for example SPARK|DBT|AIRFLOW|FLINK",
+              "type": "string",
+              "example": "SPARK"
+            },
+            "jobType": {
+              "description": "Run type, for example: QUERY|COMMAND|DAG|TASK|JOB|MODEL. This is an integration-specific field.",
+              "type": "string",
+              "example": "QUERY"
+            }
+          },
+          "required": ["processingType", "integration"]
+        }
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "jobType": {
+      "$ref": "#/$defs/JobTypeJobFacet"
+    }
+  }
+}

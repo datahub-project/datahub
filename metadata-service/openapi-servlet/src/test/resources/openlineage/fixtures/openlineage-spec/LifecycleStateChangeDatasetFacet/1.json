@@ -1,0 +1,11 @@
+{
+  "lifecycleStateChange": {
+    "lifecycleStateChange": "RENAME",
+    "previousIdentifier": {
+      "name": "/tmp/alter_test/alter_table_test",
+      "namespace": "file"
+    },
+    "_producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client",
+    "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasetVersionDatasetFacet.json"
+  }
+}
