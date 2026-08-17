@@ -254,9 +254,6 @@ class BigQuerySchemaGenerator:
         # to auto-extend region_qualifiers and avoid silent INFORMATION_SCHEMA misses.
         self.discovered_locations: Set[str] = set()
 
-        # Refs given a COPY upstreamLineage here, so lineage extraction must skip them
-        self.linked_dataset_refs: Set[str] = set()
-
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps project -> snapshot_ref, so we can find all snapshots in a project
@@ -926,14 +923,6 @@ class BigQuerySchemaGenerator:
         handler = self.linked_datasets_handler
         if handler is None or not handler.emits_copy_lineage(project_id, dataset_name):
             return
-
-        # Claimed before emission so failures cannot fall back to lineage extraction.
-        table_identifier = BigqueryTableIdentifier(
-            project_id, dataset_name, entity_name
-        )
-        self.linked_dataset_refs.add(
-            str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
-        )
 
         try:
             yield from handler.gen_lineage_workunits(

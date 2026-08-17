@@ -65,6 +65,15 @@ def _make_config(**overrides: Any) -> BigQueryV2Config:
     return BigQueryV2Config.model_validate(base)
 
 
+def test_linked_dataset_lineage_requires_queries_v2() -> None:
+    """The COPY edge is only single-writer under queries-v2, so the legacy path
+    keeps detection but drops lineage."""
+    assert _make_config().include_linked_dataset_lineage
+    assert not _make_config(use_queries_v2=False).include_linked_dataset_lineage
+    # Detection itself is unaffected by the extraction path.
+    assert _make_config(use_queries_v2=False).include_linked_datasets
+
+
 def _make_handler(
     config: Optional[BigQueryV2Config] = None,
 ) -> BigQueryLinkedDatasetsHandler:
@@ -916,7 +925,6 @@ def test_emission_error_is_recorded_and_not_fatal():
     gen: Any = SimpleNamespace(
         linked_datasets_handler=handler,
         report=report,
-        linked_dataset_refs=set(),
     )
 
     wus = list(
@@ -934,10 +942,6 @@ def test_emission_error_is_recorded_and_not_fatal():
         "consumer-project.shared_dataset.active_users"
     ]
     assert len(report.warnings) == 1
-    # Still claimed, so lineage extraction cannot fill the gap with a bad FQN.
-    assert gen.linked_dataset_refs == {
-        "projects/consumer-project/datasets/shared_dataset/tables/active_users"
-    }
 
 
 @pytest.mark.parametrize(
@@ -980,7 +984,6 @@ def test_no_lineage_emitted_when_predicate_false():
     gen: Any = SimpleNamespace(
         linked_datasets_handler=handler,
         report=BigQueryV2Report(),
-        linked_dataset_refs=set(),
     )
     wus = list(
         BigQuerySchemaGenerator._emit_linked_dataset_lineage(
@@ -993,5 +996,3 @@ def test_no_lineage_emitted_when_predicate_false():
     )
     assert wus == []
     handler.gen_lineage_workunits.assert_not_called()
-    # Nothing claimed, so normal audit-log lineage still applies.
-    assert gen.linked_dataset_refs == set()

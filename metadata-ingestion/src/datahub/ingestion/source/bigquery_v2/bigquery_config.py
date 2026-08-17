@@ -476,7 +476,7 @@ class BigQueryV2Config(
             "When `include_linked_datasets` is enabled, also emit `Siblings` and column-level "
             "`UpstreamLineage` (type `COPY`) from each linked dataset's tables and views to the "
             "publisher's source dataset. Requires `resourcemanager.projects.get` permission on each "
-            "publisher project."
+            "publisher project. Only supported with the queries-v2 extraction path."
         ),
     )
 
@@ -743,6 +743,25 @@ class BigQueryV2Config(
                     "`max_query_duration` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def disable_linked_dataset_lineage_on_legacy_path(self) -> "BigQueryV2Config":
+        # `upstreamLineage` is single-valued, so the COPY edge only holds if nothing
+        # else writes one for the same entity. Under queries-v2 nothing can: an entity
+        # gains lineage only as a query destination, and a linked dataset is read-only.
+        if (
+            self.include_linked_datasets
+            and self.include_linked_dataset_lineage
+            and not self.use_queries_v2
+        ):
+            logger.warning(
+                "`include_linked_dataset_lineage` is only supported with the queries-v2 "
+                "extraction path and is disabled under `use_queries_v2: False`. Linked "
+                "datasets are still detected and enriched, but no Siblings or COPY "
+                "UpstreamLineage are emitted. Set `use_queries_v2: True` to enable them."
+            )
+            self.include_linked_dataset_lineage = False
         return self
 
     @field_validator(

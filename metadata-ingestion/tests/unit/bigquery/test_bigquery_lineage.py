@@ -1,6 +1,5 @@
 import datetime
 from typing import Dict, List, Optional, Set
-from unittest.mock import patch
 
 import pytest
 
@@ -147,46 +146,6 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
         upstream_lineage.fineGrainedLineages
         and len(upstream_lineage.fineGrainedLineages) == 2
     )
-
-
-def test_skipped_refs_do_not_get_audit_log_lineage() -> None:
-    """Refs whose upstreamLineage is written inline must not be overwritten here."""
-    config = BigQueryV2Config(incremental_lineage=False)
-    report = BigQueryV2Report()
-    extractor = BigqueryLineageExtractor(
-        config,
-        report,
-        schema_resolver=SchemaResolver(platform="bigquery"),
-        identifiers=BigQueryIdentifierBuilder(config, report),
-        filters=BigQueryFilter(config, report),
-    )
-
-    skipped_ref = "projects/consumer/datasets/shared_ds/tables/users"
-    kept_ref = "projects/consumer/datasets/local_ds/tables/orders"
-    edge = LineageEdge(
-        table="projects/publisher/datasets/source_ds/tables/users",
-        column_mapping=frozenset(),
-        auditStamp=datetime.datetime.now(tz=datetime.timezone.utc),
-    )
-
-    extractor.skip_audit_log_lineage_for({skipped_ref})
-
-    with (
-        patch.object(extractor, "_get_parsed_audit_log_events", return_value=iter([])),
-        patch.object(
-            extractor,
-            "_create_lineage_map",
-            return_value={skipped_ref: {edge}, kept_ref: {edge}},
-        ),
-    ):
-        urns = {
-            wu.get_urn()
-            for wu in extractor.generate_lineage(
-                "consumer", table_refs={skipped_ref, kept_ref}
-            )
-        }
-    assert any("local_ds.orders" in urn for urn in urns)
-    assert not any("shared_ds.users" in urn for urn in urns)
 
 
 def test_lineage_for_external_bq_table(mock_datahub_graph_instance):

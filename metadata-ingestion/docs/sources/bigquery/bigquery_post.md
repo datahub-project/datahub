@@ -186,6 +186,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 The BigQuery Sharing integration in particular has the following limitations:
 
+- **Lineage requires the queries-v2 extraction path.** `include_linked_dataset_lineage` only takes effect with `use_queries_v2: true` (the default). Under the legacy path linked datasets are still detected, subtyped and enriched, but no Siblings or COPY lineage are emitted.
 - **Pub/Sub linked resources are not handled.** Only Analytics Hub subscriptions whose `resource_type` is `BIGQUERY_DATASET` are processed.
 - **Lineage is skipped when `resourcemanager.projects.get` is denied on a publisher project.** The linked dataset is still ingested, but no Sibling or UpstreamLineage edges are emitted for that subscription. See the prerequisites section for details.
 - **Subtype reclassification happens on the next run.** If a dataset was previously ingested as a regular `Dataset` and you later enable `include_linked_datasets`, the next ingestion run reclassifies it to `Linked Dataset` via standard UPSERT semantics. No manual migration is needed.
