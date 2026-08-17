@@ -177,8 +177,6 @@ class BigQueryLinkedDatasetsHandler:
         self._rm_client: Optional[resourcemanager_v3.ProjectsClient] = None
         self._bq_client: Optional[bigquery.Client] = None
 
-    # ---- Client accessors -------------------------------------------------
-
     def _get_ah_client(self) -> bigquery_analyticshub_v1.AnalyticsHubServiceClient:
         if self._ah_client is None:
             self._ah_client = create_analyticshub_client(self.config)
@@ -194,16 +192,10 @@ class BigQueryLinkedDatasetsHandler:
             self._bq_client = self.config.get_bigquery_client()
         return self._bq_client
 
-    # ---- Public API -------------------------------------------------------
-
     def populate_for_project(
         self, project_id: str, datasets: List[BigqueryDataset]
     ) -> None:
-        """Detect linked datasets in a project and populate the lookup.
-
-        A disabled Analytics Hub API is warned and a missing `subscriptions.list`
-        grant is failed; both continue. Any other error propagates to the caller.
-        """
+        """Detect linked datasets in a project and populate the lookup."""
         if not datasets:
             return
 
@@ -235,8 +227,7 @@ class BigQueryLinkedDatasetsHandler:
                         context=f"project={project_id}, location={location}",
                         exc=e,
                     )
-                    continue
-                if is_iam_permission_denied(e):
+                elif is_iam_permission_denied(e):
                     self.report.failure(
                         title="Missing permission to list BigQuery Sharing subscriptions",
                         message=(
@@ -248,8 +239,14 @@ class BigQueryLinkedDatasetsHandler:
                         context=f"project={project_id}, location={location}",
                         exc=e,
                     )
-                    continue
-                raise
+                else:
+                    self._report_unexpected_subscriptions_error(project_id, location, e)
+                self.report.num_linked_dataset_location_errors += 1
+                continue
+            except GoogleAPIError as e:
+                self._report_unexpected_subscriptions_error(project_id, location, e)
+                self.report.num_linked_dataset_location_errors += 1
+                continue
 
             for sub in subscriptions:
                 # Skip non-BigQuery shared resources (e.g. Pub/Sub topics).
@@ -472,6 +469,19 @@ class BigQueryLinkedDatasetsHandler:
 
         self._publisher_project_id_cache[project_number] = resolved
         return resolved
+
+    def _report_unexpected_subscriptions_error(
+        self, project_id: str, location: str, exc: GoogleAPIError
+    ) -> None:
+        self.report.failure(
+            title="Unable to list BigQuery Sharing subscriptions",
+            message=(
+                "Linked dataset detection is skipped for this location. Datasets "
+                "in it are ingested without BigQuery Sharing enrichment"
+            ),
+            context=f"project={project_id}, location={location}",
+            exc=exc,
+        )
 
     def _track_state_counters(self, info: LinkedDatasetInfo) -> None:
         State = bigquery_analyticshub_v1.Subscription.State

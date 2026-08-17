@@ -589,17 +589,51 @@ def test_list_subscriptions_iam_denied_is_reported_as_failure():
     )
 
 
-def test_list_subscriptions_unclassified_permission_denied_propagates():
+def test_list_subscriptions_unclassified_error_is_reported_as_failure():
     handler = _make_handler()
     ah = MagicMock()
-    # A PermissionDenied we cannot classify (no ErrorInfo reason) is not
-    # swallowed; it propagates to the schema-gen call-site guard.
+    # A PermissionDenied we cannot classify (no ErrorInfo reason).
     ah.list_subscriptions.side_effect = PermissionDenied("denied")
     _install_clients(handler, ah=ah)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    with pytest.raises(PermissionDenied):
-        handler.populate_for_project("consumer-project", datasets)
+    handler.populate_for_project("consumer-project", datasets)
+
+    assert handler.get_info("consumer-project", "shared_a") is None
+    assert handler.report.num_linked_dataset_location_errors == 1
+    assert any(
+        f.title == "Unable to list BigQuery Sharing subscriptions"
+        for f in handler.report.failures
+    )
+
+
+def test_one_failing_location_does_not_stop_the_others():
+    """Each location is queried independently, so one failing does not stop the rest."""
+    handler = _make_handler()
+    ah = MagicMock()
+
+    def _list_subscriptions(parent: str, **kwargs: Any) -> List[Any]:
+        if parent.endswith("/aws-us-east-1"):
+            # Analytics Hub cannot serve a BigQuery Omni location.
+            raise NotFound("unsupported location")
+        return [make_subscription(dataset_id="shared_a")]
+
+    ah.list_subscriptions.side_effect = _list_subscriptions
+    bq = _bq_client_returning(
+        {"consumer-project.shared_a": make_dataset_with_linked_source()}
+    )
+    rm = _rm_client_returning({"111222333": "publisher-project"})
+    _install_clients(handler, ah=ah, bq=bq, rm=rm)
+
+    datasets = [
+        BigqueryDataset(name="shared_a", location="EU"),
+        BigqueryDataset(name="omni_ds", location="aws-us-east-1"),
+    ]
+    handler.populate_for_project("consumer-project", datasets)
+
+    assert handler.get_info("consumer-project", "shared_a") is not None
+    assert handler.report.num_linked_dataset_location_errors == 1
+    assert ah.list_subscriptions.call_count == 2
 
 
 def test_data_exchange_only_subscription_uses_data_exchange_segment():
@@ -899,17 +933,21 @@ def test_publisher_siblings_separate_per_publisher_entity():
 # --- API error path -------------------------------------------------------
 
 
-def test_list_subscriptions_generic_api_error_propagates():
+def test_list_subscriptions_generic_api_error_is_reported_as_failure():
     handler = _make_handler()
     ah = MagicMock()
     ah.list_subscriptions.side_effect = GoogleAPIError("boom")
     _install_clients(handler, ah=ah)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    # Unexpected API errors are not swallowed here; they propagate to the
-    # schema-gen call site, which scopes the failure to the project.
-    with pytest.raises(GoogleAPIError):
-        handler.populate_for_project("consumer-project", datasets)
+    handler.populate_for_project("consumer-project", datasets)
+
+    assert handler.get_info("consumer-project", "shared_a") is None
+    assert handler.report.num_linked_dataset_location_errors == 1
+    assert any(
+        f.title == "Unable to list BigQuery Sharing subscriptions"
+        for f in handler.report.failures
+    )
 
 
 # --- Lineage emission guard (schema-gen wiring) ---------------------------

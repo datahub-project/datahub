@@ -486,12 +486,15 @@ class BigQuerySchemaGenerator:
                     project_id, bigquery_project.datasets
                 )
             except Exception as e:
+                # Backstop only: Analytics Hub errors are handled per location
+                # inside the handler. Reaching here must not abort the run, which
+                # has no other guard around project processing.
                 self.report.failure(
                     title="Unable to detect BigQuery Sharing linked datasets",
                     message=(
-                        "Skipping linked dataset detection for this project; its "
-                        "datasets are still ingested without BigQuery Sharing "
-                        "enrichment."
+                        "Linked dataset detection may be incomplete for this "
+                        "project; affected datasets are still ingested without "
+                        "BigQuery Sharing enrichment."
                     ),
                     context=project_id,
                     exc=e,
