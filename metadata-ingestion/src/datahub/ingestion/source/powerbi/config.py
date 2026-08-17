@@ -314,13 +314,16 @@ class OraclePlatformDetail(PlatformDetail):
     default_database: Optional[str] = pydantic.Field(
         default=None,
         description=(
-            "Database segment prepended to the table name when the "
-            "``Oracle.Database`` connection is a bare TNS alias or descriptor "
-            "(which carries no database). Set this to match the database segment "
-            "your Oracle ingestion uses, only when that ingestion emits 3-part "
-            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
-            "leave unset for the default 2-part URNs and for EZ-Connect "
-            "``host:port/service`` connections."
+            "Database segment prepended to the table name to opt into 3-part "
+            "``database.schema.table`` Oracle URNs. Used on two paths: (1) native "
+            "``Oracle.Database`` SQL when the connection is a bare TNS alias or "
+            "descriptor (which carries no database), and (2) ODBC hierarchical "
+            "navigation when the navigation does not itself supply a database node "
+            "(a navigation-supplied database always wins). Set this to match the "
+            "database segment your Oracle ingestion uses, only when that ingestion "
+            "emits 3-part ``database.schema.table`` URNs "
+            "(``add_database_name_to_urn: true``); leave unset for the default "
+            "2-part URNs and for EZ-Connect ``host:port/service`` connections."
         ),
     )
 
