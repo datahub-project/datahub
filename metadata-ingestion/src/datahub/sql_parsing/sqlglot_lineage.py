@@ -143,10 +143,10 @@ def _table_name_from_sqlglot_table(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> _TableName:
-    """Create a _TableName from a sqlglot Table, handling MSSQL temp table prefixes.
+    """Create a _TableName with dialect-specific table-name handling.
 
-    This is a dialect-aware wrapper around _TableName.from_sqlglot_table that
-    restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
+    This restores MSSQL temp table prefixes that SQLGlot strips and recognizes
+    the AST shape used by qualified ClickHouse parameterized views.
 
     Args:
         table: The SQLGlot Table expression
@@ -157,12 +157,14 @@ def _table_name_from_sqlglot_table(
     Returns:
         A _TableName with the correct table name (including temp prefix for MSSQL)
     """
+    table_expression = table.this
+
     # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
     # In this case, table.this is a SemanticView expression, and we need to
     # extract the actual table from within it.
-    if isinstance(table.this, sqlglot.exp.SemanticView):
+    if isinstance(table_expression, sqlglot.exp.SemanticView):
         # The SemanticView.this contains the actual table reference
-        inner_table = table.this.this
+        inner_table = table_expression.this
         if isinstance(inner_table, sqlglot.exp.Table):
             # Recursively extract from the inner table
             return _table_name_from_sqlglot_table(
@@ -177,13 +179,29 @@ def _table_name_from_sqlglot_table(
                 parts=None,
             )
 
+    # ClickHouse parameterized views parse as a qualified table whose table
+    # component is an anonymous function with a quoted identifier.
+    if (
+        dialect is not None
+        and is_dialect_instance(dialect, "clickhouse")
+        and isinstance(table_expression, sqlglot.exp.Anonymous)
+        and isinstance(table_expression.this, sqlglot.exp.Identifier)
+        and table_expression.this.quoted
+        and table.db
+        and table_expression.expressions
+        and all(
+            isinstance(argument, sqlglot.exp.EQ)
+            for argument in table_expression.expressions
+        )
+    ):
+        table_name = table_expression.name
     # Handle Dot expressions (more than 3-part names).
     # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
     # identifiers while walking left, then reverse. Mirror of the traversal in
     # `_TableName.from_sqlglot_table`; kept in sync intentionally.
-    if isinstance(table.this, sqlglot.exp.Dot):
+    elif isinstance(table_expression, sqlglot.exp.Dot):
         all_parts_exp: List[sqlglot.exp.Expression] = []
-        exp: sqlglot.exp.Expression = table.this
+        exp: sqlglot.exp.Expression = table_expression
         while isinstance(exp, sqlglot.exp.Dot):
             all_parts_exp.append(exp.expression)
             exp = exp.this
@@ -440,9 +458,8 @@ def _extract_table_names(
     iterable: Iterable[sqlglot.exp.Table],
     dialect: sqlglot.Dialect,
 ) -> OrderedSet[_TableName]:
-    return OrderedSet(
-        _table_name_from_sqlglot_table(table, dialect) for table in iterable
-    )
+    table_names = (_table_name_from_sqlglot_table(table, dialect) for table in iterable)
+    return OrderedSet(table_name for table_name in table_names if table_name.table)
 
 
 # ==============================================================================
