@@ -38,7 +38,7 @@ The general recommendation would be to assign cores to below formula:
 ```
 Where:
 - `n` - number of expected concurrent ingestion runs handled by the executor
-- `k` - 1 if Observe functionalities are enabled for resources ingested bye the executor, else 0
+- `k` - 1 if Observe functionalities are enabled for resources ingested by the executor, else 0
 
 ### Memory
 
