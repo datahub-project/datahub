@@ -11,12 +11,12 @@ The executor uses those installs when the run targets the **bundled CLI version*
 
 ## Using a bundled venv
 
-A run uses a bundled venv only when source's **CLI version** is set to **`bundled`** — the `version` execution argument (defaults to `latest`). In the DataHub UI, set it on the ingestion source under **Advanced → CLI Version**:
+A run uses a bundled venv only when the source's **CLI version** is set to **`bundled`** — the `version` execution argument (defaults to `latest`). In the DataHub UI, set it on the ingestion source under **Advanced → CLI Version**:
 
 - **`bundled`** → run from the pre-built **`/opt/datahub/venvs/{plugin}-bundled`** (read-only, **no** runtime install, no ephemeral-storage growth).
 - empty (default) or **`latest`** or a specific `acryl-datahub` version → build a [dynamic venv](#dynamic-venvs-and-the-uv-cache-non-bundled-runs) at runtime.
 
-If the requested plugin isn't bundled in the image, the run falls back to a dynamic venv. If the image does not have access to a PyPi repository or it is **locked** (it has `uv` and `pip` binaries deliberaterly removed) the run will fail.
+If the requested plugin isn't bundled in the image, the run falls back to a dynamic venv. If the image does not have access to a PyPI repository or it is **locked** (it has `uv` and `pip` binaries deliberately removed), the run will fail.
 
 ## Core (`datahub-actions`) vs Cloud (`datahub-executor`)
 
@@ -106,7 +106,7 @@ Two constraints follow from how hardlinks work:
 - **Same filesystem.** Hardlinks cannot cross filesystems. If `$HOME/.cache/uv` and `/tmp/datahub/ingest` are on different mounts (e.g. an `emptyDir` mounted at `/tmp` but the cache left on the container root), uv cannot link and falls back to copying — the run still succeeds, but the dedup savings are lost. Keep both on one volume, or move the cache with **`UV_CACHE_DIR`**.
 - **Read-only root.** The default cache path is on the container root filesystem. With a read-only root, point **`UV_CACHE_DIR`** at a writable volume — ideally the same one backing `/tmp/datahub/ingest`, so hardlinking keeps working.
 
-The cache is bounded by the number of **distinct package versions** it has seen, not by the number of runs, so it grows slowly and plateaus; on a long-lived executor you can reclaim space with `uv cache prune`.
+Repeated runs that use the same package artifacts reuse the cache, but new package versions, platforms, and build artifacts can continue to grow it. Monitor cache usage on long-lived executors and reclaim space with `uv cache prune` when needed.
 
 ## Rebuild from this repository
 

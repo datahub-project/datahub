@@ -111,8 +111,8 @@ Building the image only makes the venv available — a run actually uses it only
 (the `version` execution argument; defaults to `latest`). Set it on the ingestion source in the DataHub UI under **Advanced → CLI
 Version**:
 
-- **`bundled`** → run from the pre-built `/opt/datahub/venvs/{plugin}-bundled` (read-only, no runtime install, no ephemeral-storage
-  growth).
+- **`bundled`** → run from the pre-built `/opt/datahub/venvs/{plugin}-bundled` (no runtime dependency install or associated
+  ephemeral-storage growth).
 - empty (default), **`latest`**, or a specific `acryl-datahub` version → build a dynamic venv at runtime.
 
 If the connector isn't bundled in the image, the run falls back to a dynamic venv — and on a **locked** image (no `uv`/`pip`, or no
