@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.loaders.ContainerEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
@@ -240,6 +241,7 @@ import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
@@ -961,6 +963,9 @@ public class GmsGraphQLEngine {
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
         .addDataLoader(
+            ContainerEntityCountsBatchLoader.LOADER_NAME,
+            context -> ContainerEntityCountsBatchLoader.create(entityClient, context))
+        .addDataLoader(
             DomainEntityCountsBatchLoader.LOADER_NAME,
             context -> DomainEntityCountsBatchLoader.create(entityClient, context))
         .addDataLoader(
@@ -1137,6 +1142,9 @@ public class GmsGraphQLEngine {
                         this.entityClient, this.entityRegistry, this.viewService))
                 .dataFetcher(
                     "scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
+                .dataFetcher(
+                    "searchAcrossLineageCounts",
+                    new SearchAcrossLineageCountsResolver(this.entityClient))
                 .dataFetcher(
                     "aggregateAcrossEntities",
                     new AggregateAcrossEntitiesResolver(

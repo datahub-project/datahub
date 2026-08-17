@@ -703,6 +703,10 @@ class TestSessionWrapper:
             self._frontend_url = get_frontend_url()
             self._gms_token_id, self._gms_token = self._generate_gms_token()
 
+        # Do not publish DATAHUB_GMS_TOKEN here — multi-user / PAT wrappers would
+        # overwrite the bootstrap admin token that bare wait_for_writes_to_sync()
+        # reads. Bootstrap publishes in smoke-test/conftest.py only.
+
     def __getattr__(self, name):
         # Intercept method calls
         attr = getattr(self._upstream, name)
