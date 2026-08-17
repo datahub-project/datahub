@@ -16,15 +16,6 @@ repos:
         # first would require changing the generator's merge order (prepend
         # override hooks) — deferred as not worth it for now.
         stages: [pre-push]
-      - id: smoke-test-cypress-lint-fix
-        name: smoke-test cypress Lint Fix
-        entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
-        language: system
-        files: ^smoke-test/tests/cypress/.*\.tsx$
-        pass_filenames: false
-        # cypressLintFix is a self-correcting formatter (slow, module-wide Gradle
-        # invocation). Run it at pre-push instead of pre-commit; see PFP-5002.
-        stages: [pre-push]
       - id: update-lineage-file
         name: update-lineage-file
         entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal

@@ -8,6 +8,7 @@ import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectMigrationsDaoTest;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -70,7 +71,13 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
             new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
             mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
+    _retentionService =
+        new CassandraRetentionService(
+            _entityServiceImpl,
+            _currentSession,
+            1000,
+            RetentionTestUtils.systemEntityClient(
+                _entityServiceImpl, _mockProducer, mock(MetricUtils.class)));
     _entityServiceImpl.setRetentionService(_retentionService);
 
     _migrationsDao = dao;
