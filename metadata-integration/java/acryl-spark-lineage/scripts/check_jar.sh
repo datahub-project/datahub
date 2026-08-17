@@ -3,6 +3,15 @@ set -x
 libName=acryl-spark-lineage
 jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
 jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
+
+# Every guard below lives inside the loop, so an empty match would skip all of them and fall straight
+# through to `exit 0` — reporting success without inspecting anything. Fail before the loop instead.
+if [ -z "$jarFiles" ]; then
+  echo "💥 No ${libName}*.jar found under build/libs — nothing was verified."
+  echo "   Refusing to exit 0 without inspecting an artifact; build the shadow jar first."
+  exit 1
+fi
+
 for jarFile in ${jarFiles}; do
   # Read the entry listing ONCE and require it to be non-empty before any guard runs. Every check
   # below decides from the emptiness of a command substitution, so an unreadable jar (missing file,
