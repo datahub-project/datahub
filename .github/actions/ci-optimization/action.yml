@@ -35,6 +35,13 @@ outputs:
   smoke-test-change:
     description: "Smoke test change"
     value: ${{ steps.filter.outputs.smoke-test == 'true' || steps.trigger.outputs.trigger == 'manual' }}
+  changed-files:
+    description: >
+      JSON array of every changed path. Consumers that need to reason about
+      paths no filter below claims -- deciding whether a previously published
+      docker image can be reused, for instance -- cannot do it from the boolean
+      filters, which only ever say "at least one file matched".
+    value: ${{ steps.filter.outputs.all_files }}
   actions-change:
     description: "Actions code has changed"
     value: ${{ steps.filter.outputs.actions == 'true' }}
@@ -60,6 +67,7 @@ runs:
     - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
       id: filter
       with:
+        list-files: json
         filters: |
           frontend:
             - "datahub-frontend/**"
@@ -124,3 +132,10 @@ runs:
             - "metadata-models/**"
           playwright-test:
             - "e2e-test/ui/playwright/**"
+          # Backs the changed-files output. Exclusion patterns would express the
+          # "unclassified path" question directly, but they need
+          # predicate-quantifier: some-with-excludes, which the pinned version
+          # of this action does not have -- it validates the value and only
+          # accepts 'some' or 'every'. So callers get the raw list instead.
+          all:
+            - "**"

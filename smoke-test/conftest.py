@@ -57,6 +57,11 @@ def build_auth_session():
 
     wait_for_healthcheck_util(requests)
     auth_session = TestSessionWrapper(get_frontend_session())
+    # Lag polls always use DATAHUB_GMS_TOKEN (VIEW_SYSTEM_STATUS or
+    # MANAGE_SYSTEM_OPERATIONS). Publish the bootstrap admin PAT here, before
+    # any wait_for_writes_to_sync() call. Restricted-user TestSessionWrappers
+    # must not overwrite this.
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     wait_for_admin_corpuser_system_bootstrap(auth_session)
     return auth_session
 
