@@ -329,6 +329,26 @@ scalaVersions.each { sv ->
     exclude '**/libzstd-jni*'
     exclude '**/com_github_luben_zstd_*'
 
+    // Do not ship anything that competes with the host's logging. The agent is injected into the
+    // user's Spark JVM, and it was bundling slf4j-api, a reload4j SLF4J binding and a root
+    // log4j.properties (rootLogger=INFO, STDOUT) — all unrelocated. The agent's binding actually won
+    // over Spark's log4j-slf4j2-impl, so its config reconfigured the whole application's logging.
+    // slf4j must NOT be relocated instead: the facade has to be shared with the host so our logs reach
+    // the user's appenders. Spark supplies slf4j-api, so excluding it is the standard 'provided'
+    // treatment -- and what the (inert) exclude(dependency("org.slf4j::")) below already intended.
+    exclude 'org/slf4j/**'
+    exclude 'META-INF/services/org.slf4j.spi.SLF4JServiceProvider'
+    exclude '**/log4j.properties'
+
+    // Leaked, unrelocated, and never referenced by name: guava's transitive j2objc annotations,
+    // kafka-clients' protocol message schemas (build-time codegen inputs, not runtime resources) and a
+    // stray source file. mime.types and LICENSE-ClassGraph.txt are deliberately left in place: the
+    // former also exists as a legitimate shaded AWS SDK resource that a basename exclude would strip,
+    // and the latter is an attribution file that should ship.
+    exclude 'com/google/j2objc/**'
+    exclude 'common/message/**'
+    exclude '**/VersionInfo.java'
+
 
     // Apply all the relocations
     relocate 'avro.com', 'io.acryl.shaded.avro.com'
@@ -347,6 +367,12 @@ scalaVersions.each { sv ->
     relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.codec'
     relocate 'org.apache.commons.compress', 'io.acryl.shaded.org.apache.commons.compress'
     relocate 'org.apache.commons.lang3', 'io.acryl.shaded.org.apache.commons.lang3'
+    // commons-io was the one sibling left unrelocated, so the agent shipped 2.22.0 at the canonical
+    // path against Spark's 2.18.0 and whichever loaded first won. Relocating rather than excluding is
+    // the safer fix: its 51 consumers here (one of them a DataHub-patched OpenLineage class) keep the
+    // exact version we bundle, so there is no cross-version resolution to get wrong. Verified safe --
+    // nothing in the jar names a commons-io class in a string constant (see issue #19005).
+    relocate 'org.apache.commons.io', 'io.acryl.shaded.org.apache.commons.io'
     relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
     relocate 'com.typesafe', 'io.acryl.shaded.com.typesafe'
     relocate 'io.opentracing', 'io.acryl.shaded.io.opentracing'
