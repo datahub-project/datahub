@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 public class OpenLineageConformanceTest {
   private static final URI CUSTOM_PRODUCER = URI.create("https://example.com/my-producer");
+  private static final ZonedDateTime EVENT_TIME = ZonedDateTime.parse("2026-04-14T10:00:00Z");
 
   private static DatahubOpenlineageConfig config() {
     return DatahubOpenlineageConfig.builder()
@@ -47,19 +48,45 @@ public class OpenLineageConformanceTest {
         .build();
   }
 
+  private static OpenLineage.RunBuilder runBuilder(OpenLineage openLineage) {
+    return openLineage.newRunBuilder().runId(UUID.randomUUID());
+  }
+
+  private static OpenLineage.JobBuilder jobBuilder(OpenLineage openLineage) {
+    return openLineage.newJobBuilder().namespace("crm").name("load.customer");
+  }
+
+  private static OpenLineage.RunEventBuilder runEventBuilder(OpenLineage openLineage) {
+    return openLineage
+        .newRunEventBuilder()
+        .eventTime(EVENT_TIME)
+        .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+        .run(runBuilder(openLineage).build())
+        .job(jobBuilder(openLineage).build())
+        .inputs(Collections.emptyList())
+        .outputs(Collections.emptyList());
+  }
+
+  private static OpenLineage.JobEventBuilder jobEventBuilder(OpenLineage openLineage) {
+    return openLineage
+        .newJobEventBuilder()
+        .eventTime(EVENT_TIME)
+        .job(jobBuilder(openLineage).build())
+        .inputs(Collections.emptyList())
+        .outputs(Collections.emptyList());
+  }
+
+  private static OpenLineage.DatasetEventBuilder datasetEventBuilder(OpenLineage openLineage) {
+    return openLineage
+        .newDatasetEventBuilder()
+        .eventTime(EVENT_TIME)
+        .dataset(openLineage.newStaticDatasetBuilder().namespace("crm").name("customer").build());
+  }
+
   @Test
   public void testArbitraryProducerPathDoesNotDeriveOrchestrator() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
-    OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
+    OpenLineage.RunEvent event = runEventBuilder(openLineage).build();
 
     assertEquals(
         OpenLineageToDataHub.convertRunEventToJob(
@@ -80,14 +107,9 @@ public class OpenLineageConformanceTest {
         new OpenLineage(
             URI.create("https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark"));
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
+        runEventBuilder(openLineage)
             .run(
-                openLineage
-                    .newRunBuilder()
-                    .runId(UUID.randomUUID())
+                runBuilder(openLineage)
                     .facets(
                         openLineage
                             .newRunFacetsBuilder()
@@ -96,18 +118,13 @@ public class OpenLineageConformanceTest {
                             .build())
                     .build())
             .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
+                jobBuilder(openLineage)
                     .facets(
                         openLineage
                             .newJobFacetsBuilder()
                             .jobType(openLineage.newJobTypeJobFacet("BATCH", "airflow", "TASK"))
                             .build())
                     .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
             .build();
 
     assertEquals(
@@ -130,16 +147,7 @@ public class OpenLineageConformanceTest {
         new OpenLineage(
             URI.create(
                 "https://github.com/OpenLineage/OpenLineage/tree/0.30.0/integration/airflow"));
-    OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
+    OpenLineage.RunEvent event = runEventBuilder(openLineage).build();
 
     assertEquals(
         OpenLineageToDataHub.convertRunEventToJob(
@@ -158,24 +166,12 @@ public class OpenLineageConformanceTest {
   public void testDottedJobNamePreservesFullDataJobId() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.RunEvent dotted =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
+        runEventBuilder(openLineage)
             .job(openLineage.newJobBuilder().namespace("crm").name("flow.group.task").build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
             .build();
     OpenLineage.RunEvent single =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
+        runEventBuilder(openLineage)
             .job(openLineage.newJobBuilder().namespace("crm").name("singleTask").build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
             .build();
 
     assertEquals(
@@ -190,15 +186,7 @@ public class OpenLineageConformanceTest {
   public void testOtherEventTypeDoesNotEmitInvalidRunResult() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.OTHER)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
+        runEventBuilder(openLineage).eventType(OpenLineage.RunEvent.EventType.OTHER).build();
 
     List<MetadataChangeProposal> mcps =
         OpenLineageToDataHub.convertRunEventToJob(event, config()).toMcps(config());
@@ -233,14 +221,10 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
             .eventType(OpenLineage.RunEvent.EventType.FAIL)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).facets(runFacets).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
+            .run(runBuilder(openLineage).facets(runFacets).build())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -275,14 +259,10 @@ public class OpenLineageConformanceTest {
       Locale.setDefault(Locale.forLanguageTag("tr"));
       OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
       OpenLineage.RunEvent event =
-          openLineage
-              .newRunEventBuilder()
+          runEventBuilder(openLineage)
               .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-              .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
               .run(
-                  openLineage
-                      .newRunBuilder()
-                      .runId(UUID.randomUUID())
+                  runBuilder(openLineage)
                       .facets(
                           openLineage
                               .newRunFacetsBuilder()
@@ -293,9 +273,6 @@ public class OpenLineageConformanceTest {
                                               "credential", "secret-value"))))
                               .build())
                       .build())
-              .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-              .inputs(Collections.emptyList())
-              .outputs(Collections.emptyList())
               .build();
 
       String properties =
@@ -314,14 +291,9 @@ public class OpenLineageConformanceTest {
   public void testJobEventTargetsDataJobWithoutProcessInstance() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.JobEvent event =
-        openLineage
-            .newJobEventBuilder()
-            .eventTime(ZonedDateTime.now())
+        jobEventBuilder(openLineage)
             .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
+                jobBuilder(openLineage)
                     .facets(
                         openLineage
                             .newJobFacetsBuilder()
@@ -337,8 +309,6 @@ public class OpenLineageConformanceTest {
                                     .build())
                             .build())
                     .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -375,12 +345,9 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.JobEvent event =
-        openLineage
-            .newJobEventBuilder()
+        jobEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
             .inputs(List.of(input))
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -395,9 +362,7 @@ public class OpenLineageConformanceTest {
   public void testDatasetEventMaterializesDatasetAspects() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.DatasetEvent event =
-        openLineage
-            .newDatasetEventBuilder()
-            .eventTime(ZonedDateTime.now())
+        datasetEventBuilder(openLineage)
             .dataset(
                 openLineage
                     .newStaticDatasetBuilder()
@@ -429,9 +394,7 @@ public class OpenLineageConformanceTest {
             .fields(List.of(leaf))
             .build();
     OpenLineage.DatasetEvent event =
-        openLineage
-            .newDatasetEventBuilder()
-            .eventTime(ZonedDateTime.now())
+        datasetEventBuilder(openLineage)
             .dataset(
                 openLineage
                     .newStaticDatasetBuilder()
@@ -461,9 +424,7 @@ public class OpenLineageConformanceTest {
   public void testDatasetEventAlwaysEmitsAnchorWhenMaterializationIsDisabled() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.DatasetEvent event =
-        openLineage
-            .newDatasetEventBuilder()
-            .eventTime(ZonedDateTime.now())
+        datasetEventBuilder(openLineage)
             .dataset(
                 openLineage
                     .newStaticDatasetBuilder()
@@ -496,17 +457,9 @@ public class OpenLineageConformanceTest {
             .name("db.schema.table")
             .build();
     OpenLineage.DatasetEvent firstEvent =
-        firstProducer
-            .newDatasetEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .dataset(dataset)
-            .build();
+        datasetEventBuilder(firstProducer).dataset(dataset).build();
     OpenLineage.DatasetEvent secondEvent =
-        secondProducer
-            .newDatasetEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .dataset(dataset)
-            .build();
+        datasetEventBuilder(secondProducer).dataset(dataset).build();
 
     String firstUrn =
         OpenLineageToDataHub.convertDatasetEventToMcps(firstEvent, config())
@@ -541,8 +494,7 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.DatasetEvent event =
-        openLineage
-            .newDatasetEventBuilder()
+        datasetEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
             .dataset(dataset)
             .build();
@@ -600,13 +552,8 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-            .inputs(Collections.emptyList())
             .outputs(List.of(output))
             .build();
 
@@ -672,13 +619,8 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
-            .inputs(Collections.emptyList())
             .outputs(List.of(firstOutput, secondOutput))
             .build();
 
@@ -716,14 +658,9 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
             .inputs(List.of(input))
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -759,14 +696,10 @@ public class OpenLineageConformanceTest {
             .name("db.schema.customer")
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
             .run(
-                openLineage
-                    .newRunBuilder()
-                    .runId(UUID.randomUUID())
+                runBuilder(openLineage)
                     .facets(
                         openLineage
                             .newRunFacetsBuilder()
@@ -774,14 +707,7 @@ public class OpenLineageConformanceTest {
                                 openLineage.newExternalQueryRunFacet("query-123", "snowflake"))
                             .build())
                     .build())
-            .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
-                    .facets(jobFacets)
-                    .build())
-            .inputs(Collections.emptyList())
+            .job(jobBuilder(openLineage).facets(jobFacets).build())
             .outputs(List.of(output))
             .build();
 
@@ -815,14 +741,10 @@ public class OpenLineageConformanceTest {
             .jobType(openLineage.newJobTypeJobFacet("BATCH", "trino", "SQL"))
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
             .run(
-                openLineage
-                    .newRunBuilder()
-                    .runId(UUID.randomUUID())
+                runBuilder(openLineage)
                     .facets(
                         openLineage
                             .newRunFacetsBuilder()
@@ -830,15 +752,7 @@ public class OpenLineageConformanceTest {
                                 openLineage.newProcessingEngineRunFacet("1", "spark", "1.45.0"))
                             .build())
                     .build())
-            .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
-                    .facets(jobFacets)
-                    .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
+            .job(jobBuilder(openLineage).facets(jobFacets).build())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -887,12 +801,8 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
             .inputs(List.of(input))
             .outputs(List.of(output))
             .build();
@@ -936,14 +846,9 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
             .inputs(List.of(input))
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -1011,14 +916,9 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
             .inputs(List.of(input))
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -1038,8 +938,7 @@ public class OpenLineageConformanceTest {
   public void testSymlinksDatasetFacetEmitsSiblings() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.DatasetEvent event =
-        openLineage
-            .newDatasetEventBuilder()
+        datasetEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
             .dataset(
                 openLineage
@@ -1095,20 +994,10 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).facets(runFacets).build())
-            .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
-                    .facets(jobFacets)
-                    .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
+            .run(runBuilder(openLineage).facets(runFacets).build())
+            .job(jobBuilder(openLineage).facets(jobFacets).build())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -1147,31 +1036,13 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
-                    .facets(jobFacets)
-                    .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
+        runEventBuilder(openLineage).job(jobBuilder(openLineage).facets(jobFacets).build()).build();
 
     List<MetadataChangeProposal> mcps =
         OpenLineageToDataHub.convertRunEventToJob(event, config()).toMcps(config());
 
-    assertTrue(
-        mcps.stream()
-            .anyMatch(
-                mcp ->
-                    "dataJob".equals(mcp.getEntityType())
-                        && "ownership".equals(mcp.getAspectName())));
+    assertEquals(countAspects(mcps, "dataJob", "ownership"), 1L);
+    assertEquals(countAspects(mcps, "dataFlow", "ownership"), 0L);
     assertTrue(
         mcps.stream()
             .anyMatch(
@@ -1181,57 +1052,13 @@ public class OpenLineageConformanceTest {
   }
 
   @Test
-  public void testJobOwnershipTargetsDataJob() throws Exception {
-    OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
-    OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
-            .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
-                    .facets(
-                        openLineage
-                            .newJobFacetsBuilder()
-                            .ownership(
-                                openLineage
-                                    .newOwnershipJobFacetBuilder()
-                                    .owners(
-                                        List.of(
-                                            openLineage.newOwnershipJobFacetOwners(
-                                                "alice", "TECHNICAL_OWNER")))
-                                    .build())
-                            .build())
-                    .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
-
-    List<MetadataChangeProposal> mcps =
-        OpenLineageToDataHub.convertRunEventToJob(event, config()).toMcps(config());
-
-    assertEquals(countAspects(mcps, "dataJob", "ownership"), 1L);
-    assertEquals(countAspects(mcps, "dataFlow", "ownership"), 0L);
-  }
-
-  @Test
   public void testJobDocumentationTargetsDataJob() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
             .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
+                jobBuilder(openLineage)
                     .facets(
                         openLineage
                             .newJobFacetsBuilder()
@@ -1239,8 +1066,6 @@ public class OpenLineageConformanceTest {
                                 openLineage.newDocumentationJobFacet("Load customer docs", null))
                             .build())
                     .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -1274,14 +1099,10 @@ public class OpenLineageConformanceTest {
         dependencyLineage.newJobDependenciesRunFacet(
             List.of(upstream), List.of(downstream), "ALL_SUCCESS");
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
             .run(
-                openLineage
-                    .newRunBuilder()
-                    .runId(UUID.randomUUID())
+                runBuilder(openLineage)
                     .facets(
                         openLineage
                             .newRunFacetsBuilder()
@@ -1291,18 +1112,13 @@ public class OpenLineageConformanceTest {
                             .build())
                     .build())
             .job(
-                openLineage
-                    .newJobBuilder()
-                    .namespace("crm")
-                    .name("load.customer")
+                jobBuilder(openLineage)
                     .facets(
                         openLineage
                             .newJobFacetsBuilder()
                             .jobType(openLineage.newJobTypeJobFacet("BATCH", "airflow", "SQL"))
                             .build())
                     .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =
@@ -1371,14 +1187,9 @@ public class OpenLineageConformanceTest {
             .facets(copyFacets)
             .build();
     OpenLineage.RunEvent event =
-        openLineage
-            .newRunEventBuilder()
+        runEventBuilder(openLineage)
             .eventTime(ZonedDateTime.parse("2026-04-14T10:01:00Z"))
-            .eventType(OpenLineage.RunEvent.EventType.COMPLETE)
-            .run(openLineage.newRunBuilder().runId(UUID.randomUUID()).build())
-            .job(openLineage.newJobBuilder().namespace("crm").name("load.customer").build())
             .inputs(List.of(first, second))
-            .outputs(Collections.emptyList())
             .build();
 
     List<MetadataChangeProposal> mcps =

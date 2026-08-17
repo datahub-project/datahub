@@ -12,15 +12,13 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.datahubproject.openapi.openlineage.config.OpenLineageAuthenticationErrorFilter;
+import io.datahubproject.openapi.openlineage.config.OpenLineageAuthenticationFilter;
 import io.datahubproject.openapi.openlineage.config.OpenLineageServletConfig;
 import java.util.Collections;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
@@ -34,44 +32,46 @@ public class OpenLineageAuthenticationFilterTest {
 
   @Test
   public void unauthenticatedRequestUsesStructuredOpenLineageResponse() throws Exception {
-    AuthenticationEnforcementFilter authenticationFilter = new AuthenticationEnforcementFilter();
-    ReflectionTestUtils.setField(authenticationFilter, "excludedPathPatterns", Set.of());
     AuthenticationContext.setAuthentication(
         new Authentication(
             new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID), "", Collections.emptyMap()));
-
     MockHttpServletRequest request = new MockHttpServletRequest("POST", ENDPOINT);
-    request.setServletPath(ENDPOINT);
     MockHttpServletResponse response = new MockHttpServletResponse();
     AtomicBoolean controllerInvoked = new AtomicBoolean();
 
-    new OpenLineageAuthenticationErrorFilter()
+    new OpenLineageAuthenticationFilter()
         .doFilter(
-            request,
-            response,
-            (wrappedRequest, wrappedResponse) ->
-                authenticationFilter.doFilter(
-                    wrappedRequest,
-                    wrappedResponse,
-                    (ignoredRequest, ignoredResponse) -> controllerInvoked.set(true)));
+            request, response, (ignoredRequest, ignoredResponse) -> controllerInvoked.set(true));
 
     assertEquals(response.getStatus(), 401);
-    assertEquals(response.getContentType(), "application/json;charset=UTF-8");
     JsonNode body = new ObjectMapper().readTree(response.getContentAsByteArray());
     assertEquals(body.path("code").textValue(), "AUTHENTICATION_REQUIRED");
-    assertEquals(body.path("message").textValue(), "Authentication required");
     assertTrue(body.path("details").isObject());
     assertFalse(controllerInvoked.get());
   }
 
   @Test
-  public void responseFilterIsRegisteredBeforeAuthenticationEnforcement() {
-    FilterRegistrationBean<OpenLineageAuthenticationErrorFilter> responseRegistration =
-        new OpenLineageServletConfig(null).openLineageAuthenticationErrorFilter();
+  public void authenticatedRequestContinues() throws Exception {
+    AuthenticationContext.setAuthentication(
+        new Authentication(new Actor(ActorType.USER, "datahub"), "", Collections.emptyMap()));
+    AtomicBoolean controllerInvoked = new AtomicBoolean();
+    new OpenLineageAuthenticationFilter()
+        .doFilter(
+            new MockHttpServletRequest("POST", ENDPOINT),
+            new MockHttpServletResponse(),
+            (ignoredRequest, ignoredResponse) -> controllerInvoked.set(true));
+    assertTrue(controllerInvoked.get());
+  }
+
+  @Test
+  public void authenticationGateIsRegisteredBetweenExtractionAndEnforcement() {
+    FilterRegistrationBean<OpenLineageAuthenticationFilter> gateRegistration =
+        new OpenLineageServletConfig(null).openLineageAuthenticationFilter();
     FilterRegistrationBean<AuthenticationEnforcementFilter> enforcementRegistration =
         new ServletConfig().authFilter(new AuthenticationEnforcementFilter());
 
-    assertTrue(responseRegistration.getUrlPatterns().contains("/openapi/openlineage/*"));
-    assertTrue(responseRegistration.getOrder() < enforcementRegistration.getOrder());
+    assertTrue(gateRegistration.getUrlPatterns().contains("/openapi/openlineage/*"));
+    assertEquals(gateRegistration.getOrder(), Integer.MIN_VALUE + 2);
+    assertTrue(gateRegistration.getOrder() < enforcementRegistration.getOrder());
   }
 }

@@ -548,16 +548,9 @@ module.exports = {
             },
             {
               type: "doc",
-              id: "docs/lineage/openlineage-custom-facet-compatibility",
-              label: "OpenLineage custom facets",
+              id: "docs/rfcs/active/17034-openlineage-spec-compliance",
+              label: "OpenLineage specification compliance",
             },
-            {
-              type: "doc",
-              id: "docs/lineage/openlineage-conformance-decisions",
-              label: "OpenLineage conformance decisions",
-            },
-            // "docs/rfcs/active/17034-openlineage-spec-compliance",
-            // "docs/rfcs/active/17034-openlineage-spec-compliance-appendix",
           ],
         },
         {

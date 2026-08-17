@@ -17,27 +17,23 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.openlineage.exception.InvalidOpenLineageEventException;
-import io.datahubproject.openapi.openlineage.exception.OpenLineageAuthenticationException;
-import io.datahubproject.openapi.openlineage.exception.OpenLineageIngestionException;
-import io.datahubproject.openapi.openlineage.exception.OpenLineageUnsupportedMediaTypeException;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openapi.openlineage.validation.OpenLineageRequestValidator;
 import io.datahubproject.openapi.openlineage.validation.OpenLineageValidationError;
 import io.openlineage.client.OpenLineage;
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -69,20 +65,14 @@ public class LineageApiImpl {
 
   @Autowired private HttpServletRequest request;
 
-  @RequestMapping(
+  @PostMapping(
       value = "/lineage",
-      produces = MediaType.APPLICATION_JSON_VALUE,
-      method = RequestMethod.POST)
-  public ResponseEntity<Void> postRunEventRaw(HttpServletRequest httpRequest) {
-    requireJsonMediaType(httpRequest.getContentType());
-    return mapAndIngest(readRequestBody(httpRequest));
-  }
-
-  private ResponseEntity<Void> mapAndIngest(byte[] body) {
-    Authentication authentication = requireAuthentication();
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Void> postRunEventRaw(@RequestBody byte[] body) {
+    JsonNode root = requestValidator.validate(body);
+    List<MetadataChangeProposal> mcps;
     try {
-      JsonNode root = requestValidator.validate(body);
-      List<MetadataChangeProposal> mcps;
       if (root.path("run").isObject() && root.path("job").isObject()) {
         OpenLineage.RunEvent event =
             eventDeserializer.deserialize(root, OpenLineage.RunEvent.class);
@@ -99,60 +89,23 @@ public class LineageApiImpl {
         log.debug("Mapping OpenLineage JobEvent from producer {}", event.getProducer());
         mcps = runEventMapper.map(event, _mappingConfig).collect(Collectors.toList());
       }
-      return ingestMcps(mcps, authentication);
-    } catch (InvalidOpenLineageEventException
-        | OpenLineageAuthenticationException
-        | OpenLineageIngestionException
-        | UnauthorizedException exception) {
-      throw exception;
     } catch (JsonProcessingException exception) {
       throw new InvalidOpenLineageEventException(
           List.of(new OpenLineageValidationError("$", "deserialization", null, null)));
-    } catch (Exception exception) {
-      throw new OpenLineageIngestionException("Failed to ingest OpenLineage event", exception);
     }
+    return ingestMcps(mcps, AuthenticationContext.getAuthentication());
   }
 
-  ResponseEntity<Void> postRunEventRaw(String body) {
-    return mapAndIngest(body.getBytes(StandardCharsets.UTF_8));
-  }
-
-  private static byte[] readRequestBody(HttpServletRequest httpRequest) {
-    try {
-      return httpRequest.getInputStream().readAllBytes();
-    } catch (IOException exception) {
-      throw new InvalidOpenLineageEventException(
-          List.of(new OpenLineageValidationError("$", "malformedJson", null, null)));
-    }
-  }
-
-  private static void requireJsonMediaType(String contentType) {
-    if (contentType == null) {
-      throw new OpenLineageUnsupportedMediaTypeException();
-    }
-    try {
-      MediaType mediaType = MediaType.parseMediaType(contentType);
-      if (!MediaType.APPLICATION_JSON.getType().equalsIgnoreCase(mediaType.getType())
-          || !MediaType.APPLICATION_JSON.getSubtype().equalsIgnoreCase(mediaType.getSubtype())) {
-        throw new OpenLineageUnsupportedMediaTypeException();
-      }
-    } catch (InvalidMediaTypeException exception) {
-      throw new OpenLineageUnsupportedMediaTypeException();
-    }
-  }
-
-  private static Authentication requireAuthentication() {
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    if (authentication == null || authentication.getActor() == null) {
-      throw new OpenLineageAuthenticationException();
-    }
-    return authentication;
+  @PostMapping(value = "/lineage", produces = MediaType.APPLICATION_JSON_VALUE)
+  public void rejectUnsupportedMediaType() throws HttpMediaTypeNotSupportedException {
+    throw new HttpMediaTypeNotSupportedException(
+        "OpenLineage requests must use application/json", List.of(MediaType.APPLICATION_JSON));
   }
 
   private ResponseEntity<Void> ingestMcps(
       List<MetadataChangeProposal> mcps, Authentication authentication) {
     if (mcps.isEmpty()) {
-      throw new OpenLineageIngestionException(
+      throw new IllegalStateException(
           "OpenLineage event mapping did not produce any metadata proposals");
     }
 
@@ -171,29 +124,23 @@ public class LineageApiImpl {
         new AuditStamp()
             .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
             .setTime(System.currentTimeMillis());
-    try {
-      AspectsBatch aspectsBatch =
-          AspectsBatchImpl.builder()
-              .mcps(
-                  mcps,
-                  auditStamp,
-                  opContext.getRetrieverContext(),
-                  opContext.getValidationContext().isAlternateValidation())
-              .build(opContext);
-      boolean authorized =
-          EntityAuthorizationUtils.isAPIAuthorizedBatchItems(opContext, aspectsBatch.getItems())
-              .stream()
-              .allMatch(result -> result.getSecond() == org.apache.http.HttpStatus.SC_OK);
-      if (!authorized) {
-        throw new UnauthorizedException("Not authorized to ingest OpenLineage metadata");
-      }
-      log.info("Submitting OpenLineage batch with {} proposals", aspectsBatch.getItems().size());
-      _entityService.ingestProposal(opContext, aspectsBatch, true);
-      return new ResponseEntity<>(HttpStatus.ACCEPTED);
-    } catch (UnauthorizedException exception) {
-      throw exception;
-    } catch (Exception exception) {
-      throw new OpenLineageIngestionException("Failed to ingest OpenLineage MCP batch", exception);
+    AspectsBatch aspectsBatch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                mcps,
+                auditStamp,
+                opContext.getRetrieverContext(),
+                opContext.getValidationContext().isAlternateValidation())
+            .build(opContext);
+    boolean authorized =
+        EntityAuthorizationUtils.isAPIAuthorizedBatchItems(opContext, aspectsBatch.getItems())
+            .stream()
+            .allMatch(result -> result.getSecond() == org.apache.http.HttpStatus.SC_OK);
+    if (!authorized) {
+      throw new UnauthorizedException("Not authorized to ingest OpenLineage metadata");
     }
+    log.info("Submitting OpenLineage batch with {} proposals", aspectsBatch.getItems().size());
+    _entityService.ingestProposal(opContext, aspectsBatch, true);
+    return new ResponseEntity<>(HttpStatus.ACCEPTED);
   }
 }

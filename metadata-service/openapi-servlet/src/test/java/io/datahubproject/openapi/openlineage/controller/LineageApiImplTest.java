@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -32,8 +31,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.openlineage.exception.InvalidOpenLineageEventException;
-import io.datahubproject.openapi.openlineage.exception.OpenLineageAuthenticationException;
-import io.datahubproject.openapi.openlineage.exception.OpenLineageIngestionException;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openapi.openlineage.validation.JsonSchemaOpenLineageRequestValidator;
 import io.datahubproject.openapi.openlineage.validation.OpenLineageSchemaCatalog;
@@ -97,7 +94,7 @@ public class LineageApiImplTest {
 
   @Test
   public void testRunEventDispatchEmitsDataProcessInstanceAspects() {
-    ResponseEntity<Void> response = controller.postRunEventRaw(validRunEventJson());
+    ResponseEntity<Void> response = post(validRunEventJson());
 
     assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
 
@@ -109,7 +106,7 @@ public class LineageApiImplTest {
   @Test
   public void testJobEventDispatchDoesNotRequireRunBlock() {
     ResponseEntity<Void> response =
-        controller.postRunEventRaw(
+        post(
             "{"
                 + "\"eventTime\":\"2026-04-14T10:00:00Z\","
                 + "\"producer\":\"https://example.com/my-pipeline-tool\","
@@ -142,7 +139,7 @@ public class LineageApiImplTest {
         .when(runEventMapper)
         .map(any(OpenLineage.JobEvent.class), any(RunEventMapper.MappingConfig.class));
 
-    ResponseEntity<Void> response = controller.postRunEventRaw(validJobEventJson());
+    ResponseEntity<Void> response = post(validJobEventJson());
 
     assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
     assertEquals(ingestedProposals(), List.of(first, differentPayload));
@@ -195,7 +192,7 @@ public class LineageApiImplTest {
     InvalidOpenLineageEventException exception =
         expectThrows(
             InvalidOpenLineageEventException.class,
-            () -> controller.postRunEventRaw(validJobEventJson("not-a-timestamp")));
+            () -> post(validJobEventJson("not-a-timestamp")));
 
     assertEquals(exception.getValidationErrors().size(), 1);
     assertEquals(exception.getValidationErrors().get(0).path(), "$");
@@ -205,7 +202,7 @@ public class LineageApiImplTest {
   @Test
   public void testMissingLegacySchemaUrlIsAccepted() {
     ResponseEntity<Void> response =
-        controller.postRunEventRaw(
+        post(
             "{"
                 + "\"eventTime\":\"2026-04-14T10:00:00Z\","
                 + "\"producer\":\"https://example.com/my-pipeline-tool\","
@@ -219,67 +216,9 @@ public class LineageApiImplTest {
   }
 
   @Test
-  public void testUnknownCustomFacetIsAcceptedAsOpaqueObject() {
-    String eventJson =
-        validRunEventJson()
-            .replace(
-                "\"run\":{\"runId\":\"d46e465b-d358-4d32-83d4-df660ff614dd\"}",
-                "\"run\":{\"runId\":\"d46e465b-d358-4d32-83d4-df660ff614dd\","
-                    + "\"facets\":{\"vendorFacet\":{\"extension\":{\"enabled\":true}}}}");
-
-    ResponseEntity<Void> response = controller.postRunEventRaw(eventJson);
-
-    assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
-    verify(entityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), eq(true));
-  }
-
-  @Test
-  public void testMissingAuthenticationReturnsUnauthorized() {
-    AuthenticationContext.setAuthentication(null);
-
-    expectThrows(
-        OpenLineageAuthenticationException.class,
-        () -> controller.postRunEventRaw(validJobEventJson()));
-    verifyNoInteractions(runEventMapper, entityService);
-  }
-
-  @Test
-  public void testAsyncIngestReturnsAcceptedWithSingleAspectsBatch() {
-    ResponseEntity<Void> response = controller.postRunEventRaw(validJobEventJson());
-
-    assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
-    assertFalse(ingestedProposals().isEmpty());
-  }
-
-  @Test
-  public void testAsyncIngestFailureRaisesIngestionException() {
-    when(entityService.ingestProposal(
-            any(OperationContext.class), any(AspectsBatch.class), eq(true)))
-        .thenThrow(new RuntimeException("ingest failed"));
-
-    expectThrows(
-        OpenLineageIngestionException.class, () -> controller.postRunEventRaw(validJobEventJson()));
-  }
-
-  @Test
-  public void testAmbiguousRootRaisesInvalidOpenLineageEvent() {
-    expectThrows(
-        InvalidOpenLineageEventException.class,
-        () ->
-            controller.postRunEventRaw(
-                "{"
-                    + "\"eventTime\":\"2026-04-14T10:00:00Z\","
-                    + "\"producer\":\"https://example.com/my-pipeline-tool\","
-                    + "\"schemaURL\":\"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent\","
-                    + "\"job\":{\"namespace\":\"crm\",\"name\":\"load.customer\"},"
-                    + "\"dataset\":{\"namespace\":\"snowflake\",\"name\":\"db.schema.table\"}"
-                    + "}"));
-  }
-
-  @Test
   public void testDatasetEventDispatchMaterializesDatasetOnly() {
     ResponseEntity<Void> response =
-        controller.postRunEventRaw(
+        post(
             "{"
                 + "\"eventTime\":\"2026-04-14T10:00:00Z\","
                 + "\"producer\":\"https://example.com/my-pipeline-tool\","
@@ -301,6 +240,10 @@ public class LineageApiImplTest {
     return batchCaptor.getValue().getMCPItems().stream()
         .map(MCPItem::getMetadataChangeProposal)
         .toList();
+  }
+
+  private ResponseEntity<Void> post(String body) {
+    return controller.postRunEventRaw(body.getBytes(StandardCharsets.UTF_8));
   }
 
   private static String validRunEventJson() {

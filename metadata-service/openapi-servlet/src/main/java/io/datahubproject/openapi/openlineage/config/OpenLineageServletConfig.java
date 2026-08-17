@@ -26,13 +26,10 @@ public class OpenLineageServletConfig {
   }
 
   @Bean
-  public FilterRegistrationBean<OpenLineageAuthenticationErrorFilter>
-      openLineageAuthenticationErrorFilter() {
-    FilterRegistrationBean<OpenLineageAuthenticationErrorFilter> registration =
+  public FilterRegistrationBean<OpenLineageAuthenticationFilter> openLineageAuthenticationFilter() {
+    FilterRegistrationBean<OpenLineageAuthenticationFilter> registration =
         new FilterRegistrationBean<>();
-    registration.setFilter(new OpenLineageAuthenticationErrorFilter());
-    // Wrap authentication enforcement after credentials are extracted but before it calls
-    // sendError, which bypasses controller advice.
+    registration.setFilter(new OpenLineageAuthenticationFilter());
     registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
     registration.setAsyncSupported(true);
     registration.addUrlPatterns("/openapi/openlineage/*");

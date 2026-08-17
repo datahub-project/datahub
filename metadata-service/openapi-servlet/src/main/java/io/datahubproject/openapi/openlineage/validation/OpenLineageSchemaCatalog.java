@@ -15,10 +15,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,11 +28,7 @@ public final class OpenLineageSchemaCatalog {
   private static final String MANIFEST_RESOURCE = "openlineage/schemas/1.45.0/manifest.json";
 
   public record StandardFacetContract(
-      AttachmentPoint attachment,
-      String key,
-      URI schemaDocumentUri,
-      String definition,
-      JsonSchema schema) {}
+      AttachmentPoint attachment, String key, URI schemaDocumentUri, JsonSchema schema) {}
 
   private record FacetKey(AttachmentPoint attachment, String key) {}
 
@@ -81,7 +75,6 @@ public final class OpenLineageSchemaCatalog {
         standardFacets.values().stream()
             .map(StandardFacetContract::key)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
-    verifyAllOfficialFacetSchemasRegistered(schemaDocuments.keySet());
   }
 
   JsonSchema rootSchema() {
@@ -110,85 +103,21 @@ public final class OpenLineageSchemaCatalog {
   private Map<String, String> loadSchemas() {
     try (InputStream input = resource(MANIFEST_RESOURCE)) {
       JsonNode manifest = objectMapper.readTree(input);
-      if (!"1.45.0".equals(manifest.path("version").asText())) {
-        throw new IllegalStateException("Unsupported bundled OpenLineage schema manifest");
-      }
       Map<String, String> documents = new LinkedHashMap<>();
       for (JsonNode entry : manifest.path("schemas")) {
-        if (!entry.isTextual() || !entry.textValue().startsWith("openlineage/schemas/1.45.0/")) {
-          throw new IllegalStateException("Invalid OpenLineage schema resource in manifest");
-        }
         String schemaResource = entry.textValue();
         byte[] bytes;
         try (InputStream schemaInput = resource(schemaResource)) {
           bytes = schemaInput.readAllBytes();
         }
         JsonNode schemaNode = objectMapper.readTree(bytes);
-        String uri = requiredText(schemaNode, "$id");
-        if (!JsonMetaSchema.getV202012().getIri().equals(requiredText(schemaNode, "$schema"))) {
-          throw new IllegalStateException(
-              "OpenLineage schema identity mismatch for " + schemaResource);
-        }
-        if (documents.put(uri, new String(bytes, StandardCharsets.UTF_8)) != null) {
-          throw new IllegalStateException("Duplicate OpenLineage schema identity " + uri);
-        }
-      }
-      verifyReferenceClosure(documents);
-      if (!documents.containsKey(ROOT_SCHEMA_URI)) {
-        throw new IllegalStateException("OpenLineage root schema is missing from the manifest");
+        documents.put(
+            schemaNode.path("$id").textValue(), new String(bytes, StandardCharsets.UTF_8));
       }
       return Map.copyOf(documents);
     } catch (IOException exception) {
       throw new IllegalStateException("Unable to load bundled OpenLineage schemas", exception);
     }
-  }
-
-  private void verifyReferenceClosure(Map<String, String> documents) throws IOException {
-    for (Map.Entry<String, String> document : documents.entrySet()) {
-      JsonNode schema = objectMapper.readTree(document.getValue());
-      List<String> references = new ArrayList<>();
-      collectReferences(schema, references);
-      URI base = URI.create(document.getKey());
-      for (String reference : references) {
-        URI resolved = base.resolve(reference);
-        URI documentUri = withoutFragment(resolved);
-        if (!documentUri.toString().isEmpty()
-            && !documentUri.toString().equals(JsonMetaSchema.getV202012().getIri())
-            && !documents.containsKey(documentUri.toString())) {
-          throw new IllegalStateException("Incomplete OpenLineage schema closure: " + resolved);
-        }
-      }
-    }
-  }
-
-  private static void collectReferences(JsonNode node, List<String> references) {
-    if (node.isObject()) {
-      node.fields()
-          .forEachRemaining(
-              entry -> {
-                if ("$ref".equals(entry.getKey()) && entry.getValue().isTextual()) {
-                  references.add(entry.getValue().textValue());
-                } else {
-                  collectReferences(entry.getValue(), references);
-                }
-              });
-    } else if (node.isArray()) {
-      node.forEach(child -> collectReferences(child, references));
-    }
-  }
-
-  private static URI withoutFragment(URI uri) {
-    String value = uri.toString();
-    int fragment = value.indexOf('#');
-    return URI.create(fragment >= 0 ? value.substring(0, fragment) : value);
-  }
-
-  private static String requiredText(JsonNode node, String field) {
-    JsonNode value = node.get(field);
-    if (value == null || !value.isTextual() || value.textValue().isBlank()) {
-      throw new IllegalStateException("Invalid OpenLineage schema field " + field);
-    }
-    return value.textValue();
   }
 
   private InputStream resource(String name) {
@@ -312,11 +241,7 @@ public final class OpenLineageSchemaCatalog {
     URI documentUri = schemaDocumentUri(schemaName);
     StandardFacetContract contract =
         new StandardFacetContract(
-            attachment,
-            key,
-            documentUri,
-            definition,
-            schema(documentUri + "#/$defs/" + definition));
+            attachment, key, documentUri, schema(documentUri + "#/$defs/" + definition));
     if (facets.put(new FacetKey(attachment, key), contract) != null) {
       throw new IllegalStateException(
           "Duplicate standard facet contract " + attachment + ":" + key);
@@ -336,29 +261,9 @@ public final class OpenLineageSchemaCatalog {
     for (String value : schemaUris) {
       URI uri = URI.create(value);
       String path = uri.getPath();
-      int slash = path.lastIndexOf('/');
-      String fileName = slash >= 0 ? path.substring(slash + 1) : path;
-      if (!fileName.endsWith(".json")) {
-        throw new IllegalStateException("Invalid OpenLineage schema identity " + value);
-      }
-      String schemaName = fileName.substring(0, fileName.length() - ".json".length());
-      if (documentsByName.put(schemaName, uri) != null) {
-        throw new IllegalStateException("Duplicate OpenLineage schema name " + schemaName);
-      }
+      String fileName = path.substring(path.lastIndexOf('/') + 1);
+      documentsByName.put(fileName.substring(0, fileName.length() - ".json".length()), uri);
     }
     return Map.copyOf(documentsByName);
-  }
-
-  private void verifyAllOfficialFacetSchemasRegistered(Set<String> schemaUris) {
-    Set<URI> registered =
-        standardFacets.values().stream()
-            .map(StandardFacetContract::schemaDocumentUri)
-            .collect(java.util.stream.Collectors.toSet());
-    for (String uri : schemaUris) {
-      if (!ROOT_SCHEMA_URI.equals(uri) && !registered.contains(URI.create(uri))) {
-        throw new IllegalStateException(
-            "Official OpenLineage facet schema is not registered: " + uri);
-      }
-    }
   }
 }
