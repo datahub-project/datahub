@@ -63,31 +63,16 @@ public class ShadedNativeCodecTest {
     Object sink = sinkCtor.newInstance(1024);
     Method wrapForOutput = compressionClass.getMethod("wrapForOutput", sinkClass, byte.class);
 
-    try {
-      try (OutputStream out = (OutputStream) wrapForOutput.invoke(compression, sink, MAGIC_V2)) {
-        out.write(payload);
-      }
-    } catch (InvocationTargetException e) {
-      Throwable cause = e.getCause();
-      if (cause instanceof UnsatisfiedLinkError) {
-        fail(
-            "Kafka '"
-                + codec
-                + "' compression hit UnsatisfiedLinkError in the shaded jar: the codec's Java class is"
-                + " relocated under io.acryl.shaded while its native library exports symbols for the"
-                + " canonical package. "
-                + cause.getMessage());
-      }
-      if (cause instanceof NoClassDefFoundError) {
-        fail(
-            "Kafka '"
-                + codec
-                + "' compression could not resolve its codec class: a bundled copy was removed while"
-                + " the shaded Kafka client still references the relocated name. "
-                + cause.getMessage());
-      }
-      throw e;
-    }
+    withCodecDiagnostics(
+        codec,
+        "compressing",
+        () -> {
+          try (OutputStream out =
+              (OutputStream) wrapForOutput.invoke(compression, sink, MAGIC_V2)) {
+            out.write(payload);
+          }
+          return null;
+        });
 
     int written = (int) sink.getClass().getMethod("position").invoke(sink);
     assertTrue(written > 0, codec + " compression produced no output");
@@ -95,7 +80,8 @@ public class ShadedNativeCodecTest {
     // Round-trip rather than stopping at "bytes were written": that only proves nothing threw, and
     // a
     // codec that produced an unreadable frame would still pass. Decompressing back to the original
-    // payload asserts the native path actually works.
+    // payload asserts the native path actually works. The decompression side goes through the same
+    // diagnostics — it hits the same native library, so it must report the same way on failure.
     ByteBuffer compressed = (ByteBuffer) sink.getClass().getMethod("buffer").invoke(sink);
     compressed.flip();
     Class<?> bufferSupplier = Class.forName(BUFFER_SUPPLIER);
@@ -103,13 +89,65 @@ public class ShadedNativeCodecTest {
     Method wrapForInput =
         compressionClass.getMethod("wrapForInput", ByteBuffer.class, byte.class, bufferSupplier);
 
-    byte[] roundTripped;
-    try (InputStream in =
-        (InputStream) wrapForInput.invoke(compression, compressed, MAGIC_V2, noCaching)) {
-      roundTripped = readAll(in);
-    }
+    byte[] roundTripped =
+        withCodecDiagnostics(
+            codec,
+            "decompressing",
+            () -> {
+              try (InputStream in =
+                  (InputStream) wrapForInput.invoke(compression, compressed, MAGIC_V2, noCaching)) {
+                return readAll(in);
+              }
+            });
     assertArrayEquals(
         payload, roundTripped, codec + " decompressed to different bytes than were compressed");
+  }
+
+  @FunctionalInterface
+  private interface CodecCall<T> {
+    T run() throws Exception;
+  }
+
+  /**
+   * Turns the two shading failure modes into a message that names the cause, for either direction
+   * of the codec. Both forms are caught: a reflective call wraps them in {@link
+   * InvocationTargetException}, while a native call made from inside a stream's {@code read}/{@code
+   * write} surfaces the error directly.
+   */
+  private static <T> T withCodecDiagnostics(String codec, String phase, CodecCall<T> call)
+      throws Exception {
+    try {
+      return call.run();
+    } catch (InvocationTargetException e) {
+      explain(codec, phase, e.getCause());
+      throw e;
+    } catch (UnsatisfiedLinkError | NoClassDefFoundError e) {
+      explain(codec, phase, e);
+      throw e;
+    }
+  }
+
+  private static void explain(String codec, String phase, Throwable cause) {
+    if (cause instanceof UnsatisfiedLinkError) {
+      fail(
+          "Kafka '"
+              + codec
+              + "' hit UnsatisfiedLinkError while "
+              + phase
+              + " in the shaded jar: the codec's Java class is relocated under io.acryl.shaded while"
+              + " its native library exports symbols for the canonical package. "
+              + cause.getMessage());
+    }
+    if (cause instanceof NoClassDefFoundError) {
+      fail(
+          "Kafka '"
+              + codec
+              + "' could not resolve its codec class while "
+              + phase
+              + ": a bundled copy was removed while the shaded Kafka client still references the"
+              + " relocated name. "
+              + cause.getMessage());
+    }
   }
 
   private static byte[] readAll(InputStream in) throws Exception {
@@ -123,10 +161,11 @@ public class ShadedNativeCodecTest {
   }
 
   /**
-   * JNI-backed libraries must never be relocated, and the agent should not ship its own copies at
-   * all — the host classpath provides them, and a relocated copy can only shadow the working one.
-   * The OpenLineage SQL parser is the sole exception and stays at its canonical {@code
-   * io/openlineage/sql/} path (issue #18558).
+   * Asserts only that these JNI-backed classes are absent at their <em>relocated</em> names, which
+   * is the failure this test can actually observe: the classloader here also sees Spark's canonical
+   * copies, so it cannot tell a copy bundled by us from one supplied by the host. The broader
+   * invariant — that the agent ships no copy of them at all, canonical or otherwise — is enforced
+   * by {@code scripts/check_jar.sh}, which inspects the jar itself.
    */
   @Test
   public void agentDoesNotShipRelocatedJniClasses() {
