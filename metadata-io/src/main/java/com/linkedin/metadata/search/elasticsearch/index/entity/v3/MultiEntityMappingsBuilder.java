@@ -186,7 +186,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                         opContext
                             .getSearchContext()
                             .getIndexConvention()
-                            .getEntityIndexNameV3(searchGroup))
+                            .getEntityIndexNameV3(opContext, searchGroup))
                     .mappings(mappings)
                     .build();
               })
@@ -264,7 +264,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                   opContext
                       .getSearchContext()
                       .getIndexConvention()
-                      .getEntityIndexNameV3(searchGroup))
+                      .getEntityIndexNameV3(opContext, searchGroup))
               .mappings(mappings)
               .build());
     }

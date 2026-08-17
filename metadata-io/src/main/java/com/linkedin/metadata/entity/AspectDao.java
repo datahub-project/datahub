@@ -17,7 +17,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -115,6 +114,16 @@ public interface AspectDao {
 
   @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
   default boolean isOptimisticLockingEnabled() {
+    return false;
+  }
+
+  /**
+   * Whether this DAO, when optimistic locking is enabled, retries only the conflicted URN's branch
+   * within the transaction (scoped retry) instead of re-running the whole batch. Default {@code
+   * false} keeps the full-batch retry behavior of the optimistic-locking base.
+   */
+  @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
+  default boolean isScopedRetryEnabled() {
     return false;
   }
 
@@ -233,6 +242,12 @@ public interface AspectDao {
               .orElse(null);
 
       if (expectedVersion == null) {
+        // Legacy row written before optimistic locking stamped a version. There is nothing to CAS
+        // against, so this is an UNCONDITIONAL last-writer-wins update — CAS does NOT guard these
+        // rows, and concurrent writers to the same legacy URN can clobber each other until a write
+        // stamps a version. The write gate (when enabled) still serializes them; with no gate,
+        // legacy rows behave exactly as they did before OL. One-time, self-healing: the next write
+        // stamps a version and subsequent writes take the CAS path below.
         Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
             saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
         return new ConditionalSaveResult(
@@ -412,13 +427,19 @@ public interface AspectDao {
       @Nonnull final String urn);
 
   /**
-   * Optionally serialize concurrent writers to the given urns before any row locks are acquired.
-   * Default is a no-op; the Ebean/Postgres implementation may take a transaction-scoped advisory
-   * lock per urn when enabled. Used to prevent lock-order deadlocks between multi-row writes (e.g.
-   * logical-model linking) and concurrent hard-deletes touching the same rows.
+   * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row
+   * locks are acquired. Default is a no-op; the Ebean/Postgres implementation may take a
+   * transaction-scoped advisory lock per {@code (urn, aspect)} when enabled.
+   *
+   * <p>Keying on the {@code (urn, aspect)} conflict unit (not the whole entity) matches what CAS
+   * and {@code FOR UPDATE} actually contend on: two writers on the same URN but different aspects
+   * share no row and must not share a mutex. Whole-entity ops (e.g. {@code deleteUrn}) pass the
+   * entity's full aspect key-set so delete↔upsert safety is key-set overlap, not a permanent
+   * URN-wide lock on every ingest. Used to prevent lock-order deadlocks between multi-row writes
+   * (e.g. logical-model linking) and concurrent hard-deletes touching the same rows.
    */
-  default void lockUrnsForWrite(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> urns) {
+  default void lockAspectsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
     // no-op by default
   }
 

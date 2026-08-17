@@ -125,7 +125,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-4",
       content:
-        '<div class="shimmer-banner"><span>Build with DataHub: The Agent Hackathon is live</span><a href="https://datahub.devpost.com/" target="_blank" class="button"><div>Learn More<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>CONTEXT 2026: Join the virtual summit on context management, November 4</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Save my spot<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -179,7 +179,7 @@ module.exports = {
           ],
         },
         {
-          href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+          href: "https://datahub.com/slack",
           html: `
             <style>
               .slack-logo:hover {
