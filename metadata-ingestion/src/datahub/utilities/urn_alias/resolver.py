@@ -5,8 +5,8 @@ from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urn_alias.index import (
     CatalogSlice,
     UrnAliasIndex,
+    covered_by,
     get_urn_alias_index,
-    lowercased_urn,
 )
 from datahub.utilities.urn_alias.remote import RemoteUrnLookup, select_remote_lookup
 from datahub.utilities.urns.error import InvalidUrnError
@@ -15,14 +15,6 @@ if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
-
-
-def _covered_by(urn: str, slices: Collection[CatalogSlice]) -> bool:
-    """Whether `urn` falls inside any of `slices`."""
-    key = lowercased_urn(urn)
-    return key is not None and any(
-        catalog_slice.covers(key) for catalog_slice in slices
-    )
 
 
 def _has_lowercased_name(urn: str) -> bool:
@@ -85,7 +77,7 @@ class UrnAliasResolver:
         """
         matches = self.find_match(urn)
         if within is not None:
-            matches = [match for match in matches if _covered_by(match, within)]
+            matches = [match for match in matches if covered_by(match, within)]
         if len(matches) == 1:
             return matches[0]
         if urn in matches:
@@ -105,10 +97,10 @@ def get_urn_alias_resolver(
     Reads the one index shared per DataHub instance, so it sees whatever any consumer has
     already loaded.
 
-    `query_on_demand` wires up the network fallback. It is worth having only for a caller
-    that has *not* bulk-loaded the catalog it resolves against: once a slice is loaded,
-    coverage answers every miss inside it, and a miss outside it is an entity the caller
-    has no columns for anyway. Loading and querying are alternatives, not layers.
+    `query_on_demand` wires up the network fallback, for a caller whose scope reaches
+    past the catalogs it loaded. It never fires inside a loaded slice: coverage already
+    answers every miss there. The two divide the work by scope rather than stacking on
+    the same references.
 
     `platform_instances` is read only by the casing-probe fallback, which cannot recover
     an instance from a URN and has to be told which ones exist; the index never needs them.

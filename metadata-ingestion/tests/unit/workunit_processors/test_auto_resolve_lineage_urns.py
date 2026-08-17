@@ -7,6 +7,7 @@ import pydantic
 import pytest
 
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -35,7 +36,12 @@ from datahub.metadata.schema_classes import (
     LineageMatchTypeClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
     StatusClass,
+    StringTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -1030,6 +1036,7 @@ def _ctx(
     enabled: bool,
     graph: object,
     upstream_platforms: Optional[List[UpstreamPlatformCasing]] = None,
+    resolve_all_platforms: bool = False,
 ) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = graph
@@ -1038,6 +1045,7 @@ def _ctx(
         upstream_platforms=upstream_platforms
         if upstream_platforms is not None
         else [UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+        resolve_all_platforms=resolve_all_platforms,
     )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -1055,11 +1063,28 @@ def test_disabled_when_flag_off():
     )
 
 
-def test_enabled_without_upstream_platforms_is_a_config_error():
-    # Enabled with no upstream_platforms has nothing to reconcile against -> fail fast at
-    # config parse rather than silently no-op.
+def test_enabled_with_nothing_in_scope_is_a_config_error():
+    # Nothing preloaded and scope not widened has nothing to reconcile against -> fail
+    # fast at config parse rather than silently no-op.
     with pytest.raises(pydantic.ValidationError, match="upstream_platforms"):
         AutoResolveLineageUrnsConfig(enabled=True, upstream_platforms=[])
+
+
+def test_widened_scope_needs_no_upstream_platforms():
+    # The other half of the same rule: with every platform in scope there is something
+    # to reconcile even with nothing preloaded, so this is a valid config.
+    AutoResolveLineageUrnsConfig(enabled=True, resolve_all_platforms=True)
+    assert (
+        AutoResolveLineageUrnsProcessor.should_enable(
+            _ctx(
+                True,
+                mock.MagicMock(),
+                upstream_platforms=[],
+                resolve_all_platforms=True,
+            )
+        )
+        is True
+    )
 
 
 def test_enabled_when_flag_on_with_graph():
@@ -1167,19 +1192,57 @@ def test_a_match_from_a_slice_we_did_not_load_is_not_used():
     assert processor.report.num_refs_unresolved == 1
 
 
-# --- lookup modes -------------------------------------------------------------------
+# --- scope: which references get reconciled ------------------------------------------
+#
+# upstream_platforms says what to read up front; resolve_all_platforms says what may be
+# reconciled at all. The two are independent, and these cover each combination.
+
+BQ_UPPER = make_dataset_urn("bigquery", "PROJ.DS.T")
+BQ_LOWER = make_dataset_urn("bigquery", "proj.ds.t")
+
+_SNOWFLAKE_SLICE = CatalogSlice(
+    platform="snowflake", platform_instance=None, env="PROD"
+)
 
 
-def test_bulk_mode_never_asks_the_server_about_a_reference():
+def _widened(
+    upstream_platforms: Optional[List[UpstreamPlatformCasing]] = None,
+) -> AutoResolveLineageUrnsConfig:
+    return AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=upstream_platforms
+        if upstream_platforms is not None
+        else [UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+        resolve_all_platforms=True,
+    )
+
+
+def _schema_metadata(platform: str, columns: List[str]) -> SchemaMetadataClass:
+    """What `graph.get_aspect` hands back for an entity DataHub holds columns for."""
+    return SchemaMetadataClass(
+        schemaName="t",
+        platform=make_data_platform_urn(platform),
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=column,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="STRING",
+            )
+            for column in columns
+        ],
+    )
+
+
+def test_a_preloaded_catalog_answers_its_own_misses():
     cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
     )
     processor, graph, patcher = _processor_for(
-        cfg,
-        _resolver({}),
-        [],
-        [CatalogSlice(platform="snowflake", platform_instance=None, env="PROD")],
+        cfg, _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
     try:
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
@@ -1191,16 +1254,89 @@ def test_bulk_mode_never_asks_the_server_about_a_reference():
     graph.get_urns_by_filter.assert_not_called()
 
 
-def test_on_demand_mode_skips_the_bulk_scroll():
-    cfg = AutoResolveLineageUrnsConfig(
-        enabled=True,
-        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
-        on_demand_lookup=True,
+def test_an_unlisted_platform_is_healed_when_scope_is_widened():
+    # The long tail this flag exists for: snowflake is referenced often enough to
+    # preload, bigquery only occasionally. The bigquery reference must actually be
+    # rewritten — resolved and then discarded for being unlisted is the bug.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
+    graph.get_urns_by_filter.return_value = [BQ_LOWER]
+    graph.get_aspect.return_value = None  # exists, but holds no schemaMetadata
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == BQ_LOWER
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
+    )
+    assert processor.report.num_dataset_urns_normalized == 1
+
+
+def test_an_unlisted_platform_gets_column_casing_too():
+    # Table-level healing alone would leave the field URN pointing at a column name
+    # DataHub does not have, so the edge stays broken where it matters.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_urns_by_filter.return_value = [BQ_LOWER]
+    graph.get_aspect.return_value = _schema_metadata("bigquery", ["amount"])
+    try:
+        [out] = list(
+            processor.process(
+                iter([_upstream_wu(BQ_UPPER, fine_grained_field="AMOUNT")])
+            )
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(BQ_LOWER, "amount")]
+
+
+def test_a_listed_platform_is_still_answered_locally_when_scope_is_widened():
+    # Widening scope must not turn a preloaded catalog back into a stream of questions.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({LOWER: {"amount": "int"}}), [LOWER], [_SNOWFLAKE_SLICE]
+    )
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="AMOUNT")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "amount")]
+    graph.get_urns_by_filter.assert_not_called()
+    graph.get_aspect.assert_not_called()
+
+
+def test_a_schemaless_listed_entity_costs_no_round_trip_when_scope_is_widened():
+    # The preload fetched every schema its slice holds, so "this entity has no columns"
+    # is already known. Asking the server for it would spend a round trip per schemaless
+    # reference.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [LOWER], [_SNOWFLAKE_SLICE]
+    )
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="AMOUNT")]))
+        )
+    finally:
+        patcher.stop()
+
+    # Healed at table level; the column is left as the source reported it.
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "AMOUNT")]
+    graph.get_aspect.assert_not_called()
+
+
+def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    pipeline_ctx.graph.get_urns_by_filter.return_value = iter([LOWER])
+    pipeline_ctx.flags.auto_resolve_lineage_urns = _widened(upstream_platforms=[])
+    pipeline_ctx.graph.get_urns_by_filter.return_value = [LOWER]
+    pipeline_ctx.graph.get_aspect.return_value = None
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -1209,6 +1345,6 @@ def test_on_demand_mode_skips_the_bulk_scroll():
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
-    # Nothing is bulk-loaded; the reference is resolved by asking instead.
+    # No catalog is read; every reference is resolved by asking instead.
     provide_mock.assert_not_called()
     assert _stored_upstream(out) == LOWER

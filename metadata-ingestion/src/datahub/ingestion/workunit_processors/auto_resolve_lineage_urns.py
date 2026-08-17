@@ -51,7 +51,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.urn_alias.index import CatalogSlice
+from datahub.utilities.urn_alias.index import CatalogSlice, covered_by
 from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -89,7 +89,7 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_dataset_urns_normalized: int = 0  # Upstream dataset URNs rewritten
     num_column_urns_normalized: int = 0  # Fine-grained field URNs rewritten
     num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
-    num_refs_unresolved: int = 0  # Configured platform, no unique match (flagged)
+    num_refs_unresolved: int = 0  # In scope, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
     # Lineage aspect emitted as a PATCH (not UPSERT); can't be reconciled, so skipped.
     num_patch_lineage_skipped: int = 0
@@ -102,7 +102,7 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
 
 @dataclass
 class _Resolution:
-    """Outcome of resolving one dataset URN against the configured platform(s)."""
+    """Outcome of resolving one dataset URN against the platforms in scope."""
 
     urn: str  # The (possibly rewritten) URN to emit.
     schema: Optional[SchemaInfo]  # Cached schema of the resolved entity, if known.
@@ -163,17 +163,20 @@ class AutoResolveLineageUrnsProcessor(
     referenced in a different casing by a BI tool) that would otherwise create two
     disconnected lineage nodes. Identity comes from ``UrnAliasResolver`` over the URN
     alias index shared per DataHub instance — one lookup per reference, whatever the
-    configured platforms — and columns from a ``SchemaResolver`` per configured platform.
-    Both table-level (``UpstreamLineage``, ``DashboardInfo``) and column-level
-    (``FineGrainedLineage`` field paths) references are reconciled. Any stored casing is
-    reachable, and a reference whose name matches two entities differing only by case is
-    left alone.
+    configured platforms — and columns from a ``SchemaResolver``. Both table-level
+    (``UpstreamLineage``, ``DashboardInfo``) and column-level (``FineGrainedLineage``
+    field paths) references are reconciled. Any stored casing is reachable, and a
+    reference whose name matches two entities differing only by case is left alone.
+
+    Two settings doing different jobs: ``upstream_platforms`` is what to read up front,
+    ``resolve_all_platforms`` is what may be reconciled at all.
 
     Only references *to* warehouse assets found in this source's metadata are fixed;
     the entity the aspect is attached to and downstream fields are never touched. It
-    must be enabled on BI-tool / cross-platform ingestions and configured with the
-    upstream platform(s) — never on the warehouse ingestion, whose reported casing and
-    identity must be respected.
+    must be enabled on BI-tool / cross-platform ingestions — never on the warehouse
+    ingestion, whose reported casing and identity must be respected. Under
+    ``resolve_all_platforms`` nothing but that rule keeps a warehouse ingestion off its
+    own platform's references, since no list excludes it.
     """
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
@@ -184,25 +187,23 @@ class AutoResolveLineageUrnsProcessor(
         self._graph: DataHubGraph = graph
         cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
         self._config: List[UpstreamPlatformCasing] = cfg.upstream_platforms
-        # One decision, used twice below: either we read each configured catalog up
-        # front, or we ask per reference. Never both — a loaded slice answers its own
-        # misses, so querying on top of it can only return entities outside the
-        # configured scope, which _resolve_dataset declines anyway.
-        self._on_demand: bool = cfg.on_demand_lookup
+        # Whether scope reaches past the catalogs we preload, and so the only reason the
+        # resolver below needs a network fallback: inside a preloaded slice that load
+        # already answers its own misses.
+        self._resolve_all_platforms: bool = cfg.resolve_all_platforms
         # One resolver over the index shared per DataHub instance, so identity is a
         # single lookup rather than one per configured slice.
         self._urn_aliases = get_urn_alias_resolver(
             graph=self._graph,
-            query_on_demand=self._on_demand,
+            query_on_demand=self._resolve_all_platforms,
             platform_instances=[
                 entry.platform_instance
                 for entry in self._config
                 if entry.platform_instance
             ],
         )
-        # The catalog this processor was configured for, and so the entities whose
-        # schemas it can expect to get — bulk-loaded under a scrolling mode, fetched
-        # lazily under ON_DEMAND, but the same scope either way. See _schema_of.
+        # The catalogs this processor reads up front, and so the entities whose schemas
+        # it holds locally. See _schema_of.
         self._own_slices: List[CatalogSlice] = [
             CatalogSlice(
                 platform=entry.platform,
@@ -235,6 +236,8 @@ class AutoResolveLineageUrnsProcessor(
         # Casing matching is delegated to each resolver's UrnAliasResolver, so the
         # processor keeps no casing index of its own.
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
+        # Lazily built for entities outside those catalogs. See _graph_resolver_for.
+        self._graph_resolvers_by_platform: Dict[str, "SchemaResolver"] = {}
         # Platforms actually referenced by this source's lineage, so
         # _warn_unmatched_platforms can flag configured platforms that no reference used
         # (usually a case/spelling typo in the config).
@@ -271,14 +274,16 @@ class AutoResolveLineageUrnsProcessor(
         cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
         # Fail closed on a degenerate/mock config: this processor is in the shared chain
         # for *every* source, and some connector tests build a source with a bare Mock()
-        # ctx where cfg.enabled / cfg.upstream_platforms are truthy Mocks that bypass
-        # pydantic validation. Require enabled to be exactly True and upstream_platforms a
-        # real, non-empty list. (A real enabled config is guaranteed a non-empty
-        # upstream_platforms list by AutoResolveLineageUrnsConfig's validator, which fails
-        # config parse otherwise.)
+        # ctx where cfg.enabled / cfg.upstream_platforms / cfg.resolve_all_platforms are
+        # truthy Mocks that bypass pydantic validation. Hence the `is True` tests and the
+        # isinstance check rather than plain truthiness. (A real enabled config is
+        # guaranteed a non-empty upstream_platforms list or resolve_all_platforms by
+        # AutoResolveLineageUrnsConfig's validator, which fails config parse otherwise.)
         if cfg.enabled is not True:
             return False
-        if not isinstance(cfg.upstream_platforms, list) or not cfg.upstream_platforms:
+        if not isinstance(cfg.upstream_platforms, list):
+            return False
+        if not cfg.upstream_platforms and cfg.resolve_all_platforms is not True:
             return False
         # Use getattr for graph: it's a no-op without a backend, and `graph` is a
         # PipelineContext instance attribute (absent from MagicMock(spec=...) used by
@@ -422,34 +427,19 @@ class AutoResolveLineageUrnsProcessor(
     # --- resolution -------------------------------------------------------------
 
     def _load_catalogs(self) -> None:
-        """Prepare each configured platform's SchemaResolver, for column casing.
+        """Read each configured platform's catalog up front, for column casing.
 
-        Under a mode that scrolls, ``provide_schema_resolver`` does a single bulk scroll
-        per (platform, instance, env) and is globally cached, warming each resolver's
-        schema cache so the ``resolve_urn`` calls in _resolve_dataset stay local. It also
-        fills the shared URN alias index, which is what makes identity answerable without
-        a round trip.
+        ``provide_schema_resolver`` does a single bulk scroll per (platform, instance,
+        env) and is globally cached, warming each resolver's schema cache so the
+        ``resolve_urn`` calls in _resolve_dataset stay local. It also fills the shared
+        URN alias index, which is what makes identity answerable without a round trip.
 
-        Under ON_DEMAND nothing is scrolled, so the resolvers are graph-backed and fetch
-        a schema lazily the first time a reference needs one. Identity is not their job in
-        either mode — that is a single lookup against the shared index.
+        Driven by ``upstream_platforms`` alone, so widening scope adds references
+        answered per URN rather than changing what is read here.
         """
         entries_by_platform: Dict[str, List["UpstreamPlatformCasing"]] = {}
         for entry in self._config:
             entries_by_platform.setdefault(entry.platform, []).append(entry)
-
-        if self._on_demand:
-            for platform, entries in entries_by_platform.items():
-                self._resolvers_by_platform[platform] = [
-                    self._schema_resolver_cls(
-                        platform=entry.platform,
-                        platform_instance=entry.platform_instance,
-                        env=entry.env,
-                        graph=self._graph,
-                    )
-                    for entry in entries
-                ]
-            return
 
         for platform, entries in entries_by_platform.items():
             # Emitted before the (potentially long, paginated) fetch so operators see a
@@ -524,8 +514,9 @@ class AutoResolveLineageUrnsProcessor(
         # Track referenced platforms so _warn_unmatched_platforms can flag configured
         # platforms that no reference used (usually a case/spelling typo in the config).
         self._seen_reference_platforms.add(platform)
-        resolvers = self._resolvers_by_platform.get(platform)
-        if not resolvers:
+        resolvers = self._resolvers_by_platform.get(platform) or []
+        if not resolvers and not self._resolve_all_platforms:
+            # Out of scope: left untouched, and unstamped (no verdict == not processed).
             return _Resolution(urn, None, None)
 
         # prefer_lowercased: when two stored casings of the same name collide, heal to
@@ -535,20 +526,22 @@ class AutoResolveLineageUrnsProcessor(
         # for. Confining the answer to our own slices keeps the reference inside what the
         # operator asked for, and keeps identity paired with the columns we hold: anything
         # we resolve to, we loaded, so _schema_of finds its schema whenever it has one.
-        resolved = self._urn_aliases.resolve(
-            urn, prefer_lowercased=True, within=self._own_slices
-        )
+        # Widened, there is nothing to confine it to and columns come from the graph.
+        within = None if self._resolve_all_platforms else self._own_slices
+        resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True, within=within)
         if resolved is None:
-            # On a configured platform but no single existing entity matched: leave the
-            # URN unchanged but flag it UNRESOLVED so potentially broken lineage is
-            # visible rather than indistinguishable from clean.
+            # In scope but no single existing entity matched: leave the URN unchanged
+            # but flag it UNRESOLVED so potentially broken lineage is visible rather
+            # than indistinguishable from clean.
             self.report.unresolved_refs_sample.append(urn)
             return _Resolution(urn, None, _UNRESOLVED)
         match_type = _EXACT if resolved == urn else _NORMALIZED
-        return _Resolution(resolved, self._schema_of(resolved, resolvers), match_type)
+        return _Resolution(
+            resolved, self._schema_of(resolved, platform, resolvers), match_type
+        )
 
     def _schema_of(
-        self, urn: str, resolvers: List["SchemaResolver"]
+        self, urn: str, platform: str, resolvers: List["SchemaResolver"]
     ) -> Optional[SchemaInfo]:
         """The columns DataHub stores for `urn`, or None for an entity that has none.
 
@@ -556,15 +549,30 @@ class AutoResolveLineageUrnsProcessor(
         env), so its resolvers are tried in turn; only the one whose slice holds `urn`
         can answer, so the first hit is the only hit.
 
-        None means the entity genuinely has no ``schemaMetadata`` — unambiguously so,
-        because _resolve_dataset confines a match to the slices this processor loaded, so
-        anything reaching here is something we fetched.
+        Inside a slice we preloaded, a miss is the answer — that load fetched every
+        schema the slice holds — so asking the server would spend a round trip on
+        something we know. Outside them nothing was loaded, so the columns are fetched.
         """
         for resolver in resolvers:
             schema = resolver.resolve_urn(urn)[1]
             if schema is not None:
                 return schema
-        return None
+        if covered_by(urn, self._own_slices):
+            return None
+        return self._graph_resolver_for(platform).resolve_urn(urn)[1]
+
+    def _graph_resolver_for(self, platform: str) -> "SchemaResolver":
+        """A lazily-fetching SchemaResolver for `platform`.
+
+        Keyed by platform alone: ``resolve_urn`` looks an entity up by its exact URN and
+        reads neither ``platform_instance`` nor ``env``, and an instance cannot be
+        recovered from a URN to key on anyway.
+        """
+        resolver = self._graph_resolvers_by_platform.get(platform)
+        if resolver is None:
+            resolver = self._schema_resolver_cls(platform=platform, graph=self._graph)
+            self._graph_resolvers_by_platform[platform] = resolver
+        return resolver
 
     # --- aspect rewriters -------------------------------------------------------
     #
