@@ -2,9 +2,11 @@ package io.datahubproject.openlineage;
 
 import com.linkedin.common.FabricType;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import io.datahubproject.openlineage.dataset.PathSpec;
 import io.datahubproject.openlineage.dataset.SparkDataset;
+import io.openlineage.client.OpenLineage;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -42,6 +44,21 @@ public class HdfsPathDatasetTest {
         HdfsPathDataset.create(new URI("s3://my-bucket/events/dt=2024-01-01"), config);
     Assert.assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)", dataset.urn().toString());
+  }
+
+  @Test
+  public void testLegacyNamespaceUsesFilesystemUriFromDatasetName() {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
+    OpenLineage openLineage = new OpenLineage(URI.create("https://example.com/producer"));
+    OpenLineage.Dataset dataset =
+        openLineage.newInputDataset("file.localhost", "file://localhost/in_file1.txt", null, null);
+
+    Assert.assertEquals(
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(dataset, config)
+            .orElseThrow()
+            .toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:file,localhost/in_file1.txt,PROD)");
   }
 
   @Test

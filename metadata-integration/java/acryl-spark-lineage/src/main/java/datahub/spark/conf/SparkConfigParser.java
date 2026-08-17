@@ -15,6 +15,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -183,7 +184,6 @@ public class SparkConfigParser {
     builder.connectionInstanceMap(SparkConfigParser.getConnectionInstanceMap(sparkConfig));
     builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
-    builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
@@ -205,7 +205,7 @@ public class SparkConfigParser {
   public static FabricType getCommonFabricType(Config datahubConfig) {
     String fabricTypeString =
         datahubConfig.hasPath(DATASET_ENV_KEY)
-            ? datahubConfig.getString(DATASET_ENV_KEY).toUpperCase()
+            ? datahubConfig.getString(DATASET_ENV_KEY).toUpperCase(Locale.ROOT)
             : "PROD";
     FabricType fabricType = null;
     try {
@@ -260,7 +260,7 @@ public class SparkConfigParser {
           // loudly, with the exact recipe path — instead of being silently dropped to the job
           // default fabric per dataset during URN construction (which would emit URNs under the
           // wrong env and dangle lineage with no actionable signal).
-          detailBuilder.env(Optional.of(FabricType.valueOf(envValue.toUpperCase())));
+          detailBuilder.env(Optional.of(FabricType.valueOf(envValue.toUpperCase(Locale.ROOT))));
         } catch (IllegalArgumentException e) {
           log.error(
               "Invalid env '{}' for connection '{}' (under {}.\"{}\".{}); must be one of {}. "

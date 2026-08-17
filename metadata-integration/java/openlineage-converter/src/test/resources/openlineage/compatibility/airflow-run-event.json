@@ -1,0 +1,46 @@
+{
+  "eventTime": "2024-11-20T12:59:29.059Z",
+  "producer": "https://github.com/apache/airflow/tree/providers-openlineage/2.3.0",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "START",
+  "run": {
+    "runId": "01902a1e-0b05-750e-b38d-439998f7a853",
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/2.3.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "dag": {
+          "dag_id": "customer_pipeline",
+          "owner": "data-platform",
+          "tags": "['production', 'customer']",
+          "timetable": {}
+        },
+        "task": {
+          "task_id": "load_customer",
+          "operator": "SQLExecuteQueryOperator",
+          "retries": 2,
+          "executor_config": {}
+        }
+      },
+      "unknownSourceAttribute": {
+        "_producer": "https://github.com/apache/airflow/tree/providers-openlineage/2.3.0",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/BaseFacet",
+        "unknownItems": [
+          {
+            "type": "operator",
+            "name": "legacy_attribute",
+            "properties": {
+              "legacy_key": "legacy_value"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "job": {
+    "namespace": "airflow",
+    "name": "customer_pipeline.load_customer"
+  },
+  "inputs": [],
+  "outputs": []
+}

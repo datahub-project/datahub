@@ -1,0 +1,47 @@
+{
+  "eventTime": "2024-11-20T12:59:29.059Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "START",
+  "run": {
+    "runId": "01902a1e-0b05-750e-b38d-439998f7a853",
+    "facets": {
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.5.5",
+        "name": "spark",
+        "openlineageAdapterVersion": "1.45.0"
+      },
+      "spark_jobDetails": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "jobId": 42,
+        "jobDescription": "daily customer load",
+        "jobGroup": "customer",
+        "jobCallSite": "CustomerJob.scala:17"
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "yarn",
+          "spark.app.name": "CustomerJob"
+        }
+      },
+      "spark.logicalPlan": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "plan": [
+          { "class": "org.apache.spark.sql.catalyst.plans.logical.Project" }
+        ]
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "customer.load"
+  },
+  "inputs": [],
+  "outputs": []
+}

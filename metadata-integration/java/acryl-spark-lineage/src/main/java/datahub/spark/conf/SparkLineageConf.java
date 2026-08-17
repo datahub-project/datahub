@@ -18,6 +18,7 @@ public class SparkLineageConf {
   @Builder.Default final boolean coalesceEnabled = true;
   @Builder.Default final boolean emitCoalescePeriodically = false;
   @Builder.Default final boolean logMcps = true;
+  @Builder.Default final boolean legacyLineageCleanupEnabled = false;
   final SparkAppContext sparkAppContext;
   final DatahubEmitterConfig datahubEmitterConfig;
   @Builder.Default final List<String> tags = new LinkedList<>();
@@ -34,6 +35,8 @@ public class SparkLineageConf {
     builder.openLineageConf(datahubOpenlineageConfig);
     builder.coalesceEnabled(SparkConfigParser.isCoalesceEnabled(sparkConfig));
     builder.logMcps(SparkConfigParser.isLogMcps(sparkConfig));
+    builder.legacyLineageCleanupEnabled(
+        SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     if (SparkConfigParser.getTags(sparkConfig) != null) {
       builder.tags(Arrays.asList(Objects.requireNonNull(SparkConfigParser.getTags(sparkConfig))));
     }

@@ -176,7 +176,7 @@ public class DatahubEventEmitter extends EventEmitter {
     if (!datahubConf.isCoalesceEnabled()) {
       log.info("Emitting lineage");
       try {
-        emitMcps(job.get().toMcps(datahubConf.getOpenLineageConf()));
+        emitMcps(generateMcps(job.get()));
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -297,10 +297,21 @@ public class DatahubEventEmitter extends EventEmitter {
 
     log.info("Generating MCPs for job: {}", datahubJob);
     try {
-      return datahubJob.toMcps(datahubConf.getOpenLineageConf());
+      return generateMcps(datahubJob);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private List<MetadataChangeProposal> generateMcps(DatahubJob datahubJob) throws IOException {
+    List<MetadataChangeProposal> mcps =
+        new ArrayList<>(datahubJob.toMcps(datahubConf.getOpenLineageConf()));
+    if (datahubConf.isLegacyLineageCleanupEnabled()) {
+      mcps.addAll(
+          LegacyDatasetLineageCleanup.toMcps(
+              datahubJob.getOutSet(), datahubConf.getOpenLineageConf().isUsePatch()));
+    }
+    return mcps;
   }
 
   private static void mergeDatasets(
