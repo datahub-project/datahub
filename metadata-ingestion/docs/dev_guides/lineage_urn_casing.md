@@ -114,6 +114,23 @@ sink:
 | `upstream_platforms[].platform`          | yes                | —       | The upstream data platform, e.g. `snowflake`.                                   |
 | `upstream_platforms[].platform_instance` | no                 | `null`  | Platform instance of the upstream platform, if any.                             |
 | `upstream_platforms[].env`               | no                 | `PROD`  | Environment (FabricType) of the upstream platform's assets.                     |
+| `lookup_mode`                            | no                 | `bulk`  | Where identity answers come from — see below.                                   |
+
+### How references are looked up
+
+`lookup_mode` trades one large up-front read against per-reference round trips:
+
+| Mode        | Up front                              | Per reference                                      |
+| ----------- | ------------------------------------- | -------------------------------------------------- |
+| `bulk`      | Reads each configured platform's URNs | Nothing — every reference is answered locally      |
+| `on_demand` | Nothing                               | One batched query per distinct unmatched reference |
+
+`bulk` is the default and is right for a source that references a lot of one warehouse. Prefer
+`on_demand` when a source touches only a handful of warehouse tables, or when the warehouse is large
+enough that reading its catalog costs more than the references are worth.
+
+The two are alternatives, not layers. A `bulk` read records which slices of the catalog it covered, so
+a reference it does not find is already known to be absent — there is nothing left for a query to add.
 
 ### Where to enable it
 
@@ -154,9 +171,12 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   flag to fix them.
 - **Conservative on collisions.** On case-sensitive platforms where two genuinely different tables differ
   only by case, ambiguous references are left unchanged rather than risk merging distinct entities.
-- **Reconciles against tables that have a schema in DataHub.** A referenced table that exists without a
-  schema (more common on schemaless platforms like Kafka/DynamoDB) is left unchanged and reported
-  `UNRESOLVED`. Broadening this is a tracked follow-up.
+- **Column casing needs the table's schema.** A referenced table that exists without a `schemaMetadata`
+  aspect is still healed at table level; only its column casing is left as the source reported it.
+- **Only reconciles against the platforms you configure.** A reference is resolved only to an entity
+  inside the `platform` / `platform_instance` / `env` combinations listed in `upstream_platforms`, so a
+  reference to a `platform_instance` you did not list is reported `UNRESOLVED` even if that entity
+  exists in DataHub. Add it to `upstream_platforms` to have it reconciled.
 - **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that
   doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage

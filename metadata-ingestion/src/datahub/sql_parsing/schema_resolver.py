@@ -23,7 +23,6 @@ from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
-from datahub.utilities.urn_alias_resolver import UrnAliasResolver
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
@@ -39,9 +38,8 @@ class SchemaResolverReport:
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
 
-    # What a bulk load put in, recorded by SchemaResolverProvider. The stores cannot
-    # answer this themselves: the schema cache drops schemaless datasets and the alias
-    # index is keyed per name, so a casing collision is one row for two datasets.
+    # What a bulk load put in, recorded by SchemaResolverProvider. The schema cache
+    # cannot answer this itself: it drops datasets that have no schemaMetadata.
     num_urns_loaded: int = 0
     num_schemas_loaded: int = 0
 
@@ -92,22 +90,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.graph = graph
         self.report = report
 
-        # One connection for both caches, so the alias index shares this file rather
-        # than opening a second. Falls back to a temp file when given no filename.
-        self._conn = ConnectionWrapper(filename=_cache_filename)
+        # Init cache, potentially restoring from a previous run.
+        shared_conn = None
+        if _cache_filename:
+            shared_conn = ConnectionWrapper(filename=_cache_filename)
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
-            shared_connection=self._conn,
+            shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
-        )
-
-        # Case-insensitive URN lookup, for callers that need URN identity rather than
-        # columns. Unlike the schema cache it can hold URNs with no schemaMetadata.
-        # Filled by whoever bulk-loads this resolver; with a graph it also resolves
-        # references the bulk load never covered, the trade-off resolve_table makes.
-        self.urn_aliases = UrnAliasResolver(
-            graph=graph,
-            platform_instance=self.platform_instance,
-            shared_connection=self._conn,
         )
 
     @property
@@ -380,8 +369,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         }
 
     def close(self) -> None:
-        # Not the dicts: on a shared connection they only flush, leaving the file open.
-        self._conn.close()
+        self._schema_cache.close()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):

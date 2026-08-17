@@ -1,6 +1,6 @@
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 from unittest import mock
 
 import pydantic
@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.utilities.urn_alias.index import CatalogSlice, get_urn_alias_index
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
 UPPER = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE")
@@ -57,21 +58,33 @@ _PATCH_TARGET = "datahub.sql_parsing.schema_resolver_provider.provide_schema_res
 
 
 def _resolver(
-    schemas: Dict[str, Dict[str, str]], urns: Optional[List[str]] = None
+    schemas: Dict[str, Dict[str, str]], platform: str = "snowflake"
 ) -> SchemaResolver:
-    """A graph-less resolver pre-populated with {urn: {column: type}}.
-
-    `urns` adds entities that exist in DataHub with no schemaMetadata: resolvable by URN
-    but with no columns to match against. Seeding urn_aliases alongside the schema cache
-    is what SchemaResolverProvider does during its bulk scroll.
-    """
-    resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
+    """A graph-less resolver pre-populated with {urn: {column: type}}."""
+    resolver = SchemaResolver(platform=platform, env="PROD", graph=None)
     for urn, schema in schemas.items():
         resolver.add_raw_schema_info(urn, schema)
-        resolver.urn_aliases.add(urn)
-    for urn in urns or []:
-        resolver.urn_aliases.add(urn)
     return resolver
+
+
+def _seed_index(
+    graph: Any,
+    urns: List[str],
+    slices: Sequence[CatalogSlice] = (
+        CatalogSlice(platform="snowflake", platform_instance=None, env="PROD"),
+    ),
+) -> None:
+    """Fill `graph`'s shared URN alias index, as a completed bulk scroll would.
+
+    Identity lives in the index, not in any SchemaResolver, so this is what makes an
+    entity findable. Recording the slice is part of the imitation: a real scroll that
+    finished says so, which is what turns a miss inside it into an answer.
+    """
+    index = get_urn_alias_index(graph)
+    for urn in urns:
+        index.add(urn)
+    for catalog_slice in slices:
+        index.record_slice_loaded(catalog_slice)
 
 
 def _make_processor(
@@ -80,10 +93,11 @@ def _make_processor(
 ) -> Tuple[AutoResolveLineageUrnsProcessor, mock.MagicMock, Any]:
     """Patch provide_schema_resolver to a single seeded snowflake resolver.
 
-    `schemas` maps existing URN -> column schema; those are the entities SchemaResolver's
-    resolve_table matches references against (original + lowercase casing).
+    `schemas` maps existing URN -> column schema. `urns` adds entities that exist in
+    DataHub with no schemaMetadata: resolvable by URN but with no columns to match
+    against.
     """
-    resolver = _resolver(schemas, urns)
+    resolver = _resolver(schemas)
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = AutoResolveLineageUrnsConfig(
@@ -93,6 +107,7 @@ def _make_processor(
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    _seed_index(pipeline_ctx.graph, [*schemas, *(urns or [])])
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -360,9 +375,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     mssql_table = make_dataset_urn("mssql", "db.dbo.OrgSettings")
     pbi_dataset = make_dataset_urn("powerbi", "ws.model.org_settings")
 
-    resolver = SchemaResolver(platform="mssql", env="PROD", graph=None)
-    resolver.add_raw_schema_info(mssql_table, {"OrgID": "int"})
-    resolver.urn_aliases.add(mssql_table)
+    resolver = _resolver({mssql_table: {"OrgID": "int"}}, platform="mssql")
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = AutoResolveLineageUrnsConfig(
@@ -371,8 +384,12 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.graph.get_urns_by_filter.return_value = [mssql_table]
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    _seed_index(
+        pipeline_ctx.graph,
+        [mssql_table],
+        [CatalogSlice(platform="mssql", platform_instance=None, env="PROD")],
+    )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -423,12 +440,8 @@ def test_multi_platform_upstreams_both_healed():
     rs_real = make_dataset_urn("redshift", "db.public.customers")
     hex_dataset = make_dataset_urn("hex", "project.cell.combined")
 
-    sf_resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
-    sf_resolver.add_raw_schema_info(sf_real, {"amount": "int"})
-    sf_resolver.urn_aliases.add(sf_real)
-    rs_resolver = SchemaResolver(platform="redshift", env="PROD", graph=None)
-    rs_resolver.add_raw_schema_info(rs_real, {"id": "int"})
-    rs_resolver.urn_aliases.add(rs_real)
+    sf_resolver = _resolver({sf_real: {"amount": "int"}})
+    rs_resolver = _resolver({rs_real: {"id": "int"}}, platform="redshift")
 
     def fake_provide(graph, platform, platform_instance, env, batch_size=100):
         return sf_resolver if platform == "snowflake" else rs_resolver
@@ -443,6 +456,14 @@ def test_multi_platform_upstreams_both_healed():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    _seed_index(
+        pipeline_ctx.graph,
+        [sf_real, rs_real],
+        [
+            CatalogSlice(platform="snowflake", platform_instance=None, env="PROD"),
+            CatalogSlice(platform="redshift", platform_instance=None, env="PROD"),
+        ],
+    )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -485,8 +506,8 @@ def test_platform_urn_form_in_config_is_normalized():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.graph.get_urns_by_filter.return_value = [LOWER]
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    _seed_index(pipeline_ctx.graph, [LOWER])
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -506,9 +527,7 @@ def test_platform_instance_is_threaded_through_and_heals():
     referenced = make_dataset_urn_with_platform_instance(
         "snowflake", "DB.SCHEMA.TABLE", "my_instance", "PROD"
     )
-    resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
-    resolver.add_raw_schema_info(stored, {"amount": "int"})
-    resolver.urn_aliases.add(stored)
+    resolver = _resolver({stored: {"amount": "int"}})
     provide_mock = mock.MagicMock(return_value=resolver)
 
     cfg = AutoResolveLineageUrnsConfig(
@@ -521,8 +540,16 @@ def test_platform_instance_is_threaded_through_and_heals():
     )
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
-    pipeline_ctx.graph.get_urns_by_filter.return_value = [stored]
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    _seed_index(
+        pipeline_ctx.graph,
+        [stored],
+        [
+            CatalogSlice(
+                platform="snowflake", platform_instance="my_instance", env="PROD"
+            )
+        ],
+    )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -1076,3 +1103,112 @@ def test_config_requires_sql_parser_only_when_enabled(monkeypatch):
                 UpstreamPlatformCasing(platform="snowflake", env="PROD")
             ],
         )
+
+
+# --- identity from a shared index, columns from our own load -----------------------
+
+
+def _instanced(name: str, instance: str) -> str:
+    return make_dataset_urn_with_platform_instance("snowflake", name, instance, "PROD")
+
+
+def _processor_for(
+    cfg: AutoResolveLineageUrnsConfig,
+    resolver: SchemaResolver,
+    seed: List[str],
+    slices: Sequence[CatalogSlice],
+) -> Tuple[AutoResolveLineageUrnsProcessor, Any, Any]:
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    _seed_index(pipeline_ctx.graph, seed, slices)
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+
+    provide_mock = mock.MagicMock(return_value=resolver)
+    patcher = mock.patch(_PATCH_TARGET, provide_mock)
+    patcher.start()
+    return AutoResolveLineageUrnsProcessor.create(ctx), pipeline_ctx.graph, patcher
+
+
+def test_a_match_from_a_slice_we_did_not_load_is_not_used():
+    # Identity comes from an index shared with every consumer, so it can hold entities
+    # some other consumer loaded — here, a platform_instance the operator did not list.
+    # Resolving to one would heal the reference outside what was configured, and leave
+    # its columns unreachable. The answer is confined to our own slices instead.
+    stored = _instanced("db.schema.table", "other_instance")
+    referenced = _instanced("DB.SCHEMA.TABLE", "other_instance")
+
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance="my_instance", env="PROD"
+            )
+        ],
+    )
+    processor, _graph, patcher = _processor_for(
+        cfg,
+        _resolver({}),
+        [stored],
+        [
+            CatalogSlice(
+                platform="snowflake", platform_instance="other_instance", env="PROD"
+            )
+        ],
+    )
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(referenced)])))
+    finally:
+        patcher.stop()
+
+    # Left exactly as the source emitted it, and flagged.
+    assert _stored_upstream(out) == referenced
+    assert processor.report.num_refs_unresolved == 1
+
+
+# --- lookup modes -------------------------------------------------------------------
+
+
+def test_bulk_mode_never_asks_the_server_about_a_reference():
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+    )
+    processor, graph, patcher = _processor_for(
+        cfg,
+        _resolver({}),
+        [],
+        [CatalogSlice(platform="snowflake", platform_instance=None, env="PROD")],
+    )
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+    finally:
+        patcher.stop()
+
+    # The scroll covered this slice, so the miss is an answer, not a question.
+    assert _stored_upstream(out) == UPPER
+    graph.get_urns_by_filter.assert_not_called()
+
+
+def test_on_demand_mode_skips_the_bulk_scroll():
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
+        lookup_mode="on_demand",
+    )
+    pipeline_ctx = mock.MagicMock()
+    pipeline_ctx.graph = mock.MagicMock()
+    pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
+    pipeline_ctx.graph.get_urns_by_filter.return_value = iter([LOWER])
+    ctx = mock.MagicMock()
+    ctx.pipeline_context = pipeline_ctx
+
+    provide_mock = mock.MagicMock()
+    with mock.patch(_PATCH_TARGET, provide_mock):
+        processor = AutoResolveLineageUrnsProcessor.create(ctx)
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+
+    # Nothing is bulk-loaded; the reference is resolved by asking instead.
+    provide_mock.assert_not_called()
+    assert _stored_upstream(out) == LOWER
