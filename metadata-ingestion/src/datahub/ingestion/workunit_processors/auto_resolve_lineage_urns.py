@@ -166,7 +166,8 @@ class AutoResolveLineageUrnsProcessor(
     configured platforms — and columns from a ``SchemaResolver``. Both table-level
     (``UpstreamLineage``, ``DashboardInfo``) and column-level (``FineGrainedLineage``
     field paths) references are reconciled. Any stored casing is reachable, and a
-    reference whose name matches two entities differing only by case is left alone.
+    reference whose name matches two entities differing only by case resolves to the
+    lowercase-named one, or is left alone if neither is lowercase.
 
     Two settings doing different jobs: ``upstream_platforms`` is what to read up front,
     ``resolve_all_platforms`` is what may be reconciled at all.
