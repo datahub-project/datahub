@@ -1,7 +1,7 @@
 import logging
 import weakref
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, MutableMapping, Optional
+from typing import TYPE_CHECKING, Collection, List, MutableMapping, Optional
 
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
@@ -80,6 +80,18 @@ class CatalogSlice:
             return True
         # A dataset in instance X always has the name `X.<rest>`.
         return dataset.name.startswith(f"{self.platform_instance.lower()}.")
+
+
+def covered_by(urn: str, slices: Collection[CatalogSlice]) -> bool:
+    """Whether `urn` falls inside any of `slices`.
+
+    The URN in its stored casing: ``covers`` does the lowercasing, so callers pass
+    whatever they hold.
+    """
+    key = lowercased_urn(urn)
+    return key is not None and any(
+        catalog_slice.covers(key) for catalog_slice in slices
+    )
 
 
 class UrnAliasIndex:

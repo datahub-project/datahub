@@ -94,31 +94,42 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
     )
     upstream_platforms: List[UpstreamPlatformCasing] = Field(
         default_factory=list,
-        description="The upstream warehouse platform(s) to bulk-load and reconcile "
-        "lineage references against. References to platforms not listed here are "
-        "left unchanged.",
+        description="The upstream warehouse platform(s) this source references heavily. "
+        "Their catalogs are read from DataHub once at startup, which is worth it when a "
+        "source names the same warehouse across many dashboards or models. By default "
+        "these are also the only platforms reconciled — set `resolve_all_platforms` to "
+        "cover the rest.",
     )
-    on_demand_lookup: bool = Field(
+    resolve_all_platforms: bool = Field(
         default=False,
-        description="Resolve each reference by asking DataHub for it, instead of "
-        "reading every configured platform's catalog up front. Cheaper to start, but "
-        "costs one round trip per distinct unresolved reference, so prefer it for a "
-        "source that touches only a handful of warehouse tables or references a "
-        "warehouse too large to read. The two are alternatives, not layers: a catalog "
-        "that has been read already answers its own misses.",
+        description="Also reconcile references to platforms not listed in "
+        "`upstream_platforms`, looking each one up in DataHub as it is encountered. Use "
+        "it when this source references several warehouses but only one or two are "
+        "referenced often enough to be worth reading in full, or — with no "
+        "`upstream_platforms` at all — when it references only a handful of warehouse "
+        "tables, or a warehouse too large to read. Keep the platforms this source "
+        "references heavily in `upstream_platforms`: a catalog read once beats looking "
+        "the same tables up over and over.",
     )
 
     @model_validator(mode="after")
-    def _require_upstream_platforms_when_enabled(
+    def _require_something_in_scope_when_enabled(
         self,
     ) -> "AutoResolveLineageUrnsConfig":
-        # Enabled with no upstream_platforms has nothing to reconcile against — every
-        # reference would no-op. Fail fast rather than silently doing nothing.
-        if self.enabled and not self.upstream_platforms:
+        # Enabled with nothing preloaded and scope not widened has nothing to reconcile
+        # against — every reference would no-op. Fail fast rather than silently doing
+        # nothing.
+        if (
+            self.enabled
+            and not self.upstream_platforms
+            and not self.resolve_all_platforms
+        ):
             raise ValueError(
                 "auto_resolve_lineage_urns is enabled but no upstream_platforms are "
-                "configured; there is nothing to reconcile against. List the upstream "
-                "warehouse platform(s) this source references, or set enabled: false."
+                "configured and resolve_all_platforms is false; there is nothing to "
+                "reconcile. List the upstream warehouse platform(s) this source "
+                "references, or set resolve_all_platforms: true to reconcile every "
+                "platform a reference points at, or set enabled: false."
             )
         return self
 
@@ -180,8 +191,9 @@ class FlagsConfig(ConfigModel):
             "which lowercases every URN, this resolves references to the casing of the "
             "entity that already exists, preserving the warehouse's original casing. "
             "Requires a DataHub backend connection (no-op for offline/file-only "
-            "ingestion) and the upstream platform(s) to be configured. Enable on BI-tool "
-            "ingestions, not on the warehouse ingestion itself."
+            "ingestion), and either the upstream platform(s) to be configured or "
+            "`resolve_all_platforms`. Enable on BI-tool ingestions, not on the "
+            "warehouse ingestion itself."
         ),
     )
 
