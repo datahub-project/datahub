@@ -37,7 +37,6 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorContext,
     WorkunitProcessorReport,
 )
-from datahub.ingestion.run.pipeline_config import UrnAliasLookupMode
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
@@ -189,7 +188,7 @@ class AutoResolveLineageUrnsProcessor(
         # front, or we ask per reference. Never both — a loaded slice answers its own
         # misses, so querying on top of it can only return entities outside the
         # configured scope, which _resolve_dataset declines anyway.
-        self._on_demand: bool = cfg.lookup_mode is UrnAliasLookupMode.ON_DEMAND
+        self._on_demand: bool = cfg.on_demand_lookup
         # One resolver over the index shared per DataHub instance, so identity is a
         # single lookup rather than one per configured slice.
         self._urn_aliases = get_urn_alias_resolver(

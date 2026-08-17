@@ -114,23 +114,25 @@ sink:
 | `upstream_platforms[].platform`          | yes                | —       | The upstream data platform, e.g. `snowflake`.                                   |
 | `upstream_platforms[].platform_instance` | no                 | `null`  | Platform instance of the upstream platform, if any.                             |
 | `upstream_platforms[].env`               | no                 | `PROD`  | Environment (FabricType) of the upstream platform's assets.                     |
-| `lookup_mode`                            | no                 | `bulk`  | Where identity answers come from — see below.                                   |
+| `on_demand_lookup`                       | no                 | `false` | Ask DataHub per reference instead of reading catalogs up front — see below.     |
 
 ### How references are looked up
 
-`lookup_mode` trades one large up-front read against per-reference round trips:
+By default the feature reads each configured platform's catalog once at startup and answers every
+reference locally. Setting `on_demand_lookup: true` skips that read and asks DataHub about each
+reference instead:
 
-| Mode        | Up front                              | Per reference                                      |
-| ----------- | ------------------------------------- | -------------------------------------------------- |
-| `bulk`      | Reads each configured platform's URNs | Nothing — every reference is answered locally      |
-| `on_demand` | Nothing                               | One batched query per distinct unmatched reference |
+|                          | Up front                              | Per reference                                       |
+| ------------------------ | ------------------------------------- | --------------------------------------------------- |
+| default                  | Reads each configured platform's URNs | Nothing — every reference is answered locally       |
+| `on_demand_lookup: true` | Nothing                               | One batched query per distinct unresolved reference |
 
-`bulk` is the default and is right for a source that references a lot of one warehouse. Prefer
-`on_demand` when a source touches only a handful of warehouse tables, or when the warehouse is large
-enough that reading its catalog costs more than the references are worth.
+The default suits a source that references a lot of one warehouse. Prefer `on_demand_lookup` when a
+source touches only a handful of warehouse tables, or when the warehouse is large enough that reading
+its catalog costs more than the references are worth.
 
-The two are alternatives, not layers. A `bulk` read records which slices of the catalog it covered, so
-a reference it does not find is already known to be absent — there is nothing left for a query to add.
+The two are alternatives, not layers. A catalog read records which slices it covered, so a reference
+it does not find is already known to be absent — there is nothing left for a query to add.
 
 ### Where to enable it
 

@@ -4,7 +4,6 @@ import datetime
 import logging
 import random
 import string
-from enum import Enum
 from typing import Dict, List, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -77,24 +76,6 @@ class UpstreamPlatformCasing(PlatformInstanceConfigMixin, EnvConfigMixin):
         return DataPlatformUrn(v).platform_name
 
 
-class UrnAliasLookupMode(str, Enum):
-    """Where a consumer has its URN identity answers come from.
-
-    The two are alternatives rather than layers: scrolling a catalog records that the
-    slice was loaded, so every miss inside it is already an answer, and a miss outside it
-    is an entity this run holds no columns for. Querying earns its keep only when nothing
-    was scrolled.
-    """
-
-    # Scroll each configured platform's catalog up front, then answer locally. Cheapest
-    # per reference; pays one large read at startup.
-    BULK = "bulk"
-
-    # No scroll. Ask DataHub about each reference the index cannot answer, and fetch
-    # schemas lazily. Cheap to start; one round trip per distinct unknown reference.
-    ON_DEMAND = "on_demand"
-
-
 class AutoResolveLineageUrnsConfig(ConfigModel):
     """Configuration for the auto-resolve lineage URNs work unit processor.
 
@@ -117,12 +98,14 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
         "lineage references against. References to platforms not listed here are "
         "left unchanged.",
     )
-    lookup_mode: UrnAliasLookupMode = Field(
-        default=UrnAliasLookupMode.BULK,
-        description="Where URN identity answers may come from. `bulk` (default) scrolls "
-        "each configured platform's catalog once up front and answers every reference "
-        "locally. `on_demand` skips the scroll and asks DataHub about each reference "
-        "instead — cheaper to start, but one round trip per distinct unknown reference.",
+    on_demand_lookup: bool = Field(
+        default=False,
+        description="Resolve each reference by asking DataHub for it, instead of "
+        "reading every configured platform's catalog up front. Cheaper to start, but "
+        "costs one round trip per distinct unresolved reference, so prefer it for a "
+        "source that touches only a handful of warehouse tables or references a "
+        "warehouse too large to read. The two are alternatives, not layers: a catalog "
+        "that has been read already answers its own misses.",
     )
 
     @model_validator(mode="after")
