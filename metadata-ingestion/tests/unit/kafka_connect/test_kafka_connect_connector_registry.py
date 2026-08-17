@@ -485,7 +485,7 @@ class TestConnectorRegistryGenericConnectors:
         )
         config = create_mock_config()
         config.generic_connectors = [generic_config]
-        report = create_mock_report()
+        report = Mock(spec=KafkaConnectSourceReport)
 
         connector = ConnectorRegistry.get_connector_for_manifest(
             manifest, config, report
