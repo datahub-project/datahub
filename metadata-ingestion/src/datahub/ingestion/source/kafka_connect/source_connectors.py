@@ -1338,7 +1338,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             source_platform = self._extract_platform_from_jdbc_url(
                 config.get("connection.url", "")
             )
-            if source_platform == "unknown":
+            if source_platform in ("unknown", "external"):
                 logger.warning(
                     f"Could not determine source platform for JDBC connector {self.connector_manifest.name}"
                 )
@@ -1461,7 +1461,19 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return "unknown"
 
         try:
-            return get_platform_from_sqlalchemy_uri(normalize_jdbc_url(jdbc_url))
+            normalized = normalize_jdbc_url(jdbc_url)
+            platform = get_platform_from_sqlalchemy_uri(normalized)
+            if platform != "external":
+                return platform
+            protocol_end = normalized.find(":")
+            if protocol_end == -1:
+                return "unknown"
+            protocol = normalized[:protocol_end].lower()
+            if protocol == "postgresql":
+                return "postgres"
+            if not protocol or protocol == "unknown":
+                return "unknown"
+            return protocol
         except Exception:
             return "unknown"
 

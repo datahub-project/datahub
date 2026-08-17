@@ -2,6 +2,9 @@
 
 from unittest.mock import Mock
 
+import pytest
+from pydantic import ValidationError
+
 from datahub.ingestion.source.kafka_connect.common import (
     MYSQL_SINK_CLOUD,
     POSTGRES_CDC_SOURCE_CLOUD,
@@ -430,6 +433,35 @@ class TestConnectorRegistryGenericConnectors:
         assert isinstance(connector, _GenericConnector)
         assert connector.generic_config == generic_config
 
+    def test_source_only_generic_does_not_override_jdbc_sink(self) -> None:
+        manifest = create_manifest(
+            SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS, name="my-oracle-sink"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-oracle-sink",
+            source_platform="oracle",
+            source_dataset="mps.my_table",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, JdbcSinkConnector)
+
+    def test_target_fields_must_be_together(self) -> None:
+        with pytest.raises(ValidationError, match="target_dataset and target_platform"):
+            GenericConnectorConfig(
+                connector_name="my-oracle-sink",
+                source_platform="kafka",
+                source_dataset="my-topic",
+                target_dataset="mps.my_table",
+            )
+
 
 class TestConnectorRegistryUnknownTypes:
     """Test handling of unknown connector types."""
@@ -653,6 +685,29 @@ class TestGenericConnector:
         generic_config = GenericConnectorConfig(
             connector_name="test-connector",
             source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+
+        connector = _GenericConnector(manifest, config, report, generic_config)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].source_dataset == "my-topic"
+        assert lineages[0].target_dataset == "mps.my_table"
+        assert lineages[0].target_platform == "oracle"
+
+    def test_extract_lineages_sink_direction_uses_kafka_source_platform(self) -> None:
+        manifest = create_manifest(SINK, "io.confluent.connect.jdbc.JdbcSinkConnector")
+        manifest.topic_names = ["my-topic"]
+        config = create_mock_config()
+        report = create_mock_report()
+
+        generic_config = GenericConnectorConfig(
+            connector_name="test-connector",
+            source_platform="oracle",
             source_dataset="my-topic",
             target_dataset="mps.my_table",
             target_platform="oracle",

@@ -157,6 +157,14 @@ class GenericConnectorConfig(ConfigModel):
     target_dataset: Optional[str] = None
     target_platform: Optional[str] = None
 
+    @model_validator(mode="after")
+    def target_fields_together(self) -> "GenericConnectorConfig":
+        if (self.target_dataset is None) != (self.target_platform is None):
+            raise ValueError(
+                "target_dataset and target_platform must be provided together"
+            )
+        return self
+
 
 class KafkaConnectSourceConfig(
     PlatformInstanceConfigMixin,

@@ -1098,7 +1098,10 @@ class JdbcSinkParserFactory:
         if not schema and platform == "oracle":
             raw = config.get("connection.user") or config.get("connection.username")
             if raw:
-                schema = raw.lower()
+                schema = raw
+
+        if schema and platform == "oracle":
+            schema = schema.lower()
 
         return schema
 

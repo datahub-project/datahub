@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
+    KAFKA,
     MYSQL_SINK_CLOUD,
     POSTGRES_SINK_CLOUD,
     SINK,
@@ -189,12 +190,7 @@ class ConnectorRegistry:
         elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
             return MongoSourceConnector(manifest, config, report)
 
-        # Handle generic connectors from config
-        for generic_config in config.generic_connectors:
-            if generic_config.connector_name == manifest.name:
-                return _GenericConnector(manifest, config, report, generic_config)
-
-        return None
+        return ConnectorRegistry._generic_connector_for_name(manifest, config, report)
 
     @staticmethod
     def _get_sink_connector(
@@ -221,11 +217,18 @@ class ConnectorRegistry:
             SnowflakeSinkConnector,
         )
 
-        # Explicit generic_connectors mappings win over class-name auto-detection
-        # so operators can force lineage when the JDBC parser produces the wrong URN.
-        for generic_config in config.generic_connectors:
-            if generic_config.connector_name == manifest.name:
-                return _GenericConnector(manifest, config, report, generic_config)
+        # Explicit sink mappings win over class-name auto-detection so operators
+        # can force lineage when the JDBC parser produces the wrong URN. Source-only
+        # generic_connectors entries are ignored here so they cannot invert a sink.
+        generic = ConnectorRegistry._generic_connector_for_name(
+            manifest, config, report
+        )
+        if (
+            generic
+            and generic.generic_config.target_dataset
+            and generic.generic_config.target_platform
+        ):
+            return generic
 
         # BigQuery sink connectors
         if (
@@ -262,6 +265,17 @@ class ConnectorRegistry:
         ):
             return JdbcSinkConnector(manifest, config, report)
 
+        return None
+
+    @staticmethod
+    def _generic_connector_for_name(
+        manifest: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+        report: KafkaConnectSourceReport,
+    ) -> Optional["_GenericConnector"]:
+        for generic_config in config.generic_connectors:
+            if generic_config.connector_name == manifest.name:
+                return _GenericConnector(manifest, config, report, generic_config)
         return None
 
     @staticmethod
@@ -321,7 +335,7 @@ class _GenericConnector(BaseConnector):
             ]:
                 lineages.append(
                     KafkaConnectLineage(
-                        source_platform=self.generic_config.source_platform,
+                        source_platform=KAFKA,
                         source_dataset=topic,
                         target_dataset=self.generic_config.target_dataset,
                         target_platform=self.generic_config.target_platform,

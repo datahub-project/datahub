@@ -852,6 +852,18 @@ class TestJdbcSinkParserFactory:
 
         assert schema == "mps"
 
+    def test_extract_schema_from_url_oracle_schema_name_lowercased(self) -> None:
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("oracle://host:1521/svc")
+
+        schema = factory._extract_schema_from_url(
+            url_instance, "oracle", {"schema.name": "MPS"}
+        )
+
+        assert schema == "mps"
+
     def test_create_parser_from_url_oracle_missing_schema_raises(self) -> None:
         manifest = ConnectorManifest(
             name="test-oracle-sink",
@@ -903,6 +915,26 @@ class TestJdbcSinkExtractLineages:
         assert lineages[0].target_platform == "oracle"
         assert lineages[0].target_dataset == "mps.my_table"
         assert lineages[0].source_dataset == "my_table"
+
+    def test_oracle_schema_name_is_lowercased(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+                "schema.name": "MPS",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_dataset == "mps.my_table"
 
     def test_oracle_without_schema_warns_and_emits_nothing(self) -> None:
         manifest = ConnectorManifest(
