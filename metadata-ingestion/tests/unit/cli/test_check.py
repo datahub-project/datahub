@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, patch
 
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
-# /openapi/operations/kafka/*/consumer/offsets has two shapes in the wild.
-# Object shape: {"consumerGroupId": ..., "topics": {topic: ...}} per consumer type.
+# /openapi/operations/kafka/*/consumer/offsets has two response formats in the wild.
+# Object format: {"consumerGroupId": ..., "topics": {topic: ...}} per consumer type.
 _KAFKA_CONSUMER_OFFSETS_RESPONSE = {
     "mcp": {
         "consumerGroupId": "generic-mce-consumer-job-client",
@@ -40,7 +40,7 @@ _KAFKA_CONSUMER_OFFSETS_RESPONSE = {
     },
 }
 
-# Map shape: {consumer group: {topic: ...}} per consumer type
+# Map format: {consumer group: {topic: ...}} per consumer type
 # (KafkaOffsetResponse extends LinkedHashMap in KafkaController).
 _KAFKA_CONSUMER_OFFSETS_LEGACY_RESPONSE = {
     consumer_type: {payload["consumerGroupId"]: payload["topics"]}
@@ -84,7 +84,7 @@ def test_get_kafka_consumer_offsets(mock_get_default_graph):
 
 
 @patch("datahub.cli.check_cli.get_default_graph")
-def test_get_kafka_consumer_offsets_legacy_shape(mock_get_default_graph):
+def test_get_kafka_consumer_offsets_map_format(mock_get_default_graph):
     mock_graph = MagicMock()
     mock_graph.get_kafka_consumer_offsets.return_value = (
         _KAFKA_CONSUMER_OFFSETS_LEGACY_RESPONSE
