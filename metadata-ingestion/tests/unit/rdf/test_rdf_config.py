@@ -11,6 +11,7 @@ Tests verify:
 """
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSourceConfig
 
@@ -26,6 +27,29 @@ class TestRDFConfig:
             RDFSourceConfig.model_validate(config_dict)
 
         assert "source" in str(exc_info.value).lower()
+
+    def test_git_info_accepted(self):
+        """Test that git_info is accepted and parsed."""
+        config_dict = {
+            "source": "glossary.ttl",
+            "git_info": {"repo": "https://github.com/acme/onto"},
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.git_info is not None
+        assert config.git_info.repo == "https://github.com/acme/onto"
+
+    def test_source_optional_when_git_info_set(self):
+        """Test that source may be omitted when git_info is set."""
+        config_dict = {"git_info": {"repo": "https://github.com/acme/onto"}}
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.source is None
+        assert config.git_info is not None
+
+    def test_neither_source_nor_git_info_raises(self):
+        """Test that omitting both source and git_info is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            RDFSourceConfig.model_validate({})
+        assert "source is required unless git_info is set" in str(exc_info.value)
 
     def test_source_must_be_string(self):
         """Test that source must be a string."""
@@ -243,3 +267,36 @@ class TestRDFConfig:
 
         error_str = str(exc_info.value).lower()
         assert "construct" in error_str or "select" in error_str
+
+    def test_git_source_absolute_path_rejected(self):
+        """Absolute source paths are forbidden when git_info is set."""
+        with pytest.raises(ValidationError) as exc_info:
+            RDFSourceConfig.model_validate(
+                {
+                    "source": "/etc/passwd",
+                    "git_info": {"repo": "https://github.com/acme/onto"},
+                }
+            )
+        assert "absolute" in str(exc_info.value).lower()
+
+    def test_git_source_dotdot_rejected(self):
+        """Source paths with '..' are forbidden when git_info is set."""
+        with pytest.raises(ValidationError) as exc_info:
+            RDFSourceConfig.model_validate(
+                {
+                    "source": "../secrets",
+                    "git_info": {"repo": "https://github.com/acme/onto"},
+                }
+            )
+        assert ".." in str(exc_info.value)
+
+    def test_git_source_relative_path_accepted(self):
+        """Relative source paths are accepted when git_info is set."""
+        config = RDFSourceConfig.model_validate(
+            {
+                "source": "glossary/",
+                "git_info": {"repo": "https://github.com/acme/onto"},
+            }
+        )
+        assert config.source == "glossary/"
+        assert config.git_info is not None
