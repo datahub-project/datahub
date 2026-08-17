@@ -2873,15 +2873,24 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             snowflake_schema.streams = [stream.name for stream in streams]
             return streams
         except Exception as e:
-            self.structured_reporter.warning(
-                title="Failed to get streams for schema",
-                message="Please check permissions"
-                if isinstance(e, SnowflakePermissionError)
-                else "",
-                context=f"{db_name}.{snowflake_schema.name}",
-                exc=e,
-            )
-            return []
+            if isinstance(e, SnowflakePermissionError):
+                # As fetch_views_for_schema does, and for the same reason: returning [] here
+                # drops the schema's streams from the run while it still exits successfully,
+                # so stateful ingestion soft-deletes them as though they had been dropped in
+                # Snowflake. Only a failure makes stale-entity removal stand down, and the
+                # 75% fail_safe_threshold will not notice one schema out of hundreds.
+                # Ideal implementation would use PEP 678 - Enriching Exceptions with Notes
+                error_msg = f"Failed to get streams for schema {db_name}.{snowflake_schema.name}. Please check permissions."
+
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                self.structured_reporter.warning(
+                    title="Failed to get streams for schema",
+                    message="",
+                    context=f"{db_name}.{snowflake_schema.name}",
+                    exc=e,
+                )
+                return []
 
     def get_streams_for_schema(
         self, schema_name: str, db_name: str

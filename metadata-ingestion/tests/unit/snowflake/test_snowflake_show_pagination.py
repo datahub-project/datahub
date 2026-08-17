@@ -26,6 +26,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
+    SnowflakeSchema,
     SnowflakeTable,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
@@ -626,6 +627,35 @@ def test_a_denied_show_propagates_instead_of_falling_back_per_schema():
     # generic one, so this handler must stay silent.
     assert not data_dictionary.report.failures
     assert not data_dictionary.report.warnings
+
+
+@pytest.mark.parametrize(
+    "kind,fetch",
+    [
+        (
+            VIEWS,
+            lambda gen, schema: gen.fetch_views_for_schema(
+                schema, "TEST_DB", "SCHEMA_A"
+            ),
+        ),
+        (STREAMS, lambda gen, schema: gen.fetch_streams_for_schema(schema, "TEST_DB")),
+    ],
+    ids=["views", "streams"],
+)
+def test_a_denied_listing_reaches_the_permission_classifier(kind, fetch):
+    """Both kinds must let a denial past, because returning [] drops the schema's objects
+    while the run still exits clean - and stale-entity removal stands down only on a
+    failure, which get_workunits_internal records from this exception. Checked for both
+    because streams silently diverged from views here: it recognised the error class well
+    enough to reword the warning, and still swallowed it."""
+    connection = DeniesEveryShowConnection({kind: [("SCHEMA_A", "obj_a")]})
+    schema_gen = _make_schema_gen(connection)
+    schema = SnowflakeSchema(
+        name="SCHEMA_A", created=None, last_altered=None, comment=None
+    )
+
+    with pytest.raises(SnowflakePermissionError):
+        fetch(schema_gen, schema)
 
 
 def test_an_unmappable_row_does_not_re_issue_the_database_wide_query():
