@@ -27,6 +27,29 @@ class TestRDFConfig:
 
         assert "source" in str(exc_info.value).lower()
 
+    def test_git_info_accepted(self):
+        """Test that git_info is accepted and parsed."""
+        config_dict = {
+            "source": "glossary.ttl",
+            "git_info": {"repo": "https://github.com/acme/onto"},
+        }
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.git_info is not None
+
+    def test_source_optional_when_git_info_set(self):
+        """Test that source may be omitted when git_info is set."""
+        config_dict = {"git_info": {"repo": "https://github.com/acme/onto"}}
+        config = RDFSourceConfig.model_validate(config_dict)
+        assert config.source is None
+        assert config.git_info is not None
+
+    def test_neither_source_nor_git_info_raises(self):
+        """Test that omitting both source and git_info is rejected."""
+        with pytest.raises(Exception) as exc_info:
+            RDFSourceConfig.model_validate({})
+        error_str = str(exc_info.value).lower()
+        assert "git_info" in error_str or "source" in error_str
+
     def test_source_must_be_string(self):
         """Test that source must be a string."""
         config_dict = {"source": 123}

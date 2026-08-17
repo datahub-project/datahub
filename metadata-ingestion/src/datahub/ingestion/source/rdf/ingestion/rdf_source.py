@@ -17,7 +17,9 @@ Example recipe:
           - lineage
 """
 
+import contextlib
 import logging
+import tempfile
 from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Optional
 
@@ -78,6 +80,7 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
 
     # File-level tracking
     files_processed: List[str] = field(default_factory=list)
+    git_checkout: Optional[str] = None
 
     def report_triples_processed(self, count: int) -> None:
         """Add to triples counter."""
@@ -217,6 +220,12 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         """
         from pathlib import Path
 
+        if config.git_info is not None:
+            return CapabilityReport(capable=True, failure_reason=None)
+
+        if config.source is None:
+            return CapabilityReport(capable=True, failure_reason=None)
+
         try:
             source_path = config.source
 
@@ -283,6 +292,15 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             CapabilityReport indicating if RDF parsing succeeded
         """
+        if config.git_info is not None or config.source is None:
+            return CapabilityReport(
+                capable=True,
+                failure_reason=None,
+                metadata={
+                    "note": "RDF parsing validated during ingestion for git sources"
+                },
+            )
+
         try:
             from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 
@@ -370,19 +388,31 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         """
         logger.info("Starting RDF ingestion")
 
-        rdf_graph = self._load_rdf_graph()
-        if rdf_graph is None:
-            return
+        with contextlib.ExitStack() as stack:
+            source = self.config.source
+            if self.config.git_info is not None:
+                tmp_dir = stack.enter_context(tempfile.TemporaryDirectory("rdf_git"))
+                checkout_dir = self.config.git_info.clone(tmp_path=tmp_dir)
+                self.report.git_checkout = str(checkout_dir)
+                source = (
+                    str(checkout_dir / self.config.source)
+                    if self.config.source
+                    else str(checkout_dir)
+                )
 
-        datahub_ast = self.ast_converter.convert_safe(rdf_graph)
-        if datahub_ast is None:
-            return
+            rdf_graph = self._load_rdf_graph(source)
+            if rdf_graph is None:
+                return
 
-        workunits = self.workunit_generator.generate_safe(datahub_ast)
-        if workunits is None:
-            return
+            datahub_ast = self.ast_converter.convert_safe(rdf_graph)
+            if datahub_ast is None:
+                return
 
-        yield from self.workunit_generator.yield_with_error_handling(workunits)
+            workunits = self.workunit_generator.generate_safe(datahub_ast)
+            if workunits is None:
+                return
+
+            yield from self.workunit_generator.yield_with_error_handling(workunits)
 
     def _handle_load_error(
         self, error: Exception, error_type: str, error_context: str
@@ -432,7 +462,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_triples_processed(filtered_count)
         return filtered_graph
 
-    def _load_rdf_graph(self) -> Optional[Graph]:
+    def _load_rdf_graph(self, source: str) -> Optional[Graph]:
         """
         Load RDF graph from configured source.
 
@@ -442,7 +472,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info("Loading RDF graph from source")
             rdf_graph = load_rdf_graph(
-                source=self.config.source,
+                source=source,
                 format=self.config.format,
                 recursive=self.config.recursive,
                 file_extensions=self.config.extensions,
@@ -472,7 +502,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             return rdf_graph
         except FileNotFoundError as e:
             error_context = (
-                f"Source: {self.config.source}. "
+                f"Source: {source}. "
                 f"Please verify the file or directory exists and is accessible. "
                 f"If using a URL, ensure it's reachable. "
                 f"Supported file extensions: {', '.join(self.config.extensions)}"
@@ -481,7 +511,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             return None
         except ValueError as e:
             error_context = (
-                f"Source: {self.config.source}, Error: {str(e)}. "
+                f"Source: {source}, Error: {str(e)}. "
                 f"Please verify the file is valid RDF in a supported format "
                 f"(turtle, xml, json-ld, n3, nt). "
                 f"If format is not auto-detected, specify it explicitly using the 'format' config option."
@@ -490,7 +520,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             return None
         except (OSError, RuntimeError) as e:
             error_context = (
-                f"Source: {self.config.source}. "
+                f"Source: {source}. "
                 f"Unexpected error while loading RDF. "
                 f"Please verify the file is accessible, properly formatted, and in a supported RDF format. "
                 f"Check the logs for more details."
