@@ -40,6 +40,8 @@ _DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[sqltypes.TypeEngine]] = {
     "uniontype": sqltypes.String,
     "decimal": DatabricksDecimal,
     "timestamp": DatabricksTimestamp,
+    "timestamp_ntz": DatabricksTimestamp,
+    "timestamp_ltz": DatabricksTimestamp,
     "date": DatabricksDate,
     "variant": sqltypes.NullType,
 }
@@ -52,7 +54,7 @@ def map_databricks_column_type(type_name: str) -> Type[sqltypes.TypeEngine]:
     return _DATABRICKS_COLUMN_TYPE_MAP.get(match.group(0).lower(), sqltypes.NullType)
 
 
-def _get_columns_unknown_types_as_null(
+def _patched_get_columns(
     self: DatabricksDialect,
     connection: Any,
     table_name: str,
@@ -83,35 +85,8 @@ def _get_columns_unknown_types_as_null(
 def _patch_databricks_get_columns() -> None:
     if getattr(DatabricksDialect.get_columns, "_datahub_unknown_types_patched", False):
         return
-
-    original_get_columns = DatabricksDialect.get_columns
-
-    def get_columns(
-        self: DatabricksDialect,
-        connection: Any,
-        table_name: str,
-        schema: Optional[str] = None,
-        **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
-        try:
-            return original_get_columns(
-                self, connection, table_name, schema=schema, **kwargs
-            )
-        except KeyError as exc:
-            missing = exc.args[0] if exc.args else None
-            if not isinstance(missing, str):
-                raise
-            logger.debug(
-                "Databricks dialect has no mapping for column type %r; "
-                "reflecting with NullType fallback",
-                missing,
-            )
-            return _get_columns_unknown_types_as_null(
-                self, connection, table_name, schema=schema, **kwargs
-            )
-
-    get_columns._datahub_unknown_types_patched = True  # type: ignore[attr-defined]
-    DatabricksDialect.get_columns = get_columns  # type: ignore[method-assign]
+    _patched_get_columns._datahub_unknown_types_patched = True  # type: ignore[attr-defined]
+    DatabricksDialect.get_columns = _patched_get_columns  # type: ignore[method-assign]
 
 
 _patch_databricks_get_columns()
