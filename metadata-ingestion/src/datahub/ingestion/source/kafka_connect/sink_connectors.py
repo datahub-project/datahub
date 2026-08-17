@@ -950,6 +950,14 @@ class JdbcSinkParserFactory:
             url_instance, platform, connector_manifest.config
         )
 
+        if target_platform == "oracle" and not schema_name:
+            raise ValueError(
+                f"Could not resolve Oracle schema for connector {connector_manifest.name}. "
+                "Set schema.name (or db.schema) in the connector config, or set "
+                "connection.user / connection.username so the owner can be inferred. "
+                "Without a schema, lineage URNs cannot match ingested Oracle assets."
+            )
+
         # Omit the Oracle service name from the connection URL (not a DB identifier)
         if database_name:
             db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
@@ -1082,12 +1090,15 @@ class JdbcSinkParserFactory:
             elif platform == "mssql":
                 schema = "dbo"
 
-        # Oracle: connecting user = schema owner. Lowercase ALL_CAPS names to match
-        # SQLAlchemy's normalize_name convention used by the Oracle source.
+        # Oracle: connecting user = schema owner. Fold to lowercase to match the
+        # Oracle source's normalize_name convention. connection.user is a typed
+        # credential, not a name read back from Oracle, so mixed-case values
+        # (e.g. Mps) still need .lower() — Oracle folds unquoted identifiers to
+        # uppercase and the source then lowercases them.
         if not schema and platform == "oracle":
             raw = config.get("connection.user") or config.get("connection.username")
             if raw:
-                schema = raw.lower() if raw.isupper() else raw
+                schema = raw.lower()
 
         return schema
 
@@ -1360,16 +1371,18 @@ class JdbcSinkConnector(BaseConnector):
                     parser.schema_name,
                 )
 
-                if parser.schema_name:
-                    table_with_schema = f"{parser.schema_name}.{table_name}"
-                    if parser.database_name and has_three_level_hierarchy(
-                        parser.target_platform
-                    ):
-                        target_dataset = get_dataset_name(
-                            parser.database_name, table_with_schema
-                        )
-                    else:
-                        target_dataset = get_dataset_name(None, table_with_schema)
+                if parser.target_platform == "oracle":
+                    target_dataset = get_dataset_name(
+                        None, f"{parser.schema_name}.{table_name}"
+                    )
+                elif (
+                    parser.schema_name
+                    and parser.database_name
+                    and has_three_level_hierarchy(parser.target_platform)
+                ):
+                    target_dataset = get_dataset_name(
+                        parser.database_name, f"{parser.schema_name}.{table_name}"
+                    )
                 else:
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 

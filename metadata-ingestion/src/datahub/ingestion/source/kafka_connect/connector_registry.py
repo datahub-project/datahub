@@ -221,6 +221,12 @@ class ConnectorRegistry:
             SnowflakeSinkConnector,
         )
 
+        # Explicit generic_connectors mappings win over class-name auto-detection
+        # so operators can force lineage when the JDBC parser produces the wrong URN.
+        for generic_config in config.generic_connectors:
+            if generic_config.connector_name == manifest.name:
+                return _GenericConnector(manifest, config, report, generic_config)
+
         # BigQuery sink connectors
         if (
             connector_class_value == BIGQUERY_SINK_CONNECTOR_CLASS
@@ -255,11 +261,6 @@ class ConnectorRegistry:
             CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
         ):
             return JdbcSinkConnector(manifest, config, report)
-
-        # Fall back to generic connector config for explicitly mapped sink connectors
-        for generic_config in config.generic_connectors:
-            if generic_config.connector_name == manifest.name:
-                return _GenericConnector(manifest, config, report, generic_config)
 
         return None
 

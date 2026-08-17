@@ -61,17 +61,19 @@ _ORACLE_THIN_RE: Final = re.compile(
     r"^(?:jdbc:)?oracle:(?:thin|oci):@/?"
     r"/?(?P<host>[^:/@\s]+)"
     r":(?P<port>\d+)"
-    r"(?:[:/](?P<db>[^@?\s]+))?"
+    r"(?:[:/](?P<db>[^@?;\s]+))?"
+    r"(?:[;?].*)?$"
 )
 _SQLSERVER_RE: Final = re.compile(
     r"^(?:jdbc:)?sqlserver://(?P<host>[^:;/\s]+)"
     r"(?::(?P<port>\d+))?"
-    r"(?:;(?P<params>[^@]*))?$"
+    r"(?:;(?P<params>.*))?$"
 )
 _JTDS_RE: Final = re.compile(
     r"^(?:jdbc:)?jtds:sqlserver://(?P<host>[^:/@\s]+)"
     r"(?::(?P<port>\d+))?"
     r"(?:/(?P<db>[^;?\s]+))?"
+    r"(?:[;?].*)?$"
 )
 
 # Default connection settings

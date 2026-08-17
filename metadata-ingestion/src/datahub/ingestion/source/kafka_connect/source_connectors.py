@@ -21,6 +21,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     get_dataset_name,
     has_three_level_hierarchy,
+    normalize_jdbc_url,
     parse_comma_separated_list,
     remove_prefix,
     unquote,
@@ -1460,13 +1461,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return "unknown"
 
         try:
-            remaining_url = remove_prefix(jdbc_url, JDBC_PREFIX)
-            protocol_end = remaining_url.find(":")
-            if protocol_end == -1:
-                return "unknown"
-
-            protocol = remaining_url[:protocol_end].lower()
-            return "postgres" if protocol == "postgresql" else protocol
+            return get_platform_from_sqlalchemy_uri(normalize_jdbc_url(jdbc_url))
         except Exception:
             return "unknown"
 

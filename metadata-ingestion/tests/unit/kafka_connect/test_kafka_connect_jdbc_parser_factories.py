@@ -1,13 +1,18 @@
 """Tests for JDBC parser factories (source and sink)."""
 
+from unittest.mock import Mock
+
 import pytest
 
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
+    KafkaConnectSourceConfig,
+    KafkaConnectSourceReport,
     normalize_jdbc_url,
     validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    JdbcSinkConnector,
     JdbcSinkParserFactory,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
@@ -33,6 +38,15 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
         ),
         ("jdbc:sqlserver://host;databaseName=mydb", "mssql://host:1433/mydb"),
         ("jdbc:sqlserver://host:1433", "mssql://host:1433/"),
+        (
+            "jdbc:sqlserver://host:1433;databaseName=db;password=p@ss",
+            "mssql://host:1433/db",
+        ),
+        (
+            "jdbc:sqlserver://host:1433;databaseName=db;user=svc@tenant",
+            "mssql://host:1433/db",
+        ),
+        ("jdbc:oracle:thin:@host:1521/svc;foo=bar", "oracle://host:1521/svc"),
         ("jdbc:jtds:sqlserver://host:1433/mydb", "mssql://host:1433/mydb"),
         ("jdbc:jtds:sqlserver://host:1433", "mssql://host:1433/"),
     ],
@@ -48,6 +62,7 @@ def test_normalize_jdbc_url(url: str, expected: str) -> None:
         ("oracle:thin:@host:1521/svc", True),
         ("jdbc:oracle:thin:@//host:1521/svc", True),
         ("jdbc:sqlserver://host:1433;databaseName=db", True),
+        ("jdbc:sqlserver://host:1433;databaseName=db;password=p@ss", True),
         ("jdbc:jtds:sqlserver://host:1433/db", True),
         ("", False),
         ("not-a-url", False),
@@ -824,3 +839,127 @@ class TestJdbcSinkParserFactory:
 
         # MySQL doesn't have schemas (database == schema)
         assert schema is None
+
+    def test_extract_schema_from_url_oracle_user_lowercased(self) -> None:
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("oracle://host:1521/svc")
+
+        schema = factory._extract_schema_from_url(
+            url_instance, "oracle", {"connection.user": "Mps"}
+        )
+
+        assert schema == "mps"
+
+    def test_create_parser_from_url_oracle_missing_schema_raises(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        with pytest.raises(ValueError, match="Could not resolve Oracle schema"):
+            factory._create_parser_from_url(
+                manifest, "oracle", "jdbc:oracle:thin:@host:1521/svc"
+            )
+
+
+def _sink_config() -> Mock:
+    config = Mock(spec=KafkaConnectSourceConfig)
+    config.use_schema_resolver = False
+    config.schema_resolver_finegrained_lineage = False
+    config.env = "PROD"
+    config.connect_to_platform_map = None
+    config.platform_instance_map = None
+    config.convert_lineage_urns_to_lowercase = False
+    return config
+
+
+class TestJdbcSinkExtractLineages:
+    def test_oracle_emits_schema_table(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+                "connection.user": "MPS",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_platform == "oracle"
+        assert lineages[0].target_dataset == "mps.my_table"
+        assert lineages[0].source_dataset == "my_table"
+
+    def test_oracle_without_schema_warns_and_emits_nothing(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert lineages == []
+        report.warning.assert_called()
+
+    def test_mssql_defaults_to_dbo(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-mssql-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:sqlserver://host:1433;databaseName=mydb",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_platform == "mssql"
+        assert lineages[0].target_dataset == "mydb.dbo.my_table"
+
+    def test_mysql_schema_name_does_not_replace_database(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-mysql-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:mysql://host:3306/mydb",
+                "schema.name": "ignored",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_platform == "mysql"
+        assert lineages[0].target_dataset == "mydb.my_table"

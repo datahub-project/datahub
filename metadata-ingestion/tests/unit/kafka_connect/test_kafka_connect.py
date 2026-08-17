@@ -3594,6 +3594,7 @@ class TestHelperFunctions:
         assert has_three_level_hierarchy("trino") is True
         assert has_three_level_hierarchy("redshift") is True
         assert has_three_level_hierarchy("snowflake") is True
+        assert has_three_level_hierarchy("mssql") is True
 
         # Platforms without schema support
         assert has_three_level_hierarchy("mysql") is False
@@ -4654,7 +4655,7 @@ class TestPlatformDetection:
         platform = connector._extract_platform_from_jdbc_url(
             "jdbc:sqlserver://localhost:1433;databaseName=mydb"
         )
-        assert platform == "sqlserver"
+        assert platform == "mssql"
 
     def test_extract_platform_from_invalid_jdbc_url(self) -> None:
         """Test platform extraction for invalid JDBC URL returns 'unknown'."""

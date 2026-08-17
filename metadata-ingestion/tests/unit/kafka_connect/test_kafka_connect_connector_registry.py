@@ -407,6 +407,29 @@ class TestConnectorRegistryGenericConnectors:
 
         assert connector is None
 
+    def test_generic_sink_overrides_jdbc_class(self) -> None:
+        manifest = create_manifest(
+            SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS, name="my-oracle-sink"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-oracle-sink",
+            source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, _GenericConnector)
+        assert connector.generic_config == generic_config
+
 
 class TestConnectorRegistryUnknownTypes:
     """Test handling of unknown connector types."""
@@ -620,6 +643,29 @@ class TestGenericConnector:
         assert lineages[0].target_dataset == "topic-a"
         assert lineages[0].target_platform == "kafka"
         assert lineages[1].target_dataset == "topic-b"
+
+    def test_extract_lineages_sink_direction(self) -> None:
+        manifest = create_manifest(SINK, "io.confluent.connect.jdbc.JdbcSinkConnector")
+        manifest.topic_names = ["my-topic"]
+        config = create_mock_config()
+        report = create_mock_report()
+
+        generic_config = GenericConnectorConfig(
+            connector_name="test-connector",
+            source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+
+        connector = _GenericConnector(manifest, config, report, generic_config)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].source_dataset == "my-topic"
+        assert lineages[0].target_dataset == "mps.my_table"
+        assert lineages[0].target_platform == "oracle"
 
     def test_extract_lineages_no_topics(self) -> None:
         """Test generic connector returns empty lineages when no topics available."""
