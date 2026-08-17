@@ -5,6 +5,7 @@ This module contains the configuration class for the RDF ingestion source,
 following DataHub conventions for separating configuration from source implementation.
 """
 
+import os
 from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -261,6 +262,27 @@ class RDFSourceConfig(
     def source_or_git_required(self) -> "RDFSourceConfig":
         if not self.source and self.git_info is None:
             raise ValueError("source is required unless git_info is set")
+        return self
+
+    @model_validator(mode="after")
+    def validate_git_source_paths(self) -> "RDFSourceConfig":
+        # When git_info is set and source is provided, each comma-separated part
+        # must be a relative path so it can't escape the checkout directory.
+        if self.git_info is not None and self.source:
+            parts = [p.strip() for p in self.source.split(",")]
+            for part in parts:
+                if not part:
+                    continue
+                if os.path.isabs(part) or part.startswith("\\"):
+                    raise ValueError(
+                        f"source path '{part}' must be relative when git_info is set; "
+                        "absolute paths are not allowed"
+                    )
+                components = part.replace("\\", "/").split("/")
+                if ".." in components:
+                    raise ValueError(
+                        f"source path '{part}' must not contain '..' components when git_info is set"
+                    )
         return self
 
     @field_validator("sparql_filter")

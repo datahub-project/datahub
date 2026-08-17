@@ -19,6 +19,7 @@ Example recipe:
 
 import contextlib
 import logging
+import pathlib
 import tempfile
 from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Optional
@@ -221,7 +222,16 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         from pathlib import Path
 
         if config.git_info is not None:
-            return CapabilityReport(capable=True, failure_reason=None)
+            return CapabilityReport(
+                capable=True,
+                failure_reason=None,
+                metadata={
+                    "note": (
+                        "Git repository reachability and deploy-key auth are validated "
+                        "during ingestion, not during the connection test."
+                    )
+                },
+            )
 
         if config.source is None:
             return CapabilityReport(capable=True, failure_reason=None)
@@ -377,6 +387,14 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             AutoStaleEntityRemovalProcessor,
         ]
 
+    def _resolve_git_source(self, checkout_dir: pathlib.Path) -> str:
+        # Split comma-separated parts and prefix each with the checkout directory.
+        # Absolute-path and '..' rejection already happened at config-parse time.
+        if not self.config.source:
+            return str(checkout_dir)
+        parts = [p.strip() for p in self.config.source.split(",") if p.strip()]
+        return ",".join(str(checkout_dir / part) for part in parts)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Generate work units from RDF data.
@@ -389,18 +407,25 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         logger.info("Starting RDF ingestion")
 
         with contextlib.ExitStack() as stack:
-            source = self.config.source
             if self.config.git_info is not None:
                 tmp_dir = stack.enter_context(tempfile.TemporaryDirectory("rdf_git"))
-                checkout_dir = self.config.git_info.clone(tmp_path=tmp_dir)
+                try:
+                    checkout_dir = self.config.git_info.clone(tmp_path=tmp_dir)
+                except RuntimeError as e:
+                    self._handle_load_error(
+                        e,
+                        "Failed to clone git repository",
+                        f"Repository: {self.config.git_info.repo_ssh_locator}",
+                    )
+                    return
                 self.report.git_checkout = str(checkout_dir)
-                source = (
-                    str(checkout_dir / self.config.source)
-                    if self.config.source
-                    else str(checkout_dir)
-                )
+                resolved_source: str = self._resolve_git_source(checkout_dir)
+            else:
+                # The model validator guarantees source is set when git_info is None.
+                assert self.config.source is not None
+                resolved_source = self.config.source
 
-            rdf_graph = self._load_rdf_graph(source)
+            rdf_graph = self._load_rdf_graph(resolved_source)
             if rdf_graph is None:
                 return
 
