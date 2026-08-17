@@ -10,7 +10,10 @@ from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
-from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeEdition,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -162,7 +165,11 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         )
         no_views_fn = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.VIEWS, "TEST_DB"
+                )
+            ],
             [],
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
@@ -208,7 +215,11 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         )
         no_views_fn = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.VIEWS, "TEST_DB"
+                )
+            ],
             [],
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
@@ -415,8 +426,8 @@ def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warni
         sf_cursor.execute.side_effect = query_permission_response_override(
             default_query_results,
             [
-                snowflake_query.SnowflakeQuery.show_dynamic_tables_for_database(
-                    "TEST_DB"
+                snowflake_query.SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
                 )
             ],
             [
@@ -490,8 +501,8 @@ def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
         sf_cursor.execute.side_effect = query_permission_response_override(
             base,
             [
-                snowflake_query.SnowflakeQuery.show_dynamic_tables_for_database(
-                    "TEST_DB"
+                snowflake_query.SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
                 )
             ],
             [

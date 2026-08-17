@@ -620,33 +620,6 @@ class SnowflakeQuery:
         return f"""SHOW {kind} IN SCHEMA {schema} LIMIT {limit} {from_clause};"""
 
     @staticmethod
-    def show_views_for_database(
-        db_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-    ) -> str:
-        # information_schema.views only exposes a definition to the view's owner, which is
-        # why SHOW is the default path here:
-        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
-        return SnowflakeQuery.show_objects_for_database(
-            SnowflakeShowKind.VIEWS, db_name, limit=limit
-        )
-
-    @staticmethod
-    def show_views_for_schema(
-        db_name: str,
-        schema_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        view_pagination_marker: Optional[str] = None,
-    ) -> str:
-        return SnowflakeQuery.show_objects_for_schema(
-            SnowflakeShowKind.VIEWS,
-            db_name,
-            schema_name,
-            limit=limit,
-            marker=view_pagination_marker,
-        )
-
-    @staticmethod
     def get_views_for_database(db_name: str, view_filter: str = "") -> str:
         # We've seen some issues with the `SHOW VIEWS` query,
         # particularly when it requires pagination.
@@ -1619,30 +1592,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             schema_name,
             limit=limit,
             marker=stream_pagination_marker,
-        )
-
-    @staticmethod
-    def show_dynamic_tables_for_database(
-        db_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-    ) -> str:
-        return SnowflakeQuery.show_objects_for_database(
-            SnowflakeShowKind.DYNAMIC_TABLES, db_name, limit=limit
-        )
-
-    @staticmethod
-    def show_dynamic_tables_for_schema(
-        db_name: str,
-        schema_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        dynamic_table_pagination_marker: Optional[str] = None,
-    ) -> str:
-        return SnowflakeQuery.show_objects_for_schema(
-            SnowflakeShowKind.DYNAMIC_TABLES,
-            db_name,
-            schema_name,
-            limit=limit,
-            marker=dynamic_table_pagination_marker,
         )
 
     @staticmethod
