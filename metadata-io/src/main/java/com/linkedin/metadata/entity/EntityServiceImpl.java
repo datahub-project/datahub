@@ -1659,10 +1659,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               // do final pre-commit checks with previous aspect value
                               ValidationExceptionCollection exceptions =
                                   AspectsBatch.validatePreCommit(
-                                      opContext,
-                                      changeMCPs,
-                                      opContext.getRetrieverContext(),
-                                      opContext);
+                                      opContext, changeMCPs, opContext.getRetrieverContext());
 
                               List<Pair<ChangeMCP, Set<AspectValidationException>>>
                                   failedUpsertResults = new ArrayList<>();
@@ -3568,8 +3565,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                             .auditStamp(auditStamp)
                                             .build(opContext.getAspectRetriever()))
                                 .collect(Collectors.toList()),
-                            opContext.getRetrieverContext(),
-                            opContext);
+                            opContext.getRetrieverContext());
                     if (!preCommitExceptions.isEmpty()) {
                       throw new ValidationException(
                           collectMetrics(
@@ -4056,14 +4052,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       return ScopedComputeResult.empty(updatedLatestAspects, derivedToParents);
     }
 
-    // do final pre-commit checks with previous aspect value. Pass opContext as the
-    // AuthorizationSession (4-arg overload) so in-transaction auth validators (e.g.
-    // DomainWriteAuthorizationValidator) run on the scoped path exactly as on the full-batch path
-    // —
-    // the 3-arg overload passes a null session, which those validators treat as "skip auth".
+    // do final pre-commit checks with previous aspect value
     ValidationExceptionCollection exceptions =
         AspectsBatch.validatePreCommit(
-            opContext, changeMCPs, opContext.getRetrieverContext(), opContext);
+            opContext, changeMCPs, opContext.getRetrieverContext());
 
     List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults = new ArrayList<>();
     if (exceptions.hasFatalExceptions()) {
