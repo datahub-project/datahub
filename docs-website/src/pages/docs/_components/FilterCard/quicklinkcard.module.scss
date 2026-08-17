@@ -25,12 +25,18 @@
   }
 }
 
-// Infima pads .card__header with --ifm-card-vertical-spacing (1rem), which is
-// generous for a logo-plus-title header and makes the grid taller than it
-// needs to be. Scoped to these cards via a descendant selector so the value
-// wins on specificity rather than on stylesheet order.
-.feature :global(.card__header) {
-  padding: 0.5rem;
+// Infima pads all three card sections with --ifm-card-vertical-spacing (1rem),
+// which is generous for a logo, a title and a sentence, and is paid on every
+// one of 148 cards. Set the padding directly rather than overriding the
+// variable, so this does not depend on Infima's internal custom property
+// names. Scoped to these cards via a descendant selector so the value wins on
+// specificity rather than on stylesheet order.
+.feature {
+  :global(.card__header),
+  :global(.card__body),
+  :global(.card__footer) {
+    padding: 0.5rem;
+  }
 }
 
 // Support Status Badge
