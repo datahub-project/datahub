@@ -9,7 +9,11 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ## Context Platform
 
+> How context gets into DataHub, enriched, curated, and served to agents.
+
 ### Context Ingestion
+
+Connect sources and pull technical, business, and unstructured context into DataHub.
 
 | Feature Name                                                  | OSS | Cloud | Business Value                                                            |                     Link                      |
 | :------------------------------------------------------------ | :-: | :---: | :------------------------------------------------------------------------ | :-------------------------------------------: |
@@ -23,6 +27,8 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ### Context Intelligence
 
+Mine and generate context automatically instead of authoring it by hand.
+
 | Feature Name                                                      | OSS | Cloud | Business Value                                                                          |                                          Link                                           |
 | :---------------------------------------------------------------- | :-: | :---: | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------: |
 | **Cross-Platform Query History Mining**                           | ❌  |  ✔   | Turn years of warehouse query history into a structured semantic index                  |                                                                                         |
@@ -34,6 +40,8 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ### Context Hub
 
+Review, disambiguate, and approve context before agents rely on it.
+
 | Feature Name                                                      | OSS | Cloud | Business Value                                                                           | Link |
 | :---------------------------------------------------------------- | :-: | :---: | :--------------------------------------------------------------------------------------- | :--: |
 | **Collaborative Workflow for Reviewing and Editing Context**      | ❌  |  ✔   | Give domain experts a structured inbox to approve, reject, or refine AI-proposed context |      |
@@ -43,16 +51,20 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ### Context Activation
 
+Serve verified context to agents, tools, and custom workflows.
+
 | Feature Name                                                    | OSS | Cloud | Business Value                                                                                                      |                                       Link                                       |
 | :-------------------------------------------------------------- | :-: | :---: | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------: |
 | **DataHub Hosted MCP Server**                                   | ❌  |  ✔   | Connect AI tools directly to your data catalog                                                                      |        [Docs](https://docs.datahub.com/docs/features/feature-guides/mcp)         |
 | **Scoped MCP Servers**                                          | ❌  |  ✔   | Create purpose-built MCP servers with curated tools and scoped access to specific data assets and context documents | [Docs](https://docs.datahub.com/docs/features/feature-guides/scoped-mcp-servers) |
 | **Skills Library (Ask DataHub, SQL grounding, lineage lookup)** | ✔  |  ✔   | Pre-built skills for accurate SQL generation and data discovery                                                     |      [Docs](https://docs.datahub.com/docs/dev-guides/agent-context/skills)       |
 | **Full API & SDK**                                              | ✔  |  ✔   | Integrate DataHub context into any custom agent or workflow                                                         |   [Docs](https://docs.datahub.com/docs/dev-guides/agent-context/agent-context)   |
-| **Native Agent Surfaces (Claude, Snowflake, Databricks, etc.)** | ❌  |  ✔   | Surface verified context inside the tools your team already uses                                                    |      [Docs](https://docs.datahub.com/docs/dev-guides/agent-context/claude)       |
+| **Native Agent Surfaces (Claude, Snowflake, Databricks, etc.)** | ✔  |  ✔   | Surface verified context inside the tools your team already uses                                                    |      [Docs](https://docs.datahub.com/docs/dev-guides/agent-context/claude)       |
 | **Ask DataHub AI Agent + Plugins**                              | ❌  |  ✔   | Find trustworthy metrics, generate accurate SQL, debug data quality issues, understand data impact                  |    [Docs](https://docs.datahub.com/docs/features/feature-guides/ask-datahub)     |
 
 ## Discovery & Search
+
+> How people and agents find, understand, and navigate assets across the estate.
 
 | Feature Name                                   | OSS | Cloud | Business Value                                                                                                                                                                                                  |                                                    Link                                                     |
 | :--------------------------------------------- | :-: | :---: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------: |
@@ -65,13 +77,15 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 | **Column-Level Lineage & Impact Analysis**     | ✔  |  ✔   | Understand data dependencies                                                                                                                                                                                    |                    [Docs](https://docs.datahub.com/docs/features/feature-guides/lineage)                    |
 | **Lineage-Based Propagation**                  | ❌  |  ✔   | Auto-enrich downstream datasets                                                                                                                                                                                 |               [Docs](https://docs.datahub.com/docs/automations/docs-propagation#introduction)               |
 | **Context Documents**                          | ✔  |  ✔   | Create & semantically search across unstructured docs                                                                                                                                                           |           [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents)           |
-| **Import Context Documents from GitHub**       | ❌  |  ✔   | Import GitHub repositories as semantically-searchable context documents, editable in DataHub and synced back via PRs                                                                                            | [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents#importing-documents) |
+| **Import Context Documents from GitHub**       | ✔  |  ✔   | Import GitHub repositories as semantically-searchable context documents, editable in DataHub; DataHub Cloud syncs edits back via PRs                                                                            | [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents#importing-documents) |
 | **AI Documentation Generation**                | ❌  |  ✔   | Auto-document tables & columns                                                                                                                                                                                  |                          [Docs](https://docs.datahub.com/docs/automations/ai-docs)                          |
-| **Logical Models UI**                          | ❌  |  ✔   | Create and manage logical models from the UI without API or SDK access                                                                                                                                          |            [Docs](https://docs.datahub.com/docs/features/feature-guides/logical-models/overview)            |
+| **Logical Models UI**                          | ✔  |  ✔   | Create and manage logical models from the UI without API or SDK access                                                                                                                                          |            [Docs](https://docs.datahub.com/docs/features/feature-guides/logical-models/overview)            |
 | **Personalized Home and Asset Views**          | ❌  |  ✔   | Customize home page and asset summaries for a personalized data experience                                                                                                                                      |     [Docs](https://docs.datahub.com/docs/features/feature-guides/custom-asset-summaries#custom-modules)     |
 | **Multi-Channel Notifications**                | ❌  |  ✔   | Stay informed where you work (Email, Slack, & Teams)                                                                                                                                                            | [Docs](https://docs.datahub.com/docs/incidents/incidents/#enabling-slack-notifications-datahub-cloud-only)  |
 
 ## Data Observability
+
+> How data health is monitored, alerted on, and resolved when something breaks.
 
 | Feature Name                                                         | OSS | Cloud | Business Value                                                           |                                                           Link                                                            |
 | :------------------------------------------------------------------- | :-: | :---: | :----------------------------------------------------------------------- | :-----------------------------------------------------------------------------------------------------------------------: |
@@ -89,6 +103,8 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ## Data Governance
 
+> How ownership, vocabulary, compliance, and access are defined and enforced.
+
 | Feature Name                                                                     | OSS | Cloud | Business Value                |                                                   Link                                                   |
 | :------------------------------------------------------------------------------- | :-: | :---: | :---------------------------- | :------------------------------------------------------------------------------------------------------: |
 | **Data Ownership Management**                                                    | ✔  |  ✔   | Clear accountability          |    [Docs](https://docs.datahub.com/docs/metadata-integration/java/docs/sdk-v2/dataset-entity#owners)     |
@@ -101,6 +117,8 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ## Enterprise & Security
 
+> Availability guarantees, network isolation, and access controls for production use.
+
 | Feature Name                      | OSS Available | Cloud Available | Business Value          |
 | :-------------------------------- | :-----------: | :-------------: | :---------------------- |
 | **99.5% Uptime SLA**              |      ❌       |       ✔        | Guaranteed availability |
@@ -111,15 +129,17 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 ## Implementation & Support
 
-| Feature Name                                                                                               | OSS Available | Cloud Available | Business Value                                                                                                                                                   |
-| :--------------------------------------------------------------------------------------------------------- | :-----------: | :-------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fully Managed Cloud Deployment**                                                                         |      ❌       |       ✔        | Zero maintenance cloud-hosted instance                                                                                                                           |
-| **Dedicated Customer Success**                                                                             |      ❌       |       ✔        | Expert guidance                                                                                                                                                  |
-| **Guided Implementation & Onboarding**                                                                     |      ❌       |       ✔        | Smooth rollout                                                                                                                                                   |
-| **[Multi-language Support](https://docs.datahub.com/docs/features/feature-guides/multi-language-support)** |      ✔       |       ✔        | Use DataHub in your browser's language: <br /> _GA:_ German <br /> _Private Beta:_ Spanish, Brazilian Portuguese, French, Italian, Norwegian, Swedish, Hungarian |
-| **Private Slack Support Channel**                                                                          |      ❌       |       ✔        | Direct access to experts                                                                                                                                         |
-| **Community Support**                                                                                      |      ✔       |       ✔        | Peer assistance                                                                                                                                                  |
-| **OSS Contribution Fast-Track**                                                                            |      ❌       |       ✔        | Community Contribution Support to DataHub Apache 2.0 Project                                                                                                     |
+> How teams get deployed, onboarded, and supported day to day.
+
+| Feature Name                                                                                               | OSS Available | Cloud Available | Business Value                                                                                                                                           |
+| :--------------------------------------------------------------------------------------------------------- | :-----------: | :-------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fully Managed Cloud Deployment**                                                                         |      ❌       |       ✔        | Zero maintenance cloud-hosted instance                                                                                                                   |
+| **Dedicated Customer Success**                                                                             |      ❌       |       ✔        | Expert guidance                                                                                                                                          |
+| **Guided Implementation & Onboarding**                                                                     |      ❌       |       ✔        | Smooth rollout                                                                                                                                           |
+| **[Multi-language Support](https://docs.datahub.com/docs/features/feature-guides/multi-language-support)** |      ✔       |       ✔        | Use DataHub in your browser's language: <br /> _GA:_ German <br /> _Beta:_ Spanish, Brazilian Portuguese, French, Italian, Norwegian, Swedish, Hungarian |
+| **Private Slack Support Channel**                                                                          |      ❌       |       ✔        | Direct access to experts                                                                                                                                 |
+| **Community Support**                                                                                      |      ✔       |       ✔        | Peer assistance                                                                                                                                          |
+| **OSS Contribution Fast-Track**                                                                            |      ❌       |       ✔        | Community Contribution Support to DataHub Apache 2.0 Project                                                                                             |
 
 <a href="https://datahub.com/get-datahub-cloud/" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
 See DataHub Cloud In Action
