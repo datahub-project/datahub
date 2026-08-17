@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useGetSearchAssets } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetSearchAssets';
+import { useGetSearchAssets, INSIGHT_CARD_FETCH_COUNT } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetSearchAssets';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
@@ -39,7 +39,7 @@ describe('useGetSearchAssets', () => {
                     types: [EntityType.Dataset],
                     query: 'customers',
                     start: 0,
-                    count: 5,
+                    count: INSIGHT_CARD_FETCH_COUNT,
                     orFilters: null,
                     sortInput: null,
                     viewUrn: undefined,
@@ -50,6 +50,20 @@ describe('useGetSearchAssets', () => {
             },
             fetchPolicy: 'cache-first',
         });
+    });
+
+    it('requests only the display count when separate siblings are enabled', () => {
+        isShowSeparateSiblingsEnabled.mockReturnValue(true);
+
+        renderHook(() => useGetSearchAssets([EntityType.Dataset], 'customers'));
+
+        expect(queryMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({ count: 5 }),
+                }),
+            }),
+        );
     });
 
     it('returns assets from search results', () => {
@@ -110,5 +124,44 @@ describe('useGetSearchAssets', () => {
         const { result } = renderHook(() => useGetSearchAssets([EntityType.Dataset]));
 
         expect(result.current.assets).toEqual([dbt, warehouse]);
+    });
+
+    it('still returns five cards after collapsing a sibling pair in an over-fetched page', () => {
+        const siblingPair = (primaryUrn: string, secondaryUrn: string) => [
+            {
+                urn: secondaryUrn,
+                type: EntityType.Dataset,
+                siblings: { isPrimary: false, siblings: [{ urn: primaryUrn }] },
+            },
+            {
+                urn: primaryUrn,
+                type: EntityType.Dataset,
+                siblings: { isPrimary: true, siblings: [{ urn: secondaryUrn }] },
+            },
+        ];
+        const unique = (urn: string) => ({ urn, type: EntityType.Dataset });
+        const searchResults = [
+            ...siblingPair('urn:li:dataset:primary-1', 'urn:li:dataset:secondary-1'),
+            unique('urn:li:dataset:3'),
+            unique('urn:li:dataset:4'),
+            unique('urn:li:dataset:5'),
+            unique('urn:li:dataset:6'),
+        ].map((entity) => ({ entity }));
+
+        queryMock.mockReturnValue({
+            loading: false,
+            data: { searchAcrossEntities: { searchResults } },
+        });
+
+        const { result } = renderHook(() => useGetSearchAssets([EntityType.Dataset]));
+
+        expect(result.current.assets).toHaveLength(5);
+        expect(result.current.assets.map((entity) => entity.urn)).toEqual([
+            'urn:li:dataset:primary-1',
+            'urn:li:dataset:3',
+            'urn:li:dataset:4',
+            'urn:li:dataset:5',
+            'urn:li:dataset:6',
+        ]);
     });
 });
