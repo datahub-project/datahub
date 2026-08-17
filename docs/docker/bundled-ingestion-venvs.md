@@ -92,12 +92,12 @@ When a run targets a CLI version or connector that is **not** bundled into the i
 
 The link method is controlled by **`UV_LINK_MODE`**:
 
-| Mode       | Behavior                                                                                                                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hardlink` | Same-inode hardlinks from the cache. Smallest, most predictable footprint; **requires the cache and the venv directory to be on the same filesystem.**                                         |
-| `clone`    | Copy-on-write reflinks. Only on reflink-capable filesystems (XFS-reflink, btrfs, ZFS, APFS); **silently falls back to a full copy** on the overlay filesystems used by Kubernetes and Fargate. |
-| `copy`     | Full byte copy per venv. Always works, largest footprint.                                                                                                                                      |
-| `symlink`  | Symlinks into the cache. Breaks if the cache is pruned or lives on a different mount at runtime.                                                                                               |
+| Mode       | Behavior                                                                                                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hardlink` | Same-inode hardlinks from the cache. Smallest, most predictable footprint; **requires the cache and the venv directory to be on the same filesystem.**                                                                                                |
+| `clone`    | Copy-on-write reflinks on reflink-capable filesystems (XFS-reflink, btrfs, ZFS, APFS); **silently falls back to a full copy** when the active filesystem doesn't support reflinks (typically the overlay filesystems used by Kubernetes and Fargate). |
+| `copy`     | Full byte copy per venv. Always works, largest footprint.                                                                                                                                                                                             |
+| `symlink`  | Symlinks into the cache. Breaks if the cache is pruned or lives on a different mount at runtime.                                                                                                                                                      |
 
 uv's default link mode falls back to copying on overlay filesystems, so many runs each duplicate their dependencies. Setting **`UV_LINK_MODE=hardlink`** links them instead — N venvs that share a dependency cost its bytes once, not N times. The DataHub-provided Remote Executor Helm chart, Terraform module, and CloudFormation template default to `hardlink`.
 
