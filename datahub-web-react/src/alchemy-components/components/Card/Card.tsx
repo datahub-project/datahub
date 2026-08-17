@@ -1,7 +1,7 @@
 import { Tooltip } from '@components';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -62,6 +62,21 @@ export const Card = ({
         </SubTitle>
     );
 
+    // When a nested `button` slot is present, that control owns keyboard access —
+    // avoid making the card itself a button (nested interactive).
+    const isKeyboardClickable = !!onClick && isCardClickable && !button;
+
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (!isKeyboardClickable || !onClick) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+            }
+        },
+        [isKeyboardClickable, onClick],
+    );
+
     return (
         <>
             {isEmpty ? (
@@ -75,6 +90,10 @@ export const Card = ({
                 <CardContainer
                     isClickable={(!!button || onClick) && isCardClickable}
                     onClick={onClick}
+                    role={isKeyboardClickable ? 'button' : undefined}
+                    tabIndex={isKeyboardClickable ? 0 : undefined}
+                    aria-label={isKeyboardClickable && typeof title === 'string' ? title : undefined}
+                    onKeyDown={handleKeyDown}
                     maxWidth={maxWidth}
                     height={height}
                     width={width}

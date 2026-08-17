@@ -1,5 +1,4 @@
-import { Text } from '@components';
-import { Image } from 'antd';
+import { Heading, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -11,7 +10,7 @@ const HeaderContainer = styled.div`
     padding: 8px 20px 4px 20px;
 `;
 
-const LogoImage = styled(Image)`
+const LogoImage = styled.img`
     width: 58px;
     height: auto;
 `;
@@ -32,11 +31,11 @@ export default function ModalHeader({ subHeading }: Props) {
 
     return (
         <HeaderContainer>
-            <LogoImage src={themeConfig.assets?.logoUrl} preview={false} />
+            <LogoImage src={themeConfig.assets?.logoUrl} alt="" />
             <HeaderText>
-                <Text size="3xl" color="gray" colorLevel={600} weight="bold" lineHeight="normal">
+                <Heading type="h1" size="2xl" weight="bold" color="gray" colorLevel={600}>
                     {t('welcomeToDataHub')}
-                </Text>
+                </Heading>
                 {subHeading && (
                     <Text size="lg" color="gray" colorLevel={1700} lineHeight="normal">
                         {subHeading}

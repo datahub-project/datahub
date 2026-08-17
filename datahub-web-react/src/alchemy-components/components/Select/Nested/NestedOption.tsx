@@ -1,6 +1,7 @@
-import { Icon } from '@components';
+import { Button } from '@components';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Checkbox } from '@components/components/Checkbox';
@@ -21,6 +22,13 @@ const ChildOptions = styled.div`
 
 const CheckboxWrapper = styled.div`
     margin-left: auto;
+`;
+
+const ExpandButton = styled(Button)`
+    padding: 0;
+    min-width: unset;
+    margin-left: 4px;
+    flex-shrink: 0;
 `;
 
 interface OptionProps<OptionType extends NestedSelectOption> {
@@ -58,6 +66,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     implicitlySelectChildren,
     renderCustomOptionText,
 }: OptionProps<OptionType>) => {
+    const { t } = useTranslation('alchemy');
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(isParentOptionLabelExpanded);
 
@@ -91,6 +100,33 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
         }
     }, [isLoadingParentChildList]);
 
+    const loadMissingChildren = () => {
+        if (!isParentMissingChildren) return;
+        setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
+        loadData?.(option);
+    };
+
+    const toggleOpen = () => {
+        setIsOpen((prev) => {
+            const next = !prev;
+            if (!prev && isParentMissingChildren) {
+                setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
+                loadData?.(option);
+            }
+            return next;
+        });
+    };
+
+    const handleOptionActivate = () => {
+        if (isImplicitlySelected) return;
+        loadMissingChildren();
+        if (option.isParent) {
+            setIsOpen(!isOpen);
+        } else {
+            selectOption();
+        }
+    };
+
     return (
         <div>
             <ParentOption>
@@ -98,19 +134,11 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                     key={option.value}
                     onClick={(e) => {
                         e.preventDefault();
-                        if (isImplicitlySelected) {
-                            return;
-                        }
-                        if (isParentMissingChildren) {
-                            setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
-                            loadData?.(option);
-                        }
-                        if (option.isParent) {
-                            setIsOpen(!isOpen);
-                        } else {
-                            selectOption();
-                        }
+                        handleOptionActivate();
                     }}
+                    tabIndex={-1}
+                    role="option"
+                    aria-selected={isSelected || isImplicitlySelected}
                     isSelected={!isMultiSelect && isSelected}
                     // added hack to show cursor in wait untill we get the inline spinner
                     style={{
@@ -130,47 +158,52 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             {!option.isParent && <>{option.label}</>}
                         </>
                     )}
-                    {option.isParent && (
-                        <Icon
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                setIsOpen(!isOpen);
-                                if (!isOpen && isParentMissingChildren) {
-                                    setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
-                                    loadData?.(option);
-                                }
-                            }}
-                            icon={CaretLeft}
-                            rotate={isOpen ? '90' : '270'}
-                            size="xl"
-                            color="gray"
-                            style={{ cursor: 'pointer', marginLeft: '4px' }}
-                        />
-                    )}
                     {!(hideParentCheckbox && option.isParent) && (
                         <CheckboxWrapper>
-                            <Checkbox
-                                isChecked={isImplicitlySelected || isSelected}
-                                isIntermediate={isPartialSelected}
-                                isDisabled={isImplicitlySelected}
-                                size="sm"
-                                onCheckboxChange={() => {
-                                    if (isImplicitlySelected) {
-                                        return;
-                                    }
-                                    if (isParentMissingChildren) {
-                                        loadData?.(option);
-                                        if (!areParentsSelectable) {
-                                            setAutoSelectChildren(true);
+                            <span aria-hidden="true">
+                                <Checkbox
+                                    tabIndex={-1}
+                                    isChecked={isImplicitlySelected || isSelected}
+                                    isIntermediate={isPartialSelected}
+                                    isDisabled={isImplicitlySelected}
+                                    size="sm"
+                                    onCheckboxChange={() => {
+                                        if (isImplicitlySelected) {
+                                            return;
                                         }
-                                    }
-                                    selectOption();
-                                }}
-                            />
+                                        if (isParentMissingChildren) {
+                                            loadData?.(option);
+                                            if (!areParentsSelectable) {
+                                                setAutoSelectChildren(true);
+                                            }
+                                        }
+                                        selectOption();
+                                    }}
+                                />
+                            </span>
                         </CheckboxWrapper>
                     )}
                 </OptionLabel>
+                {option.isParent && (
+                    <ExpandButton
+                        type="button"
+                        variant="text"
+                        color="gray"
+                        aria-label={isOpen ? t('select.nestedOption.collapse') : t('select.nestedOption.expand')}
+                        aria-expanded={isOpen}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            toggleOpen();
+                        }}
+                        icon={{
+                            icon: CaretLeft,
+                            rotate: isOpen ? '90' : '270',
+                            size: 'xl',
+                            color: 'gray',
+                        }}
+                    />
+                )}
             </ParentOption>
             {isOpen && (
                 <ChildOptions data-testid="children-option-container">

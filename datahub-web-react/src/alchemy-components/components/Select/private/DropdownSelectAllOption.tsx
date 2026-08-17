@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { LabelContainer, StyledCheckbox } from '@components/components/Select/components';
@@ -12,6 +12,10 @@ const SelectAllOption = styled.div<{ isDisabled?: boolean }>(({ isDisabled, them
     fontSize: typography.fontSizes.md,
     display: 'flex',
     alignItems: 'center',
+    '&:focus-visible': {
+        outline: `2px solid ${theme.colors.borderBrandFocused}`,
+        outlineOffset: '2px',
+    },
 }));
 
 interface Props {
@@ -22,16 +26,40 @@ interface Props {
 }
 
 export default function DropdownSelectAllOption({ label, selected, onClick, disabled }: Props) {
+    const handleActivate = useCallback(() => {
+        if (!disabled) onClick?.();
+    }, [disabled, onClick]);
+
+    const handleKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLElement>) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            handleActivate();
+        },
+        [handleActivate],
+    );
+
     return (
-        <SelectAllOption onClick={() => !disabled && onClick?.()} isDisabled={disabled}>
+        <SelectAllOption
+            role="option"
+            aria-selected={selected}
+            aria-disabled={disabled}
+            tabIndex={-1}
+            onClick={handleActivate}
+            onKeyDown={handleKeyDown}
+            isDisabled={disabled}
+        >
             <LabelContainer>
                 <span>{label}</span>
-                <StyledCheckbox
-                    isChecked={selected}
-                    isDisabled={disabled}
-                    onCheckboxChange={() => onClick?.()}
-                    size="sm"
-                />
+                <span aria-hidden="true">
+                    <StyledCheckbox
+                        tabIndex={-1}
+                        isChecked={selected}
+                        isDisabled={disabled}
+                        onCheckboxChange={handleActivate}
+                        size="sm"
+                    />
+                </span>
             </LabelContainer>
         </SelectAllOption>
     );

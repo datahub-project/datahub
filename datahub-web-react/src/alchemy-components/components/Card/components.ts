@@ -25,6 +25,14 @@ export const CardContainer = styled.div<{ isClickable?: boolean; width?: string;
                   cursor: 'pointer',
               }
             : {},
+        ...(isClickable
+            ? {
+                  '&:focus-visible': {
+                      outline: `2px solid ${theme.colors.borderBrandFocused}`,
+                      outlineOffset: '2px',
+                  },
+              }
+            : {}),
     }),
 );
 
