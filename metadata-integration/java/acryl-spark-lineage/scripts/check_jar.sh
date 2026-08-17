@@ -109,11 +109,11 @@ for jarFile in ${jarFiles}; do
   # are skipped, since relocation leaves empty dirs behind at the canonical paths (antlr/,
   # com/fasterxml/jackson/, …) which hold no code.
   #
-  # Turning it on surfaced four PRE-EXISTING leaks, allowlisted below rather than removed here.
-  # Removing them changes what ~700 bundled classes link against at runtime — commons-io alone has 51
-  # consumers, one of them a DataHub-patched OpenLineage class — so it needs its own verification and
-  # its own revertible change. Allowlisting keeps them visible and tracked instead of hidden behind a
-  # check that never ran, while the check again catches anything NEW.
+  # Turning it on surfaced several pre-existing leaks, all now fixed in build.gradle rather than
+  # allowlisted: slf4j-api plus a reload4j binding and a root log4j.properties (which were hijacking
+  # the host's logging), commons-io (relocated, since its 51 consumers must keep the version we
+  # bundle), guava's j2objc annotations, kafka-clients' protocol schemas, and a stray source file.
+  # Only two entries remain below, and neither is a leak.
   unexpected=$(jar -tf "$jarFile" |
       grep -v '/$' |
       grep -v "log4j.xml" |
@@ -150,16 +150,11 @@ for jarFile in ${jarFiles}; do
       grep -v "library.properties" |
       grep -v "rootdoc.txt" |
       grep -v "com/ibm/" |
-      # --- Known pre-existing leaks, tracked for removal in a follow-up. Do NOT extend this list to
-      # --- silence a new leak: fix the packaging instead.
-      grep -v "^org/slf4j/" |                 # slf4j-api + a reload4j binding; Spark ships its own → double-binding
-      grep -v "^org/apache/commons/io/" |     # commons-io, unrelocated, while codec/compress/lang3/text are relocated
-      grep -v "^com/google/j2objc/" |         # guava transitive annotations
-      grep -v "^common/message/" |            # kafka-clients protocol message schemas (JSON)
-      grep -v "^log4j.properties$" |          # same family as the log4j.xml entries above
-      grep -v "^mime.types$" |
-      grep -v "^VersionInfo.java$" |
-      grep -v "^LICENSE-ClassGraph.txt$")
+      # --- Deliberately retained, not leaks. Do NOT extend this list to silence a new leak: fix the
+      # --- packaging in build.gradle instead.
+      grep -v "^mime.types$" |                # also a legitimate shaded AWS SDK resource; a basename
+                                              # exclude would strip that copy too
+      grep -v "^LICENSE-ClassGraph.txt$")     # attribution file, should ship
 
   if [ -n "$unexpected" ]; then
     echo "💥 Found unexpected class paths in ${jarFile}:"
