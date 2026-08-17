@@ -1,7 +1,11 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useGetSearchAssets, INSIGHT_CARD_FETCH_COUNT } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetSearchAssets';
+import {
+    INSIGHT_CARD_DISPLAY_COUNT,
+    INSIGHT_CARD_FETCH_COUNT,
+    useGetSearchAssets,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetSearchAssets';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
@@ -60,7 +64,7 @@ describe('useGetSearchAssets', () => {
         expect(queryMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 variables: expect.objectContaining({
-                    input: expect.objectContaining({ count: 5 }),
+                    input: expect.objectContaining({ count: INSIGHT_CARD_DISPLAY_COUNT }),
                 }),
             }),
         );
