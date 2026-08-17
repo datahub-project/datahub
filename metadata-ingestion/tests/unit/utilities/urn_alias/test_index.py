@@ -19,96 +19,75 @@ _INSTANCED = (
 _SNOWFLAKE_PROD = CatalogSlice(platform="snowflake", platform_instance=None, env="PROD")
 
 
-# --- storing ----------------------------------------------------------------------
+def _store() -> UrnAliasIndex:
+    return UrnAliasIndex()
+
+
+# --- the key space ------------------------------------------------------------------
 
 
 def test_every_casing_of_a_name_collapses_onto_one_key() -> None:
-    index = UrnAliasIndex()
-
-    index.add(_LOWER)
-
-    assert index.lookup(_UPPER) == [_LOWER]
-    assert index.lookup(_MIXED) == [_LOWER]
+    assert lowercased_urn(_UPPER) == _LOWER
+    assert lowercased_urn(_MIXED) == _LOWER
 
 
-def test_a_case_collision_keeps_both_urns() -> None:
-    # Two real entities differing only by case: both come back, so the caller can see
-    # the ambiguity rather than being handed an arbitrary winner.
-    index = UrnAliasIndex()
-
-    index.add(_LOWER)
-    index.add(_UPPER)
-
-    assert index.lookup(_MIXED) == [_LOWER, _UPPER]
+def test_a_non_dataset_urn_has_no_key() -> None:
+    # Nothing to reconcile, so it is never looked up or asked about as a dataset.
+    assert lowercased_urn("urn:li:corpuser:jdoe") is None
 
 
-def test_the_same_urn_is_recorded_once() -> None:
-    index = UrnAliasIndex()
+# --- storing ------------------------------------------------------------------------
 
-    index.add(_LOWER)
-    index.add(_LOWER)
 
-    assert index.lookup(_LOWER) == [_LOWER]
+def test_a_key_keeps_every_urn_added_under_it() -> None:
+    # Two datasets differing only by case can both exist, and a caller has to see the
+    # ambiguity rather than be handed an arbitrary winner.
+    store = _store()
+
+    store.add("key", _LOWER)
+    store.add("key", _UPPER)
+
+    assert store.get("key") == [_LOWER, _UPPER]
+
+
+def test_the_same_urn_is_stored_once() -> None:
+    store = _store()
+
+    store.add("key", _LOWER)
+    store.add("key", _LOWER)
+
+    assert store.get("key") == [_LOWER]
+
+
+def test_an_unwritten_key_is_unknown_rather_than_absent() -> None:
+    # The distinction the whole design rests on: unknown has to be asked about, and a
+    # recorded absence must not be.
+    store = _store()
+
+    store.replace("absent", [])
+
+    assert store.get("unwritten") is None
+    assert store.get("absent") == []
+
+
+def test_replace_makes_the_given_urns_the_whole_answer() -> None:
+    store = _store()
+    store.add("key", _LOWER)
+
+    store.replace("key", [_UPPER])
+
+    assert store.get("key") == [_UPPER]
 
 
 def test_the_stored_list_is_not_handed_out() -> None:
-    index = UrnAliasIndex()
-    index.add(_LOWER)
+    store = _store()
+    store.add("key", _LOWER)
 
-    entry = index.lookup(_LOWER)
+    entry = store.get("key")
     assert entry is not None
     entry.append(_OTHER)
 
-    assert index.lookup(_LOWER) == [_LOWER]
-
-
-def test_a_non_dataset_urn_is_answered_not_deferred() -> None:
-    # There is no casing to reconcile, so this is a definite answer: querying could not
-    # help, and returning "unknown" would send it to the server for nothing.
-    assert UrnAliasIndex().lookup("urn:li:corpuser:jdoe") == []
-
-
-# --- the four ways a lookup is satisfied --------------------------------------------
-
-
-def test_a_stored_match_answers() -> None:
-    index = UrnAliasIndex()
-    index.add(_LOWER)
-
-    assert index.lookup(_UPPER) == [_LOWER]
-
-
-def test_a_recorded_absence_answers() -> None:
-    index = UrnAliasIndex()
-
-    index.record_matches(lowercased_urn(_OTHER) or "", [])
-
-    assert index.lookup(_OTHER) == []
-
-
-def test_a_miss_inside_a_loaded_slice_is_an_answer_not_a_gap() -> None:
-    # The property the whole design rests on: we scrolled this slice to completion, so
-    # nothing in it went unseen, so "not stored" means DataHub does not hold it.
-    index = UrnAliasIndex()
-    index.add(_LOWER)
-    index.record_slice_loaded(_SNOWFLAKE_PROD)
-
-    assert index.lookup(_OTHER) == []
-
-
-def test_a_miss_outside_every_loaded_slice_stays_unknown() -> None:
-    index = UrnAliasIndex()
-    index.add(_LOWER)
-    index.record_slice_loaded(_SNOWFLAKE_PROD)
-
-    # None, not []: nothing here has ever looked at redshift or at DEV, so the only
-    # honest answer is that we do not know.
-    assert index.lookup(_REDSHIFT) is None
-    assert index.lookup(_DEV) is None
-
-
-def test_an_unloaded_index_knows_nothing() -> None:
-    assert UrnAliasIndex().lookup(_LOWER) is None
+    assert store.get("key") == [_LOWER]
 
 
 # --- coverage ------------------------------------------------------------------------
@@ -134,12 +113,3 @@ def test_a_configured_instance_covers_only_its_own_name_prefix() -> None:
     # Matched on the lowercased form, so it agrees with the key space lookups use.
     assert slice_.covers(lowercased_urn(_INSTANCED) or "")
     assert not slice_.covers(lowercased_urn(_LOWER) or "")
-
-
-def test_coverage_is_recorded_once_per_slice() -> None:
-    index = UrnAliasIndex()
-
-    index.record_slice_loaded(_SNOWFLAKE_PROD)
-    index.record_slice_loaded(_SNOWFLAKE_PROD)
-
-    assert index._loaded_slices == [_SNOWFLAKE_PROD]

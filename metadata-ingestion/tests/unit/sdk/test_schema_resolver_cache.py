@@ -9,7 +9,9 @@ from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
     provide_schema_resolver,
 )
-from datahub.utilities.urn_alias.index import get_urn_alias_index
+from datahub.utilities.urn_alias.resolver import (
+    get_urn_alias_resolver,
+)
 
 _PROVIDER_LOGGER = "datahub.sql_parsing.schema_resolver_provider"
 
@@ -159,6 +161,18 @@ def test_bulk_fetch_yields_datasets_that_have_no_schema(mock_test_connection):
     assert results == [(_FAKE_URN, _FAKE_SCHEMA), (_SCHEMALESS_URN, None)]
 
 
+def _would_ask_about(graph: DataHubGraph, urn: str) -> bool:
+    """Whether a consumer allowed to query would still have to ask DataHub about `urn`.
+
+    The observable difference coverage makes: inside a slice some scroll enumerated end to
+    end, a miss is already an answer, so no query is issued.
+    """
+    resolver = get_urn_alias_resolver(graph, query_on_demand=True)
+    with patch.object(graph, "get_urns_by_filter", return_value=iter([])) as search:
+        resolver.find_match(urn)
+    return search.called
+
+
 def _load(graph: DataHubGraph) -> SchemaResolver:
     with patch.object(
         graph,
@@ -178,9 +192,9 @@ def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
     resolver = _load(graph)
 
     # Both URNs are resolvable by casing, whether or not DataHub knows their columns.
-    index = get_urn_alias_index(graph)
-    assert index.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
-    assert index.lookup(_SCHEMALESS_URN_UPPERCASED) == [_SCHEMALESS_URN]
+    urn_aliases = get_urn_alias_resolver(graph)
+    assert urn_aliases.resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
+    assert urn_aliases.resolve(_SCHEMALESS_URN_UPPERCASED) == _SCHEMALESS_URN
     # ...but only the one with a schema is in the schema cache.
     assert resolver.schema_count() == 1
 
@@ -192,10 +206,34 @@ def test_a_completed_scroll_makes_a_miss_inside_it_an_answer(mock_test_connectio
 
     _load(graph)
 
-    # Nothing in the slice went unseen, so a URN it does not hold is genuinely absent —
-    # [] rather than None, which is what lets a consumer skip the server.
-    index = get_urn_alias_index(graph)
-    assert index.lookup(_MISSING_URN) == []
+    # Nothing in the slice went unseen, so a URN it does not hold is genuinely absent,
+    # which is what lets a consumer skip the server.
+    assert not _would_ask_about(graph, _MISSING_URN)
+
+
+@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
+def test_a_scroll_narrowed_by_a_name_prefix_claims_no_coverage(mock_test_connection):
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    with patch.object(
+        graph,
+        "_bulk_fetch_schema_info_by_filter",
+        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA)]),
+    ):
+        SchemaResolverProvider(graph=graph).get(
+            platform="bigquery",
+            platform_instance=None,
+            env="PROD",
+            name_starts_with="project.dataset",
+        )
+
+    # The prefix is case-sensitive on the stored name, so it cannot be re-expressed over the
+    # lowercased key a lookup uses: `PROJECT.` would not have loaded `project.absent`, yet
+    # both lowercase to `project.`. So a miss stays a question.
+    assert _would_ask_about(graph, _MISSING_URN)
+    # What the scroll did return is recorded either way.
+    assert get_urn_alias_resolver(graph).resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
@@ -215,12 +253,11 @@ def test_a_scroll_that_fails_part_way_claims_no_coverage(mock_test_connection):
                 platform="bigquery", platform_instance=None, env="PROD"
             )
 
-    index = get_urn_alias_index(graph)
     # What it did see is kept — those rows are facts.
-    assert index.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
+    assert get_urn_alias_resolver(graph).resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
     # But it never reached the rest of the slice, so a miss is still a gap. Claiming
     # coverage here would turn every URN the scroll missed into a false absence.
-    assert index.lookup(_MISSING_URN) is None
+    assert _would_ask_about(graph, _MISSING_URN)
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
@@ -239,9 +276,9 @@ def test_one_index_is_shared_by_every_consumer_of_a_graph(mock_test_connection):
             platform="snowflake", platform_instance=None, env="PROD"
         )
 
-    index = get_urn_alias_index(graph)
-    assert index.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
-    assert index.lookup(_OTHER_PLATFORM_URN_UPPERCASED) == [_OTHER_PLATFORM_URN]
+    urn_aliases = get_urn_alias_resolver(graph)
+    assert urn_aliases.resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
+    assert urn_aliases.resolve(_OTHER_PLATFORM_URN_UPPERCASED) == _OTHER_PLATFORM_URN
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")

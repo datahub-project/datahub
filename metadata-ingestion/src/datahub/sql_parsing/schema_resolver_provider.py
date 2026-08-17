@@ -8,7 +8,8 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urn_alias.index import CatalogSlice, get_urn_alias_index
+from datahub.utilities.urn_alias.index import CatalogSlice
+from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -98,7 +99,7 @@ class SchemaResolverProvider:
         # Every scrolled URN goes into the index shared per DataHub instance, whether or
         # not this caller reads it: the scroll is already paid for, and the next consumer
         # of the same catalog gets its answers for free.
-        urn_aliases = get_urn_alias_index(self._graph)
+        urn_aliases = get_urn_alias_resolver(self._graph)
         num_urns = 0
         num_schemas = 0
         with PerfTimer() as timer:

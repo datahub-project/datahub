@@ -46,7 +46,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.utilities.urn_alias.index import CatalogSlice, get_urn_alias_index
+from datahub.utilities.urn_alias.index import CatalogSlice
+from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
 UPPER = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE")
@@ -86,11 +87,11 @@ def _seed_index(
     entity findable. Recording the slice is part of the imitation: a real scroll that
     finished says so, which is what turns a miss inside it into an answer.
     """
-    index = get_urn_alias_index(graph)
+    urn_aliases = get_urn_alias_resolver(graph)
     for urn in urns:
-        index.add(urn)
+        urn_aliases.add(urn)
     for catalog_slice in slices:
-        index.record_slice_loaded(catalog_slice)
+        urn_aliases.record_slice_loaded(catalog_slice)
 
 
 def _make_processor(
