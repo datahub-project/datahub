@@ -492,6 +492,35 @@ class TestConnectorRegistryGenericConnectors:
         )
 
         assert connector is None
+        report.warning.assert_called_once()
+
+    def test_generic_sink_emits_topic_to_target_dataset(self) -> None:
+        manifest = create_manifest(
+            SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS, name="my-oracle-sink"
+        )
+        manifest.topic_names = ["orders"]
+        generic_config = GenericConnectorConfig(
+            connector_name="my-oracle-sink",
+            source_platform="kafka",
+            source_dataset="orders",
+            target_dataset="mps.orders",
+            target_platform="oracle",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert isinstance(connector, _GenericConnector)
+        lineages = connector.extract_lineages()
+        assert len(lineages) == 1
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].source_dataset == "orders"
+        assert lineages[0].target_dataset == "mps.orders"
+        assert lineages[0].target_platform == "oracle"
 
 
 class TestConnectorRegistryUnknownTypes:

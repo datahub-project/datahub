@@ -193,12 +193,22 @@ class ConnectorRegistry:
         generic = ConnectorRegistry._generic_connector_for_name(
             manifest, config, report
         )
-        if generic and not (
+        if generic is None:
+            return None
+        if (
             generic.generic_config.target_dataset
             or generic.generic_config.target_platform
         ):
-            return generic
-        return None
+            report.warning(
+                message=(
+                    "generic_connectors entry includes target_dataset/"
+                    "target_platform, which is sink-direction; ignoring it "
+                    "for this source so lineage is not inverted"
+                ),
+                context=manifest.name,
+            )
+            return None
+        return generic
 
     @staticmethod
     def _get_sink_connector(
