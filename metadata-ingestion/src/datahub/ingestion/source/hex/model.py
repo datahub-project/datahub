@@ -25,6 +25,11 @@ class HexConnection:
     platform_instance: Optional[str] = None
     default_database: Optional[str] = None
     default_schema: Optional[str] = None
+    # Explicit per-connection override for queriedTables URN casing. None means
+    # follow the platform default (lowercase for case-insensitive platforms,
+    # preserve for case-sensitive ones). See HexConnectionDetail for the
+    # user-facing description.
+    convert_urns_to_lowercase: Optional[bool] = None
 
 
 @dataclass

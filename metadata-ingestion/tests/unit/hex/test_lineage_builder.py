@@ -31,8 +31,9 @@ CONNECTIONS: Dict[str, HexConnection] = {
 def _pin_dataset_urn_case_global(monkeypatch):
     """Pin the module global DATASET_URN_TO_LOWER to False so case-preservation
     assertions don't depend on DATAHUB_DATASET_URN_TO_LOWER in the env. The
-    flag-on code path lowercases the name itself; this only prevents the
-    builder from silently lowercasing when the flag is off."""
+    builder lowercases per-connection itself; this only prevents
+    make_dataset_urn_with_platform_instance from silently lowercasing when the
+    connection's rule says to preserve case."""
     monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
 
 
@@ -41,14 +42,12 @@ def _builder(
     env: str = "PROD",
     report: Optional[LineageBuilderReport] = None,
     project_id: str = "proj-1",
-    convert_urns_to_lowercase: bool = False,
 ) -> HexLineageBuilder:
     return HexLineageBuilder(
         connections=connections if connections is not None else CONNECTIONS,
         env=env,
         report=report if report is not None else LineageBuilderReport(),
         project_id=project_id,
-        convert_urns_to_lowercase=convert_urns_to_lowercase,
     )
 
 
@@ -215,7 +214,8 @@ def test_qualify_table_name_no_defaults_returns_unchanged():
 
 
 def test_build_from_queried_tables_pads_unqualified_name():
-    """Hex returns just `orders` — connection defaults qualify it to db.schema.orders."""
+    """Hex returns just `orders` — connection defaults qualify it to db.schema.orders.
+    Snowflake lowercases by default, so the padded db/schema are lowercased too."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -230,11 +230,12 @@ def test_build_from_queried_tables_pads_unqualified_name():
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "orders"}]
     )
     assert len(urns) == 1
-    assert "ANALYTICS.PUBLIC.orders" in urns[0]
+    assert "analytics.public.orders" in urns[0]
 
 
 def test_build_from_queried_tables_pads_two_part_name():
-    """Hex returns `schema.orders` — connection's default_database qualifies it."""
+    """Hex returns `schema.orders` — connection's default_database qualifies it.
+    Snowflake lowercases by default, so the padded db/schema are lowercased too."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -249,11 +250,12 @@ def test_build_from_queried_tables_pads_two_part_name():
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "RAW.orders"}]
     )
     assert len(urns) == 1
-    assert "ANALYTICS.RAW.orders" in urns[0]
+    assert "analytics.raw.orders" in urns[0]
 
 
 def test_build_from_queried_tables_three_part_name_not_padded():
-    """Fully qualified names are passed through verbatim, even when defaults exist."""
+    """Fully qualified names are passed through verbatim, even when defaults exist.
+    Snowflake lowercases by default."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -273,8 +275,8 @@ def test_build_from_queried_tables_three_part_name_not_padded():
         ]
     )
     assert len(urns) == 1
-    assert "OTHER_DB.OTHER_SCHEMA.orders" in urns[0]
-    assert "ANALYTICS" not in urns[0]
+    assert "other_db.other_schema.orders" in urns[0]
+    assert "analytics" not in urns[0]
 
 
 def test_build_from_queried_tables_mixed_connections():
@@ -655,12 +657,54 @@ def test_explicit_table_qualifier_overrides_defaults():
     assert "other_db.other_schema.orders" in datasets[0].lower()
 
 
-def test_build_from_queried_tables_lowercase_flag_off_preserves_case():
-    """Default: queriedTables tableName is preserved verbatim (author case)."""
+def test_build_from_queried_tables_snowflake_lowercases_by_default():
+    """Case-insensitive platforms (snowflake) are lowercased automatically —
+    no config needed. This mirrors the SQL-cell path's SchemaResolver rule."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
                 name="A", platform="snowflake", platform_instance="prod_sf"
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "MY_DB.MY_SCHEMA.MY_TABLE"}]
+    )
+    assert len(urns) == 1
+    assert "my_db.my_schema.my_table" in urns[0]
+    assert "MY_DB.MY_SCHEMA.MY_TABLE" not in urns[0]
+    # Platform and env are not affected.
+    assert "snowflake" in urns[0]
+    assert urns[0].endswith("PROD)")
+
+
+def test_build_from_queried_tables_bigquery_preserves_case_by_default():
+    """Case-sensitive platforms (bigquery) preserve author case automatically —
+    no config needed. Guard against the mixed-platform bug: lowercasing for one
+    Snowflake connection must not dangle a sibling BigQuery connection."""
+    b = _builder(
+        connections={
+            BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery"),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": BIGQUERY_CONN, "tableName": "Proj.DataSet.Tbl"}]
+    )
+    assert len(urns) == 1
+    assert "Proj.DataSet.Tbl" in urns[0]
+    assert "proj.dataset.tbl" not in urns[0]
+
+
+def test_build_from_queried_tables_override_false_preserves_snowflake_case():
+    """An explicit convert_urns_to_lowercase=false on a Snowflake connection
+    overrides the platform default and preserves author case."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                platform_instance="prod_sf",
+                convert_urns_to_lowercase=False,
             ),
         },
     )
@@ -672,32 +716,31 @@ def test_build_from_queried_tables_lowercase_flag_off_preserves_case():
     assert "my_db.my_schema.my_table" not in urns[0]
 
 
-def test_build_from_queried_tables_lowercase_flag_on_lowercases_name():
-    """With convert_urns_to_lowercase=True, the db.schema.table portion is
-    lowercased so the emitted URN matches a warehouse ingested with the
-    same flag (e.g. Snowflake default)."""
+def test_build_from_queried_tables_override_true_lowercases_bigquery():
+    """An explicit convert_urns_to_lowercase=true on a BigQuery connection
+    overrides the platform default and lowercases the name."""
     b = _builder(
         connections={
-            SNOWFLAKE_CONN: HexConnection(
-                name="A", platform="snowflake", platform_instance="prod_sf"
+            BIGQUERY_CONN: HexConnection(
+                name="BQ",
+                platform="bigquery",
+                convert_urns_to_lowercase=True,
             ),
         },
-        convert_urns_to_lowercase=True,
     )
     urns = b.build_from_queried_tables(
-        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "MY_DB.MY_SCHEMA.MY_TABLE"}]
+        [{"dataConnectionId": BIGQUERY_CONN, "tableName": "Proj.DataSet.Tbl"}]
     )
     assert len(urns) == 1
-    assert "my_db.my_schema.my_table" in urns[0]
-    assert "MY_DB.MY_SCHEMA.MY_TABLE" not in urns[0]
-    # Platform and env are not affected by the flag.
-    assert "snowflake" in urns[0]
-    assert urns[0].endswith("PROD)")
+    assert "proj.dataset.tbl" in urns[0]
+    assert "Proj.DataSet.Tbl" not in urns[0]
 
 
-def test_build_from_queried_tables_lowercase_flag_on_preserves_platform_instance():
-    """The flag lowercases the dataset name only — platform_instance is
-    not touched (it must match whatever the warehouse was ingested under)."""
+def test_build_from_queried_tables_builder_does_not_lowercase_platform_instance():
+    """The builder lowercases the qualified table name only — platform_instance
+    is passed through to make_dataset_urn_with_platform_instance unchanged.
+    Scoped to the builder boundary; the top-level recipe key is absent for the
+    Hex source, so AutoLowercaseUrnsProcessor does not fire downstream."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -706,7 +749,6 @@ def test_build_from_queried_tables_lowercase_flag_on_preserves_platform_instance
                 platform_instance="Prod_Snowflake",
             ),
         },
-        convert_urns_to_lowercase=True,
     )
     urns = b.build_from_queried_tables(
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.T"}]
@@ -714,14 +756,13 @@ def test_build_from_queried_tables_lowercase_flag_on_preserves_platform_instance
     assert "Prod_Snowflake" in urns[0]
 
 
-def test_build_from_queried_tables_lowercase_dedup_collapses_case_variants():
-    """The same table referenced in two cells with different casing collapses
-    to a single URN when the flag is on."""
+def test_build_from_queried_tables_dedup_collapses_case_variants():
+    """The same table referenced with different casing collapses to a single
+    URN on a case-insensitive platform (snowflake)."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake"),
         },
-        convert_urns_to_lowercase=True,
     )
     urns = b.build_from_queried_tables(
         [
@@ -732,36 +773,53 @@ def test_build_from_queried_tables_lowercase_dedup_collapses_case_variants():
     assert len(urns) == 1
 
 
-def test_validated_cll_lowercase_flag_off_drops_on_case_mismatch():
-    """Baseline: without the flag, sqlglot's lowercase parent URN does not
-    match the uppercase queriedTables URN → fields skipped as mismatch."""
+def test_validated_cll_mixed_case_platform_instance_matches():
+    """The comparison key deliberately folds platform_instance into
+    DatasetUrn.name.lower() (the instance lives inside name). This is
+    load-bearing: the SQL-cell path's SchemaResolver.get_urn_for_table(lower=True)
+    also lowercases the instance, so without the fold an instanced Snowflake
+    connection (e.g. Prod_SF) would never match between tiers and column
+    lineage would be silently dropped with only a mismatch counter as signal."""
     report = LineageBuilderReport()
-    b = _builder(report=report, convert_urns_to_lowercase=False)
+    b = _builder(
+        report=report,
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                platform_instance="Prod_SF",
+            ),
+        },
+    )
+    # queried URN carries a mixed-case platform_instance prefix in the name.
+    # make_dataset_urn_with_platform_instance prepends the instance to the name,
+    # so name is just the db.schema.table portion.
     queried = [
         make_dataset_urn_with_platform_instance(
             platform="snowflake",
-            name="DB.SCHEMA.ORDERS",
-            platform_instance=None,
+            name="db.schema.orders",
+            platform_instance="Prod_SF",
             env="PROD",
         )
     ]
     sql = "SELECT order_id FROM DB.SCHEMA.ORDERS"
     fields = b.build_validated_column_lineage([_cell(sql)], queried)
-    assert fields == []
-    assert report.enterprise_column_fields_skipped_mismatch > 0
-    assert report.enterprise_cells_with_mismatch == 1
+    expected_parent = queried[0]
+    assert len(fields) == 1
+    assert SchemaFieldUrn.from_string(fields[0]).parent == expected_parent
+    assert report.enterprise_column_fields_skipped_mismatch == 0
 
 
-def test_validated_cll_lowercase_flag_on_emits_on_case_match():
-    """With the flag on, the parsed parent (author case) is matched to the
-    queriedTables URN by a lowercased-name key, and the emitted SchemaField
-    URN is rebuilt against the *exact* queried URN — so column lineage points
-    at the same (lowercased) dataset as datasetEdges, not an author-case
-    parent that would dangle."""
+def test_validated_cll_snowflake_emits_on_case_match():
+    """On a case-insensitive platform (snowflake), the parsed parent (author
+    case) is matched to the queriedTables URN by a lowercased-name key, and the
+    emitted SchemaField URN is rebuilt against the *exact* queried URN — so
+    column lineage points at the same (lowercased) dataset as datasetEdges, not
+    an author-case parent that would dangle."""
     report = LineageBuilderReport()
-    b = _builder(report=report, convert_urns_to_lowercase=True)
-    # queried URNs reflect what build_from_queried_tables would emit with the
-    # flag on: the db.schema.table portion is lowercased.
+    b = _builder(report=report)
+    # queried URNs reflect what build_from_queried_tables would emit for
+    # snowflake: the db.schema.table portion is lowercased.
     queried = [
         make_dataset_urn_with_platform_instance(
             platform="snowflake",
@@ -787,11 +845,11 @@ def test_validated_cll_lowercase_flag_on_emits_on_case_match():
     assert report.enterprise_cells_with_mismatch == 0
 
 
-def test_validated_cll_lowercase_flag_on_mismatch_still_reported():
-    """The flag normalizes case, but a genuine table-not-in-queriedTables
+def test_validated_cll_mismatch_still_reported():
+    """Case normalization helps, but a genuine table-not-in-queriedTables
     mismatch is still reported."""
     report = LineageBuilderReport()
-    b = _builder(report=report, convert_urns_to_lowercase=True)
+    b = _builder(report=report)
     queried = [
         make_dataset_urn_with_platform_instance(
             platform="snowflake",
@@ -807,27 +865,26 @@ def test_validated_cll_lowercase_flag_on_mismatch_still_reported():
     assert report.enterprise_cells_with_mismatch == 1
 
 
-def test_build_upstream_urns_lowercase_flag_off_preserves_case_for_bigquery():
+def test_build_upstream_urns_preserves_case_for_bigquery():
     """The SQL-cell path uses SchemaResolver, which lowercases for
-    case-insensitive platforms (snowflake) but NOT for bigquery. With the
-    flag off, a BigQuery table keeps its case."""
+    case-insensitive platforms (snowflake) but NOT for bigquery. A per-connection
+    convert_urns_to_lowercase override on the Hex side only affects the
+    queriedTables path; it must not leak into the SQL-cell path. This pins that
+    scope boundary: even with the override set on a BigQuery connection, the
+    SQL-cell path still preserves case."""
     b = _builder(
         connections={
-            BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery"),
+            BIGQUERY_CONN: HexConnection(
+                name="BQ",
+                platform="bigquery",
+                convert_urns_to_lowercase=True,
+            ),
         },
     )
     datasets, _ = b.build_upstream_urns(
         [_cell("SELECT id FROM proj.dataset.Tbl", conn_id=BIGQUERY_CONN)]
     )
     assert len(datasets) == 1
-    # BigQuery is case-sensitive — SchemaResolver preserves case.
+    # BigQuery is case-sensitive — SchemaResolver preserves case regardless of
+    # the Hex-side convert_urns_to_lowercase override.
     assert "proj.dataset.Tbl" in datasets[0]
-
-
-def test_config_has_convert_urns_to_lowercase_field():
-    """Guard: the fix adds the field via LowerCaseDatasetUrnConfigMixin."""
-    from datahub.ingestion.source.hex.config import HexSourceConfig
-
-    assert "convert_urns_to_lowercase" in HexSourceConfig.model_fields
-    field = HexSourceConfig.model_fields["convert_urns_to_lowercase"]
-    assert field.default is False

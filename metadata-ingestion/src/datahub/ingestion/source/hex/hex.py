@@ -431,7 +431,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             env=self.source_config.env,
             report=self.report,
             graph=self.ctx.graph,
-            convert_urns_to_lowercase=self.source_config.convert_urns_to_lowercase,
         )
 
         # Emit workspace container once before streaming projects
@@ -514,6 +513,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 platform_instance=platform_instance,
                 default_database=default_database,
                 default_schema=default_schema,
+                convert_urns_to_lowercase=(
+                    override.convert_urns_to_lowercase if override else None
+                ),
             )
 
         if unmapped_type_counts:

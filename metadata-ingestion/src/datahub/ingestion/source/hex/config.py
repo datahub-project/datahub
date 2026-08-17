@@ -5,7 +5,6 @@ from pydantic import Field, SecretStr, field_validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -59,13 +58,29 @@ class HexConnectionDetail(ConfigModel):
             "/v1/data-connections response."
         ),
     )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Lowercase the db/schema/table in upstream URNs built from this "
+            "connection's queriedTables entries. By default the Hex source "
+            "mirrors the SQL-cell path: case-insensitive platforms (snowflake, "
+            "postgres, redshift, …) are lowercased automatically and "
+            "case-sensitive platforms (bigquery, db2) preserve author case. "
+            "Set this explicitly only to override the platform default — e.g. "
+            "true for a BigQuery connection whose warehouse was ingested with "
+            "convert_urns_to_lowercase=true, or false for a Snowflake "
+            "connection ingested with convert_urns_to_lowercase=false. Unlike "
+            "the warehouse-side flag this only rewrites a lineage edge's "
+            "destination URN; it does not re-key datasets or trigger stale "
+            "soft-deletes."
+        ),
+    )
 
 
 class HexSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
 ):
     workspace_name: str = Field(
         description="Hex workspace name. Find it in the workspace switcher dropdown in the top-left corner of the Hex app.",

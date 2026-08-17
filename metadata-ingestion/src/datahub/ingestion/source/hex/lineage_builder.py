@@ -7,11 +7,15 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+from datahub.sql_parsing.sql_parsing_common import (
+    PLATFORMS_WITH_CASE_SENSITIVE_TABLES,
+    get_dialect_str,
+)
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 _MAX_SAMPLE_MISMATCHES = 5
 
@@ -129,20 +133,12 @@ class HexLineageBuilder:
         # SELECT * expansion and accurate column-level lineage. When None,
         # schema-less parsing is used (dataset-level lineage only).
         graph: Optional["DataHubGraph"] = None,
-        # Lowercase db/schema/table in emitted upstream URNs and in the
-        # queriedTables cross-validation compare. Matches a warehouse
-        # ingested with convert_urns_to_lowercase=True (e.g. Snowflake).
-        # The queriedTables path builds URNs verbatim from Hex's tableName
-        # (author case); the SQL-cell path already lowercases via
-        # SchemaResolver for case-insensitive platforms.
-        convert_urns_to_lowercase: bool = False,
     ):
         self._connections = connections
         self._env = env
         self._report = report
         self._project_id = project_id
         self._graph = graph
-        self._convert_urns_to_lowercase = convert_urns_to_lowercase
         # Cached per (platform, platform_instance) — same-platform connections
         # with different instances must NOT share a resolver.
         self._schema_resolvers: Dict[Tuple[str, Optional[str]], SchemaResolver] = {}
@@ -184,11 +180,7 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
-            if self._convert_urns_to_lowercase:
-                # Match a warehouse ingested with convert_urns_to_lowercase=true
-                # (e.g. Snowflake's default). platform_instance is prepended by
-                # make_dataset_urn_with_platform_instance and is NOT lowercased
-                # here — it must stay whatever the warehouse was ingested under.
+            if self._should_lowercase(connection):
                 qualified_name = qualified_name.lower()
             urn = make_dataset_urn_with_platform_instance(
                 platform=connection.platform,
@@ -275,23 +267,22 @@ class HexLineageBuilder:
 
         Mismatches are recorded in the report with sample cells for diagnostics.
 
-        Under ``convert_urns_to_lowercase`` the comparison is keyed on
-        ``(platform, name.lower(), env)`` — only the dataset name is normalized,
-        so platform / env / platform_instance casing differences do not cause
-        distinct upstreams to collide. Each emitted SchemaFieldUrn is rebuilt
-        against the *exact* matched queried URN (not the parsed parent), so
-        column-lineage edges resolve to the same dataset as ``datasetEdges``
-        rather than dangling against an author-case parent.
+        The comparison key is ``lowercase_dataset_urn(urn)`` — the same function
+        ``AutoLowercaseUrnsProcessor`` uses on the way out — so "two URNs this
+        source considered equal" and "two URNs the processor will emit
+        identically" are the same predicate by construction. Note the key
+        deliberately folds ``platform_instance`` into ``DatasetUrn.name.lower()``
+        (the instance lives inside ``name``); this is load-bearing because the
+        SQL-cell path's ``SchemaResolver.get_urn_for_table(lower=True)`` also
+        lowercases the instance, so without the fold an instanced Snowflake
+        connection (e.g. ``Prod_SF``) would never match between tiers. Each
+        emitted SchemaFieldUrn is rebuilt against the *exact* matched queried
+        URN so column-lineage edges resolve to the same dataset as
+        ``datasetEdges``.
         """
-        if self._convert_urns_to_lowercase:
-            queried_by_key: Dict[Tuple[str, str, str], str] = {}
-            for u in queried_table_urns:
-                key = self._canonical_dataset_key(u)
-                if key is not None:
-                    queried_by_key.setdefault(key, u)
-        else:
-            queried_by_key = {}
-        exact_queried_set: Set[str] = set(queried_table_urns)
+        queried_by_key: Dict[str, str] = {}
+        for u in queried_table_urns:
+            queried_by_key.setdefault(lowercase_dataset_urn(u), u)
 
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
@@ -322,27 +313,14 @@ class HexLineageBuilder:
                     )
                     continue
 
-                if self._convert_urns_to_lowercase:
-                    key = self._canonical_dataset_key(parent_urn)
-                    canonical_parent = (
-                        queried_by_key.get(key) if key is not None else None
-                    )
-                    if canonical_parent is not None:
-                        # Rebuild the field URN against the exact queried URN so
-                        # column lineage points to the same dataset as datasetEdges
-                        # (no dangling author-case SchemaField URNs).
-                        matched.append(
-                            make_schema_field_urn(canonical_parent, field_path)
-                        )
-                    else:
-                        unmatched_tables.add(parent_urn)
-                        unmatched_field_count += 1
+                queried_parent = queried_by_key.get(lowercase_dataset_urn(parent_urn))
+                if queried_parent is not None:
+                    # Rebuild the field URN against the exact queried URN so
+                    # column lineage points to the same dataset as datasetEdges.
+                    matched.append(make_schema_field_urn(queried_parent, field_path))
                 else:
-                    if parent_urn in exact_queried_set:
-                        matched.append(furn)
-                    else:
-                        unmatched_tables.add(parent_urn)
-                        unmatched_field_count += 1
+                    unmatched_tables.add(parent_urn)
+                    unmatched_field_count += 1
 
             if unmatched_tables:
                 self._report.enterprise_cells_with_mismatch += 1
@@ -372,16 +350,18 @@ class HexLineageBuilder:
         self._report.enterprise_column_fields_emitted += len(validated_fields)
         return validated_fields
 
-    def _canonical_dataset_key(self, urn: str) -> Optional[Tuple[str, str, str]]:
-        """Comparison key for a dataset URN under ``convert_urns_to_lowercase``:
-        ``(platform, name.lower(), env)``. Platform and env stay exact so
-        distinct upstreams don't collide on casing; only the dataset name is
-        normalized. Returns None if the URN is malformed."""
-        try:
-            d = DatasetUrn.from_string(urn)
-        except Exception:
-            return None
-        return (d.platform, d.name.lower(), d.env)
+    def _should_lowercase(self, connection: HexConnection) -> bool:
+        """Whether to lowercase the qualified table name for this connection.
+
+        Mirrors the SQL-cell path's ``SchemaResolver._prefers_urn_lower()``: by
+        default case-insensitive platforms (snowflake, postgres, redshift, …) are
+        lowercased and case-sensitive platforms (bigquery, db2) preserve author
+        case. A per-connection ``convert_urns_to_lowercase`` override, if set,
+        wins over the platform default.
+        """
+        if connection.convert_urns_to_lowercase is not None:
+            return connection.convert_urns_to_lowercase
+        return connection.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
     def _lookup_connection(
         self, connection_id: Optional[str]
