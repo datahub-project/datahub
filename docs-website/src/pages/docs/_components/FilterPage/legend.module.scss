@@ -1,23 +1,9 @@
-// Three columns keep the hero's title, subtitle and filter bar centred on the
-// page: the empty first column always mirrors the legend in the third, so the
-// middle column stays dead-centre whatever width the legend takes. Below the
-// breakpoint the grid collapses and the legend sits under the filter bar.
-.heroLayout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 44rem) minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: start;
-}
-
-.heroMain {
-  grid-column: 2;
-  min-width: 0;
-}
-
+// Sticks below the fixed navbar so the legend stays on screen while the cards
+// scroll past it. Sticky only engages while the rail is shorter than its grid
+// column, which is why the card grid sets `align-items: start`.
 .legend {
-  grid-column: 3;
-  justify-self: start;
-  max-width: 17rem;
+  position: sticky;
+  top: calc(var(--ifm-navbar-height) + 1rem);
   padding: 0.75rem 1rem;
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 8px;
@@ -26,20 +12,12 @@
   text-align: left;
 }
 
-@media (max-width: 996px) {
-  .heroLayout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .heroMain {
-    grid-column: 1;
-  }
-
+// Once the rail drops back into normal flow under the cards, sticky would pin
+// it to the viewport for the rest of the page with nothing beside it.
+@media (max-width: 1200px) {
   .legend {
-    grid-column: 1;
-    justify-self: stretch;
-    max-width: none;
-    margin-top: 1rem;
+    position: static;
+    margin-top: 1.5rem;
   }
 }
 

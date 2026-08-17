@@ -222,24 +222,20 @@ export function FilterPage(
       <header className={"hero"}>
         <div className="container">
           <div className="hero__content">
-            <div className={clsx(showLegend && styles.heroLayout)}>
-              <div className={clsx(showLegend && styles.heroMain)}>
-                <h1 className="hero__title">{title}</h1>
-                <p className="hero__subtitle">{subtitle}</p>
+            <div>
+              <h1 className="hero__title">{title}</h1>
+              <p className="hero__subtitle">{subtitle}</p>
 
-                <FilterBar
-                  textState={textState}
-                  setTextState={setTextState}
-                  filterState={filterState}
-                  setFilterState={setFilterState}
-                  filterOptions={filterOptions}
-                  allowExclusivity={allowExclusivity}
-                  setIsExclusive={setIsExclusive}
-                  categoryCounts={categoryCounts}
-                />
-              </div>
-
-              {showLegend && <CardLegend />}
+              <FilterBar
+                textState={textState}
+                setTextState={setTextState}
+                filterState={filterState}
+                setFilterState={setFilterState}
+                filterOptions={filterOptions}
+                allowExclusivity={allowExclusivity}
+                setIsExclusive={setIsExclusive}
+                categoryCounts={categoryCounts}
+              />
             </div>
           </div>
         </div>
@@ -248,6 +244,7 @@ export function FilterPage(
       <FilterCards
         content={filteredIngestionSourceContent}
         filterBar={<FilterBar />}
+        aside={showLegend ? <CardLegend /> : null}
       />
 
       <div
