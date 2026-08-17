@@ -2,8 +2,11 @@ package com.linkedin.metadata.client;
 
 import com.linkedin.common.WindowDuration;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
+import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
+import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import com.linkedin.usage.UsageTimeRange;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -24,7 +27,6 @@ public class UsageStatsJavaClientTest {
   private MockedStatic<UsageServiceUtil> _utils;
   private Instant _now;
   private Instant _monthAgo;
-  private MockedStatic<Instant> _instant;
 
   @BeforeMethod
   public void setupTest() {
@@ -32,20 +34,37 @@ public class UsageStatsJavaClientTest {
     _usageClientCacheConfig = Mockito.mock(UsageClientCacheConfig.class);
     _opContext = Mockito.mock(OperationContext.class);
     _utils = Mockito.mockStatic(UsageServiceUtil.class);
-    _now = Instant.now(Clock.fixed(Instant.parse("2025-01-01T00:00:00Z"), ZoneOffset.UTC));
-    _monthAgo = Instant.now(Clock.fixed(Instant.parse("2024-12-01T00:00:00Z"), ZoneOffset.UTC));
-    _instant = Mockito.mockStatic(Instant.class);
+    _now = Instant.parse("2025-01-01T00:00:00Z");
+    _monthAgo = Instant.parse("2024-12-01T00:00:00Z");
+    // Aligned to a 5m boundary, so canonicalization is a no-op here and these stay delegation
+    // assertions rather than rounding assertions.
+    Mockito.when(_opContext.canonicalNow()).thenReturn(canonicalizerAt(_now).now());
+  }
+
+  /** An enabled canonicalizer pinned to a fixed instant. */
+  private static QueryTimeCanonicalizer canonicalizerAt(Instant fixedNow) {
+    return QueryTimeCanonicalizer.fromConfig(
+        QueryCanonicalizationConfiguration.builder()
+            .enabled(true)
+            .time(
+                TimeCanonicalizationConfiguration.builder()
+                    .enabled(true)
+                    .bucketSize("5m")
+                    .timezone("UTC")
+                    .rounding("EXPAND")
+                    .build())
+            .build(),
+        null,
+        Clock.fixed(fixedNow, ZoneOffset.UTC));
   }
 
   @AfterMethod
   public void closeTest() {
     _utils.close();
-    _instant.close();
   }
 
   @Test
   public void testQueryRangeShouldBeCalledWhenNoStartTimeMillisProvided() throws IOException {
-    _instant.when(Instant::now).thenReturn(_now);
     UsageStatsJavaClient client =
         new UsageStatsJavaClient(_timeseriesAspectService, _usageClientCacheConfig, null);
 
@@ -69,7 +88,6 @@ public class UsageStatsJavaClientTest {
 
   @Test
   public void testQueryShouldBeCalledWhenStartTimeMillisProvided() throws IOException {
-    _instant.when(Instant::now).thenReturn(_now);
     UsageStatsJavaClient client =
         new UsageStatsJavaClient(_timeseriesAspectService, _usageClientCacheConfig, null);
 
