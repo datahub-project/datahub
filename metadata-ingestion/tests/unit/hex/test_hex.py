@@ -452,7 +452,7 @@ class TestResolveConnections:
         assert c.default_schema == "public"
 
 
-def test_pipeline_blanket_urn_lowercasing_stays_disabled(tmp_path) -> None:
+def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
     """The pipeline-level AutoLowercaseUrnsProcessor duck-types on a top-level
     source config attribute named ``convert_urns_to_lowercase``. Hex must never
     expose that name at the source level: blanket lowercasing would rewrite
