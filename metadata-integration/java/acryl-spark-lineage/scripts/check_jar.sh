@@ -98,51 +98,76 @@ for jarFile in ${jarFiles}; do
     exit 1
   fi
 
-  jar -tvf $jarFile |\
-      grep -v "log4j.xml" |\
-      grep -v "log4j2.xml" |\
-      grep -v "org/apache/log4j" |\
-      grep -v "io/acryl/" |\
-      grep -v "datahub/shaded" |\
-      grep -v "licenses" |\
-      grep -v "META-INF" |\
-      grep -v "com/linkedin" |\
-      grep -v "com/datahub" |\
-      grep -v "datahub" |\
-      grep -v "entity-registry" |\
-      grep -v "pegasus/" |\
-      grep -v "legacyPegasusSchemas/" |\
-      grep -v " com/$" |\
-      grep -v "git.properties" |\
-      grep -v " org/$" |\
-      grep -v " io/$" |\
-      grep -v "git.properties" |\
-      grep -v "org/aopalliance" |\
-      grep -v "javax/" |\
-      grep -v "jakarta/" |\
-      grep -v "JavaSpring" |\
-      grep -v "java-header-style.xml" |\
-      grep -v "xml-header-style.xml" |\
-      grep -v "license.header" |\
-      grep -v "module-info.class" |\
-      grep -v "client.properties" |\
-      grep -v "kafka" |\
-      grep -v "win/" |\
-      grep -v "include/" |\
-      grep -v "linux/" |\
-      grep -v "darwin" |\
-      grep -v "aix" |\
-      grep -v "MetadataChangeProposal.avsc" |\
-      grep -v "io.openlineage" |\
-      grep -v "library.properties|rootdoc.txt" \|
-      grep -v "com/ibm/.*"
+  # Anything that is neither DataHub/OpenLineage code nor a relocated dependency should not ship in
+  # an agent that gets injected into a user's Spark JVM, where it can shadow the host's own copy.
+  #
+  # This check was inert until now: the last filter line ended in an ESCAPED pipe (`\|`), which handed
+  # grep a file named "|" rather than continuing the pipeline. grep never read stdin, exited 2, and
+  # the following line ran as a separate command against empty stdin — so the success branch was taken
+  # unconditionally, whatever the jar contained. Two further fixes make it usable: the leftovers are
+  # printed (previously they went nowhere, so a real failure was undiagnosable), and directory entries
+  # are skipped, since relocation leaves empty dirs behind at the canonical paths (antlr/,
+  # com/fasterxml/jackson/, …) which hold no code.
+  #
+  # Turning it on surfaced four PRE-EXISTING leaks, allowlisted below rather than removed here.
+  # Removing them changes what ~700 bundled classes link against at runtime — commons-io alone has 51
+  # consumers, one of them a DataHub-patched OpenLineage class — so it needs its own verification and
+  # its own revertible change. Allowlisting keeps them visible and tracked instead of hidden behind a
+  # check that never ran, while the check again catches anything NEW.
+  unexpected=$(jar -tf "$jarFile" |
+      grep -v '/$' |
+      grep -v "log4j.xml" |
+      grep -v "log4j2.xml" |
+      grep -v "org/apache/log4j" |
+      grep -v "io/acryl/" |
+      grep -v "datahub/shaded" |
+      grep -v "licenses" |
+      grep -v "META-INF" |
+      grep -v "com/linkedin" |
+      grep -v "com/datahub" |
+      grep -v "datahub" |
+      grep -v "entity-registry" |
+      grep -v "pegasus/" |
+      grep -v "legacyPegasusSchemas/" |
+      grep -v "git.properties" |
+      grep -v "org/aopalliance" |
+      grep -v "javax/" |
+      grep -v "jakarta/" |
+      grep -v "JavaSpring" |
+      grep -v "java-header-style.xml" |
+      grep -v "xml-header-style.xml" |
+      grep -v "license.header" |
+      grep -v "module-info.class" |
+      grep -v "client.properties" |
+      grep -v "kafka" |
+      grep -v "win/" |
+      grep -v "include/" |
+      grep -v "linux/" |
+      grep -v "darwin" |
+      grep -v "aix" |
+      grep -v "MetadataChangeProposal.avsc" |
+      grep -v "io.openlineage" |
+      grep -v "library.properties" |
+      grep -v "rootdoc.txt" |
+      grep -v "com/ibm/" |
+      # --- Known pre-existing leaks, tracked for removal in a follow-up. Do NOT extend this list to
+      # --- silence a new leak: fix the packaging instead.
+      grep -v "^org/slf4j/" |                 # slf4j-api + a reload4j binding; Spark ships its own → double-binding
+      grep -v "^org/apache/commons/io/" |     # commons-io, unrelocated, while codec/compress/lang3/text are relocated
+      grep -v "^com/google/j2objc/" |         # guava transitive annotations
+      grep -v "^common/message/" |            # kafka-clients protocol message schemas (JSON)
+      grep -v "^log4j.properties$" |          # same family as the log4j.xml entries above
+      grep -v "^mime.types$" |
+      grep -v "^VersionInfo.java$" |
+      grep -v "^LICENSE-ClassGraph.txt$")
 
-
-if [ $? -ne 0 ]; then
+  if [ -n "$unexpected" ]; then
+    echo "💥 Found unexpected class paths in ${jarFile}:"
+    echo "$unexpected"
+    echo "   These ship unrelocated inside an agent injected into the user's Spark JVM and can shadow"
+    echo "   Spark's own copies. Relocate or exclude them in build.gradle."
+    exit 1
+  fi
   echo "✅ No unexpected class paths found in ${jarFile}"
-else
-  echo "💥 Found unexpected class paths in ${jarFile}"
-  exit 1
-fi
 done
 exit 0
