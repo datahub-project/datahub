@@ -216,6 +216,21 @@ class TestTableNameFromSqlglotTableWithDialect:
         assert result.table == "events_view"
         assert result.parts == ("analytics", "events_view")
 
+    def test_clickhouse_unquoted_parameterized_view_keeps_table_name(self):
+        statement = sqlglot.parse_one(
+            "SELECT * FROM analytics.events_view(final = 1)",
+            dialect="clickhouse",
+        )
+        (result,) = _extract_table_names(
+            statement.find_all(sqlglot.exp.Table),
+            self._get_clickhouse_dialect(),
+        )
+
+        assert result.database is None
+        assert result.db_schema == "analytics"
+        assert result.table == "events_view"
+        assert result.parts == ("analytics", "events_view")
+
     def test_clickhouse_table_function_is_not_a_table(self):
         table = sqlglot.exp.Table(
             db=sqlglot.exp.Identifier(this="analytics", quoted=True),
@@ -232,6 +247,17 @@ class TestTableNameFromSqlglotTableWithDialect:
 
         assert result.table == ""
         assert not _extract_table_names([table], self._get_clickhouse_dialect())
+
+    def test_clickhouse_equality_table_function_is_not_a_table(self):
+        statement = sqlglot.parse_one(
+            "SELECT * FROM analytics.equals(1 = 1)",
+            dialect="clickhouse",
+        )
+
+        assert not _extract_table_names(
+            statement.find_all(sqlglot.exp.Table),
+            self._get_clickhouse_dialect(),
+        )
 
     def test_non_clickhouse_parameterized_function_is_not_a_table(self):
         result = _table_name_from_sqlglot_table(

@@ -180,17 +180,19 @@ def _table_name_from_sqlglot_table(
             )
 
     # ClickHouse parameterized views parse as a qualified table whose table
-    # component is an anonymous function with a quoted identifier.
+    # component is an anonymous function with a string or quoted identifier.
     if (
         dialect is not None
         and is_dialect_instance(dialect, "clickhouse")
         and isinstance(table_expression, sqlglot.exp.Anonymous)
-        and isinstance(table_expression.this, sqlglot.exp.Identifier)
-        and table_expression.this.quoted
+        and isinstance(table_expression.this, (str, sqlglot.exp.Identifier))
         and table.db
         and table_expression.expressions
         and all(
             isinstance(argument, sqlglot.exp.EQ)
+            and isinstance(argument.this, sqlglot.exp.Column)
+            and bool(argument.this.name)
+            and not argument.this.table
             for argument in table_expression.expressions
         )
     ):
