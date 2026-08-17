@@ -1,12 +1,16 @@
 package datahub.spark;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +38,8 @@ public class ShadedNativeCodecTest {
       "io.acryl.shaded.org.apache.kafka.common.compress.Compression";
   private static final String BB_OUTPUT_STREAM =
       "io.acryl.shaded.org.apache.kafka.common.utils.ByteBufferOutputStream";
+  private static final String BUFFER_SUPPLIER =
+      "io.acryl.shaded.org.apache.kafka.common.utils.BufferSupplier";
   private static final byte MAGIC_V2 = 2;
 
   @Test
@@ -85,6 +91,35 @@ public class ShadedNativeCodecTest {
 
     int written = (int) sink.getClass().getMethod("position").invoke(sink);
     assertTrue(written > 0, codec + " compression produced no output");
+
+    // Round-trip rather than stopping at "bytes were written": that only proves nothing threw, and
+    // a
+    // codec that produced an unreadable frame would still pass. Decompressing back to the original
+    // payload asserts the native path actually works.
+    ByteBuffer compressed = (ByteBuffer) sink.getClass().getMethod("buffer").invoke(sink);
+    compressed.flip();
+    Class<?> bufferSupplier = Class.forName(BUFFER_SUPPLIER);
+    Object noCaching = bufferSupplier.getField("NO_CACHING").get(null);
+    Method wrapForInput =
+        compressionClass.getMethod("wrapForInput", ByteBuffer.class, byte.class, bufferSupplier);
+
+    byte[] roundTripped;
+    try (InputStream in =
+        (InputStream) wrapForInput.invoke(compression, compressed, MAGIC_V2, noCaching)) {
+      roundTripped = readAll(in);
+    }
+    assertArrayEquals(
+        payload, roundTripped, codec + " decompressed to different bytes than were compressed");
+  }
+
+  private static byte[] readAll(InputStream in) throws Exception {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    byte[] buf = new byte[512];
+    int n;
+    while ((n = in.read(buf)) != -1) {
+      out.write(buf, 0, n);
+    }
+    return out.toByteArray();
   }
 
   /**

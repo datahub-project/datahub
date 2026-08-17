@@ -64,6 +64,12 @@ public class ShadedReflectionClassNameTest {
     Object topic = proxyClass.getMethod("topic").invoke(proxy);
     assertEquals(
         Optional.of("topic-a"), topic, "proxy should read the topic off the host TopicPartition");
+    // Only topic() feeds the Kafka input dataset (KafkaMicroBatchStreamStrategy calls nothing
+    // else),
+    // but partition() is the proxy's other reflective accessor, so cover it too.
+    Object partition = proxyClass.getMethod("partition").invoke(proxy);
+    assertEquals(
+        Optional.of(0), partition, "proxy should read the partition off the host TopicPartition");
   }
 
   /**
@@ -75,20 +81,31 @@ public class ShadedReflectionClassNameTest {
    */
   @Test
   public void redshiftVendorClassNameConstantsAreNotRelocated() throws Exception {
-    assertConstantIsCanonical(
+    String relation = "io.github.spark_redshift_community.spark.redshift.RedshiftRelation";
+    String provider = "io.github.spark_redshift_community.spark.redshift.DefaultSource";
+
+    assertConstantEquals(
         "io.acryl.shaded.io.openlineage.spark.agent.vendor.redshift.Constants",
-        "REDSHIFT_CLASS_NAME");
-    assertConstantIsCanonical(
+        "REDSHIFT_CLASS_NAME",
+        relation);
+    assertConstantEquals(
         "io.acryl.shaded.io.openlineage.spark.agent.vendor.redshift.Constants",
-        "REDSHIFT_PROVIDER_CLASS_NAME");
+        "REDSHIFT_PROVIDER_CLASS_NAME",
+        provider);
     // The visitor keeps its own copy of the literal; fixing only Constants would still leave it
     // dead.
-    assertConstantIsCanonical(
+    assertConstantEquals(
         "io.acryl.shaded.io.openlineage.spark.agent.vendor.redshift.lifecycle.RedshiftRelationVisitor",
-        "REDSHIFT_CLASS_NAME");
+        "REDSHIFT_CLASS_NAME",
+        relation);
   }
 
-  private static void assertConstantIsCanonical(String className, String fieldName)
+  /**
+   * Asserts the exact canonical name rather than merely the absence of the {@code io.acryl.shaded.}
+   * prefix: relocation always adds that prefix, so a prefix check catches the shading bug, but any
+   * other wrong value (a typo, a rename upstream) would slip through unnoticed.
+   */
+  private static void assertConstantEquals(String className, String fieldName, String expected)
       throws Exception {
     Field field = Class.forName(className).getDeclaredField(fieldName);
     field.setAccessible(true);
@@ -103,5 +120,7 @@ public class ShadedReflectionClassNameTest {
               + "' (issue #19005). It names a class the host classpath supplies, so loadClass()"
               + " can never resolve it and the Redshift visitor silently never fires.");
     }
+    assertEquals(
+        expected, value, className + "." + fieldName + " must name the host-supplied class");
   }
 }
