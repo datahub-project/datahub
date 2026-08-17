@@ -103,6 +103,25 @@ TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg", "oracle
 
 PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg", "lakehouse", "delta_lake"]
 
+
+def normalize_connector_database(platform: str, database: str) -> str:
+    """Normalize a configured connector_database the way the native source would.
+
+    Oracle stores unquoted identifiers in uppercase and the `oracle` source lowercases
+    them via SQLAlchemy's ``normalize_name``, so a `connector_database` copied verbatim
+    from Oracle (e.g. ``ORCLPDB1``) would otherwise build a URN the native ingestion
+    never produces. The rule is deliberately duplicated from ``oracle.normalize_db_name``
+    rather than imported: that module imports ``oracledb`` at module scope, which the
+    trino plugin does not depend on.
+
+    Only applied to Oracle -- the uppercase-means-unquoted convention is Oracle-specific
+    and would corrupt names for platforms that fold the other way (e.g. Snowflake).
+    """
+    if platform == "oracle":
+        return database.lower() if database.isupper() else database
+    return database
+
+
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
     register_custom_type(datatype.JSON, RecordTypeClass)
@@ -351,9 +370,12 @@ class TrinoSource(SQLAlchemySource):
         # add_database_name_to_urn=true. Without connector_database, a connector listed
         # in TWO_TIER_CONNECTORS falls back to a two-tier (schema.table) URN.
         if connector_details.connector_database:  # three tier
+            connector_database = normalize_connector_database(
+                connector_platform_name, connector_details.connector_database
+            )
             return make_dataset_urn_with_platform_instance(
                 platform=connector_platform_name,
-                name=f"{connector_details.connector_database}.{schema}.{table}",
+                name=f"{connector_database}.{schema}.{table}",
                 platform_instance=connector_details.platform_instance,
                 env=connector_details.env,
             )
