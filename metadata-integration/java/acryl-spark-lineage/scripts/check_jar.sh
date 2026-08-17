@@ -61,7 +61,8 @@ for jarFile in ${jarFiles}; do
   # shading cannot rewrite, so relocating it yields UnsatisfiedLinkError at the first native call —
   # how snappy-java, zstd-jni, lz4-java and JNA were all silently broken. Spark supplies these, so the
   # fix is to exclude them (both the classes and the relocation), not to bundle them unrelocated.
-  strayNatives=$(echo "$jarEntries" | grep -E '\.(so|dylib|dll|jnilib)$' | grep -v '^io/openlineage/sql/')
+  strayNatives=$(echo "$jarEntries" | grep -E '\.(so|dylib|dll|jnilib)$' |
+      grep -vE '^io/openlineage/sql/libopenlineage_sql_java[^/]*\.(so|dylib|dll)$')
   if [ -n "$strayNatives" ]; then
     echo "💥 Found native libraries outside io/openlineage/sql/ in ${jarFile}:"
     echo "$strayNatives"
@@ -124,7 +125,15 @@ for jarFile in ${jarFiles}; do
   # What IS fatal is scanning nothing at all: an absent unzip or a failed extraction would leave an
   # empty directory, the grep below would find no matches, and this guard would report success while
   # checking nothing — the same silently-passing failure this whole check exists to prevent.
-  unzip -o -q "$jarFile" 'io/acryl/shaded/io/openlineage/*' 'datahub/*' 'io/acryl/shaded/io/datahubproject/*' -d "$scanDir" || true
+  unzip -o -q "$jarFile" 'io/acryl/shaded/io/openlineage/*' 'datahub/*' 'io/acryl/shaded/io/datahubproject/*' -d "$scanDir"
+  unzipStatus=$?
+  # 0 = extracted, 11 = a pattern matched nothing (harmless on its own). Any other status is a
+  # real failure, and a partially-written directory must not be mistaken for a complete scan.
+  if [ "$unzipStatus" -ne 0 ] && [ "$unzipStatus" -ne 11 ]; then
+    echo "💥 unzip failed (exit ${unzipStatus}) extracting ${jarFile} for the reflection scan"
+    rm -rf "$scanDir"
+    exit 1
+  fi
   scannedClasses=$(find "$scanDir" -name '*.class' | wc -l | tr -d ' ')
   if [ "$scannedClasses" -eq 0 ]; then
     echo "💥 Extracted no classes from ${jarFile} for the reflection scan (is unzip available?)."
@@ -196,7 +205,11 @@ for jarFile in ${jarFiles}; do
       grep -v "darwin" |
       grep -v "aix" |
       grep -v "MetadataChangeProposal.avsc" |
-      grep -v "io.openlineage" |
+      # Anchored rather than the old unanchored "io.openlineage": '.' matches '/', so that
+      # pattern also exempted any future non-sql/extension OpenLineage leak. These two paths
+      # are the only ones that legitimately stay canonical (both asserted present above).
+      grep -v '^io/openlineage/sql/' |
+      grep -v '^io/openlineage/spark/extension/' |
       grep -v "library.properties" |
       grep -v "rootdoc.txt" |
       grep -v "com/ibm/" |
