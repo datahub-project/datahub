@@ -22,9 +22,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
 
 logger = logging.getLogger(__name__)
 
-# Mirrors databricks-sql-connector's DatabricksDialect.get_columns _type_map, plus
-# unknown types (VARIANT, TIMESTAMP_NTZ, …). The vendor map is a local dict; one
-# unmapped TYPE_NAME KeyErrors and SQLAlchemy autoload aborts the whole table.
+# Vendor get_columns _type_map has no VARIANT; KeyError aborts the whole table.
 _DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[sqltypes.TypeEngine]] = {
     "boolean": sqltypes.Boolean,
     "smallint": sqltypes.SmallInteger,
@@ -48,7 +46,6 @@ _DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[sqltypes.TypeEngine]] = {
 
 
 def map_databricks_column_type(type_name: str) -> Type[sqltypes.TypeEngine]:
-    """Map a Databricks TYPE_NAME to a SQLAlchemy type class."""
     match = re.search(r"^\w+", type_name or "")
     if not match:
         return sqltypes.NullType
@@ -62,7 +59,6 @@ def _get_columns_unknown_types_as_null(
     schema: Optional[str] = None,
     **kwargs: Any,
 ) -> List[Dict[str, Any]]:
-    """Reflect columns; map unknown Databricks types to NullType instead of KeyError."""
     with self.get_connection_cursor(connection) as cur:
         resp = cur.columns(
             catalog_name=self.catalog,

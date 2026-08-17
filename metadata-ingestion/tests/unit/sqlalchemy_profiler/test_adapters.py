@@ -1381,7 +1381,6 @@ class TestDatabricksAdapter:
         assert_sql_matches_pattern(sql, pattern)
 
     def test_map_databricks_column_type_variant(self, adapter) -> None:
-        """VARIANT and other unknown types must not KeyError during reflection."""
         from sqlalchemy.sql import sqltypes
 
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
@@ -1397,7 +1396,6 @@ class TestDatabricksAdapter:
     def test_get_columns_tolerates_variant(
         self, adapter, mock_databricks_engine
     ) -> None:
-        """Dialect get_columns must succeed when a table has a VARIANT column."""
         from sqlalchemy.sql import sqltypes
 
         dialect = mock_databricks_engine.dialect
