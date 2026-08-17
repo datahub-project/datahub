@@ -5,10 +5,14 @@
 # deprecation). Intentionally omits structuredProperties, ownership, domain association,
 # tags/glossaryTerms, lineage, health, dataset stats, and graph-driving fields
 # (parentContainers/parentDomains/parentNodes, siblingsSearch, relationships) — those
-# dominate ICA home-widget fan-out and are not rendered by EntityLink /
-# DomainMiniPreview / TagLink / GlossaryTermMiniPreview. siblings.isPrimary is retained
-# for useGetSearchAssets → combineSiblingsInSearchResults primary-sibling dedup.
-# Autocomplete restores the graph fields via autoCompleteFields.
+# dominate home-widget fan-out and are not rendered by EntityLink / DomainMiniPreview /
+# TagLink / GlossaryTermMiniPreview.
+#
+# siblings is kept but reduced to isPrimary plus sibling urns: that comes from the
+# siblings aspect rather than a per-result sibling search, and it is enough for
+# useGetSearchAssets to collapse a sibling cohort (e.g. a dbt model and the table it
+# materializes) down to one card. Full sibling merging needs siblingsSearch, which
+# autoCompleteFields restores along with the other graph-driving fields.
 fragment searchResultCardFields on Entity {
     urn
     type
@@ -34,6 +38,9 @@ fragment searchResultCardFields on Entity {
         }
         siblings {
             isPrimary
+            siblings {
+                urn
+            }
         }
         deprecation {
             deprecated

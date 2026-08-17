@@ -10,12 +10,12 @@ vi.mock('@graphql/search.generated', () => ({
     useGetSearchResultsForMultipleCardsQuery: vi.fn(),
 }));
 
-vi.mock('@src/app/useAppConfig', () => ({
-    useIsShowSeparateSiblingsEnabled: () => false,
+const { isShowSeparateSiblingsEnabled } = vi.hoisted(() => ({
+    isShowSeparateSiblingsEnabled: vi.fn(() => false),
 }));
 
-vi.mock('@src/app/search/utils/combineSiblingsInSearchResults', () => ({
-    combineSiblingsInSearchResults: (_showSeparate: boolean, results: unknown) => results || [],
+vi.mock('@src/app/useAppConfig', () => ({
+    useIsShowSeparateSiblingsEnabled: isShowSeparateSiblingsEnabled,
 }));
 
 describe('useGetSearchAssets', () => {
@@ -23,6 +23,7 @@ describe('useGetSearchAssets', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        isShowSeparateSiblingsEnabled.mockReturnValue(false);
         queryMock.mockReturnValue({
             loading: false,
             data: undefined,
@@ -66,5 +67,48 @@ describe('useGetSearchAssets', () => {
 
         expect(result.current.assets).toEqual([entity]);
         expect(result.current.loading).toBe(false);
+    });
+
+    it('renders one asset per sibling cohort, keeping the primary sibling', () => {
+        const dbt = {
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.my_schema.events,PROD)',
+            type: EntityType.Dataset,
+            siblings: { isPrimary: false, siblings: [{ urn: 'urn:li:dataset:warehouse' }] },
+        };
+        const warehouse = {
+            urn: 'urn:li:dataset:warehouse',
+            type: EntityType.Dataset,
+            siblings: { isPrimary: true, siblings: [{ urn: dbt.urn }] },
+        };
+        queryMock.mockReturnValue({
+            loading: false,
+            data: { searchAcrossEntities: { searchResults: [{ entity: dbt }, { entity: warehouse }] } },
+        });
+
+        const { result } = renderHook(() => useGetSearchAssets([EntityType.Dataset]));
+
+        expect(result.current.assets).toEqual([warehouse]);
+    });
+
+    it('keeps siblings separate when the separate-siblings flag is on', () => {
+        isShowSeparateSiblingsEnabled.mockReturnValue(true);
+        const dbt = {
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.my_schema.events,PROD)',
+            type: EntityType.Dataset,
+            siblings: { isPrimary: false, siblings: [{ urn: 'urn:li:dataset:warehouse' }] },
+        };
+        const warehouse = {
+            urn: 'urn:li:dataset:warehouse',
+            type: EntityType.Dataset,
+            siblings: { isPrimary: true, siblings: [{ urn: dbt.urn }] },
+        };
+        queryMock.mockReturnValue({
+            loading: false,
+            data: { searchAcrossEntities: { searchResults: [{ entity: dbt }, { entity: warehouse }] } },
+        });
+
+        const { result } = renderHook(() => useGetSearchAssets([EntityType.Dataset]));
+
+        expect(result.current.assets).toEqual([dbt, warehouse]);
     });
 });
