@@ -6,9 +6,9 @@ from datahub.utilities.urn_alias.index import (
     CatalogSlice,
     UrnAliasIndex,
     covered_by,
-    get_urn_alias_index,
+    shared_index,
 )
-from datahub.utilities.urn_alias.remote import RemoteUrnLookup, select_remote_lookup
+from datahub.utilities.urn_alias.remote import UrnLookup, select_lookup
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -30,35 +30,44 @@ def _has_lowercased_name(urn: str) -> bool:
 class UrnAliasResolver:
     """Resolves a dataset URN to the URN DataHub stores for it, ignoring case.
 
-    One lookup, satisfiable four ways: a stored match, a previously recorded absence, an
-    absence inferred from the slice having been fully loaded, or by asking DataHub. Only
-    the last reaches the network, and callers do not choose between them.
-
-    Without a `remote` the resolver never queries — the index alone answers, and an
-    unknown URN simply does not resolve.
+    The one way in — `add` from a bulk load, `resolve` for a reference — but not the one
+    doing the work: storing and matching belong to the lookup this server resolves by. What
+    is left here is which URN to pick out of its answer, and which questions a completed
+    scroll has already answered.
     """
 
-    def __init__(
-        self, index: UrnAliasIndex, remote: Optional[RemoteUrnLookup] = None
-    ) -> None:
+    def __init__(self, index: UrnAliasIndex, lookup: UrnLookup) -> None:
         self._index = index
-        self._remote = remote
+        self._lookup = lookup
+
+    def add(self, urn: str) -> None:
+        """Record that DataHub holds `urn`, from a scroll that enumerated it."""
+        self._lookup.add(urn)
+
+    def record_slice_loaded(self, catalog_slice: CatalogSlice) -> None:
+        """Record that `catalog_slice` was scrolled to completion, which makes a miss
+        inside it an answer rather than a question.
+
+        Never for a scroll that failed part way: its rows are still useful, but claiming
+        coverage would turn every URN it never reached into a false absence.
+        """
+        if catalog_slice not in self._index.loaded_slices:
+            self._index.loaded_slices.append(catalog_slice)
 
     def prefetch(self, urns: List[str]) -> None:
-        """Learn what the index cannot already answer about `urns`, in as few queries as
-        possible. A no-op with no `remote`."""
-        if self._remote is None:
-            return
-        unknown = [urn for urn in urns if self._index.lookup(urn) is None]
-        if unknown:
-            self._remote.fetch(unknown)
+        """Learn what is not already known about `urns`, in as few queries as possible."""
+        # A reference inside a fully scrolled slice needs no query: that load answered it
+        # already, whether or not it found the entity.
+        unanswered = [
+            urn for urn in urns if not covered_by(urn, self._index.loaded_slices)
+        ]
+        if unanswered:
+            self._lookup.prefetch(unanswered)
 
     def find_match(self, urn: str) -> List[str]:
         """Stored URNs matching `urn` ignoring case."""
         self.prefetch([urn])
-        # None (still unknown, because there is no remote or its query failed) and [] (a
-        # definite absence) both mean "no match" to a caller choosing a URN.
-        return self._index.lookup(urn) or []
+        return self._lookup.matches(urn)
 
     def resolve(
         self,
@@ -92,23 +101,21 @@ def get_urn_alias_resolver(
     query_on_demand: bool = False,
     platform_instances: Collection[str] = (),
 ) -> UrnAliasResolver:
-    """The way to resolve URN casing against `graph`.
+    """The way to resolve URN casing against `graph`, and to fill what it resolves from.
 
     Reads the one index shared per DataHub instance, so it sees whatever any consumer has
     already loaded.
 
-    `query_on_demand` wires up the network fallback, for a caller whose scope reaches
-    past the catalogs it loaded. It never fires inside a loaded slice: coverage already
-    answers every miss there. The two divide the work by scope rather than stacking on
-    the same references.
+    `query_on_demand` is what decides whether this consumer may ask the server at all, for
+    a caller whose scope reaches past the catalogs it loaded. It never fires inside a loaded
+    slice either: coverage already answers every miss there. The two divide the work by
+    scope rather than stacking on the same references.
 
-    `platform_instances` is read only by the casing-probe fallback, which cannot recover
-    an instance from a URN and has to be told which ones exist; the index never needs them.
+    `platform_instances` is read only by the casing-probe fallback, which cannot recover an
+    instance from a URN and has to be told which ones exist.
     """
-    index = get_urn_alias_index(graph)
-    remote = (
-        select_remote_lookup(graph, index, platform_instances)
-        if query_on_demand
-        else None
+    index = shared_index(graph)
+    lookup = select_lookup(
+        index, graph if query_on_demand else None, platform_instances
     )
-    return UrnAliasResolver(index, remote)
+    return UrnAliasResolver(index, lookup)

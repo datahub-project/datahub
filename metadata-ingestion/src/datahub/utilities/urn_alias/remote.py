@@ -2,7 +2,11 @@ import logging
 from typing import TYPE_CHECKING, Collection, Dict, List, Optional, Protocol, Set
 
 from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
-from datahub.metadata.schema_classes import DatasetKeyClass
+from datahub.metadata.schema_classes import (
+    ASPECT_NAME_MAP,
+    AliasesClass,
+    DatasetKeyClass,
+)
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urn_alias.index import UrnAliasIndex, lowercased_urn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -22,63 +26,76 @@ _URN_FIELD = "urn"
 _DATASET_ENTITY_TYPE = "dataset"
 
 
-class RemoteUrnLookup(Protocol):
-    """Goes and asks DataHub about URNs the index has no answer for.
+class UrnLookup(Protocol):
+    """How references are matched against the dataset URNs DataHub holds.
 
-    Each implementation records what it learns in the index itself, because only it knows
-    what its answer proves: an exhaustive search can record an absence, a probe that
-    guesses casings cannot.
-
-    Records nothing at all when a query fails. Marking a real entity absent would decline
-    every later reference to it for the rest of the run.
+    A lookup owns the index: `add` records what a bulk load enumerated, `prefetch` goes and
+    asks, `matches` answers from what is stored. All three key the index the same way,
+    which is why they belong together — only the lookup knows what its rows mean.
     """
 
-    def fetch(self, urns: List[str]) -> None:
-        """Learn what DataHub holds for `urns`, in as few queries as possible."""
+    def add(self, urn: str) -> None:
+        """Record `urn` as stored, from a scroll that enumerated it."""
+
+    def prefetch(self, urns: List[str]) -> None:
+        """Learn what is not already known about `urns`, in as few queries as possible."""
+
+    def matches(self, urn: str) -> List[str]:
+        """Stored URNs matching `urn` ignoring case, from what is already known."""
 
 
-class AliasSearchLookup:
-    """Asks via the `aliases.lowercasedUrn` index: one search returns every stored casing,
-    including casings nothing could have guessed.
+class AliasIndexLookup:
+    """Matches by the `aliases.lowercasedUrn` GMS indexes: one search returns every stored
+    casing of a name, including casings nothing could have guessed.
 
-    The search matches `urn` as well as the alias field: a dataset predating the `aliases`
-    aspect carries no alias until the backfill reaches it, so it is findable only under
-    its urn.
-
-    Exhaustive, so a name the search does not return is genuinely absent and is recorded
-    as such.
+    Keys the index by the lowercased URN, so one row answers for every casing of a name.
+    Without a graph it asks nothing and answers from what bulk loads recorded.
     """
 
-    def __init__(self, graph: "DataHubGraph", index: UrnAliasIndex) -> None:
-        self._graph = graph
+    def __init__(
+        self, index: UrnAliasIndex, graph: Optional["DataHubGraph"] = None
+    ) -> None:
         self._index = index
+        self._graph = graph
 
-    def fetch(self, urns: List[str]) -> None:
+    def add(self, urn: str) -> None:
+        key = lowercased_urn(urn)
+        if key is not None:
+            self._index.add(key, urn)
+
+    def matches(self, urn: str) -> List[str]:
+        key = lowercased_urn(urn)
+        if key is None:
+            # Not a dataset, so it has no casing to reconcile.
+            return []
+        return self._index.get(key) or []
+
+    def prefetch(self, urns: List[str]) -> None:
+        if self._graph is None:
+            return
         # One key covers every casing of a name, so a batch of references collapses to
         # far fewer questions.
         keys: List[str] = []
-        seen: Set[str] = set()
         for urn in urns:
             key = lowercased_urn(urn)
-            if key is None or key in seen:
+            if key is None or key in keys or self._index.get(key) is not None:
                 continue
-            seen.add(key)
             keys.append(key)
         if not keys:
             return
 
         matches_by_key = self._search(keys)
         if matches_by_key is None:
+            # A failed search records nothing. Marking a real entity absent would decline
+            # every later reference to it for the rest of the run.
             return
         for key, matches in matches_by_key.items():
-            self._index.record_matches(key, matches)
+            # The search is exhaustive, so `[]` here is a genuine absence.
+            self._index.replace(key, matches)
 
     def _search(self, keys: List[str]) -> Optional[Dict[str, List[str]]]:
-        """Stored URNs for each of `keys`, from one search, or None if the search failed.
-
-        None rather than an empty result: the two must stay distinguishable, so a failure
-        is never mistaken for "DataHub holds none of these".
-        """
+        """Stored URNs for each of `keys`, from one search, or None if the search failed."""
+        assert self._graph is not None
         or_filters: RawSearchFilter = [
             {
                 "and": [
@@ -112,54 +129,76 @@ class AliasSearchLookup:
 
 
 class CasingProbeLookup:
-    """Asks by guessing casings and checking whether each exact URN exists.
+    """Matches by guessing casings and checking whether each exact URN exists.
 
-    The fallback for a server that does not compute the `aliases` aspect, so only
-    guessable casings are findable.
+    The fallback where the `aliases` aspect is not maintained, so only guessable casings are
+    findable — including among the rows a bulk load left.
 
-    Non-exhaustive, so a candidate that does not exist proves nothing about the name and
-    is recorded nowhere. Not asking the same question twice is tracked here instead, which
-    keeps a guess that came back empty out of the shared index entirely.
+    Keys the index by the exact URN, one row per spelling checked and `[]` where it does not
+    exist, because that is all a guess establishes: finding `db.tbl` says nothing about
+    `DB.TBL`. Keying by the name instead would answer for casings never tried, resolving a
+    later reference to the wrong entity without even asking.
+
+    Rows a bulk load leaves are keyed the same way, deliberately, even though its scroll saw
+    every casing in the slice. Reading those by name would let a reference resolve to a
+    casing no guess reaches — but only where the operator happened to preload, making the
+    verdict depend on the recipe rather than on what DataHub holds. Preloading is a cost
+    knob; it must not change the answer. Reaching an unguessable casing is what the
+    `aliases` aspect is for.
     """
 
     def __init__(
         self,
-        graph: "DataHubGraph",
         index: UrnAliasIndex,
+        graph: Optional["DataHubGraph"] = None,
         platform_instances: Collection[str] = (),
     ) -> None:
-        self._graph = graph
         self._index = index
+        self._graph = graph
         # Instances cannot be recovered from a URN, only tested against one, so the
         # candidate builder is told which ones exist rather than parsing them out.
         self._platform_instances = list(platform_instances)
-        self._probed: Set[str] = set()
 
-    def fetch(self, urns: List[str]) -> None:
-        candidates: List[str] = []
+    def add(self, urn: str) -> None:
+        self._index.add(urn, urn)
+
+    def matches(self, urn: str) -> List[str]:
+        if lowercased_urn(urn) is None:
+            # Not a dataset: no casing to guess, and it must not be probed as one.
+            return []
+        return [
+            candidate
+            for candidate in self._candidates(urn)
+            if self._index.get(candidate)
+        ]
+
+    def prefetch(self, urns: List[str]) -> None:
+        if self._graph is None:
+            return
+        # Checked per candidate rather than against the whole table, which can be far
+        # larger than the batch.
+        unchecked: List[str] = []
         for urn in urns:
+            if lowercased_urn(urn) is None:
+                continue
             for candidate in self._candidates(urn):
-                if candidate in self._probed or candidate in candidates:
+                if candidate in unchecked or self._index.get(candidate) is not None:
                     continue
-                candidates.append(candidate)
-        if not candidates:
+                unchecked.append(candidate)
+        if not unchecked:
             return
 
-        existing = self._probe(candidates)
+        existing = self._probe(unchecked)
         if existing is None:
+            # A failed probe records nothing, as above.
             return
-        self._probed.update(candidates)
-        for urn in existing:
-            self._index.add(urn)
+        for candidate in unchecked:
+            self._index.replace(candidate, [candidate] if candidate in existing else [])
 
     def _candidates(self, urn: str) -> List[str]:
         """The casings of `urn` worth probing for."""
-        lowercased = lowercased_urn(urn)
-        if lowercased is None:
-            # Not a dataset: no casing to guess, and it must not be probed as one.
-            return []
         candidates = [urn]
-        extras: List[Optional[str]] = [lowercased]
+        extras: List[Optional[str]] = [lowercased_urn(urn)]
         for platform_instance in self._platform_instances:
             extras.append(_instance_kept_candidate(urn, platform_instance))
         for candidate in extras:
@@ -169,6 +208,7 @@ class CasingProbeLookup:
 
     def _probe(self, candidates: List[str]) -> Optional[Set[str]]:
         """Which of `candidates` exist, or None if the probe failed."""
+        assert self._graph is not None
         try:
             entities = self._graph.get_entities(
                 entity_name=_DATASET_ENTITY_TYPE,
@@ -211,18 +251,27 @@ def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:
     )
 
 
-def _server_computes_aliases(graph: "DataHubGraph") -> bool:
-    # TODO: Detect whether the server computes the `aliases` aspect and fall back to the
-    # casing probe when it does not. Assumed supported until that is decided.
-    return True
+def _aliases_supported() -> bool:
+    """Whether the `aliases` aspect exists in the metadata model this client is built on.
+
+    Local only: nothing is asked of the server, so this settles whether an alias search can
+    be expressed at all, not whether the server it would be issued against maintains the
+    aspect. A server-side signal for that is not read here yet.
+    """
+    return AliasesClass.ASPECT_NAME in ASPECT_NAME_MAP
 
 
-def select_remote_lookup(
-    graph: "DataHubGraph",
+def select_lookup(
     index: UrnAliasIndex,
+    graph: Optional["DataHubGraph"] = None,
     platform_instances: Collection[str] = (),
-) -> RemoteUrnLookup:
-    """The way to ask this server about URNs it may hold under another casing."""
-    if _server_computes_aliases(graph):
-        return AliasSearchLookup(graph, index)
-    return CasingProbeLookup(graph, index, platform_instances)
+) -> UrnLookup:
+    """The one way references are matched against this server, for every consumer of it.
+
+    One per server, never both: each keys the index its own way, so a row written by one
+    must not be read by the other. `graph` is None for a consumer that may not query — it
+    still fills and reads the index, just never asks.
+    """
+    if _aliases_supported():
+        return AliasIndexLookup(index, graph)
+    return CasingProbeLookup(index, graph, platform_instances)
