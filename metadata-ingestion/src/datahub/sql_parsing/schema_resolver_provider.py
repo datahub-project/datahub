@@ -8,7 +8,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urn_alias_resolver import urn_alias_loading_enabled
+from datahub.utilities.urn_alias.index import CatalogSlice, get_urn_alias_index
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -95,38 +95,61 @@ class SchemaResolverProvider:
         )
         scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
-        # Read once, not per URN: the flag is fixed for the run by the time any source
-        # exists, and the index is only useful if it holds the whole platform.
-        load_urn_aliases = urn_alias_loading_enabled()
+        # Every scrolled URN goes into the index shared per DataHub instance, whether or
+        # not this caller reads it: the scroll is already paid for, and the next consumer
+        # of the same catalog gets its answers for free.
+        urn_aliases = get_urn_alias_index(self._graph)
         num_urns = 0
         num_schemas = 0
         with PerfTimer() as timer:
-            for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                extraFilters=extra_filters,
-                batch_size=self._batch_size,
-            ):
-                if load_urn_aliases:
-                    resolver.urn_aliases.add(urn)
-                num_urns += 1
-                if schema_info is not None:
-                    try:
-                        resolver.add_graphql_schema_metadata(urn, schema_info)
-                        num_schemas += 1
-                    except Exception:
-                        logger.warning(
-                            f"Failed to add schema info for {urn}", exc_info=True
-                        )
+            try:
+                for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(
+                    platform=platform,
+                    platform_instance=platform_instance,
+                    env=env,
+                    extraFilters=extra_filters,
+                    batch_size=self._batch_size,
+                ):
+                    urn_aliases.add(urn)
+                    num_urns += 1
+                    if schema_info is not None:
+                        try:
+                            resolver.add_graphql_schema_metadata(urn, schema_info)
+                            num_schemas += 1
+                        except Exception:
+                            logger.warning(
+                                f"Failed to add schema info for {urn}", exc_info=True
+                            )
 
-                if num_urns % 1000 == 0:
-                    logger.debug(
-                        f"Loaded {num_urns} urns in {timer.elapsed_seconds()} seconds"
-                    )
+                    if num_urns % 1000 == 0:
+                        logger.debug(
+                            f"Loaded {num_urns} urns in {timer.elapsed_seconds()} seconds"
+                        )
+            except Exception:
+                # The rows already added stay — they are facts. Coverage is what must not
+                # be recorded: a scroll that stopped part way never reached the rest of
+                # the slice, and claiming it did would turn every URN it missed into a
+                # false "DataHub does not have this".
+                logger.warning(
+                    f"Bulk fetch for platform {platform}, env {env}{scope} failed after "
+                    f"{num_urns} urns; the URN alias index will not claim to cover it.",
+                    exc_info=True,
+                )
+                raise
             logger.info(
                 f"Finished loading {num_urns} urns ({num_schemas} with schemas) in "
                 f"{timer.elapsed_seconds()} seconds"
+            )
+        # `name_starts_with` deliberately records no coverage. It is a case-sensitive
+        # prefix on the stored dataset name, so it cannot be re-expressed as a predicate
+        # on the lowercased key a lookup uses: the prefix `DB.` does not load `db.tbl`,
+        # yet both lowercase to `db.`, and coverage would claim an absence the scroll
+        # never established.
+        if name_starts_with is None:
+            urn_aliases.record_slice_loaded(
+                CatalogSlice(
+                    platform=platform, platform_instance=platform_instance, env=env
+                )
             )
         report.num_urns_loaded += num_urns
         report.num_schemas_loaded += num_schemas

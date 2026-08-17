@@ -9,7 +9,7 @@ from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
     provide_schema_resolver,
 )
-from datahub.utilities.urn_alias_resolver import set_urn_alias_loading
+from datahub.utilities.urn_alias.index import get_urn_alias_index
 
 _PROVIDER_LOGGER = "datahub.sql_parsing.schema_resolver_provider"
 
@@ -18,13 +18,6 @@ _FAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,
 _FAKE_SCHEMA: GraphQLSchemaMetadata = {
     "fields": [{"fieldPath": "id", "nativeDataType": "INT64"}]
 }
-
-
-@pytest.fixture(autouse=True)
-def reset_urn_alias_loading():
-    set_urn_alias_loading(False)
-    yield
-    set_urn_alias_loading(False)
 
 
 @pytest.fixture(autouse=True)
@@ -131,6 +124,16 @@ _SCHEMALESS_URN = (
 _SCHEMALESS_URN_UPPERCASED = (
     "urn:li:dataset:(urn:li:dataPlatform:bigquery,PROJECT.DATASET.NO_SCHEMA,PROD)"
 )
+# Inside the scrolled slice (same platform and env) but never returned by it.
+_MISSING_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.absent,PROD)"
+)
+_OTHER_PLATFORM_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+)
+_OTHER_PLATFORM_URN_UPPERCASED = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.EVENTS,PROD)"
+)
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
@@ -172,30 +175,73 @@ def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
-    set_urn_alias_loading(True)
     resolver = _load(graph)
 
     # Both URNs are resolvable by casing, whether or not DataHub knows their columns.
-    assert resolver.urn_aliases.find_match(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
-    assert resolver.urn_aliases.find_match(_SCHEMALESS_URN_UPPERCASED) == [
-        _SCHEMALESS_URN
-    ]
+    index = get_urn_alias_index(graph)
+    assert index.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
+    assert index.lookup(_SCHEMALESS_URN_UPPERCASED) == [_SCHEMALESS_URN]
     # ...but only the one with a schema is in the schema cache.
     assert resolver.schema_count() == 1
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_provider_skips_the_urn_index_when_no_consumer_needs_it(mock_test_connection):
-    """The index is a whole platform's URNs in memory; nobody pays unless it is wanted."""
+def test_a_completed_scroll_makes_a_miss_inside_it_an_answer(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
-    resolver = _load(graph)
+    _load(graph)
 
-    assert resolver.urn_aliases.find_match(_FAKE_URN_UPPERCASED) == []
-    assert resolver.urn_aliases.find_match(_SCHEMALESS_URN_UPPERCASED) == []
-    # Schemas are loaded either way.
-    assert resolver.schema_count() == 1
+    # Nothing in the slice went unseen, so a URN it does not hold is genuinely absent —
+    # [] rather than None, which is what lets a consumer skip the server.
+    index = get_urn_alias_index(graph)
+    assert index.lookup(_MISSING_URN) == []
+
+
+@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
+def test_a_scroll_that_fails_part_way_claims_no_coverage(mock_test_connection):
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    def _fails_after_one():
+        yield (_FAKE_URN, _FAKE_SCHEMA)
+        raise Exception("scroll died")
+
+    with patch.object(
+        graph, "_bulk_fetch_schema_info_by_filter", return_value=_fails_after_one()
+    ):
+        with pytest.raises(Exception, match="scroll died"):
+            SchemaResolverProvider(graph=graph).get(
+                platform="bigquery", platform_instance=None, env="PROD"
+            )
+
+    index = get_urn_alias_index(graph)
+    # What it did see is kept — those rows are facts.
+    assert index.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
+    # But it never reached the rest of the slice, so a miss is still a gap. Claiming
+    # coverage here would turn every URN the scroll missed into a false absence.
+    assert index.lookup(_MISSING_URN) is None
+
+
+@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
+def test_one_index_is_shared_by_every_consumer_of_a_graph(mock_test_connection):
+    """A second platform's load answers lookups for the first, and vice versa."""
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    _load(graph)
+    with patch.object(
+        graph,
+        "_bulk_fetch_schema_info_by_filter",
+        return_value=iter([(_OTHER_PLATFORM_URN, None)]),
+    ):
+        SchemaResolverProvider(graph=graph).get(
+            platform="snowflake", platform_instance=None, env="PROD"
+        )
+
+    index = get_urn_alias_index(graph)
+    assert index.lookup(_FAKE_URN_UPPERCASED) == [_FAKE_URN]
+    assert index.lookup(_OTHER_PLATFORM_URN_UPPERCASED) == [_OTHER_PLATFORM_URN]
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
