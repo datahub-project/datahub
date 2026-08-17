@@ -1194,22 +1194,67 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     try (Stream<MCPItem> sideEffectStream =
         AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
-      Iterable<List<MCPItem>> iterable =
-          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-      StreamSupport.stream(iterable.spliterator(), false)
-          .forEach(
-              sideEffects -> {
-                long count =
-                    ingestProposalAsync(
-                            opContext,
-                            AspectsBatchImpl.builder()
-                                .items(sideEffects)
-                                .retrieverContext(opContext.getRetrieverContext())
-                                .build(opContext))
-                        .count();
-                log.debug("Generated {} MCP SideEffects for async processing", count);
-              });
+      applyPostCommitMcpSideEffects(opContext, sideEffectStream.collect(Collectors.toList()));
     }
+  }
+
+  /**
+   * Applies post-commit MCP side effects. Upserts go through async MCP produce (consumed later).
+   * Deletes are applied synchronously via {@link #deleteAspect} — ChangeType.DELETE is not a valid
+   * async MCP ingest change type end-to-end ({@link MCPItem#CHANGE_TYPES} / consumer sync ingest).
+   */
+  @VisibleForTesting
+  void applyPostCommitMcpSideEffects(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPItem> sideEffects) {
+    if (sideEffects.isEmpty()) {
+      return;
+    }
+
+    List<MCPItem> deletes = new ArrayList<>();
+    List<MCPItem> nonDeletes = new ArrayList<>();
+    for (MCPItem item : sideEffects) {
+      if (ChangeType.DELETE.equals(item.getChangeType())) {
+        deletes.add(item);
+      } else {
+        nonDeletes.add(item);
+      }
+    }
+
+    for (MCPItem delete : deletes) {
+      try {
+        boolean hardDelete =
+            EntityUtils.shouldHardDeleteAspect(opContext, delete.getUrn(), delete.getAspectName());
+        deleteAspect(
+            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
+      } catch (Exception e) {
+        log.error(
+            "Failed post-commit side-effect delete for urn={} aspect={}: {}",
+            delete.getUrn(),
+            delete.getAspectName(),
+            e.getMessage(),
+            e);
+      }
+    }
+
+    if (nonDeletes.isEmpty()) {
+      return;
+    }
+
+    Iterable<List<MCPItem>> iterable =
+        () -> Iterators.partition(nonDeletes.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+    StreamSupport.stream(iterable.spliterator(), false)
+        .forEach(
+            chunk -> {
+              long count =
+                  ingestProposalAsync(
+                          opContext,
+                          AspectsBatchImpl.builder()
+                              .items(chunk)
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .build(opContext))
+                      .count();
+              log.debug("Generated {} MCP SideEffects for async processing", count);
+            });
   }
 
   /**
