@@ -676,20 +676,28 @@ def test_a_denied_listing_reaches_the_permission_classifier(kind, fetch):
 
 
 def test_a_denial_only_on_the_per_schema_fallback_still_propagates():
-    """The per-schema handler has its own permission branch, reached when the database-wide
-    query succeeds and only the narrower one is denied - a role with database USAGE but not
-    schema USAGE. Reporting it as an incomplete listing here would hide the missing grant."""
+    """The per-schema handler has its own permission branch, distinct from the database-wide
+    probe's, and it is reached only on the fallback: the database-wide query succeeds and
+    fills its page, then the schema-scoped retry is denied - a role holding database USAGE
+    but not schema USAGE. Driven through get_views_for_schema rather than the per-schema
+    fetch directly, because calling that directly never issues the database-wide query and
+    so never reaches this handler by the route production takes."""
     connection = DeniesOnlyPerSchemaConnection(
         {VIEWS: [("SCHEMA_A", f"v_{i:05d}") for i in range(SHOW_COMMAND_MAX_PAGE_SIZE)]}
     )
-    data_dictionary = _make_data_dictionary(connection)
+    schema_gen = _make_schema_gen(connection)
 
     with pytest.raises(SnowflakePermissionError):
-        data_dictionary.get_views_for_schema_using_show(
-            db_name="TEST_DB", schema_name="SCHEMA_A"
-        )
+        schema_gen.get_views_for_schema("SCHEMA_A", "TEST_DB")
 
-    assert not data_dictionary.report.failures, (
+    issued = connection.show_queries(VIEWS)
+    assert any("IN DATABASE" in q for q in issued), (
+        f"the database-wide probe must have run and filled its page; got {issued}"
+    )
+    assert any("IN SCHEMA" in q for q in issued), (
+        f"the denial must have come from the per-schema fallback; got {issued}"
+    )
+    assert not schema_gen.report.failures, (
         "the denial must reach the caller's permission classifier, "
         "not be pre-empted by a generic incomplete-listing failure"
     )
