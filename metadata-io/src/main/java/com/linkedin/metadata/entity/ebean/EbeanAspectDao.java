@@ -326,8 +326,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // batches. The outer SELECT locks on the pre-computed int4 (hashtext is not
     // re-evaluated). pg_advisory_xact_lock is transaction-scoped and reentrant per
     // session, so re-acquiring the same key within this transaction is a no-op.
-    final StringBuilder inner =
-        new StringBuilder("select hashtext(v.key) as h from (values ");
+    final StringBuilder inner = new StringBuilder("select hashtext(v.key) as h from (values ");
     for (int i = 0; i < sortedKeys.size(); i++) {
       if (i > 0) {
         inner.append(", ");
@@ -337,8 +336,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     inner.append(") as v(key) order by h offset 0");
     final String sql =
         "select pg_advisory_xact_lock(:ns, ordered.h) from (" + inner + ") as ordered(h)";
-    final SqlQuery lockQuery =
-        server.sqlQuery(sql).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
+    final SqlQuery lockQuery = server.sqlQuery(sql).setParameter("ns", ADVISORY_LOCK_NAMESPACE);
     for (int i = 0; i < sortedKeys.size(); i++) {
       lockQuery.setParameter("k" + i, sortedKeys.get(i));
     }

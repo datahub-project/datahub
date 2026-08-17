@@ -322,10 +322,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.isOptimisticLockingEnabled() && entityWriteLock.isActive();
   }
 
-
   /**
-   * Builds retention contexts for successful upserts that replaced a previous aspect value.
-   * Shared by the scoped-retry and full-batch ingest paths.
+   * Builds retention contexts for successful upserts that replaced a previous aspect value. Shared
+   * by the scoped-retry and full-batch ingest paths.
    */
   private List<RetentionService.RetentionContext> buildRetentionContexts(
       List<UpdateAspectResult> upsertResults,
@@ -352,7 +351,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .build())
         .collect(Collectors.toList());
   }
-
 
   // Write-gate key separator. URNs are "urn:..." and aspect names are alphanumeric PDL identifiers,
   // neither of which contains '|', so "<urn>|<aspect>" is an unambiguous composite key. Matches the
@@ -4054,8 +4052,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     // do final pre-commit checks with previous aspect value
     ValidationExceptionCollection exceptions =
-        AspectsBatch.validatePreCommit(
-            opContext, changeMCPs, opContext.getRetrieverContext());
+        AspectsBatch.validatePreCommit(opContext, changeMCPs, opContext.getRetrieverContext());
 
     List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults = new ArrayList<>();
     if (exceptions.hasFatalExceptions()) {
