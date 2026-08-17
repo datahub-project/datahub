@@ -58,6 +58,10 @@ class SchemaResolverProvider:
         self._batch_size = batch_size
         self._report = report
 
+    @property
+    def graph(self) -> "DataHubGraph":
+        return self._graph
+
     @functools.lru_cache
     def get(
         self,
