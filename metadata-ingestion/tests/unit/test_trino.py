@@ -339,6 +339,63 @@ def test_get_source_dataset_urn_oracle_three_tier_when_connector_database_set():
     )
 
 
+def test_get_source_dataset_urn_oracle_uppercase_connector_database_is_lowercased():
+    """An all-uppercase Oracle connector_database matches the native oracle URN.
+
+    Oracle stores unquoted identifiers uppercase and the `oracle` source lowercases them,
+    so a connector_database copied verbatim from Oracle must be folded the same way or the
+    generated URN never matches the native one.
+    """
+    source = _make_source_with_connector_details(
+        {"oracle_catalog": ConnectorDetail(connector_database="ORCLPDB1")}
+    )
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="oracle",
+    ):
+        urn = source._get_source_dataset_urn(
+            "oracle_catalog.hr.employees", mock.Mock(), "hr", "employees"
+        )
+    assert (
+        urn == "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb1.hr.employees,PROD)"
+    )
+
+
+def test_get_source_dataset_urn_oracle_mixed_case_connector_database_preserved():
+    """Mixed-case means a quoted Oracle identifier, which the oracle source preserves."""
+    source = _make_source_with_connector_details(
+        {"oracle_catalog": ConnectorDetail(connector_database="OrclPdb1")}
+    )
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="oracle",
+    ):
+        urn = source._get_source_dataset_urn(
+            "oracle_catalog.hr.employees", mock.Mock(), "hr", "employees"
+        )
+    assert (
+        urn == "urn:li:dataset:(urn:li:dataPlatform:oracle,OrclPdb1.hr.employees,PROD)"
+    )
+
+
+def test_get_source_dataset_urn_non_oracle_connector_database_case_untouched():
+    """Oracle's uppercase-folding rule must not leak to other platforms."""
+    source = _make_source_with_connector_details(
+        {"sr_catalog": ConnectorDetail(connector_database="DEFAULT_CATALOG")}
+    )
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="starrocks",
+    ):
+        urn = source._get_source_dataset_urn(
+            "sr_catalog.web.clicks", mock.Mock(), "web", "clicks"
+        )
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:starrocks,DEFAULT_CATALOG.web.clicks,PROD)"
+    )
+
+
 def test_trino_process_table_emits_lineage_without_cll_when_no_schema_emitted():
     """Table-level lineage still emitted when parent doesn't emit SchemaMetadata."""
     source = get_test_trino_source(include_column_lineage=True)
