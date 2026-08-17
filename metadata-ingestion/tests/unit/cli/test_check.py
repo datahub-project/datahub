@@ -1,4 +1,45 @@
+from unittest.mock import MagicMock, patch
+
 from tests.test_helpers.click_helpers import run_datahub_cmd
+
+# Mirrors the response shape of /openapi/operations/kafka/*/consumer/offsets
+# as returned by get_kafka_consumer_offsets(): one entry per consumer type,
+# each with a consumerGroupId string and a topics map.
+_KAFKA_CONSUMER_OFFSETS_RESPONSE = {
+    "mcp": {
+        "consumerGroupId": "generic-mce-consumer-job-client",
+        "topics": {
+            "MetadataChangeProposal_v1": {
+                "partitions": {
+                    "0": {"offset": 3, "lag": 1},
+                    "1": {"offset": 2, "lag": 0},
+                },
+                "metrics": {
+                    "maxLag": 1,
+                    "medianLag": 0,
+                    "totalLag": 1,
+                    "avgLag": 0.5,
+                },
+            }
+        },
+    },
+    "mcl": {
+        "consumerGroupId": "generic-mae-consumer-job-client",
+        "topics": {
+            "MetadataChangeLog_Versioned_v1": {
+                "partitions": {
+                    "0": {"offset": 24532, "lag": 0},
+                },
+                "metrics": {
+                    "maxLag": 0,
+                    "medianLag": 0,
+                    "totalLag": 0,
+                    "avgLag": 0,
+                },
+            }
+        },
+    },
+}
 
 
 def test_cli_help():
@@ -17,3 +58,31 @@ def test_check_local_docker():
     # we can't depend on the output. Eventually, we should mock the docker SDK.
     result = run_datahub_cmd(["check", "local-docker"], check_result=False)
     assert result.output
+
+
+@patch("datahub.cli.check_cli.get_default_graph")
+def test_get_kafka_consumer_offsets(mock_get_default_graph):
+    mock_graph = MagicMock()
+    mock_graph.get_kafka_consumer_offsets.return_value = (
+        _KAFKA_CONSUMER_OFFSETS_RESPONSE
+    )
+    mock_get_default_graph.return_value = mock_graph
+
+    result = run_datahub_cmd(["check", "get-kafka-consumer-offsets"])
+
+    assert "MetadataChangeProposal_v1" in result.output
+    assert "generic-mce-consumer-job-client" in result.output
+    assert "MetadataChangeLog_Versioned_v1" in result.output
+    assert "generic-mae-consumer-job-client" in result.output
+    assert "24532" in result.output
+
+
+@patch("datahub.cli.check_cli.get_default_graph")
+def test_get_kafka_consumer_offsets_empty(mock_get_default_graph):
+    mock_graph = MagicMock()
+    mock_graph.get_kafka_consumer_offsets.return_value = {}
+    mock_get_default_graph.return_value = mock_graph
+
+    result = run_datahub_cmd(["check", "get-kafka-consumer-offsets"])
+
+    assert "No Kafka consumer offset data found." in result.output

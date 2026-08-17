@@ -523,9 +523,9 @@ def get_kafka_consumer_offsets() -> None:
 
     table_data = []
     headers = [
-        "Topic",
+        "Consumer Type",
         "Consumer Group",
-        "Schema",
+        "Topic",
         "Partition",
         "Offset",
         "Lag",
@@ -534,26 +534,28 @@ def get_kafka_consumer_offsets() -> None:
         "Total Lag",
     ]
 
-    for topic, consumers in result.items():
-        for consumer_group, schemas in consumers.items():
-            for schema, data in schemas.items():
-                metrics = data.get("metrics", {})
-                partitions = data.get("partitions", {})
+    for consumer_type, consumer_data in result.items():
+        if not isinstance(consumer_data, dict):
+            continue
+        consumer_group = consumer_data.get("consumerGroupId", "N/A")
+        for topic, topic_data in consumer_data.get("topics", {}).items():
+            metrics = topic_data.get("metrics", {})
+            partitions = topic_data.get("partitions", {})
 
-                for partition, partition_data in partitions.items():
-                    table_data.append(
-                        [
-                            topic,
-                            consumer_group,
-                            schema,
-                            partition,
-                            partition_data.get("offset", "N/A"),
-                            partition_data.get("lag", "N/A"),
-                            metrics.get("avgLag", "N/A"),
-                            metrics.get("maxLag", "N/A"),
-                            metrics.get("totalLag", "N/A"),
-                        ]
-                    )
+            for partition, partition_data in partitions.items():
+                table_data.append(
+                    [
+                        consumer_type,
+                        consumer_group,
+                        topic,
+                        partition,
+                        partition_data.get("offset", "N/A"),
+                        partition_data.get("lag", "N/A"),
+                        metrics.get("avgLag", "N/A"),
+                        metrics.get("maxLag", "N/A"),
+                        metrics.get("totalLag", "N/A"),
+                    ]
+                )
 
     if table_data:
         click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
