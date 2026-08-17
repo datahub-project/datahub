@@ -179,12 +179,14 @@ public class AspectUtils {
 
     if (!isAspectOptimizationEnabled(context)) {
       log.debug("Aspect optimization disabled, fetching all aspects for {}", entityTypeName);
+      recordFetchOutcome(context, entityTypeName, "disabled");
       return defaultAspects;
     }
 
     AspectLoadContext loadContext = context.getAspectLoadContext(entityTypeName);
     if (loadContext == null) {
       log.debug("AspectLoadContext not available for {}, fetching all aspects", entityTypeName);
+      recordFetchOutcome(context, entityTypeName, "fallback");
       return defaultAspects;
     }
 
@@ -204,10 +206,43 @@ public class AspectUtils {
       // a missing row to a null entity, so the query silently loses the entity instead of merely
       // fetching less. Fall back to the defaults rather than issue an empty fetch.
       log.debug("Optimized aspect set for {} was empty, falling back to defaults", entityTypeName);
+      recordFetchOutcome(context, entityTypeName, "fallback");
       return defaultAspects;
     }
+
+    recordFetchOutcome(
+        context, entityTypeName, loadContext.isFetchAll() ? "fetch_all" : "optimized");
     log.debug("Fetching optimized aspect set for {}: {}", entityTypeName, optimizedAspects);
     return optimizedAspects;
+  }
+
+  /**
+   * Per-entity-type fetch-outcome counters ({@code aspect_fetch_<outcome>_<type>}) so operators can
+   * see where optimization is active ({@code optimized}) versus falling back ({@code fetch_all},
+   * {@code fallback}, {@code disabled}), and attribute hydration incidents to it quickly.
+   * Best-effort: metrics must never affect hydration.
+   */
+  private static void recordFetchOutcome(
+      @Nonnull final QueryContext context,
+      @Nonnull final String entityTypeName,
+      @Nonnull final String outcome) {
+    try {
+      if (context.getOperationContext() == null
+          || context.getOperationContext().getMetricUtils() == null) {
+        return;
+      }
+      context
+          .getOperationContext()
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(
+                      AspectUtils.class,
+                      String.format("aspect_fetch_%s_%s", outcome, entityTypeName),
+                      1));
+    } catch (RuntimeException e) {
+      log.debug("Failed to record aspect fetch outcome metric", e);
+    }
   }
 
   /**
