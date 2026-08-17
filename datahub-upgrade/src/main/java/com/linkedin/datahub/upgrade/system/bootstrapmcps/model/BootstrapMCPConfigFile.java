@@ -42,6 +42,13 @@ public class BootstrapMCPConfigFile {
     @Nullable private String values_env;
     @Nullable private String revision_env;
 
+    /**
+     * Name of an environment variable acting as a per-template kill switch. When the variable
+     * resolves to {@code "false"}, the template is skipped and nothing is written. An unset
+     * variable leaves the template enabled, so templates that do not opt in are unaffected.
+     */
+    @Nullable private String enabledEnvVar;
+
     public MCPTemplate withOverride(ObjectMapper objectMapper) {
       if (revision_env != null) {
         String overrideJson = System.getenv().getOrDefault(revision_env, "{}");

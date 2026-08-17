@@ -8,3 +8,8 @@ bootstrap:
       mcps_location: "bootstrapmcp/datahub-test-mcp.yaml"
       values_env: "DATAHUB_TEST_VALUES_ENV"
       revision_env: "DATAHUB_TEST_REVISION_ENV"
+    - name: datahub-test-gated
+      version: v1
+      optional: true
+      mcps_location: "bootstrapmcp/datahub-test-mcp.yaml"
+      enabledEnvVar: "MY_FEATURE_ENABLED"

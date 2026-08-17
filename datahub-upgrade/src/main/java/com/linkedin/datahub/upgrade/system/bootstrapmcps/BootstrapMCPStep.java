@@ -76,9 +76,27 @@ public class BootstrapMCPStep implements UpgradeStep {
     return mcpTemplate.isOptional();
   }
 
+  /**
+   * Resolve an environment variable. Extracted so tests can override env-var resolution without
+   * manipulating the JVM's process environment (which is effectively immutable from inside the
+   * JVM). Production code reads straight from {@link System#getenv(String)}.
+   */
+  protected String resolveEnvValue(String name) {
+    return System.getenv(name);
+  }
+
   /** Returns whether the upgrade should be skipped. */
   @Override
   public boolean skip(UpgradeContext context) {
+    // Per-template kill switch: when the template names an enabledEnvVar and
+    // that env var is set to "false", skip the step entirely (no DB write).
+    if (mcpTemplate.getEnabledEnvVar() != null && !mcpTemplate.getEnabledEnvVar().isEmpty()) {
+      String envValue = resolveEnvValue(mcpTemplate.getEnabledEnvVar());
+      if (envValue != null && envValue.equalsIgnoreCase("false")) {
+        log.info("{} skipped — {} resolves to 'false'.", id(), mcpTemplate.getEnabledEnvVar());
+        return true;
+      }
+    }
     if (!mcpTemplate.isForce()) {
       boolean previouslyRun =
           entityService.exists(
