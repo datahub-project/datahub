@@ -1,18 +1,14 @@
+from typing import List, Tuple, Type
 from unittest.mock import MagicMock
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
 
-def _source() -> MySQLSource:
-    config = MySQLConfig(
-        host_port="localhost:3306",
-        profiling={"enabled": True},
-    )
-    return MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
-
-
-def _inspector_returning(rows: list) -> MagicMock:
+def _inspector_returning(rows: List[Tuple[str, str, int]]) -> MagicMock:
     conn = MagicMock()
     conn.execute.return_value = rows
     inspector = MagicMock()
@@ -20,10 +16,26 @@ def _inspector_returning(rows: list) -> MagicMock:
     return inspector
 
 
-def test_add_profile_metadata_reads_storage_bytes_positionally() -> None:
+@pytest.mark.parametrize(
+    "source_cls,config_cls,host_port",
+    [
+        (MySQLSource, MySQLConfig, "localhost:3306"),
+        # Doris inherits add_profile_metadata, so an override there has to keep
+        # reading positionally too.
+        (DorisSource, DorisConfig, "localhost:9030"),
+    ],
+)
+def test_add_profile_metadata_reads_storage_bytes_positionally(
+    source_cls: Type[MySQLSource],
+    config_cls: Type[MySQLConfig],
+    host_port: str,
+) -> None:
     # Tuple rows (no named attributes) prove access is positional, not by the
-    # case-sensitive attribute name that differs between MySQL and MariaDB.
-    source = _source()
+    # label whose case differs across MySQL/MariaDB/Doris/TiDB.
+    source = source_cls(
+        config_cls(host_port=host_port, profiling={"enabled": True}),
+        PipelineContext(run_id="mysql-family-profiling-test"),
+    )
     inspector = _inspector_returning(
         [
             ("my_db", "orders", 4096),

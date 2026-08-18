@@ -930,7 +930,7 @@ class TestDashboardLineageDefensive:
         self, requests_mock: rm.Mocker
     ) -> None:
         # Detail API HTTP failure → ``get_dashboard_info`` returns ``{}`` and
-        # emits the "Dashboard detail API failed" warning + counter at fetch time.
+        # emits the "Superset API request failed" warning + counter at fetch time.
         # ``_process_dashboard`` should NOT additionally double-warn about the
         # missing position_json — that warning is reserved for the case where the
         # API call succeeded but returned no position data.
@@ -951,7 +951,7 @@ class TestDashboardLineageDefensive:
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard detail API failed" in titles
+        assert "Superset API request failed" in titles
         assert "Missing position_json" not in titles
         assert "Dashboard Construction Failed" not in titles
 
@@ -1007,7 +1007,7 @@ class TestDashboardLineageDefensive:
         assert source.report.num_dashboards_with_no_charts == 1
         titles = {w.title for w in source.report.warnings}
         assert "Missing position_json" in titles
-        assert "Dashboard detail API failed" not in titles
+        assert "Superset API request failed" not in titles
         assert "Dashboard Construction Failed" not in titles
 
     def test_detail_api_returns_invalid_position_json_does_not_drop_dashboard(
@@ -1414,7 +1414,7 @@ class TestChartsFallback:
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 0
         assert source.report.num_dashboards_with_no_charts == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard charts API failed" in titles
+        assert "Superset API request failed" in titles
 
     def test_fallback_failure_is_not_cached(self, requests_mock: rm.Mocker) -> None:
         # /charts fallback contract: a transient 5xx must not be memoised,
@@ -1614,8 +1614,7 @@ class TestChartsFallbackEdgeCases:
         assert source.report.num_dashboards_charts_api_failures == 1
         assert source.report.num_dashboards_with_no_charts == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard detail API failed" in titles
-        assert "Dashboard charts API failed" in titles
+        assert "Superset API request failed" in titles
 
     def test_dashboard_with_no_id_drops_with_dedicated_counter(
         self, requests_mock: rm.Mocker
@@ -1770,7 +1769,7 @@ class TestNetworkErrorHandling:
         assert result == {}
         assert source.report.num_dashboards_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard detail API network error" in titles
+        assert "Superset API network error" in titles
 
     def test_detail_api_json_decode_error_is_reported(
         self, requests_mock: rm.Mocker
@@ -1790,7 +1789,7 @@ class TestNetworkErrorHandling:
         assert result == {}
         assert source.report.num_dashboards_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard detail API decode error" in titles
+        assert "Superset API decode error" in titles
 
     def test_detail_api_with_non_dict_result_is_not_cached(
         self, requests_mock: rm.Mocker
@@ -1830,7 +1829,7 @@ class TestNetworkErrorHandling:
         assert result == []
         assert source.report.num_dashboards_charts_api_failures == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard charts API network error" in titles
+        assert "Superset API network error" in titles
 
     def _warning_context_strings(self, source: SupersetSource, title: str) -> list:
         # ``StructuredLogs`` aggregates contexts under (title, message), so
@@ -1858,7 +1857,7 @@ class TestNetworkErrorHandling:
 
         source.get_dashboard_info(42)
 
-        ctxs = self._warning_context_strings(source, "Dashboard detail API failed")
+        ctxs = self._warning_context_strings(source, "Superset API request failed")
         assert ctxs, "Detail API failure warning must be emitted"
         for ctx in ctxs:
             assert "SECRET_TOKEN_DO_NOT_LEAK" not in ctx
@@ -1877,7 +1876,7 @@ class TestNetworkErrorHandling:
 
         source.get_dashboard_info(42)
 
-        ctxs = self._warning_context_strings(source, "Dashboard detail API failed")
+        ctxs = self._warning_context_strings(source, "Superset API request failed")
         assert ctxs, "Detail API failure warning must be emitted"
         parsed = json.loads(ctxs[0])
         assert parsed["dashboard_id"] == 42
@@ -1900,7 +1899,7 @@ class TestNetworkErrorHandling:
 
         source.get_dashboard_info(42)
 
-        ctxs = self._warning_context_strings(source, "Dashboard detail API failed")
+        ctxs = self._warning_context_strings(source, "Superset API request failed")
         assert ctxs, "Detail API failure warning must be emitted"
         for ctx in ctxs:
             assert "SECRET_SPOOFED_TOKEN" not in ctx
@@ -1942,8 +1941,8 @@ class TestNetworkErrorHandling:
 
         assert source.report.num_dashboards_charts_api_failures == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard charts API decode error" in titles
-        assert "Dashboard charts API network error" not in titles
+        assert "Superset API decode error" in titles
+        assert "Superset API network error" not in titles
 
     def test_fetch_api_response_raises_on_unknown_counter_attr(
         self, requests_mock: rm.Mocker
@@ -2001,7 +2000,7 @@ class TestDatasetInfoCaching:
         assert matcher.call_count == 2
         assert source.report.num_datasets_detail_api_failures == 2
         titles = {w.title for w in source.report.warnings}
-        assert "Dataset detail API failed" in titles
+        assert "Superset API request failed" in titles
 
     def test_network_error_is_reported(self, requests_mock: rm.Mocker) -> None:
         source = _build_source(requests_mock)
@@ -2015,7 +2014,7 @@ class TestDatasetInfoCaching:
         assert result == {}
         assert source.report.num_datasets_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dataset detail API network error" in titles
+        assert "Superset API network error" in titles
 
     def test_decode_error_is_reported(self, requests_mock: rm.Mocker) -> None:
         source = _build_source(requests_mock)
@@ -2030,7 +2029,7 @@ class TestDatasetInfoCaching:
         assert result == {}
         assert source.report.num_datasets_detail_api_failures == 1
         titles = {w.title for w in source.report.warnings}
-        assert "Dataset detail API decode error" in titles
+        assert "Superset API decode error" in titles
 
     def test_missing_id_drops_with_dedicated_counter(
         self, requests_mock: rm.Mocker
@@ -2277,7 +2276,7 @@ class TestSafeBodyPreviewEmailRedaction:
         source.get_dashboard_info(42)
 
         titles = {w.title for w in source.report.warnings}
-        assert "Dashboard detail API failed" in titles
+        assert "Superset API request failed" in titles
 
     def test_email_in_json_body_is_redacted(self, requests_mock: rm.Mocker) -> None:
         source = _build_source(requests_mock)
@@ -2293,7 +2292,7 @@ class TestSafeBodyPreviewEmailRedaction:
         ctxs = [
             ctx
             for w in source.report.warnings
-            if w.title == "Dashboard detail API failed"
+            if w.title == "Superset API request failed"
             for ctx in (w.context if isinstance(w.context, list) else [w.context])
             if ctx
         ]
@@ -2543,7 +2542,7 @@ class TestEmailRedactionInHtmlBody:
         ctxs = [
             ctx
             for w in source.report.warnings
-            if w.title == "Dashboard detail API failed"
+            if w.title == "Superset API request failed"
             for ctx in (w.context if isinstance(w.context, list) else [w.context])
             if ctx
         ]

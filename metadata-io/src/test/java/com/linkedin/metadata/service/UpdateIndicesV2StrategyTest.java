@@ -470,7 +470,7 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
     when(elasticSearchService.indexExists(
             any(OperationContext.class), eq("datasetindex_v2_semantic")))
@@ -500,7 +500,7 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
     when(elasticSearchService.indexExists(
             any(OperationContext.class), eq("datasetindex_v2_semantic")))
@@ -530,7 +530,7 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
     when(elasticSearchService.indexExists(
             any(OperationContext.class), eq("datasetindex_v2_semantic")))
@@ -566,7 +566,7 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
     when(elasticSearchService.indexExists(
             any(OperationContext.class), eq("datasetindex_v2_semantic")))
@@ -665,7 +665,7 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
     when(elasticSearchService.indexExists(
             any(OperationContext.class), eq("datasetindex_v2_semantic")))

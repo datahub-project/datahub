@@ -2,7 +2,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
 import requests
 from google.api_core.exceptions import GoogleAPICallError
@@ -10,6 +10,11 @@ from google.cloud import bigquery
 from google.cloud.bigquery import QueryJobConfig
 from sqlalchemy import create_engine, inspect
 from typing_extensions import TypeGuard
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -45,7 +50,6 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
     validate_bigquery_identifier,
 )
-from datahub.ingestion.source.profiling.common import create_datahub_ge_profiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -120,11 +124,9 @@ class BigqueryProfiler(GenericProfiler):
         self._cache_hits = 0
         self._cache_misses = 0
 
-    # Return type is left unannotated on purpose: annotating it would need
-    # DatahubGEProfiler, whose import pulls in great_expectations at module
-    # load, and profiler modules must import without great_expectations
-    # installed (enforced by tests/unit/test_no_ge_dependency.py).
-    def get_profiler_instance(self, db_name=None):
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> "SQLAlchemyProfiler":
         # Override the parent so the SQLAlchemy engine reuses our in-memory
         # bigquery.Client (built with explicit credentials) instead of letting
         # the dialect fall back to google.auth.default() — which would require
@@ -157,31 +159,16 @@ class BigqueryProfiler(GenericProfiler):
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            # TODO: Remove this branch once Great Expectations is fully
-            # deprecated. The entire if/else then collapses to the
-            # SQLAlchemyProfiler return above.
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     def _populate_partition_metadata_cache(self, project: str, dataset: str) -> None:
         """Pre-fetch partition metadata for all tables in a dataset in one query.

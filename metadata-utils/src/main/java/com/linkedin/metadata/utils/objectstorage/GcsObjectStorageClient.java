@@ -6,6 +6,7 @@ import com.google.cloud.storage.Storage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,21 @@ public class GcsObjectStorageClient implements ObjectStorageClient {
     log.debug("Chunked uploaded {} bytes to gs://{}/{}", bytes.length, bucketName, key);
   }
 
+  @Override
+  @Nonnull
+  public String getObjectAsString(@Nonnull String objectKey) {
+    if (!isConfigured()) {
+      throw new IllegalStateException("GCS bucket name is not configured");
+    }
+    String key = ObjectStorageKeyResolver.joinKey(pathPrefix, objectKey, ObjectStorageProvider.GCS);
+    try {
+      return new String(storage.readAllBytes(BlobId.of(bucketName, key)), StandardCharsets.UTF_8);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Failed to read gs://" + bucketName + "/" + key + ": " + e.getMessage(), e);
+    }
+  }
+
   private void writeChunked(@Nonnull BlobInfo blobInfo, @Nonnull byte[] bytes) {
     try (WritableByteChannel channel = storage.writer(blobInfo)) {
       int offset = 0;
@@ -88,5 +104,11 @@ public class GcsObjectStorageClient implements ObjectStorageClient {
   @Override
   public boolean isConfigured() {
     return bucketName != null && !bucketName.isBlank();
+  }
+
+  @Override
+  @Nonnull
+  public String storageBucket() {
+    return bucketName;
   }
 }

@@ -119,6 +119,31 @@ MULTIPLE_DATA_PRODUCTS_PER_ASSET=false
 
 See the [Environment Variables](deploy/environment-vars.md#feature-flags) documentation for more details on configuring feature flags.
 
+### Nesting Data Products
+
+Data Products can nest under other Data Products via an optional `parentDataProduct` pointer, forming a multi-level taxonomy. This is useful when you buy or ingest a vendor product and re-package it into one or more internal products (for example, a vendor equities feed → an internal research product → a portfolio analytics product).
+
+Key behaviors:
+
+- A Data Product may have at most one parent (a tree, not a DAG). Nesting depth is arbitrary.
+- A child may belong to a different Domain than its parent; Domain membership is independent of the parent-child relationship.
+- Permissions remain scoped to each Data Product's own Domain — Manage Data Products is not inherited from the parent.
+- Cycles are rejected (a product cannot be moved under one of its own descendants).
+
+You can set the parent when creating or editing a Data Product in the UI, or declare it in YAML:
+
+```yaml
+id: portfolio_analytics
+domain: Trading
+display_name: Portfolio Analytics
+description: Internal product derived from the vendor equities feed.
+parent_data_product: urn:li:dataProduct:vendor_equities
+assets:
+  - urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.portfolio_summary,PROD)
+```
+
+`parent_data_product` accepts a fully-qualified Data Product URN or a resolvable id/name (same resolution rules as `domain`).
+
 ### Creating a Data Product (YAML + git)
 
 DataHub ships with a YAML-based Data Product spec for defining and managing Data Products as code.

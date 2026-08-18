@@ -125,11 +125,13 @@ def test_source_init_without_lineage_sets_lineage_members_to_none() -> None:
         enable_stateful_lineage_ingestion=False,
     )
     ctx = Mock()
+    ctx.graph = None
 
     with (
         patch(
             "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
-            return_value=None,
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
         ),
         patch(
             "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
@@ -668,6 +670,41 @@ def test_get_workunits_internal_with_empty_resolved_projects() -> None:
     source.entries_processor.process_entries.assert_called_once_with(
         project_ids=[], max_workers=source.config.max_workers_entries
     )
+
+
+def test_platform_resource_repository_none_without_graph() -> None:
+    """When the pipeline has no DataHub graph connection (no datahub-rest sink
+    or stateful ingestion), the source must not build a platform resource
+    repository, since there is nowhere to reconcile against."""
+    config = DataplexConfig(
+        project_ids=["project-1"],
+        include_lineage=False,
+        include_glossaries=False,
+        enable_stateful_lineage_ingestion=False,
+    )
+    ctx = Mock()
+    ctx.graph = None  # no DataHub graph connection
+
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
+    ):
+        source = DataplexSource(ctx, config)
+
+    assert source.platform_resource_repository is None
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

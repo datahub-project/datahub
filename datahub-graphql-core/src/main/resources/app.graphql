@@ -539,6 +539,16 @@ type AuthConfig {
   Whether token-based auth is enabled.
   """
   tokenAuthEnabled: Boolean!
+
+  """
+  Whether creating access tokens with no expiry is allowed.
+  """
+  allowNoExpiry: Boolean!
+
+  """
+  ISO-8601 durations that may be used when creating access tokens, in display order.
+  """
+  allowedAccessTokenDurations: [String!]!
 }
 
 """
@@ -671,11 +681,6 @@ type FeatureFlagsConfig {
   Whether browse v2 is platform mode, which means that platforms are displayed instead of entity types at the root.
   """
   platformBrowseV2: Boolean!
-
-  """
-  Whether to show the new lineage visualization.
-  """
-  lineageGraphV2: Boolean!
 
   """
   Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
@@ -824,11 +829,6 @@ type FeatureFlagsConfig {
   Whether product updates on the sidebar is enabled. Will go to oss.
   """
   showProductUpdates: Boolean!
-
-  """
-  Enables the redesign of the lineage v2 graph
-  """
-  lineageGraphV3: Boolean!
 
   """
   Enables logical models feature

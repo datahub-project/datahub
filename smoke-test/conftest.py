@@ -18,6 +18,12 @@ from datahub.ingestion.graph.client import (
 )
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
+from tests.utilities.domains import (
+    ALL_DOMAINS,
+    domains_of,
+    is_selected,
+    parse_requested_domains,
+)
 from tests.utils import (
     TestSessionWrapper,
     assert_admin_corpuser_info_preserved,
@@ -26,6 +32,7 @@ from tests.utils import (
     fetch_admin_corpuser_info,
     get_frontend_session,
     ingest_file_via_rest,
+    materialize_unique_dataset,
     wait_for_admin_corpuser_system_bootstrap,
     wait_for_healthcheck_util,
     wait_for_writes_to_sync,
@@ -47,7 +54,7 @@ def build_auth_session():
         Frontend URL is not required; GraphQL routes through the GMS directly.
 
     Login-based (default for local dev):
-        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+        Set ADMIN_USERNAME / ADMIN_PASSWORD.
     """
     prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
     if prebuilt_token:
@@ -56,6 +63,11 @@ def build_auth_session():
 
     wait_for_healthcheck_util(requests)
     auth_session = TestSessionWrapper(get_frontend_session())
+    # Lag polls always use DATAHUB_GMS_TOKEN (VIEW_SYSTEM_STATUS or
+    # MANAGE_SYSTEM_OPERATIONS). Publish the bootstrap admin PAT here, before
+    # any wait_for_writes_to_sync() call. Restricted-user TestSessionWrappers
+    # must not overwrite this.
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     wait_for_admin_corpuser_system_bootstrap(auth_session)
     return auth_session
 
@@ -161,6 +173,90 @@ def _ingest_cleanup_data_impl(
         wait_for_writes_to_sync()
 
 
+def _ingest_cleanup_unique_dataset_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    dataset_name: str,
+    tmp_dir,
+    platform: str = "kafka",
+    env: str = "PROD",
+):
+    """Like :func:`_ingest_cleanup_data_impl`, but rewrites ``dataset_name`` in
+    ``data_file`` to a run-unique name before ingesting and yields the unique
+    dataset URN. Isolates a file-driven test's dataset so concurrent modules
+    never collide on a shared URN under xdist ``--dist=loadscope``.
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def dataset_urn(auth_session, graph_client, tmp_path_factory):
+            yield from _ingest_cleanup_unique_dataset_impl(
+                auth_session, graph_client,
+                "tests/tags_and_terms/data.json", "tags_and_terms",
+                "test-tags-terms-sample-kafka", tmp_path_factory.mktemp("data"),
+            )
+    """
+    unique_file, dataset_urn = materialize_unique_dataset(
+        data_file, dataset_name, tmp_dir, platform=platform, env=env
+    )
+    # No pre-ingest idempotency delete (unlike _ingest_cleanup_data_impl): the
+    # URN is freshly unique per run, so nothing pre-exists to clean up.
+    logger.info(f"ingesting {test_name} test data (dataset={dataset_urn})")
+    ingest_file_via_rest(auth_session, unique_file)
+    yield dataset_urn
+    logger.info(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, unique_file)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--domain",
+        action="append",
+        default=[],
+        metavar="DOMAIN",
+        help=(
+            "Only run tests owned by this product domain. Repeatable, e.g. "
+            "--domain catalog --domain ingestion. Valid values: "
+            f"{', '.join(sorted(ALL_DOMAINS))}."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Validate here rather than during collection: a bad value raised from
+    # pytest_collection_modifyitems surfaces as an INTERNALERROR instead of a
+    # readable usage error.
+    try:
+        parse_requested_domains(config.getoption("--domain"))
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+
+
+def _apply_domain_filter(config: pytest.Config, items: List[Item]) -> None:
+    """Deselect tests outside the domains requested with --domain."""
+    requested = parse_requested_domains(config.getoption("--domain"))
+    if not requested:
+        return
+
+    selected: List[Item] = []
+    deselected: List[Item] = []
+    for item in items:
+        declared = domains_of(item.get_closest_marker("domain"))
+        target = selected if is_selected(declared, requested) else deselected
+        target.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    logger.info(
+        "--domain %s: selected %s of %s test(s)",
+        ",".join(sorted(requested)),
+        len(selected),
+        len(items),
+    )
+    items[:] = selected
+
+
 def pytest_sessionfinish(session, exitstatus):
     """whole test run finishes."""
     send_message(exitstatus)
@@ -250,16 +346,21 @@ def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
 
 def aggregate_module_weights(
     items: List[Item], test_weights: Dict[str, float]
-) -> List[Tuple[str, List[Item], float]]:
+) -> List[Tuple[str, List[Item], float, float]]:
     """
-    Group test items by module and aggregate their weights.
+    Group test items by module, splitting each module's weight by execution phase.
+
+    smoke.sh runs each batch as two pytest invocations: non-mutator tests under
+    xdist, then policy mutators serially. Those two buckets cost different
+    amounts of wall clock per second of test time, so they are accumulated
+    separately here and combined by the caller, which knows the worker count.
 
     Args:
         items: List of pytest test items
         test_weights: Dictionary mapping test IDs to durations
 
     Returns:
-        List of (module_path, items_in_module, total_weight) tuples
+        List of (module_path, items_in_module, parallel_seconds, serial_seconds)
     """
 
     # Group items by module (file path)
@@ -269,20 +370,50 @@ def aggregate_module_weights(
         module_path = str(item.fspath)
         modules[module_path].append(item)
 
-    # Calculate total weight for each module
+    # Each item's weight is looked up exactly once, here.
     module_data = []
     for module_path, module_items in modules.items():
-        total_weight = 0.0
+        parallel_seconds = 0.0
+        serial_seconds = 0.0
         for item in module_items:
-            total_weight += get_pytest_test_weight(item, test_weights)
+            weight = get_pytest_test_weight(item, test_weights)
+            if _is_global_policy_mutator(item):
+                serial_seconds += weight
+            else:
+                parallel_seconds += weight
 
-        module_data.append((module_path, module_items, total_weight))
+        module_data.append(
+            (module_path, module_items, parallel_seconds, serial_seconds)
+        )
 
     return module_data
 
 
 def _is_global_policy_mutator(item: Item) -> bool:
     return item.get_closest_marker("global_policy_mutator") is not None
+
+
+def phase_aware_module_weight(
+    parallel_seconds: float, serial_seconds: float, xdist_workers: int
+) -> float:
+    """Estimate a module's contribution to a batch's *wall clock*, not its total
+    test time.
+
+    smoke.sh runs each batch in two pytest invocations: non-mutator tests under
+    xdist (``-n N --dist=loadscope``), then policy mutators serially. A serial
+    minute therefore costs about N times what a parallel minute does.
+
+    Packing batches by raw summed duration ignores that and systematically
+    overloads whichever batch happens to draw the mutator-heavy modules --
+    ``tests/authorization/test_aspect_write_auth.py`` alone is ~7.6 min of
+    strictly serial work. Measured across master runs, the resulting spread was
+    ~1.7x between the slowest and fastest batch even though every batch had an
+    identical summed weight.
+
+    With xdist_workers == 1 this reduces to the plain sum, i.e. the previous
+    behaviour, which is correct because both phases are then serial.
+    """
+    return parallel_seconds / max(1, xdist_workers) + serial_seconds
 
 
 def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
@@ -309,8 +440,9 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
-    if env_vars.get_test_strategy() == "cypress":
-        return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
+    # Runs before every early return below, and before the weight-based batching,
+    # so batches are packed from the selected tests only.
+    _apply_domain_filter(config, items)
 
     # Check if FILTERED_TESTS is set (for retry logic)
     filtered_tests_file = env_vars.get_filtered_tests_file()
@@ -375,14 +507,22 @@ def pytest_collection_modifyitems(
     # Create weighted tuples for bin-packing: (module_path, weight)
     # We'll also keep track of the items for each module
     module_map = {
-        module_path: module_items for module_path, module_items, _ in module_data
+        module_path: module_items for module_path, module_items, _, _ in module_data
     }
+    # Weight by estimated wall clock rather than summed duration -- serial
+    # policy-mutator tests cost xdist_workers times more than parallel ones.
+    xdist_workers = env_vars.get_pytest_xdist_workers()
     weighted_modules = [
-        (module_path, total_weight) for module_path, _, total_weight in module_data
+        (
+            module_path,
+            phase_aware_module_weight(parallel_seconds, serial_seconds, xdist_workers),
+        )
+        for module_path, _, parallel_seconds, serial_seconds in module_data
     ]
 
     logger.info(
-        f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches"
+        f"Batching {len(items)} tests from {len(weighted_modules)} modules across "
+        f"{batch_count} batches (xdist_workers={xdist_workers})"
     )
 
     # Apply bin-packing to modules

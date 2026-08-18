@@ -131,7 +131,7 @@ public class InMemoryUsageAggregationStoreTest {
             UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null, AuthChannel.SESSION));
     store.recordRequest(
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null, AuthChannel.OAUTH));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertEquals(distinctIdentityCount(batch, "active_users", "regular"), 1L);
@@ -152,7 +152,8 @@ public class InMemoryUsageAggregationStoreTest {
     UsageMetricRegistry metricRegistry =
         UsageMetricRegistry.loadBundled(
             new UsageMetricRegistryLoader(yamlMapper()), java.util.List.of());
-    new MicrometerUsageFlushSink(metricRegistry, micrometerRegistry).publish(batch);
+    new MicrometerUsageFlushSink(metricRegistry, micrometerRegistry)
+        .publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
     Assert.assertEquals(
         micrometerRegistry
             .get("datahub.usage.active_identities")
@@ -168,7 +169,7 @@ public class InMemoryUsageAggregationStoreTest {
     OperationContext opContext =
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_write", 100L);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertFalse(sink.batches().isEmpty());
     var batch = sink.batches().get(0);
@@ -218,7 +219,8 @@ public class InMemoryUsageAggregationStoreTest {
             null,
             AuthChannel.SESSION,
             "DataHub-Client/1.0.0 (sdk; DataHub/Custom-Agent; 1.0.1)"));
-    agentNameStore.flush(FlushTrigger.SCHEDULED);
+    agentNameStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     AdditiveUsageRow apiCalls =
         agentNameSink.batches().get(0).additiveRows().stream()
@@ -233,7 +235,7 @@ public class InMemoryUsageAggregationStoreTest {
   public void testSystemActorIncludedInDistinctSets() {
     OperationContext opContext = session(Constants.SYSTEM_ACTOR, "metadata_write", null);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertTrue(
@@ -257,7 +259,7 @@ public class InMemoryUsageAggregationStoreTest {
   public void testSupportActorIncludedInDistinctSets() {
     OperationContext opContext = session(SUPPORT_TEST_ACTOR, "metadata_read", null);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertTrue(
@@ -281,7 +283,7 @@ public class InMemoryUsageAggregationStoreTest {
   public void testDistinctIdentitiesBucketedByActorClass() {
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     store.recordRequest(session(SUPPORT_TEST_ACTOR, "metadata_read", null));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertEquals(distinctIdentityCount(batch, "active_users", "regular"), 1L);
@@ -295,7 +297,7 @@ public class InMemoryUsageAggregationStoreTest {
             session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null)));
     Assert.assertTrue(
         store.recordRequest(session("urn:li:corpuser:second-regular", "metadata_read", null)));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertEquals(sink.batches().size(), 1);
     var batch = sink.batches().get(0);
@@ -318,7 +320,7 @@ public class InMemoryUsageAggregationStoreTest {
 
   @Test
   public void testScheduledFlushEmitsExplicitZeroIdentitySnapshots() {
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertEquals(batch.distinctSnapshots().size(), 9L);
@@ -329,7 +331,8 @@ public class InMemoryUsageAggregationStoreTest {
     UsageMetricRegistry metricRegistry =
         UsageMetricRegistry.loadBundled(
             new UsageMetricRegistryLoader(yamlMapper()), java.util.List.of());
-    new MicrometerUsageFlushSink(metricRegistry, micrometerRegistry).publish(batch);
+    new MicrometerUsageFlushSink(metricRegistry, micrometerRegistry)
+        .publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
     Assert.assertEquals(
         micrometerRegistry
             .get("datahub.usage.active_identities")
@@ -345,7 +348,7 @@ public class InMemoryUsageAggregationStoreTest {
     OperationContext opContext =
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "other_write", null);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertEquals(distinctIdentityCount(batch, "active_users", "regular"), 1L);
@@ -357,7 +360,7 @@ public class InMemoryUsageAggregationStoreTest {
     OperationContext opContext =
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "other_operations", null);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertEquals(distinctIdentityCount(batch, "active_readers", "regular"), 1L);
@@ -369,7 +372,7 @@ public class InMemoryUsageAggregationStoreTest {
     OperationContext opContext =
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_ingest", null);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     long inputBytes =
@@ -391,7 +394,7 @@ public class InMemoryUsageAggregationStoreTest {
     OperationContext opContext =
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_ingest", 512L);
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertTrue(
@@ -409,7 +412,7 @@ public class InMemoryUsageAggregationStoreTest {
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", 50L);
     store.recordRequest(opContext);
     store.recordResponse(opContext, 200L);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertTrue(
@@ -504,7 +507,9 @@ public class InMemoryUsageAggregationStoreTest {
           () -> {
             try {
               for (int i = 0; i < 50 && !Thread.currentThread().isInterrupted(); i++) {
-                concurrentStore.flush(FlushTrigger.SCHEDULED);
+                concurrentStore.flush(
+                    TestOperationContexts.systemContextNoSearchAuthorization(),
+                    FlushTrigger.SCHEDULED);
                 Thread.yield();
               }
             } finally {
@@ -518,7 +523,8 @@ public class InMemoryUsageAggregationStoreTest {
       executor.shutdownNow();
     }
 
-    concurrentStore.flush(FlushTrigger.SHUTDOWN);
+    concurrentStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SHUTDOWN);
 
     long apiCalls =
         concurrentSink.batches().stream()
@@ -561,7 +567,7 @@ public class InMemoryUsageAggregationStoreTest {
       executor.shutdownNow();
     }
 
-    store.flush(FlushTrigger.SHUTDOWN);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SHUTDOWN);
     long activeUsers =
         sink.batches().stream()
             .flatMap(batch -> batch.distinctSnapshots().stream())
@@ -617,7 +623,9 @@ public class InMemoryUsageAggregationStoreTest {
       executor.submit(
           () -> {
             for (int i = 0; i < 30; i++) {
-              lowCardinalityStore.flush(FlushTrigger.SCHEDULED);
+              lowCardinalityStore.flush(
+                  TestOperationContexts.systemContextNoSearchAuthorization(),
+                  FlushTrigger.SCHEDULED);
               Thread.yield();
             }
           });
@@ -627,7 +635,8 @@ public class InMemoryUsageAggregationStoreTest {
       executor.shutdownNow();
     }
 
-    lowCardinalityStore.flush(FlushTrigger.SHUTDOWN);
+    lowCardinalityStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SHUTDOWN);
     long apiCalls =
         sink.batches().stream()
             .flatMap(batch -> batch.additiveRows().stream())
@@ -650,14 +659,14 @@ public class InMemoryUsageAggregationStoreTest {
     RecordingUsageFlushSink slowSink =
         new RecordingUsageFlushSink() {
           @Override
-          public void publish(@Nonnull UsageFlushBatch batch) {
+          public void publish(@Nonnull OperationContext opContext, @Nonnull UsageFlushBatch batch) {
             flushStarted.countDown();
             try {
               Assert.assertTrue(releaseFlush.await(10, TimeUnit.SECONDS));
             } catch (InterruptedException e) {
               Thread.currentThread().interrupt();
             }
-            super.publish(batch);
+            super.publish(opContext, batch);
           }
         };
     // High cardinality limit: a single metadata_read already creates more than a few rollup
@@ -678,7 +687,12 @@ public class InMemoryUsageAggregationStoreTest {
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
-      Future<?> flushFuture = executor.submit(() -> blockingStore.flush(FlushTrigger.SCHEDULED));
+      Future<?> flushFuture =
+          executor.submit(
+              () ->
+                  blockingStore.flush(
+                      TestOperationContexts.systemContextNoSearchAuthorization(),
+                      FlushTrigger.SCHEDULED));
       Assert.assertTrue(flushStarted.await(10, TimeUnit.SECONDS));
 
       Assert.assertTrue(
@@ -691,7 +705,8 @@ public class InMemoryUsageAggregationStoreTest {
       executor.shutdownNow();
     }
 
-    blockingStore.flush(FlushTrigger.SHUTDOWN);
+    blockingStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SHUTDOWN);
     long apiCalls =
         slowSink.batches().stream()
             .flatMap(batch -> batch.additiveRows().stream())
@@ -719,7 +734,7 @@ public class InMemoryUsageAggregationStoreTest {
   @Test
   public void testEmptyScheduledFlushPublishesZeroSnapshotsAndAdvancesWindow() {
     Instant before = store.windowStartSnapshot();
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     Assert.assertTrue(store.windowStartSnapshot().isAfter(before));
     Assert.assertEquals(sink.batches().size(), 1);
     Assert.assertTrue(
@@ -732,17 +747,18 @@ public class InMemoryUsageAggregationStoreTest {
     AtomicInteger attempts = new AtomicInteger();
     RecordingUsageFlushSink recordingSink = new RecordingUsageFlushSink();
     UsageFlushSink retryingSink =
-        batch -> {
+        (opContext, batch) -> {
           if (attempts.incrementAndGet() < 2) {
             throw new IllegalStateException("transient failure");
           }
-          recordingSink.publish(batch);
+          recordingSink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
         };
     InMemoryUsageAggregationStore retryStore = storeWithSink(retryingSink, 3, 0L);
 
     retryStore.recordRequest(
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
-    retryStore.flush(FlushTrigger.SCHEDULED);
+    retryStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertEquals(attempts.get(), 2);
     Assert.assertEquals(recordingSink.batches().size(), 1);
@@ -760,11 +776,11 @@ public class InMemoryUsageAggregationStoreTest {
     RecordingUsageFlushSink recordingSink = new RecordingUsageFlushSink();
     AtomicInteger attempts = new AtomicInteger();
     UsageFlushSink sink =
-        batch -> {
+        (opContext, batch) -> {
           if (attempts.getAndIncrement() == 0) {
             throw new IllegalStateException("publish failed");
           }
-          recordingSink.publish(batch);
+          recordingSink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
         };
     InMemoryUsageAggregationStore retryStore = storeWithSink(sink, 1, 0L);
 
@@ -773,12 +789,14 @@ public class InMemoryUsageAggregationStoreTest {
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     Assert.assertEquals(retryStore.windowStartSnapshot(), windowBeforeRecord);
 
-    retryStore.flush(FlushTrigger.SCHEDULED);
+    retryStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     Assert.assertTrue(retryStore.windowStartSnapshot().isAfter(windowBeforeRecord));
     Assert.assertTrue(recordingSink.batches().isEmpty());
     Assert.assertTrue(retryStore.currentCardinality() > 0);
 
-    retryStore.flush(FlushTrigger.SCHEDULED);
+    retryStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     Assert.assertEquals(recordingSink.batches().size(), 1);
     long apiCalls =
         recordingSink.batches().stream()
@@ -796,23 +814,25 @@ public class InMemoryUsageAggregationStoreTest {
     AtomicInteger attempts = new AtomicInteger();
     RecordingUsageFlushSink recordingSink = new RecordingUsageFlushSink();
     UsageFlushSink sink =
-        batch -> {
+        (opContext, batch) -> {
           if (attempts.incrementAndGet() <= 2) {
             throw new IllegalStateException("publish failed");
           }
-          recordingSink.publish(batch);
+          recordingSink.publish(TestOperationContexts.systemContextNoSearchAuthorization(), batch);
         };
     InMemoryUsageAggregationStore retryStore = storeWithSink(sink, 2, 0L);
 
     retryStore.recordRequest(
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
-    retryStore.flush(FlushTrigger.SCHEDULED);
+    retryStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     Assert.assertEquals(attempts.get(), 2);
     Assert.assertTrue(recordingSink.batches().isEmpty());
 
     retryStore.recordRequest(
         session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
-    retryStore.flush(FlushTrigger.SCHEDULED);
+    retryStore.flush(
+        TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertEquals(attempts.get(), 3);
     Assert.assertEquals(recordingSink.batches().size(), 1);
@@ -872,7 +892,7 @@ public class InMemoryUsageAggregationStoreTest {
     }
 
     store.recordRequest(opContext);
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = sink.batches().get(0);
     Assert.assertTrue(

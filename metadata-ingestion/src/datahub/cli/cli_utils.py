@@ -445,9 +445,17 @@ def generate_access_token(
     }
     response = session.post(f"{frontend_url}/api/v2/graphql", json=json)
     response.raise_for_status()
-    return token_name, response.json().get("data", {}).get("createAccessToken", {}).get(
-        "accessToken", None
+    payload = response.json()
+    errors = payload.get("errors") or []
+    if errors:
+        messages = "; ".join(str(error.get("message") or error) for error in errors)
+        raise ValueError(f"Failed to create access token: {messages}")
+    access_token = (payload.get("data", {}).get("createAccessToken", {}) or {}).get(
+        "accessToken"
     )
+    if not access_token:
+        raise ValueError("Failed to create access token: empty response from server")
+    return token_name, access_token
 
 
 def ensure_has_system_metadata(

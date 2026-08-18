@@ -6,7 +6,6 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 from sqlalchemy.engine.url import URL, make_url
 
 from datahub.ingestion.source.kafka_connect.common import (
-    JDBC_PREFIX,
     KAFKA,
     BaseConnector,
     ConnectorManifest,
@@ -15,7 +14,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_dataset_name,
     has_three_level_hierarchy,
-    remove_prefix,
+    normalize_jdbc_url,
     validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.config_constants import (
@@ -117,9 +116,10 @@ class ConfluentS3SinkConnector(BaseConnector):
             transformed_topics = transform_result.topics
 
             # Log any warnings from transform processing
-            for warning in transform_result.warnings:
+            for w in transform_result.warnings:
                 self.report.warning(
-                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                    message="Transform warning",
+                    context=f"{self.connector_manifest.name}: {w}",
                 )
 
             if transform_result.fallback_used:
@@ -147,14 +147,14 @@ class ConfluentS3SinkConnector(BaseConnector):
             return lineages
         except ValueError as e:
             self.report.warning(
-                f"Configuration error in S3 sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Configuration error in S3 sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
         except Exception as e:
             self.report.warning(
-                f"Unexpected error resolving lineage for S3 sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Unexpected error resolving lineage for S3 sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
 
@@ -485,14 +485,14 @@ class ClickHouseSinkConnector(BaseConnector):
             return lineages
         except ValueError as e:
             self.report.warning(
-                f"Configuration error in ClickHouse sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Configuration error in ClickHouse sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
         except Exception as e:
             self.report.warning(
-                f"Unexpected error resolving lineage for ClickHouse sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Unexpected error resolving lineage for ClickHouse sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
 
@@ -572,8 +572,8 @@ class IcebergSinkConnector(BaseConnector):
             return lineages
         except Exception as e:
             self.report.warning(
-                f"Unexpected error resolving lineage for Iceberg sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Unexpected error resolving lineage for Iceberg sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
         return []
@@ -802,9 +802,10 @@ class BigQuerySinkConnector(BaseConnector):
         transformed_topics = transform_result.topics
 
         # Log any warnings from transform processing
-        for warning in transform_result.warnings:
+        for w in transform_result.warnings:
             self.report.warning(
-                f"Transform warning for {self.connector_manifest.name}: {warning}"
+                message="Transform warning",
+                context=f"{self.connector_manifest.name}: {w}",
             )
 
         if transform_result.fallback_used:
@@ -822,8 +823,8 @@ class BigQuerySinkConnector(BaseConnector):
             )
             if dataset_table is None:
                 self.report.warning(
-                    "Could not find target dataset for topic, please check your connector configuration"
-                    f"{self.connector_manifest.name} : {transformed_topic} ",
+                    message="Could not find target dataset for topic, please check your connector configuration",
+                    context=f"{self.connector_manifest.name} : {transformed_topic}",
                 )
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
@@ -860,7 +861,7 @@ class JdbcSinkParser:
 
     db_connection_url: str
     target_platform: str
-    database_name: str
+    database_name: Optional[str]
     schema_name: Optional[str]
     table_name_format: str
 
@@ -925,28 +926,45 @@ class JdbcSinkParserFactory:
         Returns:
             JdbcSinkParser with parsed configuration
         """
-        # Parse JDBC URL using SQLAlchemy
-        jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
+        # Parse JDBC URL using SQLAlchemy (normalises Oracle thin format first)
+        jdbc_url = normalize_jdbc_url(connection_url)
         url_instance = make_url(jdbc_url)
-
-        # Extract database name
-        database_name = url_instance.database
-        if not database_name:
-            raise ValueError(
-                f"Missing database name in JDBC URL: {jdbc_url}. "
-                f"JDBC URLs must include a database name, e.g., 'jdbc:postgresql://host:port/database_name'"
-            )
 
         # Get target platform from SQLAlchemy URL
         target_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+
+        # Oracle service names (e.g. myservice.corp.example.com) are not database
+        # identifiers in DataHub URNs; Oracle defaults to schema.table format.
+        if target_platform == "oracle":
+            database_name: Optional[str] = None
+        else:
+            database_name = url_instance.database
+            if not database_name:
+                raise ValueError(
+                    f"Missing database name in JDBC URL: {jdbc_url}. "
+                    f"JDBC URLs must include a database name, e.g., 'jdbc:postgresql://host:port/database_name'"
+                )
 
         # Extract schema from URL query parameters or use defaults
         schema_name = self._extract_schema_from_url(
             url_instance, platform, connector_manifest.config
         )
 
-        # Build clean connection URL for property bag
-        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+        if target_platform == "oracle" and not schema_name:
+            raise ValueError(
+                f"Could not resolve Oracle schema for connector {connector_manifest.name}. "
+                "Set schema.name (or db.schema) in the connector config, or set "
+                "connection.user / connection.username so the owner can be inferred. "
+                "Without a schema, lineage URNs cannot match ingested Oracle assets."
+            )
+
+        # Omit the Oracle service name from the connection URL (not a DB identifier)
+        if database_name:
+            db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+        else:
+            db_connection_url = (
+                f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}"
+            )
 
         # Get table name format (how topics map to tables)
         table_name_format = connector_manifest.config.get(
@@ -1004,11 +1022,8 @@ class JdbcSinkParserFactory:
 
         # Extract schema from config or use defaults
         schema_name = config.get("db.schema") or config.get("schema.name")
-
-        # Use platform-specific defaults if not specified
-        if not schema_name and has_three_level_hierarchy(platform):
-            if platform == "postgres":
-                schema_name = "public"  # PostgreSQL default schema
+        if not schema_name:
+            schema_name = self._default_schema_for_platform(platform)
 
         # Get table name format (how topics map to tables)
         table_name_format = config.get("table.name.format", "${topic}")
@@ -1065,14 +1080,32 @@ class JdbcSinkParserFactory:
         if not schema:
             schema = config.get("schema.name") or config.get("db.schema")
 
-        # Use platform-specific defaults
-        if not schema and has_three_level_hierarchy(platform):
-            if platform == "postgres":
-                schema = "public"  # PostgreSQL default schema
-            # MySQL doesn't use schemas (database == schema)
-            # SQL Server, Oracle use user-specific defaults
+        if not schema:
+            schema = self._default_schema_for_platform(platform)
+
+        # Oracle: connecting user = schema owner. Fold unquoted credentials to
+        # lowercase to match the Oracle source's normalize_name convention.
+        # connection.user is a typed credential, not a name read back from
+        # Oracle, so mixed-case values (e.g. Mps) still need .lower() — Oracle
+        # folds unquoted identifiers to uppercase and the source then
+        # lowercases them. Explicit schema.name / db.schema only fold when the
+        # value is ALL-UPPERCASE, so a quoted mixed-case schema is preserved.
+        if not schema and platform == "oracle":
+            raw = config.get("connection.user") or config.get("connection.username")
+            if raw:
+                schema = raw.lower()
+        elif schema and platform == "oracle" and schema.isupper():
+            schema = schema.lower()
 
         return schema
+
+    @staticmethod
+    def _default_schema_for_platform(platform: str) -> Optional[str]:
+        if platform == "postgres":
+            return "public"
+        if platform == "mssql":
+            return "dbo"
+        return None
 
 
 @dataclass
@@ -1116,7 +1149,7 @@ class JdbcSinkConnector(BaseConnector):
                     )
                     self.platform = "unknown"
                 else:
-                    jdbc_url = remove_prefix(connection_url, JDBC_PREFIX)
+                    jdbc_url = normalize_jdbc_url(connection_url)
                     self.platform = get_platform_from_sqlalchemy_uri(jdbc_url)
                     if self.platform == "external":
                         report.warning(
@@ -1318,9 +1351,10 @@ class JdbcSinkConnector(BaseConnector):
             transformed_topics = transform_result.topics
 
             # Log any warnings from transform processing
-            for warning in transform_result.warnings:
+            for w in transform_result.warnings:
                 self.report.warning(
-                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                    message="Transform warning",
+                    context=f"{self.connector_manifest.name}: {w}",
                 )
 
             if transform_result.fallback_used:
@@ -1342,17 +1376,19 @@ class JdbcSinkConnector(BaseConnector):
                     parser.schema_name,
                 )
 
-                # Build fully qualified dataset name using helper function
-                if parser.schema_name and has_three_level_hierarchy(
-                    parser.target_platform
-                ):
-                    # Platform supports schema hierarchy: database.schema.table
-                    table_with_schema = f"{parser.schema_name}.{table_name}"
+                if parser.target_platform == "oracle":
                     target_dataset = get_dataset_name(
-                        parser.database_name, table_with_schema
+                        None, f"{parser.schema_name}.{table_name}"
+                    )
+                elif (
+                    parser.schema_name
+                    and parser.database_name
+                    and has_three_level_hierarchy(parser.target_platform)
+                ):
+                    target_dataset = get_dataset_name(
+                        parser.database_name, f"{parser.schema_name}.{table_name}"
                     )
                 else:
-                    # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
                 fine_grained = self._extract_sink_fine_grained_lineage(
@@ -1379,15 +1415,15 @@ class JdbcSinkConnector(BaseConnector):
 
         except ValueError as e:
             self.report.warning(
-                f"Configuration error in JDBC sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Configuration error in JDBC sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
             return []
         except Exception as e:
             self.report.warning(
-                f"Failed to extract lineage for JDBC sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Failed to extract lineage for JDBC sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
             return []

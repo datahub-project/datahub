@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.delete;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -51,10 +50,10 @@ public class BatchUpdateSoftDeletedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -78,6 +77,8 @@ public class BatchUpdateSoftDeletedResolverTest {
             Urn.createFromString(TEST_ENTITY_URN_2), STATUS_ASPECT_NAME, newStatus);
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -102,10 +103,10 @@ public class BatchUpdateSoftDeletedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(originalStatus);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -129,6 +130,8 @@ public class BatchUpdateSoftDeletedResolverTest {
             Urn.createFromString(TEST_ENTITY_URN_2), STATUS_ASPECT_NAME, newStatus);
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -150,10 +153,8 @@ public class BatchUpdateSoftDeletedResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
+    // The first resource does not exist.
+    stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN_2));
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 

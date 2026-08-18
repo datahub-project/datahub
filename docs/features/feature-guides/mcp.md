@@ -30,6 +30,8 @@ Surface real SQL queries that reference a dataset — see join patterns, common 
 **Works Where You Work** <br />
 Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
 
+With **DataHub Cloud**, you can also create [scoped custom MCP servers](./scoped-mcp-servers.md) — named endpoints with their own tools, instructions, and views for domain-specific agents (Context Platform private beta).
+
 ## Tools
 
 The DataHub MCP Server provides the following tools, grouped by whether they read from or write to DataHub. All tools are annotated with MCP-standard hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so compatible clients (e.g. Claude) can surface which tools modify catalog state and prompt for confirmation accordingly.
@@ -146,7 +148,7 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 
 </details>
 
-# Connecting to Managed MCP Server with OAuth - Recommended
+# Connecting to Managed MCP Server with OAuth - Recommended {#managed-mcp-server-usage}
 
 _Available in DataHub Cloud v1.0.2+_
 
@@ -259,11 +261,11 @@ Custom MCP connectors require **Developer Mode** and are available on **Plus, Pr
 </details>
 
 <details>
-  <summary>Snowflake Cortex Agents / Snowflake Intelligence</summary>
+  <summary>Snowflake Cortex Agents / Snowflake CoWork</summary>
 
-Snowflake exposes external MCP servers to Cortex Agents through an **API Integration** + **External MCP Server** object pair. Both are created via SQL by an `ACCOUNTADMIN`, then the resulting connector is added to an agent in Snowsight.
+Snowflake exposes external MCP servers to Cortex Agents through an **API Integration** + **External MCP Server** object pair. Both are created via SQL by an `ACCOUNTADMIN`, then the resulting connector is granted to your agent users and added to an agent in Snowsight.
 
-1. Create an API integration using DCR (run as `ACCOUNTADMIN`):
+1. Create an API integration using DCR (run as `ACCOUNTADMIN`). `OAUTH_RESOURCE_URL` must be the origin only — no `/mcp` path — because that is the `resource` value DataHub advertises at `/.well-known/oauth-protected-resource`:
 
    ```sql
    CREATE API INTEGRATION datahub_mcp_api_integration
@@ -271,24 +273,31 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
      API_ALLOWED_PREFIXES = ('https://mcp.datahub.com')
      API_USER_AUTHENTICATION = (
        TYPE = OAUTH_DYNAMIC_CLIENT,
-       OAUTH_RESOURCE_URL = 'https://mcp.datahub.com/mcp'
+       OAUTH_RESOURCE_URL = 'https://mcp.datahub.com'
      )
      ENABLED = TRUE;
    ```
 
-2. Create the MCP server object:
+2. Create the MCP server object. It is schema-level, so place it where your agent users can reach it:
 
    ```sql
-   CREATE EXTERNAL MCP SERVER datahub_mcp_server
+   CREATE EXTERNAL MCP SERVER <db>.<schema>.datahub_mcp_server
      WITH DISPLAY_NAME = 'DataHub'
      URL = 'https://mcp.datahub.com/mcp'
      API_INTEGRATION = datahub_mcp_api_integration;
    ```
 
-3. In Snowsight, navigate to **AI & ML → Agents**, open your agent, choose **MCP Connectors**, and add the DataHub connector.
-4. In Snowflake Intelligence, click **Connect** next to the DataHub connector — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
+3. Grant `USAGE` to every role that will use the agent. Without this the connector silently never appears — Snowflake hides unauthorized objects rather than raising an error:
 
-See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup, or use your tenant URL (`https://<tenant>.acryl.io/integrations/ai/mcp`) in place of `mcp.datahub.com` if you prefer.
+   ```sql
+   GRANT USAGE ON EXTERNAL MCP SERVER <db>.<schema>.datahub_mcp_server TO ROLE <role>;
+   GRANT USAGE ON INTEGRATION datahub_mcp_api_integration TO ROLE <role>;
+   ```
+
+4. In Snowsight, navigate to **AI & ML → Agents**, select your agent, choose **MCP Connectors**, and add the DataHub connector.
+5. In Snowflake CoWork (formerly Snowflake Intelligence), open the sources panel, select **Connectors**, then **Connect** next to DataHub — Snowflake walks each user through the DataHub OAuth flow and reuses the credential on subsequent calls.
+
+See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake.md) for end-to-end setup. To point at your tenant instead of the global endpoint, use `https://<tenant>.acryl.io` for both `API_ALLOWED_PREFIXES` and `OAUTH_RESOURCE_URL`, and `https://<tenant>.acryl.io/integrations/ai/mcp` for the MCP server `URL`.
 
 </details>
 
@@ -344,26 +353,23 @@ Your managed MCP server URL is:
 https://<tenant>.acryl.io/integrations/ai/mcp/
 ```
 
-There are two ways to authenticate:
+Authenticate by passing your token as a Bearer token in the `Authorization` header:
 
-1. **Authorization header** — pass your token as a Bearer token in the `Authorization` header:
+```
+Authorization: Bearer <token>
+```
 
-   ```
-   Authorization: Bearer <token>
-   ```
-
-2. **Token in URL** — append your token as a query parameter:
-
-   ```
-   https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
-   ```
-
-   This is a convenient alternative when your MCP client doesn't support custom headers.
+:::caution The `?token=` query parameter no longer works
+Requests that include a `token` query parameter get a `400 Bad Request`. A token in the URL
+shows up in proxy and CDN logs, in browser history, and in `Referer` headers. If your MCP
+client can't set headers itself, use `mcp-remote` with `--header` (shown below) and it will
+send the header for you.
+:::
 
 <details>
   <summary>On-Premises DataHub Cloud</summary>
 
-For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/?token=<token>`.
+For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQDN, e.g. `https://datahub.example.com/integrations/ai/mcp/`.
 
 </details>
 
@@ -383,7 +389,9 @@ For on-premises DataHub Cloud, replace `<tenant>.acryl.io` with your DataHub FQD
       "args": [
         "-y",
         "mcp-remote",
-        "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+        "https://<tenant>.acryl.io/integrations/ai/mcp/",
+        "--header",
+        "Authorization: Bearer <token>"
       ]
     }
   }
@@ -455,15 +463,17 @@ For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-gui
 Most AI tools support remote MCP servers. Provide the hosted MCP server URL:
 
 ```
-https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>
+https://<tenant>.acryl.io/integrations/ai/mcp/
 ```
+
+with the header `Authorization: Bearer <token>`.
 
 Make sure authentication mode is _not_ set to "OAuth" (if applicable).
 
 For clients that don't yet support remote MCP servers, use `mcp-remote`:
 
 - Command: `npx`
-- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`
+- Args: `-y mcp-remote https://<tenant>.acryl.io/integrations/ai/mcp/ --header "Authorization: Bearer <token>"`
 
 </details>
 

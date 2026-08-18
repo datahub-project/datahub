@@ -832,9 +832,10 @@ class LookerUtil:
                 ]
             )
         else:
-            reporter.report_warning(
+            reporter.warning(
                 title="Failed to Map View Field Type",
                 message=f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
+                log=False,
             )
 
         # Add group_label as tags if present
@@ -1164,10 +1165,11 @@ class LookerExplore:
                                 view_name = orig_name
                             potential_views.append(view_name)
                         except AssertionError:
-                            reporter.report_warning(
+                            reporter.warning(
                                 title="Missing View Name",
                                 message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                                 context=field_name,
+                                log=False,
                             )
                             continue
 
@@ -1344,10 +1346,11 @@ class LookerExplore:
                 exc=e,
             )
         except AssertionError:
-            reporter.report_warning(
+            reporter.warning(
                 title="Unable to find Views",
                 message="Encountered exception while attempting to find dependent views for this chart",
                 context=f"Explore: {explore_name}, Mode: {model}, Views: {views}",
+                log=False,
             )
         return None
 

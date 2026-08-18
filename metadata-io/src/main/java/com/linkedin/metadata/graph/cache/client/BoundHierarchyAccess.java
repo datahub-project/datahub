@@ -39,7 +39,7 @@ public final class BoundHierarchyAccess {
     if (roots.isEmpty()) {
       return Collections.emptySet();
     }
-    if (shouldUseCache(includeSoftDelete)) {
+    if (shouldUseCache(opContext, spec, includeSoftDelete)) {
       Set<String> rootStrings =
           roots.stream().map(Urn::toString).collect(Collectors.toCollection(LinkedHashSet::new));
       GraphReadResult result =
@@ -80,7 +80,7 @@ public final class BoundHierarchyAccess {
     if (maxDepth <= 0) {
       return Collections.emptyList();
     }
-    if (shouldUseCache(includeSoftDelete)) {
+    if (shouldUseCache(opContext, spec, includeSoftDelete)) {
       AncestorWalkResult walkResult =
           EntityGraphCacheClients.walkOrderedForwardAncestors(
               opContext,
@@ -113,7 +113,7 @@ public final class BoundHierarchyAccess {
       @Nonnull Urn rootUrn,
       int maxDepth,
       boolean includeSoftDelete) {
-    if (!shouldUseCache(includeSoftDelete)) {
+    if (!shouldUseCache(opContext, spec, includeSoftDelete)) {
       return GraphScrollFallback.allDescendants(opContext, spec, rootUrn);
     }
     int cacheMaxDepth =
@@ -169,7 +169,7 @@ public final class BoundHierarchyAccess {
       @Nonnull HierarchyReadSpec spec,
       @Nonnull Urn parentUrn,
       boolean includeSoftDelete) {
-    if (!shouldUseCache(includeSoftDelete)) {
+    if (!shouldUseCache(opContext, spec, includeSoftDelete)) {
       return GraphScrollFallback.directChildren(opContext, spec, parentUrn);
     }
     GraphReadResult result =
@@ -211,7 +211,7 @@ public final class BoundHierarchyAccess {
     if (candidateUrn.equals(ancestorUrn)) {
       return false;
     }
-    if (shouldUseCache(includeSoftDelete)) {
+    if (shouldUseCache(opContext, spec, includeSoftDelete)) {
       GraphReadResult result =
           EntityGraphCacheClients.expand(
               GraphExpandRequest.builder()
@@ -229,7 +229,12 @@ public final class BoundHierarchyAccess {
     return AspectParentWalker.isAncestorOf(opContext, spec, candidateUrn, ancestorUrn);
   }
 
-  private static boolean shouldUseCache(boolean includeSoftDelete) {
-    return !includeSoftDelete;
+  private static boolean shouldUseCache(
+      @Nonnull OperationContext opContext,
+      @Nonnull HierarchyReadSpec spec,
+      boolean includeSoftDelete) {
+    return !includeSoftDelete
+        && EntityGraphCacheClients.isBoundKnownGraph(
+            opContext.getEntityGraphCache(), spec.getBinding());
   }
 }

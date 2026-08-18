@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Confirmez-vous?",
     "unlinkVersion.error": "Échec de la dissociation: \n {{errorMessage}}",
     "unlinkVersion.loading": "Dissociation en cours...",
-    "unlinkVersion.success": "Dissociation de {{entityName}} effectuée!"
+    "unlinkVersion.success": "Dissociation de {{entityName}} effectuée!",
+    "dataProductSelect.notFound": "Aucun Data Product trouvé",
+    "dataProductSelect.placeholder": "Sélectionner un Data Product parent",
+    "moveDataProduct.title": "Déplacer le Data Product"
 }

@@ -155,6 +155,7 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     logger?.step('expand BigQuery platform');
     await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('verify sidebar remains visible after expanding');
@@ -162,6 +163,7 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
 
     logger?.step('collapse BigQuery platform');
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('verify sidebar remains visible after collapsing');
@@ -193,6 +195,7 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     logger?.step('expand BigQuery platform');
     await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('verify PlaywrightBrowseEntity browse path is visible');
@@ -218,10 +221,12 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     logger?.step('expand BigQuery platform');
     await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('expand PlaywrightBrowseEntity path');
     await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('click test_schema node to apply filters');
@@ -250,8 +255,10 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
 
     logger?.step('apply browse path filter');
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
     await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
     await browseV2Page.clickBrowseNode(BROWSE_PATHS.SCHEMA);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
