@@ -102,9 +102,9 @@ def test_user_can_edit_own_profile():
     )
 
     assert not is_graphql_auth_denied(res), res
-    editable = (
-        (res.get("data") or {}).get("updateCorpUserProperties") or {}
-    ).get("editableProperties") or {}
+    editable = ((res.get("data") or {}).get("updateCorpUserProperties") or {}).get(
+        "editableProperties"
+    ) or {}
     assert editable.get("aboutMe") == about_me, res
     assert editable.get("title") == "Analyst", res
 
