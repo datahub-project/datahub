@@ -15,39 +15,39 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 
 Connect sources and pull technical, business, and unstructured context into DataHub.
 
-| Feature Name                                                  | OSS | Cloud | Business Value                                                            |                     Link                      |
-| :------------------------------------------------------------ | :-: | :---: | :------------------------------------------------------------------------ | :-------------------------------------------: |
-| **140+ Source Connectors with Unified Search**                | ✔  |  ✔   | Connect entire data ecosystem                                             | [Docs](https://docs.datahub.com/integrations) |
-| **dbt Metrics & Semantic Model Ingestion**                    | ✔  |  ✔   | Bring in metric definitions and semantic models from dbt                  |                                               |
-| **BI Tool Glossary & Definitions Ingestion**                  | ✔  |  ✔   | Ingest business glossaries and definitions from Power BI, Tableau, Looker |                                               |
-| **Unstructured Document Ingestion (Notion, Confluence, etc)** | ✔  |  ✔   | Pull institutional knowledge from wikis, docs, and collaboration tools    |                                               |
-| **Chunking & Semantic Embedding**                             | ✔  |  ✔   | Auto-chunk and embed all context for real-time semantic retrieval         |                                               |
-| **Continuous Technical Metadata Sync**                        | ✔  |  ✔   | Keep the context graph current as data and definitions evolve             |                                               |
-| **GraphQL & MCP Retrieval**                                   | ✔  |  ✔   | Serve context to any agent or tool via GraphQL, MCP, or API               |                                               |
+| Feature Name                                                  | OSS | Cloud | Business Value                                                            |                                                    Link                                                     |
+| :------------------------------------------------------------ | :-: | :---: | :------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------: |
+| **140+ Source Connectors with Unified Search**                | ✔  |  ✔   | Connect entire data ecosystem                                             |                                [Docs](https://docs.datahub.com/integrations)                                |
+| **dbt Metrics & Semantic Model Ingestion**                    | ✔  |  ✔   | Bring in metric definitions and semantic models from dbt                  |                    [Docs](https://docs.datahub.com/docs/generated/ingestion/sources/dbt)                    |
+| **BI Tool Glossary & Definitions Ingestion**                  | ✔  |  ✔   | Ingest business glossaries and definitions from Power BI, Tableau, Looker |                                                                                                             |
+| **Unstructured Document Ingestion (Notion, Confluence, etc)** | ✔  |  ✔   | Pull institutional knowledge from wikis, docs, and collaboration tools    | [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents#importing-documents) |
+| **Chunking & Semantic Embedding**                             | ✔  |  ✔   | Auto-chunk and embed all context for real-time semantic retrieval         |                                                                                                             |
+| **Continuous Technical Metadata Sync**                        | ✔  |  ✔   | Keep the context graph current as data and definitions evolve             |                                                                                                             |
+| **GraphQL & MCP Retrieval**                                   | ✔  |  ✔   | Serve context to any agent or tool via GraphQL, MCP, or API               |                                                                                                             |
 
 ### Context Intelligence
 
 Mine and generate context automatically instead of authoring it by hand.
 
-| Feature Name                                                      | OSS | Cloud | Business Value                                                                          |                                          Link                                           |
-| :---------------------------------------------------------------- | :-: | :---: | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------: |
-| **Cross-Platform Query History Mining**                           | ❌  |  ✔   | Turn years of warehouse query history into a structured semantic index                  |                                                                                         |
-| **Metrics & Semantic Models**                                     | ✔  |  ✔   | Search and browse business metrics alongside datasets, pipelines, and lineage           |                   [Docs](https://datahub.com/blog/datahub-cloud-2-1/)                   |
-| **Context Documents Generation**                                  | ❌  |  ✔   | Auto-generate context documents capturing proven joins, filters, metric definitions     | [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents) |
-| **AI Documentation Generation**                                   | ❌  |  ✔   | Auto-document tables and columns at scale without manual authoring                      |                [Docs](https://docs.datahub.com/docs/automations/ai-docs)                |
-| **Automated Context Updates**                                     | ❌  |  ✔   | Continuously refresh context as schemas, queries, and business definitions change       |                                                                                         |
-| **Automated Eval Execution (Benchmark Q&A & Regression Testing)** | ❌  |  ✔   | Run benchmark Q&A and regression tests to catch accuracy drift before it reaches agents |                                                                                         |
+| Feature Name                                                      | OSS | Cloud | Business Value                                                                          |                                           Link                                            |
+| :---------------------------------------------------------------- | :-: | :---: | :-------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------: |
+| **Cross-Platform Query History Mining**                           | ❌  |  ✔   | Turn years of warehouse query history into a structured semantic index                  |                                                                                           |
+| **Metrics & Semantic Models**                                     | ✔  |  ✔   | Search and browse business metrics alongside datasets, pipelines, and lineage           | [Docs](https://docs.datahub.com/docs/features/feature-guides/metrics-and-semantic-models) |
+| **Context Documents Generation**                                  | ❌  |  ✔   | Auto-generate context documents capturing proven joins, filters, metric definitions     |  [Docs](https://docs.datahub.com/docs/features/feature-guides/context/context-documents)  |
+| **AI Documentation Generation**                                   | ❌  |  ✔   | Auto-document tables and columns at scale without manual authoring                      |                 [Docs](https://docs.datahub.com/docs/automations/ai-docs)                 |
+| **Automated Context Updates**                                     | ❌  |  ✔   | Continuously refresh context as schemas, queries, and business definitions change       |                                                                                           |
+| **Automated Eval Execution (Benchmark Q&A & Regression Testing)** | ❌  |  ✔   | Run benchmark Q&A and regression tests to catch accuracy drift before it reaches agents |                                                                                           |
 
 ### Context Hub
 
 Review, disambiguate, and approve context before agents rely on it.
 
-| Feature Name                                                      | OSS | Cloud | Business Value                                                                           | Link |
-| :---------------------------------------------------------------- | :-: | :---: | :--------------------------------------------------------------------------------------- | :--: |
-| **Collaborative Workflow for Reviewing and Editing Context**      | ❌  |  ✔   | Give domain experts a structured inbox to approve, reject, or refine AI-proposed context |      |
-| **Business Context Disambiguation & Domain-Specific Resolution**  | ❌  |  ✔   | Resolve conflicting definitions at the domain level before they reach agents             |      |
-| **Simulation & Validation Before Context Publishing**             | ❌  |  ✔   | Preview how context changes affect text-to-SQL results before going live                 |      |
-| **Approval Workflows: Documentation, Glossary, Tags & Ownership** | ❌  |  ✔   | Controlled vocabulary and documentation changes with audit trail                         |      |
+| Feature Name                                                      | OSS | Cloud | Business Value                                                                           |                                                   Link                                                   |
+| :---------------------------------------------------------------- | :-: | :---: | :--------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------: |
+| **Collaborative Workflow for Reviewing and Editing Context**      | ❌  |  ✔   | Give domain experts a structured inbox to approve, reject, or refine AI-proposed context |                                                                                                          |
+| **Business Context Disambiguation & Domain-Specific Resolution**  | ❌  |  ✔   | Resolve conflicting definitions at the domain level before they reach agents             |                                                                                                          |
+| **Simulation & Validation Before Context Publishing**             | ❌  |  ✔   | Preview how context changes affect text-to-SQL results before going live                 |                                                                                                          |
+| **Approval Workflows: Documentation, Glossary, Tags & Ownership** | ❌  |  ✔   | Controlled vocabulary and documentation changes with audit trail                         | [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals#proposing-tags-and-glossary-terms) |
 
 ### Context Activation
 
