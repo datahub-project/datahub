@@ -19,12 +19,7 @@ export default function MoveEntityModal({ entityType, entityData, urn, onClose }
         case EntityType.GlossaryNode:
         case EntityType.GlossaryTerm:
             return (
-                <MoveGlossaryEntityModal
-                    entityData={entityData}
-                    entityType={entityType}
-                    urn={urn}
-                    onClose={onClose}
-                />
+                <MoveGlossaryEntityModal entityData={entityData} entityType={entityType} urn={urn} onClose={onClose} />
             );
         case EntityType.Domain:
             return <MoveDomainModal onClose={onClose} />;
