@@ -45,15 +45,18 @@ const PARENT: GenericEntityProperties = {
     platform: dataPlatform,
 };
 
-const parentDataProducts = [
-    { urn: 'urn:li:dataProduct:parent', type: EntityType.DataProduct, properties: { name: 'Parent DP' } },
-    { urn: 'urn:li:dataProduct:root', type: EntityType.DataProduct, properties: { name: 'Root DP' } },
-];
+const immediateParent = {
+    urn: 'urn:li:dataProduct:parent',
+    type: EntityType.DataProduct,
+    properties: { name: 'Parent DP' },
+};
 
 const dataProduct = {
     urn: 'urn:li:dataProduct:test',
     type: EntityType.DataProduct,
-    parentDataProducts,
+    properties: {
+        parentDataProduct: immediateParent,
+    },
     domain: {
         associatedUrn: '',
         domain: {
@@ -63,6 +66,7 @@ const dataProduct = {
             parentDomains: PARENT_DOMAINS,
         },
     },
+    parentDataProducts: [],
 };
 
 describe('getContextPath', () => {
@@ -126,7 +130,7 @@ describe('getContextPath', () => {
 
         const contextPath = getParentEntities(entityData, EntityType.DataProduct);
         expect(contextPath).toEqual([
-            ...parentDataProducts,
+            immediateParent,
             dataProduct.domain?.domain,
             ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
         ]);
@@ -135,6 +139,7 @@ describe('getContextPath', () => {
     it('returns domain chain only for data products without parent data products', () => {
         const entityData = {
             ...dataProduct,
+            properties: {},
             parentDataProducts: [],
         };
 

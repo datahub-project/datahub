@@ -29,7 +29,8 @@ export function getParentEntities(entityData: GetContextPathInput | null, entity
     switch (entityType) {
         case EntityType.DataProduct: {
             const dp = entityData as DataProduct;
-            const dpChain = dp.parentDataProducts ?? [];
+            const immediateParent = dp.properties?.parentDataProduct;
+            const dpChain = immediateParent ? [immediateParent] : [];
             const domain = dp.domain?.domain;
             const domainChain = domain ? [domain, ...(domain.parentDomains?.domains || [])] : [];
             return [...dpChain, ...domainChain];
