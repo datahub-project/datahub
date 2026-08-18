@@ -173,32 +173,31 @@ describe('UserListV2.hooks', () => {
         });
 
         it('should keep search results when the query also returns an error', () => {
-            mockUseSearchUsersQuery.mockReturnValue({
-                data: {
-                    searchUsers: {
-                        searchResults: [
-                            {
-                                entity: {
-                                    __typename: 'CorpUser',
-                                    urn: 'urn:li:corpuser:user1',
-                                    username: 'user1',
-                                },
-                            },
-                        ],
-                        total: 1,
+            const searchUsers = {
+                searchResults: [
+                    {
+                        entity: {
+                            __typename: 'CorpUser',
+                            urn: 'urn:li:corpuser:user1',
+                            username: 'user1',
+                        },
                     },
-                },
+                ],
+                total: 1,
+            };
+            const error = { message: 'Cannot return null for non-nullable field DataHubRole.name' };
+
+            mockUseSearchUsersQuery.mockImplementation((options?: { errorPolicy?: string }) => ({
+                data: options?.errorPolicy === 'all' ? { searchUsers } : null,
                 loading: false,
-                error: { message: 'Cannot return null for non-nullable field DataHubRole.name' },
+                error,
                 refetch: vi.fn(),
-            });
+            }));
 
             const { result } = renderHook(() => useUserListData('*', 1, 25, 'all'));
 
             expect(result.current.totalUsers).toBe(1);
-            expect(result.current.error).toEqual(
-                expect.objectContaining({ message: 'Cannot return null for non-nullable field DataHubRole.name' }),
-            );
+            expect(result.current.error).toEqual(expect.objectContaining({ message: error.message }));
         });
     });
 
