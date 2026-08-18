@@ -828,6 +828,8 @@ class TableauProject:
     parent_id: Optional[str]
     parent_name: Optional[str]  # Name of a parent project
     path: List[str]
+    owner_username: Optional[str] = None
+    owner_email: Optional[str] = None
 
 
 @dataclass
@@ -1342,6 +1344,8 @@ class TableauSiteSource:
                     parent_name=None,
                     description=project.description,
                     path=[],
+                    owner_username=project.owner.name if project.owner else None,
+                    owner_email=project.owner.email if project.owner else None,
                 )
             # Set parent project name
             for _project_id, tableau_project in all_project_map.items():
@@ -4314,12 +4318,24 @@ class TableauSiteSource:
                     # don't need to emit them again here.
                     parent_project_key = self.gen_site_key(self.site_id)
 
+            owner_urn: Optional[str] = None
+            if self.config.ingest_owner:
+                owner_identifier = self._get_owner_identifier(
+                    {
+                        c.USERNAME: project_.owner_username,
+                        c.EMAIL: project_.owner_email,
+                    }
+                )
+                if owner_identifier:
+                    owner_urn = builder.make_user_urn(owner_identifier)
+
             yield from gen_containers(
                 container_key=project_key,
                 name=project_.name,
                 description=project_.description,
                 sub_types=[BIContainerSubTypes.TABLEAU_PROJECT],
                 parent_container_key=parent_project_key,
+                owner_urn=owner_urn,
             )
 
         for project in self.tableau_project_registry.values():
