@@ -141,6 +141,7 @@ describe('UserListV2.hooks', () => {
                     },
                 },
                 fetchPolicy: 'no-cache',
+                errorPolicy: 'all',
             });
         });
 
@@ -158,6 +159,7 @@ describe('UserListV2.hooks', () => {
                     },
                 },
                 fetchPolicy: 'no-cache',
+                errorPolicy: 'all',
             });
         });
 
@@ -168,6 +170,35 @@ describe('UserListV2.hooks', () => {
             expect(result.current.loading).toBe(false);
             expect(result.current.totalUsers).toBe(1);
             expect(result.current.selectRoleOptions).toHaveLength(2);
+        });
+
+        it('should keep search results when the query also returns an error', () => {
+            mockUseSearchUsersQuery.mockReturnValue({
+                data: {
+                    searchUsers: {
+                        searchResults: [
+                            {
+                                entity: {
+                                    __typename: 'CorpUser',
+                                    urn: 'urn:li:corpuser:user1',
+                                    username: 'user1',
+                                },
+                            },
+                        ],
+                        total: 1,
+                    },
+                },
+                loading: false,
+                error: { message: 'Cannot return null for non-nullable field DataHubRole.name' },
+                refetch: vi.fn(),
+            });
+
+            const { result } = renderHook(() => useUserListData('*', 1, 25, 'all'));
+
+            expect(result.current.totalUsers).toBe(1);
+            expect(result.current.error).toEqual(
+                expect.objectContaining({ message: 'Cannot return null for non-nullable field DataHubRole.name' }),
+            );
         });
     });
 
