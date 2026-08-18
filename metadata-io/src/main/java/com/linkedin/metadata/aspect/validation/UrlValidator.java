@@ -1,12 +1,17 @@
 package com.linkedin.metadata.aspect.validation;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
+import com.linkedin.common.Embed;
 import com.linkedin.common.url.Url;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -44,6 +49,18 @@ public class UrlValidator extends AspectPayloadValidator {
 
   /** Allowed URL schemes (kept in sync with {@link #allowHttp} by {@link #setAllowHttp}). */
   private Set<String> allowedSchemes = Set.of("https");
+
+  /**
+   * Schemes permitted for the embed {@code renderUrl}. Mirrors the frontend allowlist ({@code
+   * SAFE_URL_SCHEMES} in {@code datahub-web-react/src/app/shared/urlUtils.ts}) so the write-time
+   * check and the render-time {@code safeUrl} guard agree on what is renderable — keeping them in
+   * sync avoids values that one layer accepts and the other blocks. The security property is that
+   * script-executing pseudo-schemes (javascript:, data:, vbscript:, ...) are rejected to prevent
+   * stored XSS; the inert ftp:/mailto: schemes are allowed only to match the frontend. Unlike
+   * {@link #validateUrl}, this deliberately allows plain HTTP and internal/private hosts: embeds
+   * legitimately point at self-hosted or internal BI tools.
+   */
+  private static final Set<String> EMBED_ALLOWED_SCHEMES = Set.of("http", "https", "ftp", "mailto");
 
   /**
    * Sets whether HTTP URLs are allowed in addition to HTTPS. Keeps {@link #allowedSchemes} in sync
@@ -95,6 +112,18 @@ public class UrlValidator extends AspectPayloadValidator {
         if (info != null && info.hasPictureLink()) {
           validateUrl(item, info.getPictureLink(), "pictureLink", exceptions);
         }
+      } else if ("embed".equals(aspectName)) {
+        // A PATCH item carries only its delta, so item.getAspect(Embed.class) is null; validate the
+        // renderUrl straight from the patch operations instead, otherwise the stored-XSS guard is
+        // bypassable through the generic PATCH path.
+        if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
+          validateEmbedPatchItem((MCPItem) item, exceptions);
+        } else {
+          Embed embed = item.getAspect(Embed.class);
+          if (embed != null && embed.hasRenderUrl()) {
+            validateEmbedRenderUrl(item, embed.getRenderUrl(), "renderUrl", exceptions);
+          }
+        }
       }
     }
 
@@ -116,13 +145,8 @@ public class UrlValidator extends AspectPayloadValidator {
       return;
     }
 
-    URI uri;
-    try {
-      uri = new URI(rawUrl);
-    } catch (URISyntaxException e) {
-      exceptions.addException(
-          AspectValidationException.forItem(
-              item, String.format("Invalid URL syntax for '%s': %s", fieldName, rawUrl)));
+    URI uri = parseUri(item, rawUrl, fieldName, exceptions);
+    if (uri == null) {
       return;
     }
 
@@ -153,6 +177,79 @@ public class UrlValidator extends AspectPayloadValidator {
               String.format(
                   "URL for '%s' points to a private/internal network address, which is not allowed.",
                   fieldName)));
+    }
+  }
+
+  /**
+   * Scheme-only validation for the embed {@code renderUrl}. Rejects script-executing pseudo-schemes
+   * (javascript:, data:, vbscript:, ...) that would cause stored XSS when the value is rendered as
+   * an iframe {@code src}, while permitting the {@link #EMBED_ALLOWED_SCHEMES} to any host
+   * (including internal ones) so that legitimate self-hosted BI embeds keep working. Blank values
+   * (clearing the embed) are allowed.
+   */
+  private void validateEmbedRenderUrl(
+      BatchItem item, String rawUrl, String fieldName, ValidationExceptionCollection exceptions) {
+
+    if (rawUrl == null || rawUrl.isBlank()) {
+      return;
+    }
+
+    URI uri = parseUri(item, rawUrl, fieldName, exceptions);
+    if (uri == null) {
+      return;
+    }
+
+    String scheme = uri.getScheme();
+    if (scheme == null || !EMBED_ALLOWED_SCHEMES.contains(scheme.toLowerCase())) {
+      exceptions.addException(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "URL scheme '%s' is not allowed for '%s'. Only HTTP, HTTPS, FTP, or mailto URLs"
+                      + " are accepted.",
+                  scheme, fieldName)));
+    }
+  }
+
+  /**
+   * Reconstructs each embed {@code renderUrl} set by a PATCH's add/replace operations and runs the
+   * same scheme check. A patch item carries only its delta (so {@code getAspect} is null), which is
+   * why the generic PATCH path needs its own handling to stay covered.
+   */
+  private void validateEmbedPatchItem(MCPItem item, ValidationExceptionCollection exceptions) {
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op ->
+                PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
+                    .ifPresent(
+                        nested -> {
+                          try {
+                            Embed embed =
+                                RecordUtils.toRecordTemplate(Embed.class, nested.toString());
+                            if (embed.hasRenderUrl()) {
+                              validateEmbedRenderUrl(
+                                  item, embed.getRenderUrl(), "renderUrl", exceptions);
+                            }
+                          } catch (RuntimeException e) {
+                            // Unparseable delta — schema validation rejects it at merge time.
+                          }
+                        }));
+  }
+
+  /**
+   * Parses a raw URL string, recording a syntax-error violation and returning {@code null} if it is
+   * malformed. Shared by the pictureLink and embed renderUrl checks so their parsing cannot
+   * diverge.
+   */
+  private URI parseUri(
+      BatchItem item, String rawUrl, String fieldName, ValidationExceptionCollection exceptions) {
+    try {
+      return new URI(rawUrl);
+    } catch (URISyntaxException e) {
+      exceptions.addException(
+          AspectValidationException.forItem(
+              item, String.format("Invalid URL syntax for '%s': %s", fieldName, rawUrl)));
+      return null;
     }
   }
 
