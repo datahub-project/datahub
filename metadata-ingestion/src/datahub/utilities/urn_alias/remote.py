@@ -52,7 +52,10 @@ class UrnLookup(Protocol):
         """Record `urn` as stored, from a scroll that enumerated it."""
 
     def prefetch(self, urns: List[str]) -> None:
-        """Learn what is not already known about `urns`, in as few queries as possible."""
+        """Learn what is not already known about `urns`, in as few queries as possible.
+
+        Raises if a query fails, having recorded nothing.
+        """
 
     def matches(self, urn: str) -> List[str]:
         """Stored URNs matching `urn` ignoring case, from what is already known."""
@@ -93,17 +96,12 @@ class AliasIndexLookup:
         if not keys:
             return
 
-        matches_by_key = self._search(keys)
-        if matches_by_key is None:
-            # A failed search records nothing. Marking a real entity absent would decline
-            # every later reference to it for the rest of the run.
-            return
-        for key, matches in matches_by_key.items():
+        for key, matches in self._search(keys).items():
             # The search is exhaustive, so `[]` here is a genuine absence.
             self._index.replace(key, matches)
 
-    def _search(self, keys: List[str]) -> Optional[Dict[str, List[str]]]:
-        """Stored URNs for each of `keys`, from one search, or None if the search failed."""
+    def _search(self, keys: List[str]) -> Dict[str, List[str]]:
+        """Stored URNs for each of `keys`, from one search. Raises if the search fails."""
         or_filters: RawSearchFilter = [
             {
                 "and": [
@@ -114,19 +112,12 @@ class AliasIndexLookup:
             }
             for field in (_LOWERCASED_URN_FIELD, _URN_FIELD)
         ]
-        try:
-            stored_urns = list(
-                self._graph.get_urns_by_filter(
-                    entity_types=[_DATASET_ENTITY_TYPE],
-                    extra_or_filters=or_filters,
-                )
+        stored_urns = list(
+            self._graph.get_urns_by_filter(
+                entity_types=[_DATASET_ENTITY_TYPE],
+                extra_or_filters=or_filters,
             )
-        except Exception as e:
-            logger.warning(
-                f"URN alias lookup failed for {len(keys)} key(s): {e}", exc_info=True
-            )
-            return None
-
+        )
         matches_by_key: Dict[str, List[str]] = {key: [] for key in keys}
         # Deduped: a scroll that repeated a urn would otherwise read as a casing collision.
         for stored_urn in dict.fromkeys(stored_urns):
@@ -195,9 +186,6 @@ class CasingProbeLookup:
             return
 
         existing = self._probe(unchecked)
-        if existing is None:
-            # A failed probe records nothing, as above.
-            return
         for candidate in unchecked:
             self._index.replace(candidate, [candidate] if candidate in existing else [])
 
@@ -212,8 +200,8 @@ class CasingProbeLookup:
                 candidates.append(candidate)
         return candidates
 
-    def _probe(self, candidates: List[str]) -> Optional[Set[str]]:
-        """Which of `candidates` exist, or None if the probe failed.
+    def _probe(self, candidates: List[str]) -> Set[str]:
+        """Which of `candidates` exist. Raises if the probe fails.
 
         Searched by urn like the alias lookup, so soft-deleted entities are dropped by the
         same server-side filter rather than a rule of our own.
@@ -227,19 +215,12 @@ class CasingProbeLookup:
                 ]
             }
         ]
-        try:
-            return set(
-                self._graph.get_urns_by_filter(
-                    entity_types=[_DATASET_ENTITY_TYPE],
-                    extra_or_filters=or_filters,
-                )
+        return set(
+            self._graph.get_urns_by_filter(
+                entity_types=[_DATASET_ENTITY_TYPE],
+                extra_or_filters=or_filters,
             )
-        except Exception as e:
-            logger.warning(
-                f"URN casing probe failed for {len(candidates)} URN(s): {e}",
-                exc_info=True,
-            )
-            return None
+        )
 
 
 def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:

@@ -1616,3 +1616,46 @@ def test_the_unresolved_sample_keeps_one_entry_per_broken_table():
     # One entry for the table, but each column is still its own broken reference.
     assert sorted(processor.report.unresolved_refs_sample) == [UPPER]
     assert processor.report.num_refs_unresolved == len(columns) + 1
+
+
+# --- a lookup that failed is not a verdict ---------------------------------------------
+
+
+def test_a_failed_lookup_leaves_the_reference_unstamped():
+    # A failed search establishes nothing, so the reference is treated like anything else
+    # that was never checked rather than stamped UNRESOLVED.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_urns_by_filter.side_effect = Exception("boom")
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == BQ_UPPER
+    assert _upstream_aspect(out).upstreams[0].matchType is None
+    assert processor.report.num_refs_lookup_failed == 1
+    assert processor.report.num_refs_unresolved == 0
+    assert not processor.report.unresolved_refs_sample
+
+
+def test_a_failed_lookup_is_reported_apart_from_broken_lineage():
+    # "We could not tell" must not be reported as "this lineage looks broken".
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_urns_by_filter.side_effect = Exception("boom")
+    try:
+        list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
+    finally:
+        patcher.stop()
+
+    titles = [
+        call.kwargs.get("title", "")
+        for call in cast(
+            mock.MagicMock, processor.ctx.source_report
+        ).warning.call_args_list
+    ]
+    assert "Lineage URN casing not checked" in titles
+    assert not any("not resolved to an existing entity" in title for title in titles)

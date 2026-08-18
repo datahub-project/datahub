@@ -173,7 +173,8 @@ For every upstream reference **in scope**, the feature records a `matchType` on 
 
 **No `matchType` means the reference is out of scope** — its platform is neither listed in
 `upstream_platforms` nor covered by `resolve_all_platforms`, the feature is disabled for that source, or
-the data predates the feature. Absence is not a verdict. Stamping is
+the data predates the feature. A reference whose lookup **failed** is also left unstamped, and counted
+separately rather than as `UNRESOLVED`. Absence is not a verdict. Stamping is
 ingest-time only: existing metadata is updated only when its source is re-ingested with the feature on.
 
 ## Requirements and limitations
