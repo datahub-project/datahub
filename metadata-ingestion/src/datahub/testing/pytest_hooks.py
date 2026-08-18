@@ -1,13 +1,14 @@
 import dataclasses
 import os
 import time
-from typing import Optional
+from typing import Iterator, Optional
 
 import pytest
 
 __all__ = [
     "load_golden_flags",
     "get_golden_settings",
+    "local_timezone",
     "pytest_configure",
     "pytest_addoption",
     "GoldenFileSettings",
@@ -67,10 +68,59 @@ def pytest_configure(config: pytest.Config) -> None:
     unconditionally. Setting TZ without applying it would leave Windows with a
     half-applied pin: inert for this process, but still inherited by every
     subprocess the suite spawns. Windows is skipped entirely instead.
+
+    This also registers the `timezone` marker that `local_timezone` reads, so the
+    two must be imported into a conftest together or the marker is unregistered.
     """
+    config.addinivalue_line(
+        "markers",
+        "timezone(tz): run this test with TZ set to the given zone, e.g. 'XXX-5:30'",
+    )
     if hasattr(time, "tzset"):
         os.environ["TZ"] = "UTC"
         time.tzset()
+
+
+@pytest.fixture(autouse=True)
+def local_timezone(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Restore TZ after any test that moves it, and apply the `timezone` marker.
+
+    The pin is process-wide, so a test that moves TZ and then raises leaves every
+    later test on the wrong clock. Restoration is therefore unconditional; the
+    marker only decides whether a zone is applied on the way in.
+
+    A marked test exercises product code that reads the clock at runtime -- a
+    naive `datetime.now()`, say. The marker cannot reach a module-level
+    `@time_machine.travel(...)` literal, which is resolved at import, long before
+    any fixture runs; make that literal tz-aware instead.
+    """
+    marker = request.node.get_closest_marker("timezone")
+    tzset = getattr(time, "tzset", None)
+
+    if marker is not None:
+        if not marker.args:
+            pytest.fail(
+                "@pytest.mark.timezone requires a zone, "
+                "e.g. @pytest.mark.timezone('XXX-5:30')"
+            )
+        if tzset is None:
+            # Running it anyway would assert against the local zone while
+            # claiming to be in another one.
+            pytest.skip("the timezone marker requires tzset(), which is POSIX-only")
+
+    saved_tz = os.environ.get("TZ")
+    if marker is not None and tzset is not None:
+        os.environ["TZ"] = marker.args[0]
+        tzset()
+    try:
+        yield
+    finally:
+        if saved_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = saved_tz
+        if tzset is not None:
+            tzset()
 
 
 def get_golden_settings() -> GoldenFileSettings:

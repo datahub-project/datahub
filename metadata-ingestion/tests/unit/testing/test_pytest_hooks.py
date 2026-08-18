@@ -1,38 +1,12 @@
 import os
 import time
-from typing import Iterator
 
 import pytest
 
 from datahub.testing.pytest_hooks import pytest_configure
 
 
-@pytest.fixture
-def restore_timezone() -> Iterator[None]:
-    """Put the process clock back, even if the test body raises.
-
-    These tests move TZ inside a suite whose golden comparisons depend on it
-    being UTC, and CI runs in random order. monkeypatch alone is not enough:
-    it restores the environment variable but nothing re-reads it, so libc stays
-    on whatever zone the test last applied. tzset is captured here rather than
-    looked up at teardown, so it survives a test that deletes the attribute.
-    """
-    saved_tz = os.environ.get("TZ")
-    tzset = getattr(time, "tzset", None)
-    try:
-        yield
-    finally:
-        if saved_tz is None:
-            os.environ.pop("TZ", None)
-        else:
-            os.environ["TZ"] = saved_tz
-        if tzset is not None:
-            tzset()
-
-
-def test_pin_timezone_sets_utc(
-    restore_timezone: None, pytestconfig: pytest.Config
-) -> None:
+def test_pin_timezone_sets_utc(pytestconfig: pytest.Config) -> None:
     # POSIX TZ form: a fixed +5:30 offset, so the test does not depend on host
     # tzdata. A zone name silently resolves to UTC where tzdata is absent, which
     # would make this precondition fail and the assertions below vacuous.
@@ -47,7 +21,7 @@ def test_pin_timezone_sets_utc(
 
 
 def test_pin_timezone_is_inert_without_tzset(
-    restore_timezone: None, monkeypatch: pytest.MonkeyPatch, pytestconfig: pytest.Config
+    monkeypatch: pytest.MonkeyPatch, pytestconfig: pytest.Config
 ) -> None:
     """Platforms without tzset must be left alone entirely.
 
@@ -62,3 +36,19 @@ def test_pin_timezone_is_inert_without_tzset(
     pytest_configure(pytestconfig)
 
     assert "TZ" not in os.environ
+
+
+@pytest.mark.timezone("XXX-5:30")
+def test_timezone_marker_applies_the_requested_zone() -> None:
+    assert time.tzname[0] == "XXX"
+    assert -time.timezone / 3600 == 5.5
+
+
+def test_pin_holds_for_unmarked_tests() -> None:
+    """An unmarked test runs under the session pin, not whatever ran before it.
+
+    tests/unit runs with --random-order, so this cannot be relied on to land after
+    the marked test above; when it does, it also catches a failure to restore.
+    """
+    assert time.tzname == ("UTC", "UTC")
+    assert os.environ["TZ"] == "UTC"

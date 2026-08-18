@@ -48,6 +48,7 @@ def _report_threads_alive_at_exit() -> None:
 # of importing some datahub modules will load env variables.
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
+    local_timezone,
     pytest_addoption,
     pytest_configure,
 )
