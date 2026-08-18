@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.bootstrapmcps;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -55,6 +56,11 @@ public class BootstrapMCPStepTest {
 
     assertTrue(stepWithEnv(template, mockEntityService, "false").skip(mockUpgradeContext));
     assertTrue(stepWithEnv(template, mockEntityService, "FALSE").skip(mockUpgradeContext));
+
+    // Nothing is read or written while switched off. This is what makes the switch
+    // reversible: no DataHubUpgradeResult is recorded, so the step is not considered
+    // "already run" and will execute normally once the variable flips to true.
+    verifyNoInteractions(mockEntityService);
   }
 
   /**
