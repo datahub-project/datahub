@@ -7,7 +7,26 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    split_quoted_name_list,
 )
+
+
+def test_split_quoted_name_list():
+    assert split_quoted_name_list("") == [""]
+    assert split_quoted_name_list("ROLE_A,ROLE_B") == ["ROLE_A", "ROLE_B"]
+    assert split_quoted_name_list('"Role,With,Commas",ROLE_B') == [
+        '"Role,With,Commas"',
+        "ROLE_B",
+    ]
+    assert split_quoted_name_list('"Mixed_Case",ROLE_B') == ['"Mixed_Case"', "ROLE_B"]
+
+
+def test_get_quoted_identifier_for_role():
+    quote = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role
+    assert quote("TEST_ROLE") == '"TEST_ROLE"'
+    # `show grants` already quotes names that need it - don't quote them twice.
+    assert quote('"Mixed_Case_Role"') == '"Mixed_Case_Role"'
+    assert quote('Quote"InName') == '"Quote""InName"'
 
 
 class TestSnowflakeIdentifierBuilderMarketplace:

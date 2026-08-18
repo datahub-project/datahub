@@ -635,6 +635,81 @@ def test_test_connection_role_name_requiring_quotes(mock_connect):
     )
 
 
+@patch("snowflake.connector.connect")
+def test_test_connection_role_visited_once_across_quoting_forms(mock_connect):
+    queried_roles = []
+
+    def query_results(query):
+        prefix = "show grants to role "
+        if query.startswith(prefix):
+            queried_roles.append(query[len(prefix) :])
+
+        if query == "select current_secondary_roles()":
+            # Secondary roles are reported bare, while the same role shows up
+            # quoted in the grant hierarchy below.
+            return [
+                {
+                    "CURRENT_SECONDARY_ROLES()": '{"roles":"Mixed_Case_Role","value":"ALL"}'
+                }
+            ]
+        elif query == 'show grants to role "TEST_ROLE"':
+            return [
+                {
+                    "privilege": "USAGE",
+                    "granted_on": "ROLE",
+                    "name": '"Mixed_Case_Role"',
+                }
+            ]
+        elif query == 'show grants to role "Mixed_Case_Role"':
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        raise MissingQueryMock(f"Unexpected query: {query}")
+
+    setup_mock_connect(mock_connect, query_results)
+
+    report = test_connection_helpers.run_test_connection(
+        SnowflakeV2Source, default_config_dict
+    )
+
+    assert not report.internal_failure, report.internal_failure_reason
+    assert queried_roles.count('"Mixed_Case_Role"') == 1
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_secondary_role_name_containing_comma(mock_connect):
+    queried_roles = []
+
+    def query_results(query):
+        prefix = "show grants to role "
+        if query.startswith(prefix):
+            queried_roles.append(query[len(prefix) :])
+
+        if query == "select current_secondary_roles()":
+            # The role list is comma delimited, so a role name containing a comma
+            # is reported quoted and must not be split on its inner commas.
+            return [
+                {
+                    "CURRENT_SECONDARY_ROLES()": '{"roles":"\\"Role,With,Commas\\",PLAIN_ROLE","value":"ALL"}'
+                }
+            ]
+        elif query == 'show grants to role "TEST_ROLE"':
+            return []
+        elif query == 'show grants to role "Role,With,Commas"':
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        elif query == 'show grants to role "PLAIN_ROLE"':
+            return []
+        raise MissingQueryMock(f"Unexpected query: {query}")
+
+    setup_mock_connect(mock_connect, query_results)
+
+    report = test_connection_helpers.run_test_connection(
+        SnowflakeV2Source, default_config_dict
+    )
+
+    assert not report.internal_failure, report.internal_failure_reason
+    assert '"Role,With,Commas"' in queried_roles
+    assert '"PLAIN_ROLE"' in queried_roles
+
+
 def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,
