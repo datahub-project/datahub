@@ -523,17 +523,15 @@ unstructured_lib = {
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
-    # import hook that blocks any nltk-initiated import resolving under the CWD,
-    # which includes site-packages whenever the venv lives in the project dir --
-    # the standard `python -m venv .venv` / uv / Poetry in-project layout. That
-    # breaks text partitioning, so document chunking silently produces nothing.
-    # Capped rather than excluding only 3.10.1: there is no fix upstream to
-    # forward-allow. https://github.com/nltk/nltk/issues/3730 is open and the
-    # proposed fix (nltk/nltk#3731) was closed unmerged, with the hook's own
-    # author questioning whether it should exist at all -- so a 3.10.2 may well
-    # still carry it. Given the failure is silent (zero documents indexed, exit
-    # 0), fail closed and lift the cap deliberately once upstream settles.
-    "nltk<3.10.1",
+    # import hook (nltk/inisec.py, NLTKSafeImportFinder) that blocks any
+    # nltk-initiated import resolving under the CWD, which includes site-packages
+    # whenever the venv lives in the project dir -- the standard
+    # `python -m venv .venv` / uv / Poetry in-project layout. That breaks text
+    # partitioning, so document chunking silently produces nothing (zero documents
+    # indexed, exit 0). See https://github.com/nltk/nltk/issues/3730.
+    # Upstream reverted the hook: inisec.py ships in 3.10.1 only and is absent from
+    # 3.10.2 onwards, so this excludes just that release rather than capping.
+    "nltk!=3.10.1",
     # Embedding support for semantic search
     *embedding_common,
 }
