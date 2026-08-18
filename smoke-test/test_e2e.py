@@ -752,6 +752,11 @@ def test_list_users(auth_session):
 
 
 @pytest.mark.dependency()
+# The bootstrapped groups come from bootstrap_mce.json and are only visible here
+# once Elasticsearch has indexed them. wait_for_writes_to_sync() inside
+# execute_graphql() only covers the write pipeline, not the search refresh, so
+# an unretried run can legitimately see fewer than the 2 expected groups.
+@with_test_retry()
 def test_list_groups(auth_session):
     query = """query listGroups($input: ListGroupsInput!) {
         listGroups(input: $input) {

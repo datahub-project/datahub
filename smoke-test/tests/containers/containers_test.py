@@ -1,22 +1,75 @@
+import logging
+from dataclasses import dataclass
 from typing import Any, Dict
 
 import pytest
 
-from conftest import _ingest_cleanup_data_impl
 from tests.utilities.metadata_operations import add_tag, add_term, update_description
-from tests.utils import execute_graphql
+from tests.utils import (
+    delete_urns_from_file,
+    execute_graphql,
+    ingest_file_via_rest,
+    materialize_with_unique_name,
+    with_test_retry,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ContainerUrns:
+    """Run-unique URNs of the containers ingested by :func:`ingest_cleanup_data`."""
+
+    schema_urn: str
+    database_urn: str
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client):
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, "tests/containers/data.json", "containers"
+def ingest_cleanup_data(auth_session, graph_client, tmp_path_factory):
+    """Ingest the container fixtures under run-unique container URNs.
+
+    data.json used to hardcode ``urn:li:container:SCHEMA`` and
+    ``urn:li:container:DATABASE``. Under pytest-xdist ``--dist=loadscope`` (see
+    smoke-test/smoke.sh) test modules run concurrently against the same GMS, so
+    another module's teardown could delete those containers while this module
+    was mid-query. Rewriting both keys to a run-unique value gives this module
+    sole ownership of the entities it asserts on.
+
+    ``SCHEMA`` and ``DATABASE`` are uppercase and occur in data.json only inside
+    the container URNs, which is what ``materialize_with_unique_name`` requires
+    (its substitution is a plain, case-sensitive replace over the whole file).
+    The human-readable ``datahub_schema``/``datahub_db`` names are lowercase and
+    so are deliberately left untouched.
+    """
+    tmp_dir = tmp_path_factory.mktemp("containers")
+    data_file, schema_key = materialize_with_unique_name(
+        "tests/containers/data.json", "SCHEMA", tmp_dir
     )
+    data_file, database_key = materialize_with_unique_name(
+        data_file, "DATABASE", tmp_dir
+    )
+    urns = ContainerUrns(
+        schema_urn=f"urn:li:container:{schema_key}",
+        database_urn=f"urn:li:container:{database_key}",
+    )
+
+    # No pre-ingest idempotency delete: the URNs are freshly unique per run, so
+    # nothing pre-exists to clean up.
+    logger.info(f"ingesting containers test data (schema={urns.schema_urn})")
+    ingest_file_via_rest(auth_session, data_file)
+    yield urns
+    logger.info("removing containers test data")
+    delete_urns_from_file(graph_client, data_file)
 
 
 @pytest.mark.dependency()
+# The query below reads platform, subTypes, editableProperties and related
+# entities in one shot, and each aspect is indexed independently -- a single
+# lagging aspect fails an otherwise correct run. The test is a pure read, so
+# retrying it is safe.
+@with_test_retry()
 def test_get_full_container(auth_session, ingest_cleanup_data):
-    container_urn = "urn:li:container:SCHEMA"
+    container_urn = ingest_cleanup_data.schema_urn
     container_name = "datahub_schema"
     container_description = "The DataHub schema"
     editable_container_description = "custom description"
@@ -103,6 +156,7 @@ def test_get_full_container(auth_session, ingest_cleanup_data):
     assert container["platform"]["urn"] == "urn:li:dataPlatform:mysql"
     assert container["properties"]["name"] == container_name
     assert container["properties"]["description"] == container_description
+    assert container["container"]["urn"] == ingest_cleanup_data.database_urn
     assert container["subTypes"]["typeNames"][0] == "Schema"
     assert (
         container["editableProperties"]["description"] == editable_container_description
@@ -114,7 +168,7 @@ def test_get_full_container(auth_session, ingest_cleanup_data):
 
 
 @pytest.mark.dependency(depends=["test_get_full_container"])
-def test_get_parent_container(auth_session):
+def test_get_parent_container(auth_session, ingest_cleanup_data):
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 
     # Get count of existing secrets
@@ -140,8 +194,8 @@ def test_get_parent_container(auth_session):
 
 
 @pytest.mark.dependency(depends=["test_get_full_container"])
-def test_update_container(auth_session):
-    container_urn = "urn:li:container:SCHEMA"
+def test_update_container(auth_session, ingest_cleanup_data):
+    container_urn = ingest_cleanup_data.schema_urn
 
     # add_tag/add_term/addOwner/addLink below are back-to-back writes to the same
     # container with no intermediate read -- only the combined state after the
