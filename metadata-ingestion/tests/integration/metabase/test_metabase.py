@@ -11,7 +11,7 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.testing import mce_helpers
-from tests.integration.metabase.metabase_setup_utils import (
+from tests.integration.metabase.metabase_setup_utils import (  # type: ignore[import-untyped]
     setup_metabase_test_data,
     verify_metabase_api_ready,
 )
