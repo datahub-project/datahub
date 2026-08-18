@@ -1344,7 +1344,9 @@ class TableauSiteSource:
                     parent_name=None,
                     description=project.description,
                     path=[],
-                    owner_username=getattr(getattr(project, "owner", None), "name", None),
+                    owner_username=getattr(
+                        getattr(project, "owner", None), "name", None
+                    ),
                     owner_email=getattr(getattr(project, "owner", None), "email", None),
                 )
             # Set parent project name

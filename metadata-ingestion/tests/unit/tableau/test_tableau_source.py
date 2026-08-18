@@ -1736,7 +1736,9 @@ def _collect_container_tree(
     tree: Dict[str, Dict[str, Optional[str]]] = {}
     for wu in source.emit_project_containers(all_project_map):
         project_id = urn_to_id[wu.get_urn()]
-        entry = tree.setdefault(project_id, {"name": None, "parent": None, "owner_urn": None})
+        entry = tree.setdefault(
+            project_id, {"name": None, "parent": None, "owner_urn": None}
+        )
         props = wu.get_aspect_of_type(ContainerPropertiesClass)
         if props is not None:
             entry["name"] = props.name
@@ -1768,7 +1770,9 @@ class TestProjectContainerHierarchy:
         deny: Optional[List[str]] = None,
         extract_project_hierarchy: bool = True,
         ingest_owner: bool = False,
-        owner_by_project_id: Optional[Dict[str, Tuple[Optional[str], Optional[str]]]] = None,
+        owner_by_project_id: Optional[
+            Dict[str, Tuple[Optional[str], Optional[str]]]
+        ] = None,
     ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
         """Feed ``projects`` through the real projects Pager and run filtering +
         registry building + container emission.
@@ -1808,7 +1812,11 @@ class TestProjectContainerHierarchy:
 
         owners = owner_by_project_id or {}
         project_items = [
-            _tsc_project(p, owner_username=owners.get(p.id, (None, None))[0], owner_email=owners.get(p.id, (None, None))[1])
+            _tsc_project(
+                p,
+                owner_username=owners.get(p.id, (None, None))[0],
+                owner_email=owners.get(p.id, (None, None))[1],
+            )
             for p in projects
         ]
 
