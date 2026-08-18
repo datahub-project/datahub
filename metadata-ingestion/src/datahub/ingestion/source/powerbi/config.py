@@ -859,15 +859,20 @@ class PowerBiDashboardSourceConfig(
                 parts = value.split(".")
                 if len(parts) != 1 and len(parts) != 2:
                     raise ValueError(
-                        f"dsn_to_database_schema invalid mapping value: {value}"
+                        f"dsn_to_database_schema invalid mapping value: {value!r} — "
+                        "expected 'database' or 'database.schema'"
                     )
                 # Reject blank segments (e.g. "project.", ".dataset", "."); an empty
                 # segment would otherwise backfill an empty database/schema level and
                 # produce malformed qualified names like "project..table".
                 if any(not part.strip() for part in parts):
                     raise ValueError(
-                        f"dsn_to_database_schema invalid mapping value: {value}"
+                        f"dsn_to_database_schema invalid mapping value: {value!r} — "
+                        "segments must not be blank or whitespace-only"
                     )
+                # Normalise so downstream lookups need not re-strip; also collapses
+                # e.g. "prod . data" to "prod.data".
+                dsn_mapping[_key] = ".".join(part.strip() for part in parts)
 
         return self
 
