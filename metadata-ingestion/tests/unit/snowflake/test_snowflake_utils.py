@@ -19,6 +19,22 @@ def test_split_quoted_name_list():
         "ROLE_B",
     ]
     assert split_quoted_name_list('"Mixed_Case",ROLE_B') == ['"Mixed_Case"', "ROLE_B"]
+    # An embedded quote is escaped by doubling it.
+    assert split_quoted_name_list('"Quote""InName",ROLE_B') == [
+        '"Quote""InName"',
+        "ROLE_B",
+    ]
+
+
+def test_split_quoted_name_list_only_honors_well_formed_quoting():
+    # A quote that does not open a quoted element must not swallow delimiters,
+    # otherwise distinct names get merged into one.
+    assert split_quoted_name_list('my"role,ROLE_B') == ['my"role', "ROLE_B"]
+    # Unterminated quoting is not a quoted list - fall back to a plain split.
+    assert split_quoted_name_list('"unterminated,ROLE_B') == [
+        '"unterminated',
+        "ROLE_B",
+    ]
 
 
 def test_get_quoted_identifier_for_role():
