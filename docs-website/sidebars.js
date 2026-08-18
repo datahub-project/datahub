@@ -576,6 +576,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Metrics & Semantic Models",
+          type: "doc",
+          id: "docs/features/feature-guides/metrics-and-semantic-models",
+        },
+        {
           label: "MCP Server",
           type: "category",
           link: {
@@ -726,6 +731,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/best-practices",
           className: "saasOnly",
         },
         {
