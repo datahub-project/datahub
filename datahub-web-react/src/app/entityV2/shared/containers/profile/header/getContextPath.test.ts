@@ -2,7 +2,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { dataPlatform } from '@src/Mocks';
 
-import { DataProduct, EntityType } from '@types';
+import { EntityType } from '@types';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [
@@ -45,22 +45,12 @@ const PARENT: GenericEntityProperties = {
     platform: dataPlatform,
 };
 
-const parentDataProducts: DataProduct[] = [
-    {
-        urn: 'urn:li:dataProduct:parent',
-        type: EntityType.DataProduct,
-        properties: { name: 'Parent DP' },
-        parentDataProducts: [],
-    },
-    {
-        urn: 'urn:li:dataProduct:root',
-        type: EntityType.DataProduct,
-        properties: { name: 'Root DP' },
-        parentDataProducts: [],
-    },
+const parentDataProducts = [
+    { urn: 'urn:li:dataProduct:parent', type: EntityType.DataProduct, properties: { name: 'Parent DP' } },
+    { urn: 'urn:li:dataProduct:root', type: EntityType.DataProduct, properties: { name: 'Root DP' } },
 ];
 
-const dataProduct: DataProduct = {
+const dataProduct = {
     urn: 'urn:li:dataProduct:test',
     type: EntityType.DataProduct,
     parentDataProducts,
@@ -143,7 +133,7 @@ describe('getContextPath', () => {
     });
 
     it('returns domain chain only for data products without parent data products', () => {
-        const entityData: DataProduct = {
+        const entityData = {
             ...dataProduct,
             parentDataProducts: [],
         };

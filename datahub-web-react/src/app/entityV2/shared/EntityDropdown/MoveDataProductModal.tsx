@@ -48,7 +48,7 @@ export default function MoveDataProductModal({ onClose }: Props) {
                 variables: {
                     input: {
                         resourceUrn: dataProductUrn,
-                        parentDataProduct: selectedParentUrn || undefined,
+                        parentDataProduct: selectedParentUrn || null,
                     },
                 },
             });

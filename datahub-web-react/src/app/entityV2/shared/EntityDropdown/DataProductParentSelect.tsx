@@ -18,7 +18,7 @@ export function filterResultsForMove(entity: DataProduct, entityUrn: string) {
 
 type Props = {
     selectedParentUrn: string;
-    setSelectedParentUrn: (parent: string) => void;
+    setSelectedParentUrn: (parent: string, name?: string) => void;
     /** When editing or moving, exclude this data product. */
     excludeUrn?: string;
     /** Display name for a pre-selected parent (e.g. edit modal). */
@@ -94,6 +94,7 @@ export default function DataProductParentSelect({
             ? entityRegistry.getDisplayName(fromSearch.type, fromSearch)
             : selectedParentName || newUrn;
         selectParentFromBrowser(newUrn, displayName);
+        setSelectedParentUrn(newUrn, displayName);
     };
 
     return (

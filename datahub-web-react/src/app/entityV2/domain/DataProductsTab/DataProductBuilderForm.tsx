@@ -47,11 +47,13 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
         });
     }
 
-    function setSelectedParentUrn(parentDataProductUrn: string) {
+    function setSelectedParentUrn(parentDataProductUrn: string, parentDataProductName?: string) {
         updateBuilderState({
             ...builderState,
             parentDataProductUrn: parentDataProductUrn || undefined,
-            parentDataProductName: parentDataProductUrn ? builderState.parentDataProductName : undefined,
+            parentDataProductName: parentDataProductUrn
+                ? (parentDataProductName ?? builderState.parentDataProductName)
+                : undefined,
         });
     }
 
