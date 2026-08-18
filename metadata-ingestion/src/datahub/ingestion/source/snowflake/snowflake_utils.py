@@ -347,6 +347,37 @@ def is_snowflake_default_schema(schema_name: str) -> bool:
     return schema_name.upper() in SNOWFLAKE_DEFAULT_SCHEMAS
 
 
+def split_quoted_name_list(name_list: str, delimiter: str = ",") -> List[str]:
+    """
+    Split a delimited list of identifiers, ignoring delimiters inside double quotes.
+
+    Unlike split_qualified_name, quoting is preserved so that callers can tell an
+    identifier that needs quoting apart from a bare one.
+
+    >>> split_quoted_name_list("ROLE_A,ROLE_B")
+    ['ROLE_A', 'ROLE_B']
+    >>> split_quoted_name_list('"Role,With,Commas",ROLE_B')
+    ['"Role,With,Commas"', 'ROLE_B']
+    """
+
+    # Fast path - no quotes.
+    if '"' not in name_list:
+        return name_list.split(delimiter)
+
+    in_quote = False
+    parts: List[List[str]] = [[]]
+    for char in name_list:
+        if char == '"':
+            in_quote = not in_quote
+            parts[-1].append(char)
+        elif char == delimiter and not in_quote:
+            parts.append([])
+        else:
+            parts[-1].append(char)
+
+    return ["".join(part) for part in parts]
+
+
 def split_qualified_name(qualified_name: str) -> List[str]:
     """
     Split a qualified name into its constituent parts.
