@@ -1,6 +1,5 @@
 package datahub.spark;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,7 +11,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.spark.Dependency;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.rdd.UnionRDD;
 import org.apache.spark.sql.Dataset;
@@ -106,12 +104,11 @@ public class SparkFourSmokeTest {
           findDatasetIdentifiers(fileScanRdd).isEmpty(),
           "DataHub's shaded FileScanRDD extractor returned no dataset");
 
-      JavaRDD<Row> rows = input.javaRDD();
-      RDD<?> unionRdd = findRdd(rows.union(rows).rdd(), UnionRDD.class);
+      RDD<?> unionRdd = findRdd(unionWithSelf(fileScanRdd), UnionRDD.class);
       assertNotNull(unionRdd, "Spark did not create a UnionRDD");
-      assertDoesNotThrow(
-          () -> findDatasetIdentifiers(unionRdd),
-          "DataHub's shaded UnionRDD extractor was not compatible with Scala 2.13");
+      assertFalse(
+          findDatasetIdentifiers(unionRdd).isEmpty(),
+          "DataHub's shaded UnionRDD extractor returned no datasets");
     } finally {
       spark.stop();
       SparkSession.clearActiveSession();
@@ -131,6 +128,10 @@ public class SparkFourSmokeTest {
       }
     }
     return null;
+  }
+
+  private static <T> RDD<T> unionWithSelf(RDD<T> rdd) {
+    return rdd.union(rdd);
   }
 
   private static List<?> findDatasetIdentifiers(RDD<?> rdd) throws Exception {
