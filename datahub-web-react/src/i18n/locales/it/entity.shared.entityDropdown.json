@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Confermare?",
     "unlinkVersion.error": "Scollegamento non riuscito: \n {{errorMessage}}",
     "unlinkVersion.loading": "Scollegamento in corso...",
-    "unlinkVersion.success": "Scollegamento di {{entityName}} completato!"
+    "unlinkVersion.success": "Scollegamento di {{entityName}} completato!",
+    "dataProductSelect.notFound": "Nessun Data Product trovato",
+    "dataProductSelect.placeholder": "Seleziona un Data Product padre",
+    "moveDataProduct.title": "Sposta Data Product"
 }
