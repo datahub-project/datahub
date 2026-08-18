@@ -2,7 +2,11 @@
 
 The schemaField entity represents an individual column or field within a dataset's schema. While schema information is typically ingested as part of a dataset's `schemaMetadata` aspect, schemaField entities exist as first-class entities to enable direct attachment of metadata like tags, glossary terms, documentation, and structured properties at the field level.
 
-SchemaField entities are automatically created by DataHub when datasets with schemas are ingested. They serve as the link between dataset-level metadata and column-level metadata, enabling fine-grained data governance and lineage tracking at the field level.
+schemaField entities are **not** materialized for every column by default. One is created when metadata is written directly to its URN — for example assigning a business attribute to a column, or setting a tag, glossary term, documentation, or structured property on a field through the SDK. Column search does not depend on the entity existing: field paths, descriptions, tags, and terms are indexed onto the parent dataset's search document from its `schemaMetadata` aspect.
+
+Operators who do want a schemaField entity for every column can opt in. `MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED` materializes field key/aliases/status as datasets are ingested, and the non-blocking system-update step `GenerateSchemaFieldsFromSchemaMetadata` (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`) backfills existing datasets. Both default to off — enabling them grows entity count, index size, and write fan-out in proportion to the number of columns per dataset.
+
+Either way, schemaField serves as the link between dataset-level metadata and column-level metadata, enabling fine-grained data governance and lineage tracking at the field level.
 
 ## Identity
 
@@ -228,7 +232,7 @@ The GraphQL API exposes schema field entities as first-class entities with the `
 - Querying field lineage relationships
 - Searching for fields across datasets
 
-Note: Field fetching via GraphQL is controlled by the `schemaFieldEntityFetchEnabled` feature flag. When disabled, schema field metadata is accessed only through the parent dataset's schema aspects.
+Note: Field fetching via GraphQL is controlled by the `schemaFieldEntityFetchEnabled` feature flag, enabled by default. When disabled, schema field metadata is accessed only through the parent dataset's schema aspects.
 
 ### Search and Discovery
 
@@ -238,6 +242,8 @@ Schema fields are indexed for search, enabling users to:
 - Search for fields with specific tags or terms
 - Discover fields by description content
 - Filter by field-level classifications
+
+These are served by two different indexes. Finding a **dataset** by column name, description, tag, or term uses fields projected onto the dataset's own search document from `schemaMetadata` (`fieldPaths`, `fieldDescriptions`, `fieldLabels`, `fieldTags`, `fieldGlossaryTerms`) and works whether or not schemaField entities exist. Searching for **schemaField entities** themselves uses the separate `schemaField` search group and only returns fields that have been materialized.
 
 ## Notable Exceptions
 
@@ -268,13 +274,13 @@ While a sub-flag is on, dataset domain/ownership upserts and deletes are mirrore
 
 ### Feature Flag Dependency
 
-The ability to fetch schemaField entities via GraphQL depends on the `schemaFieldEntityFetchEnabled` feature flag. When disabled:
+Hydrating schemaField entities in GraphQL is controlled by the `schemaFieldEntityFetchEnabled` feature flag (`SCHEMA_FIELD_ENTITY_FETCH_ENABLED`), which is **enabled** by default. When disabled, `SchemaFieldType.batchLoad` skips the entity fetch and returns each field with an empty aspect map, so:
 
-- Schema field entities are not directly queryable
-- Field metadata must be accessed through parent datasets
-- Field-level operations may have limited functionality
+- Metadata stored on the schemaField URN (tags, terms, documentation, structured properties) is not returned
+- Field-level metadata must be read from the parent dataset's `schemaMetadata` / `editableSchemaMetadata`
+- The field itself still resolves, and dataset-level schema aspects are unaffected
 
-This flag exists for performance reasons, as materializing individual field entities can be expensive for datasets with hundreds of columns.
+This flag governs the cost of _reading_ those entities — one batch fetch per set of fields rendered — not whether they exist. Materialization is a separate, independently disabled-by-default concern; see [Domains and ownership](#domains-and-ownership-optional-mcp-mirroring).
 
 ### Field Path Encoding
 
