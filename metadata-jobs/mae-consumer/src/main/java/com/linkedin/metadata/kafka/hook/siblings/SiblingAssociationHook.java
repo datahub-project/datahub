@@ -329,8 +329,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     dbtSiblingProposal.setChangeType(ChangeType.UPSERT);
     dbtSiblingProposal.setEntityUrn(dbtUrn);
 
-    // Both proposals are ingested together at the end; build the source one first (it needs the
-    // existence-filtered sibling list), then fire both concurrently.
+    // Build the source proposal first (it needs the existence-filtered sibling list); both are then
+    // ingested together in a single batchIngestProposals call below.
 
     // set dbt as a sibling of source
 
