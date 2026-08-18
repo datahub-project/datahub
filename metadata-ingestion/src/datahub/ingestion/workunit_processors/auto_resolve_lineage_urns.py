@@ -242,20 +242,14 @@ class AutoResolveLineageUrnsProcessor(
         # _warn_unmatched_platforms can flag configured platforms that no reference used
         # (usually a case/spelling typo in the config).
         self._seen_reference_platforms: Set[str] = set()
-        # (aspect class -> in-place normalizer, returns True iff it mutated the aspect).
-        # These are the aspects a BI / orchestration source emits that carry *upstream
-        # dataset* references — the only refs affected by cross-source casing mismatch:
-        # upstreamLineage (table + fineGrained columns), dashboardInfo / chartInfo inputs,
-        # and dataJobInputOutput inputs (dbt / Airflow / Spark). Other lineage aspects
-        # don't target datasets or are the entity's own outputs (see the dev guide).
-        # Covering four aspects is cheap per work unit: get_aspect_of_type is one type
-        # check for MCE/MCPW (live aspect) and, for a raw MCP, short-circuits on aspectName
-        # before any deserialization — so a work unit is deserialized at most once (for the
-        # aspect it actually carries), and covering four vs. one adds only three constant
-        # comparisons. The one real cost, the up-front catalog load, is independent of this.
-        # Callable[..., bool] (not Callable[[_Aspect], bool]): each normalizer takes a
-        # specific aspect subtype, and function args are contravariant, so the precise
-        # signature won't accept them in a heterogeneous table (mypy list-item error).
+        # (aspect class -> in-place normalizer). These four are the only aspects that
+        # carry *upstream dataset* references; docs/dev_guides/lineage_urn_casing.md has
+        # the coverage table and the deliberate exclusions.
+        # Trying all four per work unit is cheap: get_aspect_of_type short-circuits a raw
+        # MCP on aspectName before deserializing, so a work unit is deserialized at most
+        # once.
+        # Callable[..., bool] (not Callable[[_Aspect], bool]): args are contravariant, so
+        # the precise signature is rejected in a heterogeneous table (mypy list-item).
         self._normalizers: List[Tuple[Type[_Aspect], Callable[..., bool]]] = [
             (UpstreamLineageClass, self._normalize_upstream_lineage),
             (DashboardInfoClass, self._normalize_dashboard_info),
@@ -649,12 +643,8 @@ class AutoResolveLineageUrnsProcessor(
                 upstream.matchType = res.match_type
                 changed = True
             if self._tally_table_ref(res):
-                # We overwrite the reference in place; the original (pre-normalization)
-                # casing is not retained. If provenance/auditing of the original URN is
-                # ever needed, stash it in the Upstream.properties map (already on this
-                # record) rather than a dedicated URN field, to avoid the per-edge
-                # overhead. Deferred per review — the NORMALIZED matchType already
-                # signals that a rewrite happened.
+                # Rewritten in place: the original casing is not retained. The
+                # NORMALIZED matchType is the record that a rewrite happened.
                 upstream.dataset = res.urn
 
         for fine_grained in aspect.fineGrainedLineages or []:
