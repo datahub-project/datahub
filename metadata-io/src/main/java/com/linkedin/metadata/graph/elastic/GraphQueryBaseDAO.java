@@ -124,7 +124,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     searchRequest.source(searchSourceBuilder);
 
     searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
 
     return opContext.withSpan(
         "esQuery",
@@ -655,7 +655,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 scrollId,
                 keepAlive,
                 getClient(),
-                opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME))
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getIndexName(opContext, INDEX_NAME))
             : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
@@ -674,7 +677,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     // PIT specifies indices in creation so it doesn't support specifying indices on the request
     if (!usePIT) {
       searchRequest.indices(
-          opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+          opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
     }
 
     return opContext.withSpan(
@@ -1269,7 +1272,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     searchRequest.source(searchSourceBuilder);
     searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
 
     return searchRequest;
   }

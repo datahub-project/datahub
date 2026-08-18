@@ -224,6 +224,12 @@ public class PoliciesConfig {
           "Manage System Operations",
           "Allow access to all system operations/management APIs and controls.");
 
+  public static final Privilege VIEW_SYSTEM_STATUS_PRIVILEGE =
+      Privilege.of(
+          "VIEW_SYSTEM_STATUS",
+          "View System Status",
+          "View non-sensitive system status such as consumer lag, messaging transport, and registered consumers. Does not include system information, full system configuration, raw index access, or operational controls.");
+
   public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
       Privilege.of(
           "GET_PLATFORM_EVENTS",
@@ -289,6 +295,7 @@ public class PoliciesConfig {
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          VIEW_SYSTEM_STATUS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
@@ -841,6 +848,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
@@ -860,6 +868,7 @@ public class PoliciesConfig {
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
@@ -1263,6 +1272,40 @@ public class PoliciesConfig {
                           ApiOperation.EXECUTE,
                           Disjunctive.disjoint(
                               EXECUTE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.DOCUMENT_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      // Standard ENTITY create (CREATE_ENTITY | EDIT_ENTITY) plus MANAGE_DOCUMENTS.
+                      .put(
+                          ApiOperation.CREATE,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.CREATE)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_DOCUMENTS_PRIVILEGE)))
+                                  .collect(Collectors.toList())))
+                      .put(
+                          ApiOperation.READ,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_DOCUMENTS_PRIVILEGE)))
+                                  .collect(Collectors.toList())))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_DOCUMENTS_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE, MANAGE_DOCUMENTS_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))

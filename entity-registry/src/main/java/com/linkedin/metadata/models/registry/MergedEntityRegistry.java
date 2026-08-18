@@ -11,6 +11,8 @@ import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.RelationshipEdgeUniquenessValidator;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,6 +84,24 @@ public class MergedEntityRegistry implements EntityRegistry {
               validationResult.validationFailures.stream().collect(Collectors.joining("\n"))));
     }
 
+    // Compute entity merges first and validate relationship uniqueness before mutating
+    // the live maps, so a uniqueness failure leaves the registry unchanged.
+    Map<String, EntitySpec> pendingEntitySpecs = new HashMap<>();
+    for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
+      EntitySpec candidate;
+      if (entityNameToSpec.containsKey(e2Entry.getKey())) {
+        candidate = mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
+      } else {
+        candidate = e2Entry.getValue();
+      }
+      try {
+        RelationshipEdgeUniquenessValidator.validate(candidate);
+      } catch (ModelValidationException e) {
+        throw new RelationshipEdgeUniquenessException(e.getMessage());
+      }
+      pendingEntitySpecs.put(e2Entry.getKey(), candidate);
+    }
+
     // Merge Aspect Specs
     // (Fixed issue where custom defined aspects are not included in the API specification.)
     //
@@ -89,23 +109,12 @@ public class MergedEntityRegistry implements EntityRegistry {
       _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
     }
 
-    // Merge Entity Specs
-    for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
-      if (entityNameToSpec.containsKey(e2Entry.getKey())) {
-        EntitySpec mergeEntitySpec =
-            mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
-        entityNameToSpec.put(e2Entry.getKey(), mergeEntitySpec);
-      } else {
-        // We are inserting a new entity into the registry
-        entityNameToSpec.put(e2Entry.getKey(), e2Entry.getValue());
-      }
-    }
+    entityNameToSpec.putAll(pendingEntitySpecs);
 
     // Merge Event Specs
     if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
-    // TODO: Validate that the entity registries don't have conflicts among each other
 
     // Merge Plugins
     this.pluginFactory =
@@ -214,28 +223,26 @@ public class MergedEntityRegistry implements EntityRegistry {
     // 3. If both define searchGroup and they're different, this is an error (should be caught in
     // validation)
     String mergedSearchGroup = determineSearchGroup(existingEntitySpec, newEntitySpec);
+    // viewUnrestricted: true if either side marks the entity unrestricted
+    boolean mergedViewUnrestricted =
+        existingEntitySpec.isViewUnrestricted() || newEntitySpec.isViewUnrestricted();
 
     // If the base is a config spec, always create another config spec.
     if (existingEntitySpec instanceof ConfigEntitySpec) {
-      // Create a new EntityAnnotation with the merged searchGroup
-      EntityAnnotation mergedAnnotation =
-          new EntityAnnotation(
-              existingEntitySpec.getEntityAnnotation().getName(),
-              existingEntitySpec.getEntityAnnotation().getKeyAspect(),
-              mergedSearchGroup);
-
       return new ConfigEntitySpec(
-          mergedAnnotation.getName(),
-          mergedAnnotation.getKeyAspect(),
+          existingEntitySpec.getEntityAnnotation().getName(),
+          existingEntitySpec.getEntityAnnotation().getKeyAspect(),
           aspectSpecMap.values(),
-          mergedSearchGroup);
+          mergedSearchGroup,
+          mergedViewUnrestricted);
     }
     // For DefaultEntitySpec, create a new EntityAnnotation with the merged searchGroup
     EntityAnnotation mergedAnnotation =
         new EntityAnnotation(
             existingEntitySpec.getEntityAnnotation().getName(),
             existingEntitySpec.getEntityAnnotation().getKeyAspect(),
-            mergedSearchGroup);
+            mergedSearchGroup,
+            mergedViewUnrestricted);
 
     return new DefaultEntitySpec(
         aspectSpecMap.values(),

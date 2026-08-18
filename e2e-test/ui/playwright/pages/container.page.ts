@@ -35,6 +35,16 @@ export class ContainerPage extends BasePage {
     await this.waitForPageLoad();
   }
 
+  /**
+   * Containers now default to the modular Summary tab. The full child list and
+   * pagination live on Contents — open that before asserting on embedded search.
+   */
+  async openContentsTab(): Promise<void> {
+    this.logger?.step('openContentsTab');
+    await this.page.getByTestId('Contents-entity-tab-header').click();
+    await this.waitForPageLoad();
+  }
+
   // ── Assertions ──────────────────────────────────────────────────────────
 
   /**

@@ -1,16 +1,4 @@
-fragment semanticFieldFields on SemanticField {
-    schemaField {
-        fieldPath
-        type
-        description
-        nativeDataType
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-    }
+fragment semanticFieldAnnotationFields on SemanticFieldAnnotation {
     type
     expression {
         dialects {
@@ -18,41 +6,56 @@ fragment semanticFieldFields on SemanticField {
             expression
         }
     }
+    aggregationFunction
     dimension {
         isTime
     }
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
-    }
 }
 
-fragment modelDatasetFields on ModelDataset {
+fragment modelDatasetFields on Dataset {
+    urn
+    type
     name
-    source {
-        urn
-        type
-        ... on Dataset {
-            name
-            platform {
-                ...platformFields
-            }
-            editableProperties {
-                description
-            }
-            properties {
-                name
-                description
-            }
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        description
+    }
+    properties {
+        name
+        description
+    }
+    tags {
+        ...globalTagsFields
+    }
+    semanticModelProperties {
+        alias
+    }
+    schema {
+        fields {
+            fieldPath
+            type
+            description
+            nativeDataType
             tags {
                 ...globalTagsFields
             }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+            schemaFieldEntity {
+                aiContext {
+                    synonyms
+                    instructions
+                    examples
+                    customInstructions
+                }
+                semanticFieldAnnotation {
+                    ...semanticFieldAnnotationFields
+                }
+            }
         }
-    }
-    fields {
-        ...semanticFieldFields
     }
 }
 
@@ -112,12 +115,6 @@ fragment semanticModelInfoFields on SemanticModelInfo {
         }
     }
     nativeDefinition
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
-    }
     datasets {
         ...modelDatasetFields
     }
@@ -144,12 +141,6 @@ fragment semanticModelProfileInfoFields on SemanticModelInfo {
         }
     }
     nativeDefinition
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
-    }
 }
 
 fragment semanticModelFields on SemanticModel {
@@ -163,6 +154,12 @@ fragment semanticModelFields on SemanticModel {
     }
     info {
         ...semanticModelInfoFields
+    }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
     }
     metrics(input: { count: 20, query: "*" }) {
         total

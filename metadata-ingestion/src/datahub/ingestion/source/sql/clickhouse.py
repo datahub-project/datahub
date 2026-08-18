@@ -43,6 +43,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     logger,
@@ -258,7 +259,11 @@ class ClickHouseConfig(
         if self.sqlalchemy_uri and current_db:
             url = url.set(database=current_db)
 
-        return str(url)
+        url = with_client_identity(url)
+        # Explicit about keeping the password: on SQLAlchemy 1.4 (currently pinned)
+        # str(URL) already renders it, but SQLAlchemy 2.0 masks it in str() — this
+        # keeps create_engine() working if/when the pin moves to 2.x.
+        return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")

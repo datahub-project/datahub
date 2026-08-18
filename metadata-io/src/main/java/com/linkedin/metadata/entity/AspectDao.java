@@ -112,6 +112,31 @@ public interface AspectDao {
       @Nullable TransactionContext txContext,
       @Nonnull final SystemAspect aspect);
 
+  @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
+  default boolean isOptimisticLockingEnabled() {
+    return false;
+  }
+
+  /**
+   * Whether this DAO, when optimistic locking is enabled, retries only the conflicted URN's branch
+   * within the transaction (scoped retry) instead of re-running the whole batch. Default {@code
+   * false} keeps the full-batch retry behavior of the optimistic-locking base.
+   */
+  @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
+  default boolean isScopedRetryEnabled() {
+    return false;
+  }
+
+  @Nonnull
+  default Optional<EntityAspect> updateAspectConditional(
+      @Nonnull OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final SystemAspect aspect,
+      @Nullable String expectedSystemMetadataVersion) {
+    throw new UnsupportedOperationException(
+        "Optimistic locking conditional update is not supported by this AspectDao");
+  }
+
   /**
    * Insert system aspect, returning the inserted aspect which may be different from the input
    * aspect, having been replaced with an ORM variation.
@@ -197,6 +222,79 @@ public interface AspectDao {
     }
   }
 
+  default ConditionalSaveResult saveLatestAspectConditional(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
+
+    if (newAspect.getSystemMetadataVersion().isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Expected a version in systemMetadata.%s", newAspect.getSystemMetadata()));
+    }
+
+    if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
+      SystemAspect currentVersion0 = latestAspect.getDatabaseAspect().get();
+      String expectedVersion =
+          Optional.ofNullable(currentVersion0.getSystemMetadata())
+              .map(SystemMetadata::getVersion)
+              .orElse(null);
+
+      if (expectedVersion == null) {
+        // Legacy row written before optimistic locking stamped a version. There is nothing to CAS
+        // against, so this is an UNCONDITIONAL last-writer-wins update — CAS does NOT guard these
+        // rows, and concurrent writers to the same legacy URN can clobber each other until a write
+        // stamps a version. The write gate (when enabled) still serializes them; with no gate,
+        // legacy rows behave exactly as they did before OL. One-time, self-healing: the next write
+        // stamps a version and subsequent writes take the CAS path below.
+        Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
+            saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.UPDATED, legacy.getFirst(), legacy.getSecond());
+      }
+
+      long targetVersion =
+          nextVersionResolution(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata());
+      boolean isNoOp =
+          ValidationApiUtils.normalizedEqual(
+              currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
+
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+      if (Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
+          && isNoOp) {
+        incrementOptimisticLockMetric("optimistic_lock_skipped_noop");
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.SKIPPED_NOOP, Optional.empty(), Optional.empty());
+      }
+
+      SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
+      Optional<EntityAspect> updated =
+          updateAspectConditional(opContext, txContext, newAspect, expectedVersion);
+      if (updated.isEmpty()) {
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.CONFLICT, Optional.empty(), Optional.empty());
+      }
+
+      Optional<EntityAspect> inserted = Optional.empty();
+      if (maxVersionsToKeep > 1
+          && !newAspect
+              .getSystemMetadataVersion()
+              .equals(currentVersion0.getSystemMetadataVersion())) {
+        inserted =
+            insertAspect(
+                opContext, txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
+      }
+
+      return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, inserted, updated);
+    }
+
+    newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
+    Optional<EntityAspect> inserted =
+        insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
+    return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, Optional.empty(), inserted);
+  }
+
   private long nextVersionResolution(
       @Nullable SystemMetadata currentSystemMetadata, @Nullable SystemMetadata newSystemMetadata) {
     // existing row 0 should have at least version 1
@@ -248,9 +346,28 @@ public interface AspectDao {
   @Nonnull
   Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
-  @Nonnull
-  PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull OperationContext opContext, @Nonnull final RestoreIndicesArgs args);
+  /**
+   * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
+   * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
+   *
+   * <p>The stream is <b>consume-in-scope</b>: {@code consumer} runs while a {@link
+   * ScopedTransactionFactory} routing scope is open, and the stream is closed when it returns. This
+   * is load-bearing when an extension routes queries to different backend databases — {@code
+   * findStream()} pulls rows lazily as the stream is consumed, so the cursor's connection has to
+   * stay routed for the whole consumption. Returning a live stream to the caller (as the previous
+   * signature did) let the scope close before the rows were fetched, so later batches could run on
+   * an unrouted connection already returned to the pool. Do not stash the {@link PartitionedStream}
+   * for use after {@code consumer} returns.
+   *
+   * @param consumer processes the partitioned stream and returns a result; must fully consume it
+   *     before returning
+   * @return whatever {@code consumer} returns
+   */
+  @Nullable
+  <R> R streamAspectBatches(
+      @Nonnull OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer);
 
   /**
    * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
@@ -298,10 +415,33 @@ public interface AspectDao {
           "TODO: Needs a bigger refactor, will be handled later. Streams need to follow a consumer pattern")
   Stream<EntityAspect> streamAspects(@Nonnull String entityName, @Nonnull String aspectName);
 
+  /**
+   * Hard-delete all aspects for a urn. Must be called within an enclosing transaction: the ordered
+   * {@code FOR UPDATE} lock (and any advisory lock) rely on the thread's active transaction, so
+   * invoking this outside one would run them in short-lived auto-commit transactions and defeat the
+   * lock ordering. All current call sites route through {@code runInTransactionWithRetry}.
+   */
   int deleteUrn(
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn);
+
+  /**
+   * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row
+   * locks are acquired. Default is a no-op; the Ebean/Postgres implementation may take a
+   * transaction-scoped advisory lock per {@code (urn, aspect)} when enabled.
+   *
+   * <p>Keying on the {@code (urn, aspect)} conflict unit (not the whole entity) matches what CAS
+   * and {@code FOR UPDATE} actually contend on: two writers on the same URN but different aspects
+   * share no row and must not share a mutex. Whole-entity ops (e.g. {@code deleteUrn}) pass the
+   * entity's full aspect key-set so delete↔upsert safety is key-set overlap, not a permanent
+   * URN-wide lock on every ingest. Used to prevent lock-order deadlocks between multi-row writes
+   * (e.g. logical-model linking) and concurrent hard-deletes touching the same rows.
+   */
+  default void lockAspectsForWrite(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    // no-op by default
+  }
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(
@@ -324,6 +464,14 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nonnull Map<String, Set<String>> urnAspectMap,
       boolean lockLatestForWrite);
+
+  default Map<String, Map<String, Long>> getNextVersions(
+      @Nonnull OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull Map<String, Set<String>> urnAspectMap,
+      boolean lockLatestForWrite) {
+    return getNextVersions(operationContext, urnAspectMap, lockLatestForWrite);
+  }
 
   default long getNextVersion(
       @Nonnull OperationContext opContext,
@@ -399,6 +547,9 @@ public interface AspectDao {
                         MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName)),
                     bytes));
   }
+
+  @OperationContextExempt(reason = "Metrics counter helper, no request context needed")
+  default void incrementOptimisticLockMetric(@Nonnull String name) {}
 
   @Nonnull
   @OperationContextExempt(reason = "Returns static config, no request context needed")

@@ -1,6 +1,47 @@
 import pytest
+from pydantic import ValidationError
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.source import S3Source
+
+
+def test_incorrect_config_raises_error():
+    """Reject invalid path specs at config time (bad table var, exclude var, unsupported
+    file type, ``**`` in include)."""
+    ctx = PipelineContext(run_id="test-s3")
+
+    # Baseline: valid config
+    source: dict = {
+        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table}"}
+    }
+    s3 = S3Source.create(source, ctx)
+    assert s3.source_config.platform == "file"
+
+    # Case 1 : named variable in table name is not present in include
+    source = {"path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}}
+    with pytest.raises(ValidationError, match="table_name"):
+        S3Source.create(source, ctx)
+
+    # Case 2 : named variable in exclude is not allowed
+    source = {
+        "path_spec": {
+            "include": "a/b/c/d/{table}/*.*",
+            "exclude": ["a/b/c/d/a-{exclude}/**"],
+        },
+    }
+    with pytest.raises(ValidationError, match=r"exclude.*named variable"):
+        S3Source.create(source, ctx)
+
+    # Case 3 : unsupported file type not allowed
+    source = {"path_spec": {"include": "a/b/c/d/{table}/*.hd5"}}
+    with pytest.raises(ValidationError, match="file type"):
+        S3Source.create(source, ctx)
+
+    # Case 4 : ** in include not allowed
+    source = {"path_spec": {"include": "a/b/c/d/**/*.*"}}
+    with pytest.raises(ValidationError, match=r"\*\*"):
+        S3Source.create(source, ctx)
 
 
 class TestS3Config:
