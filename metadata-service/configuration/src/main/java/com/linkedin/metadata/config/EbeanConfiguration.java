@@ -73,6 +73,14 @@ public class EbeanConfiguration {
   // base.
   private boolean scopedRetryEnabled;
 
+  // OL CAS-update batching (requires optimisticLockingEnabled). Batches independent version-0 CAS
+  // UPDATEs into one JDBC executeBatch instead of one round trip per row. Off by default.
+  private boolean optimisticWriteBatchEnabled;
+  // Minimum eligible batch size; below this, skip batching and go sequential. (The MAX per
+  // executeBatch is a hardcoded constant in EntityServiceImpl — packet-limited, not
+  // operator-tunable.)
+  private int optimisticWriteBatchMinSize;
+
   private ReadPoolConfiguration readPool;
 
   @Builder.Default
