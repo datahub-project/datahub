@@ -417,7 +417,10 @@ public class EbeanAspectDaoConditionalBatchIT {
             break;
           }
         }
-        assertTrue(hasSuccessNoInfo, "rewriteBatchedStatements=true should yield Statement.SUCCESS_NO_INFO (-2); got " + Arrays.toString(counts));
+        assertTrue(
+            hasSuccessNoInfo,
+            "rewriteBatchedStatements=true should yield Statement.SUCCESS_NO_INFO (-2); got "
+                + Arrays.toString(counts));
       }
     }
     System.out.println("SPIKE: Probe 3 PASSED");
