@@ -314,7 +314,7 @@ public class AuthorizationUtils {
                         || field.getType().isPrimitive()) {
                       try {
                         switch (field.getName()) {
-                            // pass through to the restricted entity
+                          // pass through to the restricted entity
                           case "name":
                           case "type":
                           case "urn":
@@ -337,7 +337,7 @@ public class AuthorizationUtils {
                                         "get" + StringUtils.capitalise(field.getName()));
                                 return Boolean.TRUE.equals(
                                     boolGetter.invoke(entity, (Object[]) null));
-                                // mask these fields in the restricted entity
+                              // mask these fields in the restricted entity
                               case "char":
                               case "String":
                                 return "";

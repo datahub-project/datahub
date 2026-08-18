@@ -176,7 +176,7 @@ cachetools==5.5.2
     #   confluent-kafka
     #   mlflow-skinny
     #   pyiceberg
-cassandra-driver==3.29.3
+cassandra-driver==3.30.1
     # via acryl-datahub
 cattrs==26.1.0
     # via looker-sdk
@@ -306,6 +306,7 @@ deepmerge==2.0
 defusedxml==0.7.1
     # via
     #   acryl-datahub
+    #   nltk
     #   python3-openid
     #   tableauserverclient
 deltalake==0.25.5
@@ -314,6 +315,7 @@ deprecated==1.3.1
     # via
     #   acryl-datahub
     #   atlassian-python-api
+    #   cassandra-driver
 dill==0.3.9
     # via feast
 distro==1.9.0
@@ -769,7 +771,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.10.3
     # via
     #   acryl-datahub
     #   unstructured
@@ -1371,7 +1373,7 @@ stopit==1.1.2
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
-tableauserverclient==0.25
+tableauserverclient==0.40
     # via acryl-datahub
 tableschema==1.21.0
     # via acryl-datahub
@@ -1538,6 +1540,7 @@ typing-extensions==4.15.0
     #   snowflake-connector-python
     #   sqlalchemy2-stubs
     #   starlette
+    #   tableauserverclient
     #   textual
     #   typeguard
     #   typing-inspect
@@ -1579,7 +1582,7 @@ unstructured-client==0.42.10
     # via unstructured
 unstructured-ingest==0.7.2
     # via acryl-datahub
-urllib3==1.26.20
+urllib3==2.7.0
     # via
     #   acryl-datahub
     #   botocore

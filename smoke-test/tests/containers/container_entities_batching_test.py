@@ -1,7 +1,9 @@
 import logging
 import os
+import re
 import tempfile
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
@@ -17,9 +19,12 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetPropertiesClass,
 )
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Unique per run so the containers are freshly seeded and their counts are deterministic
 # regardless of what else is in the instance.
@@ -258,3 +263,110 @@ def test_container_entities_filters_are_applied(auth_session):
         assert data["charts"]["entities"]["total"] == 0
 
     check()
+
+
+_FRONTEND_GRAPHQL_DIR = (
+    Path(__file__).resolve().parents[3] / "datahub-web-react" / "src" / "graphql"
+)
+_PRODUCTION_SEARCH_OPERATION = "getSearchResultsForMultiple"
+
+# The assembled operation is what makes this test meaningful: one copy normalizes to just
+# under graphql-java's 100k field cap, so two copies cross it. If the frontend fragments
+# shrink enough that the document no longer approaches the cap, the test would still pass
+# while checking nothing -- these floors make that drift fail loudly instead.
+_MIN_FRAGMENTS = 40
+_MIN_DOCUMENT_CHARS = 30_000
+_DEFINITION_RE = re.compile(
+    r"^(fragment|query|mutation|subscription)\s+(\w+)[\s\S]*?"
+    r"(?=^(?:fragment|query|mutation|subscription)\s|\Z)",
+    re.MULTILINE,
+)
+
+
+def _assemble_production_search_document() -> str:
+    """Rebuild the real search query, with its transitive fragments, from the frontend sources."""
+    if not _FRONTEND_GRAPHQL_DIR.is_dir():
+        pytest.skip(f"frontend graphql sources not found at {_FRONTEND_GRAPHQL_DIR}")
+
+    fragments: Dict[str, str] = {}
+    operation = None
+    for path in sorted(_FRONTEND_GRAPHQL_DIR.glob("*.graphql")):
+        for match in _DEFINITION_RE.finditer(path.read_text()):
+            kind, name, body = match.group(1), match.group(2), match.group(0)
+            if kind == "fragment":
+                fragments[name] = body
+            elif name == _PRODUCTION_SEARCH_OPERATION:
+                operation = body
+
+    assert operation is not None, (
+        f"{_PRODUCTION_SEARCH_OPERATION} not found under {_FRONTEND_GRAPHQL_DIR}; "
+        "the query this regression test depends on was renamed or removed"
+    )
+
+    needed: List[str] = []
+    seen = set()
+    pending = re.findall(r"\.\.\.(\w+)", operation)
+    while pending:
+        name = pending.pop(0)
+        if name in seen or name not in fragments:
+            continue
+        seen.add(name)
+        needed.append(name)
+        pending.extend(re.findall(r"\.\.\.(\w+)", fragments[name]))
+
+    document = (
+        operation.rstrip()
+        + "\n\n"
+        + "\n\n".join(fragments[name].rstrip() for name in needed)
+    )
+    assert len(needed) >= _MIN_FRAGMENTS and len(document) >= _MIN_DOCUMENT_CHARS, (
+        f"assembled {_PRODUCTION_SEARCH_OPERATION} is smaller than expected "
+        f"({len(needed)} fragments, {len(document)} chars); this test only exercises the "
+        "field-count regression while the document approaches graphql-java's 100k cap"
+    )
+    return document
+
+
+def _with_aliased_copies(document: str, copies: int) -> str:
+    """Alias the operation's root selection N times, multiplying the normalized field count."""
+    split_at = document.index("\nfragment ")
+    operation, fragments = document[:split_at], document[split_at:]
+    match = re.search(r"\{([\s\S]*)\}\s*$", operation)
+    assert match is not None, (
+        f"could not locate the body of {_PRODUCTION_SEARCH_OPERATION}; "
+        "the operation's shape in the frontend sources changed"
+    )
+    header, body = operation[: operation.index("{")], match.group(1)
+    aliased = "\n".join(
+        body.replace("searchAcrossEntities(", f"copy{i}: searchAcrossEntities(", 1)
+        for i in range(copies)
+    )
+    return f"{header}{{\n{aliased}\n}}\n{fragments}"
+
+
+def test_container_entities_survives_large_query_normalization(auth_session):
+    """Regression test for "Maximum field count exceeded. 100001 > 100000".
+
+    ContainerEntitiesResolver used to decide whether it could serve a count-only selection
+    by calling environment.getSelectionSet(), which makes graphql-java normalize the whole
+    operation. Normalization is capped at 100k fields, so once a Container hit reached this
+    resolver from the production search query, the entire request was aborted -- not just
+    this field. The resolver now reads its selection from the AST, which is local to the
+    field and never normalizes.
+    """
+    query = _with_aliased_copies(_assemble_production_search_document(), copies=2)
+    variables: Dict[str, Any] = {
+        "input": {"types": ["CONTAINER"], "query": "*", "start": 0, "count": 5},
+        "skipSiblingsSearch": False,
+        "skipLineage": False,
+    }
+
+    res = execute_graphql(auth_session, query, variables, expect_errors=True)
+
+    messages = [error.get("message", "") for error in res.get("errors") or []]
+    assert not any("Maximum field count" in message for message in messages), (
+        f"the field-count regression is back: {messages}"
+    )
+    assert not messages, f"unexpected GraphQL errors: {messages}"
+    # The seeded containers are CONTAINER entities, so the search must find at least those.
+    assert res["data"]["copy0"]["total"] >= len(_EXPECTED)

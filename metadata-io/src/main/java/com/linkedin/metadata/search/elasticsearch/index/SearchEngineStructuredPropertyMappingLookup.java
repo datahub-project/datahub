@@ -41,7 +41,7 @@ public class SearchEngineStructuredPropertyMappingLookup
   public boolean fieldExists(
       @Nonnull OperationFingerprint operationContext, @Nonnull String elasticsearchFieldName)
       throws IOException {
-    List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns(operationContext);
     if (indexPatterns.isEmpty()) {
       log.warn(
           "No entity index patterns are configured; structured property mapping collision "

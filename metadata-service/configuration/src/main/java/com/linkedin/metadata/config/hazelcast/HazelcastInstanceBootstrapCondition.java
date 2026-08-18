@@ -24,6 +24,35 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
         env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
       return true;
     }
+    // The Hazelcast entity write-gate needs the embedded node — but ONLY when it will actually
+    // engage: optimistic-locking mode with the hazelcast backend. With OL off the gate is bypassed
+    // (EntityWriteLockFactory logs it), so booting a cluster for it would waste resources and
+    // expose
+    // startup to Hazelcast join failures for an inactive feature. Trim to match the backend parsing
+    // elsewhere (getNormalizedEntityWriteLockBackend); null-safe (mocked Environment).
+    final String writeLockBackend =
+        env.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none");
+    // Trim before parsing (Spring's relaxed binding trims at runtime, so " true " enables OL
+    // there);
+    // not trimming here would boot-skip Hazelcast while the gate is live, degrading it to no-op.
+    final String optimisticLockingRaw =
+        env.getProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "false");
+    final boolean optimisticLockingEnabled =
+        optimisticLockingRaw != null && Boolean.parseBoolean(optimisticLockingRaw.trim());
+    // Only Ebean implements OL; on Cassandra the gate never engages, so don't boot HZ for it even
+    // if
+    // OPTIMISTIC_LOCKING_ENABLED is left true. entityService.impl defaults to ebean (missing →
+    // ebean).
+    final String entityServiceImpl =
+        env.getProperty(HazelcastBootstrapProperties.ENTITY_SERVICE_IMPL, "ebean");
+    final boolean isEbean =
+        entityServiceImpl == null || "ebean".equalsIgnoreCase(entityServiceImpl.trim());
+    if (isEbean
+        && optimisticLockingEnabled
+        && writeLockBackend != null
+        && "hazelcast".equalsIgnoreCase(writeLockBackend.trim())) {
+      return true;
+    }
     if (Boolean.parseBoolean(
             env.getProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "false"))
         && Boolean.parseBoolean(

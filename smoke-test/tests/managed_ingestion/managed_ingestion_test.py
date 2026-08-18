@@ -6,6 +6,7 @@ from typing import Any, Dict
 import pytest
 
 from tests.privileges.utils import create_user
+from tests.utilities.domains import Domain
 from tests.utils import (
     TestSessionWrapper,
     execute_graphql,
@@ -16,6 +17,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 _SMOKE_SECRET_NAMES = ["SMOKE_TEST", "SMOKE_TEST_BIGQUERY_KEY", "SMOKE_TEST_EDGE_CASES"]
 _SMOKE_INGESTION_SOURCE_PREFIX = "SMOKE_INGESTION_"
