@@ -547,6 +547,8 @@ def get_kafka_consumer_offsets() -> None:
             # /openapi/operations/kafka map format: {group: {topic: ...}}
             consumers = payload
         for consumer_group, topics in consumers.items():
+            if not isinstance(topics, dict):
+                continue
             for topic, data in topics.items():
                 metrics = data.get("metrics", {})
                 partitions = data.get("partitions", {})
