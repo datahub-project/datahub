@@ -60,7 +60,7 @@ MAX_CONTENT_WIDTH = 120
 
 def _evals_import_suggestion(error: ImportError) -> str:
     if getattr(error, "name", None) == "acryl_datahub_cloud":
-        return "run `pip install 'acryl-datahub-cloud[datahub-evals]'`"
+        return "run `pip install 'acryl-datahub[datahub-evals]'`"
     logger.debug("acryl-datahub-cloud is installed but failed to load: %s", error)
     return f"fix the acryl-datahub-cloud installation ({error})"
 

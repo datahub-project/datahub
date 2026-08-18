@@ -1363,6 +1363,7 @@ setuptools.setup(
         ),
         "sso": list(framework_common | {"playwright>=1.40.0,<2.0.0"}),
         "cloud": ["acryl-datahub-cloud"],
+        "datahub-evals": ["acryl-datahub-cloud[datahub-evals]"],
         "dev": list(dev_requirements),
         "docs": list(
             docs_requirements

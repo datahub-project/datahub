@@ -1276,6 +1276,8 @@ all = [
 
 cloud = ["acryl-datahub-cloud"]
 
+datahub-evals = ["acryl-datahub-cloud[datahub-evals]"]
+
 dev = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
