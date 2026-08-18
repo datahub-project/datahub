@@ -1,7 +1,9 @@
 package com.linkedin.metadata.usage.flush;
 
+import com.linkedin.metadata.usage.UsageDimensions;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricIncrementResolver;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.usage.UsageActorClass;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
@@ -28,7 +30,7 @@ public class MicrometerUsageFlushSink implements UsageFlushSink {
   }
 
   @Override
-  public void publish(@Nonnull UsageFlushBatch batch) {
+  public void publish(@Nonnull OperationContext opContext, @Nonnull UsageFlushBatch batch) {
     for (AdditiveUsageRow row : batch.additiveRows()) {
       UsageMetricRegistry.MetricDefinition metricDefinition =
           metricRegistry.apiUsageMetrics().get(row.metricName());
@@ -59,7 +61,8 @@ public class MicrometerUsageFlushSink implements UsageFlushSink {
               AtomicInteger gaugeValue = new AtomicInteger(0);
               registry.gauge(
                   ACTIVE_IDENTITIES_METRIC,
-                  Tags.of("identity_metric", identityMetric, "actor_class", actorClass),
+                  Tags.of(
+                      "identity_metric", identityMetric, UsageDimensions.ACTOR_CLASS, actorClass),
                   gaugeValue,
                   AtomicInteger::get);
               return gaugeValue;
@@ -71,14 +74,19 @@ public class MicrometerUsageFlushSink implements UsageFlushSink {
   private Tags buildTags(
       @Nonnull Map<String, String> dimensions, @Nullable UsageActorClass actorClass) {
     Tags tags = Tags.empty();
-    tags = withTag(tags, "usage_operation", dimensions.get("usage_operation"));
-    tags = withTag(tags, "agent_class", dimensions.get("agent_class"));
-    tags = withTag(tags, "request_api", dimensions.get("request_api"));
-    tags = withTag(tags, "auth_channel", dimensions.get("auth_channel"));
+    tags =
+        withTag(
+            tags, UsageDimensions.USAGE_OPERATION, dimensions.get(UsageDimensions.USAGE_OPERATION));
+    tags = withTag(tags, UsageDimensions.AGENT_CLASS, dimensions.get(UsageDimensions.AGENT_CLASS));
+    tags = withTag(tags, UsageDimensions.AGENT_NAME, dimensions.get(UsageDimensions.AGENT_NAME));
+    tags = withTag(tags, UsageDimensions.REQUEST_API, dimensions.get(UsageDimensions.REQUEST_API));
+    tags =
+        withTag(tags, UsageDimensions.AUTH_CHANNEL, dimensions.get(UsageDimensions.AUTH_CHANNEL));
     if (actorClass != null) {
-      tags = withTag(tags, "actor_class", actorClass.dimensionValue());
+      tags = withTag(tags, UsageDimensions.ACTOR_CLASS, actorClass.dimensionValue());
     } else {
-      tags = withTag(tags, "actor_class", dimensions.get("actor_class"));
+      tags =
+          withTag(tags, UsageDimensions.ACTOR_CLASS, dimensions.get(UsageDimensions.ACTOR_CLASS));
     }
     return tags;
   }

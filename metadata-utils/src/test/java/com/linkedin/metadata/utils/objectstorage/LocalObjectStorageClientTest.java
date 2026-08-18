@@ -57,10 +57,49 @@ public class LocalObjectStorageClientTest {
   }
 
   @Test
-  public void testIsConfigured() {
+  public void testIsConfigured() throws Exception {
     assertFalse(new LocalObjectStorageClient(null).isConfigured());
     assertFalse(new LocalObjectStorageClient("").isConfigured());
-    assertTrue(new LocalObjectStorageClient("/tmp/datahub-object-storage").isConfigured());
+    Path root = Files.createTempDirectory("object-storage-configured");
+    assertTrue(new LocalObjectStorageClient(root.toString()).isConfigured());
+  }
+
+  @Test
+  public void testConstructorCreatesMissingRoot() throws Exception {
+    Path base = Files.createTempDirectory("object-storage-base");
+    Path root = base.resolve("missing").resolve("nested").resolve("root");
+    assertFalse(Files.exists(root));
+
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertTrue(Files.isDirectory(root));
+    assertTrue(client.isConfigured());
+  }
+
+  @Test
+  public void testConstructorToleratesExistingRoot() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-existing");
+    assertTrue(Files.isDirectory(root));
+
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertTrue(Files.isDirectory(root));
+    assertTrue(client.isConfigured());
+  }
+
+  @Test
+  public void testConstructorToleratesPartialExistingPath() throws Exception {
+    Path base = Files.createTempDirectory("object-storage-partial");
+    Path existingParent = base.resolve("already-there");
+    Files.createDirectories(existingParent);
+    Path root = existingParent.resolve("child").resolve("root");
+    assertTrue(Files.isDirectory(existingParent));
+    assertFalse(Files.exists(root));
+
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertTrue(Files.isDirectory(root));
+    assertTrue(client.isConfigured());
   }
 
   @Test
@@ -68,5 +107,46 @@ public class LocalObjectStorageClientTest {
     LocalObjectStorageClient client = new LocalObjectStorageClient(null);
     assertThrows(
         IllegalStateException.class, () -> client.putObject("exports/out.bin", new byte[] {1}));
+  }
+
+  @Test
+  public void testGetObjectAsStringReadsWhatWasWritten() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+    client.putObject("matrix.json", "{\"1.5.0\":{}}".getBytes());
+
+    assertEquals(client.getObjectAsString("matrix.json"), "{\"1.5.0\":{}}");
+  }
+
+  @Test
+  public void testGetObjectAsStringMissingFileThrowsNoSuchFile() throws Exception {
+    // ObjectStorageMatrixDocumentReader.classify() matches on
+    // java.nio.file.NoSuchFileException specifically, so the wrapped read must surface it as the
+    // cause rather than a generic IOException.
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    try {
+      client.getObjectAsString("missing.json");
+      throw new AssertionError("Expected RuntimeException");
+    } catch (RuntimeException e) {
+      assertTrue(e.getCause() instanceof java.nio.file.NoSuchFileException);
+    }
+  }
+
+  @Test
+  public void testGetObjectAsStringRejectsTraversal() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertThrows(
+        ObjectStoragePathException.class,
+        () -> client.getObjectAsString("exports/../outside.json"));
+  }
+
+  @Test
+  public void testGetObjectAsStringRejectsUnconfiguredRoot() {
+    LocalObjectStorageClient client = new LocalObjectStorageClient(null);
+    assertThrows(IllegalStateException.class, () -> client.getObjectAsString("matrix.json"));
   }
 }

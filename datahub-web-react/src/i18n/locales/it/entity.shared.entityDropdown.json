@@ -28,6 +28,9 @@
     "delete.tooltip": "Elimina {{entityName}}",
     "deprecation.addDetailsTitle": "Aggiungi dettagli di obsolescenza",
     "deprecation.decommissionDateLabel": "Data di dismissione",
+    "deprecation.editDeprecated": "Modifica obsolescenza",
+    "deprecation.editTitle": "Modifica obsolescenza",
+    "deprecation.editTooltip": "Modifica i dettagli di obsolescenza per {{entityName}}",
     "deprecation.markDeprecated": "Contrassegna come obsoleto",
     "deprecation.markTooltip": "Contrassegna {{entityName}} come obsoleto",
     "deprecation.markUnDeprecated": "Contrassegna come non obsoleto",
@@ -92,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Confermare?",
     "unlinkVersion.error": "Scollegamento non riuscito: \n {{errorMessage}}",
     "unlinkVersion.loading": "Scollegamento in corso...",
-    "unlinkVersion.success": "Scollegamento di {{entityName}} completato!"
+    "unlinkVersion.success": "Scollegamento di {{entityName}} completato!",
+    "dataProductSelect.notFound": "Nessun Data Product trovato",
+    "dataProductSelect.placeholder": "Seleziona un Data Product padre",
+    "moveDataProduct.title": "Sposta Data Product"
 }

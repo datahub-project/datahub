@@ -188,17 +188,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
         try:
             result = model.model_validate(self._get_json(url, params=params))
         except ValidationError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title=f"Invalid {label} Data",
                 message=f"{label} data from Metabase API failed validation.",
                 context=f"{context}, Error: {e}",
+                log=False,
             )
             return None
         except (requests.exceptions.RequestException, ValueError) as e:
-            self.report.report_warning(
+            self.report.warning(
                 title=f"Failed to Retrieve {label}",
                 message=f"Request to retrieve {label.lower()} from Metabase failed.",
                 context=f"{context}, Error: {e}",
+                log=False,
             )
             return None
         self._fetch_cache[cache_key] = result
@@ -318,7 +320,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 login_response.raise_for_status()
                 login_data = MetabaseLoginResponse.model_validate(login_response.json())
             except (requests.exceptions.RequestException, ValueError) as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to Authenticate",
                     message="Failed to log in to Metabase with the provided credentials.",
                     context=str(e),
@@ -341,7 +343,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             test_response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Unable to Retrieve Current User",
                 message="Unable to retrieve current user information from Metabase.",
                 context=str(e),
@@ -359,16 +361,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     timeout=self.config.request_timeout_sec,
                 )
                 if response.status_code not in (200, 204):
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to Log User Out",
                         message="Unable to log the ingestion user out of Metabase.",
                         context=f"Status code: {response.status_code}",
                     )
         except requests.exceptions.RequestException as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Log User Out",
                 message="Failed to log the ingestion user out of Metabase during teardown.",
                 context=str(e),
+                log=False,
             )
         finally:
             super().close()
@@ -388,17 +391,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     items_data
                 )
             except ValidationError as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Invalid Collection Items Response",
                     message="Collection items response failed validation.",
                     context=f"Collection ID: {collection.id}, Error: {str(e)}",
+                    log=False,
                 )
                 continue
             except (requests.exceptions.RequestException, ValueError) as error:
-                self.report.report_warning(
+                self.report.warning(
                     title="Unable to Retrieve Collection Items",
                     message="Request to retrieve collection dashboards failed; skipping this collection.",
                     context=f"Collection ID: {collection.id}, Error: {str(error)}",
+                    log=False,
                 )
                 continue
 
@@ -425,18 +430,20 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dashboard = MetabaseDashboard.model_validate(self._get_json(dashboard_url))
         except ValidationError as e:
             self.report.dashboards_dropped += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Invalid Dashboard Data",
                 message="Dashboard data from Metabase API failed validation.",
                 context=f"Dashboard ID: {dashboard_id}, Error: {str(e)}",
+                log=False,
             )
             return
         except (requests.exceptions.RequestException, ValueError) as error:
             self.report.dashboards_dropped += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Retrieve Dashboard",
                 message="Request to retrieve dashboard from Metabase failed.",
                 context=f"Dashboard ID: {dashboard_id}, Error: {str(error)}",
+                log=False,
             )
             return
 
@@ -493,10 +500,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self, recursion_depth: int, context: str, card_id: int
     ) -> bool:
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
-            self.report.report_warning(
+            self.report.warning(
                 title="Card Recursion Limit Exceeded",
                 message="Unable to extract lineage. Nested card reference depth exceeded limit.",
                 context=f"Context: {context}, Card ID: {card_id}, Recursion Depth: {recursion_depth}, Limit: {DATASOURCE_URN_RECURSION_LIMIT}",
+                log=False,
             )
             return True
         return False
@@ -559,10 +567,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
     def _warn_native_sql_parse_failure(self, card_id: int, error: str) -> None:
         self.report.native_sql_parse_failures += 1
-        self.report.report_warning(
+        self.report.warning(
             title="Native SQL Lineage Parse Failure",
             message="Failed to parse lineage from a native SQL query.",
             context=f"Card ID: {card_id}, Error: {error}",
+            log=False,
         )
 
     def _get_table_urns_from_native_query(self, card: MetabaseCard) -> List[str]:
@@ -736,10 +745,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             # Name-based MBQL refs cannot be resolved to a concrete upstream
             # column, so their column-level lineage is dropped. Surface it.
             self.report.mbql_field_refs_by_name_dropped += len(field_refs.named)
-            self.report.report_warning(
+            self.report.warning(
                 title="MBQL Column Lineage Dropped",
                 message="Query-builder card references columns by name; column-level lineage for those columns was dropped.",
                 context=f"Card ID: {card.id}, Named refs: {field_refs.named}",
+                log=False,
             )
 
         return _MBQLContext(query=query, datasource=datasource, resolved=resolved)
@@ -755,10 +765,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             # A pass-through over zero or several (joined) tables has no clean 1:1
             # mapping, so column-level lineage is dropped despite result metadata.
             self.report.query_builder_cll_dropped += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Query-Builder Column Lineage Dropped",
                 message="Pass-through card does not resolve to a single source table; column-level lineage was not emitted.",
                 context=f"Card ID: {card.id}, Source tables: {len(table_urns)}",
+                log=False,
             )
             return None
 
@@ -824,10 +835,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         table_urns = self._get_table_urns_from_query_builder(card)
         if not table_urns:
             self.report.query_builder_cll_dropped += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Query-Builder Column Lineage Dropped",
                 message="Query-builder card produced no resolvable source tables; column-level lineage was not emitted.",
                 context=f"Card ID: {card.id}",
+                log=False,
             )
             return None
 
@@ -835,10 +847,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             # Table-level lineage still emitted below, but no column mapping could
             # be resolved from the result metadata; surface the gap to operators.
             self.report.query_builder_cll_dropped += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Query-Builder Column Lineage Dropped",
                 message="Query-builder card produced table-level lineage but no column-level lineage could be resolved.",
                 context=f"Card ID: {card.id}",
+                log=False,
             )
 
         return self._upstream_lineage(
@@ -903,10 +916,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         try:
             user = MetabaseUser.model_validate(self._get_json(user_info_url))
         except ValidationError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Invalid User Data",
                 message="User data from Metabase API failed validation.",
                 context=f"Creator ID: {creator_id}, Error: {str(e)}",
+                log=False,
             )
             return None
         except requests.exceptions.RequestException as req_error:
@@ -914,24 +928,27 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if response is not None and response.status_code == 404:
                 # A 404 is deterministic (user blocked/deleted), so cache it to
                 # avoid re-requesting for every entity the same user created.
-                self.report.report_warning(
+                self.report.warning(
                     title="Cannot find user",
                     message="User is blocked in Metabase or missing",
                     context=f"Creator ID: {creator_id}",
+                    log=False,
                 )
                 self._ownership_cache[creator_id] = None
                 return None
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve user",
                 message="Request to Metabase Failed",
                 context=f"Creator ID: {creator_id}, Error: {str(req_error)}",
+                log=False,
             )
             return None
         except ValueError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve user",
                 message="Metabase returned a non-JSON response for a user request.",
                 context=f"Creator ID: {creator_id}, Error: {str(e)}",
+                log=False,
             )
             return None
 
@@ -965,22 +982,24 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 # 404 is expected when collection features are disabled or unavailable
                 logger.debug("Collections endpoint not found: %s", str(req_error))
                 return {}
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve collections",
                 message="Unable to fetch collections from Metabase API",
                 context=f"Error: {str(req_error)} - Check API credentials and permissions",
+                log=False,
             )
             return {}
         except ValueError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve collections",
                 message="Metabase returned a non-JSON response for the collections request.",
                 context=f"Error: {str(e)} - Check API credentials and permissions",
+                log=False,
             )
             return {}
 
         if not isinstance(collections_data, list):
-            self.report.report_failure(
+            self.report.failure(
                 title="Unexpected Collections Response",
                 message="Metabase returned a non-list body for the collections endpoint.",
                 context=f"Type: {type(collections_data).__name__}",
@@ -992,10 +1011,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             try:
                 coll = MetabaseCollection.model_validate(coll_data)
             except ValidationError as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Invalid Collection Data",
                     message="Collection data from Metabase API failed validation.",
                     context=f"Data: {coll_data}, Error: {str(e)}",
+                    log=False,
                 )
                 continue
             if coll.is_root:
@@ -1057,7 +1077,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         try:
             cards = self._get_json(self._url(_API_CARDS))
         except (requests.exceptions.RequestException, ValueError) as error:
-            self.report.report_failure(
+            self.report.failure(
                 title="Unable to Retrieve Cards",
                 message="Request to retrieve cards from Metabase failed.",
                 context=str(error),
@@ -1065,7 +1085,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return []
 
         if not isinstance(cards, list):
-            self.report.report_failure(
+            self.report.failure(
                 title="Unexpected Cards Response",
                 message="Metabase returned a non-list body for the cards endpoint.",
                 context=f"Type: {type(cards).__name__}",
@@ -1077,10 +1097,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             try:
                 items.append(MetabaseCardListItem.model_validate(card_data))
             except ValidationError as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Invalid Card List Item",
                     message="Card list item failed validation.",
                     context=f"Error: {str(e)}",
+                    log=False,
                 )
         self._card_items_cache = items
         return items
@@ -1261,17 +1282,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
     def _get_chart_type(self, card_id: int, display_type: str) -> Optional[str]:
         if not display_type:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unrecognized Card Type",
                 message="Card has no display type. Setting chart type to None.",
                 context=f"Card ID: {card_id}",
+                log=False,
             )
             return None
         if display_type not in METABASE_CHART_DISPLAY_TYPE_MAP:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unrecognized Chart Type",
                 message="Unrecognized chart type found. Setting to None.",
                 context=f"Card ID: {card_id}, Display Type: {display_type}",
+                log=False,
             )
         return METABASE_CHART_DISPLAY_TYPE_MAP.get(display_type)
 
@@ -1358,10 +1381,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         else:
             platform = engine
             if engine not in _KNOWN_METABASE_ENGINES:
-                self.report.report_warning(
+                self.report.warning(
                     title="Unrecognized Data Platform found",
                     message="Data Platform was not found. Using platform name as is",
                     context=f"Platform: {platform}",
+                    log=False,
                 )
 
         platform_instance = self.get_platform_instance(
@@ -1380,10 +1404,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dbname = self.config.database_alias_map[platform]
 
         if dbname is None:
-            self.report.report_warning(
+            self.report.warning(
                 title="Cannot resolve Database Name",
                 message="Cannot determine database name for platform",
                 context=f"Platform: {platform}",
+                log=False,
             )
 
         return DatasourceInfo(

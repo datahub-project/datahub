@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Muokataan organisaation oletuskotinäkymää",
+    "header.discoverLabel": "Tutustu",
+    "error.failedToAddSummaryElement": "Yhteenvetoelementin lisääminen epäonnistui",
+    "error.failedToRemoveSummaryElement": "Yhteenvetoelementin poistaminen epäonnistui",
+    "error.failedToReplaceSummaryElement": "Yhteenvetoelementin korvaaminen epäonnistui",
+    "error.noTemplateAvailable": "Päivitettävää mallipohjaa ei ole saatavilla",
+    "toast.editedDescription": "Nollaa kotisivusi napsauttamalla ”Palauta organisaation oletusarvoon”",
+    "toast.editedTitle": "Olet muokannut kotisivuasi"
+}

@@ -5,6 +5,15 @@ import com.linkedin.common.Edge
 /**
  * Physical data-flow lineage from a metric to the datasets and columns it reads.
  * Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom`.
+ *
+ * Populate this aspect only for metrics that have no semantic model
+ * (`metricInfo.semanticModel` is unset) — e.g. thin catalog / BI metrics or
+ * SDK-authored metrics. When a metric is backed by a semantic model, leave
+ * `metricUpstreams` empty and let lineage flow through
+ * Metric → SemanticModel → Logical Dataset → Physical Dataset
+ * (via `ModeledBy`, `Contains`, and the logical dataset's `upstreamLineage`).
+ * Emitting both creates a redundant Metric → Dataset shortcut that bypasses
+ * the semantic model in the lineage explorer.
  */
 @Aspect = {
   "name": "metricUpstreams"

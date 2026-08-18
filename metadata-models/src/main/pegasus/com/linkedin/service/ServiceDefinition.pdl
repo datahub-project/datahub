@@ -1,0 +1,64 @@
+namespace com.linkedin.service
+
+import com.linkedin.common.LargeString
+
+/**
+ * The definition document for a Service — the full OpenAPI YAML, GraphQL
+ * SDL, gRPC .proto, or AsyncAPI document that describes everything the service
+ * exposes.
+ *
+ * This is the source of truth for the service's interface. The operation-level
+ * `api` entities the service composes (the ServiceComposesApi relationship) are
+ * the parsed projection of this document.
+ *
+ * Kept as a separate aspect (not a field on ServiceProperties) because the
+ * rawSpec blob is large and only needed on the profile — ServiceProperties
+ * is fetched on every search card and header, this is not.
+ */
+@Aspect = {
+  "name": "serviceDefinition"
+}
+record ServiceDefinition {
+
+  /**
+   * The spec format, so consumers know how to parse and render `rawSpec`.
+   */
+  format: enum ServiceDefinitionFormat {
+    /** An OpenAPI (v2/Swagger or v3) document. */
+    OPENAPI
+
+    /** A GraphQL Schema Definition Language document. */
+    GRAPHQL_SDL
+
+    /** A gRPC Protocol Buffers (.proto) service definition. */
+    GRPC_PROTO
+
+    /** An AsyncAPI (event / streaming) document. */
+    ASYNCAPI
+
+    /** A raw JSON Schema document (e.g. an MCP server's tools/list payload). */
+    JSON_SCHEMA
+
+    /** Any other spec format not enumerated above. */
+    OTHER
+  }
+
+  /**
+   * The entire spec document, verbatim (the source of truth). Rendered
+   * read-only on the Service profile's Definition tab. Stored as a LargeString so
+   * large specs (full OpenAPI docs, schemas) compress under the aspect-size
+   * limit; readers get the decompressed text (decoded server-side in the
+   * GraphQL mapper).
+   */
+  rawSpec: LargeString
+
+  /**
+   * Spec version, e.g. the OpenAPI `info.version`. Optional.
+   */
+  version: optional string
+
+  /**
+   * Link to the canonical source of the spec, if hosted elsewhere.
+   */
+  externalUrl: optional string
+}

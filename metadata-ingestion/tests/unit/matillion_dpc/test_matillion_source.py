@@ -284,7 +284,7 @@ def test_execution_discovery_survives_timeout(
 
     assert source.report.executions_scanned == 0
     assert any(
-        "pipeline-executions-timeout" in str(warning)
+        "Timed out discovering pipelines from executions" in str(warning)
         for warning in source.report.warnings
     )
 
@@ -357,7 +357,8 @@ def test_fetch_lineage_events_survives_timeout(
 
     assert events == []
     assert any(
-        "lineage-events-timeout" in str(warning) for warning in source.report.warnings
+        "Timed out fetching lineage events" in str(warning)
+        for warning in source.report.warnings
     )
 
 

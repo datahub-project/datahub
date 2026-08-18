@@ -91,6 +91,26 @@ import {
     CSV_WRITE_SEMANTICS,
 } from '@app/ingestV2/source/builder/RecipeForm/csv';
 import {
+    DATAPLEX_CLIENT_EMAIL,
+    DATAPLEX_CLIENT_ID,
+    DATAPLEX_ENTRIES_LOCATIONS,
+    DATAPLEX_ENTRY_ALLOW,
+    DATAPLEX_ENTRY_DENY,
+    DATAPLEX_ENTRY_GROUP_ALLOW,
+    DATAPLEX_ENTRY_GROUP_DENY,
+    DATAPLEX_GLOSSARY_LOCATIONS,
+    DATAPLEX_INCLUDE_GLOSSARIES,
+    DATAPLEX_INCLUDE_GLOSSARY_TERM_ASSOCIATIONS,
+    DATAPLEX_INCLUDE_LINEAGE,
+    DATAPLEX_INCLUDE_SCHEMA,
+    DATAPLEX_LINEAGE_LOCATIONS,
+    DATAPLEX_PRIVATE_KEY,
+    DATAPLEX_PRIVATE_KEY_ID,
+    DATAPLEX_PROJECT_ALLOW,
+    DATAPLEX_PROJECT_DENY,
+    DATAPLEX_PROJECT_IDS,
+} from '@app/ingestV2/source/builder/RecipeForm/dataplex';
+import {
     DBT_CLOUD_ACCOUNT_ID,
     DBT_CLOUD_JOB_ID,
     DBT_CLOUD_PROJECT_ID,
@@ -273,6 +293,26 @@ import {
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
+    ODCS_AWS_ACCESS_KEY_ID,
+    ODCS_AWS_REGION,
+    ODCS_AWS_SECRET_ACCESS_KEY,
+    ODCS_EMIT_ASSERTIONS,
+    ODCS_EMIT_LOGICAL_PARENT,
+    ODCS_EMIT_SCHEMA_ASSERTION,
+    ODCS_GCS_HMAC_KEY_ID,
+    ODCS_GCS_HMAC_KEY_SECRET,
+    ODCS_GIT_INFO_BRANCH,
+    ODCS_GIT_INFO_DEPLOY_KEY,
+    ODCS_GIT_INFO_REPO,
+    ODCS_HTTP_PASSWORD,
+    ODCS_HTTP_TOKEN,
+    ODCS_HTTP_USERNAME,
+    ODCS_HTTP_VERIFY_SSL,
+    ODCS_PATH,
+    ODCS_SOURCE_LOCATION,
+    ODCS_STRICT_VALIDATION,
+} from '@app/ingestV2/source/builder/RecipeForm/odcs';
+import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
     INGEST_GROUPS,
@@ -432,10 +472,12 @@ import {
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { DATAPLEX } from '@app/ingestV2/source/conf/dataplex/dataplex';
 import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { ODCS } from '@app/ingestV2/source/conf/odcs/odcs';
 import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
 import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
@@ -520,6 +562,60 @@ export const RECIPE_FIELDS: RecipeFields = {
             VIEW_DENY,
         ],
         filterSectionTooltip: 'Include or exclude specific Projects, Datasets, Tables and Views from ingestion.',
+    },
+    [DATAPLEX]: {
+        fields: [
+            DATAPLEX_PROJECT_IDS,
+            DATAPLEX_PRIVATE_KEY,
+            DATAPLEX_PRIVATE_KEY_ID,
+            DATAPLEX_CLIENT_EMAIL,
+            DATAPLEX_CLIENT_ID,
+        ],
+        filterFields: [
+            DATAPLEX_PROJECT_ALLOW,
+            DATAPLEX_PROJECT_DENY,
+            DATAPLEX_ENTRY_ALLOW,
+            DATAPLEX_ENTRY_DENY,
+            DATAPLEX_ENTRY_GROUP_ALLOW,
+            DATAPLEX_ENTRY_GROUP_DENY,
+        ],
+        advancedFields: [
+            DATAPLEX_ENTRIES_LOCATIONS,
+            DATAPLEX_INCLUDE_SCHEMA,
+            DATAPLEX_INCLUDE_LINEAGE,
+            DATAPLEX_INCLUDE_GLOSSARIES,
+            DATAPLEX_INCLUDE_GLOSSARY_TERM_ASSOCIATIONS,
+            DATAPLEX_LINEAGE_LOCATIONS,
+            DATAPLEX_GLOSSARY_LOCATIONS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
+    },
+    [ODCS]: {
+        fields: [
+            ODCS_PATH,
+            ODCS_SOURCE_LOCATION,
+            ODCS_GIT_INFO_REPO,
+            ODCS_GIT_INFO_BRANCH,
+            ODCS_GIT_INFO_DEPLOY_KEY,
+            ODCS_AWS_ACCESS_KEY_ID,
+            ODCS_AWS_SECRET_ACCESS_KEY,
+            ODCS_AWS_REGION,
+            ODCS_GCS_HMAC_KEY_ID,
+            ODCS_GCS_HMAC_KEY_SECRET,
+            ODCS_HTTP_TOKEN,
+            ODCS_HTTP_USERNAME,
+            ODCS_HTTP_PASSWORD,
+            ODCS_HTTP_VERIFY_SSL,
+        ],
+        filterFields: [DATASET_ALLOW, DATASET_DENY],
+        advancedFields: [
+            ODCS_EMIT_ASSERTIONS,
+            ODCS_EMIT_SCHEMA_ASSERTION,
+            ODCS_EMIT_LOGICAL_PARENT,
+            ODCS_STRICT_VALIDATION,
+            STATEFUL_INGESTION_ENABLED,
+        ],
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],

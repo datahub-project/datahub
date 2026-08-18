@@ -28,6 +28,9 @@
     "delete.tooltip": "Diese {{entityName}} löschen",
     "deprecation.addDetailsTitle": "Veraltungsdetails hinzufügen",
     "deprecation.decommissionDateLabel": "Außerbetriebnahme-Datum",
+    "deprecation.editDeprecated": "Veraltung bearbeiten",
+    "deprecation.editTitle": "Veraltung bearbeiten",
+    "deprecation.editTooltip": "Veraltungsdetails für diese {{entityName}} bearbeiten",
     "deprecation.markDeprecated": "Als veraltet markieren",
     "deprecation.markTooltip": "Diese {{entityName}} als veraltet markieren",
     "deprecation.markUnDeprecated": "Veraltungsmarkierung entfernen",
@@ -92,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Bist du sicher?",
     "unlinkVersion.error": "Aufheben der Verknüpfung fehlgeschlagen: \n {{errorMessage}}",
     "unlinkVersion.loading": "Verknüpfung wird aufgehoben...",
-    "unlinkVersion.success": "Verknüpfung von {{entityName}} aufgehoben!"
+    "unlinkVersion.success": "Verknüpfung von {{entityName}} aufgehoben!",
+    "dataProductSelect.notFound": "Keine Data Products gefunden",
+    "dataProductSelect.placeholder": "Übergeordnetes Data Product auswählen",
+    "moveDataProduct.title": "Data Product verschieben"
 }

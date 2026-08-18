@@ -41,6 +41,7 @@ It also contains our style guide, which can be consumed by engineers.
 
 ### Component Library
 
+- Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code. Files that already imported antd on the PR base (`origin/master`) are grandfathered.
 - What is an DataHub component? (previously: alchemy component)
     - Can be reused anywhere in the app
     - Generalized

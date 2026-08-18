@@ -1273,6 +1273,30 @@ def _column_level_lineage(
     )
 
 
+def _parent_leaf_subfields(
+    parent: sqlglot.lineage.Node,
+) -> Dict[str, OrderedSet[str]]:
+    """Map each leaf name to the struct-field accesses (`col.a.b`) that to_node
+    dropped, recovered by rescanning the parent's select expression.
+
+    Built once per parent (many leaves share one) to avoid a per-leaf rescan that is
+    quadratic on wide selects. One base column with several subfields (e.g.
+    LEAST(c.a, c.b)) collapses to a single leaf, so we keep all its subfields; ""
+    means no subfield.
+    """
+    subfields_by_leaf: Dict[str, OrderedSet[str]] = {}
+    for column in find_all_in_scope(parent.expression, sqlglot.exp.Column):
+        parts = []
+        field: sqlglot.exp.Expression = column
+        while isinstance(field.parent, sqlglot.exp.Dot):
+            field = field.parent
+            parts.append(field.name)
+        subfields_by_leaf.setdefault(column.sql(comments=False), OrderedSet()).add(
+            ".".join(parts)
+        )
+    return subfields_by_leaf
+
+
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
     dialect: Optional[sqlglot.Dialect] = None,
@@ -1281,6 +1305,24 @@ def _get_direct_raw_col_upstreams(
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
+
+    # Map each node to its parent so leaf handling can recover the select expression
+    # that produced it (needed to reconstruct struct-field subfields).
+    node_parents: Dict[int, sqlglot.lineage.Node] = {}
+    for node in lineage_node.walk():
+        for child in node.downstream:
+            node_parents[id(child)] = node
+
+    # Build each parent's subfield map once up front (many leaves share a parent),
+    # keyed by id(parent). Only Table leaves consume it (the branch below), so we
+    # skip the rest. Membership guards recompute, so an empty map still counts as cached.
+    parent_subfields: Dict[int, Dict[str, OrderedSet[str]]] = {}
+    for node in lineage_node.walk():
+        if node.downstream or not isinstance(node.expression, sqlglot.exp.Table):
+            continue
+        parent = node_parents.get(id(node))
+        if parent is not None and id(parent) not in parent_subfields:
+            parent_subfields[id(parent)] = _parent_leaf_subfields(parent)
 
     for node in lineage_node.walk():
         cooperate()
@@ -1300,14 +1342,18 @@ def _get_direct_raw_col_upstreams(
             # Parse the column name out of the node name.
             # Sqlglot calls .sql(), so we have to do the inverse.
             normalized_col = sqlglot.parse_one(node.name).this.name
-            if hasattr(node, "subfield") and node.subfield:
-                # The hasattr check is necessary, since it lets us be compatible with
-                # sqlglot versions that don't have the subfield attribute.
-                normalized_col = f"{normalized_col}.{node.subfield}"
 
-            direct_raw_col_upstreams.add(
-                _ColumnRef(table=table_ref, column=normalized_col)
+            # No parent (root leaf) or a name absent from the map means no subfield;
+            # the "" fallback emits the base column.
+            parent = node_parents.get(id(node))
+            leaf_subfields = (
+                parent_subfields.get(id(parent), {}).get(node.name)
+                if parent is not None
+                else None
             )
+            for subfield in leaf_subfields or OrderedSet([""]):
+                column = f"{normalized_col}.{subfield}" if subfield else normalized_col
+                direct_raw_col_upstreams.add(_ColumnRef(table=table_ref, column=column))
         elif isinstance(node.expression, sqlglot.exp.Placeholder) and node.name != "*":
             # Handle placeholder expressions from lateral joins.
             #

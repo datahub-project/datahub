@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils.objectstorage;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.annotation.Nonnull;
@@ -14,6 +15,20 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
 
   public LocalObjectStorageClient(@Nullable String rootPath) {
     this.rootPath = rootPath;
+    if (isConfigured()) {
+      ensureRootExists();
+    }
+  }
+
+  private void ensureRootExists() {
+    Path root = Path.of(rootPath);
+    try {
+      Files.createDirectories(root);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Failed to create local object storage root directory '" + root + "': " + e.getMessage(),
+          e);
+    }
   }
 
   @Override
@@ -34,6 +49,40 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
   }
 
   @Override
+  public void deleteObject(@Nonnull ObjectStorageReference ref) {
+    if (!isConfigured()) {
+      throw new IllegalStateException("Local object storage root path is not configured");
+    }
+    String relativeKey =
+        ObjectStorageKeyResolver.joinKey(null, ref.key(), ObjectStorageProvider.LOCAL);
+    Path target = ObjectStoragePathValidator.resolveUnderRoot(Path.of(rootPath), relativeKey);
+    try {
+      Files.deleteIfExists(target);
+      log.info("Deleted object from {}", target);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Failed to delete object from local storage: " + e.getMessage(), e);
+    }
+  }
+
+  @Override
+  @Nonnull
+  public String getObjectAsString(@Nonnull String objectKey) {
+    if (!isConfigured()) {
+      throw new IllegalStateException("Local object storage root path is not configured");
+    }
+    String relativeKey =
+        ObjectStorageKeyResolver.joinKey(null, objectKey, ObjectStorageProvider.LOCAL);
+    Path target = ObjectStoragePathValidator.resolveUnderRoot(Path.of(rootPath), relativeKey);
+    try {
+      return Files.readString(target, StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Failed to read object from local storage '" + target + "': " + e.getMessage(), e);
+    }
+  }
+
+  @Override
   @Nonnull
   public ObjectStorageProvider provider() {
     return ObjectStorageProvider.LOCAL;
@@ -42,5 +91,11 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
   @Override
   public boolean isConfigured() {
     return rootPath != null && !rootPath.isBlank();
+  }
+
+  @Override
+  @Nullable
+  public String storageBucket() {
+    return rootPath;
   }
 }

@@ -780,6 +780,68 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testCanViewSchemaFieldEntity_allowsViaParentDataset() {
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testCanViewSchemaFieldEntity_allowsViaDirectSchemaFieldGrant() {
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(false);
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_SCHEMA_FIELD)))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testCanViewSchemaFieldEntity_deniesWithoutParentOrDirectGrant() {
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(false);
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_SCHEMA_FIELD)))
+        .thenReturn(false);
+
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(
+            mockAuthSession, PHYSICAL_SCHEMA_FIELD));
+  }
+
+  @Test
+  public void testCanViewSchemaFieldEntity_nonSchemaFieldDelegatesToCanViewEntity() {
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(mockAuthSession, PHYSICAL_DATASET));
+
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(false);
+
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(mockAuthSession, PHYSICAL_DATASET));
+  }
+
+  @Test
+  public void testIsSchemaFieldEntity() {
+    Assert.assertTrue(EntityAspectAuthorizationUtils.isSchemaFieldEntity(PHYSICAL_SCHEMA_FIELD));
+    Assert.assertFalse(EntityAspectAuthorizationUtils.isSchemaFieldEntity(PHYSICAL_DATASET));
+  }
+
+  @Test
   public void testIsQueryEntity() {
     Assert.assertTrue(EntityAspectAuthorizationUtils.isQueryEntity(QUERY_URN));
     Assert.assertFalse(EntityAspectAuthorizationUtils.isQueryEntity(ASSET_URN));

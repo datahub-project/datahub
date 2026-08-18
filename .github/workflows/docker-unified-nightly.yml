@@ -3,6 +3,16 @@ name: Nightly Docker Test
 # and if tests pass, tags them as nightly and daily for publishing
 on:
   workflow_dispatch:
+    inputs:
+      force_full_run:
+        description: >
+          Bypass retry optimizations (re-run skip / failed-module filtering) and
+          always pull images, run quickstart, and execute the full smoke suite.
+          Use this when validating a branch change or when a prior attempt failed
+          before writing useful JUnit results (e.g. collection errors).
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
 
@@ -180,15 +190,24 @@ jobs:
       - name: Detect workflow retry
         id: retry-detection
         run: |
+          # Boolean dispatch inputs are strings in github.event.inputs; schedule has no inputs.
+          FORCE_FULL_RUN="${{ github.event.inputs.force_full_run == 'true' }}"
           RUN_ATTEMPT="${{ github.run_attempt }}"
-          if [[ "$RUN_ATTEMPT" -gt 1 ]]; then
+
+          if [[ "$FORCE_FULL_RUN" == "true" ]]; then
+            echo "force_full_run=true — bypassing retry optimizations; running full suite"
+            echo "is_retry=false" >> "$GITHUB_OUTPUT"
+            echo "force_full_run=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$RUN_ATTEMPT" -gt 1 ]]; then
             echo "This is retry attempt $RUN_ATTEMPT"
             echo "is_retry=true" >> "$GITHUB_OUTPUT"
+            echo "force_full_run=false" >> "$GITHUB_OUTPUT"
             PREVIOUS_ATTEMPT=$((RUN_ATTEMPT - 1))
             echo "previous_attempt=${PREVIOUS_ATTEMPT}" >> "$GITHUB_OUTPUT"
           else
             echo "This is the first attempt"
             echo "is_retry=false" >> "$GITHUB_OUTPUT"
+            echo "force_full_run=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Download previous test results
@@ -395,8 +414,9 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
-          BATCH_COUNT: "1" # since this workflow runs only on schedule trigger, batching isn't really needed.
+          BATCH_COUNT: "1"
           BATCH_NUMBER: "0"
+          PYTEST_XDIST_WORKERS: "3"
           FILTERED_TESTS: ${{ steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
           DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ github.sha }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}"
           PROFILE_NAME: ${{ matrix.profile }}
@@ -476,7 +496,8 @@ jobs:
             --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
             --run-attempt "${{ github.run_attempt }}" \
-            --batch "${{ matrix.profile }}-${{ matrix.architecture }}" \
+            --batch "${{ strategy.job-index }}" \
+            --batch-label "${{ matrix.profile }}-${{ matrix.architecture }}" \
             --batch-count "${{ strategy.job-total }}" \
             --test-strategy "${{ matrix.test_strategy }}"
 

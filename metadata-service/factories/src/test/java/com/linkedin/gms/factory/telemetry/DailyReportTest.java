@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.telemetry;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -47,7 +48,8 @@ public class DailyReportTest {
     // Set up the operation context chain
     when(mockOperationContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
-    when(mockIndexConvention.getEntityIndexName(anyString())).thenReturn("corpuserindex_v2");
+    when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), anyString()))
+        .thenReturn("corpuserindex_v2");
     when(mockGitVersion.getVersion()).thenReturn("test-version");
   }
 
