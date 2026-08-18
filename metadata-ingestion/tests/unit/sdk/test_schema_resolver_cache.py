@@ -3,7 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.metadata.schema_classes import (
     DataHubUpgradeResultClass,
     DataHubUpgradeStateClass,
@@ -13,7 +15,10 @@ from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
     provide_schema_resolver,
 )
-from datahub.utilities.urn_alias.index import request_urn_alias_index, shared_index
+from datahub.utilities.urn_alias.index import (
+    set_fill_urn_alias_index,
+    shared_index,
+)
 from datahub.utilities.urn_alias.resolver import (
     get_urn_alias_resolver,
 )
@@ -25,6 +30,14 @@ _FAKE_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,
 _FAKE_SCHEMA: GraphQLSchemaMetadata = {
     "fields": [{"fieldPath": "id", "nativeDataType": "INT64"}]
 }
+
+
+@pytest.fixture(autouse=True)
+def fill_index_off():
+    """Each test declares its own: the fill flag is process-wide."""
+    set_fill_urn_alias_index(False)
+    yield
+    set_fill_urn_alias_index(False)
 
 
 @pytest.fixture(autouse=True)
@@ -200,10 +213,10 @@ def _would_ask_about(graph: DataHubGraph, urn: str) -> bool:
     return search.called
 
 
-def _load(graph: DataHubGraph, request_index: bool = True) -> SchemaResolver:
+def _load(graph: DataHubGraph, fill_index: bool = True) -> SchemaResolver:
     """Bulk-load a slice, declaring URN casing resolution first as a pipeline would."""
-    if request_index:
-        request_urn_alias_index(graph)
+    if fill_index:
+        set_fill_urn_alias_index(True)
     with patch.object(
         graph,
         "_bulk_fetch_schema_info_by_filter",
@@ -221,7 +234,7 @@ def test_a_load_nobody_asked_about_builds_no_index(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
-    resolver = _load(graph, request_index=False)
+    resolver = _load(graph, fill_index=False)
 
     index = shared_index(graph)
     assert len(index._urns_by_key) == 0
@@ -261,7 +274,7 @@ def test_a_completed_scroll_makes_a_miss_inside_it_an_answer(mock_test_connectio
 def test_a_scroll_narrowed_by_a_name_prefix_claims_no_coverage(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    request_urn_alias_index(graph)
+    set_fill_urn_alias_index(True)
 
     with patch.object(
         graph,
@@ -287,7 +300,7 @@ def test_a_scroll_narrowed_by_a_name_prefix_claims_no_coverage(mock_test_connect
 def test_a_scroll_that_fails_part_way_claims_no_coverage(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    request_urn_alias_index(graph)
+    set_fill_urn_alias_index(True)
 
     def _fails_after_one():
         yield (_FAKE_URN, _FAKE_SCHEMA)
@@ -364,3 +377,35 @@ def test_does_not_warn_when_schemas_were_loaded(mock_test_connection, caplog):
             provider.get(platform="bigquery", platform_instance=None, env="PROD")
 
     assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+
+
+@patch("datahub.ingestion.graph.client.DataHubGraph.test_connection")
+def test_a_pipeline_with_the_feature_on_fills_the_index(mock_test_connection):
+    # The wiring, end to end. A recipe without `datahub_api` has no graph when
+    # PipelineContext is built and gets one from the sink afterwards, so a declaration tied
+    # to the graph rather than to the run leaves every load unindexed.
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+    ctx = PipelineContext(
+        run_id="test",
+        graph=None,
+        pipeline_config=PipelineConfig.model_validate(
+            {
+                "source": {"type": "file", "config": {"path": "unused.json"}},
+                "sink": {"type": "console"},
+                "flags": {
+                    "auto_resolve_lineage_urns": {
+                        "enabled": True,
+                        "upstream_platforms": [{"platform": "bigquery", "env": "PROD"}],
+                    }
+                },
+            }
+        ),
+    )
+    ctx.graph = graph
+
+    _load(graph, fill_index=False)  # the pipeline declared it, not this test
+
+    index = shared_index(graph)
+    assert index.get(_FAKE_URN) == [_FAKE_URN]
+    assert index.loaded_slices

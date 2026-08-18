@@ -137,26 +137,24 @@ class UrnAliasIndex:
 # that goes away takes its index with it.
 _INDEXES: "MutableMapping[DataHubGraph, UrnAliasIndex]" = weakref.WeakKeyDictionary()
 
-# The servers some consumer asked for an index against. Empty unless requested: filling
-# costs a sqlite round trip and a few hundred bytes per dataset, and most bulk loads want
-# schemas for SQL parsing and never read the index. Keyed like the index itself, and like
-# the first element of provide_schema_resolver's cache key.
-_INDEX_REQUESTED: "MutableMapping[DataHubGraph, bool]" = weakref.WeakKeyDictionary()
+# Off by default: filling costs a sqlite round trip and a few hundred bytes per dataset,
+# and most bulk loads want schemas for SQL parsing and never read the index.
+_FILL_URN_ALIAS_INDEX = False
 
 
-def request_urn_alias_index(graph: "DataHubGraph") -> None:
-    """Ask that loads against `graph` fill its index.
+def set_fill_urn_alias_index(value: bool) -> None:
+    """Declare whether bulk loads should index the URNs they scroll.
 
-    Must precede the first bulk load: a load already cached is never repeated, so a
-    request made after one leaves its slice empty. PipelineContext calls this before any
-    source exists; a caller without one calls it itself.
+    Must precede the first bulk load: a load already cached is never repeated, so setting
+    this afterwards leaves that slice unindexed.
     """
-    _INDEX_REQUESTED[graph] = True
+    global _FILL_URN_ALIAS_INDEX
+    _FILL_URN_ALIAS_INDEX = value
 
 
-def urn_alias_index_requested(graph: "DataHubGraph") -> bool:
-    """Whether any consumer asked for `graph`'s index."""
-    return bool(_INDEX_REQUESTED.get(graph))
+def should_fill_urn_alias_index() -> bool:
+    """Whether bulk loads index what they scroll."""
+    return _FILL_URN_ALIAS_INDEX
 
 
 def shared_index(graph: "DataHubGraph") -> UrnAliasIndex:
