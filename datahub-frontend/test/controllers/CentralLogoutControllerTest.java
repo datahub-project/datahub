@@ -158,11 +158,12 @@ public class CentralLogoutControllerTest {
   }
 
   @Test
-  public void testExecuteLogoutContinuesWhenRevocationFails() {
+  public void testExecuteLogoutBlocksWhenRevocationFails() {
     when(mockSsoManager.isSsoEnabled()).thenReturn(false);
     when(mockSession.data()).thenReturn(Map.of("token", "session-token"));
-    when(mockAuthServiceClient.revokeSessionToken("session-token"))
-        .thenThrow(new RuntimeException("boom"));
+    doThrow(new RuntimeException("boom"))
+        .when(mockAuthServiceClient)
+        .revokeSessionToken("session-token");
 
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
       basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath(anyString())).thenReturn("");
@@ -173,9 +174,8 @@ public class CentralLogoutControllerTest {
       Result result = controller.executeLogout(mockRequest);
 
       assertNotNull(result);
-      assertEquals(303, result.status());
-      assertEquals("/login", result.redirectLocation().orElse(""));
-      verify(mockSsoManager).isSsoEnabled();
+      assertEquals(500, result.status());
+      verify(mockSsoManager, never()).isSsoEnabled();
     }
   }
 

@@ -21,6 +21,8 @@ import play.mvc.Results;
 public class CentralLogoutController extends LogoutController {
   private static final String AUTH_URL_CONFIG_PATH = "/login";
   private static final String DEFAULT_BASE_URL_PATH = "/";
+  private static final String LOGOUT_FAILURE_MESSAGE =
+      "Failed to revoke the current session token. Please retry sign out.";
 
   @Inject private SsoManager ssoManager;
   @Inject private AuthServiceClient authServiceClient;
@@ -55,7 +57,9 @@ public class CentralLogoutController extends LogoutController {
     setDefaultUrl(loginUrl);
     setLogoutUrlPattern(logoutPattern);
 
-    revokeCurrentSessionToken(request);
+    if (!revokeCurrentSessionToken(request)) {
+      return Results.internalServerError(LOGOUT_FAILURE_MESSAGE);
+    }
 
     if (ssoManager.isSsoEnabled()) {
       try {
@@ -80,16 +84,18 @@ public class CentralLogoutController extends LogoutController {
     return Results.redirect(loginUrl).withNewSession();
   }
 
-  private void revokeCurrentSessionToken(Http.Request request) {
+  private boolean revokeCurrentSessionToken(Http.Request request) {
     final String accessToken = request.session().data().get(SESSION_COOKIE_GMS_TOKEN_NAME);
     if (accessToken == null || accessToken.isBlank()) {
-      return;
+      return true;
     }
 
     try {
       authServiceClient.revokeSessionToken(accessToken);
+      return true;
     } catch (Exception e) {
       log.error("Failed to revoke current session token during logout.", e);
+      return false;
     }
   }
 }
