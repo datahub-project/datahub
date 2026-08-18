@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.Embed;
 import com.linkedin.common.url.Url;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
@@ -44,6 +45,14 @@ public class UrlValidator extends AspectPayloadValidator {
 
   /** Allowed URL schemes (kept in sync with {@link #allowHttp} by {@link #setAllowHttp}). */
   private Set<String> allowedSchemes = Set.of("https");
+
+  /**
+   * Schemes permitted for the embed {@code renderUrl}, which is rendered inside an iframe. HTTP and
+   * HTTPS only, so script-executing pseudo-schemes (javascript:, data:, vbscript:, ...) are
+   * rejected to prevent stored XSS. Unlike {@link #validateUrl}, this deliberately allows plain
+   * HTTP and internal/private hosts: embeds legitimately point at self-hosted or internal BI tools.
+   */
+  private static final Set<String> EMBED_ALLOWED_SCHEMES = Set.of("http", "https");
 
   /**
    * Sets whether HTTP URLs are allowed in addition to HTTPS. Keeps {@link #allowedSchemes} in sync
@@ -94,6 +103,11 @@ public class UrlValidator extends AspectPayloadValidator {
         CorpGroupEditableInfo info = item.getAspect(CorpGroupEditableInfo.class);
         if (info != null && info.hasPictureLink()) {
           validateUrl(item, info.getPictureLink(), "pictureLink", exceptions);
+        }
+      } else if ("embed".equals(aspectName)) {
+        Embed embed = item.getAspect(Embed.class);
+        if (embed != null && embed.hasRenderUrl()) {
+          validateEmbedRenderUrl(item, embed.getRenderUrl(), "renderUrl", exceptions);
         }
       }
     }
@@ -153,6 +167,41 @@ public class UrlValidator extends AspectPayloadValidator {
               String.format(
                   "URL for '%s' points to a private/internal network address, which is not allowed.",
                   fieldName)));
+    }
+  }
+
+  /**
+   * Scheme-only validation for the embed {@code renderUrl}. Rejects script-executing pseudo-schemes
+   * (javascript:, data:, vbscript:, ...) that would cause stored XSS when the value is rendered as
+   * an iframe {@code src}, while permitting HTTP/HTTPS to any host (including internal ones) so
+   * that legitimate self-hosted BI embeds keep working. Blank values (clearing the embed) are
+   * allowed.
+   */
+  private void validateEmbedRenderUrl(
+      BatchItem item, String rawUrl, String fieldName, ValidationExceptionCollection exceptions) {
+
+    if (rawUrl == null || rawUrl.isBlank()) {
+      return;
+    }
+
+    URI uri;
+    try {
+      uri = new URI(rawUrl);
+    } catch (URISyntaxException e) {
+      exceptions.addException(
+          AspectValidationException.forItem(
+              item, String.format("Invalid URL syntax for '%s': %s", fieldName, rawUrl)));
+      return;
+    }
+
+    String scheme = uri.getScheme();
+    if (scheme == null || !EMBED_ALLOWED_SCHEMES.contains(scheme.toLowerCase())) {
+      exceptions.addException(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "URL scheme '%s' is not allowed for '%s'. Only HTTP or HTTPS URLs are accepted.",
+                  scheme, fieldName)));
     }
   }
 

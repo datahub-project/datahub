@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.Embed;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -27,6 +28,8 @@ import org.testng.annotations.Test;
 public class UrlValidatorTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:testUser");
   private static final Urn TEST_GROUP_URN = UrnUtils.getUrn("urn:li:corpGroup:testGroup");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -38,7 +41,8 @@ public class UrlValidatorTest {
                   new AspectPluginConfig.EntityAspectName(
                       CORP_USER_ENTITY_NAME, CORP_USER_EDITABLE_INFO_ASPECT_NAME),
                   new AspectPluginConfig.EntityAspectName(
-                      CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)))
+                      CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(DATASET_ENTITY_NAME, EMBED_ASPECT_NAME)))
           .build();
 
   @Mock private RetrieverContext mockRetrieverContext;
@@ -379,6 +383,63 @@ public class UrlValidatorTest {
             .count(),
         1,
         "Corp group pictureLink should also be validated (HTTP rejected)");
+  }
+
+  // --- Embed renderUrl tests (scheme-allowlist only: http/https allowed, internal hosts allowed)
+  // ---
+
+  private long validateEmbedRenderUrl(String renderUrl) {
+    Embed embed = new Embed();
+    embed.setRenderUrl(renderUrl);
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(TEST_DATASET_URN)
+                    .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                            .getAspectSpec(EMBED_ASPECT_NAME))
+                    .recordTemplate(embed)
+                    .build()),
+            mockRetrieverContext,
+            null)
+        .count();
+  }
+
+  @Test
+  public void testEmbedJavascriptSchemeRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("javascript:alert(document.cookie)"),
+        1,
+        "javascript: renderUrl should be rejected (stored XSS guard)");
+  }
+
+  @Test
+  public void testEmbedHttpsAccepted() {
+    assertEquals(
+        validateEmbedRenderUrl("https://bi.example.com/dashboard/1"),
+        0,
+        "HTTPS renderUrl should be accepted");
+  }
+
+  @Test
+  public void testEmbedHttpInternalHostAccepted() {
+    // Unlike pictureLink validation, embeds intentionally allow HTTP and internal hosts so that
+    // self-hosted/internal BI tools can be embedded. A private IP that pictureLink would reject
+    // must pass here.
+    assertEquals(
+        validateEmbedRenderUrl("http://192.168.1.10/dashboard"),
+        0,
+        "HTTP renderUrl to an internal host should be accepted for embeds");
+  }
+
+  @Test
+  public void testEmbedBlankRenderUrlAllowed() {
+    assertEquals(validateEmbedRenderUrl(""), 0, "Blank renderUrl (clearing the embed) is allowed");
   }
 
   @Test
