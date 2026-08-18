@@ -1,7 +1,10 @@
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 from unittest import mock
 
-from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
+from datahub.metadata.schema_classes import (
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
+)
 from datahub.utilities.urn_alias.index import UrnAliasIndex
 from datahub.utilities.urn_alias.remote import (
     AliasIndexLookup,
@@ -32,17 +35,11 @@ _INSTANCE_LOWERCASED = (
 )
 
 
-def _specs(*dataset_aspects: str) -> EntityAspectSpecs:
-    """The server's entity registry, registering `dataset_aspects` on datasets."""
-    aspects: Set[str] = {"datasetKey", *dataset_aspects}
-    return EntityAspectSpecs(entity_aspects={"dataset": aspects})
-
-
-def _reporting(
-    graph: mock.MagicMock, specs: Optional[EntityAspectSpecs]
-) -> mock.MagicMock:
-    """Make `graph` answer the capability check with `specs`; None if unfetchable."""
-    graph.get_entity_aspect_specs.return_value = specs
+def _backfilled(graph: mock.MagicMock, state: Optional[str]) -> mock.MagicMock:
+    """Make `graph` report the aliases backfill in `state`; None where it left no marker."""
+    graph.get_aspect.return_value = (
+        None if state is None else DataHubUpgradeResultClass(timestampMs=0, state=state)
+    )
     return graph
 
 
@@ -52,7 +49,7 @@ def _reporting(
 def _search_graph(*matches: str) -> mock.MagicMock:
     graph = mock.MagicMock()
     graph.get_urns_by_filter.return_value = iter(matches)
-    return _reporting(graph, _specs("aliases"))
+    return _backfilled(graph, DataHubUpgradeStateClass.SUCCEEDED)
 
 
 def _queried(graph: mock.MagicMock) -> Dict[str, List[str]]:
@@ -158,7 +155,7 @@ def _probe_graph(*existing: str) -> mock.MagicMock:
         for urn in kwargs["extra_or_filters"][0]["and"][0]["values"]
         if urn in existing
     ]
-    return _reporting(graph, _specs())
+    return _backfilled(graph, DataHubUpgradeStateClass.IN_PROGRESS)
 
 
 def _probing(graph: mock.MagicMock, *platform_instances: str) -> UrnAliasResolver:
@@ -302,38 +299,51 @@ def test_the_instance_kept_guess_spells_the_instance_as_configured() -> None:
 # --- picking the one way to ask -------------------------------------------------------
 
 
-def test_the_search_is_used_where_the_server_registers_the_aspect() -> None:
-    graph = _reporting(mock.MagicMock(), _specs("aliases"))
+def test_the_search_is_used_where_the_backfill_completed() -> None:
+    graph = _backfilled(mock.MagicMock(), DataHubUpgradeStateClass.SUCCEEDED)
 
     assert isinstance(select_lookup(UrnAliasIndex(), graph), AliasIndexLookup)
 
 
-def test_the_probe_is_used_where_it_does_not() -> None:
-    # Nothing there computes an alias, so the search would answer every reference with zero
-    # hits — and record each as a settled absence.
-    graph = _reporting(mock.MagicMock(), _specs())
+def test_the_probe_is_used_while_the_backfill_is_still_running() -> None:
+    # A dataset the scan has not reached has no alias, so the search would answer every
+    # reference to one with zero hits — and record each as a settled absence.
+    graph = _backfilled(mock.MagicMock(), DataHubUpgradeStateClass.IN_PROGRESS)
 
     assert isinstance(select_lookup(UrnAliasIndex(), graph), CasingProbeLookup)
 
 
-def test_the_probe_is_used_when_the_server_cannot_be_asked() -> None:
-    graph = _reporting(mock.MagicMock(), None)
+def test_the_probe_is_used_where_the_backfill_left_no_marker() -> None:
+    # A server too old to compute aliases at all, or one running with the backfill off.
+    graph = _backfilled(mock.MagicMock(), None)
 
     assert isinstance(select_lookup(UrnAliasIndex(), graph), CasingProbeLookup)
 
 
-def test_the_probe_is_used_when_the_specs_are_unusable() -> None:
-    # A payload registering no `dataset` entity type at all is malformed, not a verdict, and
-    # must not take the pipeline down with it.
-    graph = _reporting(mock.MagicMock(), EntityAspectSpecs(entity_aspects={}))
+def test_the_search_is_used_when_the_marker_cannot_be_read() -> None:
+    # A server without the aspect answers 404, so a failed read is not that verdict — and a
+    # search that fails too records nothing either way.
+    graph = mock.MagicMock()
+    graph.get_aspect.side_effect = Exception("marker unreadable")
 
-    assert isinstance(select_lookup(UrnAliasIndex(), graph), CasingProbeLookup)
+    assert isinstance(select_lookup(UrnAliasIndex(), graph), AliasIndexLookup)
+
+
+def test_the_marker_is_read_once_per_server() -> None:
+    # A marker that completed between two consumers' reads would leave them keying one
+    # shared index in two different ways.
+    graph = _backfilled(mock.MagicMock(), DataHubUpgradeStateClass.SUCCEEDED)
+
+    get_urn_alias_resolver(graph)
+    get_urn_alias_resolver(graph, query_on_demand=True)
+
+    assert graph.get_aspect.call_count == 1
 
 
 def test_every_consumer_of_a_server_gets_the_same_lookup() -> None:
     # They share one index, so they must key it the same way. Whether a consumer may query
     # is its own business and must not change the choice.
-    graph = _reporting(mock.MagicMock(), _specs())
+    graph = _backfilled(mock.MagicMock(), DataHubUpgradeStateClass.IN_PROGRESS)
 
     bulk_only = get_urn_alias_resolver(graph)
     querying = get_urn_alias_resolver(graph, query_on_demand=True)

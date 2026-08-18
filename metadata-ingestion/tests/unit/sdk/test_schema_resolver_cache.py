@@ -4,7 +4,10 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
+from datahub.metadata.schema_classes import (
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
+)
 from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata, SchemaResolver
 from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
@@ -25,19 +28,23 @@ _FAKE_SCHEMA: GraphQLSchemaMetadata = {
 
 @pytest.fixture(autouse=True)
 def server_registers_aliases():
-    """Pin the server as one registering the dataset `aliases` aspect.
+    """Pin the server as one whose dataset aliases backfill completed.
 
-    Filling the index reads the server's entity specs to pick a lookup, which these tests
-    must not send to the fake host. The casing-probe fallback is covered where it lives, in
-    tests/unit/utilities/urn_alias.
+    Filling the index reads that marker to pick a lookup, which these tests must not send to
+    the fake host; every other aspect read goes through untouched. The casing-probe fallback
+    is covered where it lives, in tests/unit/utilities/urn_alias.
     """
-    with patch.object(
-        DataHubGraph,
-        "get_entity_aspect_specs",
-        return_value=EntityAspectSpecs(
-            entity_aspects={"dataset": {"datasetKey", "aliases"}}
-        ),
-    ):
+    marker = DataHubUpgradeResultClass(
+        timestampMs=0, state=DataHubUpgradeStateClass.SUCCEEDED
+    )
+    read_aspect = DataHubGraph.get_aspect
+
+    def get_aspect(self, entity_urn, aspect_type, version=0):
+        if aspect_type is DataHubUpgradeResultClass:
+            return marker
+        return read_aspect(self, entity_urn, aspect_type, version)
+
+    with patch.object(DataHubGraph, "get_aspect", get_aspect):
         yield
 
 
