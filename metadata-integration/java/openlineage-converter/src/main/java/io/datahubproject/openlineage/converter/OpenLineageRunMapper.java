@@ -334,7 +334,7 @@ final class OpenLineageRunMapper {
       AssertionKey assertionKey = new AssertionKey().setAssertionId(assertionId);
       datahubJob
           .getExtraMcps()
-          .add(OpenLineageMappingUtils.toMcp(assertionUrn, ASSERTION_ENTITY_TYPE, assertionKey));
+          .add(OpenLineageMcpFactory.upsert(assertionUrn, ASSERTION_ENTITY_TYPE, assertionKey));
 
       CustomAssertionInfo customAssertionInfo =
           new CustomAssertionInfo()
@@ -353,7 +353,7 @@ final class OpenLineageRunMapper {
               .setCustomAssertion(customAssertionInfo);
       datahubJob
           .getExtraMcps()
-          .add(OpenLineageMappingUtils.toMcp(assertionUrn, ASSERTION_ENTITY_TYPE, assertionInfo));
+          .add(OpenLineageMcpFactory.upsert(assertionUrn, ASSERTION_ENTITY_TYPE, assertionInfo));
 
       DataPlatformInstance assertionPlatformInstance =
           new DataPlatformInstance()
@@ -361,7 +361,7 @@ final class OpenLineageRunMapper {
       datahubJob
           .getExtraMcps()
           .add(
-              OpenLineageMappingUtils.toMcp(
+              OpenLineageMcpFactory.upsert(
                   assertionUrn, ASSERTION_ENTITY_TYPE, assertionPlatformInstance));
 
       if (assertion.getSuccess() != null && datahubJob.isEmitDataProcessInstance()) {
@@ -385,7 +385,7 @@ final class OpenLineageRunMapper {
         datahubJob
             .getExtraMcps()
             .add(
-                OpenLineageMappingUtils.toMcp(
+                OpenLineageMcpFactory.upsert(
                     assertionUrn, ASSERTION_ENTITY_TYPE, assertionRunEvent));
       }
     }

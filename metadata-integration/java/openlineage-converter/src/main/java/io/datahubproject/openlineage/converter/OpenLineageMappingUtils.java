@@ -19,9 +19,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.domain.Domains;
 import com.linkedin.mxe.MetadataChangeProposal;
-import datahub.event.EventFormatter;
-import datahub.event.MetadataChangeProposalWrapper;
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -137,14 +134,7 @@ final class OpenLineageMappingUtils {
       String entityType,
       com.linkedin.data.template.DataTemplate aspect,
       List<MetadataChangeProposal> mcps) {
-    MetadataChangeProposalWrapper mcpw =
-        MetadataChangeProposalWrapper.create(
-            b -> b.entityType(entityType).entityUrn(entityUrn).upsert().aspect(aspect));
-    try {
-      mcps.add(new EventFormatter().convert(mcpw));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    mcps.add(OpenLineageMcpFactory.upsert(entityUrn, entityType, aspect));
   }
 
   static void logFacetNames(String eventType, String attachmentPoint, Set<String> names) {
@@ -180,12 +170,5 @@ final class OpenLineageMappingUtils {
       throw new RuntimeException("Unable to create actor urn:" + e);
     }
     return auditStamp;
-  }
-
-  static MetadataChangeProposal toMcp(
-      Urn entityUrn, String entityType, com.linkedin.data.template.DataTemplate aspect) {
-    List<MetadataChangeProposal> mcps = new LinkedList<>();
-    addAspectToMcps(entityUrn, entityType, aspect, mcps);
-    return mcps.get(0);
   }
 }

@@ -30,6 +30,7 @@ import io.datahubproject.openlineage.customfacet.CompatibilityFacetCatalog;
 import io.datahubproject.openlineage.customfacet.CompatibilityFacetContract;
 import io.datahubproject.openlineage.customfacet.CustomRunFacetContributions;
 import io.datahubproject.openlineage.customfacet.CustomRunFacetProcessor;
+import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.openlineage.client.OpenLineage;
 import java.io.IOException;
@@ -167,10 +168,8 @@ final class OpenLineageJobMapper {
 
     GlobalTags jobTags =
         mergeGlobalTags(
-            mergeGlobalTags(
-                generateJobTags(event.getJob().getFacets()),
-                generateRunTags(event.getRun().getFacets())),
-            customFacetContributions.jobTags());
+            generateJobTags(event.getJob().getFacets()),
+            generateRunTags(event.getRun().getFacets()));
     jobBuilder.jobGlobalTags(jobTags);
     jobBuilder.flowGlobalTags(customFacetContributions.flowTags());
 
@@ -715,14 +714,14 @@ final class OpenLineageJobMapper {
       return;
     }
     for (OpenLineage.InputDataset input : event.getInputs()) {
-      OpenLineageDatasetMapper.InputContribution contribution =
+      DatahubDataset datahubDataset =
           OpenLineageDatasetMapper.mapInput(datahubJob, event, input, datahubConf);
-      if (contribution == null) {
+      if (datahubDataset == null) {
         continue;
       }
       OpenLineageRunMapper.processDataQualityAssertions(
-          datahubJob, event, contribution.input(), contribution.datasetUrn());
-      OpenLineageDatasetMapper.applyInput(datahubJob, contribution);
+          datahubJob, event, input, datahubDataset.getUrn());
+      OpenLineageDatasetMapper.applyInput(datahubJob, input, datahubDataset);
     }
   }
 

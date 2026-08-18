@@ -56,7 +56,6 @@ public class CustomRunFacetProcessorTest {
     assertEquals(result.jobProperties().get("retries"), "2");
     assertEquals(result.jobProperties().get("legacy_key"), "legacy_value");
     assertTagNames(result.flowTags(), "customer", "production");
-    assertNull(result.jobTags());
   }
 
   @Test
@@ -215,7 +214,6 @@ public class CustomRunFacetProcessorTest {
     assertTrue(result.flowProperties().isEmpty());
     assertTrue(result.jobProperties().isEmpty());
     assertNull(result.flowTags());
-    assertNull(result.jobTags());
   }
 
   private static OpenLineage.RunFacet facet(URI producer, Map<String, Object> properties) {

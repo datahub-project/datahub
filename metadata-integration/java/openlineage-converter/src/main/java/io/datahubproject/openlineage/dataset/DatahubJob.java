@@ -40,9 +40,9 @@ import com.linkedin.metadata.aspect.patch.builder.SiblingsPatchBuilder;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.mxe.MetadataChangeProposal;
-import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.converter.OpenLineageMcpFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -106,7 +106,6 @@ public class DatahubJob {
   long startTime;
   long endTime;
   long eventTime;
-  final EventFormatter eventFormatter = new EventFormatter();
 
   public static MetadataChangeProposalWrapper materializeDataset(DatasetUrn datasetUrn) {
     DatasetKey datasetAspect = new DatasetKey().setOrigin(datasetUrn.getOriginEntity());
@@ -410,16 +409,12 @@ public class DatahubJob {
   private void materializeDatasetAspects(
       DatahubDataset dataset, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
     if (config.isMaterializeDataset()) {
-      try {
-        mcps.add(eventFormatter.convert(materializeDataset(dataset.getUrn())));
-        addAspectToMcps(
-            dataset.getUrn(),
-            DATASET_ENTITY_TYPE,
-            dataset.getStatus() != null ? dataset.getStatus() : new Status().setRemoved(false),
-            mcps);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      mcps.add(OpenLineageMcpFactory.convertUnchecked(materializeDataset(dataset.getUrn())));
+      addAspectToMcps(
+          dataset.getUrn(),
+          DATASET_ENTITY_TYPE,
+          dataset.getStatus() != null ? dataset.getStatus() : new Status().setRemoved(false),
+          mcps);
     } else if (dataset.getStatus() != null) {
       addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getStatus(), mcps);
     }
@@ -488,11 +483,7 @@ public class DatahubJob {
                       .entityUrn(flowUrn)
                       .upsert()
                       .aspect(flowDomains));
-      try {
-        mcps.add(eventFormatter.convert(domains));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      mcps.add(OpenLineageMcpFactory.convertUnchecked(domains));
     }
   }
 
@@ -523,49 +514,28 @@ public class DatahubJob {
 
   private void addAspectToMcps(
       Urn entityUrn, String entityType, DataTemplate aspect, List<MetadataChangeProposal> mcps) {
-    MetadataChangeProposalWrapper mcpw =
-        MetadataChangeProposalWrapper.create(
-            b -> b.entityType(entityType).entityUrn(entityUrn).upsert().aspect(aspect));
-    try {
-      mcps.add(eventFormatter.convert(mcpw));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    mcps.add(OpenLineageMcpFactory.upsert(entityUrn, entityType, aspect));
   }
 
   private void generateDataProcessInstanceRelationship(List<MetadataChangeProposal> mcps) {
     if (dataProcessInstanceRelationships != null) {
       log.info("Adding dataProcessInstanceRelationships to {}", jobUrn);
-      try {
-        mcps.add(
-            eventFormatter.convert(
-                MetadataChangeProposalWrapper.create(
-                    b ->
-                        b.entityType(DATA_PROCESS_INSTANCE_ENTITY_TYPE)
-                            .entityUrn(dataProcessInstanceUrn)
-                            .upsert()
-                            .aspect(dataProcessInstanceRelationships))));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      mcps.add(
+          OpenLineageMcpFactory.upsert(
+              dataProcessInstanceUrn,
+              DATA_PROCESS_INSTANCE_ENTITY_TYPE,
+              dataProcessInstanceRelationships));
     }
   }
 
   private void generateDataProcessInstanceRunEvent(List<MetadataChangeProposal> mcps) {
     if (dataProcessInstanceRunEvent != null) {
       log.info("Adding dataProcessInstanceRunEvent to {}", jobUrn);
-      try {
-        mcps.add(
-            eventFormatter.convert(
-                MetadataChangeProposalWrapper.create(
-                    b ->
-                        b.entityType(DATA_PROCESS_INSTANCE_ENTITY_TYPE)
-                            .entityUrn(dataProcessInstanceUrn)
-                            .upsert()
-                            .aspect(dataProcessInstanceRunEvent))));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      mcps.add(
+          OpenLineageMcpFactory.upsert(
+              dataProcessInstanceUrn,
+              DATA_PROCESS_INSTANCE_ENTITY_TYPE,
+              dataProcessInstanceRunEvent));
     }
   }
 }

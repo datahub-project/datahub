@@ -48,7 +48,6 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
-import datahub.event.EventFormatter;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
@@ -78,27 +77,6 @@ final class OpenLineageDatasetMapper {
 
   private interface StringValueSetter {
     void set(String value);
-  }
-
-  static final class InputContribution {
-    private final OpenLineage.InputDataset input;
-    private final DatasetUrn datasetUrn;
-    private final DatahubDataset datahubDataset;
-
-    private InputContribution(
-        OpenLineage.InputDataset input, DatasetUrn datasetUrn, DatahubDataset datahubDataset) {
-      this.input = input;
-      this.datasetUrn = datasetUrn;
-      this.datahubDataset = datahubDataset;
-    }
-
-    OpenLineage.InputDataset input() {
-      return input;
-    }
-
-    DatasetUrn datasetUrn() {
-      return datasetUrn;
-    }
   }
 
   private OpenLineageDatasetMapper() {}
@@ -134,10 +112,12 @@ final class OpenLineageDatasetMapper {
                   dataset.getNamespace() + "/" + dataset.getName(),
                   datahubConf.getFabricType()));
     }
-    EventFormatter eventFormatter = new EventFormatter();
-    Status lifecycleStatus = getDatasetStatus(dataset);
+    DatahubDataset datahubDataset =
+        mapDataset(
+            dataset, datasetUrn.get(), datahubConf, datahubConf.isIncludeSchemaMetadata(), null);
+    Status lifecycleStatus = datahubDataset.getStatus();
     if (datahubConf.isMaterializeDataset() || datasetEvent) {
-      mcps.add(eventFormatter.convert(DatahubJob.materializeDataset(datasetUrn.get())));
+      mcps.add(OpenLineageMcpFactory.convert(DatahubJob.materializeDataset(datasetUrn.get())));
       OpenLineageMappingUtils.addAspectToMcps(
           datasetUrn.get(),
           DatahubJob.DATASET_ENTITY_TYPE,
@@ -148,50 +128,74 @@ final class OpenLineageDatasetMapper {
           datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, lifecycleStatus, mcps);
     }
 
-    SchemaMetadata schemaMetadata = getSchemaMetadata(dataset, datahubConf);
-    if (schemaMetadata != null && datahubConf.isIncludeSchemaMetadata()) {
+    if (datahubDataset.getSchemaMetadata() != null && datahubConf.isIncludeSchemaMetadata()) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, schemaMetadata, mcps);
+          datasetUrn.get(),
+          DatahubJob.DATASET_ENTITY_TYPE,
+          datahubDataset.getSchemaMetadata(),
+          mcps);
     }
 
-    DatasetProperties datasetProperties = getDatasetProperties(dataset);
-    if (datasetProperties != null) {
+    if (datahubDataset.getDatasetProperties() != null) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, datasetProperties, mcps);
+          datasetUrn.get(),
+          DatahubJob.DATASET_ENTITY_TYPE,
+          datahubDataset.getDatasetProperties(),
+          mcps);
     }
 
-    DataPlatformInstance dataPlatformInstance =
-        getDatasetDataPlatformInstance(dataset, datasetUrn.get(), datahubConf);
-    if (dataPlatformInstance != null) {
+    if (datahubDataset.getDataPlatformInstance() != null) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, dataPlatformInstance, mcps);
+          datasetUrn.get(),
+          DatahubJob.DATASET_ENTITY_TYPE,
+          datahubDataset.getDataPlatformInstance(),
+          mcps);
     }
 
-    Siblings siblings = getDatasetSiblings(dataset, datasetUrn.get(), datahubConf);
-    if (siblings != null) {
+    if (datahubDataset.getSiblings() != null) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, siblings, mcps);
+          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getSiblings(), mcps);
     }
 
-    Ownership ownership = generateDatasetOwnership(dataset.getFacets());
-    if (ownership != null) {
+    if (datahubDataset.getOwnership() != null) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, ownership, mcps);
+          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getOwnership(), mcps);
     }
 
-    GlobalTags globalTags = generateDatasetTags(dataset.getFacets());
-    if (globalTags != null) {
+    if (datahubDataset.getGlobalTags() != null) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, globalTags, mcps);
+          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getGlobalTags(), mcps);
     }
 
-    SubTypes subTypes = generateDatasetSubTypes(dataset.getFacets());
-    if (subTypes != null) {
+    if (datahubDataset.getSubTypes() != null) {
       OpenLineageMappingUtils.addAspectToMcps(
-          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, subTypes, mcps);
+          datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, datahubDataset.getSubTypes(), mcps);
     }
     addHierarchyMcps(mcps, dataset, datasetUrn.get());
     return mcps;
+  }
+
+  private static DatahubDataset mapDataset(
+      OpenLineage.Dataset dataset,
+      DatasetUrn datasetUrn,
+      DatahubOpenlineageConfig datahubConf,
+      boolean includeSchemaMetadata,
+      OpenLineage.Job job) {
+    DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder().urn(datasetUrn);
+    builder.datasetProperties(getDatasetProperties(dataset));
+    builder.dataPlatformInstance(getDatasetDataPlatformInstance(dataset, datasetUrn, datahubConf));
+    builder.ownership(generateDatasetOwnership(dataset.getFacets()));
+    builder.globalTags(generateDatasetTags(dataset.getFacets()));
+    builder.subTypes(generateDatasetSubTypes(dataset.getFacets()));
+    builder.siblings(getDatasetSiblings(dataset, datasetUrn, datahubConf));
+    builder.status(getDatasetStatus(dataset));
+    if (includeSchemaMetadata) {
+      builder.schemaMetadata(getSchemaMetadata(dataset, datahubConf));
+    }
+    if (datahubConf.isCaptureColumnLevelLineage() && job != null) {
+      builder.lineage(getFineGrainedLineage(dataset, datahubConf, job));
+    }
+    return builder.build();
   }
 
   static void addHierarchyMcps(
@@ -277,7 +281,7 @@ final class OpenLineageDatasetMapper {
       Urn entityUrn,
       String entityType,
       com.linkedin.data.template.DataTemplate aspect) {
-    MetadataChangeProposal mcp = OpenLineageMappingUtils.toMcp(entityUrn, entityType, aspect);
+    MetadataChangeProposal mcp = OpenLineageMcpFactory.upsert(entityUrn, entityType, aspect);
     boolean exists = mcps.stream().anyMatch(existing -> existing.equals(mcp));
     if (!exists) {
       mcps.add(mcp);
@@ -843,7 +847,7 @@ final class OpenLineageDatasetMapper {
     return true;
   }
 
-  static InputContribution mapInput(
+  static DatahubDataset mapInput(
       DatahubJob datahubJob,
       OpenLineage.RunEvent event,
       OpenLineage.InputDataset input,
@@ -860,7 +864,7 @@ final class OpenLineageDatasetMapper {
       datahubJob
           .getExtraMcps()
           .add(
-              OpenLineageMappingUtils.toMcp(
+              OpenLineageMcpFactory.upsert(
                   datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, datasetProfile));
     }
     Operation operation = getInputOperation(input, event.getEventTime());
@@ -868,35 +872,18 @@ final class OpenLineageDatasetMapper {
       datahubJob
           .getExtraMcps()
           .add(
-              OpenLineageMappingUtils.toMcp(
+              OpenLineageMcpFactory.upsert(
                   datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, operation));
     }
 
-    DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
-    builder.urn(datasetUrn.get());
-    builder.datasetProperties(getDatasetProperties(input));
-    builder.dataPlatformInstance(
-        getDatasetDataPlatformInstance(input, datasetUrn.get(), datahubConf));
-    builder.ownership(generateDatasetOwnership(input.getFacets()));
-    builder.globalTags(generateDatasetTags(input.getFacets()));
-    builder.subTypes(generateDatasetSubTypes(input.getFacets()));
-    builder.siblings(getDatasetSiblings(input, datasetUrn.get(), datahubConf));
-    builder.status(getDatasetStatus(input));
-    if (datahubConf.isMaterializeDataset()) {
-      builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
-    }
-    if (datahubConf.isCaptureColumnLevelLineage()) {
-      UpstreamLineage upstreamLineage = getFineGrainedLineage(input, datahubConf, event.getJob());
-      if (upstreamLineage != null) {
-        builder.lineage(upstreamLineage);
-      }
-    }
-    return new InputContribution(input, datasetUrn.get(), builder.build());
+    return mapDataset(
+        input, datasetUrn.get(), datahubConf, datahubConf.isMaterializeDataset(), event.getJob());
   }
 
-  static void applyInput(DatahubJob datahubJob, InputContribution contribution) {
-    addHierarchyMcps(datahubJob.getExtraMcps(), contribution.input, contribution.datasetUrn);
-    datahubJob.getInSet().add(contribution.datahubDataset);
+  static void applyInput(
+      DatahubJob datahubJob, OpenLineage.InputDataset input, DatahubDataset datahubDataset) {
+    addHierarchyMcps(datahubJob.getExtraMcps(), input, datahubDataset.getUrn());
+    datahubJob.getInSet().add(datahubDataset);
   }
 
   static void processJobOutputs(
@@ -916,32 +903,19 @@ final class OpenLineageDatasetMapper {
           datahubJob
               .getExtraMcps()
               .add(
-                  OpenLineageMappingUtils.toMcp(
+                  OpenLineageMcpFactory.upsert(
                       datasetUrn.get(), DatahubJob.DATASET_ENTITY_TYPE, operation));
         }
 
-        DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
-        builder.urn(datasetUrn.get());
-        builder.datasetProperties(getDatasetProperties(output));
-        builder.dataPlatformInstance(
-            getDatasetDataPlatformInstance(output, datasetUrn.get(), datahubConf));
-        builder.ownership(generateDatasetOwnership(output.getFacets()));
-        builder.globalTags(generateDatasetTags(output.getFacets()));
-        builder.subTypes(generateDatasetSubTypes(output.getFacets()));
-        builder.siblings(getDatasetSiblings(output, datasetUrn.get(), datahubConf));
-        builder.status(getDatasetStatus(output));
-        if (datahubConf.isMaterializeDataset()) {
-          builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
-        }
-        if (datahubConf.isCaptureColumnLevelLineage()) {
-          UpstreamLineage upstreamLineage =
-              getFineGrainedLineage(output, datahubConf, event.getJob());
-          if (upstreamLineage != null) {
-            builder.lineage(upstreamLineage);
-          }
-        }
+        DatahubDataset datahubDataset =
+            mapDataset(
+                output,
+                datasetUrn.get(),
+                datahubConf,
+                datahubConf.isMaterializeDataset(),
+                event.getJob());
         addHierarchyMcps(datahubJob.getExtraMcps(), output, datasetUrn.get());
-        datahubJob.getOutSet().add(builder.build());
+        datahubJob.getOutSet().add(datahubDataset);
       }
     }
   }

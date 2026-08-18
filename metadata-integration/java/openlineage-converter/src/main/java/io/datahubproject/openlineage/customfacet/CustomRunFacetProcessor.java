@@ -92,7 +92,7 @@ public final class CustomRunFacetProcessor {
       }
     }
 
-    return new CustomRunFacetContributions(flowProperties, jobProperties, flowTags, null);
+    return new CustomRunFacetContributions(flowProperties, jobProperties, flowTags);
   }
 
   private static JsonNode compatiblePayload(

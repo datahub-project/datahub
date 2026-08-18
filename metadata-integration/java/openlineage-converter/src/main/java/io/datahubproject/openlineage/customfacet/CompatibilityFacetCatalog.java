@@ -2,7 +2,6 @@ package io.datahubproject.openlineage.customfacet;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -74,12 +73,6 @@ public final class CompatibilityFacetCatalog {
 
   public static List<CompatibilityFacetContract> contracts() {
     return CONTRACTS;
-  }
-
-  public static Optional<CompatibilityFacetContract> find(AttachmentPoint attachment, String key) {
-    return CONTRACTS.stream()
-        .filter(contract -> contract.attachment() == attachment && contract.key().equals(key))
-        .findFirst();
   }
 
   private static CompatibilityFacetContract contract(
