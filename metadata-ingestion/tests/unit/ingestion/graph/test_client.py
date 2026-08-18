@@ -1,7 +1,7 @@
 """Unit tests for DataHubGraph: offset pagination and entity aspect specs fetch."""
 
 import pathlib
-from typing import List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
@@ -202,7 +202,9 @@ class TestGetKafkaConsumerOffsets:
 
     def test_falls_back_to_kafka_endpoints_on_404(self) -> None:
         session = MagicMock()
-        legacy_payload = {"my-group": {"my-topic": {"partitions": {}, "metrics": {}}}}
+        legacy_payload: Dict[str, Any] = {
+            "my-group": {"my-topic": {"partitions": {}, "metrics": {}}}
+        }
         session.request.side_effect = [
             _http_error_response(404),
             _json_response(legacy_payload),
