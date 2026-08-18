@@ -313,20 +313,54 @@ public class EntityGraphSnapshotBuilder {
       return new PartialScrollResult(Set.of(), false);
     }
 
-    AspectRetriever aspectRetriever = opContext.getRetrieverContext().getAspectRetriever();
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     opContext
         .getMetricUtils()
         .ifPresent(m -> m.incrementMicrometer("entity.graph.build.primary_aspect", 1));
 
+    return accumulateEdgesFromAspects(
+        opContext, definition, frontierUrns, definition.getResolvedEdges(), accumulator);
+  }
+
+  /**
+   * Resolves destination URNs by reading the aspects the edges are declared on, rather than relying
+   * on denormalized fields in the search index. Returns the discovered destination URNs, flagging
+   * an incomplete result when the aspect batch read fails.
+   */
+  @Nonnull
+  private PartialScrollResult accumulateEdgesFromAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull EntityGraphDefinition definition,
+      @Nonnull Collection<String> sourceUrns,
+      @Nonnull Collection<ResolvedGraphEdge> candidateEdges,
+      @Nonnull EdgeAccumulator accumulator) {
+
+    Map<String, List<ResolvedGraphEdge>> edgesBySourceType = new HashMap<>();
+    for (ResolvedGraphEdge edge : candidateEdges) {
+      if (edge.getAspectName() == null || edge.getAspectName().isBlank()) {
+        continue;
+      }
+      edgesBySourceType
+          .computeIfAbsent(
+              edge.getTriplet().getSourceEntityType().toLowerCase(Locale.ROOT),
+              k -> new ArrayList<>())
+          .add(edge);
+    }
+
+    if (sourceUrns.isEmpty() || edgesBySourceType.isEmpty()) {
+      return new PartialScrollResult(Set.of(), false);
+    }
+
+    AspectRetriever aspectRetriever = opContext.getRetrieverContext().getAspectRetriever();
+    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+
     Set<Urn> urns =
-        frontierUrns.stream()
+        sourceUrns.stream()
             .map(UrnUtils::getUrn)
             .collect(Collectors.toCollection(LinkedHashSet::new));
     Set<String> aspectNames =
-        definition.getResolvedEdges().stream()
+        edgesBySourceType.values().stream()
+            .flatMap(List::stream)
             .map(ResolvedGraphEdge::getAspectName)
-            .filter(name -> name != null && !name.isBlank())
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
     Map<Urn, Map<String, Aspect>> aspectBatch;
@@ -338,13 +372,17 @@ public class EntityGraphSnapshotBuilder {
     }
 
     Set<String> neighbors = new LinkedHashSet<>();
-    for (String frontierUrn : frontierUrns) {
+    for (Urn urn : urns) {
       if (accumulator.isBypassed()) {
         break;
       }
-      Urn urn = UrnUtils.getUrn(frontierUrn);
       Map<String, Aspect> aspectsForUrn = aspectBatch.getOrDefault(urn, Map.of());
-      for (ResolvedGraphEdge resolved : definition.getResolvedEdges()) {
+      if (aspectsForUrn.isEmpty()) {
+        continue;
+      }
+      List<ResolvedGraphEdge> applicable =
+          edgesBySourceType.getOrDefault(urn.getEntityType().toLowerCase(Locale.ROOT), List.of());
+      for (ResolvedGraphEdge resolved : applicable) {
         if (accumulator.isBypassed()) {
           break;
         }
@@ -371,7 +409,7 @@ public class EntityGraphSnapshotBuilder {
               continue;
             }
             accumulator.addEdge(
-                frontierUrn,
+                urn.toString(),
                 destUrn,
                 resolved.getTriplet().getRelationshipType(),
                 definition.getBounds().getMaxVertices(),
@@ -615,21 +653,18 @@ public class EntityGraphSnapshotBuilder {
       @Nullable Collection<String> seeds,
       @Nonnull EdgeAccumulator accumulator) {
 
-    Set<String> sourceTypes =
+    List<ResolvedGraphEdge> searchableEdges =
         definition.getResolvedEdges().stream()
+            .filter(ResolvedGraphEdge::isSearchable)
+            .collect(Collectors.toList());
+
+    Set<String> sourceTypes =
+        searchableEdges.stream()
             .map(e -> e.getTriplet().getSourceEntityType().toLowerCase(Locale.ROOT))
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
-    Map<String, List<ResolvedGraphEdge>> edgesBySourceType = new HashMap<>();
-    for (ResolvedGraphEdge edge : definition.getResolvedEdges()) {
-      if (!edge.isSearchable()) {
-        continue;
-      }
-      edgesBySourceType
-          .computeIfAbsent(
-              edge.getTriplet().getSourceEntityType().toLowerCase(Locale.ROOT),
-              k -> new ArrayList<>())
-          .add(edge);
+    if (sourceTypes.isEmpty()) {
+      return false;
     }
 
     SearchFlags flags =
@@ -655,25 +690,19 @@ public class EntityGraphSnapshotBuilder {
           break;
         }
 
-        for (SearchEntity entity : scrollResult.getEntities()) {
-          if (accumulator.isBypassed()) {
-            return false;
-          }
-          String sourceUrn = entity.getEntity().toString();
-          List<ResolvedGraphEdge> applicable =
-              edgesBySourceType.getOrDefault(
-                  UrnUtils.getUrn(sourceUrn).getEntityType().toLowerCase(Locale.ROOT), List.of());
-          for (ResolvedGraphEdge resolved : applicable) {
-            String destUrn = extractRelatedUrn(entity, resolved.getSearchField());
-            if (destUrn != null && !destUrn.isBlank()) {
-              accumulator.addEdge(
-                  sourceUrn,
-                  destUrn,
-                  resolved.getTriplet().getRelationshipType(),
-                  definition.getBounds().getMaxVertices(),
-                  definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
-            }
-          }
+        // Search only supplies the URN listing; destinations come from the underlying aspects so
+        // that edges do not depend on denormalized fields being present in the search document.
+        Set<String> pageUrns =
+            scrollResult.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .map(Urn::toString)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        PartialScrollResult aspectResult =
+            accumulateEdgesFromAspects(
+                opContext, definition, pageUrns, searchableEdges, accumulator);
+        if (aspectResult.isScrollIncomplete()) {
+          accumulator.markScrollIncomplete();
         }
 
         scrollId = scrollResult.getScrollId();
