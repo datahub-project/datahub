@@ -1216,6 +1216,42 @@ def test_create_lineage_skips_when_server_token_is_navigation_record_key():
     assert result.column_lineage == []
 
 
+def test_create_lineage_does_not_skip_bigquery_billing_project_record_key():
+    """GoogleBigQuery.Database([BillingProject=...]) puts the record key
+    ``BillingProject`` in tokens[1]. That is the connector's first argument, not
+    a leaked Snowflake {[Name=...]} key — lineage must still be attempted.
+    """
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list("select * from public.my_table"),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={},
+    )
+    sentinel = Lineage.empty()
+
+    with (
+        patch(
+            "datahub.ingestion.source.powerbi.m_query.pattern_handler._get_data_source_tokens",
+            return_value=[
+                "GoogleBigQuery.Database",
+                "BillingProject",
+                "my_project",
+                "Name",
+                "my_project",
+            ],
+        ),
+        patch.object(instance, "parse_custom_sql", return_value=sentinel) as mock_parse,
+    ):
+        result = instance.create_lineage(detail)
+
+    mock_parse.assert_called_once()
+    assert result is sentinel
+
+
 def test_create_lineage_does_not_warn_when_sql_already_fully_qualified():
     instance = _build_native_query_lineage(
         config=_build_config(enable_advance_lineage_sql_construct=True)

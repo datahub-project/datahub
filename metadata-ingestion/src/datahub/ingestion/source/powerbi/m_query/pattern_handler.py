@@ -190,20 +190,25 @@ def _get_data_source_tokens(
     return tokens
 
 
-# Keys of {[Name=..., Kind=...]} navigation records. If positional server args
-# were skipped, these leak into tokens[1] and must not be treated as a host.
-_NAVIGATION_RECORD_KEYS = frozenset(
-    {"Name", "Kind", "Database", "Catalog", "Schema", "Item", "BillingProject"}
-)
+# Keys of Snowflake's {[Name=<db>, Kind="Database"]} navigation record.
+# Snowflake.Databases(server, warehouse) takes positional args; if those
+# IdentifierExpression args were unresolved, this record leaks into tokens[1]
+# and must not be treated as the host. Other NativeQuery connectors (BigQuery
+# BillingProject, Databricks Catalog, ...) take a record as the first argument,
+# so a record key in tokens[1] is expected there.
+_SNOWFLAKE_NAVIGATION_RECORD_KEYS = frozenset({"Name", "Kind"})
 
 
 def _sql_has_unqualified_snowflake_tables(query: str) -> bool:
     try:
         tables = native_sql_parser.get_tables(query)
     except Exception as e:
-        logger.debug("Failed to parse native query for Snowflake table qualification: %s", e, exc_info=True)
+        logger.debug(
+            "Failed to parse native query for Snowflake table qualification: %s",
+            e,
+            exc_info=True,
+        )
         return True
-        return False
     return any(len(name.split(".")) < 3 for name in tables)
 
 
@@ -1596,9 +1601,11 @@ class NativeQueryLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        if (
-            len(data_access_tokens) < 2
-            or data_access_tokens[1] in _NAVIGATION_RECORD_KEYS
+        platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[data_access_tokens[0]]
+
+        if len(data_access_tokens) < 2 or (
+            platform == SupportedDataPlatform.SNOWFLAKE
+            and data_access_tokens[1] in _SNOWFLAKE_NAVIGATION_RECORD_KEYS
         ):
             logger.debug(
                 "Server not available in data source tokens for %s",
@@ -1606,10 +1613,10 @@ class NativeQueryLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
-            data_access_tokens[0]
-        ]
+        self.current_data_platform = platform
         # data_access_tokens[0] = platform name, [1] = first literal arg = server
+        # (for record-first connectors such as BigQuery this is a record key,
+        # used only for server_to_platform_instance lookup)
         server = data_access_tokens[1]
 
         if self.config.enable_advance_lineage_sql_construct is False:
