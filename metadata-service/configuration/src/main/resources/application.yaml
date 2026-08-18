@@ -212,11 +212,14 @@ datahub:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
     # GMS HTTP API rate limiting (disabled by default; not MCP ingestion or Kafka lag throttle).
-    # Bundled defaults (Tier 1), all env-overridable. Optional mounted RATE_LIMITS_CONFIG_FILE
-    # (Tier 2, see RateLimitEngineFactory) overrides keys per-source; rule lists are index-bound, but
-    # bundled lists are empty so a mounted file simply provides them. Guide: docs/deploy/gms-rate-limiting.md
+    # Tier 1: env-overridable scalars below. Tier 2: RATE_LIMITS_CONFIG_FILE replaces bundled
+    # rate-limit-config.yaml. Tier 3: RATE_LIMITS_CONFIG_JSON overlays the chosen file.
+    # Do not declare empty rules: [] or heavyResolvers: {} here. Guide: docs/deploy/gms-rate-limiting.md
     rateLimits:
       enabled: ${RATE_LIMITS_ENABLED:false} # master kill switch
+      configFile:
+        path: ${RATE_LIMITS_CONFIG_FILE:rate-limit-config.yaml}
+      configJson: ${RATE_LIMITS_CONFIG_JSON:}
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
       minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
       retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
@@ -239,16 +242,14 @@ datahub:
           initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
           minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
           maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        rules: [] # per-path rules via mounted override
       # Cluster-wide token buckets (Bucket4j) via Hazelcast.
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
         hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
         bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
         bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
-        rules: [] # per-path rules via mounted override
       # Scoped chain: per-actor -> client-class (browser/sdk) -> fleet-global.
-      # heavyResolvers is a per-resolver map, populated via the mounted override.
+      # heavyResolvers entries come from the policy file / JSON overlay.
       scoped:
         enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
         refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
@@ -274,7 +275,6 @@ datahub:
           capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
           refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_TOKENS:${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}}
           refillPeriodSeconds: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_PERIOD_SECONDS:60}
-        heavyResolvers: {}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 
@@ -282,7 +282,7 @@ datahub:
     # Tier 1: application.yaml toggles below (enabled, configFile, configJson; pod-level eviction)
     # Tier 2: ENTITY_GRAPH_CACHE_CONFIG_FILE — bundled entity-graph-cache.yaml or mounted YAML
     #         (graph definitions + eviction.nearCache for snapshot IMaps)
-    # Tier 3: ENTITY_GRAPH_CACHE_CONFIG_JSON — JSON overlay merged at startup (like RATE_LIMITS_CONFIG_JSON)
+    # Tier 3: ENTITY_GRAPH_CACHE_CONFIG_JSON — JSON overlay merged at startup by EntityGraphCacheConfigLoader
     entityGraphCache:
       enabled: ${ENTITY_GRAPH_CACHE_ENABLED:true}
       configFile:
