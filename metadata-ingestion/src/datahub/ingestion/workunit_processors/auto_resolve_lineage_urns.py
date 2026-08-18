@@ -50,7 +50,7 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossySet
 from datahub.utilities.urn_alias.index import CatalogSlice, covered_by
 from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 from datahub.utilities.urns.error import InvalidUrnError
@@ -101,7 +101,7 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_workunits_modified: int = 0
     # Bounded sample of references left UNRESOLVED, alongside the num_refs_unresolved
     # count, so the report shows *which* lineage looks broken, not just how much.
-    unresolved_refs_sample: LossyList[str] = field(default_factory=LossyList)
+    unresolved_refs_sample: LossySet[str] = field(default_factory=LossySet)
 
 
 @dataclass
@@ -518,7 +518,9 @@ class AutoResolveLineageUrnsProcessor(
         ``UrnAliasResolver.resolve`` returns the stored URN matching the reference under
         any casing, or None when nothing matches or when two entities differ only by case
         (no single right answer). A hit under the reference's own casing is EXACT, a hit
-        under a different casing is NORMALIZED, and None is UNRESOLVED.
+        under a different casing is NORMALIZED, and None is UNRESOLVED. A reference
+        outside scope is never looked up at all, so it abstains rather than reporting an
+        absence.
 
         Matching whole URNs means platform_instance and env are part of the comparison,
         so a reference is never healed across either.
@@ -554,7 +556,7 @@ class AutoResolveLineageUrnsProcessor(
             # In scope but no single existing entity matched: leave the URN unchanged
             # but flag it UNRESOLVED so potentially broken lineage is visible rather
             # than indistinguishable from clean.
-            self.report.unresolved_refs_sample.append(urn)
+            self.report.unresolved_refs_sample.add(urn)
             return _Resolution(urn, None, _UNRESOLVED)
         match_type = _EXACT if resolved == urn else _NORMALIZED
         return _Resolution(
