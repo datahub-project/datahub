@@ -3,7 +3,9 @@ import {
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
     COLUMNS_MODULE,
+    CONTENTS_MODULE,
     DATA_PRODUCTS_MODULE,
+    DATA_SOURCES_MODULE,
     LINEAGE_MODULE,
     OUTPUT_PORTS_MODULE,
     RELATED_METRICS_MODULE,
@@ -52,6 +54,22 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             break;
         case EntityType.Dataset:
             rows = [{ modules: [LINEAGE_MODULE] }, { modules: [COLUMNS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Application:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Container:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Chart:
+            rows = [{ modules: [ASSETS_MODULE, LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Dashboard:
+            rows = [{ modules: [DATA_SOURCES_MODULE, CONTENTS_MODULE] }, { modules: [LINEAGE_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.SemanticModel:

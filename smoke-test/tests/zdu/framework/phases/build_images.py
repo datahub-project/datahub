@@ -55,6 +55,44 @@ _DEFAULT_SERVICES = (
     ":metadata-jobs:mce-consumer-job:docker",
 )
 
+# How much of gradle's output to keep in a build-failure message. Enough for the
+# "FAILURE: Build failed" block plus the task that failed and its stack.
+_GRADLE_ERROR_TAIL_CHARS = 4000
+
+
+def _gradle_failure_message(
+    side: str, service: str, result: subprocess.CompletedProcess
+) -> str:
+    """Render a gradle build failure with the part that actually diagnoses it.
+
+    Takes the TAIL of each stream, not the head. Gradle puts its verdict last —
+    "FAILURE: Build failed", "What went wrong", the failing task — while the
+    first few hundred characters are boilerplate. A previous version of this
+    message used ``stderr[:500]``, which on every build is filled by ANTLR
+    version warnings, so an OOM, a full disk and a genuine compile error all
+    produced the same indistinguishable text and the real cause never reached
+    the CI log at all.
+
+    Both streams are included because ``_run_gradle`` captures them separately
+    and gradle splits its output across the two: warnings and the failure banner
+    go to stderr, task output and the ``What went wrong`` detail to stdout.
+    """
+
+    def tail(stream: str | None) -> str:
+        if not stream:
+            return "<empty>"
+        text = stream.strip()
+        if len(text) <= _GRADLE_ERROR_TAIL_CHARS:
+            return text
+        return f"…(truncated)…\n{text[-_GRADLE_ERROR_TAIL_CHARS:]}"
+
+    return (
+        f"gradle build failed for {side} {service}: rc={result.returncode}\n"
+        f"--- stdout (tail) ---\n{tail(result.stdout)}\n"
+        f"--- stderr (tail) ---\n{tail(result.stderr)}"
+    )
+
+
 # Gradle service path → Docker repo for image-existence checks.
 _SERVICE_TO_DOCKER_REPO: dict[str, str] = {
     ":metadata-service:war:docker": "acryldata/datahub-gms",
@@ -325,10 +363,7 @@ class BuildImagesPhase(ConfiguredPhase):
                 cwd=old_wt,
             )
             if result.returncode != 0:
-                raise RuntimeError(
-                    f"gradle build failed for OLD {service}: "
-                    f"rc={result.returncode} stderr={result.stderr[:500]}"
-                )
+                raise RuntimeError(_gradle_failure_message("OLD", service, result))
             self._verify_image_tagged(service, image_tag, side="OLD")
 
     def _build_new(self, image_tag: str) -> None:
@@ -345,10 +380,7 @@ class BuildImagesPhase(ConfiguredPhase):
                 cwd=new_wt,
             )
             if result.returncode != 0:
-                raise RuntimeError(
-                    f"gradle build failed for NEW {service}: "
-                    f"rc={result.returncode} stderr={result.stderr[:500]}"
-                )
+                raise RuntimeError(_gradle_failure_message("NEW", service, result))
             self._verify_image_tagged(service, image_tag, side="NEW")
 
     def _verify_image_tagged(self, service: str, image_tag: str, side: str) -> None:

@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 import static graphql.scalars.ExtendedScalars.*;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.invite.InviteTokenService;
@@ -128,6 +129,7 @@ import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpsertIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
@@ -240,6 +242,7 @@ import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
@@ -382,6 +385,7 @@ import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
@@ -465,6 +469,7 @@ public class GmsGraphQLEngine {
   private final DataProductService dataProductService;
   private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
+  private final IncidentService incidentService;
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
@@ -583,6 +588,7 @@ public class GmsGraphQLEngine {
 
     this.entityClient = args.entityClient;
     this.systemEntityClient = args.systemEntityClient;
+    this.incidentService = new IncidentService(this.systemEntityClient);
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
     this.siblingGraphService = args.siblingGraphService;
@@ -1138,6 +1144,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
                 .dataFetcher(
+                    "searchAcrossLineageCounts",
+                    new SearchAcrossLineageCountsResolver(this.entityClient))
+                .dataFetcher(
                     "aggregateAcrossEntities",
                     new AggregateAcrossEntitiesResolver(
                         this.entityClient, this.viewService, this.formService))
@@ -1194,7 +1203,10 @@ public class GmsGraphQLEngine {
                     new ListRecommendationsResolver(recommendationsService, viewService))
                 .dataFetcher(
                     "getEntityCounts", new EntityCountsResolver(this.entityClient, viewService))
-                .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
+                .dataFetcher(
+                    "getAccessToken",
+                    new GetAccessTokenResolver(
+                        statefulTokenService, resolveAccessTokenConfiguration()))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(
                     "getAccessTokenMetadata",
@@ -1457,7 +1469,10 @@ public class GmsGraphQLEngine {
                   "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher(
                   "createAccessToken",
-                  new CreateAccessTokenResolver(this.statefulTokenService, this.entityClient))
+                  new CreateAccessTokenResolver(
+                      this.statefulTokenService,
+                      this.entityClient,
+                      resolveAccessTokenConfiguration()))
               .dataFetcher(
                   "revokeAccessToken",
                   new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
@@ -1627,7 +1642,10 @@ public class GmsGraphQLEngine {
                   new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "updateIncident",
-                  new UpdateIncidentResolver(this.entityClient, this.entityService))
+                  new UpdateIncidentResolver(this.incidentService, this.entityService))
+              .dataFetcher(
+                  "upsertIncident",
+                  new UpsertIncidentResolver(this.incidentService, this.entityService))
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
@@ -3342,6 +3360,18 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher(
+                    "ownershipTypes",
+                    new LoadableTypeBatchResolver<>(
+                        ownershipType,
+                        (env) -> {
+                          final FormActorAssignment actors = env.getSource();
+                          return actors.getOwnershipTypes() != null
+                              ? actors.getOwnershipTypes().stream()
+                                  .map(OwnershipTypeEntity::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
+                        }))
+                .dataFetcher(
                     "users",
                     new LoadableTypeBatchResolver<>(
                         corpUserType,
@@ -4250,5 +4280,11 @@ public class GmsGraphQLEngine {
                           ? smp.getSemanticModel().getUrn()
                           : null;
                     })));
+  }
+
+  private AccessTokenConfiguration resolveAccessTokenConfiguration() {
+    return authenticationConfiguration.getAccessTokens() != null
+        ? authenticationConfiguration.getAccessTokens()
+        : AccessTokenConfiguration.defaults();
   }
 }

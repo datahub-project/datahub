@@ -36,6 +36,7 @@ test.describe('containers', () => {
   test('can see elements inside the container', async ({ logger }) => {
     logger.info('Navigating to container page', { urn: TEST_DATA.CONTAINER_URN });
     await containerPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
+    await containerPage.openContentsTab();
 
     logger.info('Verifying container name is visible', { containerName: TEST_DATA.CONTAINER_NAME });
     await containerPage.verifyContainerNameVisible(TEST_DATA.CONTAINER_NAME);
