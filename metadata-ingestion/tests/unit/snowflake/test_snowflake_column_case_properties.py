@@ -98,8 +98,19 @@ _CELLS = [
     (preserve, convert) for preserve in (False, True) for convert in (False, True)
 ]
 
+# deadline=None because the deadline is per-example and the first example pays every
+# one-time cost in the test body (imports, sqlglot warm-up, lru_cache fills). Measured
+# 272ms on an example's first execution vs 7ms on re-run -- 40x the steady-state cost,
+# tripping the 200ms default. These properties assert on emitted output, never on speed,
+# so a per-example time limit only buys intermittent CI failures.
+_properties = settings(
+    max_examples=200,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+
+@_properties
 @given(stored_names=_stored_names)
 def test_preserved_casing_never_collapses_two_columns(stored_names: List[str]) -> None:
     """With casing preserved, distinct stored names keep distinct emitted paths.
@@ -117,7 +128,7 @@ def test_preserved_casing_never_collapses_two_columns(stored_names: List[str]) -
         )
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(stored_names=_stored_names)
 def test_every_column_resolves_to_itself_not_a_sibling(
     stored_names: List[str],
@@ -174,7 +185,7 @@ def test_every_column_resolves_to_itself_not_a_sibling(
             )
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(stored_names=_stored_names)
 def test_identity_key_agrees_with_the_emitted_path(stored_names: List[str]) -> None:
     """Two names share an identity key exactly when they share an emitted path.
@@ -294,7 +305,7 @@ def _emitted_metric_urns(
     return {urn for urn, _ in _aspects(_workunits(mapper, view), MetricInfoClass)}
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(stored_names=_stored_names)
 def test_one_metric_entity_per_distinct_identity(stored_names: List[str]) -> None:
     """Metric entities correspond one-to-one with distinct metric identities.
@@ -321,7 +332,7 @@ def test_one_metric_entity_per_distinct_identity(stored_names: List[str]) -> Non
         )
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(stored_names=_stored_names, target_index=st.integers(min_value=0))
 def test_a_derived_metric_points_at_the_metric_it_names(
     stored_names: List[str], target_index: int
@@ -413,7 +424,7 @@ def _metric_on(table: str, preserve: bool) -> SemanticViewColumnMetadata:
     )
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(logical_tables=_logical_tables)
 def test_one_logical_dataset_per_distinct_urn(logical_tables: List[str]) -> None:
     """Logical datasets correspond one-to-one with the URNs they resolve to.
@@ -448,7 +459,7 @@ def test_one_logical_dataset_per_distinct_urn(logical_tables: List[str]) -> None
         )
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(logical_tables=_logical_tables)
 def test_every_metric_belongs_to_a_logical_table_that_exists(
     logical_tables: List[str],
@@ -488,7 +499,7 @@ def test_every_metric_belongs_to_a_logical_table_that_exists(
         )
 
 
-@settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@_properties
 @given(logical_tables=_logical_tables)
 def test_the_emitted_graph_has_no_dangling_references(
     logical_tables: List[str],
