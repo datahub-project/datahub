@@ -125,6 +125,7 @@ export const useCapabilitySummary = () => {
         capabilitySummary,
         isLoading,
         error,
+        getPluginCapabilities,
         isCapabilitySupported,
         isProfilingSupported,
         isTestConnectionSupported,
