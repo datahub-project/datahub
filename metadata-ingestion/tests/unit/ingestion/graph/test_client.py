@@ -191,7 +191,7 @@ class TestGetKafkaConsumerOffsets:
     def test_uses_messaging_endpoints(self) -> None:
         session = MagicMock()
         session.request.return_value = _json_response(
-            {"transport": "kafka", "consumerGroups": {}}
+            {"transport": "kafka", "consumerGroups": {}, "errors": ["partial data"]}
         )
         result = _offsets_graph(session).get_kafka_consumer_offsets()
 

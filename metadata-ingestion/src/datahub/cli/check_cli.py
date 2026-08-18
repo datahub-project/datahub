@@ -546,8 +546,11 @@ def get_kafka_consumer_offsets(output_format: str) -> None:
             if not isinstance(topics, dict):
                 continue
             for topic, data in topics.items():
-                metrics = data.get("metrics", {})
-                partitions = data.get("partitions", {})
+                if not isinstance(data, dict):
+                    continue
+                # The API serializes metrics/partitions as null when unavailable.
+                metrics = data.get("metrics") or {}
+                partitions = data.get("partitions") or {}
 
                 for partition, partition_data in partitions.items():
                     rows.append(

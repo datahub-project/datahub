@@ -601,6 +601,9 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                 if status not in (404, 405):
                     raise
                 legacy_url = f"{self.config.server}/openapi/operations/kafka/{key}/consumer/offsets"
+                logger.debug(
+                    f"Messaging endpoint {url} returned {status}; falling back to {legacy_url}"
+                )
                 response = self._get_generic(url=legacy_url, params=params)
             results[key] = response
             if "errors" in response:

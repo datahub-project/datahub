@@ -130,6 +130,43 @@ def test_get_kafka_consumer_offsets_json(mock_get_default_graph):
 
 
 @patch("datahub.cli.check_cli.get_default_graph")
+def test_get_kafka_consumer_offsets_malformed_payloads(mock_get_default_graph):
+    response = {
+        "mcp": "error string payload",
+        "mcl": {"errors": ["boom"]},
+        "mcl-timeseries": {
+            "my-group": {
+                "bad-topic": "not a dict",
+                "my-topic": {
+                    "partitions": {"0": {"offset": 7, "lag": 2}},
+                    "metrics": None,
+                },
+            }
+        },
+    }
+    mock_graph = MagicMock()
+    mock_graph.get_kafka_consumer_offsets.return_value = response
+    mock_get_default_graph.return_value = mock_graph
+
+    result = run_datahub_cmd(["check", "get-kafka-consumer-offsets", "-o", "json"])
+
+    rows = json.loads(result.output)
+    assert rows == [
+        {
+            "consumerType": "mcl-timeseries",
+            "consumerGroup": "my-group",
+            "topic": "my-topic",
+            "partition": "0",
+            "offset": 7,
+            "lag": 2,
+            "avgLag": None,
+            "maxLag": None,
+            "totalLag": None,
+        }
+    ]
+
+
+@patch("datahub.cli.check_cli.get_default_graph")
 def test_get_kafka_consumer_offsets_empty(mock_get_default_graph):
     mock_graph = MagicMock()
     mock_graph.get_kafka_consumer_offsets.return_value = {}
