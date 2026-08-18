@@ -1194,22 +1194,67 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     try (Stream<MCPItem> sideEffectStream =
         AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
-      Iterable<List<MCPItem>> iterable =
-          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-      StreamSupport.stream(iterable.spliterator(), false)
-          .forEach(
-              sideEffects -> {
-                long count =
-                    ingestProposalAsync(
-                            opContext,
-                            AspectsBatchImpl.builder()
-                                .items(sideEffects)
-                                .retrieverContext(opContext.getRetrieverContext())
-                                .build(opContext))
-                        .count();
-                log.debug("Generated {} MCP SideEffects for async processing", count);
-              });
+      applyPostCommitMcpSideEffects(opContext, sideEffectStream.collect(Collectors.toList()));
     }
+  }
+
+  /**
+   * Applies post-commit MCP side effects. Upserts go through async MCP produce (consumed later).
+   * Deletes are applied synchronously via {@link #deleteAspect} — ChangeType.DELETE is not a valid
+   * async MCP ingest change type end-to-end ({@link MCPItem#CHANGE_TYPES} / consumer sync ingest).
+   */
+  @VisibleForTesting
+  void applyPostCommitMcpSideEffects(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPItem> sideEffects) {
+    if (sideEffects.isEmpty()) {
+      return;
+    }
+
+    List<MCPItem> deletes = new ArrayList<>();
+    List<MCPItem> nonDeletes = new ArrayList<>();
+    for (MCPItem item : sideEffects) {
+      if (ChangeType.DELETE.equals(item.getChangeType())) {
+        deletes.add(item);
+      } else {
+        nonDeletes.add(item);
+      }
+    }
+
+    for (MCPItem delete : deletes) {
+      try {
+        boolean hardDelete =
+            EntityUtils.shouldHardDeleteAspect(opContext, delete.getUrn(), delete.getAspectName());
+        deleteAspect(
+            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
+      } catch (Exception e) {
+        log.error(
+            "Failed post-commit side-effect delete for urn={} aspect={}: {}",
+            delete.getUrn(),
+            delete.getAspectName(),
+            e.getMessage(),
+            e);
+      }
+    }
+
+    if (nonDeletes.isEmpty()) {
+      return;
+    }
+
+    Iterable<List<MCPItem>> iterable =
+        () -> Iterators.partition(nonDeletes.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+    StreamSupport.stream(iterable.spliterator(), false)
+        .forEach(
+            chunk -> {
+              long count =
+                  ingestProposalAsync(
+                          opContext,
+                          AspectsBatchImpl.builder()
+                              .items(chunk)
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .build(opContext))
+                      .count();
+              log.debug("Generated {} MCP SideEffects for async processing", count);
+            });
   }
 
   /**
@@ -1353,6 +1398,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                 final Set<Pair<Urn, String>> committedKeys = new HashSet<>();
                                 committedKeys.addAll(committedKeysOf(attempt.batchWriteResult));
 
+                                // (urn, aspect) pairs already recorded as failed. Dedups failures
+                                // across scoped-retry passes: a terminally validation-failing
+                                // aspect
+                                // on a URN whose sibling also conflicts is re-included in every
+                                // URN-scoped retry sub-batch and re-fails each pass, so without
+                                // this
+                                // guard it would be dead-lettered once per pass on the consumer
+                                // path.
+                                // Seeded from the first pass's failures.
+                                final Set<Pair<Urn, String>> seenFailedKeys =
+                                    new HashSet<>(failedKeysOf(failedUpsertResults));
+
                                 int scopedAttempt = 0;
                                 while (batchWriteResult.hasConflicts()
                                     && scopedAttempt < SCOPED_RETRY_MAX_ATTEMPTS) {
@@ -1407,7 +1464,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   // only
                                   // the newly resolved results are spliced in.
                                   upsertResults.addAll(retry.upsertResults);
-                                  failedUpsertResults.addAll(retry.failedUpsertResults);
+                                  appendNewFailedResults(
+                                      failedUpsertResults,
+                                      retry.failedUpsertResults,
+                                      seenFailedKeys);
                                   updatedLatestAspects =
                                       AspectsBatch.merge(
                                           updatedLatestAspects, retry.updatedLatestAspects);
@@ -3990,6 +4050,51 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   static boolean isAlreadyCommitted(
       @Nonnull Set<Pair<Urn, String>> committedKeys, @Nonnull ChangeMCP writeItem) {
     return committedKeys.contains(Pair.of(writeItem.getUrn(), writeItem.getAspectName()));
+  }
+
+  /**
+   * (urn, aspect) keys of the given failed results, for cross-pass dedup of {@code
+   * failedUpsertResults} on the scoped-retry path. Package-private for unit testing.
+   */
+  @Nonnull
+  static Set<Pair<Urn, String>> failedKeysOf(
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> failedResults) {
+    return failedResults.stream()
+        .map(failed -> Pair.of(failed.getFirst().getUrn(), failed.getFirst().getAspectName()))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  /**
+   * Append only the failed results whose (urn, aspect) has not been recorded yet. A scoped-retry
+   * sub-batch is scoped by URN, so an aspect that terminally fails validation is re-validated (and
+   * re-fails) on every pass while its conflicting sibling is retried; deduping by (urn, aspect)
+   * records that failure exactly once instead of once per pass (which on the consumer path would
+   * emit duplicate dead-letter events). Package-private for unit testing.
+   *
+   * <p>Mutates both {@code accumulator} (appends the new failures) and {@code seenFailedKeys}
+   * (records every incoming key).
+   */
+  static void appendNewFailedResults(
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> accumulator, // mutated
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> incoming,
+      @Nonnull Set<Pair<Urn, String>> seenFailedKeys) { // mutated
+    // Suppress only keys recorded in EARLIER passes. Snapshot seenFailedKeys before this pass so
+    // that two distinct items sharing a (urn, aspect) WITHIN this pass are both kept — matching the
+    // un-deduped first-pass behavior — while a key that already failed in a prior pass is dropped.
+    // Dedup is keyed on (urn, aspect), not item identity, because the retry stamps a fresh traceId
+    // each pass so a ChangeMCP's content/hashCode is not stable across passes; (urn, aspect) is the
+    // only stable cross-pass key for the same logical failure.
+    final Set<Pair<Urn, String>> priorPassKeys = new HashSet<>(seenFailedKeys);
+    for (Pair<ChangeMCP, Set<AspectValidationException>> failed : incoming) {
+      final Pair<Urn, String> key =
+          Pair.of(failed.getFirst().getUrn(), failed.getFirst().getAspectName());
+      if (!priorPassKeys.contains(key)) {
+        accumulator.add(failed);
+      }
+      // Record unconditionally (no-op if already present) so a later pass sees this key as
+      // prior-seen and suppresses a repeat of it.
+      seenFailedKeys.add(key);
+    }
   }
 
   /**

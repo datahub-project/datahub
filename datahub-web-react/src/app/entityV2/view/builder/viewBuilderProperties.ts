@@ -221,16 +221,6 @@ export const viewBuilderProperties: Property[] = [
         valueType: ValueTypeId.BOOLEAN,
     },
     {
-        id: 'hasFailingAssertions',
-        get displayName() {
-            return i18next.t('entity.views:prop.hasFailingAssertions');
-        },
-        get description() {
-            return i18next.t('entity.views:prop.hasFailingAssertionsDesc');
-        },
-        valueType: ValueTypeId.BOOLEAN,
-    },
-    {
         id: 'origin',
         get displayName() {
             return i18next.t('entity.views:prop.environment');
