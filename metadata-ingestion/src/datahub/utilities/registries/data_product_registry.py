@@ -1,10 +1,19 @@
 import logging
+import uuid
 from typing import Dict, List, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import DataProductPropertiesClass
 
 logger = logging.getLogger(__name__)
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
 
 
 class DataProductRegistry:
@@ -17,18 +26,18 @@ class DataProductRegistry:
     ):
         self.data_product_registry: Dict[str, str] = {}
         if cached_data_products:
-            # Isolate identifiers that don't look fully specified (URN or UUID-like id).
+            # Isolate identifiers that don't look fully specified (URN or UUID id).
             needing_resolution = [
                 d
                 for d in cached_data_products
-                if (not d.startswith("urn:li:dataProduct") and d.count("-") != 4)
+                if (not d.startswith("urn:li:dataProduct") and not _is_uuid(d))
             ]
             if needing_resolution and not graph:
                 raise ValueError(
                     f"Following data products need server-side resolution {needing_resolution} "
-                    f"but a DataHub server wasn't provided. Either use fully qualified data "
-                    f"product urns (e.g. urn:li:dataProduct:my_product) or provide a "
-                    f"datahub_api config in your recipe."
+                    f"but a DataHub server wasn't provided. Either use a fully qualified data "
+                    f"product urn (e.g. urn:li:dataProduct:my_product) or a UUID id, or ensure "
+                    f"the CLI is connected to DataHub (e.g. via datahub init)."
                 )
             for identifier in needing_resolution:
                 assert graph

@@ -873,19 +873,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "filter": {"or": filters},
         }
         results: Dict = self._post_generic(self._search_endpoint, search_body)
-        num_entities = results.get("value", {}).get("numEntities", 0)
+        value = results.get("value", {})
+        entities = value.get("entities") or []
+        num_entities = value.get("numEntities", 0)
         if num_entities > 1:
             logger.warning(
                 f"Got {num_entities} results for data product name {data_product_name}. "
                 f"Will return the first match."
             )
-        entities_yielded: int = 0
-        entities = []
-        for x in results["value"]["entities"]:
-            entities_yielded += 1
-            logger.debug(f"yielding {x['entity']}")
-            entities.append(x["entity"])
-        return entities[0] if entities_yielded else None
+        return entities[0]["entity"] if entities else None
 
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
