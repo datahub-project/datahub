@@ -30,6 +30,8 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+_CAPABILITY_TEST_TIMEOUT = 60.0
+
 
 class BigQueryTestConnection:
     @staticmethod
@@ -192,8 +194,11 @@ class BigQueryTestConnection:
         for project_id in project_ids:
             try:
                 logger.info(f"Linked datasets capability test for project {project_id}")
+                # API enablement and IAM are project-scoped and evaluated before location scoping
                 iterator = ah_client.list_subscriptions(
-                    parent=f"projects/{project_id}/locations/us"
+                    parent=f"projects/{project_id}/locations/us",
+                    # The Analytics Hub RPC client applies no default deadline
+                    timeout=_CAPABILITY_TEST_TIMEOUT,
                 )
                 next(iter(iterator), None)
             except PermissionDenied as e:
@@ -218,7 +223,9 @@ class BigQueryTestConnection:
             except Exception as e:
                 return CapabilityReport(
                     capable=False,
-                    failure_reason=f"Linked datasets capability test failed with: {e}",
+                    failure_reason=(
+                        f"Linked datasets capability test failed with: {e}"
+                    ),
                 )
         return CapabilityReport(capable=True)
 

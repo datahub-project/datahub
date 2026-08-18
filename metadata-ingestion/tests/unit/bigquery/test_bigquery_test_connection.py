@@ -8,6 +8,7 @@ from google.rpc.error_details_pb2 import ErrorInfo
 from datahub.ingestion.api.source import CapabilityReport
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
+    _CAPABILITY_TEST_TIMEOUT,
     BigQueryTestConnection,
 )
 
@@ -85,3 +86,15 @@ def test_linked_datasets_capability_non_api_error_is_not_fatal():
     report = _capability_report(client)
     assert report.capable is False
     assert "token refresh failed" in (report.failure_reason or "")
+
+
+def test_linked_datasets_capability_probe_is_bounded_by_a_deadline():
+    # The Analytics Hub client applies no default deadline, so the probe must
+    # pass one or a stalled RPC hangs the connection test.
+    client = MagicMock()
+    client.list_subscriptions.return_value = iter([])
+    _capability_report(client)
+    assert (
+        client.list_subscriptions.call_args.kwargs["timeout"]
+        == _CAPABILITY_TEST_TIMEOUT
+    )
