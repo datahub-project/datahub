@@ -1620,7 +1620,8 @@ featureFlags:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     # Independent of uiEnabled. Falls back to PRE_PROCESS_HOOKS_UI_ENABLED so existing helm MAE
     # templates that only set that env var keep controlling UpdateIndicesHook's UI-event skip.
-    # GMS with an embedded MCL consumer refuses to start if both paths are false (issue 19119).
+    # Any process that consumes MCLs (embedded GMS or standalone MAE) refuses to start if both
+    # paths are false (issue 19119). Set the same PRE_PROCESS_HOOKS_* pair on GMS and MAE.
     reprocessEnabled: ${PRE_PROCESS_HOOKS_REPROCESS_ENABLED:${PRE_PROCESS_HOOKS_UI_ENABLED:false}}
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
   erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
