@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Er du sikker?",
     "unlinkVersion.error": "Kunne ikke oppheve lenke: \n {{errorMessage}}",
     "unlinkVersion.loading": "Opphever lenke...",
-    "unlinkVersion.success": "Lenken til {{entityName}} opphevet!"
+    "unlinkVersion.success": "Lenken til {{entityName}} opphevet!",
+    "dataProductSelect.notFound": "Ingen Data Products funnet",
+    "dataProductSelect.placeholder": "Velg et overordnet Data Product",
+    "moveDataProduct.title": "Flytt Data Product"
 }
