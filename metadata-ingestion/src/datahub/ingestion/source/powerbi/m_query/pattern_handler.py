@@ -2149,13 +2149,26 @@ class OdbcLineage(AbstractLineage):
                 # "HIVE"), not a real schema; emitting it would produce a dangling URN.
                 self.reporter.warning(
                     title="Cannot build two-tier ODBC table name",
-                    message="Two-tier ODBC navigation had no schema level; skipping lineage.",
+                    message=(
+                        "Two-tier ODBC navigation exposed no schema level, and no "
+                        "mapping supplied one; skipping lineage. Supply the schema "
+                        "via 'dsn_to_database_schema: {<dsn>: <schema>}' (Oracle: "
+                        "'<database>.<schema>') in your PowerBI recipe — hierarchical "
+                        "navigation reads dsn_to_database_schema, not the Oracle "
+                        "default_schema knob."
+                    ),
                     context=f"table-name={self.table.full_name}, data-platform={data_platform}, dsn={dsn}, database={database_name}, table={table_name}",
                 )
             else:
                 self.reporter.warning(
                     title="Can not determine qualified table name",
-                    message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
+                    message=(
+                        "ODBC hierarchical navigation did not expose every level of "
+                        "the qualified table name, and no mapping supplied the rest. "
+                        "Skipping lineage. Add the missing level(s) via "
+                        "'dsn_to_database_schema: {<dsn>: <database>[.<schema>]}' "
+                        "in your PowerBI recipe."
+                    ),
                     context=(
                         f"table-name={self.table.full_name}, data-platform={data_platform}, "
                         f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
