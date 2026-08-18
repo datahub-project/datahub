@@ -29,6 +29,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     get_literal_value,
     get_record_field_values,
     resolve_identifier,
+    resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
@@ -92,11 +93,8 @@ def _get_arg_values(
         if val is None and isinstance(inner, dict):
             if inner.get("kind") == "IdentifierExpression":
                 ref_name = inner.get("identifier", {}).get("literal", "")
-                if ref_name.startswith('#"') and ref_name.endswith('"'):
-                    ref_name = ref_name[2:-1]
-                if ref_name in parameters:
-                    val = parameters[ref_name]
-                else:
+                val = resolve_parameter_value(parameters, ref_name)
+                if val is None:
                     logger.debug(
                         "Argument '%s' is an unresolved parameter reference"
                         " — not found in dataset parameters",
@@ -178,11 +176,9 @@ def _get_data_source_tokens(
                 # positional args are Parameter references, not literals.
                 # Skipping them shifts {[Name=...]} into tokens[1], so
                 # create_lineage treats the key "Name" as the server.
-                ref_name = inner.get("identifier", {}).get("literal", "")
-                if ref_name.startswith('#"') and ref_name.endswith('"'):
-                    ref_name = ref_name[2:-1]
-                if parameters and ref_name in parameters:
-                    val = parameters[ref_name]
+                val = resolve_parameter_value(
+                    parameters, inner.get("identifier", {}).get("literal", "")
+                )
             if val is not None:
                 tokens.append(val)
             elif inner.get("kind") == "RecordExpression":
@@ -192,6 +188,23 @@ def _get_data_source_tokens(
                     tokens.append(v)
 
     return tokens
+
+
+# Keys of {[Name=..., Kind=...]} navigation records. If positional server args
+# were skipped, these leak into tokens[1] and must not be treated as a host.
+_NAVIGATION_RECORD_KEYS = frozenset(
+    {"Name", "Kind", "Database", "Catalog", "Schema", "Item", "BillingProject"}
+)
+
+
+def _sql_has_unqualified_snowflake_tables(query: str) -> bool:
+    try:
+        tables = native_sql_parser.get_tables(query)
+    except IndexError:
+        return True
+    if not tables:
+        return False
+    return any(len(name.split(".")) < 3 for name in tables)
 
 
 def get_next_item(items: List[str], item: str) -> Optional[str]:
@@ -1583,7 +1596,10 @@ class NativeQueryLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        if len(data_access_tokens) < 2:
+        if (
+            len(data_access_tokens) < 2
+            or data_access_tokens[1] in _NAVIGATION_RECORD_KEYS
+        ):
             logger.debug(
                 "Server not available in data source tokens for %s",
                 data_access_tokens[0],
@@ -1607,6 +1623,7 @@ class NativeQueryLineage(AbstractLineage):
         if (
             database_name is None
             and self.current_data_platform == SupportedDataPlatform.SNOWFLAKE
+            and _sql_has_unqualified_snowflake_tables(sql_query)
         ):
             self.reporter.warning(
                 title="Unresolved database name in Value.NativeQuery",

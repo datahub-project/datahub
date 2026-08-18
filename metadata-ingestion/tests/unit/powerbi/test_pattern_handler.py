@@ -110,12 +110,22 @@ def _build_native_query_lineage(
     )
 
 
-def _snowflake_native_query_source_node() -> dict:
+def _snowflake_native_query_source_node(
+    name_value: Optional[dict] = None,
+) -> dict:
     """Structurally faithful (tokenRange/position noise stripped) AST fragment
     for ``Snowflake.Databases(SnowflakeURL,SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``.
     ``SnowflakeDBLake`` is an unquoted identifier (a Power Query dataset
-    Parameter reference), not a literal string.
+    Parameter reference), not a literal string, unless ``name_value`` is given.
     """
+    if name_value is None:
+        name_value = {
+            "kind": "IdentifierExpression",
+            "identifier": {
+                "kind": "Identifier",
+                "literal": "SnowflakeDBLake",
+            },
+        }
     return {
         "kind": "RecursivePrimaryExpression",
         "head": {
@@ -168,13 +178,7 @@ def _snowflake_native_query_source_node() -> dict:
                                             "kind": "GeneralizedIdentifier",
                                             "literal": "Name",
                                         },
-                                        "value": {
-                                            "kind": "IdentifierExpression",
-                                            "identifier": {
-                                                "kind": "Identifier",
-                                                "literal": "SnowflakeDBLake",
-                                            },
-                                        },
+                                        "value": name_value,
                                     },
                                 },
                             ],
@@ -1157,6 +1161,77 @@ def test_create_lineage_does_not_warn_when_snowflake_database_name_resolved():
         identifier_accessor=None,
         node_map={},
         parameters=_SNOWFLAKE_NATIVE_QUERY_PARAMETERS,
+    )
+
+    instance.create_lineage(detail)
+
+    warning_titles = [w.title for w in instance.reporter.warnings]
+    assert "Unresolved database name in Value.NativeQuery" not in warning_titles
+
+
+def test_get_data_source_tokens_resolves_parameters_case_insensitively():
+    source_node = _snowflake_native_query_source_node()
+
+    tokens = _get_data_source_tokens(
+        node_map={},
+        arg_node=source_node,
+        parameters={
+            "snowflakeurl": "myserver.snowflakecomputing.com",
+            "snowflakewarehouse": "MYWH",
+            "snowflakedblake": "DATA_LAKE_DEV",
+        },
+    )
+
+    assert tokens[1] == "myserver.snowflakecomputing.com"
+    assert tokens[2] == "MYWH"
+    assert tokens[tokens.index("Name") + 1] == "DATA_LAKE_DEV"
+
+
+def test_create_lineage_skips_when_server_token_is_navigation_record_key():
+    """Unresolved positional args + a literal {[Name=...]} used to put ``Name``
+    in tokens[1], which create_lineage then treated as the Snowflake host."""
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select col_a from my_db.my_schema.my_table",
+            source_node=_snowflake_native_query_source_node(
+                name_value={
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"DATA_LAKE_DEV"',
+                }
+            ),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={},
+    )
+
+    result = instance.create_lineage(detail)
+
+    assert result.upstreams == []
+    assert result.column_lineage == []
+
+
+def test_create_lineage_does_not_warn_when_sql_already_fully_qualified():
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select * from my_db.my_schema.my_table",
+            source_node=_snowflake_native_query_source_node(),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={
+            "SnowflakeURL": "myserver.snowflakecomputing.com",
+            "SnowflakeWarehouse": "MYWH",
+        },
     )
 
     instance.create_lineage(detail)
