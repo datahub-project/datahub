@@ -63,6 +63,13 @@ record SearchFlags {
    customHighlightingFields:optional array[string]
 
   /**
+   * Elasticsearch _source field names to include on each SearchEntity as extraFields.
+   * Names are passed through as-is (nested paths and wildcards allowed). Empty or absent
+   * fetches no extra document fields — only the default urn include.
+   */
+   fetchExtraFields:optional array[string]
+
+  /**
    * invoke query rewrite chain for filters based on configured rewriters
    */
    rewriteQuery: optional boolean = true

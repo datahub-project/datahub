@@ -33,6 +33,10 @@ public class EntityGraphRegistryTest {
     assertNotNull(domain);
     assertEquals(domain.getGraphId(), "domain");
     assertEquals(domain.getSource(), GraphSnapshotSource.SEARCH);
+    assertEquals(
+        registry.getDefinition("domain").getResolvedEdges().get(0).getSearchField(),
+        "parentDomain");
+    assertTrue(registry.getDefinition("domain").getResolvedEdges().get(0).isSearchable());
   }
 
   @Test
