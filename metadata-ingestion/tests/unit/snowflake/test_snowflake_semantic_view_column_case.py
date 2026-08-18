@@ -1186,3 +1186,50 @@ class TestLogicalTableStoredCasing:
             f"lineage onto undeclared fields: {routed - declared}"
         )
         assert len(list(urns)) == 1
+
+    def test_no_lineage_onto_a_dataset_that_declares_no_fields(self) -> None:
+        # A logical table with no columns emits no schemaMetadata at all, so there
+        # is no field for lineage to land on. "Declares nothing" has to be treated
+        # the same as "does not declare this field": a check scoped to datasets that
+        # emitted a schema skips this shape entirely, and the edge survives unseen.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, convert_urns_to_lowercase=False)
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=report, identifiers=gen.identifiers
+        )
+        view = _semantic_view([])
+        view.logical_to_physical_table = {"Orders": ("DB", "SCH", "T")}
+        view.column_occurrences = {}
+        dataset_urn = mapper.identifiers.gen_semantic_model_dataset_urn(
+            view.name, "Orders", "SCH", "DB"
+        )
+        fgls = [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=["urn:li:schemaField:(urn:li:dataset:(x,y,PROD),c)"],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(dataset_urn, "ghost_field")],
+            )
+        ]
+
+        workunits = list(
+            mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=fgls,
+            )
+        )
+
+        routed = {
+            SchemaFieldUrn.from_string(d).field_path
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+            for fg in (wu.metadata.aspect.fineGrainedLineages or [])
+            for d in (fg.downstreams or [])
+        }
+
+        assert routed == set(), (
+            f"lineage emitted onto a dataset that declares no fields: {routed}"
+        )

@@ -671,9 +671,6 @@ def test_the_emitted_graph_has_no_dangling_references(
         referenced = _referenced_urns(workunits)
         emitted = _emitted_entity_urns(workunits)
         declared = _declared_field_urns(workunits)
-        datasets_with_schema = {
-            urn for urn, _ in _aspects(workunits, SchemaMetadataClass)
-        }
 
         # Entity types the mapper owns must exist. Derived from what was emitted so
         # a newly emitted entity type is covered without editing this. Datasets and
@@ -691,13 +688,19 @@ def test_the_emitted_graph_has_no_dangling_references(
             f"dangling entities {sorted(owned - emitted)}"
         )
 
-        # Any field reference into a dataset we emitted a schema for has to name a
-        # field that schema declares.
+        # Any field reference into a dataset we emitted has to name a field one of
+        # our schemas declares. Scoped to emitted datasets rather than to datasets
+        # that emitted a schemaMetadata: a logical table with no columns emits no
+        # schema at all, and scoping to schemas skipped it entirely -- so a lineage
+        # edge onto a field of a schema-less dataset went unchecked.
+        emitted_datasets = {
+            urn for urn in emitted if guess_entity_type(urn) == DatasetUrn.ENTITY_TYPE
+        }
         into_ours = {
             urn
             for urn in referenced
             if guess_entity_type(urn) == SchemaFieldUrn.ENTITY_TYPE
-            and SchemaFieldUrn.from_string(urn).parent in datasets_with_schema
+            and SchemaFieldUrn.from_string(urn).parent in emitted_datasets
         }
         assert into_ours <= declared, (
             f"preserve={preserve} convert={convert}: {logical_tables} -> "
