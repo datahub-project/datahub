@@ -1615,6 +1615,7 @@ ATHENA_PLATFORM: str = (
     SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
 )
 ORACLE_PLATFORM: str = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
+HIVE_PLATFORM: str = SupportedDataPlatform.HIVE.value.datahub_data_platform_name
 
 # Platforms that backfill a missing schema tier from dsn_to_database_schema:
 # three-tier platforms need the middle tier, and Athena needs its real database
@@ -2011,8 +2012,11 @@ class OdbcLineage(AbstractLineage):
 
         URN shapes mirror each platform's standalone connector:
           - two-tier (Oracle/Hive): schema.table; any Kind=Database pseudo-catalog is
-            dropped, and a single-segment DSN value is treated as the schema. Oracle
-            additionally emits database.schema.table when the user opts in via
+            dropped. A single-segment dsn_to_database_schema value is a database:
+            for Hive (no separate schema tier) it doubles as the schema, but for
+            Oracle (real schemas) it is not promoted into the schema slot, so an
+            Oracle nav with no schema warns and skips. Oracle additionally emits
+            database.schema.table when the user opts in via
             server_to_platform_instance `default_database` (oracle_default_database),
             mirroring standalone Oracle's add_database_name_to_urn=true; within that
             opt-in the navigation-supplied database wins and default_database is only
@@ -2028,13 +2032,19 @@ class OdbcLineage(AbstractLineage):
           - everything else (MySQL/Teradata/ClickHouse/...): database.table; the
             schema tier is never spliced in (neither backfilled from config nor
             taken from a navigation Schema node) to avoid emitting a spurious
-            three-part URN that cannot match their two-part entities.
+            three-part URN that cannot match their two-part entities. If
+            navigation did supply a Schema node it is dropped, but a warning is
+            reported so the drop is never silent.
         """
         if table_name is None:
             return None
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS:
-            schema = schema_name or config_schema or config_database
+            schema = schema_name or config_schema
+            # Hive has no separate schema tier, so a bare (one-part)
+            # dsn_to_database_schema value — a database — doubles as the schema.
+            if schema is None and data_platform == HIVE_PLATFORM:
+                schema = config_database
             if schema is None:
                 return None
             if oracle_default_database is not None:
@@ -2071,6 +2081,18 @@ class OdbcLineage(AbstractLineage):
                 return None
             return f"{athena_database}.{table_name}"
         if database is not None:
+            if schema_name is not None:
+                self.reporter.warning(
+                    title="Dropped ODBC navigation schema level",
+                    message="ODBC navigation supplied a schema level that this "
+                    "platform's database.table URN shape does not use; emitting "
+                    "database.table without it.",
+                    context=(
+                        f"table-name={self.table.full_name}, "
+                        f"data-platform={data_platform}, database={database}, "
+                        f"schema={schema_name}, table={table_name}"
+                    ),
+                )
             return f"{database}.{table_name}"
         return None
 
@@ -2117,9 +2139,9 @@ class OdbcLineage(AbstractLineage):
 
         qualified_table_name = self._qualify_odbc_navigation_table(
             data_platform=data_platform,
-            database_name=database_name,
-            schema_name=schema_name,
-            table_name=table_name,
+            database_name=database_name or None,
+            schema_name=schema_name or None,
+            table_name=table_name or None,
             config_database=config_database,
             config_schema=config_schema,
             oracle_default_database=oracle_default_database,

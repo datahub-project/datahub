@@ -832,6 +832,34 @@ def test_odbc_two_tier_platform_database_node_backfills_schema_from_dsn():
     ]
 
 
+def test_odbc_hive_one_part_dsn_value_doubles_as_schema():
+    """Hive has no separate schema tier, so a one-part dsn_to_database_schema
+    value (a database) doubles as the schema. Table-only navigation must build
+    schema.table from it — matching HiveSource's two-part URNs."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"hive_dsn": "product_analytics"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn="hive_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    ]
+
+
 def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():
     """Regression for incomplete three-tier guard: Snowflake (and peers) need
     database.schema.table. Table-only navigation + a one-part dsn mapping fills
@@ -977,6 +1005,40 @@ def test_odbc_two_part_teradata_allows_database_table_fallback():
     ]
 
 
+def test_odbc_two_part_full_nav_drops_schema_and_warns():
+    """A two-part platform whose navigation exposes Database + Schema + Table
+    must emit database.table (schema dropped, matching its two-part entities).
+    Pre-PR this shape emitted database.schema.table; keep the corrected two-part
+    URN but surface a warning so the dropped nav Schema is never silent."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "finance"),
+            ("Schema", "reporting"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Teradata",
+        datahub_data_platform_name="teradata",
+    )
+
+    result = instance.expression_lineage(
+        detail, "teradata", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,finance.accounts,PROD)"
+    ]
+    assert any(
+        (w.title or "") == "Dropped ODBC navigation schema level"
+        for w in instance.reporter.warnings
+    )
+
+
 def test_odbc_oracle_schema_table_emits_two_part_urn():
     """Oracle ODBC commonly exposes Schema+Table with no Database. Match
     OracleLineage / default Oracle connector: schema.table, not skip."""
@@ -1031,6 +1093,39 @@ def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():
         "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
     ]
     assert "orcl" not in result.upstreams[0].urn
+
+
+def test_odbc_oracle_one_part_dsn_value_is_not_promoted_to_schema():
+    """Unlike Hive, a one-part dsn_to_database_schema value (a database) must NOT
+    be used as the Oracle schema — Oracle has real schemas and a dedicated
+    database-tier knob (default_database). With no navigation schema, Oracle must
+    warn and skip rather than emit database-as-schema. Any Kind=Database node is
+    likewise not a schema and is dropped."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"oracle_dsn": "ORCL"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCLPDB"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn="oracle_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Cannot build two-tier ODBC table name"
+        for w in instance.reporter.warnings
+    )
 
 
 def test_odbc_oracle_nav_database_dropped_for_two_part_urn():
