@@ -164,13 +164,12 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
 ];
 
 // Permanent exemptions: tests/stories, generated GraphQL, and alchemy wrappers
-// that still wrap antd. Everything else under src/** is enforced; leftover app
-// files that already imported antd are listed in antd-import-leftovers.js
+// that still wrap antd. Existing app files that already imported antd on the
+// PR base are grandfathered by the rule's git baseline.
 const ANTD_IMPORT_RULE_EXCLUDED_FILES = [
     '**/*.{test,stories}.*',
     'src/graphql/**',
     'src/alchemy-components/**',
-    ...require('./eslint-rules/antd-import-leftovers'),
 ];
 
 // Files that legitimately need raw color values, or where migration is deferred.
@@ -344,7 +343,7 @@ module.exports = {
             excludedFiles: COLOR_RULE_EXCLUDED_FILES,
             rules: COLOR_ENFORCEMENT_RULES,
         },
-        // antd → alchemy. New files error.
+        // antd → alchemy. New files and first-time antd imports error.
         {
             files: ['src/**/*.ts', 'src/**/*.tsx'],
             excludedFiles: ANTD_IMPORT_RULE_EXCLUDED_FILES,

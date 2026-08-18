@@ -291,7 +291,7 @@ const theme = useTheme();
 
 ### Frontend Components
 
-Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code.
+Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code. Files that already imported antd on the PR base (`origin/master`) are grandfathered.
 
 ### Code Comments
 
