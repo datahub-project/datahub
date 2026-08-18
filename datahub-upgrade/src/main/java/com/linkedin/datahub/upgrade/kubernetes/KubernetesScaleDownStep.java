@@ -373,11 +373,51 @@ public class KubernetesScaleDownStep implements UpgradeStep {
     }
     try {
       List<DeploymentEnvUpdate> list = objectMapper.readValue(json, LIST_DEPLOYMENT_ENV_UPDATE);
-      return list != null ? list : Collections.emptyList();
+      if (list == null) {
+        return Collections.emptyList();
+      }
+      validatePreprocessEnvUpdates(list);
+      return list;
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       throw new IllegalStateException(
           "systemUpdate.kubernetesScaleDown.deploymentEnvUpdates must be a JSON array of { labelSelector, env }",
           e);
     }
+  }
+
+  /**
+   * Scale-down must not create issue 19119: GMS consuming MCLs with both UI index paths off. The
+   * default patch sets {@code PRE_PROCESS_HOOKS_UI_ENABLED=false} together with {@code
+   * MAE_CONSUMER_ENABLED=false} in one Deployment edit. Reject a custom map that flips preprocess
+   * off without disabling the MCL consumer.
+   */
+  static void validatePreprocessEnvUpdates(List<DeploymentEnvUpdate> updates) {
+    if (updates == null) {
+      return;
+    }
+    for (DeploymentEnvUpdate update : updates) {
+      if (update.getEnv() == null) {
+        continue;
+      }
+      if (!isEnvFalse(update.getEnv().get("PRE_PROCESS_HOOKS_UI_ENABLED"))) {
+        continue;
+      }
+      if (isEnvFalse(update.getEnv().get("MAE_CONSUMER_ENABLED"))
+          || isEnvFalse(update.getEnv().get("MCL_CONSUMER_ENABLED"))) {
+        continue;
+      }
+      throw new IllegalStateException(
+          "systemUpdate.kubernetesScaleDown.deploymentEnvUpdates sets "
+              + "PRE_PROCESS_HOOKS_UI_ENABLED=false without MAE_CONSUMER_ENABLED=false (or "
+              + "MCL_CONSUMER_ENABLED=false). That would restart GMS still consuming MCLs with "
+              + "both UI index paths off (issue 19119). Pair the preprocess disable with consumer "
+              + "disable, matching the default config.");
+    }
+  }
+
+  private static boolean isEnvFalse(@Nullable String value) {
+    return value != null && "false".equalsIgnoreCase(value.trim());
   }
 }

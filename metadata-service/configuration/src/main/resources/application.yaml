@@ -1566,8 +1566,10 @@ systemUpdate:
     # JSON array: [{"labelSelector":"...","env":{"KEY":"value",...}}]. Deployments matched by each
     # label selector get env set when scaling down; state stores previous env per deployment for restore.
     # Override via DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES (e.g. from Helm).
-    # PRE_PROCESS_HOOKS_UI_ENABLED=false must stay paired with MAE_CONSUMER_ENABLED=false: GMS with
-    # an embedded MCL consumer will refuse to start if both UI indexing paths are off (issue 19119).
+    # PRE_PROCESS_HOOKS_UI_ENABLED=false must stay paired with MAE_CONSUMER_ENABLED=false in this
+    # same JSON object (one Deployment patch). That keeps GMS from consuming MCLs while preprocess
+    # is off, so scale-down cannot recreate issue 19119. KubernetesScaleDownStep rejects a custom
+    # map that flips preprocess off without disabling the MCL consumer.
     deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
     kedaGroup: ${DATAHUB_UPGRADE_K8_KEDA_GROUP:keda.sh}
     kedaVersion: ${DATAHUB_UPGRADE_K8_KEDA_VERSION:v1alpha1}
