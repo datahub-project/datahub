@@ -71,7 +71,7 @@ class CatalogSlice:
             return False
         if dataset.env != self.env:
             return False
-        if self.platform_instance is None:
+        if not self.platform_instance:
             # No instance filter on the scroll means every instance was loaded — not
             # that only instance-less datasets were.
             return True

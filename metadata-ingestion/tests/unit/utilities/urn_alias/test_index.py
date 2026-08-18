@@ -107,6 +107,15 @@ def test_no_configured_instance_means_every_instance_was_loaded() -> None:
     assert _SNOWFLAKE_PROD.covers(lowercased_urn(_INSTANCED) or "")
 
 
+def test_an_empty_instance_covers_the_same_urns_as_no_instance() -> None:
+    # `""` puts no instance filter on the scroll either — the filter it builds tests
+    # truthiness — so that load fetched the whole platform, instanced datasets included.
+    slice_ = CatalogSlice(platform="snowflake", platform_instance="", env="PROD")
+
+    assert slice_.covers(lowercased_urn(_LOWER) or "")
+    assert slice_.covers(lowercased_urn(_INSTANCED) or "")
+
+
 def test_a_configured_instance_covers_only_its_own_name_prefix() -> None:
     slice_ = CatalogSlice(platform="snowflake", platform_instance="PROD_WH", env="PROD")
 

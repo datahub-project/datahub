@@ -81,24 +81,12 @@ class UrnAliasResolver:
         self.prefetch([urn])
         return self._lookup.matches(urn)
 
-    def resolve(
-        self,
-        urn: str,
-        prefer_lowercased: bool = False,
-        within: Optional[Collection[CatalogSlice]] = None,
-    ) -> Optional[str]:
+    def resolve(self, urn: str, prefer_lowercased: bool = False) -> Optional[str]:
         """The dataset URN DataHub stores for `urn`, or None without a single match.
 
         `prefer_lowercased` settles a collision between casings on the lowercase-named URN.
-
-        `within` restricts the answer to entities inside the given slices. The index is
-        shared, so without it a match can come from a slice the caller never loaded — fine
-        for identity alone, but a caller that also needs the entity's columns would find
-        them nowhere. Passing the slices it loaded keeps the two together.
         """
         matches = self.find_match(urn)
-        if within is not None:
-            matches = [match for match in matches if covered_by(match, within)]
         if len(matches) == 1:
             return matches[0]
         if urn in matches:

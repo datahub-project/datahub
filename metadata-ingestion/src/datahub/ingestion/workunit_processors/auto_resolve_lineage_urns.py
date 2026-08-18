@@ -88,7 +88,9 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
 
     num_dataset_urns_normalized: int = 0  # Upstream dataset URNs rewritten
     num_column_urns_normalized: int = 0  # Fine-grained field URNs rewritten
-    num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
+    num_refs_verified_exact: int = 0  # Checked; the exact URN exists in DataHub
+    num_refs_out_of_scope: int = 0  # Never attempted (platform or slice not in scope)
+    num_refs_skipped_malformed: int = 0  # Not a well-formed dataset / schemaField URN
     num_refs_unresolved: int = 0  # In scope, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
     # Per-URN schema fetch failed; table casing still healed, column casing left alone.
@@ -536,19 +538,18 @@ class AutoResolveLineageUrnsProcessor(
         resolvers = self._resolvers_by_platform.get(platform) or []
         if not resolvers and not self._resolve_all_platforms:
             # Out of scope: left untouched, and unstamped (no verdict == not processed).
+            self.report.num_refs_out_of_scope += 1
             return _Resolution(urn, None, None)
 
+        # The index is shared per DataHub instance, so a match can come from a slice some
+        # other consumer loaded. Outside our own, nothing was looked up: no verdict, not
+        # UNRESOLVED.
+        if not self._resolve_all_platforms and not covered_by(urn, self._loaded_slices):
+            self.report.num_refs_out_of_scope += 1
+            return _Resolution(urn, None, None)
         # prefer_lowercased: when two stored casings of the same name collide, heal to
         # the lowercase-named entity rather than leaving the lineage broken.
-        # within: the index is shared per DataHub instance, so it can hold entities some
-        # other consumer loaded — a platform_instance or env this run was not configured
-        # for. Confining the answer to the slices we loaded keeps the reference inside
-        # what the operator asked for, and keeps identity paired with the columns we hold:
-        # anything we resolve to, we loaded, so _schema_of finds its schema whenever it
-        # has one. Widened, there is nothing to confine it to and columns come from the
-        # graph.
-        within = None if self._resolve_all_platforms else self._loaded_slices
-        resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True, within=within)
+        resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True)
         if resolved is None:
             # In scope but no single existing entity matched: leave the URN unchanged
             # but flag it UNRESOLVED so potentially broken lineage is visible rather
@@ -619,8 +620,8 @@ class AutoResolveLineageUrnsProcessor(
             return True
         if res.match_type == _UNRESOLVED:
             self.report.num_refs_unresolved += 1
-        else:
-            self.report.num_refs_unchanged += 1
+        elif res.match_type == _EXACT:
+            self.report.num_refs_verified_exact += 1
         return False
 
     def _normalize_upstream_lineage(self, aspect: UpstreamLineageClass) -> bool:
@@ -628,6 +629,7 @@ class AutoResolveLineageUrnsProcessor(
         for upstream in aspect.upstreams:
             dataset = getattr(upstream, "dataset", None)
             if not _is_dataset_urn(dataset):
+                self.report.num_refs_skipped_malformed += 1
                 continue
             res = self._resolve_dataset(dataset)
             # Stamp the verdict (EXACT / NORMALIZED / UNRESOLVED) for any reference on
@@ -686,8 +688,9 @@ class AutoResolveLineageUrnsProcessor(
     def _resolve_field_urn(self, field_urn: str) -> Tuple[str, Optional[MatchType]]:
         parent = _parent_dataset_urn(field_urn)
         field_path = _field_path(field_urn)
-        if parent is None or field_path is None:
-            self.report.num_refs_unchanged += 1
+        if parent is None or field_path is None or not _is_dataset_urn(parent):
+            # A schemaField's parent is not necessarily a dataset.
+            self.report.num_refs_skipped_malformed += 1
             return field_urn, None
 
         # Column-level: we need the parent's schema to correct the column casing.
@@ -699,8 +702,8 @@ class AutoResolveLineageUrnsProcessor(
         if res.urn == parent and new_field_path == field_path:
             if res.match_type == _UNRESOLVED:
                 self.report.num_refs_unresolved += 1
-            else:
-                self.report.num_refs_unchanged += 1
+            elif res.match_type == _EXACT:
+                self.report.num_refs_verified_exact += 1
             return field_urn, res.match_type
         # A field (schemaField) URN is a single column-level reference, so any rewrite
         # is counted under the column bucket — whether the parent dataset casing, the
@@ -758,6 +761,7 @@ class AutoResolveLineageUrnsProcessor(
             # _normalize_upstream_lineage and _heal_dataset_edges): leave them untouched
             # without attempting resolution.
             if not _is_dataset_urn(dataset):
+                self.report.num_refs_skipped_malformed += 1
                 healed.append(dataset)
                 continue
             res = self._resolve_dataset(dataset)
@@ -774,6 +778,7 @@ class AutoResolveLineageUrnsProcessor(
         for edge in edges:
             destination = getattr(edge, "destinationUrn", None)
             if not _is_dataset_urn(destination):
+                self.report.num_refs_skipped_malformed += 1
                 continue
             res = self._resolve_dataset(destination)
             if self._tally_table_ref(res):
