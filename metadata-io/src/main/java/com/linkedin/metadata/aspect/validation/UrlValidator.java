@@ -51,12 +51,16 @@ public class UrlValidator extends AspectPayloadValidator {
   private Set<String> allowedSchemes = Set.of("https");
 
   /**
-   * Schemes permitted for the embed {@code renderUrl}, which is rendered inside an iframe. HTTP and
-   * HTTPS only, so script-executing pseudo-schemes (javascript:, data:, vbscript:, ...) are
-   * rejected to prevent stored XSS. Unlike {@link #validateUrl}, this deliberately allows plain
-   * HTTP and internal/private hosts: embeds legitimately point at self-hosted or internal BI tools.
+   * Schemes permitted for the embed {@code renderUrl}. Mirrors the frontend allowlist ({@code
+   * SAFE_URL_SCHEMES} in {@code datahub-web-react/src/app/shared/urlUtils.ts}) so the write-time
+   * check and the render-time {@code safeUrl} guard agree on what is renderable — keeping them in
+   * sync avoids values that one layer accepts and the other blocks. The security property is that
+   * script-executing pseudo-schemes (javascript:, data:, vbscript:, ...) are rejected to prevent
+   * stored XSS; the inert ftp:/mailto: schemes are allowed only to match the frontend. Unlike
+   * {@link #validateUrl}, this deliberately allows plain HTTP and internal/private hosts: embeds
+   * legitimately point at self-hosted or internal BI tools.
    */
-  private static final Set<String> EMBED_ALLOWED_SCHEMES = Set.of("http", "https");
+  private static final Set<String> EMBED_ALLOWED_SCHEMES = Set.of("http", "https", "ftp", "mailto");
 
   /**
    * Sets whether HTTP URLs are allowed in addition to HTTPS. Keeps {@link #allowedSchemes} in sync
@@ -179,9 +183,9 @@ public class UrlValidator extends AspectPayloadValidator {
   /**
    * Scheme-only validation for the embed {@code renderUrl}. Rejects script-executing pseudo-schemes
    * (javascript:, data:, vbscript:, ...) that would cause stored XSS when the value is rendered as
-   * an iframe {@code src}, while permitting HTTP/HTTPS to any host (including internal ones) so
-   * that legitimate self-hosted BI embeds keep working. Blank values (clearing the embed) are
-   * allowed.
+   * an iframe {@code src}, while permitting the {@link #EMBED_ALLOWED_SCHEMES} to any host
+   * (including internal ones) so that legitimate self-hosted BI embeds keep working. Blank values
+   * (clearing the embed) are allowed.
    */
   private void validateEmbedRenderUrl(
       BatchItem item, String rawUrl, String fieldName, ValidationExceptionCollection exceptions) {
@@ -201,7 +205,8 @@ public class UrlValidator extends AspectPayloadValidator {
           AspectValidationException.forItem(
               item,
               String.format(
-                  "URL scheme '%s' is not allowed for '%s'. Only HTTP or HTTPS URLs are accepted.",
+                  "URL scheme '%s' is not allowed for '%s'. Only HTTP, HTTPS, FTP, or mailto URLs"
+                      + " are accepted.",
                   scheme, fieldName)));
     }
   }

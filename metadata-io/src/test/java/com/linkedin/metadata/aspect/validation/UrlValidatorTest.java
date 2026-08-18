@@ -465,6 +465,22 @@ public class UrlValidatorTest {
   }
 
   @Test
+  public void testEmbedFtpAndMailtoAccepted() {
+    // The embed allowlist mirrors the frontend safeUrl allowlist (http/https/ftp/mailto) so the
+    // write-time check and the render-time guard agree. ftp:/mailto: are inert (not XSS vectors).
+    assertEquals(validateEmbedRenderUrl("ftp://files.example.com/report"), 0, "ftp: is allowed");
+    assertEquals(validateEmbedRenderUrl("mailto:team@example.com"), 0, "mailto: is allowed");
+  }
+
+  @Test
+  public void testEmbedDataSchemeRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("data:text/html,<script>alert(1)</script>"),
+        1,
+        "data: renderUrl should be rejected (stored XSS guard)");
+  }
+
+  @Test
   public void testEmbedRenderUrlValidatedForChartAndDashboard() {
     // The validator is registered for chart and dashboard embeds too, not just dataset.
     assertEquals(
