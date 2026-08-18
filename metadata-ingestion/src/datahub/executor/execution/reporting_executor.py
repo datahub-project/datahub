@@ -315,7 +315,12 @@ class ReportingExecutor(DefaultExecutor):
             else None,
         }
 
-        # Only add executorInstanceId if it's not None
+        # executorInstanceId is deliberately absent from the aspect in this repo, so
+        # this key must only be added when something actually set the config field --
+        # the generated aspect classes take explicit keyword arguments and reject an
+        # unknown one. Nothing here sets it, and a deployment that does also supplies
+        # its own models package (see datahub.utilities._custom_package_loader), which
+        # replaces these classes with ones that declare the field.
         if self._config.executor_instance_id is not None:
             result_args["executorInstanceId"] = self._config.executor_instance_id
 

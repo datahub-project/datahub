@@ -17,16 +17,6 @@ record ExecutionRequestResult {
   status: string
 
   /**
-  * Identity of the executor instance handling the request
-  */
-  @Searchable = {
-    "fieldType": "KEYWORD",
-    "fieldName": "executorInstanceId",
-    "queryByDefault": false
-  }
-  executorInstanceId: optional string
-
-  /**
   * The pretty-printed execution report.
   */
   report: optional string
