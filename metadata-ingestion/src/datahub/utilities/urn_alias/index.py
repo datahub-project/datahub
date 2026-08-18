@@ -138,6 +138,27 @@ class UrnAliasIndex:
 # that goes away takes its index with it.
 _INDEXES: "MutableMapping[DataHubGraph, UrnAliasIndex]" = weakref.WeakKeyDictionary()
 
+# The servers some consumer asked for an index against. Empty unless requested: filling
+# costs a sqlite round trip and a few hundred bytes per dataset, and most bulk loads want
+# schemas for SQL parsing and never read the index. Keyed like the index itself, and like
+# the first element of provide_schema_resolver's cache key.
+_INDEX_REQUESTED: "MutableMapping[DataHubGraph, bool]" = weakref.WeakKeyDictionary()
+
+
+def request_urn_alias_index(graph: "DataHubGraph") -> None:
+    """Ask that loads against `graph` fill its index.
+
+    Must precede the first bulk load: a load already cached is never repeated, so a
+    request made after one leaves its slice empty. PipelineContext calls this before any
+    source exists; a caller without one calls it itself.
+    """
+    _INDEX_REQUESTED[graph] = True
+
+
+def urn_alias_index_requested(graph: "DataHubGraph") -> bool:
+    """Whether any consumer asked for `graph`'s index."""
+    return bool(_INDEX_REQUESTED.get(graph))
+
 
 def shared_index(graph: "DataHubGraph") -> UrnAliasIndex:
     """The one index for `graph`, created on first use. Reach it through a resolver.

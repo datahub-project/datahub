@@ -8,7 +8,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urn_alias.index import CatalogSlice
+from datahub.utilities.urn_alias.index import CatalogSlice, urn_alias_index_requested
 from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 
 if TYPE_CHECKING:
@@ -97,9 +97,14 @@ class SchemaResolverProvider:
         scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
         # Every scrolled URN goes into the index shared per DataHub instance, whether or
-        # not this caller reads it: the scroll is already paid for, and the next consumer
-        # of the same catalog gets its answers for free.
-        urn_aliases = get_urn_alias_resolver(self._graph)
+        # not *this* caller reads it: the scroll is already paid for, and the next consumer
+        # of the same catalog gets its answers for free. Only once something in the run has
+        # declared it resolves URN casing, though — see request_urn_alias_index.
+        urn_aliases = (
+            get_urn_alias_resolver(self._graph)
+            if urn_alias_index_requested(self._graph)
+            else None
+        )
         num_urns = 0
         num_schemas = 0
         with PerfTimer() as timer:
@@ -111,7 +116,8 @@ class SchemaResolverProvider:
                     extraFilters=extra_filters,
                     batch_size=self._batch_size,
                 ):
-                    urn_aliases.add(urn)
+                    if urn_aliases is not None:
+                        urn_aliases.add(urn)
                     num_urns += 1
                     if schema_info is not None:
                         try:
@@ -146,7 +152,7 @@ class SchemaResolverProvider:
         # on the lowercased key a lookup uses: the prefix `DB.` does not load `db.tbl`,
         # yet both lowercase to `db.`, and coverage would claim an absence the scroll
         # never established.
-        if name_starts_with is None:
+        if name_starts_with is None and urn_aliases is not None:
             urn_aliases.record_slice_loaded(
                 CatalogSlice(
                     platform=platform, platform_instance=platform_instance, env=env

@@ -13,6 +13,7 @@ from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
     provide_schema_resolver,
 )
+from datahub.utilities.urn_alias.index import request_urn_alias_index, shared_index
 from datahub.utilities.urn_alias.resolver import (
     get_urn_alias_resolver,
 )
@@ -199,7 +200,10 @@ def _would_ask_about(graph: DataHubGraph, urn: str) -> bool:
     return search.called
 
 
-def _load(graph: DataHubGraph) -> SchemaResolver:
+def _load(graph: DataHubGraph, request_index: bool = True) -> SchemaResolver:
+    """Bulk-load a slice, declaring URN casing resolution first as a pipeline would."""
+    if request_index:
+        request_urn_alias_index(graph)
     with patch.object(
         graph,
         "_bulk_fetch_schema_info_by_filter",
@@ -208,6 +212,22 @@ def _load(graph: DataHubGraph) -> SchemaResolver:
         return SchemaResolverProvider(graph=graph).get(
             platform="bigquery", platform_instance=None, env="PROD"
         )
+
+
+@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
+def test_a_load_nobody_asked_about_builds_no_index(mock_test_connection):
+    # Most bulk loads want schemas for SQL parsing and never resolve casing, so they must
+    # not pay for the index.
+    mock_test_connection.return_value = {}
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    resolver = _load(graph, request_index=False)
+
+    index = shared_index(graph)
+    assert len(index._urns_by_key) == 0
+    assert index.loaded_slices == []
+    # The schemas the caller actually asked for are unaffected.
+    assert resolver.schema_count() == 1
 
 
 @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
@@ -241,6 +261,7 @@ def test_a_completed_scroll_makes_a_miss_inside_it_an_answer(mock_test_connectio
 def test_a_scroll_narrowed_by_a_name_prefix_claims_no_coverage(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+    request_urn_alias_index(graph)
 
     with patch.object(
         graph,
@@ -266,6 +287,7 @@ def test_a_scroll_narrowed_by_a_name_prefix_claims_no_coverage(mock_test_connect
 def test_a_scroll_that_fails_part_way_claims_no_coverage(mock_test_connection):
     mock_test_connection.return_value = {}
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+    request_urn_alias_index(graph)
 
     def _fails_after_one():
         yield (_FAKE_URN, _FAKE_SCHEMA)
