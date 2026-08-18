@@ -25,7 +25,7 @@ def test_agent_shim_command_behavior():
             ModuleNotFoundError(
                 "No module named 'acryl_datahub_cloud'", name="acryl_datahub_cloud"
             ),
-            "pip install 'acryl-datahub-cloud[datahub-evals]'",
+            "pip install 'acryl-datahub[datahub-evals]'",
         ),
         (
             ModuleNotFoundError("No module named 'graphql'", name="graphql"),
@@ -72,7 +72,7 @@ def _assert_optional_command_shows_error_or_help(
 def test_registered_evals_command_shows_helpful_error_or_help():
     """Test that the registered evals command is usable or explains its dependency."""
     _assert_optional_command_shows_error_or_help(
-        "evals", "pip install 'acryl-datahub-cloud[datahub-evals]'", []
+        "evals", "pip install 'acryl-datahub[datahub-evals]'", []
     )
 
 
@@ -108,7 +108,7 @@ def test_optional_commands_exist(command_name):
     [
         ("agent", "pip install datahub-agent-context"),
         ("actions", "pip install acryl-datahub-actions"),
-        ("evals", "pip install 'acryl-datahub-cloud[datahub-evals]'"),
+        ("evals", "pip install 'acryl-datahub[datahub-evals]'"),
         ("lite", "pip install 'acryl-datahub[datahub-lite]'"),
     ],
 )
