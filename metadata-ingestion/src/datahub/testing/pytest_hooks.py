@@ -74,7 +74,8 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     config.addinivalue_line(
         "markers",
-        "timezone(tz): run this test with TZ set to the given zone, e.g. 'XXX-5:30'",
+        "timezone(zone): run this test with TZ set to the given zone, "
+        "e.g. @pytest.mark.timezone('XXX-5:30')",
     )
     if hasattr(time, "tzset"):
         os.environ["TZ"] = "UTC"
