@@ -198,6 +198,45 @@ public class EntityGraphCacheConfigLoaderTest {
   }
 
   @Test
+  public void testJsonOverlayDomainBuildSourceGraphKeepsBindings() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"domain\":{\"buildSource\":\"graph\"}}}",
+        effective,
+        EntityGraphCacheConfigLoader.ENTITY_GRAPH_CACHE_CONFIG_JSON_ENV);
+
+    loader.validate(effective);
+    assertEquals(effective.getGraphs().get("domain").getBuildSource(), "graph");
+    assertEquals(effective.getGraphs().get("domain").isEnabled(), true);
+    assertEquals(
+        effective.getGraphs().get("domain").getBindings().getPolicyFieldTypes(), List.of("DOMAIN"));
+    assertEquals(
+        effective.getGraphs().get("domain").getBindings().getFilterFields(),
+        List.of("domains.keyword"));
+  }
+
+  @Test
+  public void testJsonOverlayDomainBuildSourcePrimaryRejected() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"domain\":{\"buildSource\":\"primary\"}}}", effective, "test");
+
+    IllegalStateException ex =
+        org.testng.Assert.expectThrows(
+            IllegalStateException.class, () -> loader.validate(effective));
+    assertTrue(ex.getMessage().contains("FULL scope requires buildSource graph or search"));
+  }
+
+  @Test
+  public void testJsonOverlayDomainDisabledValidates() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    loader.applyJsonOverlay("{\"graphs\":{\"domain\":{\"enabled\":false}}}", effective, "test");
+
+    loader.validate(effective);
+    assertEquals(effective.getGraphs().get("domain").isEnabled(), false);
+  }
+
+  @Test
   public void testValidationSkippedWhenCacheDisabled() {
     EntityGraphCacheProperties config = new EntityGraphCacheProperties();
     config.setEnabled(false);
