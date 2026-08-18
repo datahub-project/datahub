@@ -130,6 +130,70 @@ public class LineageApiImplTest {
   }
 
   @Test
+  public void testCustomAndTrinoProducerPayloadsAreAccepted() {
+    ResponseEntity<Void> customProducerResponse =
+        post(
+            validRunEventJson()
+                .replace(
+                    "https://example.com/my-pipeline-tool",
+                    "https://github.com/myorganization/myproducer/blob/v1-0-0/client"));
+    ResponseEntity<Void> trinoProducerResponse =
+        post(
+            validRunEventJson()
+                .replace(
+                    "https://example.com/my-pipeline-tool",
+                    "https://github.com/trinodb/trino/plugin/trino-openlineage"));
+
+    assertEquals(customProducerResponse.getStatusCode(), HttpStatus.ACCEPTED);
+    assertEquals(trinoProducerResponse.getStatusCode(), HttpStatus.ACCEPTED);
+    verify(entityService, times(2)).ingestProposal(any(), any(AspectsBatch.class), eq(true));
+  }
+
+  @Test
+  public void testJobEventWithDatasetsEmitsInputOutputWithoutProcessInstance() {
+    ResponseEntity<Void> response =
+        post(
+            validJobEventJson()
+                .replace(
+                    "\"inputs\":[],\"outputs\":[]",
+                    "\"inputs\":[{\"namespace\":\"postgres://warehouse\",\"name\":\"crm.customer\"}],"
+                        + "\"outputs\":[{\"namespace\":\"snowflake://analytics\",\"name\":\"crm.customer\"}]"));
+
+    assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
+    List<MetadataChangeProposal> proposals = ingestedProposals();
+    String inputOutput = aspectJson(proposals, "dataJobInputOutput");
+    assertTrue(inputOutput.contains("postgres"));
+    assertTrue(inputOutput.contains("snowflake"));
+    assertFalse(
+        proposals.stream()
+            .anyMatch(proposal -> "dataProcessInstance".equals(proposal.getEntityType())));
+  }
+
+  @Test
+  public void testJobTagsAndOwnershipAreEmittedByTheRestEndpoint() {
+    ResponseEntity<Void> response =
+        post(
+            validRunEventJson()
+                .replace(
+                    "\"job\":{\"namespace\":\"crm\",\"name\":\"load.customer\"}",
+                    "\"job\":{\"namespace\":\"crm\",\"name\":\"load.customer\",\"facets\":{"
+                        + "\"ownership\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client\","
+                        + "\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/OwnershipJobFacet.json\","
+                        + "\"owners\":[{\"name\":\"jdoe\",\"type\":\"DEVELOPER\"}]},"
+                        + "\"tags\":{\"_producer\":\"https://github.com/OpenLineage/OpenLineage/tree/1.27.0/client/python\","
+                        + "\"_schemaURL\":\"https://openlineage.io/spec/facets/1-0-0/TagsJobFacet.json#/$defs/TagsJobFacet\","
+                        + "\"tags\":[{\"key\":\"environment\",\"value\":\"production\",\"source\":\"CONFIG\"}]}}}"));
+
+    assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
+    List<MetadataChangeProposal> proposals = ingestedProposals();
+    assertTrue(hasAspectForEntity(proposals, "dataJob", "ownership"));
+    assertTrue(aspectJson(proposals, "ownership").contains("jdoe"));
+    assertTrue(hasAspectForEntity(proposals, "dataJob", "globalTags"));
+    assertTrue(aspectJson(proposals, "globalTags").contains("environment"));
+    assertFalse(hasAspectForEntity(proposals, "dataFlow", "ownership"));
+  }
+
+  @Test
   public void testProducerUriCredentialsAreNotLogged() {
     Logger logger = (Logger) LoggerFactory.getLogger(LineageApiImpl.class);
     ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -326,5 +390,24 @@ public class LineageApiImplTest {
 
   private static boolean hasAspect(List<MetadataChangeProposal> proposals, String aspectName) {
     return proposals.stream().anyMatch(proposal -> aspectName.equals(proposal.getAspectName()));
+  }
+
+  private static String aspectJson(List<MetadataChangeProposal> proposals, String aspectName) {
+    return proposals.stream()
+        .filter(proposal -> aspectName.equals(proposal.getAspectName()))
+        .findFirst()
+        .orElseThrow()
+        .getAspect()
+        .getValue()
+        .asString(StandardCharsets.UTF_8);
+  }
+
+  private static boolean hasAspectForEntity(
+      List<MetadataChangeProposal> proposals, String entityType, String aspectName) {
+    return proposals.stream()
+        .anyMatch(
+            proposal ->
+                entityType.equals(proposal.getEntityType())
+                    && aspectName.equals(proposal.getAspectName()));
   }
 }
