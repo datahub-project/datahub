@@ -78,7 +78,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
-    snowflake_identity_key,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -1696,10 +1695,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         dataset_name: str,
     ) -> None:
         # Snowflake's quoted identifiers let columns differ only by case (e.g. "col"
-        # and "COL"). Detect that on the raw names rather than the emitted field
-        # paths, so it is still reported once preserve_column_case keeps the paths
-        # distinct — the columns remain indistinguishable to any consumer that
-        # matches case-insensitively.
+        # and "COL"). Detected on the raw names rather than the emitted paths
+        # because a semantic view merges the pair before this runs, so the emitted
+        # list no longer shows it. This warns only when a column is actually lost:
+        # the declared-vs-stored check below returns early when
+        # preserve_column_case keeps both paths distinct, since nothing is
+        # dropped then and there is nothing for an operator to act on.
         stored_names: Set[str] = {col.name for col in table.columns}
         if isinstance(table, SnowflakeSemanticView):
             # A semantic view's columns are merged per case-insensitive bucket, so
@@ -1801,11 +1802,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         col.name in table.pk.column_names
                         if isinstance(table, SnowflakeTable) and table.pk is not None
                         # For semantic views, use primary_key_columns from SEMANTIC_TABLES
+                        # Via the identifier builder, not self.config:
+                        # snowflake_summary constructs this generator with a
+                        # SnowflakeSummaryConfig (behind a type: ignore) that
+                        # has no preserve_column_case, while always passing a
+                        # real identifier_config.
                         else (
-                            snowflake_identity_key(
-                                col.name,
-                                preserve_column_case=self.config.preserve_column_case,
-                            )
+                            self.identifiers.column_identity_key(col.name)
                             in primary_key_columns
                             if isinstance(table, SnowflakeSemanticView) and col.name
                             else None
