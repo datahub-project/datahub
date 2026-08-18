@@ -515,25 +515,20 @@ def restore_indices(
 
 
 @check.command()
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format.",
+)
 @upgrade.check_upgrade
-def get_kafka_consumer_offsets() -> None:
+def get_kafka_consumer_offsets(output_format: str) -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
     result = graph.get_kafka_consumer_offsets()
 
-    table_data = []
-    headers = [
-        "Consumer Type",
-        "Consumer Group",
-        "Topic",
-        "Partition",
-        "Offset",
-        "Lag",
-        "Avg Lag",
-        "Max Lag",
-        "Total Lag",
-    ]
-
+    rows = []
     for consumer_type, payload in result.items():
         if not isinstance(payload, dict):
             continue
@@ -554,21 +549,39 @@ def get_kafka_consumer_offsets() -> None:
                 partitions = data.get("partitions", {})
 
                 for partition, partition_data in partitions.items():
-                    table_data.append(
-                        [
-                            consumer_type,
-                            consumer_group,
-                            topic,
-                            partition,
-                            partition_data.get("offset", "N/A"),
-                            partition_data.get("lag", "N/A"),
-                            metrics.get("avgLag", "N/A"),
-                            metrics.get("maxLag", "N/A"),
-                            metrics.get("totalLag", "N/A"),
-                        ]
+                    rows.append(
+                        {
+                            "consumerType": consumer_type,
+                            "consumerGroup": consumer_group,
+                            "topic": topic,
+                            "partition": partition,
+                            "offset": partition_data.get("offset"),
+                            "lag": partition_data.get("lag"),
+                            "avgLag": metrics.get("avgLag"),
+                            "maxLag": metrics.get("maxLag"),
+                            "totalLag": metrics.get("totalLag"),
+                        }
                     )
 
-    if table_data:
-        click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+    if output_format == "json":
+        click.echo(json.dumps(rows, indent=2))
+    elif rows:
+        headers = {
+            "consumerType": "Consumer Type",
+            "consumerGroup": "Consumer Group",
+            "topic": "Topic",
+            "partition": "Partition",
+            "offset": "Offset",
+            "lag": "Lag",
+            "avgLag": "Avg Lag",
+            "maxLag": "Max Lag",
+            "totalLag": "Total Lag",
+        }
+        table_data = [
+            ["N/A" if row[key] is None else row[key] for key in headers] for row in rows
+        ]
+        click.echo(
+            tabulate(table_data, headers=list(headers.values()), tablefmt="grid")
+        )
     else:
         click.echo("No Kafka consumer offset data found.")

@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -101,6 +102,33 @@ def test_get_kafka_consumer_offsets(mock_get_default_graph, response):
 
     for value in _EXPECTED_OUTPUT_VALUES:
         assert value in result.output
+
+
+@patch("datahub.cli.check_cli.get_default_graph")
+def test_get_kafka_consumer_offsets_json(mock_get_default_graph):
+    mock_graph = MagicMock()
+    mock_graph.get_kafka_consumer_offsets.return_value = (
+        _MESSAGING_CONSUMER_LAG_RESPONSE
+    )
+    mock_get_default_graph.return_value = mock_graph
+
+    result = run_datahub_cmd(
+        ["check", "get-kafka-consumer-offsets", "--format", "json"]
+    )
+
+    rows = json.loads(result.output)
+    assert {
+        "consumerType": "mcp",
+        "consumerGroup": "generic-mce-consumer-job-client",
+        "topic": "MetadataChangeProposal_v1",
+        "partition": "0",
+        "offset": 3,
+        "lag": 1,
+        "avgLag": 0.5,
+        "maxLag": 1,
+        "totalLag": 1,
+    } in rows
+    assert len(rows) == 3
 
 
 @patch("datahub.cli.check_cli.get_default_graph")
