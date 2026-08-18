@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -25,10 +26,16 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     snowflake_identity_key,
 )
 from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     MetricInfoClass,
     MetricRelationshipsClass,
+    SchemaMetadataClass,
     SemanticModelPropertiesClass,
+    UpstreamLineageClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 
 # Semantic-view code threads column references in uppercase so they match across
 # the view's own metadata. That is a lookup key, not an identity — these tests pin
@@ -1099,3 +1106,83 @@ class TestLogicalTableStoredCasing:
 
         assert occurrence.name == "My_Col"
         assert occurrence.identity_key == expected
+
+    def test_no_lineage_onto_a_field_the_dataset_does_not_declare(self) -> None:
+        # A logical table discarded for a URN collision still has columns, and the
+        # producer anchors their FGLs on the URN -- which is the survivor's. Those
+        # land on field paths the survivor never declares, so the lineage points
+        # at nothing. Metrics are already filtered; lineage was not.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, convert_urns_to_lowercase=True)
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=report, identifiers=gen.identifiers
+        )
+        view = _semantic_view(["col"])
+        view.logical_to_physical_table = {
+            "orders": ("DB", "SCH", "LOW"),
+            "ORDERS": ("DB", "SCH", "UP"),
+        }
+        view.column_occurrences = {
+            name: [
+                SemanticViewColumnMetadata(
+                    name=name,
+                    identity_key=snowflake_identity_key(
+                        name, preserve_column_case=False
+                    ),
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name=table,
+                    synonyms=[],
+                    expression=None,
+                )
+            ]
+            for name, table in (("a_low", "orders"), ("b_up", "ORDERS"))
+        }
+        urns = mapper._build_logical_dataset_urns(view, "SCH", "DB")
+        fgls = [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[f"urn:li:schemaField:(urn:li:dataset:(x,y,PROD),{c})"],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[
+                    make_schema_field_urn(
+                        mapper.identifiers.gen_semantic_model_dataset_urn(
+                            view.name, t, "SCH", "DB"
+                        ),
+                        mapper.identifiers.logical_dataset_field_path(c),
+                    )
+                ],
+            )
+            for c, t in (("a_low", "orders"), ("b_up", "ORDERS"))
+        ]
+
+        workunits = list(
+            mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=fgls,
+            )
+        )
+
+        declared = {
+            f.fieldPath
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SchemaMetadataClass)
+            for f in wu.metadata.aspect.fields
+        }
+        routed = {
+            SchemaFieldUrn.from_string(d).field_path
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+            for fg in (wu.metadata.aspect.fineGrainedLineages or [])
+            for d in (fg.downstreams or [])
+        }
+
+        assert routed <= declared, (
+            f"lineage onto undeclared fields: {routed - declared}"
+        )
+        assert len(list(urns)) == 1

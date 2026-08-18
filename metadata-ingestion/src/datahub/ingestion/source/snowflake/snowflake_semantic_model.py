@@ -556,6 +556,36 @@ class SnowflakeSemanticModelMapper:
         ).as_workunit()
 
         schema_fields = self._build_schema_fields(semantic_view, logical_table)
+        # A logical table discarded for a URN collision still has columns, and the
+        # producer anchored their lineage on the URN -- which is this one. Those
+        # downstreams name field paths this dataset never declares, so the edge
+        # resolves to nothing. Metrics are excluded upstream of here; lineage has
+        # to be filtered against what actually got declared.
+        declared_paths = {field.fieldPath for field in schema_fields}
+        dangling = {
+            path
+            for path in (
+                self._downstream_field_name(lineage)
+                for lineage in fine_grained_lineages
+            )
+            if path is not None and path not in declared_paths
+        }
+        if dangling:
+            fine_grained_lineages = [
+                lineage
+                for lineage in fine_grained_lineages
+                if self._downstream_field_name(lineage) in declared_paths
+            ]
+            self.report.warning(
+                title="Semantic view column lineage dropped for an absent field",
+                message="Column-level lineage named a field the logical dataset "
+                "does not declare, so it was dropped rather than emitted against "
+                "nothing. This happens when two logical tables differ only by case "
+                "and collapse onto one dataset: the discarded table's columns are "
+                "not fields here, but its lineage still resolves to this URN.",
+                context=f"{semantic_view.name}.{logical_table}: {sorted(dangling)}",
+            )
+
         if schema_fields:
             yield MetadataChangeProposalWrapper(
                 entityUrn=logical_dataset_urn,
