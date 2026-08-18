@@ -112,9 +112,7 @@ def test_get_kafka_consumer_offsets_json(mock_get_default_graph):
     )
     mock_get_default_graph.return_value = mock_graph
 
-    result = run_datahub_cmd(
-        ["check", "get-kafka-consumer-offsets", "--format", "json"]
-    )
+    result = run_datahub_cmd(["check", "get-kafka-consumer-offsets", "-o", "json"])
 
     rows = json.loads(result.output)
     assert {

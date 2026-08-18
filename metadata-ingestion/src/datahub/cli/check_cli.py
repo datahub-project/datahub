@@ -516,7 +516,8 @@ def restore_indices(
 
 @check.command()
 @click.option(
-    "--format",
+    "-o",
+    "--output",
     "output_format",
     type=click.Choice(["table", "json"]),
     default="table",
