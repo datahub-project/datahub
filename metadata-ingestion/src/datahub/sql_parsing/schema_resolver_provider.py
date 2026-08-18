@@ -8,7 +8,10 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverReport,
 )
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urn_alias.index import CatalogSlice, urn_alias_index_requested
+from datahub.utilities.urn_alias.index import (
+    CatalogSlice,
+    should_fill_urn_alias_index,
+)
 from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 
 if TYPE_CHECKING:
@@ -98,11 +101,10 @@ class SchemaResolverProvider:
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
         # Every scrolled URN goes into the index shared per DataHub instance, whether or
         # not *this* caller reads it: the scroll is already paid for, and the next consumer
-        # of the same catalog gets its answers for free. Only once something in the run has
-        # declared it resolves URN casing, though — see request_urn_alias_index.
+        # of the same catalog gets its answers for free.
         urn_aliases = (
             get_urn_alias_resolver(self._graph)
-            if urn_alias_index_requested(self._graph)
+            if should_fill_urn_alias_index()
             else None
         )
         num_urns = 0
