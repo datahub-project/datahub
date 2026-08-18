@@ -30,6 +30,7 @@ import pytest
 import requests as _requests
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import (
     execute_graphql,
     get_timestampmillis_at_start_of_day,
@@ -37,6 +38,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 # ---------------------------------------------------------------------------
 # Test entities

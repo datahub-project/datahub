@@ -18,9 +18,12 @@ import pytest
 import tenacity
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 # Same env-driven timing as with_test_retry(), but scoped to a single retryable
 # condition (see _fetch_related_documents) rather than any exception.
