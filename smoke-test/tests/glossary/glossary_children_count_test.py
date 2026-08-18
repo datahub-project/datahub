@@ -5,9 +5,12 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_entity, execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # One request that resolves childrenCount for the parent and for every child at the next
 # level, so the children are batched together by GlossaryNodeChildrenCountBatchLoader.

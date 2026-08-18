@@ -3,9 +3,12 @@ from typing import Any, Dict
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @with_test_retry()
