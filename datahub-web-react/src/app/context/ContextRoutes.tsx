@@ -11,7 +11,7 @@ import {
     HierarchicalBrowseMainContent,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseLayout.components';
 import { SIDEBAR_COLLAPSED_WIDTH } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import useHierarchicalBrowseSidebarWidth from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/useHierarchicalBrowseSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
@@ -34,7 +34,7 @@ export default function ContextRoutes() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     // Start hidden - DocumentProfile controls visibility based on document type
     const [isSidebarHidden, setIsSidebarHidden] = useState(true);
-    const expandedSidebarWidth = useSidebarWidth(0.2);
+    const { width: expandedSidebarWidth, setWidth: setExpandedSidebarWidth } = useHierarchicalBrowseSidebarWidth();
 
     // Check if we're on an entity profile page (document/:urn)
     const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
@@ -74,6 +74,7 @@ export default function ContextRoutes() {
                             isCollapsed={isCollapsed}
                             onToggleCollapsed={toggleCollapsed}
                             onExpandSidebar={expandSidebar}
+                            onWidthChange={setExpandedSidebarWidth}
                         />
                     )}
                     <HierarchicalBrowseMainContent>

@@ -9,6 +9,10 @@ import { DocumentActionsMenu } from '@app/homeV2/layout/sidebar/documents/Docume
 import Loading from '@app/shared/Loading';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import {
+    TREE_ROW_HOVER_ACTIONS_CLASS,
+    TREE_ROW_HOVER_ACTIONS_PINNED_CLASS,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
 import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { DataPlatform } from '@types';
@@ -34,6 +38,9 @@ const IconWrapper = styled.div<{ $isSelected: boolean; $useGradientFill: boolean
 `;
 
 const ActionButton = styled(Button)`
+    padding: 2px !important;
+    min-width: 0;
+
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
     }
@@ -47,9 +54,15 @@ const CheckboxSlot = styled.div`
 `;
 
 const ActionsWrap = styled.div`
-    display: flex;
+    /* Visibility is owned by treeRowHoverChrome (.tree-row-hover-actions). */
     align-items: center;
     gap: 4px;
+
+    /* Tighten ⋮ / + hit padding so the pair reads as one control cluster. */
+    && button {
+        padding: 2px;
+        min-width: 0;
+    }
 `;
 
 interface DocumentTreeItemProps {
@@ -59,7 +72,6 @@ interface DocumentTreeItemProps {
     hasChildren: boolean;
     isExpanded: boolean;
     isSelected: boolean;
-    childCount?: number;
     isLoading?: boolean;
     isUnpublished?: boolean;
     isExternal?: boolean;
@@ -72,6 +84,11 @@ interface DocumentTreeItemProps {
     hideCreate?: boolean;
     parentUrn?: string | null;
     multiSelect?: boolean;
+    /**
+     * When true, skip scrollIntoView on selection. Used after sort changes so the
+     * list stays pinned at the top instead of jumping to the open document.
+     */
+    suppressSelectionScroll?: boolean;
 }
 
 export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
@@ -81,7 +98,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hasChildren,
     isExpanded,
     isSelected,
-    childCount,
     isLoading,
     isUnpublished = false,
     isExternal = false,
@@ -94,18 +110,25 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
     multiSelect = false,
+    suppressSelectionScroll = false,
 }) => {
     const { t } = useTranslation('home.v2');
-    const [isHovered, setIsHovered] = useState(false);
+    // Pin ⋮/+ visible while a portaled menu/dialog is open (mouse leaves the row).
     const [forceShowActions, setForceShowActions] = useState(false);
     const rowRef = useRef<HTMLDivElement>(null);
+    const didScrollForSelectionRef = useRef(false);
 
-    // Deep links / URL navigation mount the selected row after ancestors expand —
-    // bring it into the sidebar scrollport once it becomes selected.
+    // Deep links mount the selected row after ancestors expand — scroll once (auto).
+    // Skipped after sort changes so Name / Last modified stay at the top of the list.
     useEffect(() => {
-        if (!isSelected || multiSelect) return;
-        rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }, [isSelected, multiSelect, urn]);
+        if (!isSelected || multiSelect || suppressSelectionScroll) {
+            didScrollForSelectionRef.current = false;
+            return;
+        }
+        if (didScrollForSelectionRef.current) return;
+        didScrollForSelectionRef.current = true;
+        rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    }, [isSelected, multiSelect, urn, suppressSelectionScroll]);
 
     const handleAddChildClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -119,8 +142,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
         onClick();
     };
 
-    const showActions = !multiSelect && !hideActions && (isHovered || forceShowActions);
-    const showCount = !multiSelect && !showActions;
+    const mountActions = !multiSelect && !hideActions && (!hideActionsMenu || !hideCreate);
 
     const restingIcon = (() => {
         if (isLoading) {
@@ -158,9 +180,17 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 />
             </CheckboxSlot>
         );
-    } else if (showActions) {
+    } else if (mountActions) {
         trailing = (
-            <ActionsWrap className="tree-item-actions">
+            <ActionsWrap
+                className={[
+                    'tree-item-actions',
+                    TREE_ROW_HOVER_ACTIONS_CLASS,
+                    forceShowActions ? TREE_ROW_HOVER_ACTIONS_PINNED_CLASS : '',
+                ]
+                    .filter(Boolean)
+                    .join(' ')}
+            >
                 {!hideActionsMenu && (
                     <DocumentActionsMenu
                         documentUrn={urn}
@@ -172,8 +202,10 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                 {!hideCreate && (
                     <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                         <ActionButton
-                            icon={{ icon: Plus, color: 'icon' }}
+                            data-testid="document-tree-create-child-button"
+                            icon={{ icon: Plus, color: 'icon', size: 'md' }}
                             variant="text"
+                            size="sm"
                             onClick={handleAddChildClick}
                         />
                     </Tooltip>
@@ -191,7 +223,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             isSelected={isSelected}
             hasChildren={hasChildren}
             isExpanded={isExpanded}
-            count={showCount ? childCount : undefined}
             icon={restingIcon}
             label={title}
             labelTitle={title}
@@ -199,8 +230,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             onSelect={() => handleItemClick()}
             onToggleExpand={onToggleExpand}
             isLoadingChildren={!!isLoading}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
         />
     );
 };

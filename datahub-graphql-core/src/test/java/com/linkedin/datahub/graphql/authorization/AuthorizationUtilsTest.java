@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ViewProperties;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -39,6 +40,9 @@ public class AuthorizationUtilsTest {
       UrnUtils.getUrn("urn:li:document:bridge-dataset-graphql-test");
   private static final Urn TEST_SOURCE_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,bridge-source,PROD)");
+  private static final Urn TEST_SCHEMA_FIELD_URN =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)");
 
   @Test
   public void testRestrictedViewProperties() {
@@ -259,5 +263,34 @@ public class AuthorizationUtilsTest {
     authUtil
         .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(TEST_SOURCE_URN)))
         .thenReturn(canViewSource);
+  }
+
+  @Test
+  public void testCanViewSchemaFieldUsesEntityAuthorizationFacade() {
+    OperationContext opContext = mock(OperationContext.class);
+    OperationContextConfig config = mock(OperationContextConfig.class);
+    ViewAuthorizationConfiguration viewAuth =
+        ViewAuthorizationConfiguration.builder().enabled(true).build();
+    when(opContext.getOperationContextConfig()).thenReturn(config);
+    when(config.getViewAuthorizationConfiguration()).thenReturn(viewAuth);
+    when(opContext.isSystemAuth()).thenReturn(false);
+
+    try (MockedStatic<AuthUtil> authUtil =
+            Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS);
+        MockedStatic<EntityAuthorizationUtils> entityAuth =
+            Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+      authUtil
+          .when(() -> AuthUtil.isViewRestrictedEntityType(eq(viewAuth), eq("schemaField")))
+          .thenReturn(true);
+      entityAuth
+          .when(
+              () ->
+                  EntityAuthorizationUtils.canViewEntity(eq(opContext), eq(TEST_SCHEMA_FIELD_URN)))
+          .thenReturn(true);
+
+      assertTrue(AuthorizationUtils.canView(opContext, TEST_SCHEMA_FIELD_URN));
+      entityAuth.verify(
+          () -> EntityAuthorizationUtils.canViewEntity(opContext, TEST_SCHEMA_FIELD_URN));
+    }
   }
 }

@@ -169,16 +169,17 @@ export default function DomainNode({
     const expansion = useTreeExpansionRegistry();
     const isInSelectMode = !!selectDomainOverride;
     const isSidebarVariant = variant === 'sidebar';
-    // Propagate the sidebar's owner selection down into every level of the
-    // tree so child-domain scrolls are filtered server-side too (mirrors how
+    // Propagate the sidebar's owner / sort selection down into every level of the
+    // tree so child-domain scrolls stay consistent with the root (mirrors how
     // the root scroll is filtered in `DomainNavigator`). Picker variants
     // intentionally don't inherit the sidebar filter — they have their own
     // scope. Returns noop defaults outside the sidebar provider tree.
-    const { selectedOwnerUrns } = useDomainSidebarFilters();
+    const { selectedOwnerUrns, sortSelection } = useDomainSidebarFilters();
     const { domains, loading, scrollRef } = useScrollDomains({
         parentDomain: domain.urn,
         skip: !isOpen || shouldHideDomain,
         selectedOwnerUrns: isSidebarVariant ? selectedOwnerUrns : undefined,
+        sort: isSidebarVariant ? sortSelection : undefined,
     });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
@@ -317,7 +318,7 @@ export default function DomainNode({
                         />
                     </ButtonWrapper>
                 )}
-                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
+                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.1} mouseLeaveDelay={0}>
                     <NameWrapper
                         onClick={handleSelectDomain}
                         $isSelected={isDomainNodeSelected}
@@ -327,7 +328,7 @@ export default function DomainNode({
                             <Tooltip
                                 placement="right"
                                 title={isCollapsed && displayName}
-                                mouseEnterDelay={0.7}
+                                mouseEnterDelay={0.1}
                                 mouseLeaveDelay={0}
                             >
                                 <DomainColoredIcon domain={domain} size={30} fontSize={14} />

@@ -166,18 +166,6 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
-            'quickstartCypress': [
-                    profile: 'debug',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
-                    isDebug: true,
-                    additionalEnv: [
-                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
-                    ],
-                    // Override project name for cypress dev environment
-                    additionalConfig: [
-                            projectName: 'dh-cypress'
-                    ]
-            ],
             'quickstartDebugMin': [
                     profile: 'debug-min',
                     modules: backend_profile_modules + [':datahub-frontend'],
@@ -440,6 +428,7 @@ dockerCompose {
                 environment.put "DEV_TOOLING_ENABLED", "true"
             }
             environment.put "DATAHUB_REPO", "${docker_registry}"
+            environment.put "DATAHUB_SYSTEM_CLIENT_SECRET", System.getenv("DATAHUB_SYSTEM_CLIENT_SECRET") ?: "JohnSnowKnowsNothing"
             resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
 
@@ -490,7 +479,7 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')
-
+        composeExecutor.parameters.environment.put("DATAHUB_SYSTEM_CLIENT_SECRET", '__SYSTEM_CLIENT_SECRET__')
         // Set placeholder port values that should remain configurable at runtime
         // Use unique high port numbers as placeholders that will be replaced later
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_GMS_PORT", '58080')
@@ -505,6 +494,7 @@ task generateQuickstartComposeConfig {
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_APP_VERSION}')
         configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
         configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
+        configOutput = configOutput.replace('__SYSTEM_CLIENT_SECRET__', '${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
@@ -539,6 +529,18 @@ task generateQuickstartComposeConfig {
     }
 }
 
+// -PbuildModules=<comma separated module paths> narrows a build to a subset of
+// an image set's modules. CI uses it to bake only the images a pull request can
+// affect and reuse the rest from the last set that passed smoke tests on master
+// (see .github/scripts/resolve_image_builds.sh). Unset means build everything.
+ext.requestedBuildModules = project.hasProperty('buildModules')
+        ? (project.property('buildModules').split(',').collect { it.trim() }.findAll { it } ?: null)
+        : null
+
+ext.selectBuildModules = { modules ->
+    requestedBuildModules == null ? modules : modules.findAll { requestedBuildModules.contains(it) }
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register("prepareAll${taskName}"){
@@ -549,7 +551,7 @@ quickstart_configs.each { taskName, config ->
 quickstart_configs.each { taskName, config ->
     if (config.modules) {
         tasks.getByName("prepareAll${taskName}").dependsOn(
-            config.modules.collect { it + ':dockerPrepare' }
+            selectBuildModules(config.modules).collect { it + ':dockerPrepare' }
         )
     }
 }
@@ -562,7 +564,8 @@ quickstart_configs.each { taskName, config ->
         }
         group = 'quickstart-ci'
         def taskSuffix = config.isDebug? 'debug' : ''
-        dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        def buildModules = selectBuildModules(config.modules)
+        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
@@ -579,15 +582,34 @@ quickstart_configs.each { taskName, config ->
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+            // buildx >= 0.17 refuses to read files referenced by the bake definition that
+            // live outside the working directory (e.g. a netrc secret at $HOME/.netrc)
+            // unless the fs entitlement is granted; non-interactive runs fail outright
+            // instead of prompting. The env var is used instead of --allow=fs.read=<path>
+            // because buildx < 0.17 rejects the unknown flag but ignores the env var.
+            // The bake spec is generated by this build from repo-controlled inputs, so
+            // disabling the check gives up no real protection.
+            environment "BUILDX_BAKE_ENTITLEMENTS_FS", "0"
         }
         commandLine buildCmd
         workingDir rootProject.projectDir
 
         doFirst {
+            // Validated here rather than at configuration time: the property is
+            // global, so a name that is legitimately absent from some other
+            // image set must not break unrelated Gradle invocations.
+            if (requestedBuildModules != null) {
+                def unknown = requestedBuildModules - config.modules
+                if (unknown) {
+                    throw new GradleException("-PbuildModules requests ${unknown}, which buildImages${taskName} does not build. Known modules: ${config.modules}")
+                }
+                logger.lifecycle("Building a subset of ${taskName} images: ${buildModules}")
+            }
+
             def bakeSnippets = [:]
             def targets = []
 
-            config.modules.each { module ->
+            buildModules.each { module ->
                 def moduleProject = project.project(module)
                 def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
                 bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
@@ -841,6 +863,7 @@ tasks.register("reloadEnv", Exec) {
             environment.put "DEV_TOOLING_ENABLED", "true"
         }
         environment.put "DATAHUB_REPO", "${docker_registry}"
+        environment.put "DATAHUB_SYSTEM_CLIENT_SECRET", System.getenv("DATAHUB_SYSTEM_CLIENT_SECRET") ?: "JohnSnowKnowsNothing"
         resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
         // Additional environment variables if specified

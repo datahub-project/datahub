@@ -175,7 +175,7 @@ export default function DomainFlatItem({ domain }: Props) {
             </IconSlot>
             <TextStack>
                 <TitleRow>
-                    <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
+                    <Tooltip placement="right" title={displayName} mouseEnterDelay={0.1} mouseLeaveDelay={0}>
                         <Title $isSelected={isOnEntityPage}>{displayName}</Title>
                     </Tooltip>
                     {deprecation?.deprecated && (
@@ -193,7 +193,7 @@ export default function DomainFlatItem({ domain }: Props) {
                     <Tooltip
                         placement="bottom"
                         title={ancestorNames.join(' / ')}
-                        mouseEnterDelay={0.7}
+                        mouseEnterDelay={0.1}
                         mouseLeaveDelay={0}
                     >
                         <Breadcrumb>

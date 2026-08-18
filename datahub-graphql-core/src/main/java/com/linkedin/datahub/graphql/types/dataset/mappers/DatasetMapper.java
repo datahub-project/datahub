@@ -300,7 +300,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     graphqlProperties.setMaterialized(properties.isMaterialized());
     graphqlProperties.setLanguage(properties.getViewLanguage());
     graphqlProperties.setLogic(properties.getViewLogic());
-    graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    if (properties.hasFormattedViewLogic()) {
+      graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    }
     dataset.setViewProperties(graphqlProperties);
   }
 

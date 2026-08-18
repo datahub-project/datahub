@@ -576,6 +576,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Metrics & Semantic Models",
+          type: "doc",
+          id: "docs/features/feature-guides/metrics-and-semantic-models",
+        },
+        {
           label: "MCP Server",
           type: "category",
           link: {
@@ -726,6 +731,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/best-practices",
           className: "saasOnly",
         },
         {
@@ -1337,6 +1347,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/semantic-models",
         "docs/api/tutorials/applications",
         "docs/api/tutorials/agent-registry",
         "docs/api/tutorials/service-catalog",
@@ -1619,10 +1630,8 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
-    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
-    // "smoke-test/tests/cypress/README"
     // ],
   ],
 };
