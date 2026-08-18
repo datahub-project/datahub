@@ -331,28 +331,58 @@ def split_quoted_name_list(name_list: str, delimiter: str = ",") -> List[str]:
     Unlike split_qualified_name, quoting is preserved so that callers can tell an
     identifier that needs quoting apart from a bare one.
 
+    A double-quote is only treated as quoting when it opens an element and closes it
+    at the next delimiter; anything else falls back to a plain split, so a stray quote
+    inside an otherwise bare name cannot swallow a delimiter and merge two names.
+
     >>> split_quoted_name_list("ROLE_A,ROLE_B")
     ['ROLE_A', 'ROLE_B']
     >>> split_quoted_name_list('"Role,With,Commas",ROLE_B')
     ['"Role,With,Commas"', 'ROLE_B']
+    >>> split_quoted_name_list('my"role,ROLE_B')
+    ['my"role', 'ROLE_B']
     """
 
     # Fast path - no quotes.
     if '"' not in name_list:
         return name_list.split(delimiter)
 
-    in_quote = False
-    parts: List[List[str]] = [[]]
-    for char in name_list:
-        if char == '"':
-            in_quote = not in_quote
-            parts[-1].append(char)
-        elif char == delimiter and not in_quote:
-            parts.append([])
+    parts: List[str] = []
+    pos = 0
+    while True:
+        if pos < len(name_list) and name_list[pos] == '"':
+            end = _find_closing_quote(name_list, pos)
+            if end is None or (
+                end + 1 < len(name_list) and name_list[end + 1] != delimiter
+            ):
+                # Not a well-formed quoted element - this is not a quoted list.
+                return name_list.split(delimiter)
+            parts.append(name_list[pos : end + 1])
+            if end + 1 == len(name_list):
+                return parts
+            pos = end + 2
         else:
-            parts[-1].append(char)
+            next_delimiter = name_list.find(delimiter, pos)
+            if next_delimiter == -1:
+                parts.append(name_list[pos:])
+                return parts
+            parts.append(name_list[pos:next_delimiter])
+            pos = next_delimiter + 1
 
-    return ["".join(part) for part in parts]
+
+def _find_closing_quote(name: str, start: int) -> Optional[int]:
+    """Index of the quote closing the quoted identifier opened at `start`, if any."""
+
+    pos = start + 1
+    while pos < len(name):
+        if name[pos] == '"':
+            # A doubled quote is an escaped quote, not the end of the identifier.
+            if pos + 1 < len(name) and name[pos + 1] == '"':
+                pos += 2
+                continue
+            return pos
+        pos += 1
+    return None
 
 
 def split_qualified_name(qualified_name: str) -> List[str]:
