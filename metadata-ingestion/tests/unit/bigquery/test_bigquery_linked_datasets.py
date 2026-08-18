@@ -242,19 +242,6 @@ def test_extra_properties_includes_source_when_publisher_resolved():
     assert props["analytics_hub.publisher_organization"] == "Publisher Inc"
 
 
-def test_extra_properties_falls_back_to_data_exchange():
-    info = LinkedDatasetInfo(
-        publisher=PublisherRef(
-            dataset="publisher_dataset",
-            project_id="publisher-project",
-        ),
-        listing=None,
-        data_exchange="exchange_a",
-    )
-    props = info.to_extra_properties()
-    assert props["analytics_hub.listing"] == "exchange_a"
-
-
 def test_extra_properties_omits_unpopulated_keys():
     info = LinkedDatasetInfo(
         publisher=PublisherRef(
@@ -626,28 +613,19 @@ def test_one_failing_location_does_not_stop_the_others():
     assert ah.list_subscriptions.call_count == 2
 
 
-def test_data_exchange_only_subscription_uses_data_exchange_segment():
-    """With no listing, the data_exchange resource path is reduced to its last segment."""
+def test_data_exchange_only_subscription_is_skipped():
+    """Test only listing-level subscriptions are processed."""
     handler = _make_handler()
-    sub = make_subscription(
-        dataset_id="shared_a",
-        listing="",  # no listing
-        data_exchange=("projects/123/locations/us/dataExchanges/my_exchange"),
-    )
+    sub = make_subscription(dataset_id="shared_a", listing="")
     ah = _ah_client_returning({"us": [sub]})
-    bq = _bq_client_returning(
-        {"consumer-project.shared_a": make_dataset_with_linked_source()}
-    )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
+    bq = MagicMock()
+    _install_clients(handler, ah=ah, bq=bq)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
     handler.populate_for_project("consumer-project", datasets)
 
-    info = handler.get_info("consumer-project", "shared_a")
-    assert info is not None
-    assert info.listing is None
-    assert info.data_exchange == "my_exchange"
+    assert handler.get_info("consumer-project", "shared_a") is None
+    bq.get_dataset.assert_not_called()
 
 
 # --- Lineage emission tests ------------------------------------------------

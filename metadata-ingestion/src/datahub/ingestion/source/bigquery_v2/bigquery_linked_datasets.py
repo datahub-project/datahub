@@ -85,7 +85,6 @@ class LinkedDatasetInfo:
     subscription_state: Optional[bigquery_analyticshub_v1.Subscription.State] = None
     link_state: Optional[str] = None  # Dataset.linkedDatasetMetadata.linkState
     listing: Optional[str] = None
-    data_exchange: Optional[str] = None
     publisher_organization: Optional[str] = None
     creation_time: Optional[str] = None
     last_modify_time: Optional[str] = None
@@ -110,9 +109,8 @@ class LinkedDatasetInfo:
 
         if self.link_state:
             props["linked_dataset.link_state"] = self.link_state
-        listing_or_exchange = self.listing or self.data_exchange
-        if listing_or_exchange:
-            props["analytics_hub.listing"] = listing_or_exchange
+        if self.listing:
+            props["analytics_hub.listing"] = self.listing
         if self.subscription_state is not None:
             props["analytics_hub.subscription_state"] = self.subscription_state.name
         if self.publisher_organization:
@@ -248,6 +246,9 @@ class BigQueryLinkedDatasetsHandler:
                 continue
 
             for sub in subscriptions:
+                if not sub.listing:
+                    continue
+
                 # Skip non-BigQuery shared resources (e.g. Pub/Sub topics).
                 if (
                     sub.resource_type
@@ -427,7 +428,6 @@ class BigQueryLinkedDatasetsHandler:
             subscription_state=sub.state,
             link_state=link_state,
             listing=_last_segment(sub.listing),
-            data_exchange=_last_segment(sub.data_exchange),
             publisher_organization=sub.organization_display_name or None,
             creation_time=creation_time.isoformat() if creation_time else None,
             last_modify_time=last_modify_time.isoformat() if last_modify_time else None,

@@ -17,7 +17,6 @@ def make_subscription(
     listing: str = (
         "projects/123456789/locations/us/dataExchanges/exch_a/listings/listing_a"
     ),
-    data_exchange: str = "",
     org_display: str = "Publisher Inc",
     resource_type: int = DEFAULT_RESOURCE_TYPE_BQ,
 ) -> SimpleNamespace:
@@ -32,7 +31,6 @@ def make_subscription(
     return SimpleNamespace(
         name=f"projects/{project_id}/locations/us/subscriptions/sub_1",
         listing=listing,
-        data_exchange=data_exchange,
         state=bigquery_analyticshub_v1.Subscription.State(state),
         organization_id="987654321",
         organization_display_name=org_display,

@@ -159,7 +159,7 @@ When you enable `include_linked_datasets`, DataHub identifies datasets in your s
 For each linked dataset, the connector emits:
 
 - A container with subtype `Linked Dataset` instead of `Dataset`.
-- Governance metadata captured from Analytics Hub on the container's custom properties: source publisher project and dataset, listing or data exchange the subscription is bound to, subscription state (`STATE_ACTIVE`, `STATE_STALE`, `STATE_INACTIVE`), publisher organization, and timestamps.
+- Governance metadata captured from Analytics Hub on the container's custom properties: source publisher project and dataset, the listing the subscription is bound to, subscription state (`STATE_ACTIVE`, `STATE_STALE`, `STATE_INACTIVE`), publisher organization, and timestamps.
 
 For each table or view inside a linked dataset (when `include_linked_dataset_lineage` is also enabled, the default):
 
@@ -188,6 +188,7 @@ The BigQuery Sharing integration in particular has the following limitations:
 
 - **Lineage requires the queries-v2 extraction path.** `include_linked_dataset_lineage` only takes effect with `use_queries_v2: true` (the default). Under the legacy path linked datasets are still detected, subtyped and enriched, but no Siblings or COPY lineage are emitted.
 - **Pub/Sub linked resources are not handled.** Only Analytics Hub subscriptions whose `resource_type` is `BIGQUERY_DATASET` are processed.
+- **Only listing-level subscriptions are supported.** Data Exchange-level subscriptions are not supported at the moment.
 - **Lineage is skipped when `resourcemanager.projects.get` is denied on a publisher project.** The linked dataset is still ingested, but no Sibling or UpstreamLineage edges are emitted for that subscription. See the prerequisites section for details.
 - **Subtype reclassification happens on the next run.** If a dataset was previously ingested as a regular `Dataset` and you later enable `include_linked_datasets`, the next ingestion run reclassifies it to `Linked Dataset` via standard UPSERT semantics. No manual migration is needed.
 
