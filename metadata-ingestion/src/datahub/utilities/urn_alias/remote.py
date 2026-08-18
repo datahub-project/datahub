@@ -1,17 +1,22 @@
 import logging
+import weakref
 from typing import (
     TYPE_CHECKING,
     Collection,
     Dict,
     List,
+    MutableMapping,
     Optional,
     Protocol,
     Set,
 )
 
 from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
-from datahub.metadata.schema_classes import AliasesClass
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.schema_classes import (
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
+)
+from datahub.metadata.urns import DataHubUpgradeUrn, DatasetUrn
 from datahub.utilities.urn_alias.index import UrnAliasIndex, lowercased_urn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -28,6 +33,11 @@ _LOWERCASED_URN_FIELD = "lowercasedUrn"
 _URN_FIELD = "urn"
 
 _DATASET_ENTITY_TYPE = "dataset"
+
+# The GMS backfill that computes `aliases` for datasets created before the aspect existed.
+# The `-vN` suffix is the lowercasing-rule version, so this must track
+# `AliasesUtils.DATASET_ALIASES_BACKFILL_UPGRADE_ID`.
+_ALIASES_BACKFILL_UPGRADE_URN = str(DataHubUpgradeUrn("dataset-aliases-v1"))
 
 
 class UrnLookup(Protocol):
@@ -257,31 +267,39 @@ def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:
     )
 
 
-def _server_supports_aliases(graph: "DataHubGraph") -> bool:
-    """Whether the server registers the dataset `aliases` aspect the search reads.
+# Read once per graph: switching lookups under a live index would leave its rows keyed two
+# ways.
+_BACKFILLED: "MutableMapping[DataHubGraph, bool]" = weakref.WeakKeyDictionary()
 
-    Its own entity registry answers, which DataHubGraph memoizes and caches on disk per
-    commit hash, so this costs one request per server per upgrade.
 
-    False whenever that cannot be established. The probe then resolves less, but trusting
-    the search against a server with no such aspect is worse: every casing it fails to find
-    would be recorded as a settled absence.
+def _aliases_backfilled(graph: "DataHubGraph") -> bool:
+    """Whether the server has computed the dataset `aliases` the search reads.
+
+    Until the backfill completes, a dataset it has not reached has no alias, and the search
+    would record it as a settled absence.
     """
-    specs = graph.get_entity_aspect_specs()
-    if specs is None:
-        return False
+    backfilled = _BACKFILLED.get(graph)
+    if backfilled is not None:
+        return backfilled
     try:
-        return specs.supports(_DATASET_ENTITY_TYPE, AliasesClass.ASPECT_NAME)
-    except ValueError:
-        # Raised for an entity type the server does not register at all, which a usable
-        # specs payload never omits for `dataset` — so this is a malformed one, not a
-        # verdict, and must not take the pipeline down with it.
-        logger.warning(
-            "Server registers no `dataset` entity type; resolving URN casing by probing "
-            "candidate casings instead.",
-            exc_info=True,
+        result = graph.get_aspect(
+            _ALIASES_BACKFILL_UPGRADE_URN, DataHubUpgradeResultClass
         )
-        return False
+    except Exception as e:
+        # A server that does not compute aliases answers 404, which is a marker of `None`
+        # rather than an error, so a failed read says nothing about the aspect.
+        logger.warning(f"Could not read the dataset aliases backfill marker: {e}")
+        _BACKFILLED[graph] = True
+        return True
+    state = result.state if result is not None else "never run"
+    backfilled = state == DataHubUpgradeStateClass.SUCCEEDED
+    if not backfilled:
+        logger.warning(
+            f"Dataset aliases backfill {state}; resolving URN casing by probing candidate "
+            "casings instead."
+        )
+    _BACKFILLED[graph] = backfilled
+    return backfilled
 
 
 def select_lookup(
@@ -296,6 +314,6 @@ def select_lookup(
     not on whether this particular consumer is allowed to query — that is the resolver's
     business, and a consumer that may not query still fills and reads the same rows.
     """
-    if _server_supports_aliases(graph):
+    if _aliases_backfilled(graph):
         return AliasIndexLookup(index, graph)
     return CasingProbeLookup(index, graph, platform_instances)

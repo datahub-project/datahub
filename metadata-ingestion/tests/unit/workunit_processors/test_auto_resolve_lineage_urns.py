@@ -14,7 +14,6 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.run.pipeline_config import (
     AutoResolveLineageUrnsConfig,
     UpstreamPlatformCasing,
@@ -27,6 +26,8 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
     DataJobInputOutputClass,
     DatasetSnapshotClass,
     EdgeClass,
@@ -76,12 +77,28 @@ def _resolver(
 
 
 def _registers_aliases(graph: Any) -> Any:
-    """Pin `graph` as a server registering the dataset `aliases` aspect, which is what
-    selects the alias search over the casing-probe fallback these tests do not exercise."""
-    graph.get_entity_aspect_specs.return_value = EntityAspectSpecs(
-        entity_aspects={"dataset": {"datasetKey", "aliases"}}
+    """Pin `graph` as a server whose dataset aliases backfill completed, which is what
+    selects the alias search over the casing-probe fallback these tests do not exercise.
+
+    The marker read is answered here so a test can still stub `get_aspect` for schemas,
+    in whichever order it does so.
+    """
+    marker = DataHubUpgradeResultClass(
+        timestampMs=0, state=DataHubUpgradeStateClass.SUCCEEDED
+    )
+    graph.get_aspect.side_effect = lambda urn, aspect_type, **kwargs: (
+        marker if aspect_type is DataHubUpgradeResultClass else mock.DEFAULT
     )
     return graph
+
+
+def _schema_fetches(graph: mock.MagicMock) -> int:
+    """How many schemas were asked of `graph`; the one marker read is not one of them."""
+    return sum(
+        1
+        for call in graph.get_aspect.call_args_list
+        if call.args[1] is SchemaMetadataClass
+    )
 
 
 def _seed_index(
@@ -1348,7 +1365,7 @@ def test_a_listed_platform_is_still_answered_locally_when_scope_is_widened():
 
     assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "amount")]
     graph.get_urns_by_filter.assert_not_called()
-    graph.get_aspect.assert_not_called()
+    assert _schema_fetches(graph) == 0
 
 
 def test_a_schemaless_listed_entity_costs_no_round_trip_when_scope_is_widened():
@@ -1367,7 +1384,7 @@ def test_a_schemaless_listed_entity_costs_no_round_trip_when_scope_is_widened():
 
     # Healed at table level; the column is left as the source reported it.
     assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "AMOUNT")]
-    graph.get_aspect.assert_not_called()
+    assert _schema_fetches(graph) == 0
 
 
 def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():

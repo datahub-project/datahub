@@ -178,18 +178,17 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
 
 - **Requires a DataHub backend connection.** Resolution looks up existing entities, so it is a no-op for
   offline / file-only ingestion.
-- **Reaching any stored casing needs the server to register the dataset `aliases` aspect.** That is what
-  lets one lookup cover every casing of a name. Older servers do not, and are detected from their own
-  model registry: resolution then falls back to probing the casings the client can construct — the
-  reference as written, its lowercased form, and that form with the `platform_instance` left as-is — so
-  only those are found, preloaded or queried alike, and anything else is reported `UNRESOLVED`. A server
-  that registers the aspect but has its `aliases` side effect switched off looks capable and heals
-  nothing.
-- **Datasets ingested before the `aliases` aspect existed need the backfill.** They carry no alias until
-  it reaches them, so in the meantime they are findable only under their own URN: a reference is healed
-  only where the stored URN is already lowercase (the usual warehouse default), and one stored in any
-  other casing is reported `UNRESOLVED` until the backfill completes. Run it before reading a run's
-  `UNRESOLVED` count as broken lineage.
+- **Reaching any stored casing needs the server's dataset `aliases` backfill to have completed.** The
+  alias is what lets one lookup cover every casing of a name, and a dataset the backfill has not reached
+  carries none. Ingestion reads that job's completion marker (`dataset-aliases-v1`, on by default), so an
+  older server and one still scanning are treated alike: resolution falls back to probing the casings the
+  client can construct — the reference as written, its lowercased form, and that form with the
+  `platform_instance` left as-is — so only those are found, preloaded or queried alike, and anything else
+  is reported `UNRESOLVED`. Let the backfill finish before reading a run's `UNRESOLVED` count as broken
+  lineage.
+- **The marker means the aliases were emitted, not yet written.** GMS writes them asynchronously, so for
+  a short window after the backfill completes a reference can still miss and be reported `UNRESOLVED`. It
+  heals on the source's next run.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it (the normal order for scheduled pipelines). A
   reference whose target doesn't yet exist is left unchanged and self-heals once the warehouse is ingested
