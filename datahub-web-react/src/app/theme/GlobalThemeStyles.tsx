@@ -274,10 +274,10 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
 
     /* ── Typography ───────────────────────────────────────── */
     h1, h2, h3, h4, h5, h6 {
-        color: ${(props) => props.theme.colors.text} !important;
+        color: ${(props) => props.theme.colors.text};
     }
     .ant-typography {
-        color: ${(props) => props.theme.colors.text} !important;
+        color: ${(props) => props.theme.colors.text};
     }
     .ant-typography.ant-typography-secondary {
         color: ${(props) => props.theme.colors.textSecondary} !important;
