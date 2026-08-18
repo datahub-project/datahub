@@ -96,11 +96,15 @@ def local_timezone(request: pytest.FixtureRequest) -> Iterator[None]:
     """
     marker = request.node.get_closest_marker("timezone")
     tzset = getattr(time, "tzset", None)
+    zone = marker.args[0] if marker is not None and marker.args else None
 
     if marker is not None:
-        if not marker.args:
+        # Rejects a missing zone, a non-string and "" alike. The empty string is
+        # the one that matters: libc reads it as UTC, so the test would run on the
+        # session pin while asserting as though it were somewhere else.
+        if not isinstance(zone, str) or not zone:
             pytest.fail(
-                "@pytest.mark.timezone requires a zone, "
+                "@pytest.mark.timezone requires a non-empty zone string, "
                 "e.g. @pytest.mark.timezone('XXX-5:30')"
             )
         if tzset is None:
@@ -109,8 +113,8 @@ def local_timezone(request: pytest.FixtureRequest) -> Iterator[None]:
             pytest.skip("the timezone marker requires tzset(), which is POSIX-only")
 
     saved_tz = os.environ.get("TZ")
-    if marker is not None and tzset is not None:
-        os.environ["TZ"] = marker.args[0]
+    if zone is not None and tzset is not None:
+        os.environ["TZ"] = zone
         tzset()
     try:
         yield
