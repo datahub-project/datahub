@@ -215,6 +215,7 @@ def _restored_paths(profiler_field_paths: List[str], **overrides: object) -> Lis
         # of injecting it.
         MagicMock(),
         MagicMock(),
+        "db.schema.table",
     )
     return [field.fieldPath for field in emitted]
 

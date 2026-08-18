@@ -81,10 +81,11 @@ public class EmbeddingProviderFactory {
       case "cohere" -> createCohereProvider(config);
       case "local" -> createLocalProvider(config);
       case "vertex_ai" -> createVertexAiProvider(config);
-      default -> throw new IllegalStateException(
-          String.format(
-              "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai",
-              providerType));
+      default ->
+          throw new IllegalStateException(
+              String.format(
+                  "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai",
+                  providerType));
     };
   }
 

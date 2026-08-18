@@ -509,18 +509,19 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### System Management
 
-| Platform Privileges                           | Description                                                                                              |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- |
-| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                              |     |
-| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                  |
-| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                               |
-| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                    |
-| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                   |
-| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                            |
-| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                |
-| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                  |
-| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                    |
-| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges. |
+| Platform Privileges                           | Description                                                                                                                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                                                                                                   |     |
+| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                                                                                       |
+| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                                                                                                    |
+| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                                                                                         |
+| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                                                                                        |
+| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                                                                                                 |
+| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                                                                                     |
+| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                                                                                       |
+| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                                                                                         |
+| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges.                                                                      |
+| View System Status                            | Allow actor to view non-sensitive system status (consumer lag, messaging transport). Does not include system information, full system configuration, or operational controls. |
 
 ### Common Metadata Privileges
 
