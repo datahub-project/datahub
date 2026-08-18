@@ -1121,7 +1121,7 @@ class TestEmittedFieldPaths:
         adapter.field_path_for.side_effect = lambda name, conn: name.lower()
 
         result = profiler._to_emitted_field_paths(
-            self._profiles("ORDER_ID", "AMOUNT"), adapter, MagicMock()
+            self._profiles("ORDER_ID", "AMOUNT"), adapter, MagicMock(), "db.tbl"
         )
 
         assert [p.fieldPath for p in result] == ["order_id", "amount"]
@@ -1136,7 +1136,7 @@ class TestEmittedFieldPaths:
         adapter.field_path_for.side_effect = lambda name, conn: name.lower()
 
         result = profiler._to_emitted_field_paths(
-            self._profiles("col", "COL", "ID"), adapter, MagicMock()
+            self._profiles("col", "COL", "ID"), adapter, MagicMock(), "db.tbl"
         )
 
         assert [p.fieldPath for p in result] == ["col", "id"]
@@ -1148,7 +1148,7 @@ class TestEmittedFieldPaths:
         adapter.field_path_for.side_effect = lambda name, conn: name
 
         result = profiler._to_emitted_field_paths(
-            self._profiles("col", "COL"), adapter, MagicMock()
+            self._profiles("col", "COL"), adapter, MagicMock(), "db.tbl"
         )
 
         assert [p.fieldPath for p in result] == ["col", "COL"]
@@ -1171,6 +1171,7 @@ class TestEmittedFieldPaths:
             ],
             adapter,
             MagicMock(),
+            "db.tbl",
         )
 
         assert type(result[0].fieldPath) is str
@@ -1187,9 +1188,37 @@ class TestEmittedFieldPaths:
             ],
             adapter,
             MagicMock(),
+            "db.tbl",
         )
 
         assert [p.fieldPath for p in result] == ["col", "id"]
+
+    def test_a_collapsed_pair_is_reported(self, profiler: Any) -> None:
+        # Dropping the second profile is correct -- the schema declares one field.
+        # Doing it silently is not: the surviving profile carries whichever
+        # column came first, so the statistics under `col` may be "COL"'s, and
+        # which one wins moves with column order. Nothing else in the run says so.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        profiler._to_emitted_field_paths(
+            self._profiles("col", "COL"), adapter, MagicMock(), "db.sch.orders"
+        )
+
+        assert profiler.report.warning.called
+        context = profiler.report.warning.call_args.kwargs["context"]
+        assert "db.sch.orders" in context
+        assert "col" in context
+
+    def test_nothing_collapsing_is_not_reported(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        profiler._to_emitted_field_paths(
+            self._profiles("ID", "AMOUNT"), adapter, MagicMock(), "db.sch.orders"
+        )
+
+        assert not profiler.report.warning.called
 
 
 class TestIgnoreSamplingColumnNames:
