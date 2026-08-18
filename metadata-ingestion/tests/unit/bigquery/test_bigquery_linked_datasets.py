@@ -506,6 +506,35 @@ def test_resource_manager_result_is_cached_per_project_number(rm_result):
     rm.get_project.assert_called_once_with(name="projects/111222333")
 
 
+def test_unresolved_source_is_counted_per_dataset_not_per_publisher():
+    """Every dataset behind an unreadable publisher is counted, not just the first."""
+    handler = _make_handler()
+    names = ["shared_a", "shared_b", "shared_c"]
+    ah = _ah_client_returning(
+        {"us": [make_subscription(dataset_id=name) for name in names]}
+    )
+    bq = _bq_client_returning(
+        {
+            f"consumer-project.{name}": make_dataset_with_linked_source(
+                publisher_dataset=name
+            )
+            for name in names
+        }
+    )
+    rm = _rm_client_returning({"111222333": PermissionDenied("403")})
+    _install_clients(handler, ah=ah, bq=bq, rm=rm)
+
+    handler.populate_for_project(
+        "consumer-project",
+        [BigqueryDataset(name=name, location="US") for name in names],
+    )
+
+    assert handler.report.num_linked_dataset_source_unresolved == 3
+    # The RM call and its warning still happen once, thanks to the negative cache.
+    assert handler.report.num_linked_dataset_project_resolve_errors == 1
+    rm.get_project.assert_called_once_with(name="projects/111222333")
+
+
 def test_list_subscriptions_api_disabled_is_warned_not_fatal():
     handler = _make_handler()
     ah = MagicMock()

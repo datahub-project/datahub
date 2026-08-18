@@ -405,7 +405,6 @@ class BigQueryLinkedDatasetsHandler:
                     project_id=publisher_project_id,
                 )
         else:
-            self.report.num_linked_dataset_source_unresolved += 1
             self.report.warning(
                 title="Linked dataset source not resolved",
                 message=(
@@ -416,6 +415,9 @@ class BigQueryLinkedDatasetsHandler:
                 ),
                 context=f"{project_id}.{consumer_dataset}",
             )
+
+        if publisher is None:
+            self.report.num_linked_dataset_source_unresolved += 1
 
         creation_time = sub.creation_time
         last_modify_time = sub.last_modify_time
