@@ -60,3 +60,6 @@ docs-website:
   - "docs-website/package.json"
   - "docs-website/yarn.lock"
   - "docs-website/build.gradle"
+spotless:
+  - added|modified: "**/*.java"
+  - "build.gradle"

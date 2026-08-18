@@ -902,6 +902,9 @@ subprojects {
     }
 
     spotless {
+      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
+      // not as part of check/build.
+      enforceCheck false
       java {
         googleJavaFormat(googleJavaFormatVersion)
         target project.fileTree(project.projectDir) {
