@@ -311,9 +311,9 @@ def test_does_not_heal_across_environments() -> None:
     dev_ref = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE", env="DEV")
     out = _run({LOWER: {"amount": "int"}}, _upstream_wu(dev_ref))
     assert _stored_upstream(out) == dev_ref
-    assert (
-        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
-    )
+    # DEV falls outside every slice this run loaded, so nothing was ever looked up and
+    # there is no verdict to stamp — an absence would claim a check that never happened.
+    assert _upstream_aspect(out).upstreams[0].matchType is None
 
 
 def test_leaves_unchanged_when_no_entity_matches():
@@ -636,7 +636,8 @@ def test_dashboard_info_unresolved_ref_is_counted():
         [out] = list(processor.process(iter([wu])))
         assert _dashboard_aspect(out).datasets == [UPPER]  # left unchanged
         assert processor.report.num_refs_unresolved == 1
-        assert processor.report.num_refs_unchanged == 0
+        assert processor.report.num_refs_verified_exact == 0
+        assert processor.report.num_refs_out_of_scope == 0
     finally:
         patcher.stop()
 
@@ -1217,9 +1218,13 @@ def test_a_match_from_a_slice_we_did_not_load_is_not_used():
     finally:
         patcher.stop()
 
-    # Left exactly as the source emitted it, and flagged.
+    # Left exactly as the source emitted it, and counted as never attempted. Unstamped
+    # too: a verdict would certify a check that never ran.
     assert _stored_upstream(out) == referenced
-    assert processor.report.num_refs_unresolved == 1
+    assert _upstream_aspect(out).upstreams[0].matchType is None
+    assert processor.report.num_refs_out_of_scope == 1
+    assert processor.report.num_refs_verified_exact == 0
+    assert processor.report.num_refs_unresolved == 0
 
 
 # --- scope: which references get reconciled ------------------------------------------
@@ -1345,6 +1350,9 @@ def test_a_failed_schema_fetch_keeps_the_table_level_healing():
     assert _stored_upstream(out) == BQ_LOWER
     assert _fine_grained(out).upstreams == [make_schema_field_urn(BQ_LOWER, "AMOUNT")]
     assert processor.report.num_dataset_urns_normalized == 1
+    assert processor.report.num_column_urns_normalized == 1
+    # The parent moved, so NORMALIZED is honest — but nothing checked the column.
+    assert _fine_grained(out).matchType == LineageMatchTypeClass.NORMALIZED
     # Both the table-level upstream and the field's parent ask, and a failed fetch is not
     # negative-cached, so each one counts (and a transient failure can recover later).
     assert processor.report.num_schema_fetches_failed == 2
@@ -1513,10 +1521,11 @@ def test_one_failed_instance_does_not_disable_the_one_that_loaded():
     )
 
 
-def test_a_reference_into_the_failed_instance_is_flagged_not_silently_passed():
-    # The platform is in scope because a sibling loaded, so this reference is examined and
-    # cannot be matched — which is the UNRESOLVED signal, not a clean pass-through. Being
-    # unable to check is exactly what the operator needs to see.
+def test_a_reference_into_the_failed_instance_is_reported_out_of_scope():
+    # The platform is in scope because a sibling loaded, but the slice this reference
+    # lives in never was, so nothing looked it up. That is not an absence — it is counted
+    # under the out-of-scope bucket, alongside the "upstream catalog not loaded" warning
+    # that already says why.
     referenced = _instanced("DB.SCHEMA.TABLE", _OTHER_INSTANCE)
     loaded_slice = CatalogSlice(
         platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
@@ -1532,7 +1541,78 @@ def test_a_reference_into_the_failed_instance_is_flagged_not_silently_passed():
         patcher.stop()
 
     assert _stored_upstream(out) == referenced  # left exactly as emitted
-    assert (
-        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+    assert _upstream_aspect(out).upstreams[0].matchType is None
+    assert processor.report.num_refs_out_of_scope == 1
+    assert processor.report.num_refs_unresolved == 0
+
+
+# --- what checking a column actually established -------------------------------------
+#
+# match_columns_to_schema echoes an unmatched column straight back, so an unchanged field
+# path alone cannot tell "already correct" from "not in the schema" from "never checked".
+
+
+def test_the_four_outcomes_are_counted_apart():
+    # Verified-exact, out-of-scope platform, out-of-scope slice and malformed each mean
+    # something different to an operator, so none of them may share a bucket.
+    dev_ref = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE", env="DEV")
+    aspect = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=UPPER, type="TRANSFORMED"),  # exists as emitted
+            UpstreamClass(dataset=BQ_UPPER, type="TRANSFORMED"),  # platform unlisted
+            UpstreamClass(dataset=dev_ref, type="TRANSFORMED"),  # env never loaded
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=["not-a-valid-urn"],
+                downstreams=[make_schema_field_urn(DOWNSTREAM, "amount")],
+            )
+        ],
     )
-    assert processor.report.num_refs_unresolved == 1
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM, aspect=aspect
+    ).as_workunit()
+    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    try:
+        list(processor.process(iter([wu])))
+    finally:
+        patcher.stop()
+
+    assert processor.report.num_refs_verified_exact == 1
+    assert processor.report.num_refs_out_of_scope == 2
+    assert processor.report.num_refs_skipped_malformed == 1
+    assert processor.report.num_refs_unresolved == 0
+
+
+# --- the sample behind the unresolved count --------------------------------------------
+
+
+def test_the_unresolved_sample_keeps_one_entry_per_broken_table():
+    # A table with many fine-grained columns used to crowd every other broken table out
+    # of the sample, so the operator saw one URN and could not tell which else was broken.
+    columns = [f"COL{i}" for i in range(20)]
+    aspect = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPPER, type="TRANSFORMED")],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[make_schema_field_urn(UPPER, column) for column in columns],
+                downstreams=[make_schema_field_urn(DOWNSTREAM, "amount")],
+            )
+        ],
+    )
+    wu = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM, aspect=aspect
+    ).as_workunit()
+    processor, _provide, patcher = _make_processor({})  # nothing to match against
+    try:
+        list(processor.process(iter([wu])))
+    finally:
+        patcher.stop()
+
+    # One entry for the table, but each column is still its own broken reference.
+    assert sorted(processor.report.unresolved_refs_sample) == [UPPER]
+    assert processor.report.num_refs_unresolved == len(columns) + 1
