@@ -18,12 +18,18 @@ jar.enabled = false // Since we only want to build shadow jars, disabling the re
 
 // Define supported Scala versions - always build for both
 def scalaVersions = ['2.12', '2.13']
+def sparkCompileVersion = '3.5.0'
+def sparkSmoke4Version = '4.0.0'
 
 //mark implementaion dependencies which needs to excluded along with transitive dependencies from shadowjar
 //functionality is exactly same as "implementation"
 configurations {
   provided
-  implementation.extendsFrom provided
+  lineageCommonImplementation {
+    canBeConsumed = false
+    canBeResolved = false
+  }
+  implementation.extendsFrom provided, lineageCommonImplementation
 
   // Spark 4.x is Scala 2.13 + Java 17 only, so its smoke test lives in a separate source set (see
   // sourceSets below). It runs against the real *shaded* 2.13 agent jar (shadowJar_2_13) — the
@@ -34,10 +40,20 @@ configurations {
 }
 
 sourceSets {
+  // DataHub owns Java sources under io.openlineage.* that directly call APIs whose JVM
+  // descriptors differ between Scala 2.12 and 2.13. Compile those sources again against the
+  // Scala 2.13 dependency graph instead of putting the Scala 2.12 main output in both artifacts.
+  scala213 {
+    java.srcDirs = sourceSets.main.java.srcDirs
+    resources.srcDirs = sourceSets.main.resources.srcDirs
+  }
+
   sparkSmoke4 {
     java.srcDir 'src/sparkSmoke4/java'
   }
 }
+
+configurations.scala213Implementation.extendsFrom configurations.lineageCommonImplementation
 
 // The repo pins antlr4-runtime to 4.9.3, but Spark 4's SqlBaseLexer ships an ATN v4 grammar that
 // only deserializes against antlr4-runtime 4.13.x ("Could not deserialize ATN with version 4").
@@ -69,13 +85,13 @@ dependencies {
     provided(externalDependency.snappy) {
       because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
     }
-    implementation(externalDependency.snappy) {
+    lineageCommonImplementation(externalDependency.snappy) {
       because 'CVE-2023-34453: snappy-java integer overflow in BitShuffle'
     }
     provided(externalDependency.gson) {
       because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
     }
-    implementation(externalDependency.gson) {
+    lineageCommonImplementation(externalDependency.gson) {
       because 'Gson before 2.8.9: deserialization DoS (writeReplace)'
     }
   }
@@ -84,25 +100,23 @@ dependencies {
   provided(externalDependency.sparkHive) {
     exclude group: 'org.apache.velocity', module: 'velocity'
   }
-  implementation 'org.apache.velocity:velocity-engine-core:2.3'
-  implementation 'org.slf4j:slf4j-log4j12:2.0.7'
-  implementation externalDependency.httpClient
-  implementation externalDependency.typesafeConfig
-  implementation externalDependency.slf4jApi
+  lineageCommonImplementation 'org.apache.velocity:velocity-engine-core:2.3'
+  lineageCommonImplementation 'org.slf4j:slf4j-log4j12:2.0.7'
+  lineageCommonImplementation externalDependency.httpClient
+  lineageCommonImplementation externalDependency.typesafeConfig
+  lineageCommonImplementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  implementation externalDependency.typesafeConfig
-  implementation externalDependency.json
-  implementation project(':metadata-integration:java:openlineage-converter')
-  implementation project(path: ':metadata-integration:java:datahub-client')
+  lineageCommonImplementation externalDependency.json
+  lineageCommonImplementation project(':metadata-integration:java:openlineage-converter')
+  lineageCommonImplementation project(path: ':metadata-integration:java:datahub-client')
 
-  implementation project(path: ':metadata-integration:java:openlineage-converter')
   compileOnly("io.delta:delta-core_2.12:1.0.0")
 
   // Default to Scala 2.12 for main compilation
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
   compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
-  compileOnly("org.apache.spark:spark-sql_2.12:3.5.0") {
+  compileOnly("org.apache.spark:spark-sql_2.12:$sparkCompileVersion") {
     exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
     exclude group: 'org.eclipse.jetty', module: 'jetty-server'
     exclude group: 'org.eclipse.jetty', module: 'jetty-util'
@@ -110,6 +124,22 @@ dependencies {
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
   compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
+
+  // Compile the same production sources against a coherent Scala 2.13 API graph. Spark 3.5 is the
+  // lowest common API baseline published for both supported Scala versions; Spark 4 compatibility
+  // remains enforced by the shaded-jar smoke test. The Delta and Redshift versions used by the
+  // 2.12 build are not published for Scala 2.13, so use compatible artifacts without their
+  // transitive Spark dependencies for this variant.
+  scala213Implementation "io.openlineage:openlineage-spark_2.13:$openLineageVersion"
+  scala213CompileOnly externalDependency.lombok
+  scala213AnnotationProcessor externalDependency.lombok
+  scala213CompileOnly "org.apache.spark:spark-sql_2.13:$sparkCompileVersion"
+  scala213CompileOnly("io.delta:delta-core_2.13:1.1.0") {
+    transitive = false
+  }
+  scala213CompileOnly("io.github.spark-redshift-community:spark-redshift_2.13:6.6.0-spark_4.0") {
+    transitive = false
+  }
 
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
@@ -158,7 +188,7 @@ dependencies {
   // Spark 4.x compatibility smoke test (Scala 2.13, first stable Spark 4 release). OpenLineage's
   // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),
   // so only Spark 4 itself and JUnit are needed to compile/run the test.
-  sparkSmoke4Implementation "org.apache.spark:spark-sql_2.13:4.0.0"
+  sparkSmoke4Implementation "org.apache.spark:spark-sql_2.13:$sparkSmoke4Version"
   // Align jupiter-api/engine + platform-launcher via the BOM (a custom source set doesn't get
   // Gradle's auto-aligned launcher, which otherwise fails discovery with "OutputDirectoryProvider
   // not available").
@@ -206,7 +236,8 @@ scalaVersions.each { sv ->
     archiveBaseName = "acryl-spark-lineage_${sv}"
     mergeServiceFiles()
 
-    from(sourceSets.main.output)
+    def projectSourceSet = sv == '2.13' ? sourceSets.scala213 : sourceSets.main
+    from(projectSourceSet.output)
 
     // Add manifest with version information
     manifest {
@@ -413,6 +444,9 @@ ext.sparkSmokeJavaLauncher = javaToolchains.launcherFor {
 // (sparkSmokeJavaLauncher above), and a JDK-21 runtime (v65) cannot load v69 classes. Pin the test
 // and sparkSmoke4 compiles to the same <=17 bytecode so the JDK-21 launcher can run them.
 compileTestJava {
+  options.release = javaClassVersion(project)
+}
+compileScala213Java {
   options.release = javaClassVersion(project)
 }
 compileSparkSmoke4Java {
