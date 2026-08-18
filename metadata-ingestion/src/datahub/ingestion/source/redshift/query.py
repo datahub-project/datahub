@@ -575,7 +575,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             sti.table_id = tbl
                         where starttime >= '{start_time}'
                         and starttime < '{end_time}'
-                        and cluster = '{db_name}'
+                        and sti.database = '{db_name}'
                     ),
                     query_txt AS (
                         SELECT
@@ -1065,7 +1065,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     LEFT JOIN
                     SVV_USER_INFO sui ON qs.user_id = sui.user_id
                 WHERE
-                    cluster = '{db_name}' AND
+                    sti.database = '{db_name}' AND
                     qs.user_id <> 1 AND -- this is user 'rdsdb'
                     qs.start_time >= '{start_time}' AND
                     qs.start_time < '{end_time}'
@@ -1222,7 +1222,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     -- user the view can't resolve. Filtering by user_id excludes rdsdb
                     -- while the LEFT join keeps unresolved real users (username NULL).
                     qd.user_id <> 1 AND
-                    cluster = '{db_name}' AND
+                    sti.database = '{db_name}' AND
                     qd.start_time >= '{start_time}' AND
                     qd.start_time < '{end_time}' AND
                     qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
