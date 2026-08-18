@@ -752,6 +752,11 @@ def test_list_users(auth_session):
 
 
 @pytest.mark.dependency()
+# The bootstrapped groups come from bootstrap_mce.json and are only visible here
+# once Elasticsearch has indexed them. wait_for_writes_to_sync() inside
+# execute_graphql() only covers the write pipeline, not the search refresh, so
+# an unretried run can legitimately see fewer than the 2 expected groups.
+@with_test_retry()
 def test_list_groups(auth_session):
     query = """query listGroups($input: ListGroupsInput!) {
         listGroups(input: $input) {
@@ -1029,6 +1034,49 @@ def test_home_page_recommendations(auth_session):
     assert (
         len(res_data["data"]["listRecommendations"]["modules"])
         > min_expected_recommendation_modules
+    )
+
+
+def test_home_page_recommendations_with_module_filter(auth_session):
+    def get_recommendation_module_ids(modules_filter):
+        json = {
+            "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+                listRecommendations(input: $input) { modules { moduleId } } }""",
+            "variables": {
+                "input": {
+                    "userUrn": get_root_urn(),
+                    "requestContext": {
+                        "scenario": "HOME",
+                        "modules": modules_filter,
+                    },
+                    "limit": 10,
+                }
+            },
+        }
+
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+        )
+        response.raise_for_status()
+        res_data = response.json()
+        logger.info(res_data)
+
+        assert res_data
+        assert res_data["data"]
+        assert res_data["data"]["listRecommendations"]
+        assert "errors" not in res_data
+
+        return {
+            module["moduleId"]
+            for module in res_data["data"]["listRecommendations"]["modules"]
+        }
+
+    # Filtering to a single module should only ever return that module
+    assert get_recommendation_module_ids(["DOMAINS"]).issubset({"Domains"})
+
+    # Filtering to multiple modules should only return modules from that set
+    assert get_recommendation_module_ids(["PLATFORMS", "DOMAINS"]).issubset(
+        {"Platforms", "Domains"}
     )
 
 

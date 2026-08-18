@@ -693,7 +693,7 @@ def test_is_without_null_raises():
 
 
 # ---------------------------------------------------------------------------
-# Boolean filter fields (deprecated, hasActiveIncidents, hasFailingAssertions)
+# Boolean filter fields (deprecated, hasActiveIncidents)
 # ---------------------------------------------------------------------------
 
 
@@ -710,11 +710,6 @@ def test_deprecated_false():
 def test_has_active_incidents_true():
     result = parse_filter_string("hasActiveIncidents = true")
     assert result == F.custom_filter("hasActiveIncidents", "EQUAL", ["true"])
-
-
-def test_has_failing_assertions_true():
-    result = parse_filter_string("hasFailingAssertions = true")
-    assert result == F.custom_filter("hasFailingAssertions", "EQUAL", ["true"])
 
 
 def test_deprecated_is_not_null():
