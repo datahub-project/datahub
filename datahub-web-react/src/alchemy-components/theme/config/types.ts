@@ -96,6 +96,8 @@ export type RotationOptions = '0' | '90' | '180' | '270';
 export enum PillVariantValues {
     filled = 'filled',
     outline = 'outline',
+    squareFilled = 'squareFilled',
+    squareOutline = 'squareOutline',
     version = 'version',
 }
 
