@@ -12,11 +12,15 @@ Tests the following operations:
 import logging
 from typing import Optional
 
+import pytest
 import tenacity
 
+from tests.utilities.domains import Domain
 from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 sleep_sec, sleep_times = get_sleep_info()
 
