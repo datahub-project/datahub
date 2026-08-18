@@ -9,10 +9,12 @@ import static org.mockito.Mockito.withSettings;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.key.DatasetKey;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
@@ -69,6 +71,12 @@ public class EntityClientGetLatestAspectsTest {
     Aspect keyAspect = aspects.get("datasetKey");
     assertNotNull(keyAspect, "Key aspect should be synthesized when alwaysIncludeKeyAspect=true");
     assertEquals(aspects.size(), 1, "Only the synthesized key aspect should be present");
+
+    DatasetUrn datasetUrn = DatasetUrn.createFromUrn(DATASET_URN);
+    DatasetKey datasetKey = new DatasetKey(keyAspect.data());
+    assertEquals(datasetKey.getPlatform(), datasetUrn.getPlatformEntity());
+    assertEquals(datasetKey.getName(), datasetUrn.getDatasetNameEntity());
+    assertEquals(datasetKey.getOrigin(), datasetUrn.getOriginEntity());
   }
 
   @Test
