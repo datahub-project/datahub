@@ -981,10 +981,11 @@ class PlatformAdapter(ABC):
         2. the source builds schemaMetadata from something other than reflection.
 
         Snowflake meets both — it reads INFORMATION_SCHEMA — but does *not*
-        override this method. Its field path depends on ``convert_urns_to_lowercase``
-        and ``preserve_column_case``, which this layer cannot see, so
-        ``snowflake_profiler`` hands the profiler ``field_path_transform=
-        snowflake_identifier`` instead; the profiler prefers that transform over
+        override this method. Its field path depends on the source's own casing
+        configuration (``convert_urns_to_lowercase``, and whatever else the
+        source's identifier rules take into account), which this layer cannot
+        see, so ``snowflake_profiler`` hands the profiler
+        ``field_path_transform=snowflake_identifier`` instead; the profiler prefers that transform over
         this method, so nothing here runs for Snowflake at all. Oracle meets the
         second condition alone: ``OracleInspectorObjectWrapper`` supplies its own
         columns, but names them with ``dialect.normalize_name`` exactly as
