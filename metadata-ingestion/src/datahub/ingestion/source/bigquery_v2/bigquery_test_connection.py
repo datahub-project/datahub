@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Union
 
-from google.api_core.exceptions import GoogleAPIError, PermissionDenied
+from google.api_core.exceptions import PermissionDenied
 from google.cloud import bigquery
 
 from datahub.ingestion.api.source import (
@@ -215,13 +215,10 @@ class BigQueryTestConnection:
                         f"Analytics Hub permission denied on project {project_id}: {e}"
                     )
                 return CapabilityReport(capable=False, failure_reason=reason)
-            except GoogleAPIError as e:
+            except Exception as e:
                 return CapabilityReport(
                     capable=False,
-                    failure_reason=(
-                        "Analytics Hub API error while testing linked dataset "
-                        f"capability for project {project_id}: {e}"
-                    ),
+                    failure_reason=f"Linked datasets capability test failed with: {e}",
                 )
         return CapabilityReport(capable=True)
 

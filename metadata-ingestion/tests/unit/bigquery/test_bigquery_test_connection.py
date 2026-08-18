@@ -2,6 +2,7 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 from google.api_core.exceptions import PermissionDenied
+from google.auth.exceptions import RefreshError
 from google.rpc.error_details_pb2 import ErrorInfo
 
 from datahub.ingestion.api.source import CapabilityReport
@@ -73,3 +74,14 @@ def test_linked_datasets_capability_success():
     client.list_subscriptions.return_value = iter([])
     report = _capability_report(client)
     assert report.capable is True
+
+
+def test_linked_datasets_capability_non_api_error_is_not_fatal():
+    # A credential refresh failure is neither PermissionDenied nor GoogleAPIError.
+    # Escaping here would overwrite basic_connectivity and discard the schema,
+    # lineage and usage results already computed.
+    client = MagicMock()
+    client.list_subscriptions.side_effect = RefreshError("token refresh failed")
+    report = _capability_report(client)
+    assert report.capable is False
+    assert "token refresh failed" in (report.failure_reason or "")
