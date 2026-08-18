@@ -33,7 +33,10 @@ def restore_timezone() -> Iterator[None]:
 def test_pin_timezone_sets_utc(
     restore_timezone: None, pytestconfig: pytest.Config
 ) -> None:
-    os.environ["TZ"] = "Asia/Kolkata"
+    # POSIX TZ form: a fixed +5:30 offset, so the test does not depend on host
+    # tzdata. A zone name silently resolves to UTC where tzdata is absent, which
+    # would make this precondition fail and the assertions below vacuous.
+    os.environ["TZ"] = "XXX-5:30"
     time.tzset()
     assert time.tzname[0] != "UTC"
 

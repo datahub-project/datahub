@@ -48,19 +48,20 @@ def load_golden_flags(pytestconfig: pytest.Config) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Run golden comparisons in UTC regardless of the developer's clock.
+    """Pin the test process to UTC, regardless of the developer's clock.
 
-    Golden files hold absolute UTC epochs. Outside UTC the harness resolves those
-    same instants against the local offset, so tests fail on a clean checkout for
-    a reason unrelated to the change being made. Worse, the failure message
-    recommends `--update-golden-files`, and following that advice rewrites every
-    timestamp in the fixture to the local offset while reporting success.
+    Some suites freeze the clock with a naive literal -- a module-level
+    `FROZEN_TIME = "2022-02-03 07:00:00"` fed to `@time_machine.travel(...)` --
+    which resolves against the local zone when the decorator is constructed, at
+    module import. The goldens they compare against hold absolute UTC epochs, so
+    outside UTC the comparison fails for a reason unrelated to the change being
+    made. Worse, the failure message recommends `--update-golden-files`, and
+    following that advice rewrites the offending timestamps to the local offset
+    and reports success.
 
-    This must be a hook rather than a fixture. Suites freeze the clock with a naive
-    literal -- `@time_machine.travel("2022-02-03 07:00:00")` -- which is resolved
-    against the local zone when the decorator is constructed, i.e. at module import.
-    Collection imports test modules before any fixture runs, so a session-scoped
-    autouse fixture is already too late. pytest_configure runs before collection.
+    Resolution at import is also why this is a hook: collection imports test
+    modules before any fixture runs, so a session-scoped autouse fixture is
+    already too late. pytest_configure runs before collection.
 
     tzset() is POSIX-only, and the assignment is guarded by it rather than run
     unconditionally. Setting TZ without applying it would leave Windows with a
