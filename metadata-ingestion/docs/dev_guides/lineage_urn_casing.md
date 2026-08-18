@@ -47,9 +47,10 @@ casing of **upstream warehouse references** against the casing DataHub already s
 - If no existing entity matches, the reference is left unchanged and flagged `UNRESOLVED`.
 - If the reference matches **two** existing entities differing only by case, it is resolved to the
   **lowercase-named** one (`NORMALIZED`) — the common warehouse default, and better than leaving the
-  edge broken. If none of the colliding entities is lowercase-named, there is no basis to choose and
+  edge broken. This applies only when the reference matches neither casing exactly; if it matches one
+  casing exactly, that casing wins (`EXACT`). If none of the colliding entities is lowercase-named
+  (and there is no exact match), there is no basis to choose and
   the reference is left unchanged and flagged `UNRESOLVED`.
-
 Matching is on the whole URN, so `platform_instance` and `env` are part of the comparison: a `DEV`
 reference is never healed to a same-named `PROD` entity.
 
