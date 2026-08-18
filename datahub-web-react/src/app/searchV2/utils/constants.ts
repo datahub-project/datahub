@@ -37,7 +37,6 @@ export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
-export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
@@ -156,9 +155,6 @@ export const FIELD_TO_LABEL: Record<string, string> = {
     get hasActiveIncidents() {
         return i18next.t('search:filters.incidents.hasActiveLabel');
     },
-    get hasFailingAssertions() {
-        return i18next.t('search:filters.assertions.hasFailingLabel');
-    },
     get hasSiblings() {
         return i18next.t('search:filters.siblings.hasSiblingsLabel');
     },
@@ -187,11 +183,7 @@ export const ADVANCED_SEARCH_ONLY_FILTERS = [
 
 export const ENTITY_TYPE_FIELDS = new Set([ENTITY_SUB_TYPE_FILTER_NAME]);
 
-export const BOOLEAN_FIELDS = new Set([
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    REMOVED_FILTER_NAME,
-]);
+export const BOOLEAN_FIELDS = new Set([HAS_ACTIVE_INCIDENTS_FILTER_NAME, REMOVED_FILTER_NAME]);
 
 export const TEXT_FIELDS = new Set([DESCRIPTION_FILTER_NAME, FIELD_DESCRIPTIONS_FILTER_NAME, FIELD_PATHS_FILTER_NAME]);
 

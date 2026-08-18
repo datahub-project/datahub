@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from typing import Any, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +19,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
 
 
 @pytest.fixture
@@ -1099,3 +1101,191 @@ class TestProfilingIsolationLevelRejection:
             "Asset: test.my_table; isolation_level=BOGUS_LEVEL"
         )
         assert isinstance(warning_call.kwargs["exc"], sa.exc.ArgumentError)
+
+
+class TestEmittedFieldPaths:
+    """The seam between the two names a column has.
+
+    Profiling addresses columns by their stored identifier so a case-colliding
+    pair stays distinct; a profile has to attach to the path the source put in
+    schemaMetadata. `_to_emitted_field_paths` is where one becomes the other, and
+    it is the only place two stored names can collapse onto one path.
+    """
+
+    @staticmethod
+    def _profiles(*paths: str) -> List[DatasetFieldProfileClass]:
+        return [DatasetFieldProfileClass(fieldPath=p) for p in paths]
+
+    def test_translates_each_path_through_the_adapter(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("ORDER_ID", "AMOUNT"), adapter, MagicMock(), "db.tbl"
+        )
+
+        assert [p.fieldPath for p in result] == ["order_id", "amount"]
+
+    def test_two_stored_names_collapsing_to_one_path_keep_one_profile(
+        self, profiler: Any
+    ) -> None:
+        # An Oracle-shaped case: "col" and "COL" are distinct columns and each got
+        # its own statistics, but the schema declares a single folded field. Two
+        # profiles on one path would be dropped downstream, so keep the first.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("col", "COL", "ID"), adapter, MagicMock(), "db.tbl"
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "id"]
+
+    def test_distinct_paths_all_survive(self, profiler: Any) -> None:
+        # The preserve-case shape: the adapter hands the stored name straight
+        # back, so nothing collapses and both columns keep their statistics.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name
+
+        result = profiler._to_emitted_field_paths(
+            self._profiles("col", "COL"), adapter, MagicMock(), "db.tbl"
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "COL"]
+
+    def test_a_quoted_name_leaves_as_a_plain_string(self, profiler: Any) -> None:
+        # Profiles are built from sql_table.columns, whose names this module
+        # rebuilds as quoted_name so the generated SQL targets each column
+        # exactly. quoted_name is a str subclass whose .lower()/.upper() return
+        # self while the identifier is quoted, so a path that keeps the subclass
+        # silently survives every later fold -- Snowflake's convert_urns_to_lowercase
+        # became a no-op this way, with no error anywhere.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name
+
+        result = profiler._to_emitted_field_paths(
+            [
+                DatasetFieldProfileClass(
+                    fieldPath=sa.sql.quoted_name("MixedCol", quote=True)
+                )
+            ],
+            adapter,
+            MagicMock(),
+            "db.tbl",
+        )
+
+        assert type(result[0].fieldPath) is str
+        assert result[0].fieldPath.lower() == "mixedcol"
+
+    def test_quoted_names_still_fold_and_collapse(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        result = profiler._to_emitted_field_paths(
+            [
+                DatasetFieldProfileClass(fieldPath=sa.sql.quoted_name(n, quote=True))
+                for n in ("col", "COL", "ID")
+            ],
+            adapter,
+            MagicMock(),
+            "db.tbl",
+        )
+
+        assert [p.fieldPath for p in result] == ["col", "id"]
+
+    def test_a_collapsed_pair_is_reported(self, profiler: Any) -> None:
+        # Dropping the second profile is correct -- the schema declares one field.
+        # Doing it silently is not: the surviving profile carries whichever
+        # column came first, so the statistics under `col` may be "COL"'s, and
+        # which one wins moves with column order. Nothing else in the run says so.
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        profiler._to_emitted_field_paths(
+            self._profiles("col", "COL"), adapter, MagicMock(), "db.sch.orders"
+        )
+
+        assert profiler.report.warning.called
+        context = profiler.report.warning.call_args.kwargs["context"]
+        assert "db.sch.orders" in context
+        assert "col" in context
+
+    def test_nothing_collapsing_is_not_reported(self, profiler: Any) -> None:
+        adapter = MagicMock()
+        adapter.field_path_for.side_effect = lambda name, conn: name.lower()
+
+        profiler._to_emitted_field_paths(
+            self._profiles("ID", "AMOUNT"), adapter, MagicMock(), "db.sch.orders"
+        )
+
+        assert not profiler.report.warning.called
+
+
+class TestIgnoreSamplingColumnNames:
+    """tags_to_ignore_sampling is resolved against DataHub, so it arrives as
+    emitted field paths. Profiling addresses columns by their stored name, which
+    on a normalizing dialect is a different string -- the membership test would
+    silently never hit and the tag would stop working.
+
+    These use the real adapters on purpose. A stub adapter that lowercases makes
+    this look fixed while Snowflake, whose field_path_for returns the stored name
+    unchanged, still fails.
+    """
+
+    @staticmethod
+    def _table(*names: str) -> sa.Table:
+        return sa.Table("t", sa.MetaData(), *[sa.Column(n, sa.String()) for n in names])
+
+    @staticmethod
+    def _snowflake_adapter() -> Any:
+        from snowflake.sqlalchemy import dialect as snowflake_dialect
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+            SnowflakeAdapter,
+        )
+
+        engine = MagicMock()
+        engine.dialect = snowflake_dialect()
+        return SnowflakeAdapter(ProfilingConfig(), SQLSourceReport(), engine), engine
+
+    def test_snowflake_tag_still_matches_its_column(self, profiler: Any) -> None:
+        # The default recipe lowercases field paths, so DataHub holds
+        # 'customer_id' while profiling holds 'CUSTOMER_ID'.
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["customer_id"], self._table("CUSTOMER_ID", "AMOUNT"), adapter, engine
+        )
+
+        assert kept == ["CUSTOMER_ID"]
+
+    def test_untagged_columns_are_left_alone(self, profiler: Any) -> None:
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["customer_id"], self._table("AMOUNT", "TOTAL"), adapter, engine
+        )
+
+        assert kept == []
+
+    def test_a_case_only_pair_is_treated_as_one(self, profiler: Any) -> None:
+        # Documented trade-off: the emitted path cannot be reconstructed here, so
+        # matching is folded and tagging one spelling skips both. Erring towards
+        # skipping suits a control meant to keep stats off costly or sensitive
+        # columns.
+        adapter, engine = self._snowflake_adapter()
+
+        kept = profiler._ignore_list_as_stored_names(
+            ["col"], self._table("col", "COL"), adapter, engine
+        )
+
+        assert kept == ["col", "COL"]
+
+    def test_empty_list_short_circuits(self, profiler: Any) -> None:
+        adapter = MagicMock()
+
+        assert (
+            profiler._ignore_list_as_stored_names([], self._table("A"), adapter, None)
+            == []
+        )
+        adapter.field_path_for.assert_not_called()

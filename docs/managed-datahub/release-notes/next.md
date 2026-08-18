@@ -32,7 +32,7 @@ Breaking Changes:
 
 New Features:
 
-- TODO
+- **(Remote Executor) Dynamic ingestion virtual environments now hardlink from the `uv` cache by default**, sharply reducing ephemeral-storage growth. The DataHub-provided Remote Executor Helm chart, Terraform module, and CloudFormation template now set `UV_LINK_MODE=hardlink`, so venvs built for non-[bundled](/docs/docker/bundled-ingestion-venvs.md) runs link their package files from the shared cache instead of copying them — many concurrent or successive runs that share dependencies no longer each consume a full copy. **Action:** none for standard deployments. If you place `/tmp` and the `uv` cache on **separate** volumes, review [Remote Executor best practices → Ingestion virtual environments and the uv cache](../remote-executor/best-practices.md#ingestion-virtual-environments-and-the-uv-cache) to preserve the savings. If you run with a **read-only root filesystem**, point `UV_CACHE_DIR` at a writable volume — otherwise dynamic venv builds fail (see [Read-only root filesystem](../remote-executor/best-practices.md#read-only-root-filesystem)). Set `UV_LINK_MODE=copy` to opt out.
 
 Fixes:
 
