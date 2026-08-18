@@ -3,6 +3,7 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_unique_dataset_impl
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import (
     add_tag,
     add_term,
@@ -11,6 +12,8 @@ from tests.utilities.metadata_operations import (
     update_description,
 )
 from tests.utils import execute_graphql
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="module", autouse=True)

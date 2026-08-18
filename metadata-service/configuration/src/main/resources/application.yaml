@@ -82,6 +82,14 @@ authentication:
   # The max duration of a password reset token in milliseconds. Defaults to 1 day.
   passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
 
+  # Personal / service-account access token duration policy (create-time only).
+  accessTokens:
+    # When false, NO_EXPIRY tokens cannot be created. Existing tokens keep working.
+    allowNoExpiry: ${ACCESS_TOKEN_ALLOW_NO_EXPIRY:false}
+    # Comma-separated ISO-8601 durations shown in the UI and enforced on create.
+    # P1M = 30 days, P1Y = 365 days (fixed approximations). Must be non-empty.
+    allowedDurations: ${ACCESS_TOKEN_ALLOWED_DURATIONS:PT1H,P1D,P7D,P30D,P90D,P180D,P365D}
+
 # Authorization-related configurations.
 authorization:
   # Configurations for the default DataHub policies-based authorizer.
@@ -101,13 +109,13 @@ authorization:
     # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
     # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
-    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
-    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField. Re-add document via
-    # VIEW_UNRESTRICTED_ENTITY_TYPES_ADD=document if needed.
+    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Document,
+    # schemaField, and container are intentionally absent from stock unrestricted overlays when
+    # view authorization is on (container is no longer viewUnrestricted in the registry). Re-add
+    # via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
-    #   browse: container
     #   platforms: dataPlatform, dataPlatformInstance
     #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
     #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
@@ -408,6 +416,8 @@ searchService:
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
   semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
+  lineage:
+    maxParentsToValidate: ${SEARCH_SERVICE_LINEAGE_MAX_PARENTS_TO_VALIDATE:1000}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -577,6 +587,8 @@ ebean:
   entityWriteLockLeaseSeconds: ${ENTITY_WRITE_LOCK_LEASE_SECONDS:300} # Hazelcast lock lease: auto-release a held lock after this many seconds so a dead/hung holder never wedges a URN.
   optimisticLockingEnabled: ${OPTIMISTIC_LOCKING_ENABLED:false} # Opt-in, per-process: write aspects via compare-and-set on SystemMetadata.version instead of SELECT ... FOR UPDATE. Ignored on Cassandra. Default off (legacy path unchanged).
   scopedRetryEnabled: ${SCOPED_RETRY_ENABLED:false} # Opt-in, requires optimisticLockingEnabled: on an optimistic-lock CONFLICT retry only the conflicted URN's branch within the transaction instead of re-running the whole batch. Default off (full-batch retry).
+  optimisticWriteBatchEnabled: ${OPTIMISTIC_WRITE_BATCH_ENABLED:false} # Opt-in: batch CAS updates via JDBC executeBatch. Requires optimisticLockingEnabled AND scopedRetryEnabled. Default off.
+  optimisticWriteBatchMinSize: ${OPTIMISTIC_WRITE_BATCH_MIN_SIZE:10} # Min batch size below which batching is skipped. (Max per executeBatch is a hardcoded constant, packet-limited.)
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
@@ -1436,6 +1448,12 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_LIMIT:0}
+  datasetAliases:
+    enabled: ${SYSTEM_UPDATE_DATASET_ALIASES_ENABLED:true}
+    batchSize: ${SYSTEM_UPDATE_DATASET_ALIASES_BATCH_SIZE:1000}
+    delayMs: ${SYSTEM_UPDATE_DATASET_ALIASES_DELAY_MS:0}
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_DATASET_ALIASES_REPROCESS:false}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -1767,6 +1785,12 @@ cache:
           dashboardUsageStatistics: 21600 # 6hrs
         telemetry:
           telemetryClientId: 86400 # 1 day
+        dataHubRetention:
+          dataHubRetentionConfig: 21600 # 6hrs
+        dataPlatform:
+          dataPlatformInfo: 86400 # 1 day
+        dataPlatformInstance:
+          dataPlatformInstanceKey: 300 # 5 min
 
 graphQL:
   graphiql:

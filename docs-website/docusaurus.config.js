@@ -179,7 +179,7 @@ module.exports = {
           ],
         },
         {
-          href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+          href: "https://datahub.com/slack",
           html: `
             <style>
               .slack-logo:hover {
@@ -233,7 +233,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://medium.com/datahub-project",
+              href: "https://datahub.com/blog/",
             },
             {
               label: "Town Halls",

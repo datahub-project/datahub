@@ -237,6 +237,16 @@ def get_force_legacy_wait() -> bool:
     )
 
 
+def get_lag_auth_timeout_seconds() -> float:
+    """How long to retry 401/403 on lag endpoints before failing.
+
+    Auth denials can be transient while policies bootstrap. After this window,
+    wait_for_writes_to_sync raises and tells the operator to grant
+    VIEW_SYSTEM_STATUS or MANAGE_SYSTEM_OPERATIONS.
+    """
+    return float(os.getenv("DATAHUB_TEST_LAG_AUTH_TIMEOUT_SECONDS", "20"))
+
+
 def get_kafka_bootstrap_server() -> str:
     """Kafka bootstrap server for smoke tests."""
     return str(os.getenv("KAFKA_BOOTSTRAP_SERVER", "broker:29092"))

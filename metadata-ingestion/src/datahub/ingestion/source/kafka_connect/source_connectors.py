@@ -1,7 +1,17 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Dict, Final, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Final,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 from sqlalchemy.engine.url import make_url
 
@@ -21,6 +31,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     get_dataset_name,
     has_three_level_hierarchy,
+    normalize_jdbc_url,
     parse_comma_separated_list,
     remove_prefix,
     unquote,
@@ -38,6 +49,13 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
+
+# JDBC subprotocols the SQLAlchemy mapper does not recognize but that are real
+# DataHub platforms. Anything else falls through as "unknown" so a mistyped URL
+# cannot invent a lineage platform.
+_JDBC_PROTOCOL_PLATFORM_FALLBACK: Final[FrozenSet[str]] = frozenset(
+    {"db2", "teradata", "cassandra"}
+)
 
 
 @dataclass(frozen=True)
@@ -1334,7 +1352,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             source_platform = self._extract_platform_from_jdbc_url(
                 config.get("connection.url", "")
             )
-            if source_platform == "unknown":
+            if source_platform in ("unknown", "external"):
                 logger.warning(
                     f"Could not determine source platform for JDBC connector {self.connector_manifest.name}"
                 )
@@ -1457,13 +1475,19 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return "unknown"
 
         try:
-            remaining_url = remove_prefix(jdbc_url, JDBC_PREFIX)
-            protocol_end = remaining_url.find(":")
+            normalized = normalize_jdbc_url(jdbc_url)
+            platform = get_platform_from_sqlalchemy_uri(normalized)
+            if platform != "external":
+                return platform
+            protocol_end = normalized.find(":")
             if protocol_end == -1:
                 return "unknown"
-
-            protocol = remaining_url[:protocol_end].lower()
-            return "postgres" if protocol == "postgresql" else protocol
+            protocol = normalized[:protocol_end].lower()
+            if protocol == "postgresql":
+                return "postgres"
+            if protocol in _JDBC_PROTOCOL_PLATFORM_FALLBACK:
+                return protocol
+            return "unknown"
         except Exception:
             return "unknown"
 

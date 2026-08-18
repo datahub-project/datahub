@@ -714,7 +714,7 @@ public class AuthUtil {
         API_PRIVILEGE_MAP.getOrDefault(apiGroup, Map.of());
 
     switch (apiOperation) {
-        // Manage is a conjunction of UPDATE and DELETE
+      // Manage is a conjunction of UPDATE and DELETE
       case MANAGE:
         return Disjunctive.conjoin(
             privMap.getOrDefault(ApiOperation.UPDATE, DENY_ACCESS),
@@ -746,7 +746,7 @@ public class AuthUtil {
                       entityType, API_PRIVILEGE_MAP.getOrDefault(ApiGroup.ENTITY, Map.of()));
 
               switch (apiOperation) {
-                  // Manage is a conjunction of UPDATE and DELETE
+                // Manage is a conjunction of UPDATE and DELETE
                 case MANAGE:
                   return Pair.of(
                       entityType,
