@@ -183,22 +183,50 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     EbeanTestUtils.shutdownDatabaseFromAspectDao(aspectDao);
   }
 
-  @Test
-  public void batchedMultiAspectUpdatesCommitAndCallBatch() throws Exception {
-    Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchCommit");
-
-    // Seed both aspects at SystemMetadata.version=1.
+  private void seedBothAspects(Urn urn, String email, boolean removed) {
     entityService.ingestAspects(
         opContext,
         urn,
         List.of(
             com.linkedin.util.Pair.of(
                 CORP_USER_INFO_ASPECT,
-                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo("seed@test.com")),
+                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo(email)),
             com.linkedin.util.Pair.of(
-                STATUS_ASPECT, (RecordTemplate) new Status().setRemoved(false))),
+                STATUS_ASPECT, (RecordTemplate) new Status().setRemoved(removed))),
         TEST_AUDIT_STAMP,
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
+  }
+
+  private void assertStoredEmail(Urn urn, String expectedEmail) {
+    CorpUserInfo storedInfo =
+        (CorpUserInfo)
+            entityService
+                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
+                .get(CORP_USER_INFO_ASPECT);
+    assertNotNull(storedInfo);
+    assertEquals(storedInfo.getEmail(), expectedEmail);
+  }
+
+  private void assertStoredRemoved(Urn urn, boolean expectedRemoved) {
+    Status storedStatus =
+        (Status)
+            entityService
+                .getLatestAspectsForUrn(opContext, urn, Set.of(STATUS_ASPECT), false)
+                .get(STATUS_ASPECT);
+    assertNotNull(storedStatus);
+    if (expectedRemoved) {
+      assertTrue(storedStatus.isRemoved());
+    } else {
+      assertEquals(storedStatus.isRemoved(), expectedRemoved);
+    }
+  }
+
+  @Test
+  public void batchedMultiAspectUpdatesCommitAndCallBatch() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchCommit");
+
+    // Seed both aspects at SystemMetadata.version=1.
+    seedBothAspects(urn, "seed@test.com", false);
 
     reset(mockProducer);
 
@@ -215,21 +243,8 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
 
     // Verify final state: both aspects updated to the new values.
-    CorpUserInfo storedInfo =
-        (CorpUserInfo)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
-                .get(CORP_USER_INFO_ASPECT);
-    assertNotNull(storedInfo);
-    assertEquals(storedInfo.getEmail(), "writer@test.com");
-
-    Status storedStatus =
-        (Status)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(STATUS_ASPECT), false)
-                .get(STATUS_ASPECT);
-    assertNotNull(storedStatus);
-    assertTrue(storedStatus.isRemoved());
+    assertStoredEmail(urn, "writer@test.com");
+    assertStoredRemoved(urn, true);
 
     // Verify version history: both aspects have two versions (seed v1 + new v2).
     EntityAspect infoRow =
@@ -248,17 +263,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchConflict");
 
     // Seed both aspects at version=1.
-    entityService.ingestAspects(
-        opContext,
-        urn,
-        List.of(
-            com.linkedin.util.Pair.of(
-                CORP_USER_INFO_ASPECT,
-                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo("seed@test.com")),
-            com.linkedin.util.Pair.of(
-                STATUS_ASPECT, (RecordTemplate) new Status().setRemoved(false))),
-        TEST_AUDIT_STAMP,
-        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
+    seedBothAspects(urn, "seed@test.com", false);
 
     reset(mockProducer);
 
@@ -309,21 +314,8 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
 
     // Verify both aspects ended up committed with new values (despite the forced conflict).
-    CorpUserInfo storedInfo =
-        (CorpUserInfo)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
-                .get(CORP_USER_INFO_ASPECT);
-    assertNotNull(storedInfo);
-    assertEquals(storedInfo.getEmail(), "writer@test.com");
-
-    Status storedStatus =
-        (Status)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(STATUS_ASPECT), false)
-                .get(STATUS_ASPECT);
-    assertNotNull(storedStatus);
-    assertTrue(storedStatus.isRemoved());
+    assertStoredEmail(urn, "writer@test.com");
+    assertStoredRemoved(urn, true);
 
     // Verify scoped retry happened: updateAspectsConditionalBatch called at least twice
     // (first pass batch + retry pass batch, since minSize=1 the 1-item retry also batches).
@@ -344,6 +336,86 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
             .optimisticLockingEnabled(true)
             .scopedRetryEnabled(true)
             .optimisticWriteBatchEnabled(false) // DISABLED
+            .build();
+
+    EbeanAspectDao localAspectDao =
+        spy(
+            new EbeanAspectDao(
+                PrimaryStorageTestUtils.ebeanResolver(server2),
+                configNoBatch,
+                null,
+                List.of(),
+                null,
+                /* optimisticLocking */ true));
+    localAspectDao.setWritable(true);
+
+    PreProcessHooks localPreProcessHooks = new PreProcessHooks();
+    localPreProcessHooks.setUiEnabled(true);
+    EntityServiceImpl localEntityService =
+        new EntityServiceImpl(
+            localAspectDao,
+            mock(EventProducer.class),
+            localPreProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(false)
+                .setEnableBrowseV2(true),
+            null);
+    localEntityService.setUpdateIndicesService(mock(UpdateIndicesService.class));
+
+    // Seed one aspect.
+    localEntityService.ingestAspects(
+        opContext,
+        urn,
+        List.of(
+            com.linkedin.util.Pair.of(
+                CORP_USER_INFO_ASPECT,
+                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo("seed@test.com"))),
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
+
+    // Update the aspect.
+    CorpUserInfo newInfo = AspectGenerationUtils.createCorpUserInfo("writer@test.com");
+    localEntityService.ingestAspects(
+        opContext,
+        urn,
+        List.of(com.linkedin.util.Pair.of(CORP_USER_INFO_ASPECT, (RecordTemplate) newInfo)),
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
+
+    // Verify the aspect updated correctly.
+    CorpUserInfo storedInfo =
+        (CorpUserInfo)
+            localEntityService
+                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
+                .get(CORP_USER_INFO_ASPECT);
+    assertNotNull(storedInfo);
+    assertEquals(storedInfo.getEmail(), "writer@test.com");
+
+    // Verify batch path was NOT used: updateAspectsConditionalBatch should never be called.
+    verify(localAspectDao, never()).updateAspectsConditionalBatch(any(), any(), any());
+
+    // Cleanup local server.
+    EbeanTestUtils.shutdownDatabaseFromAspectDao(localAspectDao);
+  }
+
+  @Test
+  public void batchWithoutScopedRetryUsesSequentialPath() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchNoScoped");
+
+    // Build a SECOND local DAO + EntityService with scoped retry DISABLED
+    // even though batching is ENABLED. Batching only operates on the scoped-retry path,
+    // so it should remain inert and fall back to sequential.
+    Database server2 =
+        EbeanTestUtils.createTestServer(
+            EbeanEntityServiceOptimisticWriteBatchTest.class.getSimpleName() + "_NoScopedRetry");
+
+    EbeanConfiguration configNoBatch =
+        EbeanConfiguration.builder()
+            .optimisticLockingEnabled(true)
+            .scopedRetryEnabled(false) // DISABLED - batching should not engage
+            .optimisticWriteBatchEnabled(true) // ON, but should stay inert
+            .optimisticWriteBatchMinSize(1)
             .build();
 
     EbeanAspectDao localAspectDao =
@@ -482,17 +554,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchMetrics");
 
     // Seed both aspects at SystemMetadata.version=1.
-    entityService.ingestAspects(
-        opContext,
-        urn,
-        List.of(
-            com.linkedin.util.Pair.of(
-                CORP_USER_INFO_ASPECT,
-                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo("seed@test.com")),
-            com.linkedin.util.Pair.of(
-                STATUS_ASPECT, (RecordTemplate) new Status().setRemoved(false))),
-        TEST_AUDIT_STAMP,
-        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
+    seedBothAspects(urn, "seed@test.com", false);
 
     reset(mockProducer);
 
@@ -518,21 +580,8 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     verify(spyMetrics, times(1)).increment(eq(batchExecutionsMetric), eq(1));
 
     // Verify final state: both aspects updated to the new values.
-    CorpUserInfo storedInfo =
-        (CorpUserInfo)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
-                .get(CORP_USER_INFO_ASPECT);
-    assertNotNull(storedInfo);
-    assertEquals(storedInfo.getEmail(), "metrics@test.com");
-
-    Status storedStatus =
-        (Status)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(STATUS_ASPECT), false)
-                .get(STATUS_ASPECT);
-    assertNotNull(storedStatus);
-    assertTrue(storedStatus.isRemoved());
+    assertStoredEmail(urn, "metrics@test.com");
+    assertStoredRemoved(urn, true);
   }
 
   @Test
@@ -540,17 +589,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:olBatchWriteGate");
 
     // Seed both aspects at SystemMetadata.version=1.
-    entityService.ingestAspects(
-        opContext,
-        urn,
-        List.of(
-            com.linkedin.util.Pair.of(
-                CORP_USER_INFO_ASPECT,
-                (RecordTemplate) AspectGenerationUtils.createCorpUserInfo("seed@test.com")),
-            com.linkedin.util.Pair.of(
-                STATUS_ASPECT, (RecordTemplate) new Status().setRemoved(false))),
-        TEST_AUDIT_STAMP,
-        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
+    seedBothAspects(urn, "seed@test.com", false);
 
     reset(mockProducer);
 
@@ -570,21 +609,8 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP));
 
     // Verify both aspects committed with new values (gate did not interfere with batching).
-    CorpUserInfo storedInfo =
-        (CorpUserInfo)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
-                .get(CORP_USER_INFO_ASPECT);
-    assertNotNull(storedInfo);
-    assertEquals(storedInfo.getEmail(), "gate@test.com");
-
-    Status storedStatus =
-        (Status)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(STATUS_ASPECT), false)
-                .get(STATUS_ASPECT);
-    assertNotNull(storedStatus);
-    assertTrue(storedStatus.isRemoved());
+    assertStoredEmail(urn, "gate@test.com");
+    assertStoredRemoved(urn, true);
 
     // Verify batch path was engaged even with gate present.
     verify(aspectDao, atLeast(1)).updateAspectsConditionalBatch(any(), any(), any());
@@ -658,12 +684,6 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     verify(aspectDao, never()).updateAspectsConditionalBatch(any(), any(), any());
 
     // Verify final stored value is the last write's value (second@test.com), no exception.
-    CorpUserInfo storedInfo =
-        (CorpUserInfo)
-            entityService
-                .getLatestAspectsForUrn(opContext, urn, Set.of(CORP_USER_INFO_ASPECT), false)
-                .get(CORP_USER_INFO_ASPECT);
-    assertNotNull(storedInfo);
-    assertEquals(storedInfo.getEmail(), "second@test.com");
+    assertStoredEmail(urn, "second@test.com");
   }
 }

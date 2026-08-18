@@ -8,7 +8,11 @@
     </test>
     <test name="mysql-conditional-batch">
         <classes>
-            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConditionalBatchIT"/>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConditionalBatchIT">
+                <methods>
+                    <include name="mysql"/>
+                </methods>
+            </class>
         </classes>
     </test>
 </suite>
