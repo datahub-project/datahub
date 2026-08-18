@@ -680,7 +680,14 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
     ) -> str:
         return """\
 with target_queries as (
-    select distinct si.query
+    select
+        si.query,
+        si.tbl,
+        si.starttime,
+        si.userid,
+        sti.schema as target_schema,
+        sti.table as target_table,
+        sti.database as cluster
     from
         stl_insert si
     join SVV_TABLE_INFO sti on
@@ -708,27 +715,23 @@ query_txt as (
             sequence < {_QUERY_SEQUENCE_LIMIT}
             -- Scope by query id: the query-text tables carry no timestamp.
             and query in (select query from target_queries)
-        order by
-            sequence
     )
     group by
         query,
         pid
 )
 select
-    distinct tbl as target_table_id,
-    sti.schema as target_schema,
-    sti.table as target_table,
-    sti.database as cluster,
-    usename as username,
-    ddl,
+    distinct si.tbl as target_table_id,
+    si.target_schema,
+    si.target_table,
+    si.cluster,
+    sui.usename as username,
+    sq.ddl,
     sq.query as query_id,
     min(si.starttime) as timestamp,
-    ANY_VALUE(pid) as session_id
+    ANY_VALUE(sq.pid) as session_id
 from
-    stl_insert as si
-left join SVV_TABLE_INFO sti on
-    sti.table_id = tbl
+    target_queries si
 left join svl_user_info sui on
     si.userid = sui.usesysid
 left join query_txt sq on
@@ -736,22 +739,15 @@ left join query_txt sq on
 left join stl_load_commits slc on
     slc.query = si.query
 where
-        -- These three predicates are a second copy of the ones bounding
-        -- target_queries above, and the two sets must agree: a row that falls out of
-        -- target_queries still reaches the left join to query_txt, so it comes back
-        -- with ddl and query_id NULL rather than raising anything. Edit both together.
         sui.usename <> 'rdsdb'
-        and cluster = '{db_name}'
         and slc.query IS NULL
-        and si.starttime >= '{start_time}'
-        and si.starttime < '{end_time}'
 group by
     target_table_id,
-    target_schema,
-    target_table,
-    cluster,
+    si.target_schema,
+    si.target_table,
+    si.cluster,
     username,
-    ddl,
+    sq.ddl,
     sq.query
         """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
@@ -866,7 +862,7 @@ where
               JOIN stl_query sq ON ss.query = sq.query
               -- LEFT (enrichment only): svl_user_info supplies the username but must
               -- not gate the row. An INNER join drops any scan whose user has no row
-              -- in the view -- which includes the rdsdb system user (excluded below by
+              -- in the view, which includes the rdsdb system user (excluded below by
               -- userid) and, on Redshift editions that keep the user-info views
               -- superuser/self-only, real users a non-superuser can't resolve.
               LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
@@ -918,11 +914,14 @@ where
                     WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
                     -- Scope by query id: the query-text tables carry no timestamp.
                     AND query IN (SELECT query FROM in_window_queries)
-                    ORDER BY sequence
                 )
                 GROUP BY query, pid
             )
-            SELECT DISTINCT
+            -- No DISTINCT: in_window_queries is one row per stl_query row, query_txt is
+            -- grouped by (query, pid) so the join matches at most once, and
+            -- svl_user_info is keyed on usesysid. It would only cost a sort over the
+            -- largest result set in this feed.
+            SELECT
                 q.query AS query_id,
                 qt.query_text AS query_text,
                 sui.usename AS username,
@@ -1219,7 +1218,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     qd.step_name = 'insert' AND
                     -- Exclude rdsdb by its system user_id (1), not by name. SVV_USER_INFO
                     -- has no rdsdb row, so a name-based rdsdb filter relied on NULL
-                    -- propagation to drop it -- which also silently dropped any real
+                    -- propagation to drop it, which also silently dropped any real
                     -- user the view can't resolve. Filtering by user_id excludes rdsdb
                     -- while the LEFT join keeps unresolved real users (username NULL).
                     qd.user_id <> 1 AND
