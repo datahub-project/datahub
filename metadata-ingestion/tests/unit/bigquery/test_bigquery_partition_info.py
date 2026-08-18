@@ -68,3 +68,52 @@ class TestPartitionInfo:
         partition_info = PartitionInfo.from_range_partitioning(range_partitioning)
 
         assert partition_info is None
+
+    def test_single_field_repr_matches_legacy_custom_property_string(self):
+        col = BigqueryColumn(
+            name="date_utc",
+            ordinal_position=1,
+            field_path="date_utc",
+            is_nullable=True,
+            data_type="DATE",
+            comment=None,
+            is_partition_column=True,
+            cluster_column_position=None,
+            policy_tags=[],
+        )
+        partition_info = PartitionInfo(
+            fields=("date_utc",),
+            columns=(col,),
+            type="DAY",
+            expiration_ms=None,
+            require_partition_filter=None,
+        )
+
+        assert partition_info.field == "date_utc"
+        assert partition_info.column is col
+        assert str(partition_info) == (
+            "PartitionInfo(field='date_utc', "
+            "column=BigqueryColumn(name='date_utc', ordinal_position=1, "
+            "is_nullable=True, data_type='DATE', comment=None, "
+            "field_path='date_utc', is_partition_column=True, "
+            "cluster_column_position=None, policy_tags=[]), "
+            "type='DAY', expiration_ms=None, require_partition_filter=None)"
+        )
+
+    def test_ingestion_time_partition_repr_keeps_legacy_field_column_keys(self):
+        partition_info = PartitionInfo(
+            fields=("_PARTITIONTIME",),
+            type="DAY",
+            expiration_ms=259200000,
+            require_partition_filter=None,
+        )
+
+        assert str(partition_info) == (
+            "PartitionInfo(field='_PARTITIONTIME', column=None, type='DAY', "
+            "expiration_ms=259200000, require_partition_filter=None)"
+        )
+
+    def test_multi_field_repr_uses_fields_and_columns(self):
+        partition_info = PartitionInfo(fields=("region", "dt"))
+
+        assert str(partition_info).startswith("PartitionInfo(fields=")

@@ -137,7 +137,7 @@ class PartitionInfo:
     columns: Optional[Tuple[BigqueryColumn, ...]] = None
     type: str = TimePartitioningType.DAY
     expiration_ms: Optional[int] = None
-    require_partition_filter: bool = False
+    require_partition_filter: Optional[bool] = False
 
     def __post_init__(self) -> None:
         if not self.fields:
@@ -148,6 +148,37 @@ class PartitionInfo:
             raise ValueError(
                 f"fields/columns length mismatch: {len(self.fields)} fields vs {len(self.columns)} columns"
             )
+
+    @property
+    def field(self) -> str:
+        return self.fields[0]
+
+    @property
+    def column(self) -> Optional[BigqueryColumn]:
+        if not self.columns:
+            return None
+        return self.columns[0]
+
+    def __repr__(self) -> str:
+        # Keep the pre-multi-column custom-property string for single-field
+        # partitions so existing catalog values and connector-test goldens stay stable.
+        if len(self.fields) == 1:
+            return (
+                "PartitionInfo("
+                f"field={self.fields[0]!r}, "
+                f"column={self.column!r}, "
+                f"type={self.type!r}, "
+                f"expiration_ms={self.expiration_ms!r}, "
+                f"require_partition_filter={self.require_partition_filter!r})"
+            )
+        return (
+            "PartitionInfo("
+            f"fields={self.fields!r}, "
+            f"columns={self.columns!r}, "
+            f"type={self.type!r}, "
+            f"expiration_ms={self.expiration_ms!r}, "
+            f"require_partition_filter={self.require_partition_filter!r})"
+        )
 
     @classmethod
     def from_time_partitioning(
