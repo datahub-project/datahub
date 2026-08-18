@@ -589,9 +589,17 @@ class AutoResolveLineageUrnsProcessor(
             return None
         try:
             return self._graph_resolver_for(platform).resolve_urn(urn)[1]
-        except Exception:
+        except Exception as e:
             self.report.num_schema_fetches_failed += 1
-            logger.debug(f"Failed to fetch schema for {urn}", exc_info=True)
+            self.ctx.source_report.warning(
+                title="Lineage URN casing: upstream schema not fetched",
+                message="Failed to fetch an upstream dataset's schema from DataHub; "
+                "its table casing is still reconciled, but its column casing is left "
+                "unchanged.",
+                context=urn,
+                exc=e,
+                log=False,
+            )
             return None
 
     def _graph_resolver_for(self, platform: str) -> "SchemaResolver":
