@@ -678,9 +678,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   /**
    * The version-0 CAS UPDATE. {@code positional=false} emits Ebean named params ({@code :metadata}
    * …) for the single-row {@link #updateAspectConditional}; {@code positional=true} emits JDBC
-   * {@code ?} for the batched raw {@code PreparedStatement} in {@link #updateAspectsConditionalBatch}.
-   * Single source of the dialect version-predicate and column list, so the sequential and batch SQL
-   * cannot diverge.
+   * {@code ?} for the batched raw {@code PreparedStatement} in {@link
+   * #updateAspectsConditionalBatch}. Single source of the dialect version-predicate and column
+   * list, so the sequential and batch SQL cannot diverge.
    */
   @Nonnull
   private static String buildConditionalUpdateSql(
@@ -690,11 +690,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         switch (sqlDialect) {
           case POSTGRES -> "(systemmetadata::jsonb ->> 'version') = " + v;
           case MYSQL -> "systemmetadata->>'$.version' = " + v;
-          // H2 has no JSON path operator comparable to MySQL/Postgres. This INSTR substring match is
-          // a TEST-ONLY approximation and can false-positive/negative vs real JSON path equality — do
+          // H2 has no JSON path operator comparable to MySQL/Postgres. This INSTR substring match
+          // is
+          // a TEST-ONLY approximation and can false-positive/negative vs real JSON path equality —
+          // do
           // not treat H2 CAS results as production dialect coverage.
           case H2_OR_OTHER ->
-              "INSTR(CAST(systemmetadata AS VARCHAR), CONCAT('\"version\":\"', " + v + ", '\"')) > 0";
+              "INSTR(CAST(systemmetadata AS VARCHAR), CONCAT('\"version\":\"', "
+                  + v
+                  + ", '\"')) > 0";
         };
     String columns =
         positional
