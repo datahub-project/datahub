@@ -239,14 +239,14 @@ public class EntityGraphCacheProperties {
   @NoArgsConstructor
   @AllArgsConstructor
   public static class GraphEviction {
-    private LocalEviction local;
+    @JsonMerge private LocalEviction local;
 
     /**
      * Optional per-graph near cache for {@code scope.mode: PARTIAL} (each graph has its own {@code
      * entityGraphSnapshots.<graphId>} map). Ignored for {@code scope.mode: FULL} — use {@link
      * Eviction#getNearCache()}{@code .full} instead.
      */
-    private NearCache nearCache;
+    @JsonMerge private NearCache nearCache;
   }
 
   public enum ScopeMode {

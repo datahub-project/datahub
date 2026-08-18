@@ -63,9 +63,10 @@ record SearchFlags {
    customHighlightingFields:optional array[string]
 
   /**
-   * Elasticsearch _source field names to include on each SearchEntity as extraFields.
-   * Names are passed through as-is (nested paths and wildcards allowed). Empty or absent
-   * fetches no extra document fields — only the default urn include.
+   * Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li
+   * only — not a GraphQL SearchFlags input). Nested paths and wildcards are passed through to
+   * fetch_source; extraFields copies exact top-level _source keys. Empty or absent fetches no
+   * extra document fields — only the default urn include.
    */
    fetchExtraFields:optional array[string]
 

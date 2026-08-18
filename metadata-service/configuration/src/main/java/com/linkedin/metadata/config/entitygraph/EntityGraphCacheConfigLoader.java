@@ -377,10 +377,13 @@ public class EntityGraphCacheConfigLoader {
     boolean hasFilterFields = !CollectionUtils.isEmpty(graph.getBindings().getFilterFields());
     boolean hasPolicyFields = !CollectionUtils.isEmpty(graph.getBindings().getPolicyFieldTypes());
 
+    ScopeMode scopeMode =
+        graph.getScope() != null && graph.getScope().getMode() != null
+            ? graph.getScope().getMode()
+            : ScopeMode.FULL;
     boolean fullSearchOrGraph =
         ("SEARCH".equals(normalizedBuildSource) || "GRAPH".equals(normalizedBuildSource))
-            && graph.getScope() != null
-            && graph.getScope().getMode() == ScopeMode.FULL;
+            && scopeMode == ScopeMode.FULL;
 
     if (hasFilterFields && !fullSearchOrGraph) {
       errors.add(

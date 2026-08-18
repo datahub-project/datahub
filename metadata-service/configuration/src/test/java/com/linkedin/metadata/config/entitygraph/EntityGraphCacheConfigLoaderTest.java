@@ -237,6 +237,71 @@ public class EntityGraphCacheConfigLoaderTest {
   }
 
   @Test
+  public void testJsonOverlayGraphEvictionLocalPreservesLimits() {
+    EntityGraphCacheProperties effective = loader.loadEffective(springLikeBase());
+    effective
+        .getGraphs()
+        .get("glossary")
+        .setEviction(
+            EntityGraphCacheProperties.GraphEviction.builder()
+                .local(
+                    LocalEviction.builder()
+                        .enabled(true)
+                        .maxViews(16)
+                        .maxEstimatedBytes(268435456L)
+                        .build())
+                .build());
+    loader.applyJsonOverlay(
+        "{\"graphs\":{\"glossary\":{\"eviction\":{\"local\":{\"enabled\":false}}}}}",
+        effective,
+        "test");
+
+    LocalEviction local = effective.getGraphs().get("glossary").getEviction().getLocal();
+    assertEquals(local.isEnabled(), false);
+    assertEquals(local.getMaxViews(), 16);
+    assertEquals(local.getMaxEstimatedBytes(), 268435456L);
+  }
+
+  @Test
+  public void testFilterFieldsOnGraphFullAccepted() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithFilterField("domains.keyword"));
+    config.getGraphs().get("custom").setBuildSource("graph");
+    loader.validate(config);
+  }
+
+  @Test
+  public void testPolicyFieldsOnGraphFullAccepted() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithPolicyField("DOMAIN"));
+    GraphDefinition graph = config.getGraphs().get("custom");
+    graph.setBuildSource("graph");
+    loader.validate(config);
+  }
+
+  @Test
+  public void testFilterFieldsOnGraphPartialRejected() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithFilterField("domains.keyword"));
+    GraphDefinition graph = config.getGraphs().get("custom");
+    graph.setBuildSource("graph");
+    graph.getScope().setMode(ScopeMode.PARTIAL);
+    graph.getScope().setMaxDepth(15);
+
+    IllegalStateException ex =
+        org.testng.Assert.expectThrows(IllegalStateException.class, () -> loader.validate(config));
+    assertTrue(ex.getMessage().contains("filterFields requires buildSource search or graph"));
+  }
+
+  @Test
+  public void testFilterFieldsOnSearchNullScopeDefaultsFull() {
+    EntityGraphCacheProperties config =
+        enabledConfigWithGraph("custom", graphWithFilterField("domains.keyword"));
+    config.getGraphs().get("custom").setScope(null);
+    loader.validate(config);
+  }
+
+  @Test
   public void testValidationSkippedWhenCacheDisabled() {
     EntityGraphCacheProperties config = new EntityGraphCacheProperties();
     config.setEnabled(false);
@@ -497,6 +562,7 @@ public class EntityGraphCacheConfigLoaderTest {
     GraphDefinition graph = validPartialGraph();
     graph.setBuildSource("search");
     graph.getScope().setMode(ScopeMode.FULL);
+    graph.getScope().setMaxDepth(0);
     if (graph.getBindings().getPolicyFieldTypes() == null) {
       graph.getBindings().setPolicyFieldTypes(new ArrayList<>());
     }

@@ -343,8 +343,7 @@ public class EntityGraphSnapshotBuilderGraphTest {
     ArgumentCaptor<SearchFlags> flagsCaptor = ArgumentCaptor.forClass(SearchFlags.class);
     verify(searchRetriever)
         .scroll(any(), any(), nullable(String.class), anyInt(), any(), flagsCaptor.capture());
-    assertNotNull(flagsCaptor.getValue().getFetchExtraFields());
-    assertTrue(flagsCaptor.getValue().getFetchExtraFields().contains("parentDomain"));
+    assertEquals(flagsCaptor.getValue().getFetchExtraFields(), List.of("parentDomain"));
 
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertNotNull(result.getSnapshot());
