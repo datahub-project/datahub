@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 import static graphql.scalars.ExtendedScalars.*;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.invite.InviteTokenService;
@@ -1202,7 +1203,10 @@ public class GmsGraphQLEngine {
                     new ListRecommendationsResolver(recommendationsService, viewService))
                 .dataFetcher(
                     "getEntityCounts", new EntityCountsResolver(this.entityClient, viewService))
-                .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
+                .dataFetcher(
+                    "getAccessToken",
+                    new GetAccessTokenResolver(
+                        statefulTokenService, resolveAccessTokenConfiguration()))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(
                     "getAccessTokenMetadata",
@@ -1465,7 +1469,10 @@ public class GmsGraphQLEngine {
                   "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher(
                   "createAccessToken",
-                  new CreateAccessTokenResolver(this.statefulTokenService, this.entityClient))
+                  new CreateAccessTokenResolver(
+                      this.statefulTokenService,
+                      this.entityClient,
+                      resolveAccessTokenConfiguration()))
               .dataFetcher(
                   "revokeAccessToken",
                   new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
@@ -4273,5 +4280,11 @@ public class GmsGraphQLEngine {
                           ? smp.getSemanticModel().getUrn()
                           : null;
                     })));
+  }
+
+  private AccessTokenConfiguration resolveAccessTokenConfiguration() {
+    return authenticationConfiguration.getAccessTokens() != null
+        ? authenticationConfiguration.getAccessTokens()
+        : AccessTokenConfiguration.defaults();
   }
 }

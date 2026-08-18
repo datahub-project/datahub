@@ -346,6 +346,13 @@ Input required to create a new incident in the 'Active' state.
 """
 input RaiseIncidentInput {
   """
+  Optional! A caller-provided id to use as the primary key identifier for the Incident. If not
+  provided, a random UUID will be generated as the id. If an Incident already exists at the given
+  id, the mutation fails with a conflict rather than updating or returning the existing Incident,
+  so raiseIncident stays create-only.
+  """
+  id: String
+  """
   The type of incident
   """
   type: IncidentType!
