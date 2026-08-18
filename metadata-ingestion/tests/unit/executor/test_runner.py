@@ -4,8 +4,6 @@ import sys
 import tempfile
 import threading
 import time
-import unittest.mock
-import zipfile
 from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -22,9 +20,8 @@ from datahub.executor.execution.runner import (
     SubprocessRunner,
     VenvConfig,
     VenvReference,
-    _download_wheel,
+    _bundled_constraints_path,
     _expand_pip_req,
-    _extract_constraints_from_wheel,
     _validate_wheel_url,
     setup_venv,
     validate_dependency_resolution_enabled,
@@ -130,11 +127,10 @@ async def test_run_yes() -> None:
 
 
 async def test_venv_simple(tmp_path: pathlib.Path) -> None:
-    """Test basic venv setup."""
+    """Dev-build URL installs from the URL with the uv cache disabled."""
     logs = LogHolder(echo_to_stdout_prefix="venv-setup-test: ")
     runner = SubprocessRunner(logs)
 
-    # Mock successful venv creation
     async def mock_execute(command, env=None, cwd=None):
         if "venv" in command:
             venv_path = Path(command[-1])
@@ -143,22 +139,8 @@ async def test_venv_simple(tmp_path: pathlib.Path) -> None:
             (venv_path / "bin" / "python").touch()
 
     tmp_path.mkdir(exist_ok=True)
-
-    # Create a fake wheel with constraints.txt inside
-    wheels_dir = tmp_path / "wheels"
-    wheels_dir.mkdir()
-    fake_whl = wheels_dir / "acryl_datahub-0.0.0.dev1-py3-none-any.whl"
-
-    with zipfile.ZipFile(fake_whl, "w") as zf:
-        zf.writestr("datahub/constraints.txt", "# fake constraints\n")
-
-    with (
-        patch.object(runner, "execute", side_effect=mock_execute),
-        patch(
-            "datahub.executor.execution.runner._download_wheel",
-            return_value=fake_whl,
-        ),
-    ):
+    mock = AsyncMock(side_effect=mock_execute)
+    with patch.object(runner, "execute", mock):
         await setup_venv(
             VenvConfig(
                 version="https://b983b409.datahub-wheels.pages.dev/",
@@ -167,6 +149,12 @@ async def test_venv_simple(tmp_path: pathlib.Path) -> None:
             runner,
             tmp_path,
         )
+
+    installs = [c for c in mock.call_args_list if "install" in c[0][0]]
+    assert installs, "expected an install command"
+    for c in installs:
+        assert any("@ https://" in arg for arg in c[0][0])
+        assert c.kwargs["env"].get("UV_NO_CACHE") == "1"
 
 
 @pytest.mark.parametrize("version", ["0.12.1.5", "native"])
@@ -213,22 +201,10 @@ async def test_running_venv_command(tmp_path: pathlib.Path, version: str) -> Non
             return
         return original_write_text(self, data, encoding=encoding, errors=errors)
 
-    # Create a fake wheel for versions that trigger download
-    wheels_dir = tmp_path / "wheels"
-    wheels_dir.mkdir(parents=True, exist_ok=True)
-    fake_whl = wheels_dir / "acryl_datahub-0.12.1.5-py3-none-any.whl"
-
-    with zipfile.ZipFile(fake_whl, "w") as zf:
-        zf.writestr("datahub/constraints.txt", "# fake constraints\n")
-
     tmp_path.mkdir(exist_ok=True)
     with (
         patch.object(Path, "write_text", mock_write_text),
         patch.object(runner, "execute", execute_mock),
-        patch(
-            "datahub.executor.execution.runner._download_wheel",
-            return_value=fake_whl,
-        ),
     ):
         venv = await setup_venv(
             VenvConfig(version=version),
@@ -264,21 +240,7 @@ async def test_repeat_venv_setup(tmp_path: pathlib.Path) -> None:
             if first_call:
                 runner.logs.append("pip install successful\n")
 
-    # Create a fake wheel for the download mock
-    wheels_dir = tmp_path / "wheels"
-    wheels_dir.mkdir(parents=True, exist_ok=True)
-    fake_whl = wheels_dir / "acryl_datahub-0.12.1.5-py3-none-any.whl"
-
-    with zipfile.ZipFile(fake_whl, "w") as zf:
-        zf.writestr("datahub/constraints.txt", "# fake constraints\n")
-
-    with (
-        patch.object(runner, "execute", side_effect=mock_execute),
-        patch(
-            "datahub.executor.execution.runner._download_wheel",
-            return_value=fake_whl,
-        ),
-    ):
+    with patch.object(runner, "execute", side_effect=mock_execute):
         await setup_venv(
             VenvConfig(version="0.12.1.5", main_plugin="snowflake"),
             runner,
@@ -783,15 +745,11 @@ class TestSetupVenv:
         mock_runner.execute.assert_not_called()
 
     @patch("datahub.executor.execution.runner._find_uv")
-    @patch("datahub.executor.execution.runner._download_wheel")
     async def test_setup_venv_dynamic_creation(
-        self, mock_download_wheel, mock_find_uv, mock_runner, temp_dir
+        self, mock_find_uv, mock_runner, temp_dir
     ):
         """Test dynamic venv creation."""
         mock_find_uv.return_value = "uv"
-        whl = temp_dir / "acryl_datahub-0.12.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-        mock_download_wheel.return_value = whl
         config = VenvConfig(version="0.12.1", main_plugin="snowflake")
 
         # Mock the requirements file writing
@@ -815,14 +773,8 @@ class TestSetupVenv:
         assert mock_runner.execute.call_count >= 2
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    @patch("datahub.executor.execution.runner._download_wheel")
-    async def test_setup_venv_validation_failure(
-        self, mock_download_wheel, _find_uv, mock_runner, temp_dir
-    ):
+    async def test_setup_venv_validation_failure(self, _find_uv, mock_runner, temp_dir):
         """Test setup with latest version (should work in new implementation)."""
-        whl = temp_dir / "acryl_datahub-1.4.0.8-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-        mock_download_wheel.return_value = whl
         config = VenvConfig(version="latest", main_plugin="snowflake")
 
         # Mock successful venv creation
@@ -857,15 +809,11 @@ class TestSetupVenv:
             await setup_venv(config, mock_runner, temp_dir)
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    @patch("datahub.executor.execution.runner._download_wheel")
     async def test_setup_venv_pip_install_failure(
-        self, mock_download_wheel, _find_uv, mock_runner, temp_dir
+        self, _find_uv, mock_runner, temp_dir
     ):
         """Test setup when pip install fails."""
 
-        whl = temp_dir / "acryl_datahub-0.12.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-        mock_download_wheel.return_value = whl
         config = VenvConfig(version="0.12.1", main_plugin="snowflake")
 
         call_count = 0
@@ -892,15 +840,9 @@ class TestSetupVenv:
             await setup_venv(config, mock_runner, temp_dir)
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    @patch("datahub.executor.execution.runner._download_wheel")
-    async def test_setup_venv_concurrent_creation(
-        self, mock_download_wheel, _find_uv, temp_dir
-    ):
+    async def test_setup_venv_concurrent_creation(self, _find_uv, temp_dir):
         """Test concurrent venv creation for same configuration."""
 
-        whl = temp_dir / "acryl_datahub-0.12.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-        mock_download_wheel.return_value = whl
         config = VenvConfig(version="0.12.1", main_plugin="snowflake")
 
         # Create multiple runners
@@ -1057,9 +999,6 @@ class TestSetupVenvConstraints:
         downgrades/upgrades without --reinstall. Bare --reinstall is dangerous:
         it upgraded numpy 1.26→2.4 in production, breaking pandas C extensions.
         Pass 2 must use plain -r with no --reinstall* flags."""
-        whl = temp_dir / "acryl_datahub-0.12.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-
         config = VenvConfig(
             version="0.12.1",
             main_plugin="snowflake",
@@ -1068,19 +1007,12 @@ class TestSetupVenvConstraints:
         runner = SubprocessRunner()
         mock = AsyncMock(side_effect=self._mock_execute)
 
-        with (
-            patch(
-                "datahub.executor.execution.runner._download_wheel", return_value=whl
-            ),
-            patch(
-                "datahub.executor.execution.runner._extract_constraints_from_wheel",
-                return_value=None,
-            ),
-            patch.object(runner, "execute", mock),
-        ):
+        with patch.object(runner, "execute", mock):
             await setup_venv(config, runner, temp_dir)
 
-        pass2_cmd = self._pip_installs(mock)[1][0][0]
+        extra_installs = [c for c in self._pip_installs(mock) if "-r" in c[0][0]]
+        assert extra_installs, "expected an extra-requirements install"
+        pass2_cmd = extra_installs[0][0][0]
         assert "--reinstall" not in pass2_cmd
         assert "--reinstall-package" not in pass2_cmd
 
@@ -1105,7 +1037,7 @@ class TestSetupVenvConstraints:
             await setup_venv(config, runner, temp_dir)
 
         # Only one install — pass 2 skipped because requirements_file is caller-owned.
-        # No --constraint since requirements_file path skips wheel download entirely.
+        # No --constraint since the requirements_file path installs verbatim.
         installs = self._pip_installs(mock)
         assert len(installs) == 1
         assert "--constraint" not in installs[0][0][0]
@@ -1114,10 +1046,7 @@ class TestSetupVenvConstraints:
     async def test_pass2_does_not_use_reinstall_flag_with_wheel(
         self, _find_uv, temp_dir, constraints_file
     ):
-        """Pass 2 must not use --reinstall even when wheel download succeeds for pass 1."""
-        whl = temp_dir / "acryl_datahub-0.12.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-
+        """Pass 2 must not use --reinstall even when bundled constraints are present."""
         config = VenvConfig(
             version="0.12.1",
             main_plugin="snowflake",
@@ -1128,17 +1057,16 @@ class TestSetupVenvConstraints:
 
         with (
             patch(
-                "datahub.executor.execution.runner._download_wheel", return_value=whl
-            ),
-            patch(
-                "datahub.executor.execution.runner._extract_constraints_from_wheel",
+                "datahub.executor.execution.runner._bundled_constraints_path",
                 return_value=constraints_file,
             ),
             patch.object(runner, "execute", mock),
         ):
             await setup_venv(config, runner, temp_dir)
 
-        pass2_cmd = self._pip_installs(mock)[1][0][0]
+        extra_installs = [c for c in self._pip_installs(mock) if "-r" in c[0][0]]
+        assert extra_installs, "expected an extra-requirements install"
+        pass2_cmd = extra_installs[0][0][0]
         assert "--reinstall" not in pass2_cmd
         assert "--reinstall-package" not in pass2_cmd
 
@@ -1161,111 +1089,24 @@ class TestWheelBundledConstraints:
         assert not _validate_wheel_url("https://evil.com/malicious")
         assert not _validate_wheel_url("not-a-url")
 
-    def test_download_wheel_rejects_invalid_url(self, temp_dir):
-        """URLs from non-pages.dev domains are rejected."""
-        result = _download_wheel("https://evil.com/malicious", temp_dir)
-        assert result is None
+    def test_bundled_constraints_path_found(self, temp_dir):
+        """Finds datahub/constraints.txt inside the installed package."""
+        site_pkgs = temp_dir / "lib" / "python3.11" / "site-packages" / "datahub"
+        site_pkgs.mkdir(parents=True)
+        (site_pkgs / "constraints.txt").write_text("pandas==2.1.4\n")
 
-    def test_download_wheel_pypi_version(self, temp_dir):
-        """uv pip download is called with == pin for explicit versions."""
-
-        def fake_run(cmd, **kwargs):
-            wheels_dir = Path(cmd[cmd.index("-d") + 1])
-            wheels_dir.mkdir(parents=True, exist_ok=True)
-            (wheels_dir / "acryl_datahub-0.14.1-py3-none-any.whl").write_bytes(b"fake")
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-        with patch("subprocess.run", side_effect=fake_run):
-            result = _download_wheel("0.14.1", temp_dir)
-
+        result = _bundled_constraints_path(temp_dir)
         assert result is not None
-        assert result.name.startswith("acryl_datahub-")
+        assert result.read_text() == "pandas==2.1.4\n"
 
-    def test_download_wheel_latest(self, temp_dir):
-        """pip download with 'latest' uses no == pin."""
-        cmd_used: list[str] = []
-
-        def fake_run(cmd, **kwargs):
-            cmd_used.extend(cmd)
-            wheels_dir = Path(cmd[cmd.index("-d") + 1])
-            wheels_dir.mkdir(parents=True, exist_ok=True)
-            (wheels_dir / "acryl_datahub-0.15.0-py3-none-any.whl").write_bytes(b"fake")
-            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-        with patch("subprocess.run", side_effect=fake_run):
-            result = _download_wheel("latest", temp_dir)
-
-        assert result is not None
-        assert "==" not in " ".join(cmd_used)
-
-    def test_download_wheel_url_version(self, temp_dir):
-        """URL versions download directly without uv."""
-        mock_resp = unittest.mock.Mock()
-        mock_resp.status = 200
-        mock_resp.data = b"fake wheel content"
-
-        with patch("datahub.executor.execution.runner._get_http") as mock_get:
-            mock_get.return_value.request.return_value = mock_resp
-            result = _download_wheel(
-                "https://d651e18a.datahub-wheels.pages.dev/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl",
-                temp_dir,
-            )
-
-        assert result is not None
-        assert result.suffix == ".whl"
-
-    def test_download_wheel_pages_url(self, temp_dir):
-        """Pages URL without .whl suffix appends the standard wheel path."""
-        url_requested: list[str] = []
-        mock_resp = unittest.mock.Mock()
-        mock_resp.status = 200
-        mock_resp.data = b"fake wheel content"
-
-        def _capture_request(method: str, url: str) -> unittest.mock.Mock:
-            url_requested.append(url)
-            return mock_resp
-
-        with patch("datahub.executor.execution.runner._get_http") as mock_get:
-            mock_get.return_value.request.side_effect = _capture_request
-            result = _download_wheel(
-                "https://d651e18a.datahub-wheels.pages.dev",
-                temp_dir,
-            )
-
-        assert result is not None
-        assert result.name == "acryl_datahub-0.0.0.dev1-py3-none-any.whl"
-        assert (
-            "/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts="
-            in url_requested[0]
-        )
-
-    def test_extract_constraints_from_wheel(self, temp_dir):
-        """Extracts datahub/constraints.txt from a real zip."""
-        whl_path = temp_dir / "acryl_datahub-0.14.1-py3-none-any.whl"
-        with zipfile.ZipFile(whl_path, "w") as z:
-            z.writestr(
-                "datahub/constraints.txt", "ruamel-yaml==0.17.40\npandas==2.1.4\n"
-            )
-
-        result = _extract_constraints_from_wheel(whl_path)
-
-        assert result is not None
-        assert result.read_text() == "ruamel-yaml==0.17.40\npandas==2.1.4\n"
-
-    def test_extract_constraints_missing(self, temp_dir):
-        """Wheels without constraints.txt return None."""
-        whl_path = temp_dir / "acryl_datahub-0.14.1-py3-none-any.whl"
-        with zipfile.ZipFile(whl_path, "w") as z:
-            z.writestr("datahub/py.typed", "")
-
-        result = _extract_constraints_from_wheel(whl_path)
-        assert result is None
+    def test_bundled_constraints_path_missing(self, temp_dir):
+        """Returns None when the package ships no constraints.txt."""
+        (temp_dir / "lib").mkdir()
+        assert _bundled_constraints_path(temp_dir) is None
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    async def test_setup_venv_installs_from_wheel(self, _find_uv, temp_dir):
-        """When wheel download succeeds, pass 1 installs from wheel path + constraints."""
-        whl = temp_dir / "acryl_datahub-0.14.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
+    async def test_setup_venv_installs_with_constraints(self, _find_uv, temp_dir):
+        """Plugin install runs under the bundled constraints when present."""
         constraints = temp_dir / "constraints.txt"
         constraints.write_text("ruamel-yaml==0.17.40\n")
 
@@ -1275,10 +1116,7 @@ class TestWheelBundledConstraints:
 
         with (
             patch(
-                "datahub.executor.execution.runner._download_wheel", return_value=whl
-            ),
-            patch(
-                "datahub.executor.execution.runner._extract_constraints_from_wheel",
+                "datahub.executor.execution.runner._bundled_constraints_path",
                 return_value=constraints,
             ),
             patch.object(runner, "execute", mock_exec),
@@ -1286,74 +1124,58 @@ class TestWheelBundledConstraints:
             await setup_venv(config, runner, temp_dir)
 
         installs = _extract_pip_installs(mock_exec)
-        pass1_cmd = installs[0][0][0]
-        assert str(whl) in " ".join(pass1_cmd)
-        assert "--constraint" in pass1_cmd
+        assert "--no-deps" in installs[0][0][0]
+        assert "acryl-datahub==0.14.1" in " ".join(installs[0][0][0])
+        main_cmd = installs[1][0][0]
+        assert "acryl-datahub[snowflake]==0.14.1" in " ".join(main_cmd)
+        assert "--constraint" in main_cmd
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    async def test_setup_venv_wheel_without_constraints(self, _find_uv, temp_dir):
-        """Wheel without constraints.txt installs from wheel unconstrained."""
-        whl = temp_dir / "acryl_datahub-0.14.1-py3-none-any.whl"
-        whl.write_bytes(b"fake")
-
+    async def test_setup_venv_installs_without_constraints(self, _find_uv, temp_dir):
+        """Without a bundled constraints.txt the plugin install is unconstrained."""
         config = VenvConfig(version="0.14.1", main_plugin="snowflake")
         runner = SubprocessRunner()
         mock_exec = AsyncMock(side_effect=_mock_venv_execute)
 
-        with (
-            patch(
-                "datahub.executor.execution.runner._download_wheel", return_value=whl
-            ),
-            patch(
-                "datahub.executor.execution.runner._extract_constraints_from_wheel",
-                return_value=None,
-            ),
-            patch.object(runner, "execute", mock_exec),
-        ):
+        with patch.object(runner, "execute", mock_exec):
             await setup_venv(config, runner, temp_dir)
 
         installs = _extract_pip_installs(mock_exec)
-        pass1_cmd = installs[0][0][0]
-        assert str(whl) in " ".join(pass1_cmd)
-        assert "--constraint" not in pass1_cmd
+        main_cmd = installs[1][0][0]
+        assert "acryl-datahub[snowflake]==0.14.1" in " ".join(main_cmd)
+        assert "--constraint" not in main_cmd
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    @patch("datahub.executor.execution.runner._download_wheel", return_value=None)
-    async def test_setup_venv_download_fails_raises(
-        self, mock_download, _find_uv, temp_dir
-    ):
-        """If wheel download fails, setup_venv raises RuntimeError."""
-        config = VenvConfig(version="0.14.1", main_plugin="snowflake")
+    async def test_setup_venv_invalid_dev_url_raises(self, _find_uv, temp_dir):
+        """A dev-build URL from a disallowed domain raises."""
+        config = VenvConfig(
+            version="https://evil.com/acryl_datahub-0.0.0.dev1-py3-none-any.whl",
+            main_plugin="snowflake",
+        )
         runner = SubprocessRunner()
         mock_exec = AsyncMock(side_effect=_mock_venv_execute)
 
         with (
             patch.object(runner, "execute", mock_exec),
-            pytest.raises(RuntimeError, match="Failed to download"),
+            pytest.raises(RuntimeError, match="Invalid wheel URL"),
         ):
             await setup_venv(config, runner, temp_dir)
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_setup_venv_no_datahub_skips_install(self, _find_uv, temp_dir):
-        """VENV_NO_DATAHUB skips wheel download and all install commands."""
+        """VENV_NO_DATAHUB skips all install commands."""
         config = VenvConfig(version=VENV_NO_DATAHUB, main_plugin="snowflake")
         runner = SubprocessRunner()
         mock_exec = AsyncMock(side_effect=_mock_venv_execute)
 
-        with (
-            patch("datahub.executor.execution.runner._download_wheel") as mock_download,
-            patch.object(runner, "execute", mock_exec),
-        ):
+        with patch.object(runner, "execute", mock_exec):
             await setup_venv(config, runner, temp_dir)
 
-        mock_download.assert_not_called()
         assert len(_extract_pip_installs(mock_exec)) == 0
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
-    async def test_setup_venv_latest_installs_from_wheel(self, _find_uv, temp_dir):
-        """version='latest' downloads wheel without == pin and installs from it."""
-        whl = temp_dir / "acryl_datahub-1.4.0.8-py3-none-any.whl"
-        whl.write_bytes(b"fake")
+    async def test_setup_venv_latest_installs_without_pin(self, _find_uv, temp_dir):
+        """version='latest' installs acryl-datahub with no == pin."""
         constraints = temp_dir / "constraints.txt"
         constraints.write_text("ruamel-yaml==0.17.40\n")
 
@@ -1363,21 +1185,18 @@ class TestWheelBundledConstraints:
 
         with (
             patch(
-                "datahub.executor.execution.runner._download_wheel", return_value=whl
-            ) as mock_download,
-            patch(
-                "datahub.executor.execution.runner._extract_constraints_from_wheel",
+                "datahub.executor.execution.runner._bundled_constraints_path",
                 return_value=constraints,
             ),
             patch.object(runner, "execute", mock_exec),
         ):
             await setup_venv(config, runner, temp_dir)
 
-        mock_download.assert_called_once_with("latest", temp_dir)
         installs = _extract_pip_installs(mock_exec)
-        pass1_cmd = installs[0][0][0]
-        assert str(whl) in " ".join(pass1_cmd)
-        assert "--constraint" in pass1_cmd
+        joined = " ".join(installs[0][0][0] + installs[1][0][0])
+        assert "==" not in joined
+        assert "acryl-datahub[snowflake]" in " ".join(installs[1][0][0])
+        assert "--constraint" in installs[1][0][0]
 
 
 class TestSubprocessRunner:

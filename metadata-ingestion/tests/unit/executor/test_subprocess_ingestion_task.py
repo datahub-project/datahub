@@ -1,12 +1,13 @@
 import asyncio
 import errno
 import json
+import signal
 import sys
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, Mock, mock_open, patch
+from unittest.mock import AsyncMock, Mock, call, mock_open, patch
 
 import pydantic
 import pytest
@@ -182,10 +183,10 @@ class TestSubProcessIngestionTaskDirectorySetup:
 
         ingestion_task._setup_directories(exec_id)
 
-        for call in mock_mkdir.call_args_list:
-            assert call[0][0] == 0o755  # First positional arg should be mode
-            assert call[1]["parents"]
-            assert call[1]["exist_ok"]
+        for mkdir_call in mock_mkdir.call_args_list:
+            assert mkdir_call[0][0] == 0o755  # First positional arg should be mode
+            assert mkdir_call[1]["parents"]
+            assert mkdir_call[1]["exist_ok"]
 
     def test_setup_directories_creates_exec_out_dir_on_disk(
         self,
@@ -261,6 +262,31 @@ class TestSubProcessIngestionTaskEnvironmentPreparation:
         assert env["TMPDIR"] == "/custom/tmp"
 
 
+class TestSignalProcessGroup:
+    def test_signals_whole_group(self) -> None:
+        proc = Mock()
+        proc.pid = 4321
+        with (
+            patch("os.getpgid", return_value=4321) as getpgid,
+            patch("os.killpg") as killpg,
+        ):
+            SubProcessIngestionTask._signal_process_group(proc, signal.SIGTERM)
+        getpgid.assert_called_once_with(4321)
+        killpg.assert_called_once_with(4321, signal.SIGTERM)
+
+    def test_swallows_already_exited(self) -> None:
+        """A process that exited between the check and the signal must not raise --
+        the caller is already in a cleanup path handling another exception."""
+        proc = Mock()
+        proc.pid = 4321
+        with (
+            patch("os.getpgid", side_effect=ProcessLookupError),
+            patch("os.killpg") as killpg,
+        ):
+            SubProcessIngestionTask._signal_process_group(proc, signal.SIGKILL)
+        killpg.assert_not_called()
+
+
 class TestSubProcessIngestionTaskSubprocessCreation:
     async def test_create_subprocess(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
@@ -328,6 +354,8 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             assert kwargs["stdout"] == asyncio.subprocess.PIPE
             assert kwargs["stderr"] == asyncio.subprocess.STDOUT
             assert kwargs["stdin"] == asyncio.subprocess.PIPE
+            # Own session/process group, so cancellation can signal the whole tree.
+            assert kwargs["start_new_session"] is True
 
     async def test_create_subprocess_writes_stdin_envelope(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
@@ -1463,16 +1491,27 @@ class TestMonitorSubprocessCancellation:
     """Drives _monitor_subprocess for real.
 
     Every other cancellation test patches this method out, so its except block --
-    terminate the subprocess, cancel the sibling tasks, wait with a timeout, kill
-    whatever is still pending, then re-raise or wrap -- was never executed by the
-    suite. That is the cleanup path an operator relies on when they press cancel;
-    without it a cancelled run can leave the ingestion process alive.
+    signal the subprocess's process group, cancel the sibling tasks, wait with a
+    timeout, kill whatever is still pending, then re-raise or wrap -- was never
+    executed by the suite. That is the cleanup path an operator relies on when they
+    press cancel; without it a cancelled run can leave the ingestion tree alive.
     """
+
+    @pytest.fixture
+    def killpg(self) -> Iterator[Mock]:
+        """Patch the process-group signalling and expose the killpg mock.
+
+        os.getpgid is stubbed too: the stand-in process is a Mock, so its pid does
+        not belong to a real process group.
+        """
+        with patch("os.getpgid", return_value=4321), patch("os.killpg") as mock_killpg:
+            yield mock_killpg
 
     def _process(self, *, wait_hangs: bool) -> Mock:
         """A stand-in subprocess whose stdout never yields, so the monitor blocks."""
         proc = Mock(spec=asyncio.subprocess.Process)
         proc.returncode = None
+        proc.pid = 4321
         proc.terminate = Mock()
         proc.kill = Mock()
 
@@ -1499,6 +1538,7 @@ class TestMonitorSubprocessCancellation:
         ingestion_task: SubProcessIngestionTask,
         mock_execution_context: Mock,
         tmp_path: Path,
+        killpg: Mock,
     ) -> None:
         proc = self._process(wait_hangs=False)
         log_file = (tmp_path / "ingestion-logs.log").open("w")
@@ -1522,14 +1562,18 @@ class TestMonitorSubprocessCancellation:
         finally:
             log_file.close()
 
-        # The whole point: a cancelled run must not leave the child running.
-        proc.terminate.assert_called_once()
+        # The whole point: a cancelled run must not leave the tree running. The
+        # signal goes to the process GROUP -- terminating only the direct child
+        # would abandon the datahub grandchild it spawned.
+        assert killpg.call_args_list == [call(4321, signal.SIGTERM)]
+        proc.terminate.assert_not_called()
 
     async def test_a_monitoring_failure_is_wrapped_not_swallowed(
         self,
         ingestion_task: SubProcessIngestionTask,
         mock_execution_context: Mock,
         tmp_path: Path,
+        killpg: Mock,
     ) -> None:
         """The non-cancellation branch: a task blowing up must still terminate the
         child, and must surface as an error rather than a silent success."""
@@ -1551,4 +1595,11 @@ class TestMonitorSubprocessCancellation:
         finally:
             log_file.close()
 
-        proc.terminate.assert_called_once()
+        # SIGTERM first, then SIGKILL once the shortened cleanup timeout expires --
+        # both go to the group, so the escalation cannot orphan the grandchild either.
+        assert killpg.call_args_list == [
+            call(4321, signal.SIGTERM),
+            call(4321, signal.SIGKILL),
+        ]
+        proc.terminate.assert_not_called()
+        proc.kill.assert_not_called()

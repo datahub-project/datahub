@@ -9,6 +9,7 @@ import json
 import os
 import re
 import resource
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -185,6 +186,20 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
         text=True,
         bufsize=1,
     )
+
+    def _reap_and_exit(signum: int, _frame: Any) -> None:
+        # Our process group got a termination signal -- stop and REAP the datahub
+        # child so it cannot orphan into a zombie under PID 1.
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+        sys.exit(128 + signum)
+
+    signal.signal(signal.SIGTERM, _reap_and_exit)
 
     try:
         assert process.stdin is not None

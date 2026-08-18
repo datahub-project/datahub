@@ -113,12 +113,6 @@ framework_common = {
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
     "anyio>=3.0.0,<5.0.0",
-    # urllib3 is also used by the executor to download source plugin wheels
-    # (datahub.executor.execution.runner). Not declared here: base_requirements
-    # pins it for every install (install_requires is base_requirements |
-    # framework_common), with a floor and CVE handling tuned to stay satisfiable
-    # against Airflow constraints. A second, weaker bound here would be redundant
-    # and would drift from that one.
 }
 
 rest_common = {

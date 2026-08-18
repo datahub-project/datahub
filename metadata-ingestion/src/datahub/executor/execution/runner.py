@@ -10,7 +10,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import zipfile
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional, Union
@@ -21,8 +20,6 @@ import anyio
 import anyio.abc
 import anyio.streams.text
 import pydantic
-import urllib3
-import urllib3.exceptions
 from expandvars import (
     ExpandvarsException,
     UnboundVariable,
@@ -74,20 +71,6 @@ VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
 
 BUNDLED_VENV_PATH_ENV = "DATAHUB_BUNDLED_VENV_PATH"
 
-_DOWNLOAD_TIMEOUT_SECONDS = 60
-
-
-@functools.cache
-def _get_http() -> urllib3.PoolManager:
-    return urllib3.PoolManager(
-        retries=urllib3.Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-        ),
-        timeout=urllib3.Timeout(total=_DOWNLOAD_TIMEOUT_SECONDS),
-    )
-
 
 def _pages_wheel_url(base_url: str) -> str:
     """Build the wheel download URL for a DataHub Pages dev build, with cache-busting timestamp."""
@@ -107,99 +90,13 @@ def _validate_wheel_url(url: str) -> bool:
     return True
 
 
-def _download_wheel(
-    version: str,
-    tmp_dir: pathlib.Path,
-) -> Optional[pathlib.Path]:
-    """Download the acryl-datahub wheel. Returns path to .whl file."""
-    wheels_dir = tmp_dir / "wheels"
-    wheels_dir.mkdir(parents=True, exist_ok=True)
-
-    if version.startswith(("http://", "https://")):
-        if not _validate_wheel_url(version):
-            logger.error(
-                f"Invalid wheel URL: {version}. Non-.whl URLs must be from *.datahub-wheels.pages.dev."
-            )
-            return None
-        url = version if version.endswith(".whl") else _pages_wheel_url(version)
-        try:
-            resp = _get_http().request("GET", url)
-            if resp.status != 200:
-                logger.error(
-                    f"Failed to download wheel from {url} (HTTP {resp.status})"
-                )
-                return None
-            filename = url.split("/")[-1].split("?")[0]
-            whl_path = wheels_dir / filename
-            whl_path.write_bytes(resp.data)
-            return whl_path
-        except Exception as e:
-            logger.error(f"Failed to download wheel: {type(e).__name__}: {e}")
-            return None
-    else:
-        pkg = (
-            "acryl-datahub"
-            if version == VENV_VERSION_LATEST
-            else f"acryl-datahub=={version}"
-        )
-        # Some deployed uv versions lack 'uv pip download' support.
-        # Using pip directly as a portable fallback.
-        cmd = [
-            sys.executable,
-            "-m",
-            "pip",
-            "download",
-            "--no-deps",
-            "-d",
-            str(wheels_dir),
-            pkg,
-        ]
-        try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=_DOWNLOAD_TIMEOUT_SECONDS
-            )
-            if result.returncode != 0:
-                logger.error(f"pip download failed: {result.stderr}")
-                return None
-            whl_files = list(wheels_dir.glob("acryl_datahub-*.whl"))
-            if not whl_files:
-                logger.error("No wheel file found after download")
-                return None
-            if len(whl_files) > 1:
-                logger.error(
-                    f"Expected 1 wheel file, found {len(whl_files)}: {whl_files}"
-                )
-                return None
-            return whl_files[0]
-        except Exception as e:
-            logger.error(f"Failed to download wheel: {type(e).__name__}: {e}")
-            return None
-
-
-def _extract_constraints_from_wheel(
-    whl_path: pathlib.Path,
-) -> Optional[pathlib.Path]:
-    """Extract datahub/constraints.txt from a wheel file. Returns path to extracted file."""
-    try:
-        with zipfile.ZipFile(whl_path) as zf:
-            if "datahub/constraints.txt" not in zf.namelist():
-                logger.warning(
-                    f"No constraints.txt in {whl_path.name}. "
-                    "Normal for versions released before constraint bundling."
-                )
-                return None
-            constraints_data = zf.read("datahub/constraints.txt")
-            constraints_path = whl_path.parent / "constraints.txt"
-            constraints_path.write_bytes(constraints_data)
-            logger.info(
-                f"Extracted constraints from wheel ({len(constraints_data)} bytes)"
-            )
-            return constraints_path
-    except Exception as e:
-        logger.warning(
-            f"Failed to extract constraints from wheel: {type(e).__name__}: {e}"
-        )
+def _bundled_constraints_path(venv_loc: pathlib.Path) -> Optional[pathlib.Path]:
+    """Locate datahub/constraints.txt inside an installed acryl-datahub."""
+    matches = list(venv_loc.glob("lib/python*/site-packages/datahub/constraints.txt"))
+    if not matches:
+        logger.warning("No bundled constraints.txt in installed acryl-datahub.")
         return None
+    return matches[0]
 
 
 @functools.cache
@@ -666,24 +563,51 @@ async def setup_venv(
     elif version == VENV_NO_DATAHUB:
         pass
     else:
-        # Case 1: Download wheel, extract constraints, install from wheel.
-        whl_path = _download_wheel(version, tmp_dir)
-        if not whl_path:
-            raise RuntimeError(
-                f"Failed to download acryl-datahub wheel for version '{version}'"
-            )
-        constraints_path = _extract_constraints_from_wheel(whl_path)
-
+        # Case 1: install acryl-datahub as a named requirement. uv keys its cache
+        # by source path for local wheels, so installing from a per-run wheel path
+        # wrote a fresh ~20mb archive entry for the same version on every run.
         plugins_list = list(
             filter(None, [venv_config.main_plugin, *venv_config.extra_pip_plugins])
         )
         plugins = f"[{','.join(plugins_list)}]" if plugins_list else ""
-        install_cmd = [_find_uv(), "pip", "install", f"{whl_path}{plugins}"]
+
+        url = ""
+        is_dev_build = version.startswith(("http://", "https://"))
+        if is_dev_build:
+            if not _validate_wheel_url(version):
+                raise RuntimeError(
+                    f"Invalid wheel URL: {version}. "
+                    "Non-.whl URLs must be from *.datahub-wheels.pages.dev."
+                )
+            url = version if version.endswith(".whl") else _pages_wheel_url(version)
+
+        def _requirement(extras: str) -> str:
+            if is_dev_build:
+                return f"acryl-datahub{extras} @ {url}"
+            if version == VENV_VERSION_LATEST:
+                return f"acryl-datahub{extras}"
+            return f"acryl-datahub{extras}=={version}"
+
+        # Dev builds bypass the uv cache: always re-fetch a rebuilt wheel, persist nothing.
+        # This makes usage of dev packages inefficient, but prevents cache build up which causes
+        # executor pods to over-consume storage.
+        install_env = {**venv_env, "UV_NO_CACHE": "1"} if is_dev_build else venv_env
+
+        # Install acryl-datahub alone first to read its bundled constraints, then
+        # install with plugins under those constraints.
+        bootstrap_cmd = [_find_uv(), "pip", "install", "--no-deps", _requirement("")]
+        runner._logs.append(
+            f"Installing datahub (constraints bootstrap): {' '.join(bootstrap_cmd)}\n"
+        )
+        await runner.execute(bootstrap_cmd, env=install_env)
+        constraints_path = _bundled_constraints_path(venv_loc)
+
+        install_cmd = [_find_uv(), "pip", "install", _requirement(plugins)]
         if constraints_path:
             install_cmd.extend(["--constraint", str(constraints_path)])
 
         runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
-        await runner.execute(install_cmd, env=venv_env)
+        await runner.execute(install_cmd, env=install_env)
 
     # Pass 2: Install extra_pip_requirements without constraints.
     if venv_config.requirements_file is None and expanded_pip_reqs:
