@@ -1289,9 +1289,13 @@ class TestSinkFineGrainedLineage:
         )
 
         assert result is not None
-        assert sorted(
-            (lineage.upstreams[0], lineage.downstreams[0]) for lineage in result
-        ) == sorted(
+        lineage_pairs = []
+        for lineage in result:
+            assert lineage.upstreams is not None
+            assert lineage.downstreams is not None
+            lineage_pairs.append((lineage.upstreams[0], lineage.downstreams[0]))
+
+        assert sorted(lineage_pairs) == sorted(
             [
                 (
                     f"urn:li:schemaField:({self._KAFKA_ORDERS_URN},id)",
