@@ -260,7 +260,8 @@ class SnowflakeSemanticModelMapper:
                     message="A semantic view declares logical tables that differ "
                     "only by case. DataHub lowercases the dataset name, so they "
                     "resolve to the same dataset and only the first is kept; the "
-                    "rest are omitted along with their columns and metrics. Set "
+                    "rest are omitted along with their columns, metrics and column-level "
+                    "lineage. Set "
                     "`convert_urns_to_lowercase: false` to keep them apart, or "
                     "rename them to differ by more than case.",
                     context=(
