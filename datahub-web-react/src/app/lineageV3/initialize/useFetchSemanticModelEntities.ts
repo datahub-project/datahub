@@ -53,13 +53,7 @@ export default function useFetchSemanticModelEntities(): boolean {
                     name: data.semanticModel.info?.name || rootUrn,
                     exists: data.semanticModel.exists ?? true,
                     icon: data.semanticModel.platform?.properties?.logoUrl || undefined,
-                    platform: data.semanticModel.platform
-                        ? {
-                              urn: data.semanticModel.platform.urn,
-                              name: data.semanticModel.platform.name,
-                              properties: data.semanticModel.platform.properties,
-                          }
-                        : undefined,
+                    platform: data.semanticModel.platform ?? undefined,
                 };
                 if (!containerEntities.has(rootUrn)) {
                     containerEntities.set(rootUrn, displayEntity);
