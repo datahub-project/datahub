@@ -63,6 +63,8 @@ Requirements:
 
 - #18944 **(GMS / Domain-scoped Edit on `domains` PATCH)** `ChangeType.PATCH` always requires **Edit Entity** (never Create Entity). Domain-scoped Edit on a `domains` PATCH must allow **both** the before and after domain membership when domains already exist; when establishing first domains via PATCH, Edit is matched against the after domains only. Sync requests re-check inside the DB transaction after patch apply; async MCE consume skips user domain auth (authorized on the API thread before Kafka). **Action:** Grant Edit on both source and destination domains before moving assets between domains with a domains PATCH.
 
+- #18699 **(Ingestion / MySQL, MariaDB, Doris, TiDB profiling)** `profiling.profile_table_row_limit` and `profiling.profile_table_size_limit` are now enforced on these sources. Previously both were accepted and ignored, so any value already set in your recipe will start filtering profiles on upgrade — re-check it before you upgrade. Both default to `null` on these sources rather than the shared 5M-row / 5GB defaults, so nothing changes unless you set them. On these sources a table whose row count is exactly equal to `profile_table_row_limit` is skipped, whereas on Snowflake/BigQuery/Oracle it is still profiled — set the limit one above the threshold if you need the boundary table included.
+
 ### Known Issues
 
 ### Potential Downtime
