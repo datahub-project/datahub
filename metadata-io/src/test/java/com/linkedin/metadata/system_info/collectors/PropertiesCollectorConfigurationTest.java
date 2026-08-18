@@ -630,6 +630,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.entityWriteLockLeaseSeconds",
           "ebean.optimisticLockingEnabled",
           "ebean.scopedRetryEnabled",
+          "ebean.optimisticWriteBatchEnabled",
+          "ebean.optimisticWriteBatchMinSize",
           "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",
