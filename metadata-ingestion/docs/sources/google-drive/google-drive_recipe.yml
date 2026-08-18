@@ -1,0 +1,25 @@
+source:
+  type: google-drive
+  config:
+    # Authentication — choose one method:
+    credentials:
+      service_account_key_file: "/path/to/service-account.json"
+      # Or supply the key as a structured object. Prefer this when the key is a
+      # DataHub secret: it is a structured object, not a raw JSON document in a
+      # plain string field, so it is not rejected by the secret-substitution guard.
+      # service_account_info: "${GOOGLE_DRIVE_SA_JSON}"
+
+    # Ingest specific folders (get the ID from the folder URL).
+    # Leave empty to ingest all accessible files.
+    folder_ids:
+      - "your-folder-id-here"
+
+    # File types to ingest (Docs are on by default)
+    include_docs: true
+    include_slides: false
+    include_sheets: false
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

@@ -5,7 +5,7 @@ import tempfile
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Iterable, List, Optional, cast
+from typing import Iterable, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +25,7 @@ from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.ingestion.run.pipeline import (
     Pipeline,
     PipelineContext,
+    PipelineStatus,
 )
 from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
@@ -1116,3 +1117,89 @@ class TestSinkReportTimingOnClose:
         print(
             "🎉 Sink report timing fix test passed! The fix works with realistic async behavior."
         )
+
+
+class TestCompletionInvariants:
+    """Tests for Pipeline._check_completion_invariants (zero-write detection)."""
+
+    def _make_pipeline(
+        self,
+        *,
+        events_produced: int,
+        records_written: int,
+        pending: int,
+        dry_run: bool = False,
+        status: PipelineStatus = PipelineStatus.COMPLETED,
+    ) -> Tuple[Pipeline, SinkReport]:
+        pipeline = Pipeline.__new__(Pipeline)
+        pipeline.dry_run = dry_run
+        pipeline.final_status = status
+
+        source_report = SourceReport()
+        source_report.events_produced = events_produced
+        source = MagicMock()
+        source.get_report.return_value = source_report
+
+        sink_report = SinkReport()
+        sink_report.total_records_written = records_written
+        # pending_requests only exists on the rest sink report; set it as an
+        # extra attribute to mirror that (the check reads it via getattr).
+        sink_report.pending_requests = pending  # type: ignore[attr-defined]
+        sink = MagicMock()
+        sink.get_report.return_value = sink_report
+
+        pipeline.source = source
+        pipeline.sink = sink
+        return pipeline, sink_report
+
+    def test_pending_records_after_flush_is_failure(self) -> None:
+        pipeline, sink_report = self._make_pipeline(
+            events_produced=5, records_written=0, pending=3
+        )
+        pipeline._check_completion_invariants()
+        assert len(sink_report.failures) >= 1
+
+    def test_zero_written_with_workunits_is_warning(self) -> None:
+        pipeline, sink_report = self._make_pipeline(
+            events_produced=5, records_written=0, pending=0
+        )
+        pipeline._check_completion_invariants()
+        assert len(sink_report.warnings) >= 1
+        assert len(sink_report.failures) == 0
+
+    def test_empty_source_is_clean(self) -> None:
+        """A source that produced nothing must not be flagged."""
+        pipeline, sink_report = self._make_pipeline(
+            events_produced=0, records_written=0, pending=0
+        )
+        pipeline._check_completion_invariants()
+        assert len(sink_report.warnings) == 0
+        assert len(sink_report.failures) == 0
+
+    def test_successful_writes_are_clean(self) -> None:
+        pipeline, sink_report = self._make_pipeline(
+            events_produced=5, records_written=5, pending=0
+        )
+        pipeline._check_completion_invariants()
+        assert len(sink_report.warnings) == 0
+        assert len(sink_report.failures) == 0
+
+    def test_dry_run_skips_invariants(self) -> None:
+        pipeline, sink_report = self._make_pipeline(
+            events_produced=5, records_written=0, pending=3, dry_run=True
+        )
+        pipeline._check_completion_invariants()
+        assert len(sink_report.warnings) == 0
+        assert len(sink_report.failures) == 0
+
+    def test_non_completed_status_skips_invariants(self) -> None:
+        """An already-errored run should not get a second, misleading signal."""
+        pipeline, sink_report = self._make_pipeline(
+            events_produced=5,
+            records_written=0,
+            pending=3,
+            status=PipelineStatus.ERROR,
+        )
+        pipeline._check_completion_invariants()
+        assert len(sink_report.warnings) == 0
+        assert len(sink_report.failures) == 0

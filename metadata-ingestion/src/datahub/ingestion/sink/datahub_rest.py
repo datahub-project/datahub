@@ -492,12 +492,21 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         )
 
     def close(self):
-        # Execute pre-shutdown callbacks first (handled by parent class)
-        super().close()
-
-        # Then perform sink-specific shutdown
+        # Drain all pending async writes BEFORE running the pre-shutdown
+        # callbacks. The pipeline registers its completion-reporting callback as
+        # a pre-shutdown callback (see Sink.close), and that report reads
+        # total_records_written / pending_requests / failures. Because writes are
+        # submitted to a background executor, those counters are only accurate
+        # once the executor has drained — so we shut it down first. Otherwise the
+        # completion report is a pre-flush snapshot (0 written / N pending) and a
+        # run whose writes all fail on flush would still be reported as SUCCESS.
+        # The executor shutdown only joins its worker threads; the emitter/graph
+        # stays alive for the callbacks that run in super().close().
         with self.report.main_thread_blocking_timer:
             self.executor.shutdown()
+
+        # Now run pre-shutdown callbacks (final reporting) with accurate counters.
+        super().close()
 
     def __repr__(self) -> str:
         return self.emitter.__repr__()

@@ -596,7 +596,45 @@ class Pipeline:
                 context=f"Server Default CLI version: {server_default_version}, Used CLI version: {current_version}",
             )
 
+    def _check_completion_invariants(self) -> None:
+        """Surface a completed run that produced workunits but wrote nothing.
+
+        This runs from the sink's pre-shutdown reporting callback, which fires
+        after the sink has flushed (see DatahubRestSink.close), so the sink
+        counters are final. Without it, a run that emits entities but never
+        persists them — e.g. one whose credentials failed to resolve and silently
+        fell back to a no-op identity — is reported as SUCCESS with zero assets.
+        """
+        if self.dry_run or self.final_status != PipelineStatus.COMPLETED:
+            return
+
+        sink_report = self.sink.get_report()
+
+        # Records still pending after the flush were never written — lost, not
+        # persisted. This is unambiguously a failed run.
+        pending = getattr(sink_report, "pending_requests", 0)
+        if pending and pending > 0:
+            sink_report.report_failure(
+                f"{pending} record(s) were still pending after the sink flushed "
+                "and were not written."
+            )
+            return
+
+        # Workunits were produced but nothing was written. This is a softer signal
+        # (a transformer could legitimately drop every record), so warn rather
+        # than fail — it is visible in the report and gates under strict warnings.
+        events_produced = self.source.get_report().events_produced
+        if events_produced > 0 and sink_report.total_records_written == 0:
+            sink_report.report_warning(
+                f"The source produced {events_produced} workunit(s) but the sink "
+                "wrote 0 records; verify the run actually persisted data."
+            )
+
     def _notify_reporters_on_ingestion_completion(self) -> None:
+        # Evaluate completion invariants first so any failure/warning they record
+        # is reflected in the status computed below and in the structured report.
+        self._check_completion_invariants()
+
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
