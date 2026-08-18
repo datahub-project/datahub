@@ -92,6 +92,8 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_refs_out_of_scope: int = 0  # Never attempted (platform or slice not in scope)
     num_refs_skipped_malformed: int = 0  # Not a well-formed dataset / schemaField URN
     num_refs_unresolved: int = 0  # In scope, no unique match (flagged)
+    # In scope, but the lookup failed, so there is no verdict (not UNRESOLVED).
+    num_refs_lookup_failed: int = 0
     num_exceptions: int = 0  # Failed to process a workunit
     # Per-URN schema fetch failed; table casing still healed, column casing left alone.
     num_schema_fetches_failed: int = 0
@@ -545,7 +547,21 @@ class AutoResolveLineageUrnsProcessor(
             return _Resolution(urn, None, None)
         # prefer_lowercased: when two stored casings of the same name collide, heal to
         # the lowercase-named entity rather than leaving the lineage broken.
-        resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True)
+        try:
+            resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True)
+        except Exception as e:
+            # Nothing was answered, so nothing is stamped: UNRESOLVED would claim DataHub
+            # holds no such entity, on the strength of a query that failed.
+            self.report.num_refs_lookup_failed += 1
+            self.ctx.source_report.warning(
+                title="Lineage URN casing not checked",
+                message="Failed to look an upstream lineage reference up in DataHub; its "
+                "casing is left unchanged and unflagged.",
+                context=urn,
+                exc=e,
+                log=False,
+            )
+            return _Resolution(urn, None, None)
         if resolved is None:
             # In scope but no single existing entity matched: leave the URN unchanged
             # but flag it UNRESOLVED so potentially broken lineage is visible rather

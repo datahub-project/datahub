@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional
 from unittest import mock
 
+import pytest
+
 from datahub.metadata.schema_classes import (
     DataHubUpgradeResultClass,
     DataHubUpgradeStateClass,
@@ -115,8 +117,10 @@ def test_a_failed_search_records_nothing() -> None:
     graph.get_urns_by_filter.side_effect = Exception("boom")
     resolver = _searching(graph)
 
-    assert resolver.resolve(_LOWER) is None
-    assert resolver.resolve(_LOWER) is None
+    # Raised, not answered None: the caller must not read a failure as an absence.
+    for _ in range(2):
+        with pytest.raises(Exception, match="boom"):
+            resolver.resolve(_LOWER)
 
     # A transient failure recorded as "known absent" would decline every later reference
     # to a real entity for the rest of the run.
@@ -266,8 +270,9 @@ def test_a_failed_probe_records_nothing() -> None:
     graph.get_urns_by_filter.side_effect = Exception("boom")
     resolver = _probing(graph)
 
-    assert resolver.resolve(_LOWER) is None
-    assert resolver.resolve(_LOWER) is None
+    for _ in range(2):
+        with pytest.raises(Exception, match="boom"):
+            resolver.resolve(_LOWER)
 
     # As above: each reference is asked about, since nothing was recorded.
     assert graph.get_urns_by_filter.call_count == 2
