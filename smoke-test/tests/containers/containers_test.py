@@ -17,29 +17,33 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class ContainerUrns:
-    """Run-unique URNs of the containers ingested by :func:`ingest_cleanup_data`."""
+class ContainerFixtures:
+    """Run-unique URNs ingested by :func:`ingest_cleanup_data`."""
 
     schema_urn: str
     database_urn: str
+    dataset_urn: str
+    tag_urn: str
+    term_urn: str
+    owner_urn: str
 
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client, tmp_path_factory):
-    """Ingest the container fixtures under run-unique container URNs.
+    """Ingest container fixtures under run-unique URNs.
 
-    data.json used to hardcode ``urn:li:container:SCHEMA`` and
-    ``urn:li:container:DATABASE``. Under pytest-xdist ``--dist=loadscope`` (see
-    smoke-test/smoke.sh) test modules run concurrently against the same GMS, so
-    another module's teardown could delete those containers while this module
-    was mid-query. Rewriting both keys to a run-unique value gives this module
-    sole ownership of the entities it asserts on.
+    data.json used to hardcode shared URNs (``SCHEMA``/``DATABASE`` containers,
+    ``SampleHiveDataset``, ``urn:li:tag:Test``, ``urn:li:glossaryTerm:Term``,
+    ``urn:li:corpuser:jdoe``). Under pytest-xdist ``--dist=loadscope`` (see
+    smoke-test/smoke.sh) modules run concurrently against the same GMS, so
+    another module's teardown could delete those entities mid-query. Rewriting
+    every entity key this module owns to a run-unique value avoids that race.
 
     ``SCHEMA`` and ``DATABASE`` are uppercase and occur in data.json only inside
-    the container URNs, which is what ``materialize_with_unique_name`` requires
-    (its substitution is a plain, case-sensitive replace over the whole file).
-    The human-readable ``datahub_schema``/``datahub_db`` names are lowercase and
-    so are deliberately left untouched.
+    container URNs. Tag/term/user tokens are the full URN strings so a plain
+    replace cannot corrupt substrings (e.g. ``Term`` inside ``glossaryTerm``).
+    Human-readable ``datahub_schema``/``datahub_db`` names are lowercase and
+    deliberately left untouched.
     """
     tmp_dir = tmp_path_factory.mktemp("containers")
     data_file, schema_key = materialize_with_unique_name(
@@ -48,18 +52,38 @@ def ingest_cleanup_data(auth_session, graph_client, tmp_path_factory):
     data_file, database_key = materialize_with_unique_name(
         data_file, "DATABASE", tmp_dir
     )
-    urns = ContainerUrns(
+    data_file, dataset_name = materialize_with_unique_name(
+        data_file, "SampleHiveDataset", tmp_dir
+    )
+    # Full-URN tokens: avoid substring collisions (e.g. Term ⊂ glossaryTerm).
+    data_file, tag_urn = materialize_with_unique_name(
+        data_file, "urn:li:tag:Test", tmp_dir
+    )
+    data_file, term_urn = materialize_with_unique_name(
+        data_file, "urn:li:glossaryTerm:Term", tmp_dir
+    )
+    data_file, owner_urn = materialize_with_unique_name(
+        data_file, "urn:li:corpuser:jdoe", tmp_dir
+    )
+    fixtures = ContainerFixtures(
         schema_urn=f"urn:li:container:{schema_key}",
         database_urn=f"urn:li:container:{database_key}",
+        dataset_urn=(f"urn:li:dataset:(urn:li:dataPlatform:hive,{dataset_name},PROD)"),
+        tag_urn=tag_urn,
+        term_urn=term_urn,
+        owner_urn=owner_urn,
     )
 
     # No pre-ingest idempotency delete: the URNs are freshly unique per run, so
-    # nothing pre-exists to clean up.
-    logger.info(f"ingesting containers test data (schema={urns.schema_urn})")
-    ingest_file_via_rest(auth_session, data_file)
-    yield urns
-    logger.info("removing containers test data")
-    delete_urns_from_file(graph_client, data_file)
+    # nothing pre-exists to clean up. try/finally still runs cleanup if ingest
+    # fails partway so partially-written unique entities do not orphan in GMS.
+    logger.info(f"ingesting containers test data (schema={fixtures.schema_urn})")
+    try:
+        ingest_file_via_rest(auth_session, data_file)
+        yield fixtures
+    finally:
+        logger.info("removing containers test data")
+        delete_urns_from_file(graph_client, data_file)
 
 
 @pytest.mark.dependency()
@@ -169,9 +193,8 @@ def test_get_full_container(auth_session, ingest_cleanup_data):
 
 @pytest.mark.dependency(depends=["test_get_full_container"])
 def test_get_parent_container(auth_session, ingest_cleanup_data):
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
+    dataset_urn = ingest_cleanup_data.dataset_urn
 
-    # Get count of existing secrets
     get_dataset_query = """query dataset($urn: String!) {
           dataset(urn: $urn) {
             urn
@@ -190,6 +213,7 @@ def test_get_parent_container(auth_session, ingest_cleanup_data):
     assert res_data["data"]["dataset"] is not None
 
     dataset = res_data["data"]["dataset"]
+    assert dataset["container"]["urn"] == ingest_cleanup_data.schema_urn
     assert dataset["container"]["properties"]["name"] == "datahub_schema"
 
 
@@ -201,13 +225,13 @@ def test_update_container(auth_session, ingest_cleanup_data):
     # container with no intermediate read -- only the combined state after the
     # whole batch (checked once via get_container_query below) matters, so all
     # but the last write skip the sync wait.
-    new_tag = "urn:li:tag:Test"
+    new_tag = ingest_cleanup_data.tag_urn
     assert add_tag(auth_session, container_urn, new_tag, no_sync_wait=True)
 
-    new_term = "urn:li:glossaryTerm:Term"
+    new_term = ingest_cleanup_data.term_urn
     assert add_term(auth_session, container_urn, new_term, no_sync_wait=True)
 
-    new_owner = "urn:li:corpuser:jdoe"
+    new_owner = ingest_cleanup_data.owner_urn
 
     add_owner_query = """mutation addOwner($input: AddOwnerInput!) {
             addOwner(input: $input)
