@@ -1617,13 +1617,6 @@ ATHENA_PLATFORM: str = (
 ORACLE_PLATFORM: str = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
 HIVE_PLATFORM: str = SupportedDataPlatform.HIVE.value.datahub_data_platform_name
 
-# Platforms that backfill a missing schema tier from dsn_to_database_schema:
-# three-tier platforms need the middle tier, and Athena needs its real database
-# (which occupies the schema slot below the strippable Kind=Database catalog).
-ODBC_SCHEMA_BACKFILL_PLATFORMS: FrozenSet[str] = ODBC_THREE_TIER_PLATFORMS | {
-    ATHENA_PLATFORM
-}
-
 
 class OdbcLineage(AbstractLineage):
     def create_lineage(
@@ -2023,12 +2016,14 @@ class OdbcLineage(AbstractLineage):
             the fallback (matching OracleLineage's effective_db precedence).
           - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
             skips rather than emitting a truncated database.table.
-          - Athena: navigation is catalog.database.table, later stripped to
-            database.table by the caller, so its database occupies the schema slot.
-            The database is resolved from navigation Schema, the DSN schema segment,
-            or a one-part DSN database (matching the SQL path); the Kind=Database
-            node is only the strippable catalog and can never stand in for it, so a
-            missing database skips rather than emitting catalog.table.
+          - Athena: database.table, where the database sits in navigation's schema
+            slot below the strippable Kind=Database catalog. The database is resolved
+            from navigation Schema, the DSN schema segment, or a one-part DSN database
+            (matching the SQL path); the Kind=Database node is only the strippable
+            catalog and can never stand in for it, so a missing database skips rather
+            than emitting catalog.table. (Composing catalog.database.table for the
+            caller to strip back to database.table is a provable no-op here, so we
+            build the two-part name directly.)
           - everything else (MySQL/Teradata/ClickHouse/...): database.table; the
             schema tier is never spliced in (neither backfilled from config nor
             taken from a navigation Schema node) to avoid emitting a spurious
@@ -2058,24 +2053,25 @@ class OdbcLineage(AbstractLineage):
 
         database = database_name or config_database
         schema = schema_name
-        if schema is None and data_platform in ODBC_SCHEMA_BACKFILL_PLATFORMS:
+        if schema is None and data_platform in ODBC_THREE_TIER_PLATFORMS:
             schema = config_schema
 
-        # Only three-tier platforms (and Athena, whose catalog.database.table is
-        # later stripped to database.table) compose a three-part name. Two-part
-        # platforms must never splice in a schema tier — even when navigation or
+        # Only three-tier platforms compose a three-part name. Two-part platforms
+        # must never splice in a schema tier — even when navigation or
         # dsn_to_database_schema supplies one — or the URN cannot match their
         # database.table entities.
         if (
             database is not None
             and schema is not None
-            and data_platform in ODBC_SCHEMA_BACKFILL_PLATFORMS
+            and data_platform in ODBC_THREE_TIER_PLATFORMS
         ):
             return f"{database}.{schema}.{table_name}"
         # Three-tier platforms must not fall back to a truncated database.table.
         if data_platform in ODBC_THREE_TIER_PLATFORMS:
             return None
         if data_platform == ATHENA_PLATFORM:
+            # Athena's real database sits in the schema slot below the strippable
+            # Kind=Database catalog, so the catalog can never stand in for it.
             athena_database = schema_name or config_schema or config_database
             if athena_database is None:
                 return None
