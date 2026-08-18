@@ -46,6 +46,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -131,6 +133,13 @@ public class UpdateIndicesHookTest {
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
+    // Hook invoke paths call flushAndWaitIfConfigured(); stub a disabled ack path.
+    ESWriteDAO mockWriteDAO = mock(ESWriteDAO.class);
+    ESBulkProcessor mockBulkProcessor = mock(ESBulkProcessor.class);
+    when(mockEntitySearchService.getEsWriteDAO()).thenReturn(mockWriteDAO);
+    when(mockWriteDAO.getBulkProcessor()).thenReturn(mockBulkProcessor);
+    when(mockBulkProcessor.isAckAfterTransfer()).thenReturn(false);
+
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
     when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_OS_SEARCH_CONFIG);
@@ -176,7 +185,7 @@ public class UpdateIndicesHookTest {
     MetadataChangeLog event =
         createUpstreamLineageMCL(
             List.of(upstreamUrn), downstreamUrn, List.of(TEST_DATASET_URN_2), TEST_DATASET_URN);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge =
         new Edge(
@@ -190,7 +199,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -215,7 +225,7 @@ public class UpdateIndicesHookTest {
             ChangeType.RESTATE,
             List.of(TEST_DATASET_URN_2),
             TEST_DATASET_URN);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge =
         new Edge(
@@ -229,7 +239,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -285,14 +296,15 @@ public class UpdateIndicesHookTest {
     updateIndicesHook.init(
         TestOperationContexts.userContextNoSearchAuthorization(mockEntityRegistry));
 
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Urn downstreamUrn =
         UrnUtils.getUrn(
             String.format("urn:li:schemaField:(%s,%s)", TEST_CHART_URN, downstreamFieldPath));
 
     Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -311,10 +323,10 @@ public class UpdateIndicesHookTest {
      */
     MetadataChangeLog changeLog = createBaseChangeLog();
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // One new edge added
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any(), Mockito.any());
     // Update document
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(
@@ -330,12 +342,12 @@ public class UpdateIndicesHookTest {
     changeLog = setSystemMetadata(changeLog);
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No edges added
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Timestamp updated
-    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any(), Mockito.any());
     // No document change
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -348,12 +360,12 @@ public class UpdateIndicesHookTest {
     UpstreamLineage currentLineage = addLineageEdge(createBaseLineageAspect());
     changeLog = modifyAspect(changeLog, currentLineage);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // New edge added
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamp of old edge
-    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any(), Mockito.any());
     // Document update for new upstream
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -364,12 +376,12 @@ public class UpdateIndicesHookTest {
     Mockito.clearInvocations(mockGraphService, mockEntitySearchService);
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -380,12 +392,12 @@ public class UpdateIndicesHookTest {
     Mockito.clearInvocations(mockGraphService, mockEntitySearchService);
     changeLog = setPreviousData(setToUpsert(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -396,12 +408,12 @@ public class UpdateIndicesHookTest {
     Mockito.clearInvocations(mockGraphService, mockEntitySearchService);
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -413,12 +425,12 @@ public class UpdateIndicesHookTest {
     changeLog = setPreviousData(setToUpsert(changeLog), changeLog);
     changeLog = modifySystemMetadata(changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -430,12 +442,12 @@ public class UpdateIndicesHookTest {
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
     changeLog = modifySystemMetadata2(changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -448,12 +460,12 @@ public class UpdateIndicesHookTest {
     currentLineage = modifyNonSearchableField(currentLineage);
     changeLog = modifyAspect(changeLog, currentLineage);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -465,13 +477,13 @@ public class UpdateIndicesHookTest {
     changeLog = setPreviousDataToEmpty(setToRestate(changeLog));
     changeLog = setSystemMetadataWithForceIndexing(changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // Forced removal of all edges
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(any(OperationContext.class), any(), any(), any());
     // Forced add of edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any(), Mockito.any());
     // Forced document update
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -489,7 +501,7 @@ public class UpdateIndicesHookTest {
             ChangeType.UPSERT,
             List.of(TEST_DATASET_URN_2),
             TEST_DATASET_URN);
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
     Mockito.verifyNoInteractions(
         mockEntitySearchService,
         mockGraphService,
@@ -509,8 +521,8 @@ public class UpdateIndicesHookTest {
             ChangeType.UPSERT,
             List.of(TEST_DATASET_URN_2),
             TEST_DATASET_URN);
-    reprocessUIHook.invoke(changeLog);
-    Mockito.verify(mockGraphService, Mockito.times(3)).addEdge(Mockito.any());
+    reprocessUIHook.invoke(opContext, changeLog);
+    Mockito.verify(mockGraphService, Mockito.times(3)).addEdge(Mockito.any(), Mockito.any());
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
   }
@@ -528,7 +540,7 @@ public class UpdateIndicesHookTest {
     MetadataChangeLog event =
         createUpstreamLineageMCL(
             List.of(upstreamUrn), downstreamUrn, List.of(TEST_DATASET_URN), TEST_DATASET_URN_2);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge =
         new Edge(
@@ -542,7 +554,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -568,7 +581,7 @@ public class UpdateIndicesHookTest {
     MetadataChangeLog event =
         createUpstreamLineageMCL(
             List.of(upstreamUrn), downstreamUrn, List.of(TEST_DATASET_URN_2), TEST_DATASET_URN);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge =
         new Edge(
@@ -582,7 +595,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -620,7 +634,7 @@ public class UpdateIndicesHookTest {
             downstreamUrn,
             List.of(TEST_DATASET_URN_2),
             TEST_DATASET_URN_4);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge_1 =
         new Edge(
@@ -673,10 +687,14 @@ public class UpdateIndicesHookTest {
             null,
             null);
 
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_1));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_2));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_3));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_4));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_1));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_2));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_3));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -686,6 +704,52 @@ public class UpdateIndicesHookTest {
                 newRelationshipFilter(
                     new Filter().setOr(new ConjunctiveCriterionArray()),
                     RelationshipDirection.OUTGOING)));
+  }
+
+  @Test
+  public void testFineGrainedLineageNotAllowed_When_downstream_is_non_dataset_entity()
+      throws Exception {
+    // Regression test: FineGrainedLineage downstreams aren't always Dataset-backed schemaFields
+    // (e.g. SemanticModel columns via upstreamLineage). Checking the platform exclusion list must
+    // not try to cast the parent's key to DatasetKey when the parent is some other entity type.
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+
+    Urn semanticModelUrn =
+        UrnUtils.getUrn(
+            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,b2b_sales,b2b_sales_bookings)");
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn downstreamUrn =
+        UrnUtils.getUrn(String.format("urn:li:schemaField:(%s,bookings)", semanticModelUrn));
+
+    MetadataChangeLog event =
+        createUpstreamLineageMCLForEntity(
+            SEMANTIC_MODEL_ENTITY_NAME,
+            semanticModelUrn,
+            List.of(upstreamUrn),
+            downstreamUrn,
+            TEST_DATASET_URN);
+
+    // Must not throw (e.g. ClassCastException: SemanticModelKey -> DatasetKey).
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            semanticModelUrn,
+            null);
+    // Not excluded: the downstream's parent is a SemanticModel, not the excluded "hdfs" platform.
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
   }
 
   @Test
@@ -708,7 +772,7 @@ public class UpdateIndicesHookTest {
             downstreamUrn,
             List.of(TEST_DATASET_URN_2, TEST_DATASET_URN),
             TEST_DATASET_URN_4);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge_1 =
         new Edge(
@@ -761,10 +825,14 @@ public class UpdateIndicesHookTest {
             null,
             null);
 
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_1));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_2));
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge_3));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_4));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_1));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_2));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_3));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -810,7 +878,7 @@ public class UpdateIndicesHookTest {
             downstreamUrn,
             List.of(TEST_DATASET_URN_2, TEST_DATASET_URN),
             TEST_DATASET_URN_4);
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge_1 =
         new Edge(
@@ -863,10 +931,14 @@ public class UpdateIndicesHookTest {
             null,
             null);
 
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_1));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_2));
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge_3));
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.eq(edge_4));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_1));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_2));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_3));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
     Mockito.verify(mockGraphService, Mockito.times(0))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -1054,6 +1126,50 @@ public class UpdateIndicesHookTest {
     return event;
   }
 
+  /**
+   * Like {@link #createUpstreamLineageMCL}, but for entities other than dataset (e.g.
+   * semanticModel) whose fine-grained lineage downstreams are schemaFields parented by that entity
+   * rather than by a dataset.
+   */
+  private MetadataChangeLog createUpstreamLineageMCLForEntity(
+      String entityType,
+      Urn entityUrn,
+      List<Urn> upstreamSchemaFieldUrns,
+      Urn downstreamSchemaFieldUrn,
+      String upstreamDataset)
+      throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
+    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    UrnArray upstreamUrns = new UrnArray();
+    upstreamUrns.addAll(upstreamSchemaFieldUrns);
+    fineGrainedLineage.setUpstreams(upstreamUrns);
+    UrnArray downstreamUrns = new UrnArray();
+    downstreamUrns.add(downstreamSchemaFieldUrn);
+    fineGrainedLineage.setDownstreams(downstreamUrns);
+    fineGrainedLineages.add(fineGrainedLineage);
+    upstreamLineage.setFineGrainedLineages(fineGrainedLineages);
+
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    final Upstream upstream = new Upstream();
+    upstream.setType(DatasetLineageType.TRANSFORMED);
+    upstream.setDataset(DatasetUrn.createFromString(upstreamDataset));
+    upstreamArray.add(upstream);
+    upstreamLineage.setUpstreams(upstreamArray);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(entityUrn);
+    event.setEntityType(entityType);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    return event;
+  }
+
   private MetadataChangeLog createUpstreamLineageMCLWithOldAspect(
       List<Urn> newUpstreamSchemaFieldUrn,
       List<Urn> oldUpstreamSchemaFieldUrn,
@@ -1144,7 +1260,7 @@ public class UpdateIndicesHookTest {
             UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO),
             List.of(TEST_DATASET_URN_2),
             TEST_DATASET_URN);
-    updateIndicesHook.invokeBatch(List.of(changeLog));
+    updateIndicesHook.invokeBatch(opContext, List.of(changeLog));
 
     // Verify that the service was invoked (batch was processed, not skipped)
     Mockito.verify(mockEntitySearchService, Mockito.atLeastOnce())
@@ -1154,7 +1270,7 @@ public class UpdateIndicesHookTest {
   @Test
   public void testInvokeBatchEmptyBatchSkipsProcessing() {
     // An empty batch should not invoke the service
-    updateIndicesHook.invokeBatch(Collections.emptyList());
+    updateIndicesHook.invokeBatch(opContext, Collections.emptyList());
 
     Mockito.verifyNoInteractions(mockEntitySearchService, mockGraphService);
   }

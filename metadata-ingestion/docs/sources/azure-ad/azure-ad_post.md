@@ -44,6 +44,8 @@ and mapped to the DataHub `CorpUserInfo` aspect:
 - title
 - country
 
+This connector emits both `corpUserInfo.active` and the `corpUserStatus` aspect for each user. Azure AD `accountEnabled: false` maps to DataHub `SUSPENDED` (and `active: false`); enabled or missing values map to `ACTIVE` (and `active: true`).
+
 #### Extracting DataHub Groups
 
 ##### Group Names

@@ -20,6 +20,9 @@ from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -211,6 +214,18 @@ class DremioSourceConfig(
         description="Number of worker threads to use for parallel processing",
     )
 
+    batch_size: int = Field(
+        default=10000,
+        ge=0,
+        description="Number of rows to fetch per page when reading Dremio's system "
+        "tables (datasets, columns, view definitions, and queries) via LIMIT/OFFSET. "
+        "Dremio's system tables can be slow, so a larger batch reduces the number of "
+        "round-trips. Set to 0 to fetch as much as possible per page. Values are "
+        "clamped to a safety ceiling of 1,000,000 rows per page to keep pagination "
+        "reliable. A larger batch also raises the amount Dremio must materialize per "
+        "job, so lower this value if Dremio runs out of memory during extraction.",
+    )
+
     include_query_lineage: bool = Field(
         default=False,
         description="Whether to include query-based lineage information.",
@@ -229,6 +244,11 @@ class DremioSourceConfig(
         description="Enable stateful time window tracking for query lineage/usage extraction. "
         "When enabled, subsequent runs will skip time windows already fully processed, "
         "avoiding redundant API calls. Requires stateful_ingestion to be configured.",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion config with stale-entity removal support.",
     )
 
     ingest_owner: bool = Field(

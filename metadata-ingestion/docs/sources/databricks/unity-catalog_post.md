@@ -48,6 +48,62 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
+#### Usage statistics
+
+Usage is enabled by default (`include_usage_statistics: true`). Choose how query history is read with `usage_data_source`:
+
+- `AUTO` (default) — system tables when `warehouse_id` is set; otherwise the REST API.
+- `SYSTEM_TABLES` — `system.query.history` only (requires `warehouse_id`).
+- `API` — REST API only.
+
+On the **system-tables path**, query history is joined to `system.access.table_lineage` on `statement_id`. When lineage rows exist, dataset references come from lineage; otherwise queries are parsed with sqlglot. Set `skip_sqlglot_when_system_table_lineage_missing: true` to skip queries with no lineage rows instead of parsing them.
+
+- `include_operational_stats` (default `true`) — when `false`, only `SELECT` statements are fetched.
+- `include_queries` / `include_query_usage_statistics` — emit Query entities and per-query popularity (system-tables path only).
+- `include_column_usage_stats` (default `false`) — when `true`, force full sqlglot parsing of every usage query so column-level usage statistics (`fieldCounts`) are produced. This bypasses the faster preparsed system-table lineage path and is slower; it also overrides `push_down_database_pattern_access_history` and `skip_sqlglot_when_system_table_lineage_missing`.
+
+`push_down_database_pattern_access_history: true` applies `catalog_pattern` filtering in `system.access.table_lineage` and semi-joins query history to statements that have lineage in the configured time window. Statements without lineage rows are not fetched (even when `catalog_pattern` allows all catalogs).
+
+:::warning Coverage vs. speed tradeoff
+
+`skip_sqlglot_when_system_table_lineage_missing` and `push_down_database_pattern_access_history` trade usage **coverage** for speed, not just parsing time. Databricks only records a `system.access.table_lineage` row for statements that emit a lineage event (typically a minority of warehouse/serverless queries) — `CREATE`, `DESCRIBE`, `SET`, and most other statements have no lineage row at all. Enabling either option therefore drops usage and operations for every statement that lacks lineage in the time window, which is usually the large majority of activity. They are off by default for this reason; leave them off unless you specifically want to restrict usage to the lineage-bearing subset in exchange for faster, lighter ingestion.
+
+The default preparsed path emits table-level usage only (no column `fieldCounts`). Set `include_column_usage_stats: true` to regain column-level usage statistics via full sqlglot parsing at the cost of speed.
+
+:::
+
+#### Delta Lake External Tables
+
+When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
+
+#### Lakehouse Federation (foreign catalogs)
+
+DataHub detects Unity Catalog **foreign catalogs** (Lakehouse Federation) and links their tables to the external source dataset each one mirrors (PostgreSQL, SQL Server, MySQL, Snowflake, Redshift, BigQuery, Oracle, Teradata, another Databricks workspace, or Glue/Hive).
+
+- `include_federation_lineage` (default `true`) emits an upstream **COPY** lineage edge from each foreign-catalog table to the external source dataset it mirrors. Column-level lineage is added when `include_column_lineage` is set. Set it to `false` to skip the cross-platform link.
+- `emit_federation_structured_properties` (default `true`) marks the foreign catalog with structured properties (`platform`, `remote_database`, `connection`, `catalog_type`) so federated catalogs are facetable in the UI.
+- `include_federation_column_backfill` (default `true`) fills in a foreign-catalog table's columns from the external source when Unity Catalog has not synced them yet (structure only — governance is not copied).
+- For the link to resolve, the external source must be ingested separately, and its `platform_instance` and case-folding must match. Use `federation_connection_details` (keyed by Unity Catalog connection name) to align them:
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_federation_lineage: true
+    federation_connection_details:
+      pg_conn:
+        platform_instance: prod-pg
+        env: PROD
+```
+
+:::caution Dangling lineage to an un-ingested external source
+
+The upstream lineage edge only resolves if the external source is **also ingested into DataHub** as its own recipe, using the exact same `platform_instance` (and `convert_urns_to_lowercase`) that you set in `federation_connection_details`. If the external source is never ingested, or is ingested with a different `platform_instance` or case-folding setting, the edge points at a dataset URN that DataHub never creates — a dangling external dataset that never reconciles with the real one.
+
+:::
+
+The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces
@@ -86,3 +142,8 @@ Also check the [Unity Catalog limitations](https://docs.databricks.com/data-gove
 Unity Catalog REST API requires one call per table (table lineage) and one call per column (column lineage). To improve performance, disable column lineage with `include_column_lineage: false`.
 
 Similarly, `include_table_constraints: true` adds one `tables.get()` call per non-Hive table to fetch primary key and foreign key constraints. For workspaces with thousands of tables this adds latency; leave the flag disabled (the default) if Primary Key / Foreign Key metadata is not needed.
+
+#### Missing or incomplete usage statistics
+
+- On the system-tables path, queries without rows in `system.access.table_lineage` are parsed with sqlglot unless `skip_sqlglot_when_system_table_lineage_missing: true`.
+- With `push_down_database_pattern_access_history: true`, only statements with lineage in the time window are fetched. Disable pushdown or relax `catalog_pattern` if usage looks incomplete.

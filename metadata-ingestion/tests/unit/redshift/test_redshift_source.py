@@ -291,3 +291,106 @@ def test_process_schema_no_owner_urn_emitted(
         and wu.metadata.aspectName == "ownership"
     ]
     assert len(ownership_wus) == 0
+
+
+def _run_extract_metadata(source: RedshiftSource) -> MagicMock:
+    """Drive RedshiftSource._extract_metadata with the data-fetching layer stubbed out,
+    returning the patched extract_lineage_v2 mock so callers can assert on the gate."""
+    with (
+        patch.object(source, "gen_database_container", return_value=[]),
+        patch.object(source, "cache_tables_and_views", return_value=None),
+        patch.object(source, "get_all_tables", return_value={}),
+        patch.object(source, "process_schemas", return_value=[]),
+        patch.object(source, "extract_usage", return_value=[]),
+        patch.object(
+            source, "extract_lineage_v2", return_value=[]
+        ) as mock_extract_lineage,
+    ):
+        list(source._extract_metadata(connection=MagicMock(), database="dev"))
+    return mock_extract_lineage
+
+
+def test_extract_metadata_enters_lineage_block_for_query_usage_only() -> None:
+    """The v2 lineage block must run when only query usage stats are requested,
+    even with every lineage flag off — otherwise query usage is silently skipped."""
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_table_lineage=False,
+        include_view_lineage=False,
+        include_copy_lineage=False,
+        include_unload_lineage=False,
+        include_share_lineage=False,
+        include_table_rename_lineage=False,
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=True,
+        include_operational_stats=False,
+    )
+    source = RedshiftSource(config, ctx=PipelineContext(run_id="test"))
+    assert config.lineage_enabled is False
+
+    mock_extract_lineage = _run_extract_metadata(source)
+    mock_extract_lineage.assert_called_once()
+
+
+def test_extract_metadata_skips_lineage_block_when_all_disabled() -> None:
+    """With all lineage flags off and no usage stats, the v2 lineage block must not run."""
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        include_table_lineage=False,
+        include_view_lineage=False,
+        include_copy_lineage=False,
+        include_unload_lineage=False,
+        include_share_lineage=False,
+        include_table_rename_lineage=False,
+        include_usage_statistics=False,
+    )
+    source = RedshiftSource(config, ctx=PipelineContext(run_id="test"))
+
+    mock_extract_lineage = _run_extract_metadata(source)
+    mock_extract_lineage.assert_not_called()
+
+
+def _warnings_for(config: RedshiftConfig) -> list[str]:
+    source = RedshiftSource(config, ctx=PipelineContext(run_id="test"))
+    source._warn_deprecated_configs()
+    return [
+        warning.title for warning in source.report.warnings if warning.title is not None
+    ]
+
+
+def test_warns_when_query_usage_stats_without_usage_statistics() -> None:
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        include_usage_statistics=False,
+        include_query_usage_statistics=True,
+    )
+    assert "Config option has no effect" in _warnings_for(config)
+
+
+def test_warns_when_query_usage_stats_without_generate_queries() -> None:
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_query_usage_statistics=True,
+        lineage_generate_queries=False,
+    )
+    assert "Config option has no effect" in _warnings_for(config)
+
+
+def test_no_query_usage_warning_when_properly_configured() -> None:
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_query_usage_statistics=True,
+        lineage_generate_queries=True,
+    )
+    assert "Config option has no effect" not in _warnings_for(config)

@@ -48,7 +48,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
@@ -69,9 +68,6 @@ from datahub.ingestion.source.common.subtypes import (
     DataJobSubTypes,
     FlowContainerSubTypes,
     SourceCapabilityModifier,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -220,14 +216,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         config = AzureDataFactoryConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for all Azure Data Factory resources."""
         logger.info(
@@ -242,7 +230,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.client.get_factories(resource_group=self.config.resource_group)
             )
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to List Data Factories",
                 message="Unable to retrieve Data Factories from Azure. Check permissions and subscription ID.",
                 context=f"subscription={self.config.subscription_id}",
@@ -291,11 +279,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     yield from self._process_execution_history(factory, resource_group)
 
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Process Data Factory",
                     message="Error processing Data Factory. Skipping to next.",
                     context=f"factory={factory_name}",
                     exc=e,
+                    log=False,
                 )
 
     def _extract_resource_group(self, resource_id: str) -> str:
@@ -431,11 +420,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 if pipeline.name:  # Skip pipelines with no name
                     self._pipelines_cache[factory_key][pipeline.name] = pipeline
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to List Pipelines",
                 message="Unable to retrieve pipelines from factory.",
                 context=f"factory={factory_name}",
                 exc=e,
+                log=False,
             )
             return  # Can't process pipelines if we can't list them
 
@@ -1256,11 +1246,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
             )
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Fetch Execution History",
                 message="Unable to retrieve pipeline runs.",
                 context=f"factory={factory_name}",
                 exc=e,
+                log=False,
             )
             return
 

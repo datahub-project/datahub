@@ -1,0 +1,34 @@
+# ZDU test-framework compose override — NOT part of the production stack.
+#
+# docker-compose.yml's `include:` list does NOT reference this file, so
+# normal dev / quickstart / production never load it. It is layered in
+# only by the ZDU test framework via an explicit extra `-f` (see
+# ZDUTestConfig.compose_files), so the production base files stay byte-
+# identical to master.
+#
+# Purpose: the ZDU framework runs a two-image upgrade and must point
+# GMS / system-update at per-worktree OLD vs NEW build outputs per phase.
+# It sets DATAHUB_UPGRADE_BIN_HOST_DIR / DATAHUB_MODELS_RESOURCES_HOST_DIR
+# / DATAHUB_GMS_WAR_HOST_DIR to absolute worktree paths; this override
+# re-declares the matching volume mounts with `${VAR:-<base-default>}`
+# indirection so those env vars take effect.
+#
+# Docker Compose merges `volumes` by container-path (target): an entry
+# here with the same target as the base REPLACES it (verified via
+# `docker compose config`). Targets not listed here are inherited from
+# the base unchanged. Relative host paths resolve against the project
+# directory (docker/profiles), identical to the base files.
+#
+# Defaults equal the base hardcoded paths, so even when loaded with no
+# env vars set the resolved mounts are unchanged — this file is inert
+# unless the framework sets the DATAHUB_*_HOST_DIR vars.
+services:
+  datahub-gms-debug:
+    volumes:
+      - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources
+      - ${DATAHUB_GMS_WAR_HOST_DIR:-../../metadata-service/war/build/libs/}:/datahub/datahub-gms/bin
+
+  system-update-debug:
+    volumes:
+      - ${DATAHUB_UPGRADE_BIN_HOST_DIR:-../../datahub-upgrade/build/libs/}:/datahub/datahub-upgrade/bin/
+      - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources

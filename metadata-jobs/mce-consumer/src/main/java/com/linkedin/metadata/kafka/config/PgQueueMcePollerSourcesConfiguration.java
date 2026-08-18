@@ -15,6 +15,7 @@ import com.linkedin.metadata.pgqueue.PgQueuePollerSource;
 import com.linkedin.metadata.queue.QueueMessageHandle;
 import com.linkedin.metadata.queue.QueueReceivedMessage;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -77,6 +79,7 @@ public class PgQueueMcePollerSourcesConfiguration {
   @Conditional(PgQueueMessagingAndBatchMetadataChangeProposalProcessorCondition.class)
   public PgQueuePollerSource pgQueueBatchMcpSource(
       BatchMetadataChangeProposalsProcessor batchProcessor,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       @Value(MCP_CONSUMER_GROUP_ID_VALUE) String groupId,
       @Value("${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}")
           String topic) {
@@ -113,7 +116,13 @@ public class PgQueueMcePollerSourcesConfiguration {
                     handles.add(h);
                   }
                   try {
-                    batchProcessor.consume(synthetic, inboundProperties);
+                    // pgQueue is the single-deployment transport — affinity-aware partitioning
+                    // (InboundBatchAffinityResolver, applied at the Kafka batch ingress points)
+                    // is not wired here by design. Multi-affinity deployments use Kafka. The
+                    // call below explicitly passes systemOperationContext so the design choice
+                    // is visible at the call site (and so mocks see the actual 3-arg signature
+                    // rather than relying on the 2-arg delegation body).
+                    batchProcessor.consume(systemOperationContext, synthetic, inboundProperties);
                     ctx.commit(handles);
                   } catch (Exception e) {
                     log.error("Batch MCP pgQueue processing failed; leases expire for retry", e);

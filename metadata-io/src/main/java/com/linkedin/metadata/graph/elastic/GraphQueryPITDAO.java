@@ -124,10 +124,14 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     try {
       pitId =
           ESUtils.computePointInTime(
+              opContext,
               null,
               keepAlive,
               client,
-              opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+              opContext
+                  .getSearchContext()
+                  .getIndexConvention()
+                  .getIndexName(opContext, INDEX_NAME));
       final String tempPitId = pitId;
 
       for (int sliceId = 0; sliceId < slices; sliceId++) {
@@ -166,7 +170,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // deleting the shared PIT. cancel(true) only sends an interrupt — without waiting, slices
       // blocked inside client.search() may still be executing against a deleted PIT.
       cancelAndDrainSliceFutures(sliceFutures);
-      ESUtils.cleanupPointInTime(client, pitId, "lineage search: " + entityUrns);
+      ESUtils.cleanupPointInTime(opContext, client, pitId, "lineage search: " + entityUrns);
     }
   }
 
@@ -241,7 +245,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.search(searchRequest, RequestOptions.DEFAULT);
+                    return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
                   } catch (Exception e) {
                     log.error("Search query failed", e);
                     throw new ESQueryException("Search query failed:", e);

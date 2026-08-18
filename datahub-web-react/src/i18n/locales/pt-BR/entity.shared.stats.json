@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Nenhuma estatística coletada para este ativo no momento.",
+    "graph.rowCount_one": "{{formattedCount}} linha",
+    "graph.rowCount_other": "{{formattedCount}} linhas",
+    "graph.statName": "contagem de linhas",
+    "graph.title": "Contagem de linhas",
+    "percentile.high": "Alto",
+    "percentile.low": "Baixo",
+    "percentile.med": "Médio",
+    "upstream.directUpstreams": "Upstreams diretos",
+    "upstream.indirectUpstreams": "Upstreams indiretos",
+    "upstream.unhealthy": "Alguns upstreams estão com problemas"
+}

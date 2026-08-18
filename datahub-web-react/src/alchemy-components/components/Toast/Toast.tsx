@@ -174,7 +174,7 @@ export function ToastRenderer() {
 
     return ReactDOM.createPortal(
         <ThemeProvider theme={theme}>
-            <ToastContainer>
+            <ToastContainer data-testid="toast-notification-container">
                 {currentToasts.map((entry) => (
                     <ToastItem key={entry.id} entry={entry} />
                 ))}

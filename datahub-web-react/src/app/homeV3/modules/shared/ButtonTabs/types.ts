@@ -1,6 +1,1 @@
-export interface Tab {
-    key: string;
-    label: React.ReactNode;
-    content: React.ReactNode;
-    dataTestId?: string;
-}
+export type { Tab, TabButtonItem, ButtonTabsProps, TabButtonsProps } from '@components/components/ButtonTabs';

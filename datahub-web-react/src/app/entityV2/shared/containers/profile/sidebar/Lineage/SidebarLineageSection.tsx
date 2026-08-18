@@ -155,7 +155,7 @@ const SidebarLineageSection = () => {
                 <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
                     <Button
                         variant="text"
-                        color="violet"
+                        color="primary"
                         size="md"
                         icon={{ icon: TreeStructure }}
                         onClick={(e) => {

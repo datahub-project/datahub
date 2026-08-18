@@ -101,8 +101,15 @@ input GetAccessTokenInput {
 
   """
   The duration for which the Access Token is valid.
+  Exactly one of duration or durationIso must be provided.
   """
-  duration: AccessTokenDuration!
+  duration: AccessTokenDuration
+
+  """
+  ISO-8601 duration for which the Access Token is valid (e.g. P30D, PT1H, P1Y).
+  Exactly one of duration or durationIso must be provided. Not used for never-expire.
+  """
+  durationIso: String
 }
 
 input CreateAccessTokenInput {
@@ -118,8 +125,16 @@ input CreateAccessTokenInput {
 
   """
   The duration for which the Access Token is valid.
+  Exactly one of duration or durationIso must be provided.
+  Use NO_EXPIRY only when allowNoExpiry is enabled.
   """
-  duration: AccessTokenDuration!
+  duration: AccessTokenDuration
+
+  """
+  ISO-8601 duration for which the Access Token is valid (e.g. P30D, PT1H, P1Y).
+  Exactly one of duration or durationIso must be provided. Not used for never-expire.
+  """
+  durationIso: String
 
   """
   The name of the token to be generated.

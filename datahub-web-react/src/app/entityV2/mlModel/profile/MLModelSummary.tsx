@@ -403,15 +403,27 @@ export default function MLModelSummary() {
                 </InfoItemContainer>
                 <Typography.Title level={3}>{t('mlModel.trainingMetrics')}</Typography.Title>
                 <Table
+                    data-testid="mlmodel-training-metrics-table"
                     pagination={false}
                     columns={propertyTableColumns}
                     dataSource={model?.properties?.trainingMetrics as MlMetric[]}
+                    onRow={(record) =>
+                        ({
+                            'data-testid': `mlmodel-metric-row-${(record as MlMetric).name}`,
+                        }) as React.HTMLAttributes<HTMLElement>
+                    }
                 />
                 <Typography.Title level={3}>{t('mlModel.hyperParameters')}</Typography.Title>
                 <Table
+                    data-testid="mlmodel-hyperparams-table"
                     pagination={false}
                     columns={propertyTableColumns}
                     dataSource={model?.properties?.hyperParams as MlHyperParam[]}
+                    onRow={(record) =>
+                        ({
+                            'data-testid': `mlmodel-hyperparam-row-${(record as MlHyperParam).name}`,
+                        }) as React.HTMLAttributes<HTMLElement>
+                    }
                 />
                 {hasSignatureData && (
                     <>

@@ -26,6 +26,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.PrimaryStorageContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -64,21 +65,29 @@ public class TestOperationContexts {
 
   public static EntityRegistry defaultEntityRegistry() {
     if (defaultEntityRegistryInstance == null) {
-      PathSpecBasedSchemaAnnotationVisitor.class
-          .getClassLoader()
-          .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-      try {
-        SnapshotEntityRegistry snapshotEntityRegistry = new SnapshotEntityRegistry();
-        ConfigEntityRegistry configEntityRegistry =
-            new ConfigEntityRegistry(
-                Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-        defaultEntityRegistryInstance =
-            new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
-      } catch (EntityRegistryException e) {
-        throw new RuntimeException(e);
-      }
+      defaultEntityRegistryInstance = constructNewEntityRegistry();
     }
     return defaultEntityRegistryInstance;
+  }
+
+  // Created to not share Spring managed entity registries with static instance, this results in
+  // unexpected
+  // modifications to the static instance so instead we use this for Spring config
+  public static EntityRegistry constructNewEntityRegistry() {
+    EntityRegistry entityRegistry;
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    try {
+      SnapshotEntityRegistry snapshotEntityRegistry = new SnapshotEntityRegistry();
+      ConfigEntityRegistry configEntityRegistry =
+          new ConfigEntityRegistry(
+              Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+      entityRegistry = new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
+    return entityRegistry;
   }
 
   public static RetrieverContext emptyActiveUsersRetrieverContext(
@@ -321,6 +330,7 @@ public class TestOperationContexts {
             validationContext,
             objectMapperContext,
             systemTelemetryContext,
+            PrimaryStorageContext.EMPTY,
             true);
 
     if (postConstruct != null) {

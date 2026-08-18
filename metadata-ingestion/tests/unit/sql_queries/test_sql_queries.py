@@ -1,20 +1,22 @@
 import json
 import tempfile
 from datetime import datetime, timezone
-from functools import partial
-from typing import cast
 from unittest.mock import Mock
 
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
+)
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
@@ -583,28 +585,28 @@ class TestSqlQueriesSource:
 
         # Verify processors are set up correctly
         processors = source.get_workunit_processors()
-        assert len(processors) == 2
         assert all(proc is not None for proc in processors)
 
-        # Check that processors are the expected functions
-        partial_processors = [
-            cast(partial, proc) for proc in processors if isinstance(proc, partial)
-        ]
-        processor_funcs = [proc.func for proc in partial_processors]
-        assert auto_workunit_reporter in processor_funcs
-        assert auto_incremental_lineage in processor_funcs
-
-        # Verify processors reflect the config
-        auto_incremental_processor = next(
-            cast(partial, proc)
-            for proc in processors
-            if isinstance(proc, partial) and proc.func == auto_incremental_lineage
+        # Check which processors were activated via workunit_processor_reports
+        active_processor_names = set(
+            source.get_report().workunit_processor_reports.keys()
         )
-        assert auto_incremental_processor.args[0] == expected_value
+        assert AutoWorkunitsReporterProcessor.__name__ in active_processor_names
+        if expected_value:
+            assert AutoIncrementalLineageProcessor.__name__ in active_processor_names
+        else:
+            assert (
+                AutoIncrementalLineageProcessor.__name__ not in active_processor_names
+            )
+
+        # Incremental lineage processor only active when configured
+        if expected_value:
+            assert len(processors) == 2
+        else:
+            assert len(processors) == 1
 
     def test_backward_compatibility(self, pipeline_context, temp_query_file):
         """Test that existing configurations without incremental_lineage still work."""
-        # This simulates an existing config that doesn't have incremental_lineage
         config_dict = {
             "query_file": temp_query_file,
             "platform": "snowflake",
@@ -617,6 +619,6 @@ class TestSqlQueriesSource:
         # Should default to False
         assert source.config.incremental_lineage is False
 
-        # Should still work normally
+        # Only reporter processor active when incremental_lineage is False
         processors = source.get_workunit_processors()
-        assert len(processors) == 2
+        assert len(processors) == 1

@@ -44,6 +44,7 @@ export const NAMESPACES = [
     'ingestion',
     'ingestion.sourceBuilder',
     'lineage',
+    'logicalModels',
     'misc',
     'modules',
     'onboarding',

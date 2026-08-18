@@ -23,7 +23,6 @@ export class TagsPage extends BasePage {
   readonly createTagDescriptionInput: Locator;
   readonly createTagCreateButton: Locator;
   readonly createTagCancelButton: Locator;
-  readonly createTagFailedToast: Locator;
 
   // ── Edit-tag modal elements ──────────────────────────────────────────────
 
@@ -47,7 +46,6 @@ export class TagsPage extends BasePage {
 
     this.createTagCreateButton = page.getByTestId('create-tag-modal-create-button');
     this.createTagCancelButton = page.getByTestId('create-tag-modal-cancel-button');
-    this.createTagFailedToast = page.getByText(/Failed to create tag/);
     this.createTagModalContent = page
       .getByRole('dialog')
       .filter({ has: page.getByTestId('create-tag-modal-create-button') });
@@ -123,7 +121,7 @@ export class TagsPage extends BasePage {
       await expect(this.createTagModalContent).toBeHidden();
       await expect(this.createTagButton).toBeVisible();
     } else {
-      await expect(this.createTagFailedToast).toBeVisible();
+      await this.toast.expectVisible(/Failed to create tag/);
       await this.createTagCancelButton.click();
       await expect(this.createTagModalContent).toBeHidden();
     }

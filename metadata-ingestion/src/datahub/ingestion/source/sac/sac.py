@@ -3,7 +3,6 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from functools import partial
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
 from authlib.integrations.requests_client import OAuth2Session
@@ -33,11 +32,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
-    auto_incremental_lineage,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -50,7 +47,6 @@ from datahub.ingestion.source.sac.sac_common import (
     ResourceModel,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -246,18 +242,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         return test_report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.config.incremental_lineage,
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.ingest_stories or self.config.ingest_applications:
@@ -511,14 +495,16 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
                 yield mcp.as_workunit()
             else:
-                self.report.report_warning(
-                    "unknown-upstream-dataset",
-                    f"Unknown upstream dataset for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+                self.report.warning(
+                    message="Unknown upstream dataset for model",
+                    context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
+                    log=False,
                 )
         elif model.system_type is not None:
-            self.report.report_warning(
-                "unknown-system-type",
-                f"Unknown system type {model.system_type} for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+            self.report.warning(
+                message="Unknown system type for model",
+                context=f"{model.namespace}:{model.model_id} (external_id={model.external_id}, system_type={model.system_type})",
+                log=False,
             )
 
         mcp = MetadataChangeProposalWrapper(
@@ -808,9 +794,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             elif column.data_type in ("decimal", "int32"):
                 return SchemaFieldDataTypeClass(type=NumberTypeClass())
             else:
-                self.report.report_warning(
-                    "unknown-data-type",
-                    f"Unknown data type {column.data_type} found",
+                self.report.warning(
+                    message="Unknown data type found",
+                    context=f"data_type={column.data_type}",
+                    log=False,
                 )
 
                 return SchemaFieldDataTypeClass(type=NullTypeClass())

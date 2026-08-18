@@ -115,6 +115,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     // These must match exactly what toDOM creates in the extension
     const containerProps = {
         className: 'file-node',
+        'data-testid': `file-node-${name}`,
         [FILE_ATTRS.url]: url,
         [FILE_ATTRS.name]: name,
         [FILE_ATTRS.type]: fileType,

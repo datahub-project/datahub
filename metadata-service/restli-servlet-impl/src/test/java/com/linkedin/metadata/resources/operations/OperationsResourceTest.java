@@ -31,14 +31,15 @@ public class OperationsResourceTest {
     try (MockedStatic<AuthenticationContext> utilities = Mockito.mockStatic(AuthenticationContext.class)) {
       utilities.when(AuthenticationContext::getAuthentication).thenReturn(new Authentication(new Actor(ActorType.USER, "urn:li:corpuser:test"), ""));
 
-      OperationsResource testResource = new OperationsResource(TestOperationContexts.systemContextNoSearchAuthorization(), mockTimeseriesAspectService);
+      OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+      OperationsResource testResource = new OperationsResource(operationContext, mockTimeseriesAspectService);
       String output =
               testResource.executeTruncateTimeseriesAspect(
-                      entityType, aspectName, endTimeMillis, true, null, null, null, null);
+                      operationContext, entityType, aspectName, endTimeMillis, true, null, null, null, null);
       assertTrue(output.contains("This was a dry run"));
       output =
               testResource.executeTruncateTimeseriesAspect(
-                      entityType, aspectName, endTimeMillis, false, null, null, null, null);
+                      operationContext, entityType, aspectName, endTimeMillis, false, null, null, null, null);
       assertEquals(TASK_ID, output);
     }
   }
@@ -68,20 +69,21 @@ public class OperationsResourceTest {
     try (MockedStatic<AuthenticationContext> utilities = Mockito.mockStatic(AuthenticationContext.class)) {
       utilities.when(AuthenticationContext::getAuthentication).thenReturn(new Authentication(new Actor(ActorType.USER, "urn:li:corpuser:test"), ""));
 
+      OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
       OperationsResource testResourceWouldReindex =
-              new OperationsResource(TestOperationContexts.systemContextNoSearchAuthorization(), mockTimeseriesAspectServiceWouldReindex);
+              new OperationsResource(operationContext, mockTimeseriesAspectServiceWouldReindex);
       OperationsResource testResourceWouldDeleteByQuery =
-              new OperationsResource(TestOperationContexts.systemContextNoSearchAuthorization(), mockTimeseriesAspectServiceWouldDeleteByQuery);
+              new OperationsResource(operationContext, mockTimeseriesAspectServiceWouldDeleteByQuery);
 
       String result =
               testResourceWouldReindex.executeTruncateTimeseriesAspect(
-                      entityType, aspectName, endTimeMillis, true, null, null, true, true);
+                      operationContext, entityType, aspectName, endTimeMillis, true, null, null, true, true);
       String errorIfFlagsAreIncompatable = "please only set forceReindex OR forceDeleteByQuery flags";
       assertEquals(errorIfFlagsAreIncompatable, result);
 
       result =
               testResourceWouldReindex.executeTruncateTimeseriesAspect(
-                      entityType, aspectName, endTimeMillis, true, null, null, false, false);
+                      operationContext, entityType, aspectName, endTimeMillis, true, null, null, false, false);
       assertEquals(errorIfFlagsAreIncompatable, result);
 
       List<Pair<Boolean, Boolean>> validOptionsNothingForced =
@@ -89,6 +91,7 @@ public class OperationsResourceTest {
       for (Pair<Boolean, Boolean> values : validOptionsNothingForced) {
         String reindexResult =
                 testResourceWouldReindex.executeTruncateTimeseriesAspect(
+                        operationContext,
                         entityType,
                         aspectName,
                         endTimeMillis,
@@ -101,6 +104,7 @@ public class OperationsResourceTest {
         assertTrue(reindexResult.contains("Reindexing the aspect without the deleted records"));
         String deleteResult =
                 testResourceWouldDeleteByQuery.executeTruncateTimeseriesAspect(
+                        operationContext,
                         entityType,
                         aspectName,
                         endTimeMillis,
@@ -118,6 +122,7 @@ public class OperationsResourceTest {
       for (Pair<Boolean, Boolean> values : validOptionsForceDeleteByQuery) {
         String reindexResult =
                 testResourceWouldReindex.executeTruncateTimeseriesAspect(
+                        operationContext,
                         entityType,
                         aspectName,
                         endTimeMillis,
@@ -128,6 +133,7 @@ public class OperationsResourceTest {
                         values.getSecond());
         String deleteResult =
                 testResourceWouldDeleteByQuery.executeTruncateTimeseriesAspect(
+                        operationContext,
                         entityType,
                         aspectName,
                         endTimeMillis,
@@ -146,6 +152,7 @@ public class OperationsResourceTest {
       for (Pair<Boolean, Boolean> values : validOptionsForceReindex) {
         String reindexResult =
                 testResourceWouldReindex.executeTruncateTimeseriesAspect(
+                        operationContext,
                         entityType,
                         aspectName,
                         endTimeMillis,
@@ -156,6 +163,7 @@ public class OperationsResourceTest {
                         values.getSecond());
         String deleteResult =
                 testResourceWouldDeleteByQuery.executeTruncateTimeseriesAspect(
+                        operationContext,
                         entityType,
                         aspectName,
                         endTimeMillis,

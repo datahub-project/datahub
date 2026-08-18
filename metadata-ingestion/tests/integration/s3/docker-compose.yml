@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  floci-s3:
+    image: floci/floci:1.5.33
+    ports:
+      - "14566:4566"
+    environment:
+      DEFAULT_REGION: us-east-1
+    # Built-in healthcheck (/_floci/health); `up --wait` in the fixture blocks
+    # until healthy, so no test-layer readiness polling is needed.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4566/_floci/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s

@@ -130,6 +130,7 @@ public class EntityUtilsTest {
     Map<String, Map<String, SystemAspect>> latestAspects = new HashMap<>();
     Map<String, Set<String>> urnAspects = new HashMap<>();
 
+    OperationContext opContext = mock(OperationContext.class);
     Map<String, Map<String, Long>> result =
         EntityUtils.calculateNextVersions(
             opContext, txContext, aspectDao, latestAspects, urnAspects);

@@ -14,9 +14,15 @@ const { mockUseGenerateGlossaryColorFromPalette, mockUseEntityRegistry } = vi.ho
     mockUseEntityRegistry: vi.fn(),
 }));
 
-vi.mock('@app/glossaryV2/colorUtils', () => ({
-    useGenerateGlossaryColorFromPalette: mockUseGenerateGlossaryColorFromPalette,
-}));
+// Use importOriginal so `resolveGlossaryEntityColor` (and any other helpers added later) come
+// from the real module — we only need to stub the hook that pulls in styled-components' theme.
+vi.mock('@app/glossaryV2/colorUtils', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@app/glossaryV2/colorUtils')>();
+    return {
+        ...actual,
+        useGenerateGlossaryColorFromPalette: mockUseGenerateGlossaryColorFromPalette,
+    };
+});
 
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: mockUseEntityRegistry,
@@ -120,6 +126,23 @@ describe('useTermTreeOptions', () => {
         expect(termRow.color).toBe(FIXTURE_COLOR);
     });
 
+    it("a term's own displayProperties.colorHex overrides the inherited root color", () => {
+        // Once a user explicitly picks a color for an individual term, that color is the source
+        // of truth wherever the term appears — including the modal picker (this hook).
+        const ROOT_COLOR = 'fixture-root-color'; // Should be ignored on the term row.
+        const TERM_COLOR = 'fixture-term-own-color';
+        const root = makeNode('urn:li:glossaryNode:root', 'Root', [], ROOT_COLOR);
+        const term = {
+            ...makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]),
+            displayProperties: { colorHex: TERM_COLOR },
+        } as unknown as GlossaryTerm;
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [term] }));
+
+        const [rootRow, termRow] = result.current.allOptions;
+        expect(rootRow.color).toBe(ROOT_COLOR); // Node header still reads from the root.
+        expect(termRow.color).toBe(TERM_COLOR); // Term row reads from its own colorHex.
+    });
+
     it('propagates the root color to descendant node headers (matches the sidebar)', () => {
         // Regression: `Adoption.PetProperties` used to render with its own URN-hashed color
         // (e.g. orange) in the modal, while the sidebar showed it with Adoption's color (pink)
@@ -138,18 +161,22 @@ describe('useTermTreeOptions', () => {
         expect(petNameRow.color).toBe(expectedColor);
     });
 
-    it('a descendant node ignores its own colorHex when its ancestor sets the subtree color', () => {
-        // Mirrors the sidebar's `iconColor || node.displayProperties.colorHex` precedence:
-        // once a root is picked, its color wins even if a descendant has its own colorHex.
+    it("a descendant node's own colorHex still wins over an ancestor's subtree color", () => {
+        // Matches the sidebar's `NodeItem` precedence (`node.displayProperties.colorHex ||
+        // iconColor`) and `DefaultEntityHeader` / `resolveGlossaryEntityColor`: once a user
+        // explicitly picks a color on a descendant, that color is the source of truth wherever
+        // the descendant appears — including the modal picker (this hook). Inheritance from the
+        // root only kicks in when the descendant has no explicit color.
         const ROOT_COLOR = 'fixture-root-color';
-        const CHILD_COLOR = 'fixture-child-color'; // Should be ignored.
+        const CHILD_COLOR = 'fixture-child-color';
         const adoption = makeNode('urn:li:glossaryNode:adoption', 'Adoption', [], ROOT_COLOR);
         const petProperties = makeNode('urn:li:glossaryNode:petProperties', 'PetProperties', [adoption], CHILD_COLOR);
 
         const { result } = renderHook(() => useTermTreeOptions({ entities: [adoption, petProperties] }));
 
-        const [, petPropertiesRow] = result.current.allOptions;
-        expect(petPropertiesRow.color).toBe(ROOT_COLOR);
+        const [adoptionRow, petPropertiesRow] = result.current.allOptions;
+        expect(adoptionRow.color).toBe(ROOT_COLOR);
+        expect(petPropertiesRow.color).toBe(CHILD_COLOR);
     });
 
     it('drops a term listed in excludeUrns and skips its lineage when all terms are excluded', () => {

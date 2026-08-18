@@ -57,7 +57,7 @@ type TabTitleWithCountProps = {
 export const TabTitleWithCount = ({ name, count }: TabTitleWithCountProps) => (
     <TabTitle>
         {name}
-        <Pill variant="filled" color="violet" label={count.toString()} />
+        <Pill variant="filled" color="primary" label={count.toString()} />
     </TabTitle>
 );
 

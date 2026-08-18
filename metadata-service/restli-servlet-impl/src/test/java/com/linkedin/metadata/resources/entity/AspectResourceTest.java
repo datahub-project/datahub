@@ -19,6 +19,9 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -65,8 +68,15 @@ public class AspectResourceTest {
     producer = mock(EventProducer.class);
     updateIndicesService = mock(UpdateIndicesService.class);
     preProcessHooks = mock(PreProcessHooks.class);
-    entityService = new EntityServiceImpl(aspectDao, producer, false,
-            preProcessHooks, true);
+    entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            producer,
+            preProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     entityService.setUpdateIndicesService(updateIndicesService);
     authorizer = mock(Authorizer.class);
     when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
@@ -98,8 +108,11 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
-    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn),
-            argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
+    verify(producer, times(1))
+        .produceMetadataChangeProposal(
+            any(OperationContext.class),
+            eq(urn),
+            argThat((MCPItem arg) -> arg.getMetadataChangeProposal().equals(mcp)));
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
 

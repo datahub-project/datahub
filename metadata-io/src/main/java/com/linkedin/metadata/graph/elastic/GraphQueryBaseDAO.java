@@ -124,7 +124,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     searchRequest.source(searchSourceBuilder);
 
     searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
 
     return opContext.withSpan(
         "esQuery",
@@ -133,7 +133,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(searchRequest, RequestOptions.DEFAULT);
+            return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -482,11 +482,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * @return The search response from Elasticsearch
    * @throws ESQueryException if the search fails
    */
-  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
+  SearchResponse executeSearch(
+      @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest) {
     try {
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-      return getClient().search(searchRequest, RequestOptions.DEFAULT);
+      return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -650,10 +651,14 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     String pitId =
         usePIT
             ? ESUtils.computePointInTime(
+                opContext,
                 scrollId,
                 keepAlive,
                 getClient(),
-                opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME))
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getIndexName(opContext, INDEX_NAME))
             : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
@@ -672,7 +677,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     // PIT specifies indices in creation so it doesn't support specifying indices on the request
     if (!usePIT) {
       searchRequest.indices(
-          opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+          opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
     }
 
     return opContext.withSpan(
@@ -682,7 +687,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(searchRequest, RequestOptions.DEFAULT);
+            return getClient().search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1267,7 +1272,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     searchRequest.source(searchSourceBuilder);
     searchRequest.indices(
-        opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+        opContext.getSearchContext().getIndexConvention().getIndexName(opContext, INDEX_NAME));
 
     return searchRequest;
   }
@@ -1280,7 +1285,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return getClient().search(request, RequestOptions.DEFAULT);
+            return getClient().search(opContext, request, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1740,8 +1745,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   @Override
-  public void cleanupPointInTime(String pitId) {
-    ESUtils.cleanupPointInTime(getClient(), pitId, "API Request");
+  public void cleanupPointInTime(@Nonnull OperationContext opContext, String pitId) {
+    ESUtils.cleanupPointInTime(opContext, getClient(), pitId, "API Request");
   }
 
   @Value

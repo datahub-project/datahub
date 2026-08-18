@@ -2,13 +2,14 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain as DomainEntity, EntityType } from '@types';
+import { Domain as DomainEntity, EntityType, MetadataAttribution } from '@types';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;
@@ -27,6 +28,15 @@ const DomainWrapper = styled.span`
 
 const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
+`;
+
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 const StyledTag = styled.div<{ fontSize?: number }>`
@@ -66,6 +76,16 @@ function DomainContent({
         <StyledTag style={tagStyle} fontSize={fontSize} data-testid={`domain-${displayName}`}>
             <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={iconFontSize ?? 16} />
             {displayName}
+            {domain.deprecation && domain.deprecation.deprecated && (
+                <PillDeprecationSlot>
+                    <DeprecationIcon
+                        urn={domain.urn}
+                        deprecation={domain.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                    />
+                </PillDeprecationSlot>
+            )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );
@@ -82,6 +102,7 @@ type Props = {
     iconSize?: number;
     iconFontSize?: number;
     enableTooltip?: boolean;
+    attribution?: MetadataAttribution | null;
 };
 
 export const DomainLink = ({
@@ -95,14 +116,16 @@ export const DomainLink = ({
     iconSize,
     iconFontSize,
     enableTooltip = true,
+    attribution,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const urn = domain?.urn;
+    const previewContext = attribution ? { propagationDetails: { attribution } } : undefined;
 
     if (readOnly) {
         return (
-            <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
+            <HoverEntityTooltip entity={domain} canOpen={enableTooltip} previewContext={previewContext}>
                 <DomainWrapper>
                     <DomainContent
                         domain={domain}
@@ -120,7 +143,7 @@ export const DomainLink = ({
     }
 
     return (
-        <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
+        <HoverEntityTooltip entity={domain} canOpen={enableTooltip} previewContext={previewContext}>
             <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)} {...linkProps}>
                 <DomainContent
                     domain={domain}

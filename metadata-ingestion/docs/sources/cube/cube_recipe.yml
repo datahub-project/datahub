@@ -1,0 +1,29 @@
+source:
+  type: cube
+  config:
+    # Base URL of the Cube REST API, including the base path.
+    api_url: "https://your-deployment.cubecloud.dev/cubejs-api"
+    api_token: "${CUBE_API_TOKEN}"
+
+    # CORE (self-hosted) or CLOUD.
+    deployment_type: "CLOUD"
+
+    # Connect cubes to their upstream warehouse tables. Auto-detected on Cube
+    # Cloud via the Metadata API; set explicitly for Cube Core.
+    # warehouse_platform: "snowflake"
+    # warehouse_database: "ANALYTICS"
+
+    # Cube Cloud only: ingest reports as charts and workbooks as dashboards, and
+    # auto-mint a Metadata API token. cloud_api_key + deployment_id are required;
+    # environment_id is needed only for the Metadata API token.
+    # cloud_api_key: "${CUBE_CLOUD_API_KEY}"
+    # deployment_id: "12345"
+    # environment_id: "production"
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

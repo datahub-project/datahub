@@ -54,6 +54,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     EditableSchemaMetadata,
+    SchemaMetadata,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import (
     PartitionTypeClass,
@@ -66,6 +67,7 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
@@ -105,43 +107,56 @@ def _get_columns_to_ignore_sampling(
     """
     logger.debug("Collecting columns to ignore for sampling")
 
-    ignore_table: bool = False
-    columns_to_ignore: List[str] = []
-
     if not tags_to_ignore:
-        return ignore_table, columns_to_ignore
+        return False, []
 
+    # TagUrn() accepts both full URNs and bare names, normalising both to the name portion.
+    tags_set = {TagUrn(t).name for t in tags_to_ignore}
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
-
     datahub_graph = get_default_graph(ClientMode.INGESTION)
 
-    # Check dataset-level tags
     dataset_tags = datahub_graph.get_tags(dataset_urn)
-    if dataset_tags:
-        ignore_table = any(
-            tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-            for tag_association in dataset_tags.tags
+    if dataset_tags and any(
+        TagUrn.from_string(ta.tag).name in tags_set for ta in dataset_tags.tags
+    ):
+        return True, []
+
+    # Collect from both aspects; use a set to deduplicate across them.
+    # SchemaMetadata holds ingestion-sourced column tags (e.g. from Snowflake).
+    # EditableSchemaMetadata holds tags applied via the DataHub UI.
+    columns_to_ignore: set[str] = set()
+
+    schema_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=SchemaMetadata
+    )
+    if schema_metadata:
+        columns_to_ignore.update(
+            field.fieldPath
+            for field in schema_metadata.fields
+            if field.globalTags
+            and any(
+                TagUrn.from_string(ta.tag).name in tags_set
+                for ta in field.globalTags.tags
+            )
         )
 
-    # If table-level tag found, ignore entire table
-    if not ignore_table:
-        # Check column-level tags
-        metadata = datahub_graph.get_aspect(
-            entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    editable_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    )
+    if editable_metadata:
+        columns_to_ignore.update(
+            field.fieldPath
+            for field in editable_metadata.editableSchemaFieldInfo
+            if field.globalTags
+            and any(
+                TagUrn.from_string(ta.tag).name in tags_set
+                for ta in field.globalTags.tags
+            )
         )
 
-        if metadata:
-            for schemaField in metadata.editableSchemaFieldInfo:
-                if schemaField.globalTags:
-                    columns_to_ignore.extend(
-                        schemaField.fieldPath
-                        for tag_association in schemaField.globalTags.tags
-                        if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-                    )
-
-    return ignore_table, columns_to_ignore
+    return False, list(columns_to_ignore)
 
 
 def _is_single_row_query_method(query: Any) -> bool:
@@ -456,6 +471,20 @@ class SQLAlchemyProfiler:
             )
 
         self.platform = platform.lower()
+
+        # Resolve the profiling isolation level once, not per table. None (the
+        # default) means "set nothing", so the whole table profile runs under one
+        # transaction — unchanged from before this option existed. The per-table
+        # path only re-applies the resolved level (see the conn.execution_options
+        # call in _generate_single_profile).
+        isolation_level = self.config.profiling_isolation_level
+        self._profiling_isolation_level: Optional[str] = (
+            isolation_level.value if isolation_level is not None else None
+        )
+        # One log line per profiler instance if the isolation level is rejected —
+        # the structured report already dedups, but the logger does not. A profiler
+        # is built per database, so a multi-database run emits one line per database.
+        self._isolation_level_warning_logged = False
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -1554,6 +1583,7 @@ class SQLAlchemyProfiler:
         custom_sql: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
+        row_count: Optional[int] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         """Generate a single dataset profile."""
@@ -1575,6 +1605,7 @@ class SQLAlchemyProfiler:
             custom_sql=custom_sql,
             pretty_name=pretty_name,
             partition=partition,
+            row_count=row_count,
         )
 
         # Get platform-specific adapter
@@ -1584,6 +1615,49 @@ class SQLAlchemyProfiler:
             try:
                 logger.info(f"Profiling {pretty_name}")
                 with self.base_engine.connect() as conn:
+                    isolation_level = self._profiling_isolation_level
+                    if isolation_level is not None:
+                        # Must be the first operation on this connection — the
+                        # isolation level cannot be changed once a transaction is in
+                        # progress. Re-applied on every checkout because SQLAlchemy
+                        # reverts it on pool return. The rebind is required: on the
+                        # pinned SQLAlchemy 1.4 (<2), execution_options returns a
+                        # branched copy, not self.
+                        try:
+                            conn = conn.execution_options(
+                                isolation_level=isolation_level
+                            )
+                        except Exception as e:
+                            # Broad by necessity: execution_options calls
+                            # dialect.set_isolation_level directly, bypassing
+                            # SQLAlchemy's DBAPI exception wrapping, so a server or
+                            # proxy refusal arrives as a raw driver error. Warn and
+                            # continue with the original (transactional) connection.
+                            # The structured report dedups by title+message; the
+                            # logger does not, so gate it on a per-run flag to emit
+                            # one line per run. Profiling runs in a ThreadPoolExecutor
+                            # so a race may emit two — acceptable, no lock.
+                            self.report.warning(
+                                title="Profiling: isolation level unavailable",
+                                message=(
+                                    "The database or SQLAlchemy dialect did "
+                                    "not accept the requested session "
+                                    "isolation level. Profiling will run one "
+                                    "transaction per table, which can block "
+                                    "VACUUM (Postgres) or grow the InnoDB undo "
+                                    "log (MySQL) for the duration of each "
+                                    "table's profile."
+                                ),
+                                context=(
+                                    f"Asset: {pretty_name}; "
+                                    f"isolation_level={isolation_level}"
+                                ),
+                                exc=e,
+                                log=not self._isolation_level_warning_logged,
+                            )
+                            self._isolation_level_warning_logged = True
+                            if not self.config.catch_exceptions:
+                                raise
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     try:
@@ -1631,7 +1705,9 @@ class SQLAlchemyProfiler:
                                 dict(limit=self.config.limit, offset=self.config.offset)
                             ),
                         )
-                    elif custom_sql:
+                    elif custom_sql or context.is_sampled:
+                        # GE profiler uses custom_sql for sampling; SQLAlchemy
+                        # adapter sets context.is_sampled via temp table
                         profile.partitionSpec = PartitionSpecClass(
                             type=PartitionTypeClass.QUERY, partition="SAMPLE"
                         )

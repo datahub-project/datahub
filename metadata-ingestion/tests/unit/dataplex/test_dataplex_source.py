@@ -125,11 +125,13 @@ def test_source_init_without_lineage_sets_lineage_members_to_none() -> None:
         enable_stateful_lineage_ingestion=False,
     )
     ctx = Mock()
+    ctx.graph = None
 
     with (
         patch(
             "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
-            return_value=None,
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
         ),
         patch(
             "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
@@ -205,27 +207,40 @@ def test_get_report_returns_source_report_instance() -> None:
 
 
 def test_get_workunit_processors_includes_stale_entity_processor() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+        AutoStaleEntityRemovalProcessor,
+    )
+
+    # DataplexSource no longer overrides get_workunit_processors() — stale entity
+    # removal is wired up automatically by the base class when stateful ingestion
+    # is enabled. Verify the base class is what gets called (no override present).
+    assert "get_workunit_processors" not in DataplexSource.__dict__, (
+        "DataplexSource should not override get_workunit_processors(); "
+        "the base class handles stale entity removal automatically."
+    )
+
+    # Verify AutoStaleEntityRemovalProcessor is included when a state_provider is present.
     source = object.__new__(DataplexSource)
-    source.config = Mock()
-    source.ctx = Mock()
+    report = DataplexReport()
+    source.report = report
+    source.config = MagicMock()
+    source.config.stateful_ingestion = None
+    flags = MagicMock()
+    flags.generate_browse_path_v2 = False
+    flags.generate_browse_path_v2_dry_run = False
+    flags.set_system_metadata = False
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.flags = flags
+    ctx.run_id = "test"
+    ctx.pipeline_name = None
+    source.ctx = ctx
+    source.state_provider = MagicMock()  # presence triggers stale entity removal
 
-    stale_processor = Mock()
-    stale_handler = Mock()
-    stale_handler.workunit_processor = stale_processor
-
-    with (
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.get_workunit_processors",
-            return_value=[None],
-        ),
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StaleEntityRemovalHandler.create",
-            return_value=stale_handler,
-        ),
-    ):
-        processors = source.get_workunit_processors()
-
-    assert processors == [None, stale_processor]
+    source.get_workunit_processors()
+    assert AutoStaleEntityRemovalProcessor.__name__ in report.workunit_processor_reports
 
 
 def test_get_workunits_internal_iterates_all_projects() -> None:
@@ -655,6 +670,41 @@ def test_get_workunits_internal_with_empty_resolved_projects() -> None:
     source.entries_processor.process_entries.assert_called_once_with(
         project_ids=[], max_workers=source.config.max_workers_entries
     )
+
+
+def test_platform_resource_repository_none_without_graph() -> None:
+    """When the pipeline has no DataHub graph connection (no datahub-rest sink
+    or stateful ingestion), the source must not build a platform resource
+    repository, since there is nowhere to reconcile against."""
+    config = DataplexConfig(
+        project_ids=["project-1"],
+        include_lineage=False,
+        include_glossaries=False,
+        enable_stateful_lineage_ingestion=False,
+    )
+    ctx = Mock()
+    ctx.graph = None  # no DataHub graph connection
+
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
+    ):
+        source = DataplexSource(ctx, config)
+
+    assert source.platform_resource_repository is None
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

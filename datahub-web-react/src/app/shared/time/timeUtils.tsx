@@ -114,6 +114,15 @@ export const toLocalDateString = (timeMs: number) => {
     return date.toLocaleDateString();
 };
 
+// decommissionTime on the deprecation aspect has been persisted in both seconds and milliseconds
+// across DataHub versions. Values below this threshold are too small to be a plausible epoch-millis
+// timestamp, so we treat them as already being in seconds; larger values are treated as milliseconds.
+const DECOMMISSION_TIME_MILLIS_THRESHOLD = 943920000000;
+
+export const decommissionTimeToSeconds = (decommissionTime: number): number => {
+    return decommissionTime < DECOMMISSION_TIME_MILLIS_THRESHOLD ? decommissionTime : decommissionTime / 1000;
+};
+
 export const toLocalTimeString = (timeMs: number) => {
     const date = new Date(timeMs);
     return date.toLocaleTimeString();
@@ -143,7 +152,7 @@ export const getSupportedTimezones = () => {
 };
 
 export const toRelativeTimeString = (timeMs: number | undefined) => {
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(i18next.language || 'en', { numeric: 'auto' });
 
     if (!timeMs) return null;
     const diffInMs = timeMs - new Date().getTime();

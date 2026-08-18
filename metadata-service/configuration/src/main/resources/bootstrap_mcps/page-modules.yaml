@@ -37,6 +37,18 @@
     params: {}
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:output_ports
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Output Ports"
+    type: OUTPUT_PORTS
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
 - entityUrn: urn:li:dataHubPageModule:child_hierarchy
   entityType: dataHubPageModule
   aspectName: dataHubPageModuleProperties

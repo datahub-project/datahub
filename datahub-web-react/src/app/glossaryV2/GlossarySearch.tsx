@@ -1,5 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { SearchBar } from '@components';
+import { Loader, SearchBar } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -8,6 +7,7 @@ import styled from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import ClickOutside from '@app/shared/ClickOutside';
+import { SearchResultsDropdown } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
@@ -15,21 +15,6 @@ import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
-`;
-
-const ResultsWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 5px;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
-    padding: 8px;
-    position: absolute;
-    max-height: 210px;
-    overflow: auto;
-    width: calc(100% - 24px);
-    left: 12px;
-    top: 45px;
-    z-index: 1;
 `;
 
 const LoadingWrapper = styled.div`
@@ -50,10 +35,6 @@ const SearchResult = styled(Link)`
         background-color: ${(props) => props.theme.colors.bgSurface};
         color: ${(props) => props.theme.colors.text};
     }
-`;
-
-const InputWrapper = styled.div`
-    padding: 12px;
 `;
 
 const IconWrapper = styled.span`
@@ -84,25 +65,24 @@ function GlossarySearch() {
     return (
         <GlossarySearchWrapper>
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                <InputWrapper>
-                    <SearchBar
-                        placeholder={tc('search')}
-                        value={searchInput}
-                        onChange={setSearchInput}
-                        onFocus={() => setIsSearchBarFocused(true)}
-                    />
-                </InputWrapper>
+                <SearchBar
+                    placeholder={tc('search')}
+                    value={searchInput}
+                    onChange={setSearchInput}
+                    onFocus={() => setIsSearchBarFocused(true)}
+                />
                 {isSearchBarFocused && (loading || !!searchResults?.length) && (
-                    <ResultsWrapper>
+                    <SearchResultsDropdown>
                         {loading && (
                             <LoadingWrapper>
-                                <LoadingOutlined />
+                                <Loader size="md" />
                             </LoadingWrapper>
                         )}
                         {!loading &&
                             searchResults?.map((result) => {
                                 return (
                                     <SearchResult
+                                        key={result.urn}
                                         to={`${entityRegistry.getEntityUrl(result.type, result.urn)}`}
                                         onClick={() => setIsSearchBarFocused(false)}
                                     >
@@ -113,7 +93,7 @@ function GlossarySearch() {
                                     </SearchResult>
                                 );
                             })}
-                    </ResultsWrapper>
+                    </SearchResultsDropdown>
                 )}
             </ClickOutside>
         </GlossarySearchWrapper>

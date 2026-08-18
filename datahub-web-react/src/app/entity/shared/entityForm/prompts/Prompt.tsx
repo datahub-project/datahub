@@ -3,14 +3,14 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useMutationUrn } from '@app/entity/shared/EntityContext';
 import StructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
 
 import { useSubmitFormPromptMutation } from '@graphql/form.generated';
 import { FormPromptType, FormPrompt as PromptEntity, SchemaField, SubmitFormPromptInput } from '@types';
 
 export const PromptWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
     padding: 24px;
     margin-bottom: 8px;
@@ -27,6 +27,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
     const { t } = useTranslation('entity.form');
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
     const urn = useMutationUrn();
+    const { refetch, refetchForms } = useEntityContext();
     const [submitFormPrompt] = useSubmitFormPromptMutation();
 
     function submitResponse(input: SubmitFormPromptInput, onSuccess: () => void) {
@@ -34,6 +35,8 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
             .then(() => {
                 onSuccess();
                 setOptimisticCompletedTimestamp(Date.now());
+                refetch();
+                refetchForms?.();
             })
             .catch(() => {
                 message.error(t('submitError'));

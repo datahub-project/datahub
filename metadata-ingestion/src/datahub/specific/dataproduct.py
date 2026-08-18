@@ -8,6 +8,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
 from datahub.specific.aspect_helpers.institutional_memory import (
     HasInstitutionalMemoryPatch,
 )
@@ -25,6 +26,7 @@ class DataProductPatchBuilder(
     HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
     HasInstitutionalMemoryPatch,
     MetadataPatchProposal,
 ):
@@ -73,12 +75,16 @@ class DataProductPatchBuilder(
         )
         return self
 
-    def add_asset(self, asset_urn: str) -> "DataProductPatchBuilder":
+    def add_asset(
+        self, asset_urn: str, output_port: bool = False
+    ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
             path=("assets", asset_urn),
-            value=DataProductAssociation(destinationUrn=asset_urn),
+            value=DataProductAssociation(
+                destinationUrn=asset_urn, outputPort=output_port
+            ),
         )
         return self
 

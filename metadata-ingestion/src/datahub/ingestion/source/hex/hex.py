@@ -18,7 +18,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -44,7 +43,6 @@ from datahub.ingestion.source.hex.model import (
     SqlCell,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -402,14 +400,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 )
 
         return report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_report(self) -> HexReport:
         return self.report

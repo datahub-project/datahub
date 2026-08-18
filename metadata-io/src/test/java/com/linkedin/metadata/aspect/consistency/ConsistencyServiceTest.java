@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
+import com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck;
 import com.linkedin.metadata.aspect.consistency.fix.BatchItemsFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixDetail;
@@ -962,7 +963,7 @@ public class ConsistencyServiceTest {
     List<ConsistencyCheck> checks = List.of(new TestAssertionCheck());
 
     BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery("assertion", checks, null, null);
+        consistencyService.buildSystemMetadataQuery(mockOpContext, "assertion", checks, null, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1022,7 +1023,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(checkWithTargetAspect), null, null);
+            mockOpContext, "assertion", List.of(checkWithTargetAspect), null, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1041,7 +1042,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1055,7 +1056,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1074,7 +1075,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1091,7 +1092,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1106,7 +1107,7 @@ public class ConsistencyServiceTest {
   public void testBuildSystemMetadataQueryNoFilter() {
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), null, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), null, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1124,7 +1125,7 @@ public class ConsistencyServiceTest {
             UrnUtils.getUrn("urn:li:assertion:test-1"), UrnUtils.getUrn("urn:li:assertion:test-2"));
 
     BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery("assertion", checks, null, urns);
+        consistencyService.buildSystemMetadataQuery(mockOpContext, "assertion", checks, null, urns);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1134,6 +1135,45 @@ public class ConsistencyServiceTest {
     assertTrue(queryString.contains("urn:li:assertion:test-1"));
     assertTrue(queryString.contains("urn:li:assertion:test-2"));
     assertTrue(queryString.contains("terms"));
+  }
+
+  @Test
+  public void testBuildSystemMetadataQueryKeyAspectOnly() {
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    SystemMetadataFilter filter =
+        SystemMetadataFilter.builder()
+            .keyAspectOnly(true)
+            .aspectFilters(List.of("assertionInfo"))
+            .build();
+
+    BoolQueryBuilder query =
+        consistencyService.buildSystemMetadataQuery(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+
+    assertNotNull(query);
+    String queryString = query.toString();
+    assertTrue(queryString.contains("assertionKey"));
+    // keyAspectOnly takes precedence over aspectFilters / check target aspects
+    assertFalse(queryString.contains("assertionInfo"));
+  }
+
+  @Test
+  public void testGetTargetAspectsKeyAspectOnly() {
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+
+    Set<String> aspects =
+        consistencyService.getTargetAspects(
+            mockOpContext,
+            "dataset",
+            List.of(),
+            SystemMetadataFilter.builder().keyAspectOnly(true).build());
+
+    assertEquals(aspects, Set.of("datasetKey"));
   }
 
   // ============================================================================
@@ -1664,6 +1704,7 @@ public class ConsistencyServiceTest {
     when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
         .thenReturn(Set.of(urn1));
 
+    // Default checks do NOT include orphan-index-document — orphans must not emit issues
     CheckResult result =
         consistencyService.processBatchResults(
             mockOpContext,
@@ -1676,8 +1717,48 @@ public class ConsistencyServiceTest {
 
     assertEquals(result.getEntitiesScanned(), 2);
     assertNull(result.getScrollId());
-    // Orphan check should detect the orphan and create an issue
-    assertTrue(result.getIssuesFound() >= 0); // May or may not have orphan check registered
+    assertEquals(result.getIssuesFound(), 0);
+  }
+
+  @Test
+  public void testProcessBatchResultsWithOrphansWhenCheckSelected() {
+    Urn urn1 = UrnUtils.getUrn("urn:li:assertion:exists");
+    Urn urn2 = UrnUtils.getUrn("urn:li:assertion:orphan");
+
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(urn1, urn2));
+    Map<Urn, EntityResponse> entitiesFromSql = Map.of(urn1, new EntityResponse());
+
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of(urn1));
+
+    ConsistencyCheckRegistry orphanRegistry =
+        new ConsistencyCheckRegistry(
+            List.of(new TestAssertionCheck(), new OrphanIndexDocumentCheck()));
+    ConsistencyService serviceWithOrphan =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+
+    CheckResult result =
+        serviceWithOrphan.processBatchResults(
+            mockOpContext,
+            "assertion",
+            urnsFromEs,
+            entitiesFromSql,
+            orphanRegistry.getByEntityTypeAndIds("assertion", List.of("orphan-index-document")),
+            null,
+            null);
+
+    assertEquals(result.getEntitiesScanned(), 2);
+    assertEquals(result.getIssuesFound(), 1);
+    assertEquals(result.getIssues().get(0).getCheckId(), "orphan-index-document");
+    assertEquals(result.getIssues().get(0).getEntityUrn(), urn2);
+  }
+
+  @Test
+  public void testIsOrphanCheckSelected() {
+    assertFalse(ConsistencyService.isOrphanCheckSelected(List.of()));
+    assertFalse(ConsistencyService.isOrphanCheckSelected(List.of(new TestAssertionCheck())));
+    assertTrue(ConsistencyService.isOrphanCheckSelected(List.of(new OrphanIndexDocumentCheck())));
   }
 
   @Test

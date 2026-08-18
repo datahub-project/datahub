@@ -30,7 +30,8 @@ export class GlossaryPage extends BasePage {
 
   // ── Move modal (MoveGlossaryEntityModal) ─────────────────────────────────────
   readonly moveModalContainer: Locator;
-  readonly moveModalSelectInput: Locator;
+  readonly moveModalSelectTrigger: Locator;
+  readonly moveModalSelectSearchInput: Locator;
   readonly moveModalSubmitButton: Locator;
 
   // ── Three-dot entity menu (EntityDropdown) ────────────────────────────────────
@@ -55,21 +56,24 @@ export class GlossaryPage extends BasePage {
   readonly batchAddButton: Locator;
   readonly batchAddModalSearchInput: Locator;
   readonly batchAddConfirmButton: Locator;
-  readonly batchAddedToast: Locator;
 
   // ── Create modal headings ─────────────────────────────────────────────────
   readonly createGlossaryHeading: Locator;
   readonly createGlossaryTermHeading: Locator;
 
-  // ── Confirmation button / toast notifications ─────────────────────────────
+  // ── Confirmation button ───────────────────────────────────────────────────
   readonly deleteConfirmButton: Locator;
-  readonly createdTermGroupToast: Locator;
-  readonly createdGlossaryTermToast: Locator;
-  readonly deletedEntityToast: Locator;
-  readonly movedEntityToast: Locator;
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
   readonly propertiesTab: Locator;
+
+  // ── Sidebar Tags section (entity profile) ─────────────────────────────────
+  readonly tagsSectionContainer: Locator;
+  readonly addTagsButton: Locator;
+  readonly tagTermModalInput: Locator;
+  readonly tagTermInput: Locator;
+  readonly addTagFromModalButton: Locator;
+  readonly tagUnassignConfirmButton: Locator;
 
   private readonly graphqlHelper: GraphQLHelper;
 
@@ -95,8 +99,11 @@ export class GlossaryPage extends BasePage {
     // Target inner visible dialog content — the AntD modal root is just a wrapper.
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal content CSS class; no data-testid or ARIA role on this wrapper
     this.moveModalContainer = page.getByTestId('move-glossary-entity-modal').locator('.ant-modal-content');
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select search input; compound CSS selector with no data-testid
-    this.moveModalSelectInput = this.moveModalContainer.locator('.ant-select-selector input');
+    // NodeParentSelect is now an alchemy SimpleSelect: the `-base` testid is the trigger that
+    // toggles the dropdown, and `dropdown-search-input` is the search bar inside the portaled
+    // dropdown (so it's scoped to page, not the modal).
+    this.moveModalSelectTrigger = page.getByTestId('node-parent-select-base');
+    this.moveModalSelectSearchInput = page.getByTestId('dropdown-search-input');
     this.moveModalSubmitButton = page.getByTestId('glossary-entity-modal-move-button');
 
     // MoreVertOutlinedIcon is the data-testid set by EntityDropdown.tsx on the three-dot icon button.
@@ -124,23 +131,28 @@ export class GlossaryPage extends BasePage {
     // Scoped to modal dialog to avoid matching the page-level search bar.
     this.batchAddModalSearchInput = page.getByRole('dialog').getByTestId('search-input');
     this.batchAddConfirmButton = page.getByTestId('search-select-modal-continue-button');
-    this.batchAddedToast = page.getByText('Added Glossary Term to entities!');
 
     this.createGlossaryHeading = page.getByRole('heading', { name: 'Create Glossary' });
     this.createGlossaryTermHeading = page.getByRole('heading', { name: 'Create Glossary Term' });
     this.deleteConfirmButton = page.getByRole('button', { name: 'Yes' });
-    this.createdTermGroupToast = page.getByText('Created Term Group!');
-    this.createdGlossaryTermToast = page.getByText('Created Glossary Term!');
-    this.deletedEntityToast = page.getByText(/Deleted .+!/);
-    this.movedEntityToast = page.getByText(/Moved .+!/);
     this.propertiesTab = page.getByRole('tab').filter({ has: page.getByTestId('Properties-entity-tab-header') });
+
+    // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by SidebarTagsSection; no data-testid equivalent
+    this.tagsSectionContainer = page.locator('#entity-profile-tags');
+    this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
+    this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
+    // Alchemy SimpleSelect: search input lives in the portaled dropdown; open the trigger first.
+    this.tagTermInput = page.getByTestId('dropdown-search-input');
+    this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
+    this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
   }
 
   // ── Dynamic locator getters ───────────────────────────────────────────────────
 
   getMoveDropdownOption(name: string): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown class; no ARIA role on the dropdown container
-    return this.page.locator('.ant-select-dropdown').getByText(name, { exact: true });
+    // Each rendered option in NodeParentSelect carries `node-parent-option-{label}`.
+    // Since the dropdown is portaled to body, the option testid is page-scoped.
+    return this.page.getByTestId(`node-parent-option-${name}`);
   }
 
   getFacetTagCheckbox(tagUrn: string): Locator {
@@ -191,6 +203,75 @@ export class GlossaryPage extends BasePage {
     this.logger?.step('navigateToGlossaryTermByUrn', { urn });
     await this.page.goto(`/glossaryTerm/${encodeURIComponent(urn)}`);
     await this.waitForPageLoad();
+  }
+
+  getTagChip(tagName: string): Locator {
+    return this.page.getByTestId(`tag-${tagName}`);
+  }
+
+  getTagOption(tagName: string): Locator {
+    return this.page.getByTestId(`tag-term-option-${tagName}`);
+  }
+
+  getTagRemoveIcon(tagName: string): Locator {
+    return this.getTagChip(tagName).getByTestId('remove-icon');
+  }
+
+  /**
+   * Assign a tag via the glossary term profile sidebar Tags section.
+   *
+   * Multi-select SimpleSelect only commits via the alchemy Checkbox
+   * (`checkbox-base`); the native input is visually hidden. Dismiss the
+   * dropdown by clicking the modal title (Escape closes the whole modal),
+   * then confirm Add.
+   */
+  async assignTag(tagName: string, tagUrn = `urn:li:tag:${tagName}`): Promise<void> {
+    this.logger?.step('assignTag', { tagName, tagUrn });
+    await expect(this.tagsSectionContainer).toBeVisible({ timeout: 30000 });
+    await this.tagsSectionContainer.scrollIntoViewIfNeeded();
+    await expect(this.addTagsButton).toBeVisible();
+    await expect(this.addTagsButton).toBeEnabled();
+    await this.addTagsButton.click();
+
+    const addTagsDialog = this.page.getByRole('dialog').filter({ hasText: 'Add Tags' });
+    await expect(addTagsDialog).toBeVisible();
+    await this.tagTermModalInput.click();
+    await this.tagTermInput.fill(tagName);
+
+    const option = this.page.getByTestId(`option-${tagUrn}`);
+    await expect(option).toBeVisible({ timeout: 15000 });
+    const checkbox = option.getByTestId('checkbox-base');
+    await checkbox.click();
+    await expect(checkbox).toHaveAttribute('data-checked', 'true', { timeout: 10000 });
+    await expect(this.page.getByTestId(`selected-${tagName}`)).toBeVisible({ timeout: 10000 });
+
+    // Dismiss the search dropdown without clearing selection or closing the modal.
+    await addTagsDialog.getByRole('heading', { name: 'Add Tags' }).click();
+
+    await expect(this.addTagFromModalButton).toBeEnabled({ timeout: 10000 });
+    await this.addTagFromModalButton.click();
+
+    await expect(addTagsDialog).toBeHidden({ timeout: 15000 });
+    await this.toast.expectVisible('Added Tags!', { timeout: 15000 });
+  }
+
+  async unassignTag(tagName: string): Promise<void> {
+    this.logger?.step('unassignTag', { tagName });
+    await expect(this.getTagChip(tagName)).toBeVisible({ timeout: 15000 });
+    await this.getTagRemoveIcon(tagName).click();
+    await expect(this.tagUnassignConfirmButton).toBeVisible();
+    await this.tagUnassignConfirmButton.click();
+    await this.toast.expectVisible('Removed Tag!');
+  }
+
+  async expectTagAssigned(tagName: string): Promise<void> {
+    this.logger?.step('expectTagAssigned', { tagName });
+    await expect(this.getTagChip(tagName)).toBeVisible({ timeout: 15000 });
+  }
+
+  async expectTagNotAssigned(tagName: string): Promise<void> {
+    this.logger?.step('expectTagNotAssigned', { tagName });
+    await expect(this.getTagChip(tagName)).toBeHidden({ timeout: 15000 });
   }
 
   async navigateToGlossaryNodeByUrn(urn: string): Promise<void> {
@@ -254,7 +335,7 @@ export class GlossaryPage extends BasePage {
     await this.createModalNameInput.fill(name);
     const responsePromise = this.graphqlHelper.waitForGraphQLResponse('createGlossaryNode');
     await this.createModalSubmitButton.click();
-    await expect(this.createdTermGroupToast).toBeVisible();
+    await this.toast.expectVisible('Created Term Group!');
     const response = await responsePromise;
     return (response.data as Record<string, string>).createGlossaryNode;
   }
@@ -271,8 +352,7 @@ export class GlossaryPage extends BasePage {
     await this.createModalNameInput.fill(name);
     const responsePromise = this.graphqlHelper.waitForGraphQLResponse('createGlossaryTerm');
     await this.createModalSubmitButton.click();
-    await expect(this.createdGlossaryTermToast).toBeVisible();
-    await expect(this.createdGlossaryTermToast).toBeHidden();
+    await this.toast.expectVisibleThenHidden('Created Glossary Term!');
     const response = await responsePromise;
     return (response.data as Record<string, string>).createGlossaryTerm;
   }
@@ -288,7 +368,7 @@ export class GlossaryPage extends BasePage {
     await this.openEntityMenu();
     await this.entityMenuDeleteButton.click();
     await this.deleteConfirmButton.click();
-    await expect(this.deletedEntityToast).toBeVisible();
+    await this.toast.expectVisible(/Deleted .+!/);
   }
 
   /**
@@ -301,16 +381,25 @@ export class GlossaryPage extends BasePage {
     // Use the entity-menu-move-button testid to avoid matching hidden DnD accessibility elements.
     await this.entityMenuMoveButton.click();
     await expect(this.moveModalContainer).toBeVisible();
-    // Type into the AntD Select search input to filter results — more reliable than
-    // scrolling through the GlossaryBrowser tree which accumulates entries across test runs.
-    await this.moveModalSelectInput.click();
-    await this.moveModalSelectInput.fill(targetName);
-    // The dropdown shows search results (not the tree browser) when a query is present.
+    // Click the SimpleSelect trigger to open the portaled dropdown, then type into the search
+    // bar (which routes through `onSearchChange` → autocomplete query). More reliable than
+    // browsing the tree because the tree accumulates entries across test runs.
+    await this.moveModalSelectTrigger.click();
+    await this.moveModalSelectSearchInput.fill(targetName);
+    // ES indexing for the just-created target group can take 60+ s in this environment, so the
+    // autocomplete results may not appear immediately. `toBeVisible`'s default timeout is short;
+    // poll up to 90s by reopening + refilling the search until the option shows up.
     const option = this.getMoveDropdownOption(targetName);
-    await expect(option).toBeVisible();
+    await expect(async () => {
+      if (!(await option.isVisible())) {
+        await this.moveModalSelectSearchInput.fill('');
+        await this.moveModalSelectSearchInput.fill(targetName);
+      }
+      await expect(option).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 90000, intervals: [5000] });
     await option.click();
     await this.moveModalSubmitButton.click();
-    await expect(this.movedEntityToast).toBeVisible();
+    await this.toast.expectVisible(/Moved .+!/);
   }
 
   // ── Search within an entity page ─────────────────────────────────────────────
@@ -380,7 +469,7 @@ export class GlossaryPage extends BasePage {
   async confirmBatchAdd(): Promise<void> {
     this.logger?.step('confirmBatchAdd');
     await this.batchAddConfirmButton.click();
-    await expect(this.batchAddedToast).toBeVisible();
+    await this.toast.expectVisible('Added Glossary Term to entities!');
   }
 
   // ── Assertions ───────────────────────────────────────────────────────────────

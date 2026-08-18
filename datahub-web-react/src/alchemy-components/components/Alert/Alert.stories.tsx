@@ -5,13 +5,12 @@ import React from 'react';
 import { ThemeProvider } from 'styled-components';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { Alert, VARIANT_BUTTON_COLOR_MAP } from '@components/components/Alert/Alert';
+import { Alert } from '@components/components/Alert/Alert';
 import { AlertVariant } from '@components/components/Alert/types';
-import { Button } from '@components/components/Button';
 
 import themes from '@conf/theme/themes';
 
-const VARIANTS: AlertVariant[] = ['success', 'error', 'warning', 'info', 'brand', 'unknown'];
+const VARIANTS: AlertVariant[] = ['success', 'error', 'warning', 'info', 'brand', 'gray'];
 
 const meta = {
     title: 'Components / Alert',
@@ -22,7 +21,7 @@ const meta = {
         badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
             subtitle:
-                'Inline status banner for surfacing success, error, warning, info, brand, or unknown messages within a page or panel. Colors come from semantic theme tokens — never pass hex values.',
+                'Inline status banner for surfacing success, error, warning, info, brand, or gray messages within a page or panel. Colors come from semantic theme tokens — never pass hex values. Action button color is derived from the alert variant automatically.',
         },
     },
 
@@ -71,9 +70,10 @@ const meta = {
             table: { type: { summary: '() => void' } },
         },
         action: {
-            description: 'Action element rendered on the right (e.g. a Retry button).',
+            description:
+                'Optional action button. Always rendered as a text button colored to match the alert variant — pass `{ label, onClick }`.',
             control: false,
-            table: { type: { summary: 'ReactNode' } },
+            table: { type: { summary: 'AlertAction' } },
         },
         actionPlacement: {
             description:
@@ -128,13 +128,7 @@ export const sandbox: StoryObj<SandboxArgs> = {
             {...props}
             actionPlacement={actionPlacement}
             onClose={showCloseButton ? () => {} : undefined}
-            action={
-                showAction ? (
-                    <Button variant="text" color={VARIANT_BUTTON_COLOR_MAP[props.variant]} size="sm">
-                        Retry
-                    </Button>
-                ) : undefined
-            }
+            action={showAction ? { label: 'Retry', onClick: () => {} } : undefined}
         />
     ),
 };
@@ -192,11 +186,7 @@ export const withAction = () => (
         variant="error"
         title="Connection lost"
         description="We could not reach the metadata service. Check your network and try again."
-        action={
-            <Button variant="text" color="red" size="sm">
-                Retry
-            </Button>
-        }
+        action={{ label: 'Retry', onClick: () => {} }}
     />
 );
 
@@ -206,11 +196,7 @@ export const topRightAction = () => (
             variant="info"
             title="Schema sync in progress"
             description="We are pulling the latest schema from the upstream warehouse."
-            action={
-                <Button variant="text" color="blue" size="sm">
-                    View progress
-                </Button>
-            }
+            action={{ label: 'View progress', onClick: () => {} }}
             actionPlacement="topRight"
             onClose={() => {
                 /* no-op for the story */
@@ -220,11 +206,7 @@ export const topRightAction = () => (
             variant="warning"
             title="Connection unstable"
             description="Some recent metadata may be stale."
-            action={
-                <Button variant="text" color="yellow" size="sm">
-                    Reconnect
-                </Button>
-            }
+            action={{ label: 'Reconnect', onClick: () => {} }}
             actionPlacement="topRight"
             onClose={() => {
                 /* no-op for the story */
@@ -248,11 +230,7 @@ export const kitchenSink = () => (
         title="Assertion run failed"
         description="The smart assertion encountered an error while executing against the Snowflake warehouse."
         errorMessage="SnowflakeQueryError: SQL compilation error: Object 'PROD.ANALYTICS.ORDERS' does not exist or not authorized."
-        action={
-            <Button variant="text" color="red" size="sm">
-                Retry
-            </Button>
-        }
+        action={{ label: 'Retry', onClick: () => {} }}
         onClose={() => {
             /* no-op for the story */
         }}

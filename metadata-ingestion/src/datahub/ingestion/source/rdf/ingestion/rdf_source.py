@@ -43,11 +43,16 @@ from datahub.ingestion.source.rdf.ingestion.ast_converter import RDFToASTConvert
 from datahub.ingestion.source.rdf.ingestion.workunit_generator import WorkUnitGenerator
 from datahub.ingestion.source.rdf.rdf_config import RDFSourceConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -348,17 +353,10 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
 
         return report
 
-    def get_workunit_processors(self) -> List[Any]:
-        """
-        Get work unit processors for stateful ingestion.
-
-        Returns:
-            List of work unit processors including stale entity removal handler
-        """
+    def get_allowed_workunit_processors(self):
         return [
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+            AutoWorkunitsReporterProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -397,7 +395,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             error_type: Type of error for reporting
             error_context: Contextual error message
         """
-        self.report.report_failure(error_type, context=error_context, exc=error)
+        self.report.failure(error_type, context=error_context, exc=error)
         logger.error(
             f"{error_type}: {self.config.source}. {error_context}",
             exc_info=True,
@@ -593,7 +591,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 f"Error: {str(e)}. "
                 "Please verify your SPARQL query syntax and ensure it's a valid CONSTRUCT query."
             )
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to apply SPARQL filter",
                 context=error_context,
                 exc=e,

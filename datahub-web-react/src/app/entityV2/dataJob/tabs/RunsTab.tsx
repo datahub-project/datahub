@@ -78,6 +78,7 @@ export const RunsTab = () => {
             title: t('shared.runIdColumn'),
             dataIndex: 'name',
             key: 'name',
+            render: (name) => <div data-testid={`run-name-${name}`}>{name}</div>,
         },
         {
             title: tl('status'),
@@ -88,14 +89,14 @@ export const RunsTab = () => {
                 const text = getExecutionRequestStatusDisplayText(statusForStyling);
                 const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
                 return (
-                    <>
+                    <div data-testid={`run-status-${row.name}`}>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
                             <LastRunIcon theme={theme} status={status} resultType={row?.resultType} />
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
                                 {text || tl('na')}
                             </Typography.Text>
                         </div>
-                    </>
+                    </div>
                 );
             },
         },
@@ -103,14 +104,22 @@ export const RunsTab = () => {
             title: t('shared.inputs'),
             dataIndex: 'inputs',
             key: 'inputs',
-            render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
+            render: (inputs) => (
+                <div data-testid="run-inputs-cell">
+                    <CompactEntityNameList entities={inputs} placement="right" />
+                </div>
+            ),
             width: 150,
         },
         {
             title: t('shared.outputs'),
             dataIndex: 'outputs',
             key: 'outputs',
-            render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
+            render: (outputs) => (
+                <div data-testid="run-outputs-cell">
+                    <CompactEntityNameList entities={outputs} placement="right" />
+                </div>
+            ),
             width: 150,
         },
         {
@@ -141,6 +150,7 @@ export const RunsTab = () => {
     const tableData = runs
         ?.filter((run) => run?.state?.length)
         .map((run) => ({
+            key: run?.name,
             time: run?.created?.time,
             name: run?.name,
             status: run?.state?.[0]?.status,

@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
+import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListenerRegistrar;
 import com.linkedin.metadata.kafka.listener.BatchKafkaListenerEndpoint;
@@ -36,6 +38,8 @@ public class MCLKafkaListenerRegistrar
     extends AbstractKafkaListenerRegistrar<
         MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
   private final OperationContext systemOperationContext;
+  private final InboundContextResolver inboundContextResolver;
+  private final InboundBatchAffinityResolver batchAffinityResolver;
   private final ConfigurationProvider configurationProvider;
   private final KafkaListenerContainerFactory<?> batchKafkaListenerContainerFactory;
 
@@ -57,6 +61,8 @@ public class MCLKafkaListenerRegistrar
       List<MetadataChangeLogHook> hooks,
       ObjectMapper objectMapper,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      InboundContextResolver inboundContextResolver,
+      InboundBatchAffinityResolver batchAffinityResolver,
       ConfigurationProvider configurationProvider) {
     super(
         kafkaListenerEndpointRegistry,
@@ -66,6 +72,8 @@ public class MCLKafkaListenerRegistrar
         objectMapper);
     this.batchKafkaListenerContainerFactory = batchKafkaListenerContainerFactory;
     this.systemOperationContext = systemOperationContext;
+    this.inboundContextResolver = inboundContextResolver;
+    this.batchAffinityResolver = batchAffinityResolver;
     this.configurationProvider = configurationProvider;
   }
 
@@ -144,11 +152,23 @@ public class MCLKafkaListenerRegistrar
     if (isBatchEnabled()) {
       MCLBatchKafkaListener listener = new MCLBatchKafkaListener();
       return listener.init(
-          systemOperationContext, consumerGroupId, hooks, fineGrainedLoggingEnabled, aspectsToDrop);
+          systemOperationContext,
+          consumerGroupId,
+          hooks,
+          fineGrainedLoggingEnabled,
+          aspectsToDrop,
+          inboundContextResolver,
+          batchAffinityResolver);
     } else {
       MCLKafkaListener listener = new MCLKafkaListener();
       return listener.init(
-          systemOperationContext, consumerGroupId, hooks, fineGrainedLoggingEnabled, aspectsToDrop);
+          systemOperationContext,
+          consumerGroupId,
+          hooks,
+          fineGrainedLoggingEnabled,
+          aspectsToDrop,
+          inboundContextResolver,
+          batchAffinityResolver);
     }
   }
 }

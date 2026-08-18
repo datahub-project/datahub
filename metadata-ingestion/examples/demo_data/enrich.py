@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     CorpUserInfoClass,
     CorpUserSnapshotClass,
+    CorpUserStatusClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     EditableSchemaMetadataClass,
@@ -88,7 +89,14 @@ def create_owner_entity_mce(owner: str) -> MetadataChangeEventClass:
                     displayName=owner,
                     fullName=owner,
                     email=f"{clean_name}-demo@example.com",
-                )
+                ),
+                CorpUserStatusClass(
+                    status="ACTIVE",
+                    lastModified=AuditStampClass(
+                        time=int(time.time() * 1000),
+                        actor="urn:li:corpuser:datahub",
+                    ),
+                ),
             ],
         )
     )

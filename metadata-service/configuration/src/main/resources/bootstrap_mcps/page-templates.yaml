@@ -4,7 +4,7 @@
 - entityUrn: urn:li:dataHubPageTemplate:home_default_1
   entityType: dataHubPageTemplate
   aspectName: dataHubPageTemplateProperties
-  changeType: UPSERT
+  changeType: CREATE
   aspect:
     rows:
       - modules:

@@ -25,6 +25,10 @@ class TestDataHubSecretStore:
 
     def test_init_with_graph_client_config(self):
         mock_client_config = Mock(spec=DatahubClientConfig)
+        # DatahubClientConfig's model validator inspects token/auth during nested
+        # validation, and a spec'd Mock doesn't expose pydantic fields by default.
+        mock_client_config.token = None
+        mock_client_config.auth = None
 
         with patch(
             "datahub.secret.datahub_secret_store.DataHubGraph"

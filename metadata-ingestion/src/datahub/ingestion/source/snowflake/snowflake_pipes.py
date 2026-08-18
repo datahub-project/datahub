@@ -265,15 +265,15 @@ class SnowflakePipesExtractor:
         )
         if unparsed_stage_refs:
             self.report.warning(
-                "Pipe COPY INTO stage reference could not be normalized; "
+                message="Pipe COPY INTO stage reference could not be normalized; "
                 "lineage may be incomplete",
-                f"{pipe_fqn} -> {', '.join(unparsed_stage_refs)}",
+                context=f"{pipe_fqn} -> {', '.join(unparsed_stage_refs)}",
             )
         elif parsed is None and pipe.definition:
             if _looks_like_copy_into(pipe.definition):
                 self.report.warning(
-                    "Failed to parse COPY INTO statement for pipe lineage",
-                    pipe_fqn,
+                    message="Failed to parse COPY INTO statement for pipe lineage",
+                    context=pipe_fqn,
                 )
             else:
                 # Non-COPY pipe bodies are legal but unsupported for lineage;
@@ -299,9 +299,9 @@ class SnowflakePipesExtractor:
             # (filtered by `stage_pattern`, dropped, or not scanned). Surface this
             # so users can see why a pipe's input lineage may be incomplete.
             self.report.warning(
-                "Stage referenced by pipe COPY INTO could not be resolved; "
+                message="Stage referenced by pipe COPY INTO could not be resolved; "
                 "pipe input lineage may be incomplete",
-                f"{pipe_fqn} -> {', '.join(unresolved_stages)}",
+                context=f"{pipe_fqn} -> {', '.join(unresolved_stages)}",
             )
 
         custom_properties: Dict[str, str] = {}
@@ -366,9 +366,9 @@ class SnowflakePipesExtractor:
             # Stage was found, but its underlying dataset URN couldn't be resolved
             # (e.g. unsupported external storage scheme in `_resolve_external_stage_url`).
             self.report.warning(
-                "Stage referenced by pipe has no resolvable dataset URN; "
+                message="Stage referenced by pipe has no resolvable dataset URN; "
                 "pipe input lineage will not include it",
-                f"{pipe_fqn} -> {', '.join(stages_without_urn)}",
+                context=f"{pipe_fqn} -> {', '.join(stages_without_urn)}",
             )
 
         if input_datasets or output_datasets:
