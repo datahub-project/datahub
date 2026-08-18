@@ -308,6 +308,7 @@
     "tab.properties": "Tulajdonságok",
     "tab.queries": "Lekérdezések",
     "tab.runs": "Futtatások",
+    "tab.definition": "Definíció",
     "tab.summary": "Összegzés",
     "tag.name": "Címke",
     "tag.namePlural": "Címkék",
@@ -326,5 +327,6 @@
     "user.tab.ownerOf": "Tulajdonosa ennek",
     "user.teamLabel": "Csapat",
     "user.teamsHeading": "Csapatok",
-    "user.titleRoleLabel": "Beosztás/Szerepkör"
+    "user.titleRoleLabel": "Beosztás/Szerepkör",
+    "dataProduct.parentLabel": "Szülő Data Product"
 }

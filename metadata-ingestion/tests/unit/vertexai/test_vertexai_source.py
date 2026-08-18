@@ -3,7 +3,7 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, PermissionDenied
 from google.cloud.aiplatform import ExperimentRun, PipelineJob
 from google.cloud.aiplatform.metadata import constants as metadata_constants
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
@@ -11,6 +11,7 @@ from google.cloud.aiplatform.metadata.execution import Execution as MetadataExec
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
+from google.rpc.error_details_pb2 import ErrorInfo
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -565,3 +566,100 @@ def test_resolve_target_projects_skips_client_for_explicit_project_ids(
     mock_projects_client.assert_not_called()
     _, kwargs = mock_resolve_gcp_projects.call_args
     assert kwargs.get("projects_client") is None
+
+
+# ---------------------------------------------------------------------------
+# Disabled-API project resilience (per-project SERVICE_DISABLED handling)
+# ---------------------------------------------------------------------------
+
+
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.get_vertexai_disable_parallelism",
+    return_value=True,
+)
+@patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
+@patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
+def test_disabled_vertex_api_project_is_skipped(
+    _mock_init: MagicMock,
+    _mock_metadata_client: MagicMock,
+    _mock_disable_parallelism: MagicMock,
+) -> None:
+    """A disabled-API project is skipped with a warning; other projects still ingest."""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_ids": ["disabled-project", "enabled-project"],
+            "region": REGION,
+            "include_models": False,
+            "include_evaluations": False,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+    enabled_project_wu = MagicMock(name="enabled-project-workunit")
+
+    def fetch_phase1_side_effect(resource_type):
+        if resource_type != "training_jobs":
+            return
+        if source._current_project_id == "disabled-project":
+            raise PermissionDenied(
+                "Agent Platform API has not been used in project disabled-project before "
+                "or it is disabled.",
+                error_info=ErrorInfo(
+                    reason="SERVICE_DISABLED", domain="googleapis.com"
+                ),
+            )
+        yield enabled_project_wu
+
+    with (
+        patch.object(source, "_gen_project_workunits", return_value=iter([])),
+        patch.object(
+            source, "_fetch_phase1_resource", side_effect=fetch_phase1_side_effect
+        ),
+    ):
+        workunits = list(source.get_workunits_internal())
+
+    assert workunits == [enabled_project_wu]
+
+    assert len(source.report.warnings) == 1
+    warning = source.report.warnings[0]
+    assert any("disabled-project" in ctx for ctx in warning.context)
+
+
+@patch(
+    "datahub.ingestion.source.vertexai.vertexai.get_vertexai_disable_parallelism",
+    return_value=True,
+)
+@patch("datahub.ingestion.source.vertexai.vertexai.MetadataServiceClient")
+@patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init")
+def test_non_service_disabled_permission_denied_still_raises(
+    _mock_init: MagicMock,
+    _mock_metadata_client: MagicMock,
+    _mock_disable_parallelism: MagicMock,
+) -> None:
+    """A non-SERVICE_DISABLED PermissionDenied (IAM denial) must propagate, not be swallowed."""
+    config = VertexAIConfig.model_validate(
+        {
+            "project_ids": ["denied-project", "other-project"],
+            "region": REGION,
+            "include_models": False,
+            "include_evaluations": False,
+        }
+    )
+    source = VertexAISource(ctx=PipelineContext(run_id="test"), config=config)
+
+    def fetch_phase1_side_effect(_resource_type):
+        raise PermissionDenied(
+            "Permission denied on resource.",
+            error_info=ErrorInfo(
+                reason="IAM_PERMISSION_DENIED", domain="googleapis.com"
+            ),
+        )
+        yield
+
+    with (
+        patch.object(source, "_gen_project_workunits", return_value=iter([])),
+        patch.object(
+            source, "_fetch_phase1_resource", side_effect=fetch_phase1_side_effect
+        ),
+        pytest.raises(PermissionDenied),
+    ):
+        list(source.get_workunits_internal())

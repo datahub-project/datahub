@@ -6,6 +6,8 @@ import MetricsMainContent from '@app/metrics/MetricsMainContent';
 const ContentWrapper = styled.div`
     display: flex;
     flex: 1;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
 `;
 

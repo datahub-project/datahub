@@ -1,7 +1,6 @@
 """Unit tests for security-relevant guards in datahub_dev.py."""
 
 import argparse
-import importlib
 import json
 import sys
 import time

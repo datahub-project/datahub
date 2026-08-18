@@ -1,9 +1,13 @@
 /**
  * Derive the GMS REST URL from a DataHub frontend URL.
  * DataHub runs the frontend on :9002 and GMS on :8080 by convention.
+ * Override with GMS_URL env var for non-standard port assignments (e.g. multi-worktree setups).
  */
 export function gmsUrl(baseUrl?: string): string {
-  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002').replace(':9002', ':8080');
+  if (process.env.GMS_URL) return process.env.GMS_URL;
+  return (baseUrl ?? process.env.BASE_URL ?? 'http://localhost:9002')
+    .replace(':10002', ':9080')
+    .replace(':9002', ':8080');
 }
 
 export const DEFAULT_TIMEOUT = 30000;
@@ -60,6 +64,9 @@ export const ROUTES = {
   dashboards: '/dashboards',
   businessAttributes: '/business-attributes',
 };
+
+/** Frontend GraphQL endpoint path (Play proxy → GMS /api/graphql). */
+export const DATAHUB_GRAPHQL_PATH = '/api/v2/graphql';
 
 export const ENTITY_TYPES = {
   DATASET: 'dataset',

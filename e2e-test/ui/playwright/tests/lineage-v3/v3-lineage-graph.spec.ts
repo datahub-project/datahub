@@ -226,13 +226,20 @@ const SEARCH_TERMS = {
 
 // showLineageFilterNodes is omitted so most tests run on the backend default; only the filter test overrides it.
 const BASE_FEATURE_FLAGS = {
-  lineageGraphV3: true,
   themeV2Enabled: true,
   themeV2Default: true,
   showNavBarRedesign: true,
 };
 
 // ── Test Suite ───────────────────────────────────────────────────────────────
+
+// beforeAll's seedAdditionalNodes call (unlike seedTimeRangeLineage, which is
+// now lock-protected in lineage-time-seeder.ts because it's also called from
+// v3-lineage-impact-analysis.spec.ts) is unique to this file and has no such
+// guard. Under workers_per_shard > 1, fullyParallel can still schedule this
+// describe block's own tests across two workers, each running beforeAll
+// concurrently. Force one worker so it stays genuinely single-shot.
+test.describe.configure({ mode: 'default' });
 
 test.describe('lineage v3 — lineage graph', () => {
   let lineagePage: LineageV3Page;

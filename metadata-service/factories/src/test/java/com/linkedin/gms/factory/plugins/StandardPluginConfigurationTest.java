@@ -2,7 +2,9 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -28,6 +30,8 @@ import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidat
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.mockito.Answers;
 import org.mockito.Mockito;
@@ -46,7 +50,8 @@ import org.testng.annotations.Test;
       "metadataChangeProposal.validation.ignoreUnknown=true",
       "metadataChangeProposal.validation.extensions.enabled=false",
       "metadataChangeProposal.sideEffects.schemaField.enabled=true",
-      "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true"
+      "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true",
+      "metadataChangeProposal.sideEffects.aliases.enabled=true"
     })
 public class StandardPluginConfigurationTest extends AbstractTestNGSpringContextTests {
 
@@ -55,6 +60,12 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   private ConfigurationProvider configurationProvider;
 
+  @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
+
+  @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private ObjectMapper objectMapper;
+
   @BeforeClass
   private void setup() {
     Mockito.when(configurationProvider.getDatahub()).thenReturn(new DataHubConfiguration());
@@ -62,6 +73,7 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         .thenReturn(
             StructuredPropertiesConfiguration.builder()
                 .dropMissingPropertyValuesWithWarning(true)
+                .keywordMaxLength(32766)
                 .build());
   }
 
@@ -105,6 +117,19 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertNotNull(sideEffect.getConfig());
     assertTrue(sideEffect.getConfig().isEnabled());
     assertEquals(sideEffect.getConfig().getClassName(), SchemaFieldSideEffect.class.getName());
+  }
+
+  @Test
+  public void testAliasesSideEffectBeanCreation() {
+    assertTrue(context.containsBean("aliasesSideEffect"));
+    MCPSideEffect sideEffect = context.getBean("aliasesSideEffect", MCPSideEffect.class);
+    assertNotNull(sideEffect);
+    assertTrue(sideEffect instanceof AliasesSideEffect);
+
+    // Verify configuration
+    assertNotNull(sideEffect.getConfig());
+    assertTrue(sideEffect.getConfig().isEnabled());
+    assertEquals(sideEffect.getConfig().getClassName(), AliasesSideEffect.class.getName());
   }
 
   @Test
@@ -363,7 +388,8 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertEquals(
         validator.getConfig().getClassName(), StructuredPropertiesValidator.class.getName());
     assertEquals(
-        validator.getConfig().getSupportedOperations(), List.of("CREATE", "UPSERT", "DELETE"));
+        validator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH", "DELETE"));
   }
 
   @Test

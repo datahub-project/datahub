@@ -20,9 +20,12 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 SMOKE_TEST_STAGE_PREFIX = "smoketest"
 
@@ -112,6 +115,15 @@ SEARCH_DOCUMENTS_QUERY = """
     }
 """
 
+SEARCH_ACROSS_ENTITIES_QUERY = """
+    query SearchAcross($input: SearchAcrossEntitiesInput!) {
+        searchAcrossEntities(input: $input) {
+            count
+            searchResults { entity { urn } }
+        }
+    }
+"""
+
 SET_LIFECYCLE_STAGE_MUTATION = """
     mutation SetStage($urn: String!, $lifecycleStageUrn: String) {
         setLifecycleStage(urn: $urn, lifecycleStageUrn: $lifecycleStageUrn)
@@ -173,6 +185,7 @@ def _set_lifecycle_stage_via_rest(
 
 
 def _search_documents(auth_session, query: str) -> List[str]:
+    """Search via the document-specific search (docs home page). Ownership-aware."""
     result = execute_graphql(
         auth_session,
         SEARCH_DOCUMENTS_QUERY,
@@ -181,6 +194,28 @@ def _search_documents(auth_session, query: str) -> List[str]:
     assert "errors" not in result, f"searchDocuments errors: {result.get('errors')}"
     docs = result["data"]["searchDocuments"]["documents"]
     return [d["urn"] for d in docs]
+
+
+def _search_across_entities(auth_session, query: str) -> List[str]:
+    """Search via cross-entity search (global search bar). No ownership context."""
+    result = execute_graphql(
+        auth_session,
+        SEARCH_ACROSS_ENTITIES_QUERY,
+        {
+            "input": {
+                "query": query,
+                "types": ["DOCUMENT"],
+                "count": 50,
+            }
+        },
+    )
+    assert "errors" not in result, (
+        f"searchAcrossEntities errors: {result.get('errors')}"
+    )
+    return [
+        r["entity"]["urn"]
+        for r in result["data"]["searchAcrossEntities"]["searchResults"]
+    ]
 
 
 def _get_status(auth_session, urn: str) -> Dict[str, Any]:
@@ -251,7 +286,7 @@ class TestLifecycleStageAPIs:
         """
         stage_name = f"TestStage {_unique_id()}"
         stage_urn = self._ingest_stage(stage_name, hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_listed():
@@ -277,13 +312,13 @@ class TestLifecycleStageAPIs:
         Status aspect reflects it.
         """
         stage_urn = self._ingest_stage("MutationTest", hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Mutation Test {_unique_id()}"
         doc_id = _unique_id("lc-mut")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         result = execute_graphql(
             auth_session,
@@ -294,7 +329,7 @@ class TestLifecycleStageAPIs:
             f"setLifecycleStage errors: {result.get('errors')}"
         )
         assert result["data"]["setLifecycleStage"] is True
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         status = _get_status(auth_session, urn)
         assert status.get("lifecycleStage") == stage_urn, (
@@ -309,67 +344,118 @@ class TestLifecycleStageAPIs:
         )
         assert "errors" not in result
         assert result["data"]["setLifecycleStage"] is True
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         status = _get_status(auth_session, urn)
         assert status.get("lifecycleStage") is None
         logger.info("setLifecycleStage mutation set and cleared stage")
 
-    def test_hidden_stage_excludes_from_search(self, auth_session):
+    def test_hidden_stage_excludes_from_cross_entity_search(self, auth_session):
         """
-        Entities in a hideInSearch=true stage are excluded from default search.
-        Clearing the stage restores visibility.
+        Entities in a hideInSearch=true stage are excluded from cross-entity
+        search (global search bar). Clearing the stage restores visibility.
         """
         stage_urn = self._ingest_stage("HiddenStage", hide_in_search=True)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Search Test {_unique_id()}"
         doc_id = _unique_id("lc-search")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible():
-            urns = _search_documents(auth_session, title)
-            assert urn in urns, f"Expected {urn} in search, got: {urns}"
+            urns = _search_across_entities(auth_session, title)
+            assert urn in urns, f"Expected {urn} in cross-entity search, got: {urns}"
 
         _assert_visible()
 
         _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
-        @with_test_retry(max_attempts=30)
+        @with_test_retry(max_attempts=12)
         def _assert_hidden():
-            urns = _search_documents(auth_session, title)
-            assert urn not in urns, "Entity in hidden stage should not appear in search"
+            urns = _search_across_entities(auth_session, title)
+            assert urn not in urns, (
+                "Entity in hidden stage should not appear in cross-entity search"
+            )
 
         _assert_hidden()
-        logger.info("Hidden stage excludes entity from search")
+        logger.info("Hidden stage excludes entity from cross-entity search")
 
         _set_lifecycle_stage_via_rest(auth_session, urn, None)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible_again():
-            urns = _search_documents(auth_session, title)
+            urns = _search_across_entities(auth_session, title)
             assert urn in urns, f"Cleared entity should be visible: {urns}"
 
         _assert_visible_again()
-        logger.info("Cleared stage restores search visibility")
+        logger.info("Cleared stage restores cross-entity search visibility")
+
+    def test_hidden_stage_visible_to_owner_in_doc_search(self, auth_session):
+        """
+        Owners can still see their documents in the docs home page search
+        (searchDocuments) even when the doc is in a hideInSearch=true stage.
+        """
+        stage_urn = self._ingest_stage("HiddenOwnerStage", hide_in_search=True)
+        wait_for_writes_to_sync(mcp_only=True)
+
+        title = f"Lifecycle Owner Test {_unique_id()}"
+        doc_id = _unique_id("lc-owner")
+        urn = _create_document(auth_session, doc_id, title)
+        self.created_urns.append(urn)
+        wait_for_writes_to_sync(mae_only=True)
+
+        @with_test_retry(max_attempts=12)
+        def _assert_visible_before():
+            urns = _search_documents(auth_session, title)
+            assert urn in urns, f"Expected {urn} in doc search, got: {urns}"
+
+        _assert_visible_before()
+
+        _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
+        wait_for_writes_to_sync(mae_only=True)
+
+        @with_test_retry(max_attempts=12)
+        def _assert_still_visible_to_owner():
+            urns = _search_documents(auth_session, title)
+            assert urn in urns, (
+                "Owner should still see doc in hidden stage via doc search"
+            )
+
+        _assert_still_visible_to_owner()
+        logger.info("Owner can see hidden-stage doc in document search")
 
     def test_visible_stage_remains_in_search(self, auth_session):
         """
-        Entities in a hideInSearch=false stage remain visible in default search.
+        Entities in the well-known PUBLISHED lifecycle stage remain visible in
+        default document search.
+
+        Note: searchDocuments uses document-specific filter logic that matches
+        on well-known lifecycle stage URNs (PUBLISHED, UNPUBLISHED, DRAFT),
+        not the generic hideInSearch flag. We use the PUBLISHED stage to verify
+        that a visible stage keeps the document searchable.
         """
-        stage_urn = self._ingest_stage("VisibleStage", hide_in_search=False)
-        wait_for_writes_to_sync()
+        # Ensure the well-known PUBLISHED stage type entity exists (it may not
+        # be bootstrapped in all environments).
+        stage_urn = _ingest_lifecycle_stage(
+            auth_session,
+            "PUBLISHED",
+            "Published",
+            hide_in_search=False,
+            entity_types=["dataset", "document"],
+        )
+        self.created_stage_urns.append(stage_urn)
+        wait_for_writes_to_sync(mcp_only=True)
 
         title = f"Lifecycle Visible Test {_unique_id()}"
         doc_id = _unique_id("lc-vis")
         urn = _create_document(auth_session, doc_id, title)
         self.created_urns.append(urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_visible_before():
@@ -379,7 +465,7 @@ class TestLifecycleStageAPIs:
         _assert_visible_before()
 
         _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         @with_test_retry(max_attempts=12)
         def _assert_still_visible():
@@ -393,3 +479,53 @@ class TestLifecycleStageAPIs:
         status = _get_status(auth_session, urn)
         assert status.get("lifecycleStage") == stage_urn
         logger.info("Visible stage keeps entity in search results")
+
+    def test_draft_stage_hidden_from_owner_in_doc_search(self, auth_session):
+        """
+        Documents in the well-known DRAFT lifecycle stage must not appear in
+        document search (searchDocuments) even for the owning user.
+
+        Unlike generic hidden stages (which are still visible to owners),
+        DRAFT is treated as a staging state that is never surfaced in the UI
+        regardless of ownership. DocumentSearchFilterUtils excludes DRAFT
+        from Clause 2 (the owner-visible non-published clause) so that DRAFT
+        documents match no clause and are filtered out entirely.
+        """
+        # Ensure the well-known DRAFT stage type entity exists (it may not
+        # be bootstrapped in all environments).
+        draft_stage_urn = _ingest_lifecycle_stage(
+            auth_session,
+            "DRAFT",
+            "Draft",
+            hide_in_search=True,
+            entity_types=["dataset", "document"],
+        )
+        self.created_stage_urns.append(draft_stage_urn)
+        wait_for_writes_to_sync(mcp_only=True)
+
+        title = f"Lifecycle Draft Test {_unique_id()}"
+        doc_id = _unique_id("lc-draft")
+        urn = _create_document(auth_session, doc_id, title)
+        self.created_urns.append(urn)
+        wait_for_writes_to_sync(mae_only=True)
+
+        @with_test_retry(max_attempts=12)
+        def _assert_visible_before():
+            urns = _search_documents(auth_session, title)
+            assert urn in urns, f"Expected {urn} in doc search, got: {urns}"
+
+        _assert_visible_before()
+
+        _set_lifecycle_stage_via_rest(auth_session, urn, draft_stage_urn)
+        wait_for_writes_to_sync(mae_only=True)
+
+        @with_test_retry(max_attempts=12)
+        def _assert_hidden_from_owner():
+            urns = _search_documents(auth_session, title)
+            assert urn not in urns, (
+                "Owner should NOT see a DRAFT document in doc search "
+                f"(found in results): {urns}"
+            )
+
+        _assert_hidden_from_owner()
+        logger.info("DRAFT stage hides document from owner in document search")

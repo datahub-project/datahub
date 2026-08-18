@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub_actions.plugin.action.metadata_change_sync.metadata_change_sync import (
     MetadataChangeSyncAction,
 )
@@ -31,3 +32,28 @@ def test_create():
 def test_close():
     # Nothing to Test
     pass
+
+
+def test_create_with_auth_provider():
+    # A declarative auth config (OAuth token provider) must land on the
+    # emitter's session so tokens refresh per request.
+    action = MetadataChangeSyncAction.create(
+        {
+            "gms_server": "https://destination.example.com/",
+            "auth": {"type": "static", "config": {"token": "provider-tok"}},
+        },
+        pipeline_context,
+    )
+    assert isinstance(action.rest_emitter._session.auth, TokenProviderAuth)  # type: ignore[attr-defined]
+
+
+def test_auth_and_token_mutually_exclusive():
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        MetadataChangeSyncAction.create(
+            {
+                "gms_server": "https://destination.example.com/",
+                "gms_auth_token": "static-pat",
+                "auth": {"type": "static", "config": {"token": "t"}},
+            },
+            pipeline_context,
+        )

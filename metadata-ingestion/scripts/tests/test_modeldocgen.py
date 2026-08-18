@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import List, Tuple
 
 import avro.schema
 import pytest
@@ -171,7 +172,7 @@ def make_avro_record_schema(name, doc=None, aspect_props=None):
     schema = avro.schema.parse(json.dumps(schema_dict))
     if aspect_props:
         schema.props["Aspect"] = aspect_props
-        schema.other_props["Aspect"] = aspect_props
+        schema.other_props["Aspect"] = aspect_props  # type: ignore[index]
     return schema
 
 
@@ -394,7 +395,7 @@ class TestGetSortedEntityNames:
     def test_empty_input(self):
         """Test with empty input list."""
         result = get_sorted_entity_names([])
-        expected = [
+        expected: List[Tuple[EntityCategory, List[str]]] = [
             (EntityCategory.CORE, []),
             (EntityCategory.INTERNAL, []),
         ]

@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Final, FrozenSet, Iterable, List, Optional, Tuple
 
 from sqlalchemy.engine.url import make_url
 
@@ -21,6 +21,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     get_dataset_name,
     has_three_level_hierarchy,
+    normalize_jdbc_url,
     parse_comma_separated_list,
     remove_prefix,
     unquote,
@@ -38,6 +39,13 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
+
+# JDBC subprotocols the SQLAlchemy mapper does not recognize but that are real
+# DataHub platforms. Anything else falls through as "unknown" so a mistyped URL
+# cannot invent a lineage platform.
+_JDBC_PROTOCOL_PLATFORM_FALLBACK: Final[FrozenSet[str]] = frozenset(
+    {"db2", "teradata", "cassandra"}
+)
 
 
 @dataclass(frozen=True)
@@ -326,7 +334,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         else:
             # Failed to resolve schema - warn and exclude dataset
             self.report.warning(
-                f"Could not find schema for table {self.connector_manifest.name} : {source_table}"
+                message="Could not find schema for table",
+                context=f"{self.connector_manifest.name} : {source_table}",
             )
             return source_table, False
 
@@ -1009,9 +1018,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             )
 
             # Log any warnings from transform processing
-            for warning in transform_result.warnings:
+            for w in transform_result.warnings:
                 self.report.warning(
-                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                    message="Transform warning",
+                    context=f"{self.connector_manifest.name}: {w}",
                 )
 
             predicted_topic = (
@@ -1269,9 +1279,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         """Forward pipeline approach for complex transform scenarios."""
         if self._has_complex_transforms(parser.transforms):
             self.report.warning(
-                f"Connector {self.connector_manifest.name} uses complex transforms "
-                f"that cannot be reliably predicted. For accurate lineage, consider using "
-                f"'generic_connectors' config to specify explicit source mappings."
+                message="Connector uses complex transforms that cannot be reliably predicted. "
+                "For accurate lineage, consider using 'generic_connectors' config to specify explicit source mappings.",
+                context=self.connector_manifest.name,
             )
 
         # Use basic extraction as forward pipeline fallback
@@ -1303,8 +1313,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             lineages.append(lineage)
 
         self.report.warning(
-            "Could not find input dataset, the connector has query configuration set",
-            self.connector_manifest.name,
+            message="Could not find input dataset, the connector has query configuration set",
+            context=self.connector_manifest.name,
         )
         return lineages
 
@@ -1335,7 +1345,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             source_platform = self._extract_platform_from_jdbc_url(
                 config.get("connection.url", "")
             )
-            if source_platform == "unknown":
+            if source_platform in ("unknown", "external"):
                 logger.warning(
                     f"Could not determine source platform for JDBC connector {self.connector_manifest.name}"
                 )
@@ -1458,13 +1468,19 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             return "unknown"
 
         try:
-            remaining_url = remove_prefix(jdbc_url, JDBC_PREFIX)
-            protocol_end = remaining_url.find(":")
+            normalized = normalize_jdbc_url(jdbc_url)
+            platform = get_platform_from_sqlalchemy_uri(normalized)
+            if platform != "external":
+                return platform
+            protocol_end = normalized.find(":")
             if protocol_end == -1:
                 return "unknown"
-
-            protocol = remaining_url[:protocol_end].lower()
-            return "postgres" if protocol == "postgresql" else protocol
+            protocol = normalized[:protocol_end].lower()
+            if protocol == "postgresql":
+                return "postgres"
+            if protocol in _JDBC_PROTOCOL_PLATFORM_FALLBACK:
+                return protocol
+            return "unknown"
         except Exception:
             return "unknown"
 
@@ -1892,8 +1908,10 @@ class SnowflakeSourceConnector(BaseConnector):
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
             if self.report:
-                self.report.report_failure(
-                    f"datahub_connection_{self.connector_manifest.name}", str(e)
+                self.report.failure(
+                    message="Failed to connect to DataHub for pattern expansion",
+                    context=self.connector_manifest.name,
+                    exc=e,
                 )
             return []
         except Exception as e:
@@ -1947,10 +1965,10 @@ class SnowflakeSourceConnector(BaseConnector):
             # If patterns exist but schema resolver is not available, skip processing
             if has_patterns and not self.schema_resolver:
                 self.report.warning(
-                    f"Snowflake Source connector '{self.connector_manifest.name}' has table patterns "
-                    f"in table.include.list but DataHub schema resolver is not available. "
-                    f"Skipping lineage extraction to avoid generating invalid URNs. "
-                    f"Enable 'use_schema_resolver' in config to support pattern expansion."
+                    message="Snowflake Source connector has table patterns in table.include.list but DataHub schema resolver is not available. "
+                    "Skipping lineage extraction to avoid generating invalid URNs. "
+                    "Enable 'use_schema_resolver' in config to support pattern expansion.",
+                    context=self.connector_manifest.name,
                 )
                 logger.warning(
                     f"Skipping lineage extraction for connector '{self.connector_manifest.name}' - "
@@ -2719,8 +2737,8 @@ class DebeziumSourceConnector(BaseConnector):
 
         except Exception as e:
             self.report.warning(
-                "Error resolving lineage for connector",
-                self.connector_manifest.name,
+                message="Error resolving lineage for connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
             return []
@@ -3428,8 +3446,10 @@ class DebeziumSourceConnector(BaseConnector):
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
             if self.report:
-                self.report.report_failure(
-                    f"datahub_connection_{self.connector_manifest.name}", str(e)
+                self.report.failure(
+                    message="Failed to connect to DataHub for pattern expansion",
+                    context=self.connector_manifest.name,
+                    exc=e,
                 )
             return []
         except Exception as e:

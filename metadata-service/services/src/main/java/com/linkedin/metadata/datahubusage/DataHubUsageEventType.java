@@ -55,6 +55,7 @@ public enum DataHubUsageEventType {
   CREATE_GLOSSARY_ENTITY_EVENT("CreateGlossaryEntityEvent"),
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
+  MOVE_DATA_PRODUCT_EVENT("MoveDataProductEvent"),
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
   INGESTION_TEST_CONNECTION_CLICK_EVENT("IngestionTestConnectionClickEvent"),
   INGESTION_TEST_CONNECTION_CLOSE_EVENT("IngestionTestConnectionCloseEvent"),
@@ -171,7 +172,11 @@ public enum DataHubUsageEventType {
   INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
   INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
   CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent"),
-  IMPORT_DOCUMENTS_EVENT("ImportDocumentsEvent");
+  IMPORT_DOCUMENTS_EVENT("ImportDocumentsEvent"),
+  GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
+  GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
+  GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent");
 
   private final String type;
 

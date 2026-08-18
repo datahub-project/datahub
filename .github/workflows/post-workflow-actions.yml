@@ -14,6 +14,7 @@ on:
       - "build & test"
       - "Check Datahub Jars"
       - "check python dependencies"
+      - "CI Cache Warmup"
       - "Dagster Plugin"
       - "DataHub Actions"
       - "DataHub Agent Context"
@@ -28,6 +29,7 @@ on:
       - "Metadata Models Custom CI"
       - "metadata-io"
       - "Nightly Docker Test"
+      - "OAuth Smoke Test"
       - "PR Title Check"
       - "Prefect Plugin"
       - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
@@ -214,5 +216,6 @@ jobs:
     secrets: inherit
     with:
       run_id: ${{ github.event.workflow_run.id }}
+      attempt: ${{ github.event.workflow_run.run_attempt }}
       conclusion: success
       channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}

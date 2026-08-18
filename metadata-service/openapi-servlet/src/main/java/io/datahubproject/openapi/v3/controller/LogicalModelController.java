@@ -19,7 +19,6 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.logical.LogicalModelUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
@@ -32,7 +31,6 @@ import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -136,45 +134,20 @@ public class LogicalModelController {
     if (parentSchemaMetadataAspect != null && childSchemaMetadataAspect != null) {
       SchemaMetadata parentSchema = (SchemaMetadata) parentSchemaMetadataAspect;
       SchemaMetadata childSchema = (SchemaMetadata) childSchemaMetadataAspect;
-
-      Set<String> childFieldPaths =
-          childSchema.getFields().stream()
-              .map(SchemaField::getFieldPath)
-              .collect(Collectors.toSet());
-      Set<String> parentFieldPaths =
+      LogicalModelUtils.validateFieldPaths(
           parentSchema.getFields().stream()
               .map(SchemaField::getFieldPath)
-              .collect(Collectors.toSet());
-
-      for (Map.Entry<String, String> mapping : fieldPathMap.entrySet()) {
-        if (!parentFieldPaths.contains(mapping.getKey())) {
-          throw new IllegalArgumentException(
-              String.format(
-                  "Field path not found on parent %s: %s", parentDatasetUrnStr, mapping.getKey()));
-        }
-        if (!childFieldPaths.contains(mapping.getValue())) {
-          throw new IllegalArgumentException(
-              String.format(
-                  "Field path not found on child %s: %s", childDatasetUrnStr, mapping.getValue()));
-        }
-      }
+              .collect(Collectors.toSet()),
+          childSchema.getFields().stream()
+              .map(SchemaField::getFieldPath)
+              .collect(Collectors.toSet()),
+          fieldPathMap);
     }
 
-    List<MetadataChangeProposal> proposals = new ArrayList<>();
-
-    proposals.add(
-        LogicalModelUtils.createLogicalParentProposal(
-            childDatasetUrn, parentDatasetUrn, opContext));
-
-    for (Map.Entry<String, String> mapping : fieldPathMap.entrySet()) {
-      Urn parentSchemaFieldUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, mapping.getKey());
-      Urn childSchemaFieldUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, mapping.getValue());
-      proposals.add(
-          LogicalModelUtils.createLogicalParentProposal(
-              childSchemaFieldUrn, parentSchemaFieldUrn, opContext));
-    }
+    // Create logical parent proposals
+    List<MetadataChangeProposal> proposals =
+        LogicalModelUtils.buildLinkProposals(
+            childDatasetUrn, parentDatasetUrn, fieldPathMap, opContext);
 
     AuditStamp auditStamp = AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
     AspectsBatch batch =
@@ -239,22 +212,14 @@ public class LogicalModelController {
         entityService.getLatestAspect(
             opContext, childDatasetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME);
 
-    List<MetadataChangeProposal> proposals = new ArrayList<>();
-
-    proposals.add(LogicalModelUtils.createLogicalParentProposal(childDatasetUrn, null, opContext));
-
-    if (childSchemaMetadataAspect != null) {
-      SchemaMetadata childSchema = (SchemaMetadata) childSchemaMetadataAspect;
-      childSchema.getFields().stream()
-          .map(SchemaField::getFieldPath)
-          .forEach(
-              fieldPath ->
-                  proposals.add(
-                      LogicalModelUtils.createLogicalParentProposal(
-                          SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, fieldPath),
-                          null,
-                          opContext)));
-    }
+    // Remove logical parent proposals
+    List<String> childFieldPaths =
+        childSchemaMetadataAspect != null
+            ? ((SchemaMetadata) childSchemaMetadataAspect)
+                .getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toList())
+            : List.of();
+    List<MetadataChangeProposal> proposals =
+        LogicalModelUtils.buildUnlinkProposals(childDatasetUrn, childFieldPaths, opContext);
 
     AuditStamp auditStamp = AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
     AspectsBatch batch =
