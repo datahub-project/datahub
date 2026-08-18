@@ -5,9 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import MoveDataProductModal from '@app/entityV2/shared/EntityDropdown/MoveDataProductModal';
-import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
-import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import {
     ActionMenuItem,
     ENTITY_HEADER_ACTION_ICON_SIZE,
@@ -32,31 +30,6 @@ export default function MoveEntityMenuAction() {
         return null;
     }
 
-    const closeMoveModal = () => setIsMoveModalVisible(false);
-
-    function renderMoveModal() {
-        if (!isMoveModalVisible) return null;
-
-        switch (entityType) {
-            case EntityType.GlossaryNode:
-            case EntityType.GlossaryTerm:
-                return (
-                    <MoveGlossaryEntityModal
-                        entityData={entityData}
-                        entityType={entityType}
-                        urn={urn}
-                        onClose={closeMoveModal}
-                    />
-                );
-            case EntityType.Domain:
-                return <MoveDomainModal onClose={closeMoveModal} />;
-            case EntityType.DataProduct:
-                return <MoveDataProductModal onClose={closeMoveModal} />;
-            default:
-                return null;
-        }
-    }
-
     return (
         <Tooltip
             placement="bottom"
@@ -71,7 +44,14 @@ export default function MoveEntityMenuAction() {
             >
                 <FolderOpen size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
-            {renderMoveModal()}
+            {isMoveModalVisible && (
+                <MoveEntityModal
+                    entityType={entityType}
+                    entityData={entityData}
+                    urn={urn}
+                    onClose={() => setIsMoveModalVisible(false)}
+                />
+            )}
         </Tooltip>
     );
 }

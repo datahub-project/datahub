@@ -29,9 +29,7 @@ import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/Creat
 import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import MoveDataProductModal from '@app/entityV2/shared/EntityDropdown/MoveDataProductModal';
-import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
-import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import {
@@ -558,27 +556,14 @@ const EntityDropdown = (props: Props) => {
                     onCreate={() => setTimeout(() => refetchForEntity?.(), 2000)}
                 />
             )}
-            {isMoveModalVisible &&
-                (() => {
-                    switch (entityType) {
-                        case EntityType.GlossaryNode:
-                        case EntityType.GlossaryTerm:
-                            return (
-                                <MoveGlossaryEntityModal
-                                    entityData={entityData}
-                                    urn={urn}
-                                    entityType={entityType}
-                                    onClose={() => setIsMoveModalVisible(false)}
-                                />
-                            );
-                        case EntityType.Domain:
-                            return <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />;
-                        case EntityType.DataProduct:
-                            return <MoveDataProductModal onClose={() => setIsMoveModalVisible(false)} />;
-                        default:
-                            return null;
-                    }
-                })()}
+            {isMoveModalVisible && (
+                <MoveEntityModal
+                    entityType={entityType}
+                    entityData={entityData}
+                    urn={urn}
+                    onClose={() => setIsMoveModalVisible(false)}
+                />
+            )}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
@@ -59,31 +59,25 @@ export default function DataProductParentSelect({
         ? searchResults.filter((r) => filterResultsForMove(r as DataProduct, excludeUrn))
         : searchResults;
 
-    const searchOptions: SelectOption[] = useMemo(
-        () =>
-            filteredResults.map((entity) => ({
-                value: entity.urn,
-                label: entityRegistry.getDisplayName(entity.type, entity),
-            })),
-        [filteredResults, entityRegistry],
-    );
+    const searchOptions: SelectOption[] = filteredResults.map((entity) => ({
+        value: entity.urn,
+        label: entityRegistry.getDisplayName(entity.type, entity),
+    }));
 
-    const combinedOptions: SelectOption[] = useMemo(() => {
-        const byValue = new Map<string, SelectOption>();
-        if (selectedParentUrn) {
-            const fromSearch = searchOptions.find((option) => option.value === selectedParentUrn);
-            byValue.set(selectedParentUrn, {
-                value: selectedParentUrn,
-                label: fromSearch?.label || selectedParentName || selectedParentUrn,
-            });
-        }
-        searchOptions.forEach((option) => byValue.set(option.value, option));
-        return Array.from(byValue.values());
-    }, [selectedParentUrn, selectedParentName, searchOptions]);
+    const combinedByValue = new Map<string, SelectOption>();
+    if (selectedParentUrn) {
+        const fromSearch = searchOptions.find((option) => option.value === selectedParentUrn);
+        combinedByValue.set(selectedParentUrn, {
+            value: selectedParentUrn,
+            label: fromSearch?.label || selectedParentName || selectedParentUrn,
+        });
+    }
+    searchOptions.forEach((option) => combinedByValue.set(option.value, option));
+    const combinedOptions = Array.from(combinedByValue.values());
 
-    const values = useMemo(() => (selectedParentUrn ? [selectedParentUrn] : []), [selectedParentUrn]);
+    const values = selectedParentUrn ? [selectedParentUrn] : [];
 
-    const onUpdate = (urns: string[]) => {
+    const handleUpdate = (urns: string[]) => {
         const newUrn = urns[0] || '';
         if (!newUrn) {
             clearSelectedParent();
@@ -103,7 +97,7 @@ export default function DataProductParentSelect({
             showClear
             onSearchChange={handleSearch}
             values={values}
-            onUpdate={onUpdate}
+            onUpdate={handleUpdate}
             onClear={clearSelectedParent}
             options={searchOptions}
             combinedSelectedAndSearchOptions={combinedOptions}
