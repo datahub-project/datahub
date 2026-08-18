@@ -92,6 +92,8 @@ public class DatahubJob {
   DataPlatformInstance jobPlatformInstance;
   DataTransformLogic dataTransformLogic;
   @Builder.Default boolean emitDataProcessInstance = true;
+  // Synthetic JobEvent conversion emits an authoritative empty I/O upsert in PATCH mode.
+  @Builder.Default boolean emitEmptyDataJobInputOutput = false;
   DataProcessInstanceRunEvent dataProcessInstanceRunEvent;
   DataProcessInstanceProperties dataProcessInstanceProperties;
   DataProcessInstanceRelationships dataProcessInstanceRelationships;
@@ -251,6 +253,7 @@ public class DatahubJob {
     // holds: emitting the empty aspect is the only way to clear edges a job legitimately no longer
     // has, so it must not be skipped.
     if (config.isUsePatch()
+        && !emitEmptyDataJobInputOutput
         && inputEdges.isEmpty()
         && outputEdges.isEmpty()
         && parentJobs.isEmpty()) {

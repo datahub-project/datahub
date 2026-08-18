@@ -195,15 +195,13 @@ final class OpenLineageRunMapper {
         return;
       }
       String parentJobName = parentRunFacetJob.getName();
-      String parentNamespace =
-          datahubConf.getPlatformInstance() != null
-              ? datahubConf.getPlatformInstance()
-              : parentRunFacetJob.getNamespace();
       DataFlowUrn parentFlowUrn =
-          new DataFlowUrn(
-              datahubJob.getFlowUrn().getOrchestratorEntity(),
-              OpenLineagePlatformResolver.getFlowName(parentJobName, datahubConf.getPipelineName()),
-              parentNamespace);
+          OpenLineagePlatformResolver.getFlowUrn(
+              parentRunFacetJob.getNamespace(),
+              parentJobName,
+              null,
+              event.getRun().getFacets().getParent().get_producer(),
+              datahubConf);
       DataJobUrn parentDataJobUrn = new DataJobUrn(parentFlowUrn, parentJobName);
       datahubJob.getParentJobs().add(parentDataJobUrn);
     }

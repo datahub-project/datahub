@@ -370,6 +370,18 @@ final class OpenLineageDatasetMapper {
 
     OpenLineage.CatalogDatasetFacet catalog = dataset.getFacets().getCatalog();
     if (catalog != null) {
+      if (catalog.getCatalogProperties() != null
+          && catalog.getCatalogProperties().getAdditionalProperties() != null) {
+        for (Map.Entry<String, String> entry :
+            catalog.getCatalogProperties().getAdditionalProperties().entrySet()) {
+          String key = entry.getKey();
+          String value = entry.getValue();
+          if (key != null && !key.isBlank() && value != null) {
+            customProperties.put("openlineage.catalog." + key, value);
+            hasProperties = true;
+          }
+        }
+      }
       hasProperties |=
           OpenLineageMappingUtils.putIfPresent(
               customProperties, "catalogFramework", catalog.getFramework());

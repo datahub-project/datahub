@@ -350,7 +350,7 @@ final class OpenLineagePlatformResolver {
       }
       return null;
     } catch (IllegalArgumentException e) {
-      log.debug("Unable to match OpenLineage producer URI '{}'", producer);
+      log.debug("Unable to match OpenLineage producer URI");
       return null;
     }
   }

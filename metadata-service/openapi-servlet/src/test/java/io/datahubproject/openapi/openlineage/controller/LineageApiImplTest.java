@@ -13,6 +13,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -45,6 +48,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -123,6 +127,38 @@ public class LineageApiImplTest {
     assertFalse(
         proposals.stream()
             .anyMatch(proposal -> "dataProcessInstance".equals(proposal.getEntityType())));
+  }
+
+  @Test
+  public void testProducerUriCredentialsAreNotLogged() {
+    Logger logger = (Logger) LoggerFactory.getLogger(LineageApiImpl.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      ResponseEntity<Void> response =
+          post(
+              validJobEventJson()
+                  .replace(
+                      "https://example.com/my-pipeline-tool",
+                      "https://username:password@example.com/path?token=query-value#fragment"));
+
+      assertEquals(response.getStatusCode(), HttpStatus.ACCEPTED);
+      String logs =
+          appender.list.stream()
+              .map(ILoggingEvent::getFormattedMessage)
+              .collect(java.util.stream.Collectors.joining("\n"));
+      assertFalse(logs.contains("username"));
+      assertFalse(logs.contains("password"));
+      assertFalse(logs.contains("/path"));
+      assertFalse(logs.contains("query-value"));
+      assertFalse(logs.contains("fragment"));
+      assertFalse(
+          logs.contains("https://username:password@example.com/path?token=query-value#fragment"));
+    } finally {
+      logger.detachAppender(appender);
+      appender.stop();
+    }
   }
 
   @Test

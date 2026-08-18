@@ -112,7 +112,9 @@ final class OpenLineageJobMapper {
       boolean emitDataProcessInstance)
       throws IOException, URISyntaxException {
     DatahubJob.DatahubJobBuilder jobBuilder =
-        DatahubJob.builder().emitDataProcessInstance(emitDataProcessInstance);
+        DatahubJob.builder()
+            .emitDataProcessInstance(emitDataProcessInstance)
+            .emitEmptyDataJobInputOutput(!emitDataProcessInstance);
 
     if (event.getEventTime() != null) {
       jobBuilder.eventTime(event.getEventTime().toInstant().toEpochMilli());
@@ -586,7 +588,7 @@ final class OpenLineageJobMapper {
       jobNameForDisplay = job.getName().substring(job.getName().indexOf(".") + 1);
     }
 
-    return new JobNameResult(jobNameForUrn, jobNameForUrn, jobNameForDisplay);
+    return new JobNameResult(job.getName(), jobNameForUrn, jobNameForDisplay);
   }
 
   static String extractTableNameFromMergeCommand(OpenLineage.Job job, OpenLineage.RunEvent event) {

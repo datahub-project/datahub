@@ -19,6 +19,7 @@ import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
@@ -183,6 +184,96 @@ public class OpenLineageConformanceTest {
   }
 
   @Test
+  public void testEnhancedMergeUsesOriginalFlowAndEnhancedDataJobId() throws Exception {
+    OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
+    OpenLineage.RunEvent event =
+        runEventBuilder(openLineage)
+            .job(
+                openLineage
+                    .newJobBuilder()
+                    .namespace("spark-namespace")
+                    .name("execute_merge_into_command_edge")
+                    .build())
+            .outputs(
+                List.of(
+                    openLineage
+                        .newOutputDatasetBuilder()
+                        .namespace("hive")
+                        .name("warehouse.target_table")
+                        .build()))
+            .build();
+    DatahubOpenlineageConfig enhancedConfig =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .enhancedMergeIntoExtraction(true)
+            .build();
+
+    List<MetadataChangeProposal> mcps =
+        OpenLineageToDataHub.convertRunEventToJob(event, enhancedConfig).toMcps(enhancedConfig);
+
+    String originalFlowUrn =
+        "urn:li:dataFlow:(unknown,execute_merge_into_command_edge,spark-namespace)";
+    assertTrue(
+        mcps.stream()
+            .filter(mcp -> "dataFlow".equals(mcp.getEntityType()))
+            .allMatch(mcp -> originalFlowUrn.equals(mcp.getEntityUrn().toString())));
+    assertTrue(
+        mcps.stream()
+            .filter(mcp -> "dataJob".equals(mcp.getEntityType()))
+            .allMatch(mcp -> mcp.getEntityUrn().toString().contains(originalFlowUrn)));
+    assertTrue(
+        mcps.stream()
+            .filter(mcp -> "dataJob".equals(mcp.getEntityType()))
+            .allMatch(
+                mcp ->
+                    mcp.getEntityUrn()
+                        .toString()
+                        .contains("execute_merge_into_command_edge.warehouse_target_table")));
+    assertTrue(aspectJson(mcps, "dataJobInfo").contains("warehouse_target_table"));
+  }
+
+  @Test
+  public void testParentJobUsesParentFacetProducer() throws Exception {
+    OpenLineage childOpenLineage =
+        new OpenLineage(
+            URI.create("https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/spark"));
+    OpenLineage parentOpenLineage =
+        new OpenLineage(
+            URI.create(
+                "https://github.com/OpenLineage/OpenLineage/tree/1.45.0/integration/airflow"));
+    OpenLineage.ParentRunFacet parentFacet =
+        parentOpenLineage
+            .newParentRunFacetBuilder()
+            .run(parentOpenLineage.newParentRunFacetRunBuilder().runId(UUID.randomUUID()).build())
+            .job(parentOpenLineage.newParentRunFacetJob("airflow-namespace", "parent.flow"))
+            .build();
+    OpenLineage.RunEvent event =
+        runEventBuilder(childOpenLineage)
+            .run(
+                runBuilder(childOpenLineage)
+                    .facets(
+                        childOpenLineage
+                            .newRunFacetsBuilder()
+                            .processing_engine(
+                                childOpenLineage.newProcessingEngineRunFacet("1", "spark", "1"))
+                            .parent(parentFacet)
+                            .build())
+                    .build())
+            .build();
+
+    String inputOutput =
+        aspectJson(
+            OpenLineageToDataHub.convertRunEventToJob(event, config()).toMcps(config()),
+            "dataJobInputOutput");
+
+    assertTrue(
+        inputOutput.contains(
+            "urn:li:dataJob:(urn:li:dataFlow:(airflow,parent,airflow-namespace),parent.flow)"));
+  }
+
+  @Test
   public void testOtherEventTypeDoesNotEmitInvalidRunResult() throws Exception {
     OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
     OpenLineage.RunEvent event =
@@ -248,7 +339,7 @@ public class OpenLineageConformanceTest {
 
     String inputOutput = aspectJson(mcps, "dataJobInputOutput");
     assertTrue(
-        inputOutput.contains("urn:li:dataJob:(urn:li:dataFlow:(spark,parent,crm),parent.flow)"));
+        inputOutput.contains("urn:li:dataJob:(urn:li:dataFlow:(unknown,parent,crm),parent.flow)"));
   }
 
   @Test
@@ -320,6 +411,38 @@ public class OpenLineageConformanceTest {
     assertTrue(hasAspectContaining(mcps, "dataJob", "dataJobInfo", "Load customer docs"));
     assertFalse(hasAspectContaining(mcps, "dataFlow", "dataFlowInfo", "Load customer docs"));
     assertFalse(mcps.stream().anyMatch(mcp -> "dataProcessInstance".equals(mcp.getEntityType())));
+  }
+
+  @Test
+  public void testEmptyJobEventEmitsUpsertInputOutputInPatchMode() throws Exception {
+    OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
+    OpenLineage.JobEvent event = jobEventBuilder(openLineage).build();
+    DatahubOpenlineageConfig patchConfig =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(true)
+            .build();
+
+    List<MetadataChangeProposal> mcps =
+        OpenLineageToDataHub.convertJobEventToJob(event, patchConfig).toMcps(patchConfig);
+    List<MetadataChangeProposal> inputOutputMcps =
+        mcps.stream().filter(mcp -> "dataJobInputOutput".equals(mcp.getAspectName())).toList();
+
+    assertEquals(inputOutputMcps.size(), 1);
+    assertEquals(inputOutputMcps.get(0).getChangeType(), ChangeType.UPSERT);
+    DataJobInputOutput inputOutput =
+        new DataJobInputOutput(
+            new JacksonDataCodec()
+                .stringToMap(
+                    inputOutputMcps
+                        .get(0)
+                        .getAspect()
+                        .getValue()
+                        .asString(StandardCharsets.UTF_8)));
+    assertEquals(inputOutput.getInputDatasetEdges().size(), 0);
+    assertEquals(inputOutput.getOutputDatasetEdges().size(), 0);
   }
 
   @Test
@@ -532,7 +655,13 @@ public class OpenLineageConformanceTest {
                     "metadata-uri",
                     "warehouse-uri",
                     "crawler",
-                    null))
+                    openLineage
+                        .newCatalogDatasetFacetCatalogPropertiesBuilder()
+                        .put("region", "us-east-1")
+                        .put("retention-days", "30")
+                        .put("", "ignored")
+                        .put("empty-value", "")
+                        .build()))
             .version(openLineage.newDatasetVersionDatasetFacet("v7"))
             .lifecycleStateChange(
                 openLineage.newLifecycleStateChangeDatasetFacet(
@@ -567,8 +696,24 @@ public class OpenLineageConformanceTest {
     assertTrue(datasetProperties.contains("s3"));
     assertTrue(datasetProperties.contains("fileFormat"));
     assertTrue(datasetProperties.contains("parquet"));
+    assertTrue(datasetProperties.contains("catalogFramework"));
+    assertTrue(datasetProperties.contains("glue"));
+    assertTrue(datasetProperties.contains("catalogType"));
+    assertTrue(datasetProperties.contains("table"));
+    assertTrue(datasetProperties.contains("catalogName"));
+    assertTrue(datasetProperties.contains("prod_catalog"));
     assertTrue(datasetProperties.contains("catalogMetadataUri"));
     assertTrue(datasetProperties.contains("metadata-uri"));
+    assertTrue(datasetProperties.contains("catalogWarehouseUri"));
+    assertTrue(datasetProperties.contains("warehouse-uri"));
+    assertTrue(datasetProperties.contains("catalogSource"));
+    assertTrue(datasetProperties.contains("crawler"));
+    assertTrue(datasetProperties.contains("openlineage.catalog.region"));
+    assertTrue(datasetProperties.contains("us-east-1"));
+    assertTrue(datasetProperties.contains("openlineage.catalog.retention-days"));
+    assertTrue(datasetProperties.contains("30"));
+    assertFalse(datasetProperties.contains("\"openlineage.catalog.\":\"ignored\""));
+    assertTrue(datasetProperties.contains("openlineage.catalog.empty-value"));
     assertTrue(datasetProperties.contains("datasetVersion"));
     assertTrue(datasetProperties.contains("v7"));
 

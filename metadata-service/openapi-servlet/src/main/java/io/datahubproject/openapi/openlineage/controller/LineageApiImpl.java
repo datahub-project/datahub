@@ -76,17 +76,14 @@ public class LineageApiImpl {
       if (root.path("run").isObject() && root.path("job").isObject()) {
         OpenLineage.RunEvent event =
             eventDeserializer.deserialize(root, OpenLineage.RunEvent.class);
-        log.debug("Mapping OpenLineage RunEvent from producer {}", event.getProducer());
         mcps = runEventMapper.map(event, _mappingConfig).collect(Collectors.toList());
       } else if (root.path("dataset").isObject()) {
         OpenLineage.DatasetEvent event =
             eventDeserializer.deserialize(root, OpenLineage.DatasetEvent.class);
-        log.debug("Mapping OpenLineage DatasetEvent from producer {}", event.getProducer());
         mcps = runEventMapper.map(event, _mappingConfig).collect(Collectors.toList());
       } else {
         OpenLineage.JobEvent event =
             eventDeserializer.deserialize(root, OpenLineage.JobEvent.class);
-        log.debug("Mapping OpenLineage JobEvent from producer {}", event.getProducer());
         mcps = runEventMapper.map(event, _mappingConfig).collect(Collectors.toList());
       }
     } catch (JsonProcessingException exception) {
