@@ -31,7 +31,7 @@ This directory contains end-to-end smoke tests for DataHub functionality. These 
 
 ```bash
 export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT  # or current version
-export TEST_STRATEGY=no_cypress_suite0     # for non-Cypress tests
+export TEST_STRATEGY=pytests
 ```
 
 ### Running Tests
@@ -42,7 +42,7 @@ source venv/bin/activate
 
 # Set environment variables
 export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT
-export TEST_STRATEGY=no_cypress_suite0
+export TEST_STRATEGY=pytests
 
 # Run all tests (WARNING: Takes a long time, requires full setup)
 pytest -vv
@@ -113,7 +113,7 @@ After making changes to system info APIs:
    cd smoke-test
    source venv/bin/activate
    export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT
-   export TEST_STRATEGY=no_cypress_suite0
+   export TEST_STRATEGY=pytests
 
    pytest test_system_info.py -vv
    ```

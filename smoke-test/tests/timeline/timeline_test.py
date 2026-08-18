@@ -260,4 +260,4 @@ def put(graph_client, urn: str, aspect: str, aspect_data: str) -> None:
             entity_type=entity_type,
             aspect_value=aspect_obj,
         )
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)

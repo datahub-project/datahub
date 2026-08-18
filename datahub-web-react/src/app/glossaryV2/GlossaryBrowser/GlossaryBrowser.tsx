@@ -1,32 +1,33 @@
 import { Loader } from '@components';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import GlossaryFlatItem from '@app/glossaryV2/GlossaryBrowser/GlossaryFlatItem';
 import NodeItem from '@app/glossaryV2/GlossaryBrowser/NodeItem';
 import TermItem from '@app/glossaryV2/GlossaryBrowser/TermItem';
+import { useGlossarySidebarFilters } from '@app/glossaryV2/glossarySidebarFilters/GlossarySidebarFiltersContext';
+import useGlossaryDomainAggregations from '@app/glossaryV2/glossarySidebarFilters/useGlossaryDomainAggregations';
+import useGlossaryOwnerAggregations from '@app/glossaryV2/glossarySidebarFilters/useGlossaryOwnerAggregations';
+import useGlossaryTagAggregations from '@app/glossaryV2/glossarySidebarFilters/useGlossaryTagAggregations';
+import useScrollGlossaryEntities from '@app/glossaryV2/glossarySidebarFilters/useScrollGlossaryEntities';
 import { ROOT_NODES, ROOT_TERMS } from '@app/glossaryV2/utils';
+import SidebarFilteredResults from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarFilteredResults';
+import {
+    TreeExpansionRegistryProvider,
+    useTreeExpansionRegistry,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeExpansionRegistry';
+import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { EntityType } from '@types';
 
-// 8px gutter on all sides — matches `NavigatorWrapper` in the domains sidebar
-// and `TreeContainer` in the documents sidebar so the row chrome (selected
-// highlight, hover shadow) sits inset from the sidebar edge.
-//
-// Custom 6px scrollbar (vs. the OS default ~15px on macOS) — without this,
-// the scrollbar visibly eats into the 8px right padding and makes the
-// right edge look uneven. Uses the semantic `scrollbarThumb` /
-// `scrollbarThumbHover` / `scrollbarTrack` tokens (gray100 → gray500 on
-// hover in light mode) so it matches `MoveDocumentPopover` and stays
-// subtle by default.
 const BrowserWrapper = styled.div`
     max-height: calc(100% - 104px);
     padding: 8px;
@@ -60,73 +61,6 @@ const LoadingWrapper = styled.div`
     justify-content: center;
 `;
 
-// --- Section header ---------------------------------------------------------
-// "All Glossary Terms" group label at the top of the tree. Styling matches
-// the documents sidebar's per-platform `SectionHeader` and the domains
-// sidebar's "All Domains" header — Mulish-700 / textTertiary, right-side
-// caret, 32px min row height, level-based indent (8 + level*16). Acts as a
-// pure collapsible group header (no navigation), again matching the other
-// two sidebars.
-// No hover background on the section header — it's a tree label, not a
-// nav row; the pointer cursor alone is enough affordance for the toggle.
-// (The documents sidebar's equivalent does add a hover bg; we're choosing
-// the cleaner treatment for glossary.)
-const SectionHeader = styled.button<{ $level: number }>`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    padding: 6px 8px 6px ${(props) => 8 + props.$level * 16}px;
-    min-height: 32px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    text-align: left;
-    color: ${(props) => props.theme.colors.textTertiary};
-    font-family: Mulish;
-    font-size: 14px;
-    font-weight: 700;
-`;
-
-const SectionHeaderLabel = styled.span`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-/**
- * Collapsible section header — pure presentation, no expansion state of its
- * own. Mirrors `DomainSectionHeader` in the domains navigator and
- * `TreeSectionHeader` in the documents sidebar so a level-0 "All Glossary
- * Terms" header lines up with a level-0 "All Domains" / "DataHub" header
- * pixel-for-pixel.
- */
-function GlossarySectionHeader({
-    level,
-    label,
-    isExpanded,
-    onToggle,
-    testId,
-}: {
-    level: number;
-    label: string;
-    isExpanded: boolean;
-    onToggle: () => void;
-    testId?: string;
-}) {
-    const Chevron = isExpanded ? CaretDown : CaretRight;
-    return (
-        <SectionHeader type="button" $level={level} onClick={onToggle} aria-expanded={isExpanded} data-testid={testId}>
-            <SectionHeaderLabel>{label}</SectionHeaderLabel>
-            <Chevron size={14} weight="regular" />
-        </SectionHeader>
-    );
-}
-
 interface Props {
     rootNodes?: GlossaryNodeFragment[];
     rootTerms?: ChildGlossaryTermFragment[];
@@ -140,7 +74,7 @@ interface Props {
     selectedUrns?: string[];
 }
 
-function GlossaryBrowser(props: Props) {
+function GlossaryBrowserInner(props: Props) {
     const {
         rootNodes,
         rootTerms,
@@ -155,51 +89,116 @@ function GlossaryBrowser(props: Props) {
     } = props;
 
     const { t } = useTranslation('governance.glossary');
+    const { t: tm } = useTranslation('misc');
     const { urnsToUpdate, setUrnsToUpdate, nodeToNewEntity, setNodeToNewEntity } = useGlossaryEntityData();
+    const expansion = useTreeExpansionRegistry();
+    const {
+        selectedOwnerUrns,
+        selectedTagUrns,
+        selectedDomainUrns,
+        setSelectedOwnerUrns,
+        setSelectedTagUrns,
+        setSelectedDomainUrns,
+        setAvailableOwners,
+        setAvailableTags,
+        setAvailableDomains,
+        sortSelection,
+    } = useGlossarySidebarFilters();
+    const entityRegistry = useEntityRegistry();
 
-    // Section expansion state — local to the component. Defaults open; toggling
-    // the "All Glossary Terms" header hides the tree (matches `DomainNavigator`
-    // and the docs sidebar's per-platform section headers).
     const [isAllTermsExpanded, setIsAllTermsExpanded] = useState(true);
+    const pendingExpandAllRef = useRef(false);
 
-    // Picker variants (AddRelatedTermsModal, GlossarySelector) embed this
-    // browser inside their own dropdown and don't get a section header. The
-    // sidebar variant gets the collapsible header; everything else renders
-    // the tree directly.
     const isSidebarUse = !isSelecting;
-    const showTreeContents = !isSidebarUse || isAllTermsExpanded;
+    const isFiltering =
+        isSidebarUse && (selectedOwnerUrns.length > 0 || selectedTagUrns.length > 0 || selectedDomainUrns.length > 0);
+    /** Sidebar tree roots come from scrollAcrossEntities + sortInput — never client-sorted. */
+    const useServerSortedRoots = isSidebarUse && !isFiltering;
+    const showTreeContents = !isSidebarUse || isAllTermsExpanded || isFiltering;
 
     const {
         data: nodesData,
         refetch: refetchNodes,
         loading: nodesLoading,
-    } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
+    } = useGetRootGlossaryNodesQuery({
+        // Pickers (and optional props) keep the legacy root queries; sidebar uses scroll.
+        skip: isSidebarUse || !!rootNodes,
+    });
     const {
         data: termsData,
         refetch: refetchTerms,
         loading: termsLoading,
-    } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
-    const loading = nodesLoading || termsLoading;
+    } = useGetRootGlossaryTermsQuery({
+        skip: isSidebarUse || !!rootTerms,
+    });
 
-    // Stabilize via useMemo so dependent useMemos/useEffects don't re-run on every render —
-    // the `||` fallback to `[]` would otherwise produce a fresh array reference each call.
-    const fetchedNodes = useMemo(
-        () => rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [],
-        [rootNodes, nodesData],
-    );
-    const fetchedTerms = useMemo(
-        () => rootTerms || termsData?.getRootGlossaryTerms?.terms || [],
-        [rootTerms, termsData],
-    );
+    const {
+        entities: serverRootEntities,
+        loading: serverRootsLoading,
+        scrollRef: serverRootsScrollRef,
+        refetch: refetchServerRoots,
+    } = useScrollGlossaryEntities({
+        skip: !useServerSortedRoots,
+        parentNode: null,
+        sort: sortSelection,
+        sortTypeBeforeName: true,
+    });
 
-    // Optimistic root entries: when CreateGlossaryEntityModal creates a top-level term/term-group,
-    // it stashes the new entity in `nodeToNewEntity[ROOT_NODES]` / `nodeToNewEntity[ROOT_TERMS]`.
-    // The backend's `getRootGlossaryNodes` / `getRootGlossaryTerms` resolvers rely on a search
-    // index that lags behind the mutation by several seconds, so the post-create refetch often
-    // returns the list WITHOUT the new entity. Without this optimistic prepend the user sees
-    // "created" but no sidebar entry until the index catches up (sometimes >5s, sometimes never
-    // until they refresh). Cleared as soon as the refetched data contains the URN — see effects
-    // below — so we don't accumulate stale entries if a creation actually failed downstream.
+    const {
+        entities: filteredEntities,
+        loading: filteredLoading,
+        scrollRef: filteredScrollRef,
+    } = useScrollGlossaryEntities({
+        skip: !isFiltering,
+        sort: sortSelection,
+        selectedOwnerUrns,
+        selectedTagUrns,
+        selectedDomainUrns,
+        ignoreParentScope: true,
+        sortTypeBeforeName: false,
+    });
+
+    const { owners: aggregatedOwners } = useGlossaryOwnerAggregations({ skip: !isSidebarUse });
+    const { tags: aggregatedTags } = useGlossaryTagAggregations({ skip: !isSidebarUse });
+    const { domains: aggregatedDomains } = useGlossaryDomainAggregations({ skip: !isSidebarUse });
+
+    useEffect(() => {
+        if (!isSidebarUse) return;
+        setAvailableOwners(aggregatedOwners);
+    }, [isSidebarUse, aggregatedOwners, setAvailableOwners]);
+
+    useEffect(() => {
+        if (!isSidebarUse) return;
+        setAvailableTags(aggregatedTags);
+    }, [isSidebarUse, aggregatedTags, setAvailableTags]);
+
+    useEffect(() => {
+        if (!isSidebarUse) return;
+        setAvailableDomains(aggregatedDomains);
+    }, [isSidebarUse, aggregatedDomains, setAvailableDomains]);
+
+    let loading = nodesLoading || termsLoading;
+    if (isFiltering) {
+        loading = filteredLoading;
+    } else if (useServerSortedRoots) {
+        loading = serverRootsLoading;
+    }
+
+    // Preserve server order — filter by type only, do not re-sort.
+    const fetchedNodes = useMemo((): GlossaryNodeFragment[] => {
+        if (useServerSortedRoots) {
+            return serverRootEntities.filter((e) => e.type === EntityType.GlossaryNode) as GlossaryNodeFragment[];
+        }
+        return rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [];
+    }, [useServerSortedRoots, serverRootEntities, rootNodes, nodesData]);
+
+    const fetchedTerms = useMemo((): ChildGlossaryTermFragment[] => {
+        if (useServerSortedRoots) {
+            return serverRootEntities.filter((e) => e.type === EntityType.GlossaryTerm) as ChildGlossaryTermFragment[];
+        }
+        return rootTerms || termsData?.getRootGlossaryTerms?.terms || [];
+    }, [useServerSortedRoots, serverRootEntities, rootTerms, termsData]);
+
     const optimisticRootNode = nodeToNewEntity[ROOT_NODES] as GlossaryNodeFragment | undefined;
     const optimisticRootTerm = nodeToNewEntity[ROOT_TERMS] as ChildGlossaryTermFragment | undefined;
 
@@ -215,22 +214,17 @@ function GlossaryBrowser(props: Props) {
         return [optimisticRootTerm, ...fetchedTerms];
     }, [fetchedTerms, optimisticRootTerm]);
 
-    const entityRegistry = useEntityRegistry();
-    // Memoize so we don't allocate fresh sorted arrays on every render — `NodeItem` and
-    // `TermItem` props would otherwise change identity every tick and defeat any downstream
-    // memoization.
-    const sortedNodes = useMemo(
-        () => displayedNodes.slice().sort((a, b) => sortGlossaryNodes(entityRegistry, a, b)),
-        [displayedNodes, entityRegistry],
-    );
-    const sortedTerms = useMemo(
-        () => displayedTerms.slice().sort((a, b) => sortGlossaryTerms(entityRegistry, a, b)),
-        [displayedTerms, entityRegistry],
-    );
+    // Pickers only: legacy client A–Z. Sidebar trusts scrollAcrossEntities sortInput.
+    const treeNodes = useMemo(() => {
+        if (useServerSortedRoots) return displayedNodes;
+        return displayedNodes.slice().sort((a, b) => sortGlossaryNodes(entityRegistry, a, b));
+    }, [useServerSortedRoots, displayedNodes, entityRegistry]);
 
-    // Drop the optimistic root entry once the canonical fetched data contains the URN, so
-    // displayedNodes flips from `[optimistic, ...fetchedNodes]` to plain `fetchedNodes` (which
-    // now carries the real server-side fields like childrenCount, parentNodes, etc.).
+    const treeTerms = useMemo(() => {
+        if (useServerSortedRoots) return displayedTerms;
+        return displayedTerms.slice().sort((a, b) => sortGlossaryTerms(entityRegistry, a, b));
+    }, [useServerSortedRoots, displayedTerms, entityRegistry]);
+
     useEffect(() => {
         if (optimisticRootNode && fetchedNodes.some((node) => node.urn === optimisticRootNode.urn)) {
             setNodeToNewEntity((prev) => {
@@ -252,41 +246,104 @@ function GlossaryBrowser(props: Props) {
     }, [optimisticRootTerm, fetchedTerms, setNodeToNewEntity]);
 
     useEffect(() => {
-        if (refreshBrowser) {
-            refetchNodes();
-            refetchTerms();
+        if (!refreshBrowser || isFiltering) return;
+        if (useServerSortedRoots) {
+            refetchServerRoots();
+            return;
         }
-    }, [refreshBrowser, refetchNodes, refetchTerms]);
+        refetchNodes();
+        refetchTerms();
+    }, [refreshBrowser, refetchNodes, refetchTerms, refetchServerRoots, isFiltering, useServerSortedRoots]);
 
-    // If node(s) or term(s) need to be refreshed at the root level, check if these special
-    // cases are in `urnsToUpdate`. Functional setter (not `urnsToUpdate.filter(...)`) so we
-    // don't strip the wrong subset when multiple updates are queued in the same render —
-    // `urnsToUpdate` from the closure can be stale by the time React applies our update.
     useEffect(() => {
-        if (urnsToUpdate.includes(ROOT_NODES)) {
-            refetchNodes();
-            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_NODES));
-        }
-        if (urnsToUpdate.includes(ROOT_TERMS)) {
-            refetchTerms();
-            setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_TERMS));
-        }
-    }, [urnsToUpdate, setUrnsToUpdate, refetchNodes, refetchTerms]);
+        if (isFiltering) return;
+        const needsRootRefresh = urnsToUpdate.includes(ROOT_NODES) || urnsToUpdate.includes(ROOT_TERMS);
+        if (!needsRootRefresh) return;
 
-    return (
-        <BrowserWrapper>
-            {isSidebarUse && (
-                <GlossarySectionHeader
+        if (useServerSortedRoots) {
+            refetchServerRoots();
+        } else {
+            if (urnsToUpdate.includes(ROOT_NODES)) refetchNodes();
+            if (urnsToUpdate.includes(ROOT_TERMS)) refetchTerms();
+        }
+        setUrnsToUpdate((prev) => prev.filter((urn) => urn !== ROOT_NODES && urn !== ROOT_TERMS));
+    }, [
+        urnsToUpdate,
+        setUrnsToUpdate,
+        refetchNodes,
+        refetchTerms,
+        refetchServerRoots,
+        isFiltering,
+        useServerSortedRoots,
+    ]);
+
+    const handleToggleExpandAll = () => {
+        if (!expansion) return;
+        if (expansion.hasAnyExpanded) {
+            pendingExpandAllRef.current = false;
+            expansion.collapseAll();
+            return;
+        }
+        if (!isAllTermsExpanded) {
+            pendingExpandAllRef.current = true;
+            setIsAllTermsExpanded(true);
+            return;
+        }
+        expansion.expandAll();
+    };
+
+    useEffect(() => {
+        if (!pendingExpandAllRef.current || !isAllTermsExpanded || !expansion) return;
+        pendingExpandAllRef.current = false;
+        expansion.expandAll();
+    }, [isAllTermsExpanded, expansion, treeNodes, treeTerms]);
+
+    const handleClearFilters = useCallback(() => {
+        setSelectedOwnerUrns([]);
+        setSelectedTagUrns([]);
+        setSelectedDomainUrns([]);
+    }, [setSelectedOwnerUrns, setSelectedTagUrns, setSelectedDomainUrns]);
+
+    const showSectionHeader = isSidebarUse && !isFiltering;
+
+    const tree = (
+        <>
+            {showSectionHeader && (
+                <TreeSectionHeader
                     level={0}
                     label={t('sidebar.section.allTerms')}
                     isExpanded={isAllTermsExpanded}
                     onToggle={() => setIsAllTermsExpanded((v) => !v)}
                     testId="glossary-sidebar-section-all-terms"
+                    onToggleExpandAll={handleToggleExpandAll}
+                    isAllExpanded={expansion?.hasAnyExpanded}
+                    expandAllLabel={tm('context.tree.expandAll')}
+                    collapseAllLabel={tm('context.tree.collapseAll')}
                 />
             )}
-            {showTreeContents && (
+            {showTreeContents && isFiltering && (
+                <SidebarFilteredResults
+                    count={filteredEntities.length}
+                    loading={filteredLoading && filteredEntities.length === 0}
+                    isRefreshing={filteredLoading && filteredEntities.length > 0}
+                    onClear={handleClearFilters}
+                    clearTestId="glossary-sidebar-clear-filters"
+                    dataTestId="glossary-sidebar-filtered-results"
+                >
+                    {filteredEntities.map((entity) => (
+                        <GlossaryFlatItem key={entity.urn} entity={entity} />
+                    ))}
+                    <div ref={filteredScrollRef} />
+                    {loading && filteredEntities.length > 0 && (
+                        <LoadingWrapper>
+                            <Loader size="sm" padding={0} />
+                        </LoadingWrapper>
+                    )}
+                </SidebarFilteredResults>
+            )}
+            {showTreeContents && !isFiltering && (
                 <>
-                    {sortedNodes.map((node) => (
+                    {treeNodes.map((node) => (
                         <NodeItem
                             key={node.urn}
                             node={node}
@@ -302,7 +359,7 @@ function GlossaryBrowser(props: Props) {
                         />
                     ))}
                     {!hideTerms &&
-                        sortedTerms.map((term) => (
+                        treeTerms.map((term) => (
                             <TermItem
                                 key={term.urn}
                                 term={term}
@@ -311,6 +368,7 @@ function GlossaryBrowser(props: Props) {
                                 depth={0}
                             />
                         ))}
+                    {useServerSortedRoots && <div ref={serverRootsScrollRef} />}
                     {loading && (
                         <LoadingWrapper>
                             <Loader size="sm" padding={0} />
@@ -318,7 +376,24 @@ function GlossaryBrowser(props: Props) {
                     )}
                 </>
             )}
-        </BrowserWrapper>
+        </>
+    );
+
+    if (isSidebarUse) {
+        return tree;
+    }
+
+    return <BrowserWrapper>{tree}</BrowserWrapper>;
+}
+
+function GlossaryBrowser(props: Props) {
+    if (props.isSelecting) {
+        return <GlossaryBrowserInner {...props} />;
+    }
+    return (
+        <TreeExpansionRegistryProvider>
+            <GlossaryBrowserInner {...props} />
+        </TreeExpansionRegistryProvider>
     );
 }
 

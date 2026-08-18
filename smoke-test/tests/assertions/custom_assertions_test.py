@@ -121,7 +121,7 @@ def test_create_update_delete_dataset_custom_assertion(
         external_url="http://some_url",
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     # Report custom assertion result for success
     result_reported = graph_client.report_assertion_result(

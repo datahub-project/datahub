@@ -276,7 +276,6 @@ entities:
       - displayProperties
       - assetSettings
   - name: container
-    viewUnrestricted: true
     doc: A container of related data assets.
     category: core
     keyAspect: containerKey
@@ -333,6 +332,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -349,6 +349,8 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
+      - globalTags
   - name: document
     category: core
     keyAspect: documentKey
@@ -394,6 +396,7 @@ entities:
     keyAspect: assertionKey
     aspects:
       - assertionInfo
+      - assertionNote
       - dataPlatformInstance
       - assertionRunEvent
       - assertionRunSummary
@@ -605,6 +608,8 @@ entities:
       - glossaryTerms
       - semanticFieldAnnotation
       - aiContext
+      - ownership
+      - domains
   - name: globalSettings
     viewUnrestricted: true
     doc: Global settings for an the platform

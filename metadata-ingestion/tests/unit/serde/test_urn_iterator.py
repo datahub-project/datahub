@@ -8,7 +8,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
-from datahub.utilities.urns.urn_iter import list_urns_with_path, lowercase_dataset_urns
+from datahub.metadata.schema_classes import ChangeAuditStampsClass, ChartInfoClass
+from datahub.utilities.urns.urn_iter import (
+    list_urns,
+    list_urns_with_path,
+    lowercase_dataset_urns,
+    transform_urns,
+)
 
 
 def _datasetUrn(tbl: str) -> str:
@@ -151,3 +157,32 @@ def test_dataset_urn_lowercase_transformer():
 
     lowercase_dataset_urns(original)
     assert original == expected
+
+
+def _chart_info(**kwargs: object) -> ChartInfoClass:
+    defaults: dict = dict(
+        title="test",
+        description="test",
+        lastModified=ChangeAuditStampsClass(),
+    )
+    defaults.update(kwargs)
+    return ChartInfoClass(**defaults)
+
+
+def test_list_urns_discovers_chart_inputs():
+    """chartInfo.inputs is array[union[DatasetUrn]] — the Urn prop is lost
+    during codegen but the Relationship prop survives, so the combined
+    Relationship + duck-typing fallback should discover these URNs."""
+    old_ds = _datasetUrn("source_table")
+    chart = _chart_info(inputs=[old_ds])
+    discovered = list_urns(chart)
+    assert old_ds in discovered
+
+
+def test_transform_urns_rewrites_chart_inputs():
+    """transform_urns should rewrite dataset URNs inside chartInfo.inputs."""
+    old_ds = _datasetUrn("old_table")
+    new_ds = _datasetUrn("new_table")
+    chart = _chart_info(inputs=[old_ds])
+    transform_urns(chart, lambda u: new_ds if u == old_ds else u)
+    assert chart.inputs == [new_ds]
