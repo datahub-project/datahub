@@ -437,11 +437,9 @@ class SemanticModel(
         # relationships-without-datasets case is caught.
         if not known_aliases and not strict:
             return
-        # Graph-hydrated models do not reverse-lookup member datasets, so
-        # alias checks would warn on every relationship with an empty local
-        # attachment set. Structural checks above already ran.
-        if not attached_by_urn and self._prev_aspects is not None:
-            return
+        # Graph-hydrated models do not reverse-lookup member datasets.
+        # Structural checks above stay definitive; alias/column checks warn.
+        hydrated = self._prev_aspects is not None
 
         for rel in rels:
             for alias, columns in (
@@ -456,7 +454,7 @@ class SemanticModel(
                         f"{alias!r} does not match any attached dataset alias "
                         f"(known: {sorted(known_aliases)}). Join path may be "
                         f"broken.",
-                        definitive=True,
+                        definitive=not hydrated,
                     )
                     continue
                 field_paths = {f.field_path for f in by_alias[alias].schema}
@@ -468,7 +466,7 @@ class SemanticModel(
                         f"SemanticModel {str(self.urn)}: relationship join "
                         f"column(s) {missing} not found in dataset {alias!r} "
                         f"(known: {sorted(field_paths)}).",
-                        definitive=True,
+                        definitive=not hydrated,
                     )
 
     @property
@@ -497,6 +495,10 @@ class SemanticModel(
         # join-path aliases against the full picture (a construction-time check
         # sees an incomplete set when datasets are attached after relationships).
         self._validate_relationships(strict=True)
+        # Membership is member-side; this field is @deprecated and retained for
+        # backwards-read only. Write it empty so get → edit → emit never
+        # re-emits stale membership from a hydrated model.
+        self._ensure_model_props().datasets = []
         return super().as_mcps(change_type=change_type)
 
 

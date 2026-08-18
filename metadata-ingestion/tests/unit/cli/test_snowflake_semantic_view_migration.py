@@ -14,6 +14,7 @@ from datahub.cli.snowflake_semantic_view_migration import (
     MigrationDirection,
     SemanticViewMigrationReport,
     SnowflakeViewIdentity,
+    _logical_table_names_from_source,
     _logical_table_names_from_view_logic,
     _schema_field_is_metric,
     _semantic_model_field_path,
@@ -60,6 +61,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    ViewPropertiesClass,
     _Aspect,
 )
 
@@ -186,6 +188,31 @@ class TestLogicalTableNamesFromViewLogic:
             ")"
         )
         assert _logical_table_names_from_view_logic(ddl) == ["orders", "CUSTOMERS"]
+
+    def test_unions_synonym_keys_with_tables_clause(self):
+        """TABLE_SYNONYM_* is incomplete (only tables with synonyms); union TABLES(...)."""
+        src = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "test_db.public.sales_analytics,PROD)"
+        )
+        graph = _graph_with_aspects(
+            datasetProperties=DatasetPropertiesClass(
+                customProperties={"TABLE_SYNONYM_ORDERS": "ord"}
+            ),
+            viewProperties=ViewPropertiesClass(
+                materialized=False,
+                viewLanguage="SQL",
+                viewLogic=(
+                    "CREATE SEMANTIC VIEW v AS TABLES (\n"
+                    "  orders AS DB.SCH.ORDERS PRIMARY KEY (id),\n"
+                    "  customers AS DB.SCH.CUSTOMERS PRIMARY KEY (id)\n"
+                    ")"
+                ),
+            ),
+        )
+        names = _logical_table_names_from_source(graph, src)
+        assert [n.upper() for n in names] == ["ORDERS", "CUSTOMERS"]
+        assert names[0] == "ORDERS"
 
 
 # --- URN parsing (urn -> identity) and round trips ---

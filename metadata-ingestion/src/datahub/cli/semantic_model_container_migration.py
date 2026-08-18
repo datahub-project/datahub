@@ -1,18 +1,14 @@
 """Backfill Metric → SMD lineage for Semantic Models on the older catalog shape.
 
-For each ``semanticModel`` that still has ``semanticModelInfo.datasets`` populated
-(the metrics-catalog / lineage-hop shape), this script finds metrics whose
-``metricInfo.semanticModel`` points at that model and, when they lack
-``metricUpstreams.datasetUpstreams``, writes dataset upstream edges to the
+For each ``semanticModel`` that still has ``semanticModelInfo.datasets`` populated,
+for each metric whose ``metricInfo.semanticModel`` points at that model and that
+lacks ``metricUpstreams.datasetUpstreams``, write dataset upstream edges to the
 listed Semantic Model Dataset URNs.
 
-1. Sets ``semanticModelProperties.semanticModel`` on each listed dataset when
-   absent (idempotent set-if-absent; never overwrites an existing value).
-2. For metrics whose ``metricInfo.semanticModel`` points at that model and that
-   lack ``metricUpstreams.datasetUpstreams``, writes dataset upstream edges to
-   the listed Semantic Model Dataset URNs.
-
-Never clears or rewrites ``semanticModelInfo.datasets``. Safe to re-run.
+Producers that populated ``semanticModelInfo.datasets`` also wrote
+``semanticModelProperties.semanticModel``, so ``IsPartOf`` membership is already
+present; this CLI does not touch it. Never clears or rewrites
+``semanticModelInfo.datasets``. Safe to re-run.
 """
 
 import logging

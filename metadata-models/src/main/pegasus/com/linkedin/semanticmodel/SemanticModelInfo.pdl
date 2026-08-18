@@ -71,10 +71,6 @@ record SemanticModelInfo includes ExternalReference {
    */
   nativeDefinition: optional string
 
-  /**
-   * @deprecated Membership is member-side only via
-   * `semanticModelProperties.semanticModel` (IsPartOf).
-   */
   @deprecated = "Use semanticModelProperties.semanticModel on member datasets. Field retained for backwards-read of already-ingested data; new writes should not populate."
   datasets: array[Urn] = [ ]
 

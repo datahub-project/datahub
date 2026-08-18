@@ -1304,7 +1304,8 @@ def semantic_model_container(
     and, when they lack ``metricUpstreams.datasetUpstreams``, writes dataset
     upstream edges to those Semantic Model Dataset URNs.
 
-    Models with empty ``datasets`` are skipped. Idempotent; safe to re-run.
+    Models with empty ``datasets`` are skipped, so run this before re-ingesting.
+    Idempotent; safe to re-run.
     """
     graph = get_default_graph(ClientMode.CLI)
 

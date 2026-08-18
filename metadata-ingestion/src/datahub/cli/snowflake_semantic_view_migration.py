@@ -566,9 +566,10 @@ def _logical_table_names_from_source(
 ) -> List[str]:
     """Best-effort logical table names for migrate-before-ingest SMD URN derivation.
 
-    Prefers ``TABLE_SYNONYM_<LOGICAL>`` keys on ``datasetProperties`` (always the
-    logical alias, even when synonyms are empty would not be written). Falls back
-    to parsing the ``TABLES (...)`` clause of ``viewProperties.viewLogic``.
+    Unions ``TABLE_SYNONYM_<LOGICAL>`` keys on ``datasetProperties`` (present
+    only for tables that have synonyms) with logical aliases parsed from the
+    ``TABLES (...)`` clause of ``viewProperties.viewLogic``. Dedupes
+    case-insensitively, synonym keys first.
     """
     names: List[str] = []
     seen: Set[str] = set()
@@ -590,9 +591,6 @@ def _logical_table_names_from_source(
             if upper not in seen:
                 seen.add(upper)
                 names.append(logical)
-
-    if names:
-        return names
 
     view_props = graph.get_aspects_for_entity(
         entity_urn=src_dataset_urn,

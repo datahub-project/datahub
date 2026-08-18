@@ -7,6 +7,7 @@ the schemaField-anchored ``semanticFieldAnnotation`` + ``aiContext`` MCPs,
 the required-expression fallback, and aiContext-only-when-non-empty.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -1255,3 +1256,60 @@ def test_semantic_model_clear_hydrated_ai_context_emits_empty_overwrite() -> Non
     cleared = emitted["aiContext"]
     assert isinstance(cleared, AiContextClass)
     assert cleared.synonyms is None
+
+
+def test_hydrated_model_partial_add_dataset_warns_on_other_aliases(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """get() does not load members; adding one SMD must not raise on other aliases."""
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        relationships=[
+            SemanticModelRelationshipInput(
+                name="orders_customers",
+                from_alias="ORDERS",
+                from_columns=["customer_id"],
+                to_alias="CUSTOMERS",
+                to_columns=["id"],
+            ),
+            SemanticModelRelationshipInput(
+                name="orders_items",
+                from_alias="ORDERS",
+                from_columns=["order_id"],
+                to_alias="ITEMS",
+                to_columns=["order_id"],
+            ),
+        ],
+    )
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    hydrated.add_dataset(
+        _ds("ORDERS", "analytics.orders_model.orders_ds", ["customer_id", "order_id"])
+    )
+
+    with caplog.at_level(logging.WARNING, logger="datahub.sdk.semantic_model"):
+        mcps = hydrated.as_mcps()
+    assert mcps
+    warning_text = " ".join(r.message for r in caplog.records)
+    assert "CUSTOMERS" in warning_text or "ITEMS" in warning_text
+
+
+def test_hydrated_model_clears_deprecated_datasets_on_emit() -> None:
+    """get → edit → upsert must not re-emit stale semanticModelInfo.datasets."""
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)",
+    ]
+    model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    assert hydrated._ensure_model_props().datasets == stale
+
+    info = next(
+        mcp.aspect
+        for mcp in hydrated.as_mcps()
+        if mcp.aspectName == "semanticModelInfo"
+    )
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.datasets == []
