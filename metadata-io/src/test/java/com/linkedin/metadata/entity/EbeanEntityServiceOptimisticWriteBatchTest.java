@@ -102,6 +102,9 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
             .optimisticWriteBatchMinSize(1)
             .build();
 
+    // Real MetricUtils wrapped in a spy so batch metric increments can be verified.
+    spyMetrics = spy(MetricUtils.builder().registry(new SimpleMeterRegistry()).build());
+
     // Spy the real DAO so the entire path runs against H2 and only batch-specific seams are
     // intercepted.
     aspectDao =
@@ -109,7 +112,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
             new EbeanAspectDao(
                 PrimaryStorageTestUtils.ebeanResolver(server),
                 config,
-                null,
+                spyMetrics,
                 List.of(),
                 null,
                 /* optimisticLocking */ true));
@@ -140,8 +143,6 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
                 entityService, mockProducer, mock(MetricUtils.class)));
     entityService.setRetentionService(retentionService);
 
-    // Real MetricUtils wrapped in a spy so batch metric increments can be verified.
-    spyMetrics = spy(MetricUtils.builder().registry(new SimpleMeterRegistry()).build());
     SystemTelemetryContext telemetry =
         SystemTelemetryContext.TEST.toBuilder().metricUtils(spyMetrics).build();
 
@@ -513,7 +514,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
     String batchExecutionsMetric =
         MetricRegistry.name(EbeanAspectDao.class, "optimistic_lock_batch_executions");
 
-    verify(spyMetrics, times(1)).increment(eq(batchSizeMetric), eq(1));
+    verify(spyMetrics, times(1)).increment(eq(batchSizeMetric), eq(2));
     verify(spyMetrics, times(1)).increment(eq(batchExecutionsMetric), eq(1));
 
     // Verify final state: both aspects updated to the new values.

@@ -661,8 +661,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             }
           }
 
-          // Emit batch-level metrics
-          incrementOptimisticMetric("optimistic_lock_batch_size");
+          // Emit batch-level metrics: batch_size is the ROW COUNT of this executeBatch (so
+          // batch_size/executions = avg rows per batch); executions counts the calls.
+          incrementOptimisticMetric("optimistic_lock_batch_size", results.length);
           incrementOptimisticMetric("optimistic_lock_batch_executions");
 
           return outcomes;
@@ -806,8 +807,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   private void incrementOptimisticMetric(@Nonnull String name) {
+    incrementOptimisticMetric(name, 1);
+  }
+
+  private void incrementOptimisticMetric(@Nonnull String name, long count) {
     if (metricUtils != null) {
-      metricUtils.increment(MetricRegistry.name(this.getClass(), name), 1);
+      metricUtils.increment(MetricRegistry.name(this.getClass(), name), count);
     }
   }
 

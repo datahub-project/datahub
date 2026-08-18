@@ -417,12 +417,7 @@ public class EbeanAspectDaoConditionalBatchIT {
             break;
           }
         }
-        if (!hasSuccessNoInfo) {
-          System.out.println(
-              "SPIKE: WARNING: No SUCCESS_NO_INFO found; got: " + Arrays.toString(counts));
-        } else {
-          System.out.println("SPIKE: SUCCESS_NO_INFO confirmed in batch result");
-        }
+        assertTrue(hasSuccessNoInfo, "rewriteBatchedStatements=true should yield Statement.SUCCESS_NO_INFO (-2); got " + Arrays.toString(counts));
       }
     }
     System.out.println("SPIKE: Probe 3 PASSED");

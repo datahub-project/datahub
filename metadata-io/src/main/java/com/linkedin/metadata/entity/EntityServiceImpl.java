@@ -4270,8 +4270,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // the loop and flushed as one JDBC batch afterwards, WITHIN this pass (so per-item conflict
     // results are known before scoped retry runs). Each processed item takes an ordered slot so the
     // deferred flush never reorders writeResults / upsertResults vs the sequential path.
+    // Scoped retry is a hard prerequisite, not just OL: this method (and therefore the batch flush)
+    // only runs on the scoped-retry compute path, and batching relies on per-item CONFLICT results
+    // feeding scoped retry. With scoped retry off, batching stays disabled (writes go sequential).
     final boolean casBatchActive =
-        aspectDao.isOptimisticLockingEnabled() && aspectDao.isOptimisticWriteBatchEnabled();
+        aspectDao.isOptimisticLockingEnabled()
+            && aspectDao.isScopedRetryEnabled()
+            && aspectDao.isOptimisticWriteBatchEnabled();
     final List<ChangeMCP> orderedItems = new ArrayList<>();
     final List<AspectPersistResult> orderedResults = new ArrayList<>();
     final List<PendingCasWrite> pendingBatch = new ArrayList<>();
