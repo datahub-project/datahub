@@ -118,7 +118,6 @@
                 "dataset_id": "shared_dataset",
                 "location": "US",
                 "linked_dataset.source": "publisher-project.publisher_dataset",
-                "linked_dataset.link_type": "LINKED",
                 "linked_dataset.link_state": "LINKED",
                 "analytics_hub.listing": "listing_a",
                 "analytics_hub.subscription_state": "STATE_ACTIVE",

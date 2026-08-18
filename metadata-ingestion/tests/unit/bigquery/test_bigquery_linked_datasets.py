@@ -236,7 +236,6 @@ def test_extra_properties_includes_source_when_publisher_resolved():
     )
     props = info.to_extra_properties()
     assert props["linked_dataset.source"] == "publisher-project.publisher_dataset"
-    assert props["linked_dataset.link_type"] == "LINKED"
     assert props["linked_dataset.link_state"] == "LINKED"
     assert props["analytics_hub.listing"] == "listing_a"
     assert props["analytics_hub.subscription_state"] == "STATE_ACTIVE"
@@ -264,9 +263,7 @@ def test_extra_properties_omits_unpopulated_keys():
         ),
     )
     props = info.to_extra_properties()
-    # Always-emitted keys are present.
     assert "linked_dataset.source" in props
-    assert props["linked_dataset.link_type"] == "LINKED"
     # Optional keys must be omitted when None.
     assert "linked_dataset.link_state" not in props
     assert "analytics_hub.listing" not in props
@@ -283,7 +280,6 @@ def test_extra_properties_no_source_when_publisher_unresolved():
     # Without a resolved publisher project, the source key must not appear.
     assert "linked_dataset.source" not in props
     # Other governance keys still emit.
-    assert props["linked_dataset.link_type"] == "LINKED"
     assert props["linked_dataset.link_state"] == "LINKED"
 
 
@@ -365,41 +361,6 @@ def test_locations_lowercased_for_ah_call():
         ah.list_subscriptions.call_args.kwargs["parent"]
         == "projects/consumer-project/locations/eu"
     )
-
-
-def test_state_counters_incremented():
-    """STALE and INACTIVE subscriptions are still ingested; only counters differ."""
-    handler = _make_handler()
-    stale_sub = make_subscription(
-        dataset_id="shared_stale",
-        state=int(bigquery_analyticshub_v1.Subscription.State.STATE_STALE),
-    )
-    inactive_sub = make_subscription(
-        dataset_id="shared_inactive",
-        state=int(bigquery_analyticshub_v1.Subscription.State.STATE_INACTIVE),
-    )
-    active_sub = make_subscription(dataset_id="shared_active")
-
-    ah = _ah_client_returning({"us": [stale_sub, inactive_sub, active_sub]})
-    bq = _bq_client_returning(
-        {
-            "consumer-project.shared_stale": make_dataset_with_linked_source(),
-            "consumer-project.shared_inactive": make_dataset_with_linked_source(),
-            "consumer-project.shared_active": make_dataset_with_linked_source(),
-        }
-    )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
-
-    datasets = [
-        BigqueryDataset(name=name, location="US")
-        for name in ("shared_stale", "shared_inactive", "shared_active")
-    ]
-    handler.populate_for_project("consumer-project", datasets)
-
-    assert handler.report.num_linked_datasets_scanned == 3
-    assert handler.report.num_linked_dataset_state_stale == 1
-    assert handler.report.num_linked_dataset_state_inactive == 1
 
 
 @pytest.mark.parametrize(

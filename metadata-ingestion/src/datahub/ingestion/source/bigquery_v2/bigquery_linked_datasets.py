@@ -98,7 +98,7 @@ class LinkedDatasetInfo:
     def to_extra_properties(self) -> Dict[str, str]:
         """Render as `linked_dataset.*` / `analytics_hub.*` custom properties.
 
-        Empty values are dropped; `linked_dataset.link_type` is always present.
+        Empty values are dropped.
         """
         props: Dict[str, str] = {}
 
@@ -107,7 +107,6 @@ class LinkedDatasetInfo:
             props["linked_dataset.source"] = (
                 f"{publisher.project_id}.{publisher.dataset}"
             )
-        props["linked_dataset.link_type"] = "LINKED"
 
         if self.link_state:
             props["linked_dataset.link_state"] = self.link_state
@@ -270,7 +269,6 @@ class BigQueryLinkedDatasetsHandler:
 
                 self._lookup[(project_id, consumer_dataset)] = info
                 self.report.num_linked_datasets_scanned += 1
-                self._track_state_counters(info)
 
     def get_info(
         self, project_id: str, dataset_name: str
@@ -482,13 +480,6 @@ class BigQueryLinkedDatasetsHandler:
             context=f"project={project_id}, location={location}",
             exc=exc,
         )
-
-    def _track_state_counters(self, info: LinkedDatasetInfo) -> None:
-        State = bigquery_analyticshub_v1.Subscription.State
-        if info.subscription_state == State.STATE_STALE:
-            self.report.num_linked_dataset_state_stale += 1
-        elif info.subscription_state == State.STATE_INACTIVE:
-            self.report.num_linked_dataset_state_inactive += 1
 
     def _build_fine_grained_lineages(
         self,

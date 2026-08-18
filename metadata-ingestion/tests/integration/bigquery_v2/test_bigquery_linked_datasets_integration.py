@@ -302,11 +302,10 @@ def test_bigquery_linked_datasets_ingest(
             m["aspect"]["json"]["customProperties"]
             for m in mcps
             if m.get("aspectName") == "containerProperties"
-            and "linked_dataset.link_type"
+            and "linked_dataset.source"
             in m["aspect"]["json"].get("customProperties", {})
         ]
         assert len(linked_props) == 1
-        assert linked_props[0]["linked_dataset.link_type"] == "LINKED"
         assert (
             linked_props[0]["linked_dataset.source"]
             == "publisher-project.publisher_dataset"
