@@ -926,6 +926,9 @@ class PlatformAdapter(ABC):
             return sql_table
 
         denormalize = engine.dialect.denormalize_name
+        # Only the name and type are carried over: profiling reads nothing else off
+        # these columns (no nullable, default or comment anywhere in this package),
+        # and schemaMetadata comes from the source, not from here.
         columns = [
             sa.Column(
                 sa.sql.quoted_name(denormalize(col["name"]), quote=True),
@@ -977,11 +980,20 @@ class PlatformAdapter(ABC):
            deliberately clears the flag because ibm_db_sa's casing is unreliable;
         2. the source builds schemaMetadata from something other than reflection.
 
-        Snowflake meets both — it reads INFORMATION_SCHEMA — and overrides. Oracle
-        meets the second alone: ``OracleInspectorObjectWrapper`` supplies its own
+        Snowflake meets both — it reads INFORMATION_SCHEMA — but does *not*
+        override this method. Its field path depends on ``convert_urns_to_lowercase``
+        and ``preserve_column_case``, which this layer cannot see, so
+        ``snowflake_profiler`` hands the profiler ``field_path_transform=
+        snowflake_identifier`` instead; the profiler prefers that transform over
+        this method, so nothing here runs for Snowflake at all. Oracle meets the
+        second condition alone: ``OracleInspectorObjectWrapper`` supplies its own
         columns, but names them with ``dialect.normalize_name`` exactly as
         reflection would, so the default is already right for it.
         """
         if not getattr(engine.dialect, "requires_name_normalize", False):
-            return stored_name
+            # str() because callers pass sql_table column names, which this module
+            # rebuilds as quoted_name -- a str subclass whose .lower()/.upper()
+            # return self while the identifier is quoted. Returning the subclass
+            # makes every later fold silently do nothing.
+            return str(stored_name)
         return str(engine.dialect.normalize_name(stored_name) or stored_name)

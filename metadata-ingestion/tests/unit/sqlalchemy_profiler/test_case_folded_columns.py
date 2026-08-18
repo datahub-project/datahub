@@ -378,6 +378,7 @@ class TestNonSnowflakeNormalizingDialects:
             [DatasetFieldProfileClass(fieldPath=c.name) for c in rebuilt.columns],
             adapter,
             engine,
+            "db.tbl",
         )
 
         assert [p.fieldPath for p in emitted] == ["id", "amount"]
@@ -396,6 +397,29 @@ class TestNonSnowflakeNormalizingDialects:
         with patch.object(sa, "inspect", side_effect=AssertionError("must not run")):
             assert adapter._use_stored_column_names(table, engine) is table
         assert adapter.field_path_for("Id", engine) == "Id"
+
+    def test_a_quoted_name_comes_back_as_a_plain_string(self) -> None:
+        # The two branches of field_path_for disagreed: the normalizing one wraps
+        # in str(), this early return handed the argument straight back. A
+        # quoted_name is a str subclass whose .lower() returns self while quoted,
+        # so any caller that folds the result would silently get no folding --
+        # the same failure this PR fixes at the profiler boundary. field_path_for
+        # is public and overridable, so it has to hold the contract on its own.
+        from sqlalchemy.dialects import postgresql
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+            GenericAdapter,
+        )
+
+        engine = _engine(postgresql.dialect())  # type: ignore[misc]
+        adapter = GenericAdapter(ProfilingConfig(), SQLSourceReport(), engine)
+
+        result = adapter.field_path_for(
+            sa.sql.quoted_name("MixedCol", quote=True), engine
+        )
+
+        assert type(result) is str
+        assert result.lower() == "mixedcol"
 
 
 class TestTranslationIsActuallyWired:

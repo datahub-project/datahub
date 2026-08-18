@@ -1261,6 +1261,7 @@ class SQLAlchemyProfiler:
         field_profiles: List[DatasetFieldProfileClass],
         adapter: "PlatformAdapter",
         conn: Connection,
+        pretty_name: str,
     ) -> List[DatasetFieldProfileClass]:
         """Translate stored column names into the paths the source emitted.
 
@@ -1272,18 +1273,34 @@ class SQLAlchemyProfiler:
         Two stored names can translate to one path — that is what a case collision
         looks like once folded — and the schema declares a single field for them.
         Keep the first, since a second profile on one field path is dropped
-        downstream anyway.
+        downstream anyway, and report it: the surviving profile carries whichever
+        column came first, so the statistics under the folded path may belong to
+        the other column, and which one wins moves with column order.
         """
         translated: List[DatasetFieldProfileClass] = []
         seen: Set[str] = set()
+        collapsed: List[str] = []
         for field_profile in field_profiles:
+            stored_name = str(field_profile.fieldPath)
             field_profile.fieldPath = self._emitted_field_path(
-                field_profile.fieldPath, adapter, conn
+                stored_name, adapter, conn
             )
             if field_profile.fieldPath in seen:
+                collapsed.append(f"{stored_name} -> {field_profile.fieldPath}")
                 continue
             seen.add(field_profile.fieldPath)
             translated.append(field_profile)
+        if collapsed:
+            self.report.warning(
+                title="Column statistics dropped for a case-folded column",
+                message="Columns differing only by case fold to one field path, "
+                "which the schema declares once, so only the first column's "
+                "statistics are kept. The statistics under that path may belong "
+                "to either column, and which one survives depends on column "
+                "order. Enable the source's case-preserving option, if it has "
+                "one, to keep the columns distinct.",
+                context=f"{pretty_name}: {sorted(collapsed)}",
+            )
         return translated
 
     def _create_field_profiles(
@@ -1965,7 +1982,7 @@ class SQLAlchemyProfiler:
                     )
 
                     profile.fieldProfiles = self._to_emitted_field_paths(
-                        field_profiles, adapter, conn
+                        field_profiles, adapter, conn, pretty_name
                     )
 
                     time_taken = timer.elapsed_seconds()
