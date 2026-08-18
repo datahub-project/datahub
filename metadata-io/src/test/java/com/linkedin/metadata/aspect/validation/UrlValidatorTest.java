@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
@@ -30,6 +31,9 @@ public class UrlValidatorTest {
   private static final Urn TEST_GROUP_URN = UrnUtils.getUrn("urn:li:corpGroup:testGroup");
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
+  private static final Urn TEST_CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,my_chart)");
+  private static final Urn TEST_DASHBOARD_URN =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,my_dashboard)");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -42,7 +46,10 @@ public class UrlValidatorTest {
                       CORP_USER_ENTITY_NAME, CORP_USER_EDITABLE_INFO_ASPECT_NAME),
                   new AspectPluginConfig.EntityAspectName(
                       CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
-                  new AspectPluginConfig.EntityAspectName(DATASET_ENTITY_NAME, EMBED_ASPECT_NAME)))
+                  new AspectPluginConfig.EntityAspectName(DATASET_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(CHART_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(
+                      DASHBOARD_ENTITY_NAME, EMBED_ASPECT_NAME)))
           .build();
 
   @Mock private RetrieverContext mockRetrieverContext;
@@ -389,6 +396,10 @@ public class UrlValidatorTest {
   // ---
 
   private long validateEmbedRenderUrl(String renderUrl) {
+    return validateEmbedRenderUrl(TEST_DATASET_URN, renderUrl);
+  }
+
+  private long validateEmbedRenderUrl(Urn urn, String renderUrl) {
     Embed embed = new Embed();
     embed.setRenderUrl(renderUrl);
     return validator
@@ -397,14 +408,25 @@ public class UrlValidatorTest {
             Set.of(
                 TestMCP.builder()
                     .changeType(ChangeType.UPSERT)
-                    .urn(TEST_DATASET_URN)
-                    .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                    .urn(urn)
+                    .entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()))
                     .aspectSpec(
                         entityRegistry
-                            .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                            .getEntitySpec(urn.getEntityType())
                             .getAspectSpec(EMBED_ASPECT_NAME))
                     .recordTemplate(embed)
                     .build()),
+            mockRetrieverContext,
+            null)
+        .count();
+  }
+
+  private long validateEmbedPatch(Urn urn, String renderUrl) {
+    String ops = "[{\"op\":\"add\",\"path\":\"/renderUrl\",\"value\":\"" + renderUrl + "\"}]";
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(TestPatchMCP.of(urn, EMBED_ASPECT_NAME, ops)),
             mockRetrieverContext,
             null)
         .count();
@@ -440,6 +462,45 @@ public class UrlValidatorTest {
   @Test
   public void testEmbedBlankRenderUrlAllowed() {
     assertEquals(validateEmbedRenderUrl(""), 0, "Blank renderUrl (clearing the embed) is allowed");
+  }
+
+  @Test
+  public void testEmbedRenderUrlValidatedForChartAndDashboard() {
+    // The validator is registered for chart and dashboard embeds too, not just dataset.
+    assertEquals(
+        validateEmbedRenderUrl(TEST_CHART_URN, "javascript:alert(1)"),
+        1,
+        "javascript: renderUrl on a chart embed should be rejected");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_CHART_URN, "https://bi.example.com/chart/1"),
+        0,
+        "HTTPS renderUrl on a chart embed should be accepted");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_DASHBOARD_URN, "javascript:alert(1)"),
+        1,
+        "javascript: renderUrl on a dashboard embed should be rejected");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_DASHBOARD_URN, "https://bi.example.com/dash/1"),
+        0,
+        "HTTPS renderUrl on a dashboard embed should be accepted");
+  }
+
+  @Test
+  public void testEmbedPatchJavascriptSchemeRejected() {
+    // A PATCH carries only the delta (getAspect is null), so this covers the generic PATCH path
+    // that would otherwise bypass the stored-XSS guard.
+    assertEquals(
+        validateEmbedPatch(TEST_DATASET_URN, "javascript:alert(document.cookie)"),
+        1,
+        "javascript: renderUrl set via PATCH should be rejected");
+  }
+
+  @Test
+  public void testEmbedPatchHttpsAccepted() {
+    assertEquals(
+        validateEmbedPatch(TEST_DATASET_URN, "https://bi.example.com/dashboard/1"),
+        0,
+        "HTTPS renderUrl set via PATCH should be accepted");
   }
 
   @Test
