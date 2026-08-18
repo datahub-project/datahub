@@ -931,3 +931,40 @@ def test_tier1_non_api_error_still_falls_through_to_resource_manager() -> None:
     assert info.publisher is not None
     assert info.publisher.project_id == PUBLISHER_PROJECT
     assert report.num_publisher_lookups_from_resource_manager == 1
+
+
+def test_last_segment_handles_absent_and_trailing_slash() -> None:
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import _last_segment
+
+    assert _last_segment(None) is None
+    assert _last_segment("") is None
+    assert _last_segment("projects/p/locations/us/listings/") is None
+    assert _last_segment("projects/p/locations/us/listings/my_listing") == "my_listing"
+
+
+def test_subscription_without_a_destination_dataset_is_ignored() -> None:
+    # resource_type is BIGQUERY_DATASET but the destination reference is absent, so
+    # there is no dataset name to match on. It must not be counted as scanned.
+    handler = _enriched_handler([_make_subscription(consumer_dataset="")])
+
+    assert handler.report.num_sharing_subscriptions_scanned == 0
+    assert handler.report.num_sharing_subscriptions_unmatched == 0
+    assert _info(handler).listing is None
+
+
+def test_record_entities_skips_a_dataset_whose_link_is_not_live() -> None:
+    handler = _make_handler(
+        client=_resolvable_client(_make_get_dataset_response(link_state="UNLINKED"))
+    )
+    handler.populate_for_project(
+        CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
+    )
+    handler.record_entities(
+        CONSUMER_PROJECT, LINKED_DATASET, {"t": [_make_column("id")]}
+    )
+
+    # Assert the intermediate state. Checking gen_all_lineage_workunits() instead
+    # would pass with this guard removed, because _gen_lineage_for_entity re-checks
+    # is_live_link before emitting anything.
+    assert handler._entities == {}
+    assert list(handler.gen_all_lineage_workunits()) == []
