@@ -1344,8 +1344,8 @@ class TableauSiteSource:
                     parent_name=None,
                     description=project.description,
                     path=[],
-                    owner_username=project.owner.name if project.owner else None,
-                    owner_email=project.owner.email if project.owner else None,
+                    owner_username=getattr(getattr(project, "owner", None), "name", None),
+                    owner_email=getattr(getattr(project, "owner", None), "email", None),
                 )
             # Set parent project name
             for _project_id, tableau_project in all_project_map.items():
@@ -4319,7 +4319,9 @@ class TableauSiteSource:
                     parent_project_key = self.gen_site_key(self.site_id)
 
             owner_urn: Optional[str] = None
-            if self.config.ingest_owner:
+            if self.config.ingest_owner and (
+                project_.owner_username or project_.owner_email
+            ):
                 owner_identifier = self._get_owner_identifier(
                     {
                         c.USERNAME: project_.owner_username,

@@ -1724,8 +1724,8 @@ def _collect_container_tree(
     source: TableauSiteSource,
     all_project_map: Dict[str, TableauProject],
 ) -> Dict[str, Dict[str, Optional[str]]]:
-    """Run emit_project_containers and return {project_id: {name, parent}} so
-    assertions read in terms of project ids rather than opaque container urns. A
+    """Run emit_project_containers and return {project_id: {name, parent, owner_urn}}
+    so assertions read in terms of project ids rather than opaque container urns. A
     root project's parent resolves to the "site" sentinel (its container nests under
     the site container, which emit_site_container emits separately)."""
     urn_to_id = {
@@ -1736,13 +1736,16 @@ def _collect_container_tree(
     tree: Dict[str, Dict[str, Optional[str]]] = {}
     for wu in source.emit_project_containers(all_project_map):
         project_id = urn_to_id[wu.get_urn()]
-        entry = tree.setdefault(project_id, {"name": None, "parent": None})
+        entry = tree.setdefault(project_id, {"name": None, "parent": None, "owner_urn": None})
         props = wu.get_aspect_of_type(ContainerPropertiesClass)
         if props is not None:
             entry["name"] = props.name
         parent = wu.get_aspect_of_type(ContainerClass)
         if parent is not None:
             entry["parent"] = urn_to_id.get(parent.container)
+        ownership = wu.get_aspect_of_type(OwnershipClass)
+        if ownership is not None and ownership.owners:
+            entry["owner_urn"] = ownership.owners[0].owner
     return tree
 
 
@@ -1764,14 +1767,19 @@ class TestProjectContainerHierarchy:
         allow: Optional[List[str]] = None,
         deny: Optional[List[str]] = None,
         extract_project_hierarchy: bool = True,
+        ingest_owner: bool = False,
+        owner_by_project_id: Optional[Dict[str, Tuple[Optional[str], Optional[str]]]] = None,
     ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
         """Feed ``projects`` through the real projects Pager and run filtering +
         registry building + container emission.
 
-        Returns (source, tree), where tree is {project_id: {name, parent}} and a
-        root project's parent resolves to the "site" sentinel (its container nests
-        under the site container). Sites are always added as containers here to
+        Returns (source, tree), where tree is {project_id: {name, parent, owner_urn}}
+        and a root project's parent resolves to the "site" sentinel (its container
+        nests under the site container). Sites are always added as containers here to
         mirror a typical deployment.
+
+        Pass ``ingest_owner=True`` and ``owner_by_project_id`` to verify ownership
+        propagation without duplicating setup across tests.
         """
         project_pattern: Dict[str, List[str]] = {}
         if allow is not None:
@@ -1784,6 +1792,7 @@ class TestProjectContainerHierarchy:
             project_pattern=project_pattern or {"allow": [".*"]},
             extract_project_hierarchy=extract_project_hierarchy,
             add_site_container=True,
+            ingest_owner=ingest_owner,
         )
         config = TableauConfig.model_validate(config_dict)
 
@@ -1797,7 +1806,11 @@ class TestProjectContainerHierarchy:
                 server=mock.MagicMock(),
             )
 
-        project_items = [_tsc_project(p) for p in projects]
+        owners = owner_by_project_id or {}
+        project_items = [
+            _tsc_project(p, owner_username=owners.get(p.id, (None, None))[0], owner_email=owners.get(p.id, (None, None))[1])
+            for p in projects
+        ]
 
         def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
             # Only the projects endpoint has data; the datasource/workbook registries
@@ -2005,94 +2018,22 @@ class TestProjectContainerHierarchy:
     def test_project_container_owner_ingested_when_ingest_owner_true(self) -> None:
         """Project containers include an owner when ingest_owner=True and the TSC
         ProjectItem carries owner info."""
-        project_spec = ProjectSpec("p1", "Project_1", None)
-        project_item = _tsc_project(
-            project_spec, owner_username="alice", owner_email="alice@example.com"
-        )
-
-        config_dict = {k: v for k, v in default_config.items() if k != "projects"}
-        config_dict.update(
-            project_pattern={"allow": [".*"]},
-            add_site_container=True,
+        _, tree = self._run(
+            [ProjectSpec("p1", "Project_1", None)],
             ingest_owner=True,
+            owner_by_project_id={"p1": ("alice", "alice@example.com")},
         )
-        config = TableauConfig.model_validate(config_dict)
-
-        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
-            source = TableauSiteSource(
-                config=config,
-                ctx=PipelineContext(run_id="test"),
-                platform="tableau",
-                site=SiteIdContentUrl(site_id="s1", site_content_url="s1"),
-                report=TableauSourceReport(),
-                server=mock.MagicMock(),
-            )
-
-        def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
-            if endpoint is source.server.projects:
-                return iter([project_item])
-            return iter([])
-
-        with mock.patch(
-            "datahub.ingestion.source.tableau.tableau.TSC.Pager", side_effect=fake_pager
-        ):
-            all_project_map = source._populate_projects_registry()
-
-        ownership_by_project: Dict[str, Optional[OwnershipClass]] = {}
-        for wu in source.emit_project_containers(all_project_map):
-            urn_to_id = {
-                source.gen_project_key(p.id).as_urn(): p.id
-                for p in all_project_map.values()
-            }
-            project_id = urn_to_id.get(wu.get_urn())
-            if project_id:
-                ownership = wu.get_aspect_of_type(OwnershipClass)
-                if ownership is not None:
-                    ownership_by_project[project_id] = ownership
-
-        assert "p1" in ownership_by_project
-        owners = ownership_by_project["p1"].owners
-        assert len(owners) == 1
-        assert owners[0].owner == "urn:li:corpuser:alice"
+        assert tree["p1"]["owner_urn"] == "urn:li:corpuser:alice"
 
     def test_project_container_no_owner_when_ingest_owner_false(self) -> None:
         """Project containers have no owner when ingest_owner=False, even if the TSC
         ProjectItem carries owner info."""
-        project_spec = ProjectSpec("p1", "Project_1", None)
-        project_item = _tsc_project(
-            project_spec, owner_username="alice", owner_email="alice@example.com"
-        )
-
-        config_dict = {k: v for k, v in default_config.items() if k != "projects"}
-        config_dict.update(
-            project_pattern={"allow": [".*"]},
-            add_site_container=True,
+        _, tree = self._run(
+            [ProjectSpec("p1", "Project_1", None)],
             ingest_owner=False,
+            owner_by_project_id={"p1": ("alice", "alice@example.com")},
         )
-        config = TableauConfig.model_validate(config_dict)
-
-        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
-            source = TableauSiteSource(
-                config=config,
-                ctx=PipelineContext(run_id="test"),
-                platform="tableau",
-                site=SiteIdContentUrl(site_id="s1", site_content_url="s1"),
-                report=TableauSourceReport(),
-                server=mock.MagicMock(),
-            )
-
-        def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
-            if endpoint is source.server.projects:
-                return iter([project_item])
-            return iter([])
-
-        with mock.patch(
-            "datahub.ingestion.source.tableau.tableau.TSC.Pager", side_effect=fake_pager
-        ):
-            all_project_map = source._populate_projects_registry()
-
-        for wu in source.emit_project_containers(all_project_map):
-            assert wu.get_aspect_of_type(OwnershipClass) is None
+        assert tree["p1"]["owner_urn"] is None
 
     def test_dangling_parent_id_raises_actionable_error(self) -> None:
         """emit_project_containers relies on _get_all_project having nulled out any
