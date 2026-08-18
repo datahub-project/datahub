@@ -3,11 +3,12 @@ import logging
 import pytest
 import requests
 
+from tests.utilities.domains import Domain
 from tests.utils import get_gms_url
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 # ==============================================
 # DEV TOOLING API TESTS

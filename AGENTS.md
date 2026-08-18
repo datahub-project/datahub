@@ -289,6 +289,10 @@ const theme = useTheme();
 - `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
 - `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
 
+### Frontend Components
+
+Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code. Files that already imported antd on the PR base (`origin/master`) are grandfathered.
+
 ### Code Comments
 
 Only add comments that provide real value beyond what the code already expresses.
@@ -731,14 +735,6 @@ datahub graphql --agent-context
 
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
-
-## Cypress Tests (Deprecated)
-
-Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
-
-- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
-- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
-- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
 
 ## Playwright UI E2E Tests
 
