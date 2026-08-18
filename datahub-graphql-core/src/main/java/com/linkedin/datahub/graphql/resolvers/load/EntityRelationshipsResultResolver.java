@@ -74,6 +74,11 @@ public class EntityRelationshipsResultResolver
 
   private final EntityService _entityService;
 
+  /**
+   * Graph-only constructor. Existence filtering of dangling (hard-deleted) edges is disabled
+   * because no {@link EntityService} is available; production wiring for graph-backed relationship
+   * fields should use the two-arg constructor so hard-deleted edges are excluded.
+   */
   public EntityRelationshipsResultResolver(final GraphClient graphClient) {
     this(graphClient, null);
   }
@@ -535,7 +540,9 @@ public class EntityRelationshipsResultResolver
       // Same dangling-edge guard as mapEntityRelationships: exclude hard-deleted children even when
       // includeSoftDelete keeps soft-deleted ones.
       existentChildUrns =
-          _entityService.exists(context.getOperationContext(), childUrns, includeSoftDelete);
+          childUrns.isEmpty()
+              ? childUrns
+              : _entityService.exists(context.getOperationContext(), childUrns, includeSoftDelete);
     } else {
       existentChildUrns = null;
     }
@@ -614,7 +621,10 @@ public class EntityRelationshipsResultResolver
       // which otherwise leak as dangling edges that resolve to a non-existent entity. Only applied
       // to graph-sourced relationships; the session/membership path builds from live identity data.
       existentUrns =
-          _entityService.exists(context.getOperationContext(), allRelatedUrns, includeSoftDelete);
+          allRelatedUrns.isEmpty()
+              ? allRelatedUrns
+              : _entityService.exists(
+                  context.getOperationContext(), allRelatedUrns, includeSoftDelete);
     } else {
       existentUrns = null;
     }
