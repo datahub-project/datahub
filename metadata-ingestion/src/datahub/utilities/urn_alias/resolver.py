@@ -113,6 +113,9 @@ def get_urn_alias_resolver(
 
     `platform_instances` is read only by the casing-probe fallback, which cannot recover an
     instance from a URN and has to be told which ones exist.
+
+    Resolves from whatever filled the index, which is nothing unless a consumer called
+    `request_urn_alias_index` before the loads it wants indexed.
     """
     index = shared_index(graph)
     # The lookup is chosen by what the server supports, never by `query_on_demand`: every

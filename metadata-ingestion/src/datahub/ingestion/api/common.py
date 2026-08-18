@@ -62,6 +62,7 @@ class PipelineContext:
         self.checkpointers: Dict[str, Committable] = {}
 
         self._set_dataset_urn_to_lower_if_needed()
+        self._request_urn_alias_index_if_needed()
 
     @property
     def flags(self) -> "FlagsConfig":
@@ -75,6 +76,18 @@ class PipelineContext:
             server_config = self.graph.get_config()
             if server_config and server_config.get("datasetUrnNameCasing") is True:
                 set_dataset_urn_to_lower(True)
+
+    def _request_urn_alias_index_if_needed(self) -> None:
+        """Declare, once per run, whether anything will resolve URN casing.
+
+        Here rather than on the consumer: a source can bulk-load in its own constructor,
+        long before a workunit processor exists. A new consumer adds its condition here.
+        """
+        if self.graph and self.flags.auto_resolve_lineage_urns.enabled:
+            # Local import: this module is on every import path.
+            from datahub.utilities.urn_alias.index import request_urn_alias_index
+
+            request_urn_alias_index(self.graph)
 
     def register_checkpointer(self, committable: Committable) -> None:
         if committable.name in self.checkpointers:
