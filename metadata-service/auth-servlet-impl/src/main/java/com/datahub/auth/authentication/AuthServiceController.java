@@ -247,14 +247,15 @@ public class AuthServiceController {
   @PostMapping(value = "/revokeSessionToken")
   CompletableFuture<ResponseEntity<Void>> revokeSessionToken(final HttpEntity<String> httpEntity) {
     final String authorizationHeader = httpEntity.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-    if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
+    if (authorizationHeader == null) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
+    if (!authorizationHeader.startsWith(BEARER_PREFIX)
+        || authorizationHeader.substring(BEARER_PREFIX.length()).isBlank()) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
     final String accessToken = authorizationHeader.substring(BEARER_PREFIX.length());
-    if (accessToken.isBlank()) {
-      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
-    }
 
     return CompletableFuture.supplyAsync(
         () -> {
