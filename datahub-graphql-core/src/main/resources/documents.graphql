@@ -100,7 +100,7 @@ type Document implements Entity {
   """
   The timestamp of the last time this Document was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   Information about the Document

@@ -7,6 +7,11 @@ directive @aspectMapping(aspects: [String!]!) on FIELD_DEFINITION
 # Optional: directive to explicitly mark fields that don't need aspects
 directive @noAspects on FIELD_DEFINITION
 
+# Marks fields whose value depends on ALL of an entity's aspects, forcing a fetch-all when
+# selected. Used by lastIngested, which is computed from the system metadata of every fetched
+# aspect: any narrower fetch would silently change its value.
+directive @fetchAllAspects on FIELD_DEFINITION
+
 """
 Root GraphQL API Schema
 """
@@ -1744,7 +1749,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   Standardized platform urn where the dataset is defined
@@ -2964,7 +2969,7 @@ type DataPlatform implements Entity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   Name of the data platform
@@ -3276,7 +3281,7 @@ type Container implements Entity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   Standardized platform.
@@ -6217,7 +6222,7 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The parent container in which the entity resides
@@ -6580,7 +6585,7 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The parent container in which the entity resides
@@ -7020,7 +7025,7 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   Workflow orchestrator ei Azkaban, Airflow
@@ -7286,7 +7291,7 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   Deprecated, use relationship IsPartOf instead
@@ -10693,7 +10698,7 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   ML model display name
@@ -10915,7 +10920,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name for the Entity
@@ -11123,7 +11128,7 @@ type MLFeature implements EntityWithRelationships & Entity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name for the ML Feature
@@ -11409,7 +11414,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name
@@ -11582,7 +11587,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name

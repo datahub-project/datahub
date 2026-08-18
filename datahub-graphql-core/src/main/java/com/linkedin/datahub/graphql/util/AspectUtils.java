@@ -123,8 +123,13 @@ public class AspectUtils {
   }
 
   /**
-   * Unions key-context {@link AspectLoadContext} values from a DataLoader batch. Null or non-{@link
-   * AspectLoadContext} entries are ignored; an empty contribution list returns null.
+   * Unions key-context {@link AspectLoadContext} values from a DataLoader batch. An empty
+   * contribution list returns null.
+   *
+   * <p>A batch entry WITHOUT an {@link AspectLoadContext} means some load path did not state its
+   * selection, so its needs are unknown — the union degrades to {@link
+   * AspectLoadContext#fetchAll()} rather than silently underserving that load with whatever the
+   * context-carrying entries happened to need.
    */
   @Nullable
   public static AspectLoadContext unionKeyContexts(@Nullable final List<Object> keyContexts) {
@@ -134,7 +139,7 @@ public class AspectUtils {
     AspectLoadContext union = null;
     for (Object keyContext : keyContexts) {
       if (!(keyContext instanceof AspectLoadContext)) {
-        continue;
+        return AspectLoadContext.fetchAll();
       }
       AspectLoadContext loadContext = (AspectLoadContext) keyContext;
       union = union == null ? loadContext : union.union(loadContext);

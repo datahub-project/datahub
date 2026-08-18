@@ -156,10 +156,26 @@ public class AspectUtilsTest {
   public void testUnionKeyContexts() {
     AspectLoadContext a = AspectLoadContext.of(ImmutableSet.of("ownership"));
     AspectLoadContext b = AspectLoadContext.of(ImmutableSet.of("dataPlatformInstance"));
-    AspectLoadContext union = AspectUtils.unionKeyContexts(List.of(a, b, "ignored"));
+    AspectLoadContext union = AspectUtils.unionKeyContexts(List.of(a, b));
     assertNotNull(union);
     assertTrue(union.getRequiredAspects().contains("ownership"));
     assertTrue(union.getRequiredAspects().contains("dataPlatformInstance"));
+  }
+
+  /**
+   * A batch entry without an AspectLoadContext means an unknown selection: the union must degrade
+   * to fetch-all rather than underserve that load with the other entries' needs.
+   */
+  @Test
+  public void testUnionKeyContextsDegradesToFetchAllOnContextlessEntry() {
+    AspectLoadContext a = AspectLoadContext.of(ImmutableSet.of("ownership"));
+    AspectLoadContext mixed = AspectUtils.unionKeyContexts(java.util.Arrays.asList(a, null));
+    assertNotNull(mixed);
+    assertTrue(mixed.isFetchAll());
+
+    AspectLoadContext allBare = AspectUtils.unionKeyContexts(java.util.Arrays.asList(null, null));
+    assertNotNull(allBare);
+    assertTrue(allBare.isFetchAll());
   }
 
   @Test

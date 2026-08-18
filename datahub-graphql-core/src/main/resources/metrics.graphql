@@ -60,7 +60,7 @@ type Metric implements EntityWithRelationships & Entity {
   """
   The timestamp of the last time this Metric was ingested.
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The platform that this Metric originates in.
@@ -227,7 +227,7 @@ type SemanticModel implements EntityWithRelationships & Entity {
   """
   The timestamp of the last time this SemanticModel was ingested.
   """
-  lastIngested: Long @noAspects
+  lastIngested: Long @fetchAllAspects
 
   """
   The platform that this SemanticModel originates in.

@@ -34,13 +34,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AspectMappingRegistry {
   private final Map<String, Set<String>> fieldToAspects;
+
+  /**
+   * Fields marked {@code @fetchAllAspects}: their value depends on all of an entity's aspects (e.g.
+   * lastIngested is computed from the system metadata of every fetched aspect), so selecting them
+   * forces the fetch-all fallback deliberately rather than via the unmapped-field warning.
+   */
+  private final Set<String> fetchAllFields;
+
   private final Set<String> warnedUnmappedFields = ConcurrentHashMap.newKeySet();
 
   public AspectMappingRegistry(GraphQLSchema schema) {
-    this.fieldToAspects = Collections.unmodifiableMap(buildMappingFromSchema(schema));
+    Set<String> fetchAll = ConcurrentHashMap.newKeySet();
+    this.fieldToAspects = Collections.unmodifiableMap(buildMappingFromSchema(schema, fetchAll));
+    this.fetchAllFields = Collections.unmodifiableSet(fetchAll);
   }
 
-  private Map<String, Set<String>> buildMappingFromSchema(GraphQLSchema schema) {
+  private Map<String, Set<String>> buildMappingFromSchema(
+      GraphQLSchema schema, Set<String> fetchAllFieldsSink) {
     Map<String, Set<String>> mapping = new HashMap<>();
     schema
         .getTypeMap()
@@ -85,6 +96,10 @@ public class AspectMappingRegistry {
                                 "Mapped {}.{} to request no specific aspects.",
                                 typeName,
                                 fieldName);
+                          } else if (field.getDirective("fetchAllAspects") != null) {
+                            String key = typeName + "." + fieldName;
+                            fetchAllFieldsSink.add(key);
+                            log.debug("Mapped {}.{} to force fetch-all.", typeName, fieldName);
                           }
                         });
               }
@@ -136,6 +151,13 @@ public class AspectMappingRegistry {
       }
 
       String key = typeName + "." + fieldName;
+
+      if (fetchAllFields.contains(key)) {
+        // Deliberate fetch-all (e.g. lastIngested depends on every aspect's system metadata).
+        log.debug("Field {} is @fetchAllAspects, fetching all aspects", key);
+        return null;
+      }
+
       Set<String> fieldAspects = fieldToAspects.get(key);
 
       if (fieldAspects != null) {

@@ -155,6 +155,24 @@ public class RealSchemaAspectMappingTest {
         Set.of("documentInfo", "semanticText"));
   }
 
+  /**
+   * lastIngested is computed from the system metadata of every fetched aspect
+   * (SystemMetadataUtils.getLastIngestedTime), so any narrower fetch silently changes its value.
+   * Selecting it must force the fetch-all fallback via @fetchAllAspects.
+   */
+  @Test
+  public void testLastIngestedForcesFetchAll() {
+    assertEquals(
+        registry.getRequiredAspects("Dataset", List.of(field("lastIngested", "Dataset"))), null);
+    assertEquals(
+        registry.getRequiredAspects(
+            "Dataset", List.of(field("name", "Dataset"), field("lastIngested", "Dataset"))),
+        null,
+        "fetch-all must dominate the rest of the selection");
+    assertEquals(
+        registry.getRequiredAspects("Document", List.of(field("lastIngested", "Document"))), null);
+  }
+
   @Test
   public void testDatasetMinimalSelection() {
     Set<String> aspects =

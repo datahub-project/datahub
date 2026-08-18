@@ -120,7 +120,9 @@ public class AspectMappingCompletenessTest {
                 field.getDirectives().stream().anyMatch(d -> d.getName().equals("aspectMapping"));
             boolean hasNoAspects =
                 field.getDirectives().stream().anyMatch(d -> d.getName().equals("noAspects"));
-            if (hasAspectMapping || hasNoAspects) {
+            boolean hasFetchAllAspects =
+                field.getDirectives().stream().anyMatch(d -> d.getName().equals("fetchAllAspects"));
+            if (hasAspectMapping || hasNoAspects || hasFetchAllAspects) {
               annotated = true;
               break;
             }
@@ -287,7 +289,9 @@ public class AspectMappingCompletenessTest {
           field.getDirectives().stream().anyMatch(d -> d.getName().equals("aspectMapping"));
       boolean hasNoAspects =
           field.getDirectives().stream().anyMatch(d -> d.getName().equals("noAspects"));
-      if (hasAspectMapping || hasNoAspects) {
+      boolean hasFetchAllAspects =
+          field.getDirectives().stream().anyMatch(d -> d.getName().equals("fetchAllAspects"));
+      if (hasAspectMapping || hasNoAspects || hasFetchAllAspects) {
         annotated.add(iface.getName() + "." + field.getName());
       }
     }
