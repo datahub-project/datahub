@@ -72,7 +72,6 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
-    KnownQueryLineageInfo,
     ObservedQuery,
     SqlParsingAggregator,
 )
@@ -295,6 +294,7 @@ class DremioSource(StatefulIngestionSourceBase):
             usage_config=self.config.usage,
             # Gate SQL-discovered URNs through the catalog-walk filters.
             is_allowed_table=self._is_allowed_table,
+            format_queries=False,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
@@ -352,10 +352,8 @@ class DremioSource(StatefulIngestionSourceBase):
                 and not mapping.platform_instance
             ):
                 self.report.warning(
-                    "Cross-platform lineage warning",
-                    f"Source '{source_name}' maps to platform '{mapping.platform}' but has no "
-                    f"platform_instance configured. This may cause URN mismatches with the upstream "
-                    f"connector. Consider adding platform_instance to source_mappings configuration.",
+                    message="Cross-platform source mapping has no platform_instance configured, this may cause URN mismatches with the upstream connector",
+                    context=f"source={source_name}, platform={mapping.platform}",
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -371,7 +369,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
                 except Exception as exc:
                     self.report.num_containers_failed += 1
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Dremio container",
                         context=f"{'.'.join(container.path)}.{container.container_name}",
                         exc=exc,
@@ -401,7 +399,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
                 except Exception as exc:
                     self.report.num_datasets_failed += 1
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
@@ -419,7 +417,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Glossary terms",
                         context=f"{glossary_term.glossary_term}",
                         exc=exc,
@@ -452,7 +450,7 @@ class DremioSource(StatefulIngestionSourceBase):
                             self.report.profiling_skipped_other[
                                 target.resource_name
                             ] += 1
-                            self.report.report_failure(
+                            self.report.failure(
                                 message="Failed to profile dataset",
                                 context=target.full_table_name,
                                 exc=exc,
@@ -682,7 +680,7 @@ class DremioSource(StatefulIngestionSourceBase):
             try:
                 self.process_query(query)
             except Exception as exc:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process dremio query",
                     context=f"{query.job_id}: {exc}",
                     exc=exc,
@@ -714,11 +712,8 @@ class DremioSource(StatefulIngestionSourceBase):
                 for pattern, pattern_type in suspicious_patterns:
                     if pattern in queried_ds_lower:
                         self.report.warning(
-                            "Query lineage format mismatch",
-                            f"Query {query.job_id} references dataset '{queried_ds}' which appears to be a "
-                            f"{pattern_type} but was not found in the catalog. This may cause lineage breaks. "
-                            f"Verify that source_mappings configuration correctly maps Dremio sources to "
-                            f"upstream platforms, or that query logs use the same naming as catalog metadata.",
+                            message="Query lineage format mismatch: dataset not found in catalog, this may cause lineage breaks",
+                            context=f"job_id={query.job_id}, dataset={queried_ds}, detected_type={pattern_type}",
                         )
                         break
                 else:
@@ -729,67 +724,8 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def process_query(self, query: DremioQuery) -> None:
-        if query.query and query.affected_dataset:
-            # Validate query dataset format matches catalog format
-            self._validate_query_lineage_format(query)
+        self._validate_query_lineage_format(query)
 
-            # Pre-filter explicit upstreams/downstream; is_allowed_table
-            # is the second line of defence for URNs the SQL parser
-            # rediscovers inside add_observed_query.
-            downstream_name = query.affected_dataset.lower()
-            downstream_allowed = passes_dremio_filters(
-                name=downstream_name,
-                catalog_dataset_names=self.catalog_dataset_names,
-                dataset_pattern=self.config.dataset_pattern,
-                schema_pattern=self.config.schema_pattern,
-            )
-
-            upstream_urns: List[str] = []
-            for ds in query.queried_datasets:
-                ds_lower = ds.lower()
-                if not passes_dremio_filters(
-                    name=ds_lower,
-                    catalog_dataset_names=self.catalog_dataset_names,
-                    dataset_pattern=self.config.dataset_pattern,
-                    schema_pattern=self.config.schema_pattern,
-                ):
-                    self.report.lineage_dropped_filtered += 1
-                    continue
-                upstream_urns.append(
-                    make_dataset_urn_with_platform_instance(
-                        platform=make_data_platform_urn(self.get_platform()),
-                        name=f"{DREMIO_DATABASE_NAME}.{ds_lower}",
-                        env=self.config.env,
-                        platform_instance=self.config.platform_instance,
-                    )
-                )
-
-            if downstream_allowed and upstream_urns:
-                downstream_urn = make_dataset_urn_with_platform_instance(
-                    platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{downstream_name}",
-                    env=self.config.env,
-                    platform_instance=self.config.platform_instance,
-                )
-                self.sql_parsing_aggregator.add_known_query_lineage(
-                    KnownQueryLineageInfo(
-                        query_text=query.query,
-                        upstreams=upstream_urns,
-                        downstream=downstream_urn,
-                    ),
-                    merge_lineage=True,
-                )
-            elif not downstream_allowed:
-                # One increment per query whose downstream is filtered.
-                # Per-upstream drops were already counted in the loop above;
-                # this is intentionally not multiplied by the upstream count
-                # — see lineage_dropped_filtered's docstring for the "lineage
-                # references, not edges" semantics.
-                self.report.lineage_dropped_filtered += 1
-
-        # Always register the observed query; usage stats aren't gated here.
-        # Aspects for filtered URNs that the SQL parser rediscovers are blocked
-        # by SqlParsingAggregator's is_allowed_table gate at emission time.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,

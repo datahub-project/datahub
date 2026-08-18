@@ -84,6 +84,29 @@ public class RateLimitMetricsTest {
   }
 
   @Test
+  public void testRecordFailOpenIncrementsCounterTaggedByStage() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    RateLimitMetrics metrics = new RateLimitMetrics(registry, false);
+
+    metrics.recordFailOpen("front_gate");
+    metrics.recordFailOpen("front_gate");
+    metrics.recordFailOpen("heavy_resolver");
+
+    assertEquals(
+        registry.find("gms.rate_limit.fail_open").tag("stage", "front_gate").counter().count(),
+        2.0);
+    assertEquals(
+        registry.find("gms.rate_limit.fail_open").tag("stage", "heavy_resolver").counter().count(),
+        1.0);
+  }
+
+  @Test
+  public void testRecordFailOpenNoOpWithoutRegistry() {
+    // Must not NPE when metrics are disabled (null registry).
+    new RateLimitMetrics(null, false).recordFailOpen("front_gate");
+  }
+
+  @Test
   public void testGraphqlOperationTagRecordedOnCounter() {
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
     RateLimitMetrics metrics = new RateLimitMetrics(registry, true);

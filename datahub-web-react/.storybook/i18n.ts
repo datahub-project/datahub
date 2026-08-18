@@ -1,30 +1,39 @@
 import i18n from 'i18next';
+import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
 
-// Eagerly bundle every namespace for every language so stories render real strings
-// instead of raw keys, and the toolbar language switcher works offline.
-// (The app lazy-loads these via a backend; Storybook has no backend, so we load them
-// synchronously.) Namespaces without a translation for a given language fall back to en.
-const modules = import.meta.glob('../src/i18n/locales/*/*.json', { eager: true, import: 'default' });
+// Eager-bundle only English so the default (and dominant) Storybook view renders real
+// strings synchronously with no key-flash and no hardcoded namespace list to maintain.
+// Every other language is lazy-loaded on demand (see below), keeping ~3.5MB of non-English
+// translations out of the preview entry bundle. Namespaces without a translation for the
+// active language fall back to the already-loaded English text via `fallbackLng`.
+const enModules = import.meta.glob('../src/i18n/locales/en/*.json', { eager: true, import: 'default' });
 
-const resources: Record<string, Record<string, unknown>> = {};
-for (const path in modules) {
-    // path looks like `../src/i18n/locales/<lng>/<namespace>.json`
-    const match = path.match(/\/locales\/([^/]+)\/([^/]+)\.json$/);
+const enResources: Record<string, unknown> = {};
+for (const path in enModules) {
+    // path looks like `../src/i18n/locales/en/<namespace>.json`
+    const match = path.match(/\/en\/([^/]+)\.json$/);
     if (match) {
-        const [, lng, namespace] = match;
-        resources[lng] = resources[lng] || {};
-        resources[lng][namespace] = modules[path];
+        const [, namespace] = match;
+        enResources[namespace] = enModules[path];
     }
 }
 
-const namespaces = Array.from(new Set(Object.values(resources).flatMap((nsMap) => Object.keys(nsMap))));
+const namespaces = Object.keys(enResources);
+
+// Lazy tier: mirror the app (`src/i18n/i18n.ts`). Vite code-splits each `<lng>/<ns>.json`
+// into its own chunk, fetched by i18next only when a story requests it for the active
+// language. `partialBundledLanguages` is required so i18next uses this backend for any
+// language/namespace absent from `resources` — without it, the bundled `en` would suppress
+// all backend loads and non-English languages would never localize.
+i18n.use(resourcesToBackend((lng: string, ns: string) => import(`../src/i18n/locales/${lng}/${ns}.json`)));
 
 i18n.use(initReactI18next).init({
     lng: 'en',
     fallbackLng: 'en',
     ns: namespaces,
-    resources,
+    resources: { en: enResources },
+    partialBundledLanguages: true,
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
 });

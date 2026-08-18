@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
@@ -39,7 +40,7 @@ public class LifecycleStageValidatorTest {
       AspectPluginConfig.builder()
           .className(LifecycleStageValidator.class.getName())
           .enabled(true)
-          .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE"))
+          .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH"))
           .supportedEntityAspectNames(
               List.of(new AspectPluginConfig.EntityAspectName("*", STATUS_ASPECT_NAME)))
           .build();
@@ -216,6 +217,59 @@ public class LifecycleStageValidatorTest {
     // but the validator treats it as "applies to all" since empty != explicit restriction.
     // The real enforcement of "empty = disabled" is at the hideInSearch/search layer.
     assertEquals(errors, 0, "Stage with empty entityTypes should pass (empty != restricted)");
+  }
+
+  /** A stage set via patch is validated from the patch's own value at the request stage. */
+  @Test
+  public void testPatchLifecycleStageValidated() {
+    // valid stage passes
+    LifecycleStageTypeInfo info = makeStageInfo(null);
+    doReturn(new Aspect(info.data()))
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+    String validOps =
+        "[{\"op\":\"add\",\"path\":\"/lifecycleStage\",\"value\":\"" + STAGE_URN + "\"}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, validOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Patch setting an existing stage should pass");
+
+    // nonexistent stage is rejected
+    String invalidOps =
+        "[{\"op\":\"add\",\"path\":\"/lifecycleStage\",\"value\":\"" + NONEXISTENT_URN + "\"}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, invalidOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Patch setting a nonexistent stage should fail");
+  }
+
+  /** A patch touching other Status fields carries no stage to validate. */
+  @Test
+  public void testPatchWithoutLifecycleStageIgnored() {
+    String ops = "[{\"op\":\"add\",\"path\":\"/removed\",\"value\":true}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Patch without a lifecycleStage should pass without lookups");
   }
 
   private TestMCP buildMCP(Urn entityUrn, Status status) {

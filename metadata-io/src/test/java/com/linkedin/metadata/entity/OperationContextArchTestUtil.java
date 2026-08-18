@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
+import com.linkedin.metadata.utils.arch.OperationContextExempt;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;

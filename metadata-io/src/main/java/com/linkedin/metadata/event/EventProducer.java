@@ -3,9 +3,10 @@ package com.linkedin.metadata.event;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.entity.OperationContextExempt;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.usage.instrumentation.UsageMetadataChangeProposalEnricher;
+import com.linkedin.metadata.utils.arch.OperationContextExempt;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -89,7 +90,15 @@ public abstract class EventProducer {
    * MetadataChangeProposal}), mirroring {@link #produceFailedMetadataChangeProposalAsync}.
    */
   @WithSpan
-  public abstract Future<?> produceMetadataChangeProposal(
+  public final Future<?> produceMetadataChangeProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull MetadataChangeProposal metadataChangeProposal) {
+    UsageMetadataChangeProposalEnricher.enrich(opContext, metadataChangeProposal);
+    return doProduceMetadataChangeProposal(opContext, urn, metadataChangeProposal);
+  }
+
+  protected abstract Future<?> doProduceMetadataChangeProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal);

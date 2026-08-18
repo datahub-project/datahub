@@ -80,7 +80,7 @@ public class MceConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public EntityRegistry entityRegistry() {
-    return TestOperationContexts.defaultEntityRegistry();
+    return TestOperationContexts.constructNewEntityRegistry();
   }
 
   // Use @Bean (no @Primary) to prevent ConfigEntityRegistryFactory from loading

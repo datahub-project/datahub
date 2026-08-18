@@ -28,29 +28,30 @@ const DEFAULT_ICONS: Record<AlertVariant, React.ReactNode> = {
     warning: <WarningCircle size={20} weight="fill" />,
     info: <Info size={20} weight="fill" />,
     brand: <MegaphoneSimple size={20} weight="fill" />,
-    unknown: <Question size={20} weight="fill" />,
+    gray: <Question size={20} weight="fill" />,
 };
 
 /**
  * Mapping of Alert variant -> alchemy Button color, so that any in-Alert button
  * (close button, action slot) reads as the same hue as the surrounding banner.
  */
-export const VARIANT_BUTTON_COLOR_MAP: Record<AlertVariant, ColorOptions> = {
+const VARIANT_BUTTON_COLOR_MAP: Record<AlertVariant, ColorOptions> = {
     success: 'green',
     error: 'red',
     warning: 'yellow',
     info: 'blue',
-    brand: 'violet',
-    unknown: 'gray',
+    brand: 'primary',
+    gray: 'gray',
 };
 
 /**
- * Inline status banner for success, error, warning, info, brand, and unknown
+ * Inline status banner for success, error, warning, info, brand, and gray
  * messages. Layout is a header row (icon + title on the left, optional
  * topRight action + close button on the right) with description, errorMessage,
  * and inline actions stacked below the header at full content width.
  *
  * Colors are derived from semantic theme tokens based on the variant.
+ * Action and close buttons inherit the matching button color automatically.
  */
 export function Alert({
     variant,
@@ -67,10 +68,24 @@ export function Alert({
 }: AlertProps) {
     const { t: tc } = useTranslation('common.actions');
     const displayIcon = icon ?? DEFAULT_ICONS[variant];
+    const buttonColor = VARIANT_BUTTON_COLOR_MAP[variant];
     const showInlineAction = action && actionPlacement === 'inline';
     const showTopRightAction = action && actionPlacement === 'topRight';
     const hasHeaderRight = showTopRightAction || !!onClose;
     const hasBody = !!description || !!errorMessage || !!showInlineAction;
+
+    const actionButton = action ? (
+        <Button
+            variant="text"
+            color={buttonColor}
+            size="sm"
+            icon={action.icon}
+            onClick={action.onClick}
+            data-testid={action.dataTestId}
+        >
+            {action.label}
+        </Button>
+    ) : null;
 
     return (
         <AlertContainer
@@ -89,11 +104,11 @@ export function Alert({
                 </AlertHeaderLeft>
                 {hasHeaderRight && (
                     <AlertHeaderRight>
-                        {showTopRightAction && action}
+                        {showTopRightAction && actionButton}
                         {onClose && (
                             <Button
                                 variant="text"
-                                color={VARIANT_BUTTON_COLOR_MAP[variant]}
+                                color={buttonColor}
                                 type="button"
                                 aria-label={tc('close')}
                                 onClick={onClose}
@@ -108,7 +123,7 @@ export function Alert({
                 <AlertBody>
                     {description && <Text size="md">{description}</Text>}
                     {errorMessage && <AlertErrorMessage>{errorMessage}</AlertErrorMessage>}
-                    {showInlineAction && <AlertActions>{action}</AlertActions>}
+                    {showInlineAction && <AlertActions>{actionButton}</AlertActions>}
                 </AlertBody>
             )}
         </AlertContainer>

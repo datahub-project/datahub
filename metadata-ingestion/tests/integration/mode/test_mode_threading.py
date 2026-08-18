@@ -621,12 +621,18 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
         ("space_c", "Space C", 4),
     ]
 
+    # Deterministic, guaranteed-unique integer IDs. `hash(token) % 10000` was
+    # used previously but Python's hash is salted per-process (PEP 456), so
+    # IDs were non-deterministic and the 0..9999 range gave a ~0.45% birthday-
+    # collision risk across 10 reports, occasionally collapsing two dashboard
+    # URNs into one and failing the `== 10` assertion.
     space_objects: List[dict] = []
+    next_id = iter(range(10_000, 10_000 + 1_000_000))
     for space_token, space_name, num_reports in spaces_config:
         space_objects.append(
             {
                 "token": space_token,
-                "id": hash(space_token) % 10000,
+                "id": next(next_id),
                 "name": space_name,
                 "restricted": False,
                 "default_access_level": "view",
@@ -642,7 +648,7 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
             reports.append(
                 {
                     "token": report_token,
-                    "id": hash(report_token) % 10000,
+                    "id": next(next_id),
                     "name": f"{space_name} Report {i}",
                     "description": f"Report {i} in {space_name}",
                     "created_at": PERF_TIMESTAMP,
@@ -663,7 +669,7 @@ def _build_multi_space_perf_response_map() -> Dict[str, dict]:
                 "_embedded": {
                     "queries": [
                         {
-                            "id": hash(query_token) % 10000,
+                            "id": next(next_id),
                             "token": query_token,
                             "raw_query": f"SELECT * FROM {space_token}_table_{i}",
                             "name": f"Query {i}",

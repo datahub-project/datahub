@@ -6,6 +6,8 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfig;
 import com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.entity.RetentionBufferFactory;
+import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.utils.EnvironmentUtils;
@@ -21,6 +23,7 @@ import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConf
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 
 /**
@@ -47,6 +50,13 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.timeseries",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
+    },
+    // Cleanup CLI only tears down ES/Kafka/DB — it never ingests, so keep the post-commit retention
+    // buffer + drainer out (no cluster-wide drain lock held by a teardown job).
+    excludeFilters = {
+      @ComponentScan.Filter(
+          type = FilterType.ASSIGNABLE_TYPE,
+          classes = {RetentionBufferFactory.class, RetentionBufferSchedulingConfig.class})
     })
 public class CleanupUpgradeConfig {
 

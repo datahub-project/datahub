@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -133,7 +134,7 @@ public class UpdateIndicesService implements SearchIndicesService {
           updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
         }
 
-        handleSystemMetadataUpdateChangeEvents(updateEvents);
+        handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
       }
 
       // Process delete events
@@ -150,7 +151,8 @@ public class UpdateIndicesService implements SearchIndicesService {
         updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
 
         // system metadata is last for tracing
-        handleSystemMetadataDeleteChangeEvent(deleteEvent.getUrn(), specPair, isDeletingKey);
+        handleSystemMetadataDeleteChangeEvent(
+            opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
       }
     }
   }
@@ -161,7 +163,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    *
    * @param events the collection of update events
    */
-  private void handleSystemMetadataUpdateChangeEvents(@Nonnull final Collection<MCLItem> events) {
+  private void handleSystemMetadataUpdateChangeEvents(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<MCLItem> events) {
     if (events.isEmpty()) {
       return;
     }
@@ -172,14 +175,17 @@ public class UpdateIndicesService implements SearchIndicesService {
         SystemMetadata systemMetadata = event.getSystemMetadata();
         if (systemMetadata != null) {
           systemMetadataService.insert(
-              systemMetadata, event.getUrn().toString(), event.getAspectSpec().getName());
+              opContext,
+              systemMetadata,
+              event.getUrn().toString(),
+              event.getAspectSpec().getName());
 
           // If processing status aspect update all aspects for this urn to removed
           if (event.getAspectSpec().getName().equals(Constants.STATUS_ASPECT_NAME)) {
             RecordTemplate aspect = event.getRecordTemplate();
             if (aspect instanceof Status) {
               systemMetadataService.setDocStatus(
-                  event.getUrn().toString(), ((Status) aspect).isRemoved());
+                  opContext, event.getUrn().toString(), ((Status) aspect).isRemoved());
             }
           }
         }
@@ -195,19 +201,23 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param isDeletingKey whether the key aspect is being deleted
    */
   private void handleSystemMetadataDeleteChangeEvent(
-      @Nonnull Urn urn, Pair<EntitySpec, AspectSpec> specPair, boolean isDeletingKey) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      Pair<EntitySpec, AspectSpec> specPair,
+      boolean isDeletingKey) {
     if (!specPair.getSecond().isTimeseries()) {
       if (isDeletingKey) {
         // Delete all aspects
         log.debug(String.format("Deleting all system metadata for urn: %s", urn));
-        systemMetadataService.deleteUrn(urn.toString());
+        systemMetadataService.deleteUrn(opContext, urn.toString());
       } else {
         // Delete all aspects from system metadata service
         log.debug(
             String.format(
                 "Deleting system metadata for urn: %s, aspect: %s",
                 urn, specPair.getSecond().getName()));
-        systemMetadataService.deleteAspect(urn.toString(), specPair.getSecond().getName());
+        systemMetadataService.deleteAspect(
+            opContext, urn.toString(), specPair.getSecond().getName());
       }
     }
   }
@@ -287,6 +297,35 @@ public class UpdateIndicesService implements SearchIndicesService {
     } catch (Exception e) {
       log.error("Failed to flush bulk processor", e);
       throw new RuntimeException("Failed to flush bulk processor", e);
+    }
+  }
+
+  /**
+   * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer before the
+   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false or when the write
+   * path is unavailable (e.g. unit tests with a mocked search service).
+   */
+  public void flushAndWaitIfConfigured() {
+    ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+    if (writeDAO == null) {
+      return;
+    }
+    ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
+    if (bulkProcessor == null || !bulkProcessor.isAckAfterTransfer()) {
+      return;
+    }
+    try {
+      java.time.Duration timeout =
+          java.time.Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds());
+      bulkProcessor.flushAndWait(timeout);
+      log.debug("Bulk transfer acknowledged after flush-and-wait");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+    } catch (java.util.concurrent.TimeoutException e) {
+      throw new RuntimeException("Timed out waiting for bulk transfer", e);
+    } catch (BulkTransferException e) {
+      throw new RuntimeException("Bulk transfer failed before offset ack", e);
     }
   }
 }

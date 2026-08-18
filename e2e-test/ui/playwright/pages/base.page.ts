@@ -17,13 +17,18 @@
 import * as path from 'path';
 import type { Page } from '@playwright/test';
 import type { DataHubLogger } from '../utils/logger';
+import { ToastComponent } from './common/toast-component';
 
 export class BasePage {
+  protected readonly toast: ToastComponent;
+
   constructor(
     protected readonly page: Page,
     protected readonly logger?: DataHubLogger,
     protected readonly logDir?: string,
-  ) {}
+  ) {
+    this.toast = new ToastComponent(page);
+  }
 
   async navigate(url: string): Promise<void> {
     this.logger?.step('navigate', { url });

@@ -66,6 +66,12 @@ public abstract class BaseIntegrationTest {
 
   private static String generatedToken;
   private static String generatedTokenId;
+
+  /** Token for tests that need a raw emitter (e.g. seeding aspects the V2 SDK cannot write). */
+  protected static String getAccessToken() {
+    return generatedToken;
+  }
+
   private static final HttpClient httpClient = HttpClient.newHttpClient();
   private static final ObjectMapper objectMapper = new ObjectMapper();
 

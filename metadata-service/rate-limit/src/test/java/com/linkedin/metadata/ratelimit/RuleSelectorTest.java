@@ -120,6 +120,102 @@ public class RuleSelectorTest {
     assertEquals(selector.selectEndpointRule("/auth/signUp", "POST", null), null);
   }
 
+  @Test
+  public void testClientClassNarrowsToScopedRule() {
+    RateLimitProperties config = baseConfig();
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("graphql-catch-all")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .capacity(1000)
+                    .refillTokens(1000)
+                    .refillPeriodSeconds(60)
+                    .build(),
+                RateLimitProperties.Rule.builder()
+                    .id("graphql-non-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("non_browser"))
+                    .capacity(100)
+                    .refillTokens(100)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RuleSelector selector = new RuleSelector(config);
+
+    // Non-browser narrows to the scoped rule; it outranks the catch-all at equal path specificity.
+    assertEquals(
+        selector.selectEndpointRule("/api/graphql", "POST", null, ClientClass.NON_BROWSER).getId(),
+        "graphql-non-browser");
+    // Browser does not match the non-browser rule, so it falls back to the catch-all.
+    assertEquals(
+        selector.selectEndpointRule("/api/graphql", "POST", null, ClientClass.BROWSER).getId(),
+        "graphql-catch-all");
+    // Wildcard (null, i.e. classification disabled) also resolves — scoped rule wins the tiebreak.
+    assertEquals(
+        selector.selectEndpointRule("/api/graphql", "POST", null, null).getId(),
+        "graphql-non-browser");
+  }
+
+  @Test
+  public void testUnnamedQueryIdentityRoutesToOperationScopedRule() {
+    RateLimitProperties config = baseConfig();
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("graphql-heavy-search")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .graphqlOperationNames(List.of("searchAcrossEntities"))
+                    .capacity(50)
+                    .refillTokens(50)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RuleSelector selector = new RuleSelector(config);
+
+    // The identity derived for an unnamed `{ searchAcrossEntities { ... } }` query routes to the
+    // heavy rule's bucket, exactly as a named query would.
+    CompiledRateLimitRule heavy =
+        selector.selectEndpointRule("/api/graphql", "POST", "searchAcrossEntities");
+    assertEquals(heavy.getId(), "graphql-heavy-search");
+
+    // A cheap identity matches no heavy rule (falls through to the default lane in a real config).
+    assertEquals(selector.selectEndpointRule("/api/graphql", "POST", "getMe"), null);
+  }
+
+  @Test
+  public void testClientAgnosticRuleMatchesEveryClass() {
+    RateLimitProperties config = baseConfig();
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("auth-signup")
+                    .pathPattern("/auth/signUp")
+                    .methods(List.of("POST"))
+                    .capacity(200)
+                    .refillTokens(200)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RuleSelector selector = new RuleSelector(config);
+
+    assertEquals(
+        selector.selectEndpointRule("/auth/signUp", "POST", null, ClientClass.BROWSER).getId(),
+        "auth-signup");
+    assertEquals(
+        selector.selectEndpointRule("/auth/signUp", "POST", null, ClientClass.NON_BROWSER).getId(),
+        "auth-signup");
+  }
+
   private RateLimitProperties baseConfig() {
     RateLimitProperties config = new RateLimitProperties();
     config.setCapacity(new RateLimitProperties.Capacity());

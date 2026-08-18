@@ -30,9 +30,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     DataPlatformTable,
+    IdentifierAccessor,
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    OdbcLineage,
     OracleLineage,
     _remap_column_lineage_to_pbi_fields,
 )
@@ -265,10 +267,12 @@ def test_create_lineage_from_query_skips_warning_when_sql_is_qualified():
     )
 
 
-def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns():
+def test_create_lineage_from_query_threads_oracle_default_schema():
     """When the resolver returns ``OraclePlatformDetail(default_schema='hr')``,
-    ``parse_custom_sql`` must be called with ``schema='hr'`` and the returned
-    column_lineage must be remapped to PowerBI field casing."""
+    ``parse_custom_sql`` must be called with ``schema='hr'`` (and the resolved
+    detail threaded through), and its result returned unchanged. The downstream
+    column remap now lives inside ``parse_custom_sql`` itself, covered by
+    ``test_parse_custom_sql_remaps_downstream_columns_to_pbi_field_casing``."""
     config = _build_config(enable_advance_lineage_sql_construct=True)
     pbi_columns = [
         Column(
@@ -329,17 +333,59 @@ def test_create_lineage_from_query_uses_oracle_default_schema_and_remaps_columns
     # parse_custom_sql so the resolver isn't re-run inside it.
     assert kwargs["platform_detail"] is oracle_detail
 
-    assert result.upstreams == parsed_lineage.upstreams
-    assert len(result.column_lineage) == 1
-    # _remap_column_lineage_to_pbi_fields restores the PowerBI field casing.
-    assert result.column_lineage[0].downstream.column == "EMPLOYEE_ID"
-    # Upstream casing must be preserved (Oracle stores lowercase).
-    assert result.column_lineage[0].upstreams[0].column == "employee_id"
+    # _create_lineage_from_query delegates to parse_custom_sql and returns its
+    # result verbatim (the remap happens inside parse_custom_sql, mocked here).
+    assert result is parsed_lineage
 
     # Unqualified-table SQL was parsed, but with default_schema set the
     # missing-default_schema warning must NOT fire.
     warning_titles = [entry.title for entry in instance.reporter.warnings]
     assert not any("default_schema" in (t or "") for t in warning_titles)
+
+
+def test_parse_custom_sql_remaps_downstream_columns_to_pbi_field_casing():
+    """parse_custom_sql (the shared SQL-parsing path used by native-query, ODBC,
+    Oracle, and the two/three-step patterns) must remap the parsed downstream
+    column from the SQL alias' casing to the PowerBI field's casing, so the
+    downstream schemaField URN resolves to a real field."""
+    config = _build_config(enable_advance_lineage_sql_construct=True)
+    pbi_columns = [
+        Column(
+            name="EmployeeId",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+        )
+    ]
+    instance = _build_oracle_lineage(config=config, columns=pbi_columns)
+
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    parsed_result = MagicMock()
+    parsed_result.in_tables = [upstream_urn]
+    parsed_result.debug_info = None
+    parsed_result.column_lineage = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(table=None, column="employeeid"),
+            upstreams=[ColumnRef(table=upstream_urn, column="employeeid")],
+        )
+    ]
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.pattern_handler."
+        "native_sql_parser.parse_custom_sql",
+        return_value=parsed_result,
+    ):
+        result = instance.parse_custom_sql(
+            query="SELECT employeeid FROM hr.employees",
+            server="server",
+            database=None,
+            schema="hr",
+            platform_detail=PlatformDetail(),
+        )
+
+    assert len(result.column_lineage) == 1
+    # SQL alias casing ("employeeid") remapped to the PowerBI field ("EmployeeId").
+    assert result.column_lineage[0].downstream.column == "EmployeeId"
 
 
 # ---------------------------------------------------------------------------
@@ -360,6 +406,26 @@ def _make_data_access_func_detail(
         node_map={},
         parameters={},
     )
+
+
+def test_data_access_func_detail_repr_excludes_parse_tree():
+    """DataAccessFunctionDetail is logged at debug and embedded in warning
+    contexts on nearly every table. node_map (the full parse tree) and arg_list
+    must stay out of its repr or those log lines balloon to GBs / OOM."""
+    node_map = {i: {"id": i, "kind": "IdentifierExpression"} for i in range(500)}
+    detail = DataAccessFunctionDetail(
+        arg_list={"kind": "InvokeExpression", "sentinel_arg": "ARG_SENTINEL"},
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map=node_map,
+        parameters={},
+    )
+    rendered = repr(detail)
+    assert "Oracle.Database" in rendered
+    assert "IdentifierExpression" not in rendered
+    assert "ARG_SENTINEL" not in rendered
+    # The heavy fields are still accessible; only their repr is suppressed.
+    assert detail.node_map is node_map
 
 
 def _patch_arg_helpers(
@@ -614,6 +680,118 @@ def test_remap_column_lineage_empty_inputs():
     assert remapped == matching_cll
 
 
+# ---------------------------------------------------------------------------
+# OdbcLineage.expression_lineage — two-tier vs three-tier URN arity
+# ---------------------------------------------------------------------------
+
+
+def _build_odbc_lineage() -> OdbcLineage:
+    """OdbcLineage with a column-less table (so create_table_column_lineage is a
+    no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
+    table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
+    resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
+    resolver.get_platform_instance.return_value = PlatformDetail()
+    return OdbcLineage(
+        ctx=MagicMock(spec=PipelineContext),
+        table=table,
+        config=_build_config(),
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=resolver,
+    )
+
+
+def _nav_accessor(*levels: tuple) -> IdentifierAccessor:
+    """Build a Database->Schema->Table IdentifierAccessor chain from
+    (Kind, Name) tuples, returning the head (first level)."""
+    head: Optional[IdentifierAccessor] = None
+    for kind, name in reversed(levels):
+        head = IdentifierAccessor(
+            identifier=name, items={"Kind": kind, "Name": name}, next=head
+        )
+    assert head is not None
+    return head
+
+
+def test_odbc_two_tier_platform_drops_pseudo_catalog():
+    """Hive's ODBC navigation exposes a constant "HIVE" pseudo-catalog above the
+    real schema. For two-tier platforms it must be dropped so the upstream URN is
+    ``schema.table`` — matching HiveSource (a TwoTierSQLAlchemySource)."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Schema", "product_analytics"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    ]
+
+
+def test_odbc_three_tier_platform_keeps_database():
+    """A genuine three-tier platform (BigQuery: project.dataset.table) must keep
+    all three navigation levels — the two-tier handling must not regress it."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "myproject"),
+            ("Schema", "mydataset"),
+            ("Table", "mytable"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.mytable,PROD)"
+    ]
+
+
+def test_odbc_two_tier_platform_with_no_schema():
+    """A two-tier platform navigated as Database (pseudo-catalog) + Table with no
+    Schema level must NOT fall through to ``database.table`` — that pseudo-catalog
+    (e.g. "HIVE") is not a real schema and would yield a dangling URN. The lineage
+    must be skipped with a warning instead."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Cannot build two-tier ODBC table name"
+        for w in instance.reporter.warnings
+    )
+
+
 def test_remap_column_lineage_multi_table_shared_column_name():
     """Two upstream tables sharing a column name (e.g. SETID from both
     PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI
@@ -682,3 +860,51 @@ def test_remap_column_lineage_multi_table_shared_column_name():
             "setid",
         ),
     ]
+
+
+# ---------------------------------------------------------------------------
+# OdbcLineage — view leaves and dialect-aware SQL detection
+# (reuses the _build_odbc_lineage / _nav_accessor helpers defined above)
+# ---------------------------------------------------------------------------
+
+
+def test_odbc_view_leaf_resolves_like_table():
+    # A view leaf uses Kind="View"; without handling it the upstream is dropped.
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "my_project"),
+            ("Schema", "my_dataset"),
+            ("View", "my_view"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_view,PROD)"
+    ]
+
+
+def test_is_sql_query_uses_platform_dialect():
+    # BigQuery backtick-quoted, hyphenated project ids only parse under the
+    # bigquery dialect; the default dialect rejects them.
+    query = "SELECT t.* FROM `my-proj-1.my_dataset.my_table` t WHERE col_a IN (1, 2)"
+    assert OdbcLineage.is_sql_query(query) is False
+    assert OdbcLineage.is_sql_query(query, "bigquery") is True
+
+
+def test_is_sql_query_handles_other_platforms_without_raising():
+    # Plain SQL is recognised regardless of platform, and a platform sqlglot has
+    # no dialect for (e.g. db2) must fall back to the default dialect, not raise.
+    query = "SELECT a, b FROM my_schema.my_table"
+    assert OdbcLineage.is_sql_query(query, "databricks") is True
+    assert OdbcLineage.is_sql_query(query, "db2") is True
+    assert OdbcLineage.is_sql_query("not a query at all", "db2") is False

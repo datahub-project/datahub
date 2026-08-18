@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "id": 101,
+      "publicId": "rpt0000000a1",
+      "name": "orders_by_status",
+      "title": "Orders by Status",
+      "description": "Daily order counts grouped by status.",
+      "jsonQuery": "{\"measures\":[\"orders_view.count\"],\"dimensions\":[\"orders_view.status\"]}",
+      "workbookId": 5001,
+      "user": { "id": 1, "email": "analyst@example.com" },
+      "createdAt": "2024-01-10T09:00:00.000Z",
+      "updatedAt": "2024-02-01T12:30:00.000Z"
+    },
+    {
+      "id": 102,
+      "publicId": "rpt0000000b2",
+      "name": "order_count_raw",
+      "title": "Raw Order Count",
+      "jsonQuery": "{\"measures\":[\"orders.count\"],\"filters\":[{\"member\":\"orders.status\",\"operator\":\"equals\",\"values\":[\"completed\"]}]}",
+      "workbookId": 5001,
+      "user": { "id": 2, "email": "lead@example.com" },
+      "updatedAt": "2024-02-02T08:15:00.000Z"
+    }
+  ],
+  "pageInfo": { "hasNextPage": false, "endCursor": null }
+}

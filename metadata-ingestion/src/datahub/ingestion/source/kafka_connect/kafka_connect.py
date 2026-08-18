@@ -244,7 +244,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_response.raise_for_status()
         except Exception as e:
             self.report.warning(
-                "Failed to get connector details", connector_name, exc=e
+                message="Failed to get connector details",
+                context=connector_name,
+                exc=e,
             )
             return None
         manifest = connector_response.json()
@@ -288,14 +290,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             tasks = []
 
-        filtered_manifest = {
-            "name": name,
-            "type": connector_type,
-            "config": config,
-            "tasks": tasks,
-        }
-
-        connector_manifest = ConnectorManifest(**filtered_manifest)
+        connector_manifest = ConnectorManifest(
+            name=name,
+            type=connector_type,
+            config=config,
+            tasks=tasks,
+        )
         return connector_manifest
 
     def _get_connector_tasks(self, connector_name: str) -> List[Dict[str, dict]]:

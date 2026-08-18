@@ -1,10 +1,11 @@
 """Configuration models for NotionSource."""
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -61,6 +62,19 @@ class NotionSourceConfig(
         default=True,
         description="Recursively fetch child pages. "
         "When true, ingests all descendant pages of specified pages/databases.",
+    )
+
+    document_import_mode: DocumentImportMode = Field(
+        default=DocumentImportMode.EXTERNAL,
+        description=(
+            "NATIVE imports editable documents in DataHub. EXTERNAL imports read-only "
+            "references that link back to Notion."
+        ),
+    )
+
+    parent_document_urn: Optional[str] = Field(
+        default=None,
+        description="Optional parent document URN for top-level imported pages.",
     )
 
     # Shared configuration sections (from unstructured/config.py)
@@ -259,6 +273,13 @@ class NotionSourceConfig(
         if self.hierarchy.enabled and self.hierarchy.parent_strategy == "folder":
             # Override default 'folder' strategy to 'notion' for Notion source
             self.hierarchy.parent_strategy = "notion"
+        return self
+
+    @model_validator(mode="after")
+    def apply_document_import_mode(self) -> "NotionSourceConfig":
+        self.document_mapping.source.type = self.document_import_mode.value
+        if self.parent_document_urn:
+            self.hierarchy.folder_mapping.root_parent = self.parent_document_urn
         return self
 
     @model_validator(mode="after")

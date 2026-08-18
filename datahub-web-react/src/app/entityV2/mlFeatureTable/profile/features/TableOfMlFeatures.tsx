@@ -150,6 +150,7 @@ export default function TableOfMlFeatures({ features }: Props) {
         <FeaturesContainer>
             {features && features.length > 0 && (
                 <Table
+                    data-testid="mlmodel-features-table"
                     columns={allColumns}
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     // @ts-ignore

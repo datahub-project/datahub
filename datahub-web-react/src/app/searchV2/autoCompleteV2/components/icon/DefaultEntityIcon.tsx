@@ -4,13 +4,14 @@ import styled from 'styled-components';
 
 import { getEntityPlatforms } from '@app/entityV2/shared/containers/profile/header/utils';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import { PlatformIcon } from '@app/searchV2/autoCompleteV2/components/icon/PlatformIcon';
 import { SingleEntityIcon } from '@app/searchV2/autoCompleteV2/components/icon/SingleEntityIcon';
 import { EntityIconProps } from '@app/searchV2/autoCompleteV2/components/icon/types';
 import useUniqueEntitiesByPlatformUrn from '@app/searchV2/autoCompleteV2/components/icon/useUniqueEntitiesByPlatformUrn';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { Domain, EntityType } from '@types';
+import { Domain, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -23,6 +24,14 @@ const Container = styled.div`
 `;
 
 const DomainContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 28px;
+    width: 28px;
+`;
+
+const GlossaryContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -59,6 +68,18 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
             <DomainContainer>
                 <DomainColoredIcon domain={entity as Domain} size={DOMAIN_ICON_SIZE} fontSize={16} />
             </DomainContainer>
+        );
+    }
+
+    if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
+        return (
+            <GlossaryContainer>
+                <GlossaryEntityIcon
+                    entity={entity as GlossaryTerm | GlossaryNode}
+                    size={DOMAIN_ICON_SIZE}
+                    iconSize={14}
+                />
+            </GlossaryContainer>
         );
     }
 

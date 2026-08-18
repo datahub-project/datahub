@@ -149,7 +149,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                           "Applying new V3 structured property {} to index {}",
                           newDefinition,
                           reindexState.name());
-                      elasticSearchService.getIndexBuilder().applyMappings(reindexState, false);
+                      elasticSearchService
+                          .getIndexBuilder()
+                          .applyMappings(opContext, reindexState, false);
                     } catch (IOException e) {
                       throw new RuntimeException(e);
                     }

@@ -16,22 +16,44 @@ on:
     branches:
       - master
       - releases/**
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/test_resolve_image_builds.sh"
+      - ".github/workflows/resusable-playwright-tests.yml"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - "**"
-    paths-ignore:
-      - ".github/**"
-      - "!.github/workflows/docker-unified.yml"
-      - "!.github/scripts/send_failed_tests_to_posthog.py"
-      - "!.github/scripts/docker_helpers.sh"
-      - "!.github/actions/ci-optimization"
-      - "!.github/actions/restore-dependency-caches"
-      - "!.github/scripts/check_python_package.py"
-      - "!.github/scripts/parse_failed_cypress_tests.py"
-      - "!.github/scripts/parse_failed_pytest_tests.py"
-      - "!.github/scripts/docker_logs.sh"
-      - "!.github/actions/smoke-test-retry"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/scripts/resolve_image_builds.sh"
+      - ".github/scripts/test_resolve_image_builds.sh"
+      - ".github/workflows/resusable-playwright-tests.yml"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
   release:
     types: [published]
 
@@ -51,7 +73,7 @@ env:
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
-  PLAYWRIGHT_SHARD_COUNT: "5"
+  PLAYWRIGHT_SHARD_COUNT: "8"
 
 permissions:
   contents: read
@@ -102,6 +124,19 @@ jobs:
       playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
+      # Gradle modules base_build has to bake; empty means every image in the
+      # quickstart set can be reused as-is.
+      image_build_modules: ${{ steps.image-build-plan.outputs.image_build_modules }}
+      # KEY=VALUE lines pinning each reused image to the exact digest
+      # `quickstart` resolved to when the plan ran (quickstart@sha256:...), not
+      # the bare floating tag, so every job in this run uses the identical
+      # image even if master finishes a build and moves the tag mid-run. Jobs
+      # that boot a stack append these to $GITHUB_ENV before calling
+      # run-quickstart.sh; images absent from the map fall back to DATAHUB_VERSION.
+      image_version_env: ${{ steps.image-build-plan.outputs.image_version_env }}
+      # Docker repos baked for this run. run-quickstart.sh fails if any of them
+      # resolves to the reused tag instead of this PR's.
+      image_built_repos: ${{ steps.image-build-plan.outputs.image_built_repos }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -131,7 +166,7 @@ jobs:
       - name: Check whether docker login is possible
         id: docker-login
         env:
-          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         run: |
           echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
           echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> "$GITHUB_OUTPUT"
@@ -141,7 +176,7 @@ jobs:
           ENABLE_PUBLISH: >-
             ${{
                (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
-               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+               && ( secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
@@ -152,7 +187,7 @@ jobs:
           ENABLE_PUBLISH: >-
             ${{
                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+               && ( secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
@@ -183,6 +218,25 @@ jobs:
 
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+
+      # ~1s, and it is the only thing that notices when the path classification
+      # in resolve_image_builds.sh drifts out of sync with the repo layout.
+      - name: Test the image build decision
+        run: .github/scripts/test_resolve_image_builds.sh
+
+      - name: Resolve which images to build
+        id: image-build-plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          # Escape hatch: force a full build of every image regardless of what
+          # changed. Matches the existing label convention (`depot`, `publish`).
+          # Reach for it when the reuse path is suspected of serving stale images.
+          FULL_BUILD_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'build-images') }}
+          IS_FORK: ${{ env.IS_FORK }}
+          PR_PUBLISH: ${{ steps.pr-publish.outputs.publish }}
+          SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+          CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
+        run: .github/scripts/resolve_image_builds.sh
 
       - name: Determine runner type
         id: set-runner
@@ -237,7 +291,7 @@ jobs:
       - name: Compute Yarn Cache Key
         id: yarn-cache-key
         run: |
-          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
       - name: Build Playwright shard matrix
@@ -267,63 +321,127 @@ jobs:
     needs: setup
     timeout-minutes: 60
     if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
+    # This job always runs, even when every image can be reused, because three
+    # downstream jobs gate on it to know that a usable image set exists. When
+    # there is nothing to bake it falls through in seconds and reports an empty
+    # build id, which those jobs read as "pull nothing from depot".
+    env:
+      IMAGE_BUILD_MODULES: ${{ needs.setup.outputs.image_build_modules }}
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
-      - name: Set up JDK 21
+      - name: Report the image build plan
+        run: |
+          if [[ -z "$IMAGE_BUILD_MODULES" ]]; then
+            echo "Nothing to build -- every image is being reused from the quickstart tag."
+          else
+            echo "Building: $IMAGE_BUILD_MODULES"
+          fi
+
+      - name: Set up JDK 25
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
 
+      # Unconditional: the `uses: ./...` steps below are local actions, which
+      # can only be resolved out of a checked-out workspace.
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: ./.github/actions/restore-dependency-caches
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-          restore_gradle: true
+
+      # Replaces a hand-rolled actions/cache pair that used the literal key
+      # `gradle-plugins-cache`. Actions cache entries are immutable, so the first
+      # save on master claimed that name and every save after it failed; the entry
+      # froze on 2026-07-22 and was later evicted, leaving this job restoring
+      # nothing. Its path globs were also Gradle 7 (`caches/transforms-*` matches
+      # nothing on 8.14). setup-gradle hashes and versions its own keys, splits the
+      # buckets, and is what the repo's other 19 workflows already use.
+      #
+      # cache-read-only defaults to `ref_name != default_branch`, which is the same
+      # master-only-write rule the hand-rolled version enforced with an `if:` --
+      # important here because pytest_tests and playwright_test each fan out into
+      # many concurrent shard jobs sharing this same branch-scoped cache
+      # namespace. Restricting writes to master keeps every PR's shards from also
+      # saving into it, which would churn/evict entries and contribute to
+      # exhausting the repo's 10GB Actions cache budget (see build-cache-1 below).
+      #
+      # build-cache-1 is excluded: task outputs come from the Depot remote build
+      # cache (cache.depot.dev), and including it here is what has been reported to
+      # exhaust the repo's 10GB Actions cache budget.
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          gradle-home-cache-excludes: caches/build-cache-1
 
       - name: Set up Depot CLI
-        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' && env.IMAGE_BUILD_MODULES != '' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         with:
           python-version: "3.11"
           cache: "pip"
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        if: ${{ needs.setup.outputs.docker-login == 'true' && env.IMAGE_BUILD_MODULES != '' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - id: uv-creds
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build all Images (For Smoke tests)
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        # --max-workers=$(nproc): gradle.properties caps workers at 2 (a laptop-safe
+        # default); the runner has 4+ vCPU, so that throttles this multi-module build.
+        # Same override build-and-test.yml already applies.
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && env.IMAGE_BUILD_MODULES != '' }}
+        env:
+          SMOKE_BUILD_TASK: ${{ needs.setup.outputs.smoke_build_task }}
         run: |
+          # -PbuildModules narrows the bake to the images this PR can affect, and
+          # only applies to the default quickstart set. The other two tasks are
+          # reached only on paths that always build everything (workflow_dispatch,
+          # or a smoke: label picking a different profile), and their module sets
+          # do not match the one the plan was computed against.
+          build_modules_flag=()
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BUILD_TASK=":docker:buildImagesAll"
-          elif [[ -n "${{ needs.setup.outputs.smoke_build_task }}" ]]; then
-            BUILD_TASK="${{ needs.setup.outputs.smoke_build_task }}"
+          elif [[ -n "$SMOKE_BUILD_TASK" ]]; then
+            BUILD_TASK="$SMOKE_BUILD_TASK"
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
+            build_modules_flag=("-PbuildModules=$IMAGE_BUILD_MODULES")
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK "${build_modules_flag[@]}" -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
         # The floating quickstart tag is applied only after smoke tests pass (see publish_images).
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew --max-workers="$(nproc)" :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Capture build Id
         id: capture-build-id
+        # Skipped when nothing was baked, leaving build_id empty so the jobs
+        # downstream skip their `depot pull` and take every image from the registry.
+        if: ${{ env.IMAGE_BUILD_MODULES != '' }}
         run: |
           pip install jq
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' "${{ github.workspace }}/build/build-metadata.json")
@@ -353,15 +471,6 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
 
   comment_pr_images:
     name: Comment PR image tags
@@ -422,20 +531,16 @@ jobs:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
     outputs:
-      cypress_matrix: ${{ steps.set-matrix.outputs.cypress_matrix }}
       pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
     steps:
       - id: set-batch-count
         # Tests are split simply to ensure the configured number of batches for parallelization. This may need some
         # increase as a new tests added increase the duration where an additional parallel batch helps.
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
-        # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
           if [[ "${{ env.IS_FORK }}" == "true" ]]; then
-            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
@@ -447,39 +552,23 @@ jobs:
             pytest_items="$pytest_items"',{"batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
           done
 
-          cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
-          cypress_items='{"batch":"0","batch_count":"'"$cypress_batch_count"'"}'
-          for ((i=1;i<cypress_batch_count;i++)); do
-            cypress_items="$cypress_items"',{"batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
-          done
-
-          run_both=false
           run_pytest=false
-          run_cypress=false
 
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
-            run_both=true
-          elif [[ "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            run_cypress=true
+            run_pytest=true
           elif [[ "${{ needs.setup.outputs.connector_source_only }}" == 'true' ]]; then
             # Connector-only changes (source implementations, their tests, docs) don't affect
             # smoke tests. Smoke tests exercise the platform via CLI/SDK/APIs, not individual
             # connectors. Skip to save ~140 min of compute.
-            : # both remain false → empty matrices → both jobs skipped
+            : # run_pytest remains false → empty matrix → job skipped
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             run_pytest=true
           fi
 
-          if [[ "$run_both" == 'true' || "$run_pytest" == 'true' ]]; then
+          if [[ "$run_pytest" == 'true' ]]; then
             echo "pytest_matrix={\"include\":[$pytest_items]}" >> "$GITHUB_OUTPUT"
           else
             echo "pytest_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [[ "$run_both" == 'true' || "$run_cypress" == 'true' ]]; then
-            echo "cypress_matrix={\"include\":[$cypress_items]}" >> "$GITHUB_OUTPUT"
-          else
-            echo "cypress_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
           fi
 
   java_integration_tests:
@@ -498,11 +587,11 @@ jobs:
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -533,6 +622,14 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
@@ -541,11 +638,11 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id != '' }}
         run: |
           depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
           docker images
@@ -557,6 +654,19 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - name: Pin reused images to the quickstart tag
+        env:
+          IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
+        run: |
+          # Per-service overrides for the images this PR cannot affect, which are
+          # served from the last set that passed smoke tests on master, pinned to
+          # the exact digest resolved when the plan ran (not the bare floating
+          # `quickstart` tag) so every job in this run uses the same image even
+          # if master finishes a build and moves the tag mid-run. Images absent
+          # here fall through to DATAHUB_VERSION and come from the depot pull
+          # above. Empty on a full build.
+          printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
+
       - name: Run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -565,6 +675,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ needs.setup.outputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
@@ -671,11 +782,11 @@ jobs:
           yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
 
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -717,6 +828,14 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
@@ -725,11 +844,11 @@ jobs:
         run: |
           BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
           echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
           docker images
 
       - name: Pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id != '' && steps.retry-check.outputs.parse_result != 'all_passed' }}
         run: |
           depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
           docker images
@@ -742,6 +861,20 @@ jobs:
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
 
+      - name: Pin reused images to the quickstart tag
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        env:
+          IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
+        run: |
+          # Per-service overrides for the images this PR cannot affect, which are
+          # served from the last set that passed smoke tests on master, pinned to
+          # the exact digest resolved when the plan ran (not the bare floating
+          # `quickstart` tag) so every job in this run uses the same image even
+          # if master finishes a build and moves the tag mid-run. Images absent
+          # here fall through to DATAHUB_VERSION and come from the depot pull
+          # above. Empty on a full build.
+          printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
+
       - name: Run quickstart
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         env:
@@ -751,6 +884,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ needs.setup.outputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
@@ -790,7 +924,18 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          PYTEST_XDIST_WORKERS: "3"
+          # GMS here runs with a 1s bulk-flush and 1s index refresh interval
+          # (see run-quickstart.sh), so the trailing post-wait sleep can match.
+          # The library default stays conservative for other environments.
+          ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: "1"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
+          # On a retry, fall back to the conservative aggregate-lag wait. It is
+          # the wrong default (under full concurrent load the lag may never
+          # reach zero) but the right choice here: a retry runs a smaller
+          # filtered set under much less write pressure, so a wait-related
+          # flake gets a second chance with the stronger guarantee.
+          DATAHUB_TEST_FORCE_LEGACY_WAIT: ${{ github.run_attempt > 1 && 'true' || '' }}
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
             echo "=========================================="
@@ -822,6 +967,14 @@ jobs:
         with:
           name: docker-logs-pytests-${{ matrix.batch }}
           path: "docker_logs/*.log"
+          retention-days: 5
+
+      - name: Upload pytest logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: pytest-smoke-logs-pytests-${{ matrix.batch }}
+          path: "smoke-test/test-results/pytest-smoke.log"
           retention-days: 5
 
       - name: Report test results
@@ -887,327 +1040,6 @@ jobs:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
 
-  cypress_tests:
-    name: Cypress Smoke Tests (Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs: [setup, smoke_test_matrix, base_build]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.cypress_matrix || '{"include":[]}') }}
-    # A status-check function (always/!failure/!cancelled) is required: without one, an `if`
-    # implies success(), which fails for jobs downstream of the optionally-skipped
-    # base_build (skipped on fork PRs), so this job would be skipped.
-    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.cypress_matrix != '' && needs.smoke_test_matrix.outputs.cypress_matrix != '{"include":[]}' }}
-    env:
-      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
-      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
-    steps:
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-
-      - uses: ./.github/actions/restore-dependency-caches
-        with:
-          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
-          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
-          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
-          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "zulu"
-          java-version: 21
-
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
-      - name: Set up Depot CLI
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Parse previous results for retry
-        id: retry-check
-        if: github.run_attempt > 1
-        uses: ./.github/actions/smoke-test-retry
-        with:
-          test_strategy: cypress
-          batch: ${{ matrix.batch }}
-          run_id: ${{ github.run_id }}
-          github_token: ${{ github.token }}
-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-
-      - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        if: ${{ needs.setup.outputs.docker-login == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-        with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-
-      - name: Disk Space Analysis
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-
-      - name: Build images
-        timeout-minutes: 60
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-        env:
-          DOCKER_CACHE: GITHUB
-        run: |
-          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
-          echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
-          docker images
-
-      - name: Pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-        run: |
-          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
-          docker images
-
-      - name: Disk Space Analysis
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-
-      - name: Run quickstart
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        env:
-          DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
-          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
-        run: |
-          echo "Using compose profile: $PROFILE_NAME"
-          ./smoke-test/run-quickstart.sh
-
-      - name: Disk Check
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: df -h . && docker images
-
-      - name: Disable ES Disk Threshold
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: |
-          curl -XPUT "http://localhost:9200/_cluster/settings" \
-          -H 'Content-Type: application/json' -d'{
-            "persistent": {
-              "cluster": {
-                "routing": {
-                  "allocation.disk.threshold_enabled": false
-                }
-              }
-            }
-          }'
-
-      - name: Install dependencies
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: ./metadata-ingestion/scripts/install_deps.sh
-
-      - name: Build datahub cli
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: ./gradlew :metadata-ingestion:install
-
-      - name: Cypress smoke tests
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        env:
-          RUN_QUICKSTART: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          CLEANUP_DATA: "false"
-          TEST_STRATEGY: cypress
-          BATCH_COUNT: ${{ matrix.batch_count }}
-          BATCH_NUMBER: ${{ matrix.batch }}
-          FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
-        run: |
-          if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
-            echo "=========================================="
-            echo "RETRY MODE: Running only failed Cypress tests"
-            echo "=========================================="
-            echo "Failed tests to retry:"
-            cat "$FILTERED_TESTS"
-            echo "=========================================="
-          elif (( ${{ github.run_attempt }} > 1 )); then
-            echo "RETRY MODE: Running all tests (fallback)"
-          fi
-          echo "$DATAHUB_VERSION"
-          ./gradlew --stop
-          ./smoke-test/smoke.sh
-
-      - name: Disk Check
-        run: df -h . && docker images
-
-      - name: Store logs
-        if: failure()
-        run: |
-          docker ps -a
-          TEST_STRATEGY="-cypress-${{ matrix.batch }}"
-          source .github/scripts/docker_logs.sh
-
-      - name: Upload logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: docker-logs-cypress-${{ matrix.batch }}
-          path: "docker_logs/*.log"
-          retention-days: 5
-
-      - name: Stage Cypress screenshots for artifact upload
-        # Copy screenshots alongside the mochawesome JSONs so the post-matrix
-        # cypress_html_report job can embed them into the unified HTML report.
-        if: always()
-        run: |
-          if [ -d smoke-test/tests/cypress/cypress/screenshots ]; then
-            cp -r smoke-test/tests/cypress/cypress/screenshots \
-              smoke-test/tests/cypress/build/mochawesome-report/screenshots
-          fi
-
-      - name: Upload Cypress mochawesome JSON results
-        # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
-        # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
-        # required so upload-artifact picks up that dot-prefixed directory.
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: cypress-mochawesome-json-${{ matrix.batch }}
-          path: smoke-test/tests/cypress/build/mochawesome-report/
-          include-hidden-files: true
-          retention-days: 1
-
-      - name: Upload screenshots
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: cypress-snapshots-cypress-${{ matrix.batch }}
-          path: smoke-test/tests/cypress/cypress/screenshots/
-
-      - name: Report test results
-        if: (!cancelled())
-        uses: ./.github/actions/report-test-results
-        with:
-          artifact-name: Test Results (smoke tests) cypress ${{ matrix.batch }}
-          test-results-paths: |
-            **/smoke-test-results/cypress-test-*.xml
-            !**/binary/**
-          junit-file-globs: |
-            **/smoke-test-results/cypress-test-*.xml
-
-      - name: Send failed test metrics to PostHog
-        if: failure()
-        continue-on-error: true
-        env:
-          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
-          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
-        run: |
-          if [ -z "$POSTHOG_API_KEY" ]; then
-            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
-            exit 0
-          fi
-
-          TEMP_DIR=$(mktemp -d)
-          mkdir -p "$TEMP_DIR/test-results"
-          find . -name "cypress-test-*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
-
-          python3 .github/scripts/send_failed_tests_to_posthog.py \
-            --input-dir "$TEMP_DIR/test-results" \
-            --posthog-api-key "$POSTHOG_API_KEY" \
-            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
-            --repository "${{ github.repository }}" \
-            --workflow-name "${{ github.workflow }}" \
-            --branch "${GH_HEAD_REF}" \
-            --run-id "${{ github.run_id }}" \
-            --run-attempt "${{ github.run_attempt }}" \
-            --batch "${{ matrix.batch }}" \
-            --batch-count "${{ strategy.job-total }}" \
-            --test-strategy "cypress"
-
-          rm -rf "$TEMP_DIR"
-
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-
-  cypress_html_report:
-    name: Generate unified Cypress HTML report
-    runs-on: ubuntu-latest
-    needs: [cypress_tests]
-    if: ${{ !cancelled() && needs.cypress_tests.result != 'skipped' }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Download all Cypress mochawesome JSON artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: cypress-mochawesome-json-*
-          path: mochawesome-results
-          # Do NOT use merge-multiple: all batches write files with the same names
-          # (mochawesome.json, mochawesome_001.json, ...). merge-multiple would cause
-          # later batches to overwrite earlier ones in the same directory. Without it,
-          # each artifact extracts to its own subdirectory:
-          #   mochawesome-results/cypress-mochawesome-json-0/.jsons/mochawesome.json
-          #   mochawesome-results/cypress-mochawesome-json-1/.jsons/mochawesome.json
-          #   ...
-      - name: Generate HTML report
-        run: |
-          # Each artifact extracts to its own subdirectory, so per-spec JSONs land at:
-          #   mochawesome-results/cypress-mochawesome-json-<N>/.jsons/mochawesome_NNN.json
-          mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
-          if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
-            # Collect screenshots from all batch subdirectories into a flat dir.
-            # enhanceReport resolves paths relative to this directory.
-            mkdir -p combined-screenshots
-            find mochawesome-results -mindepth 1 -maxdepth 1 -type d | while read -r batch_dir; do
-              if [ -d "$batch_dir/screenshots" ]; then
-                cp -rn "$batch_dir/screenshots/." combined-screenshots/
-              fi
-            done
-            printf '%s\n' "${JSON_FILES[@]}" > json-file-list.txt
-            npm install --no-save \
-              mochawesome-merge \
-              mochawesome-report-generator \
-              cypress-mochawesome-reporter \
-              fs-extra
-            node .github/scripts/generate-cypress-report.js
-          else
-            echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
-          fi
-      - name: Upload unified Cypress HTML report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: cypress-html-report
-          path: cypress-html-report/
-          retention-days: 5
-
   playwright_test:
     name: Playwright E2E Tests
     needs: [setup, base_build]
@@ -1225,7 +1057,13 @@ jobs:
       # Can't use env.DOCKER_REGISTRY so hardcoding the registry value
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
+      image_version_env: ${{ needs.setup.outputs.image_version_env }}
+      image_built_repos: ${{ needs.setup.outputs.image_built_repos }}
+      docker_login: ${{ needs.setup.outputs.docker-login }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
+      send_posthog_metrics: true
+      # Opt in to 2 workers on first attempt; fall back to 1 on re-runs for stability.
+      workers_per_shard: ${{ github.run_attempt > 1 && '1' || '2' }}
     secrets: inherit
 
   playwright_report:
@@ -1239,14 +1077,7 @@ jobs:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs:
-      [
-        setup,
-        base_build,
-        java_integration_tests,
-        pytest_tests,
-        cypress_tests,
-        playwright_test,
-      ]
+      [setup, base_build, java_integration_tests, pytest_tests, playwright_test]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Set up Depot CLI
@@ -1303,7 +1134,6 @@ jobs:
         setup,
         java_integration_tests,
         pytest_tests,
-        cypress_tests,
         playwright_test,
         publish_images,
       ]

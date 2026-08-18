@@ -20,6 +20,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
     parse_comma_separated_list,
 )
 from datahub.ingestion.source.kafka_connect.pattern_matchers import JavaRegexMatcher
@@ -54,6 +55,26 @@ SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
 JDBC_PREFIX: Final[str] = "jdbc:"
+
+# Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
+_ORACLE_THIN_RE: Final = re.compile(
+    r"^(?:jdbc:)?oracle:(?:thin|oci):@/?"
+    r"/?(?P<host>[^:/@\s]+)"
+    r":(?P<port>\d+)"
+    r"(?:[:/](?P<db>[^@?;\s]+))?"
+    r"(?:[;?].*)?$"
+)
+_SQLSERVER_RE: Final = re.compile(
+    r"^(?:jdbc:)?sqlserver://(?P<host>[^:;/\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:;(?P<params>.*))?$"
+)
+_JTDS_RE: Final = re.compile(
+    r"^(?:jdbc:)?jtds:sqlserver://(?P<host>[^:/@\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:/(?P<db>[^;?\s]+))?"
+    r"(?:[;?].*)?$"
+)
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -133,6 +154,18 @@ class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
+    target_dataset: Optional[str] = None
+    target_platform: Optional[str] = None
+
+    @model_validator(mode="after")
+    def target_fields_together(self) -> "GenericConnectorConfig":
+        if self.target_dataset is None and self.target_platform is None:
+            return self
+        if not self.target_dataset or not self.target_platform:
+            raise ValueError(
+                "target_dataset and target_platform must be provided together"
+            )
+        return self
 
 
 class KafkaConnectSourceConfig(
@@ -534,14 +567,55 @@ def unquote(
     return string
 
 
+def normalize_jdbc_url(url: str) -> str:
+    """Convert a JDBC URL to a form SQLAlchemy can parse.
+
+    Non-standard formats handled:
+    - Oracle thin/OCI (oracle:thin:@[//]host:port/service) → oracle://host:port/service
+    - SQL Server JDBC (sqlserver://host[:port][;databaseName=db;...]) → mssql://host:port/db
+    - jTDS SQL Server (jtds:sqlserver://host[:port][/db]) → mssql://host:port/db
+
+    All other URLs are returned unchanged after stripping a leading jdbc:.
+    """
+    m = _ORACLE_THIN_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port")
+        db = m.group("db") or ""
+        return f"oracle://{host}:{port}/{db}"
+
+    m = _SQLSERVER_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = ""
+        params_str = m.group("params") or ""
+        for param in params_str.split(";"):
+            if "=" in param:
+                k, _, v = param.partition("=")
+                if k.strip().lower() == "databasename":
+                    db = v.strip()
+                    break
+        return f"mssql://{host}:{port}/{db}"
+
+    m = _JTDS_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = m.group("db") or ""
+        return f"mssql://{host}:{port}/{db}"
+
+    return remove_prefix(url, JDBC_PREFIX)
+
+
 def validate_jdbc_url(url: str) -> bool:
-    """Validate JDBC URL format and return whether it's well-formed."""
+    """Return whether url is a JDBC URL format we can parse."""
     if not url or not isinstance(url, str):
         return False
-
+    if _ORACLE_THIN_RE.match(url) or _SQLSERVER_RE.match(url) or _JTDS_RE.match(url):
+        return True
     if not url.startswith(JDBC_PREFIX):
         return False
-
     parts = url.split(":", 3)
     return len(parts) >= 3  # jdbc:protocol:connection_details
 
@@ -692,7 +766,7 @@ def transform_connector_config(
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
 def has_three_level_hierarchy(platform: str) -> bool:
-    return platform in ["postgres", "trino", "redshift", "snowflake"]
+    return platform in ["postgres", "trino", "redshift", "snowflake", "mssql"]
 
 
 @dataclass
@@ -725,6 +799,72 @@ class BaseConnector:
     def get_topics_from_config(self) -> List[str]:
         """Extract topics from connector configuration. Override in subclasses."""
         return []
+
+    def _get_topics_from_sink_config(self) -> List[str]:
+        """
+        Extract topics from sink connector configuration (shared helper).
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
+        config = self.connector_manifest.config
+
+        # Priority 1: Explicit 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
+
+        return []
+
+    def _resolve_subscribed_topics(
+        self, connector_manifest: ConnectorManifest, subscribed_topics: List[str]
+    ) -> List[str]:
+        """
+        Resolve topic list from subscribed config + runtime Kafka API (shared helper).
+
+        Applies three-way fallback logic:
+        1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
+        2. Use subscribed topics if runtime data unavailable
+        3. Use all runtime topics if no subscription config
+        """
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+        subscribed_topics_set = set(subscribed_topics)
+
+        if subscribed_topics_set:
+            if available_topics:
+                topic_list = list(available_topics.intersection(subscribed_topics_set))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics_set)} configured topics)"
+                )
+            else:
+                topic_list = list(subscribed_topics_set)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
+        else:
+            topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
+
+        return topic_list
 
     @staticmethod
     def supports_connector_class(connector_class: str) -> bool:
@@ -1033,8 +1173,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract source column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
+                message="Failed to extract source column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
                 f"source={source_dataset}, target={target_dataset}",
                 exc=e,
             )
@@ -1134,8 +1274,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract sink column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
+                message="Failed to extract sink column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
                 f"target_platform={target_platform}, target={target_dataset}",
                 exc=e,
             )
@@ -1155,10 +1295,23 @@ class BaseConnector:
             Extracted table name (e.g., "database.schema.table") or None if parsing fails
         """
         try:
-            return DatasetUrn.from_string(urn).name
+            name = DatasetUrn.from_string(urn).name
         except Exception as e:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
             return None
+
+        # DataHub bakes the platform_instance into the URN name as a leading
+        # `{platform_instance}.` segment. Strip it so callers see the logical
+        # db.schema.table name; otherwise table discovery and pattern matching
+        # break for sources ingested with a platform_instance.
+        platform_instance = (
+            self.schema_resolver.platform_instance if self.schema_resolver else None
+        )
+        if platform_instance:
+            prefix = f"{platform_instance}."
+            if name.lower().startswith(prefix.lower()):
+                name = name[len(prefix) :]
+        return name
 
     def _extract_lineages_from_schema_resolver(
         self,

@@ -33,7 +33,7 @@ export const ToolbarContainer = styled.div`
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? colors.violet : colors.gray[600])};
+    color: ${(props) => (props.isSelected ? props.theme.colors.textBrand : colors.gray[600])};
     background-color: ${(props) => (props.isSelected ? colors.gray[1000] : 'transparent')};
     padding: 10px 12px;
 

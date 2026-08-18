@@ -17,22 +17,28 @@ public class RateLimitEndpointEnabledConditionTest {
 
   @Test
   public void testEndpointEnabledProvisionsRateLimitHazelcastResources() {
-    assertTrue(evaluate("true"));
+    assertTrue(evaluate("true", "false"));
   }
 
   @Test
-  public void testEndpointDisabledSkipsRateLimitHazelcastResources() {
-    assertFalse(evaluate("false"));
+  public void testScopedEnabledProvisionsRateLimitHazelcastResources() {
+    // Scoped-only must also provision the Hazelcast map config (the scoped buckets share the map).
+    assertTrue(evaluate("false", "true"));
   }
 
-  private boolean evaluate(String endpointEnabled) {
+  @Test
+  public void testBothDisabledSkipsRateLimitHazelcastResources() {
+    assertFalse(evaluate("false", "false"));
+  }
+
+  private boolean evaluate(String endpointEnabled, String scopedEnabled) {
     ConditionContext context = Mockito.mock(ConditionContext.class);
     Environment environment = Mockito.mock(Environment.class);
     when(context.getEnvironment()).thenReturn(environment);
-    when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED))
-        .thenReturn(endpointEnabled);
     when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "false"))
         .thenReturn(endpointEnabled);
+    when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_SCOPED_ENABLED, "false"))
+        .thenReturn(scopedEnabled);
     return condition.matches(context, Mockito.mock(AnnotatedTypeMetadata.class));
   }
 }

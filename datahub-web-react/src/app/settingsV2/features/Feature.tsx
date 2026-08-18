@@ -141,7 +141,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                             <span>
                                 <OptionTitle>
                                     <span>{option.title}</span>
-                                    {!option.isAvailable && <Pill color="violet" size="sm" label={t('onlyOnCloud')} />}
+                                    {!option.isAvailable && <Pill color="primary" size="sm" label={t('onlyOnCloud')} />}
                                 </OptionTitle>
                                 <div>
                                     <DescriptionText>{option.description}</DescriptionText>
@@ -185,7 +185,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                         <span>
                             <OptionTitle>
                                 <span>{option.title}</span>
-                                <Pill color="violet" size="sm" label={t('cloudLabel')} />
+                                <Pill color="primary" size="sm" label={t('cloudLabel')} />
                             </OptionTitle>
                         </span>
                         <StructuredPopover

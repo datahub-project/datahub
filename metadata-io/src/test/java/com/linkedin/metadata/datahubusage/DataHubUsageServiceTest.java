@@ -66,13 +66,15 @@ public class DataHubUsageServiceTest {
   @BeforeMethod
   public void setup() throws Exception {
     // Setup mock index convention to return test index name
-    when(mockIndexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX)).thenReturn(TEST_INDEX_NAME);
+    when(mockIndexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX))
+        .thenReturn(TEST_INDEX_NAME);
 
     // Initialize the service with mocks
     dataHubUsageService = new DataHubUsageServiceImpl(mockElasticClient, mockIndexConvention);
 
     // Mock search response setup
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSearchResponse);
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
   }
@@ -89,7 +91,7 @@ public class DataHubUsageServiceTest {
 
   @Test
   public void testGetUsageIndexName() {
-    String indexName = dataHubUsageService.getUsageIndexName();
+    String indexName = dataHubUsageService.getUsageIndexName(opContext);
     assertEquals(TEST_INDEX_NAME, indexName);
   }
 
@@ -127,7 +129,8 @@ public class DataHubUsageServiceTest {
 
     // Verify search request creation with correct filters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    Mockito.verify(mockElasticClient).search(requestCaptor.capture(), any(RequestOptions.class));
+    Mockito.verify(mockElasticClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), any(RequestOptions.class));
 
     SearchRequest capturedRequest = requestCaptor.getValue();
     assertEquals(TEST_INDEX_NAME, capturedRequest.indices()[0]);
@@ -232,7 +235,7 @@ public class DataHubUsageServiceTest {
 
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
     Mockito.verify(mockElasticClient, Mockito.times(2))
-        .search(requestCaptor.capture(), any(RequestOptions.class));
+        .search(any(OperationContext.class), requestCaptor.capture(), any(RequestOptions.class));
 
     List<SearchRequest> capturedRequests = requestCaptor.getAllValues();
     assertEquals(2, capturedRequests.size());
@@ -253,7 +256,8 @@ public class DataHubUsageServiceTest {
     dataHubUsageService.externalAuditEventsSearch(opContext, request.build());
 
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    Mockito.verify(mockElasticClient).search(requestCaptor.capture(), any(RequestOptions.class));
+    Mockito.verify(mockElasticClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), any(RequestOptions.class));
   }
 
   private SearchHit createMockSearchHit(String eventType, String actorUrn, long timestamp) {

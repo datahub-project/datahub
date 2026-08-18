@@ -12,6 +12,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
@@ -20,6 +21,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -136,7 +138,29 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+
   // End of field types
+
+  /**
+   * {@code ignore_above} for TEXT-derived keyword fields. Lucene rejects indexed terms longer than
+   * 32766 bytes; matching that limit skips oversized values instead of failing the document. See
+   * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
+   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
+   * sub-fields are unaffected.
+   *
+   * <p>Structured-property write validation is configured separately via {@code
+   * structuredProperties.keywordMaxLength} / {@code STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH}.
+   */
+  public static final int KEYWORD_MAXLENGTH = 32766;
+
+  /** Mapping parameter name for the keyword length guard described above. */
+  public static final String IGNORE_ABOVE = "ignore_above";
+
+  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
+    int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
+    return maxBytes / 4;
+  }
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(
@@ -736,9 +760,11 @@ public class ESUtils {
       @Nullable final Object opContext,
       @Nonnull final String filterField,
       @Nullable final AspectRetriever aspectRetriever) {
+    // Only structured-property filters need definition lookup to sanitize/version the ES field
+    // name. Non-SP fields pass through unchanged aside from stripping known subfield suffixes.
     String fieldName =
         StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
-                (com.datahub.context.OperationFingerprint) opContext, filterField, aspectRetriever)
+                (OperationFingerprint) opContext, filterField, aspectRetriever)
             .map(
                 urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
@@ -783,24 +809,42 @@ public class ESUtils {
       @Nonnull final String filterField,
       final boolean skipKeywordSuffix,
       @Nullable final AspectRetriever aspectRetriever) {
-    String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
-                (com.datahub.context.OperationFingerprint) opContext, filterField, aspectRetriever)
-            .map(
-                urnDefinition ->
-                    STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                        + StructuredPropertyUtils.toElasticsearchFieldName(
-                            urnDefinition.getFirst(), urnDefinition.getSecond()))
-            .orElse(filterField);
+    // Structured properties: single source of truth for parent vs .keyword is
+    // StructuredPropertyUtils.toStructuredPropertyFacetName (DATE/NUMBER/URN skip .keyword).
+    Optional<String> structuredPropertyField =
+        StructuredPropertyUtils.toStructuredPropertyFacetName(
+            (OperationFingerprint) opContext, filterField, aspectRetriever);
+    if (structuredPropertyField.isPresent()) {
+      return skipKeywordSuffix
+          ? replaceSuffix(structuredPropertyField.get())
+          : structuredPropertyField.get();
+    }
+
+    // Definition lookup failed. If the caller already passed a versioned ES path, infer type from
+    // the trailing segment so STRING still gets .keyword and URN/DATE/NUMBER do not. Unversioned
+    // FQN misses prefer the parent (strip any caller-supplied .keyword / other subfields) so
+    // typed parents are not queried on a missing multi-field.
+    if (filterField.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      Optional<LogicalValueType> inferredType =
+          StructuredPropertyUtils.getLogicalValueTypeFromFieldName(filterField);
+      if (inferredType.isPresent()) {
+        String parent = replaceSuffix(filterField);
+        if (skipKeywordSuffix || !StructuredPropertyUtils.usesKeywordSubfield(inferredType.get())) {
+          return parent;
+        }
+        return parent + ESUtils.KEYWORD_SUFFIX;
+      }
+      return replaceSuffix(filterField);
+    }
 
     return skipKeywordSuffix
-            || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.contains(filterField)
             || KEYWORD_FIELDS.stream()
-                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
-            || PATH_HIERARCHY_FIELDS.contains(fieldName)
-            || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
-        ? fieldName
-        : fieldName + ESUtils.KEYWORD_SUFFIX;
+                .anyMatch(nestedField -> filterField.endsWith("." + nestedField))
+            || PATH_HIERARCHY_FIELDS.contains(filterField)
+            || SUBFIELDS.stream().anyMatch(subfield -> filterField.endsWith("." + subfield))
+        ? filterField
+        : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 
   public static RequestOptions buildReindexTaskRequestOptions(
@@ -1096,7 +1140,7 @@ public class ESUtils {
       // underscores
       finalFieldTypes =
           StructuredPropertyUtils.toElasticsearchFieldType(
-              (com.datahub.context.OperationFingerprint) opContext,
+              (OperationFingerprint) opContext,
               replaceSuffix(criterion.getField()),
               aspectRetriever);
     } else {
@@ -1547,7 +1591,11 @@ public class ESUtils {
   }
 
   public static @Nonnull String computePointInTime(
-      String scrollId, String keepAlive, SearchClientShim<?> client, String... indexArray) {
+      @Nonnull OperationContext opContext,
+      String scrollId,
+      String keepAlive,
+      SearchClientShim<?> client,
+      String... indexArray) {
     if (scrollId != null) {
       SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
       if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
@@ -1556,11 +1604,11 @@ public class ESUtils {
     }
     switch (client.getEngineType()) {
       case ELASTICSEARCH_7:
-        return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+        return createPointInTimeElasticSearch(opContext, client, indexArray, keepAlive);
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
       case ELASTICSEARCH_9:
-        return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+        return createPointInTimeOpenSearch(opContext, client, indexArray, keepAlive);
       default:
         log.warn("Unsupported elasticsearch implementation: {}", client.getEngineType());
         throw new IllegalStateException("Unsupported elasticsearch implementation.");
@@ -1568,12 +1616,15 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeElasticSearch(
-      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String[] indexArray,
+      String keepAlive) {
     String endPoint = String.join(",", indexArray) + "/_pit";
     Request request = new Request("POST", endPoint);
     request.addParameter("keep_alive", keepAlive);
     try {
-      RawResponse response = client.performLowLevelRequest(request);
+      RawResponse response = client.performLowLevelRequest(opContext, request);
       Map<String, Object> mappedResponse =
           OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
       return (String) mappedResponse.get("id");
@@ -1584,11 +1635,14 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeOpenSearch(
-      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String[] indexArray,
+      String keepAlive) {
     try {
       CreatePitRequest request =
           new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
-      CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
+      CreatePitResponse response = client.createPit(opContext, request, RequestOptions.DEFAULT);
       return response.getId();
     } catch (OpenSearchStatusException ose) {
       if (TOO_MANY_REQUESTS.equals(ose.status())) {
@@ -1621,7 +1675,11 @@ public class ESUtils {
    * @param pitId The PIT ID to clean up
    * @param context Optional context for logging (e.g., "slice 0", "search request")
    */
-  public static void cleanupPointInTime(SearchClientShim<?> client, String pitId, String context) {
+  public static void cleanupPointInTime(
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String pitId,
+      String context) {
     if (pitId == null) {
       return;
     }
@@ -1634,7 +1692,7 @@ public class ESUtils {
           {
             DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
             DeletePitResponse deletePitResponse =
-                client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
+                client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
             // DeletePitResponse doesn't have isAcknowledged(), but if we get here without
             // exception, it
             // succeeded
@@ -1647,7 +1705,7 @@ public class ESUtils {
             String endPoint = "/_pit";
             Request request = new Request("DELETE", endPoint);
             request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
-            RawResponse response = client.performLowLevelRequest(request);
+            RawResponse response = client.performLowLevelRequest(opContext, request);
             if (response.getStatusLine().getStatusCode() == 200) {
               log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
             } else {

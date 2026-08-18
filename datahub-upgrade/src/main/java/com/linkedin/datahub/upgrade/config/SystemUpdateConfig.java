@@ -14,6 +14,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -153,6 +156,13 @@ public class SystemUpdateConfig {
   /**
    * Override EntityService bean in the datahub-upgrade context to use system update CDC mode
    * configuration. Only active when system update is running blocking mode operations.
+   *
+   * <p>Retention buffer: mirrors {@code EntityServiceFactory} via {@code
+   * ObjectProvider<RetentionBuffer>#getIfAvailable()}. Blocking system-update typically does not
+   * activate {@code RetentionBufferFactory} (short-lived job; no ingest-scale coalesce need), so
+   * this resolves to null → {@link RetentionBuffer#NO_OP} → sync post-commit DELETE when
+   * post-commit retention is on. That divergence from GMS (which may enqueue + drain) is
+   * intentional. If a RetentionBuffer bean is present in this context, it is attached.
    */
   @Primary
   @Bean(name = "entityService")
@@ -164,7 +174,8 @@ public class SystemUpdateConfig {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}") final Integer ebeanMaxTransactionRetry,
-      final List<ThrottleSensor> throttleSensors) {
+      final List<ThrottleSensor> throttleSensors,
+      final ObjectProvider<RetentionBuffer> retentionBufferProvider) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
     boolean systemUpdateCDCMode = configurationProvider.getSystemUpdate().isCdcMode();
@@ -176,12 +187,17 @@ public class SystemUpdateConfig {
         new EntityServiceImpl(
             aspectDao,
             eventProducer,
-            featureFlags.isAlwaysEmitChangeLog(),
-            systemUpdateCDCMode, // Use system update CDC mode
             featureFlags.getPreProcessHooks(),
-            ebeanMaxTransactionRetry,
-            enableBrowsePathV2,
-            null); // metricUtils
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
+                .setCdcModeChangeLog(systemUpdateCDCMode)
+                .setRetry(ebeanMaxTransactionRetry)
+                .setEnableBrowseV2(enableBrowsePathV2)
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
+            null);
+
+    // Usually NO_OP in upgrade (see method javadoc). Attaches if a buffer bean exists.
+    entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

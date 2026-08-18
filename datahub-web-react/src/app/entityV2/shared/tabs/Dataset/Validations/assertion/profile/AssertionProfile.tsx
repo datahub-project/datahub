@@ -18,13 +18,14 @@ enum TabType {
 type Props = {
     urn: string;
     contract?: DataContract; // TODO: ideally this would be a field available on the assertion itself.
+    contractLoading?: boolean;
     close: () => void;
     refetch?: () => void;
 };
 
 // TODO: Handling Loading Errors.
 
-export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
+export const AssertionProfile = ({ urn, contract, contractLoading = false, close, refetch }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const {
         data,
@@ -49,7 +50,7 @@ export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
 
     return (
         <>
-            {(loading && <AssertionProfileHeaderLoading />) || (
+            {((loading || contractLoading) && <AssertionProfileHeaderLoading />) || (
                 <AssertionProfileHeader
                     assertion={assertion}
                     contract={contract}

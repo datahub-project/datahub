@@ -21,11 +21,13 @@ import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Maps {@link com.linkedin.policy.DataHubPolicyInfo} to GraphQL {@link
  * com.linkedin.datahub.graphql.generated.Policy}.
  */
+@Slf4j
 public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Policy> {
 
   public static final PolicyInfoPolicyMapper INSTANCE = new PolicyInfoPolicyMapper();
@@ -39,9 +41,12 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
   public Policy apply(@Nullable QueryContext context, DataHubPolicyInfo info) {
     final Policy result = new Policy();
     result.setDescription(info.getDescription());
-    // Careful - we assume no other Policy types or states have been ingested using a backdoor.
-    result.setType(PolicyType.valueOf(info.getType()));
-    result.setState(PolicyState.valueOf(info.getState()));
+    // Type/state are free-form strings in the metadata model, so ingested or API-created policies
+    // can carry values outside these GraphQL enums. Fall back to a safe default rather than throw,
+    // so a single malformed policy does not fail the whole listPolicies request (which otherwise
+    // surfaces as "Failed to load policies!" on any page containing it).
+    result.setType(safeValueOf(PolicyType.class, info.getType(), PolicyType.METADATA));
+    result.setState(safeValueOf(PolicyState.class, info.getState(), PolicyState.INACTIVE));
     result.setName(info.getDisplayName()); // Rebrand to 'name'
     result.setPrivileges(info.getPrivileges());
     result.setActors(mapActors(info.getActors()));
@@ -50,6 +55,21 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       result.setResources(mapResources(context, info.getResources()));
     }
     return result;
+  }
+
+  @Nonnull
+  private static <T extends Enum<T>> T safeValueOf(
+      @Nonnull final Class<T> enumClass, @Nullable final String value, @Nonnull final T fallback) {
+    try {
+      return Enum.valueOf(enumClass, value);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      log.warn(
+          "Unrecognized {} value '{}' on policy; defaulting to {}",
+          enumClass.getSimpleName(),
+          value,
+          fallback);
+      return fallback;
+    }
   }
 
   private ActorFilter mapActors(final DataHubActorFilter actorFilter) {

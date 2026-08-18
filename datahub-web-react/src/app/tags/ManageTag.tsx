@@ -145,11 +145,11 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     }
 
     const buttons: ModalButton[] = [
-        { text: tc('cancel'), color: 'violet', variant: 'text', onClick: onClose },
-        { text: tc('reset'), color: 'violet', variant: 'outline', onClick: handleReset, disabled: !hasChanges() },
+        { text: tc('cancel'), color: 'primary', variant: 'text', onClick: onClose },
+        { text: tc('reset'), color: 'primary', variant: 'outline', onClick: handleReset, disabled: !hasChanges() },
         {
             text: tc('save'),
-            color: 'violet',
+            color: 'primary',
             variant: 'filled',
             onClick: handleSave,
             disabled: !hasChanges() || !tagName.trim(),

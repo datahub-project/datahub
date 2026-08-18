@@ -93,7 +93,7 @@ public class DataHubUsageEventsProcessorTest {
     verify(metricUtils).histogram(eq(DataHubUsageEventsProcessor.class), eq("kafkaLag"), anyLong());
 
     ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-    verify(usageEventIndexer).indexBatch(captor.capture());
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
     assertEquals(captor.getValue().size(), 1);
     assertEquals(captor.getValue().get(0).document(), transformedDoc);
     assertEquals(captor.getValue().get(0).documentIdWithKafkaOffsetSuffix(), "event-123_12345");
@@ -113,7 +113,7 @@ public class DataHubUsageEventsProcessorTest {
     verify(metricUtils).histogram(eq(DataHubUsageEventsProcessor.class), eq("kafkaLag"), anyLong());
     // Still invoked even when nothing transformed: the indexer must observe an empty batch.
     ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-    verify(usageEventIndexer).indexBatch(captor.capture());
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
     assertTrue(captor.getValue().isEmpty());
   }
 
@@ -146,7 +146,7 @@ public class DataHubUsageEventsProcessorTest {
     processor.consume(Collections.singletonList(mockRecord));
 
     verify(metricUtils, never()).histogram(any(), any(), anyLong());
-    verify(usageEventIndexer).indexBatch(any());
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), any());
   }
 
   @Test
@@ -167,6 +167,7 @@ public class DataHubUsageEventsProcessorTest {
 
     verify(usageEventIndexer)
         .indexBatch(
+            any(OperationContext.class),
             argThat(
                 events ->
                     events.size() == 1
@@ -194,6 +195,7 @@ public class DataHubUsageEventsProcessorTest {
 
     verify(usageEventIndexer)
         .indexBatch(
+            any(OperationContext.class),
             argThat(
                 events ->
                     events.size() == 1
@@ -222,6 +224,7 @@ public class DataHubUsageEventsProcessorTest {
 
     verify(usageEventIndexer)
         .indexBatch(
+            any(OperationContext.class),
             argThat(
                 events ->
                     events.size() == 1
@@ -252,7 +255,7 @@ public class DataHubUsageEventsProcessorTest {
     processor.consume(List.of(r1, r2, r3));
 
     ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-    verify(usageEventIndexer).indexBatch(captor.capture());
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
     assertEquals(captor.getValue().size(), 3);
   }
 
@@ -266,7 +269,7 @@ public class DataHubUsageEventsProcessorTest {
     processor.consume(Collections.singletonList(mockRecord));
 
     ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-    verify(usageEventIndexer).indexBatch(captor.capture());
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
     assertTrue(captor.getValue().isEmpty());
   }
 
@@ -326,7 +329,7 @@ public class DataHubUsageEventsProcessorTest {
     assertTrue(timer.totalTime(TimeUnit.MILLISECONDS) <= 3500);
 
     verify(metricUtils).histogram(eq(DataHubUsageEventsProcessor.class), eq("kafkaLag"), anyLong());
-    verify(usageEventIndexer).indexBatch(any());
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), any());
   }
 
   @Test
@@ -421,7 +424,7 @@ public class DataHubUsageEventsProcessorTest {
     assertTrue(timer.totalTime(TimeUnit.MILLISECONDS) <= 4500);
 
     // Indexer is still invoked once per Kafka batch with the (empty) event list.
-    verify(usageEventIndexer).indexBatch(argThat(List::isEmpty));
+    verify(usageEventIndexer).indexBatch(any(OperationContext.class), argThat(List::isEmpty));
   }
 
   @Test
@@ -500,7 +503,7 @@ public class DataHubUsageEventsProcessorTest {
           .histogram(eq(DataHubUsageEventsProcessor.class), eq("kafkaLag"), anyLong());
 
       ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-      verify(usageEventIndexer).indexBatch(captor.capture());
+      verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
       assertEquals(captor.getValue().size(), 1);
       assertEquals(captor.getValue().get(0).document(), transformedDoc);
       assertEquals(captor.getValue().get(0).documentIdWithKafkaOffsetSuffix(), "event-123_00042");
@@ -523,7 +526,7 @@ public class DataHubUsageEventsProcessorTest {
       processor.consume(TEST_TOPIC, Collections.singletonList(msg));
 
       ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-      verify(usageEventIndexer).indexBatch(captor.capture());
+      verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
       assertTrue(captor.getValue().isEmpty());
     }
   }
@@ -556,7 +559,7 @@ public class DataHubUsageEventsProcessorTest {
       processor.consume(TEST_TOPIC, List.of(m1, m2, m3));
 
       ArgumentCaptor<List<DataHubUsageEventIndexer.IndexableUsageEvent>> captor = listCaptor();
-      verify(usageEventIndexer).indexBatch(captor.capture());
+      verify(usageEventIndexer).indexBatch(any(OperationContext.class), captor.capture());
       assertEquals(captor.getValue().size(), 3);
     }
   }

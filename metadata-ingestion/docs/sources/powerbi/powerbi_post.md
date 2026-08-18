@@ -106,7 +106,20 @@ Three Oracle.Database first-argument forms are recognized:
 2. Bare TNS alias: e.g. `EDWPSFN`, `MYDB.WORLD`
 3. Full TNS descriptor: `(DESCRIPTION=(ADDRESS=…)(CONNECT_DATA=(SERVICE_NAME=foo)))`
 
-For the bare-alias and descriptor forms, the alias / SERVICE_NAME becomes the `server` key for `server_to_platform_instance` lookup. The lookup is case-insensitive, so `EDWPSFN` in the M-Query matches an `EDWPSFN` (or `edwpsfn`) entry in the recipe. Because inline SQL often references unqualified tables, declare a `default_schema` on that entry so lineage can be matched against the ingested Oracle datasets:
+For the bare-alias and descriptor forms, the alias / SERVICE_NAME becomes the `server` key for `server_to_platform_instance` lookup. The lookup is case-insensitive, so `EDWPSFN` in the M-Query matches an `EDWPSFN` (or `edwpsfn`) entry in the recipe.
+
+##### Matching the Oracle URN shape (database segment)
+
+The generated upstream URN must match the URN that your Oracle ingestion produces for the same table, otherwise the lineage edge points at a dataset that does not exist. Oracle ingestion emits **2-part `schema.table`** URNs by default, and **3-part `database.schema.table`** URNs only when it runs with `add_database_name_to_urn: true`.
+
+PowerBI derives the database segment from the connection form:
+
+| Oracle.Database form           | Database segment              |
+| ------------------------------ | ----------------------------- |
+| EZ-Connect `host:port/service` | the `service` (always 3-part) |
+| Bare TNS alias / descriptor    | none — 2-part by default      |
+
+So a bare TNS alias produces a 2-part URN, which is correct for a default Oracle ingestion. If your Oracle ingestion uses `add_database_name_to_urn: true`, set `default_database` on the alias entry to supply the missing segment (use the same value as the Oracle ingestion's `database` / `urn_db_name`):
 
 ```yaml
 source:
@@ -114,11 +127,18 @@ source:
   config:
     server_to_platform_instance:
       EDWPSFN:
-        default_schema: edwpsfn # the Oracle owner schema for unqualified tables
+        default_database: edwprd # only if Oracle ingestion uses 3-part URNs
+        default_schema: sysadm # owner schema for unqualified inline-SQL tables
         # platform_instance: EDWPSFN  # only set this if your Oracle ingestion uses one
 ```
 
+##### Qualifying unqualified inline SQL (`default_schema`)
+
+Because inline `Query=` SQL often references unqualified tables, declare a `default_schema` on the alias entry so those references resolve to the ingested Oracle datasets. `default_schema` only applies to inline native SQL — hierarchical navigation takes the schema from the M-Query itself.
+
 If `default_schema` is missing and the inline SQL references unqualified tables, lineage will still be drawn for any qualified tables in the SQL, and a structured warning will appear in the ingestion report telling you exactly which alias needs the knob set.
+
+At least one of `default_schema` / `default_database` must be set for an Oracle entry; a mapping that needs neither should be a plain `platform_instance` / `env` entry.
 
 #### Athena Federated Query Platform Override
 

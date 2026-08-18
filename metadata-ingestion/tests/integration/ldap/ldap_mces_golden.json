@@ -38,7 +38,17 @@
                         "title": "Mr. Boss",
                         "firstName": "Bart",
                         "lastName": "Simpson",
-                        "fullName": "Bart Simpson"
+                        "fullName": "Bart Simpson",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -74,7 +84,17 @@
                         "departmentName": "1001",
                         "firstName": "Homer",
                         "lastName": "Simpson",
-                        "fullName": "Homer Simpson"
+                        "fullName": "Homer Simpson",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -105,7 +125,17 @@
                         "displayName": "Lisa Simpson",
                         "firstName": "Lisa",
                         "lastName": "Simpson",
-                        "fullName": "Lisa Simpson"
+                        "fullName": "Lisa Simpson",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -136,7 +166,17 @@
                         "displayName": "Maggie Simpson",
                         "firstName": "Maggie",
                         "lastName": "Simpson",
-                        "fullName": "Maggie Simpson"
+                        "fullName": "Maggie Simpson",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -167,7 +207,17 @@
                         "displayName": "Hester Bevan",
                         "firstName": "Hester",
                         "lastName": "Bevan",
-                        "fullName": "Hester Bevan"
+                        "fullName": "Hester Bevan",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -198,7 +248,17 @@
                         "displayName": "Evalyn Haas",
                         "firstName": "Evalyn",
                         "lastName": "Haas",
-                        "fullName": "Evalyn Haas"
+                        "fullName": "Evalyn Haas",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {

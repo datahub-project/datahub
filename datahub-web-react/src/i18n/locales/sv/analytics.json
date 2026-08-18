@@ -1,0 +1,11 @@
+{
+    "allDomains": "Alla domäner",
+    "dataLandscapeSummary": "Sammanfattning av datalandskap",
+    "domainLandscapeSummary": "Sammanfattning av domänlandskap",
+    "failedToLoadCharts": "Det gick inte att läsa in diagram",
+    "failedToLoadDomains": "Det gick inte att läsa in domäner",
+    "failedToLoadHighlights": "Det gick inte att läsa in highlights",
+    "noDomainData": "Ingen analytics-data för den här domänen",
+    "selectDomain": "Välj domän",
+    "usageAnalytics": "Usage Analytics"
+}

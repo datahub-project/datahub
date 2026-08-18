@@ -1,12 +1,22 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    ValuesView,
+)
 
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, field_validator
+from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
@@ -131,6 +141,15 @@ class MongoDBConfig(
         description="Hosting environment of MongoDB, default is SELF_HOSTED, currently support `SELF_HOSTED`, `ATLAS`, `AWS_DOCUMENTDB`",
     )
 
+    platform: Literal["mongodb", "documentdb"] = Field(
+        default="mongodb",
+        description=(
+            "Data platform to emit entities under. Use `documentdb` to surface "
+            "AWS DocumentDB clusters as their own platform instead of `mongodb`. "
+            "Requires `hostingEnvironment` to be `AWS_DOCUMENTDB`."
+        ),
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
@@ -159,6 +178,17 @@ class MongoDBConfig(
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
         return doc_size_filter_value
+
+    @model_validator(mode="after")
+    def check_documentdb_requires_aws_hosting(self) -> "MongoDBConfig":
+        if (
+            self.platform == "documentdb"
+            and self.hostingEnvironment != HostingEnvironment.AWS_DOCUMENTDB
+        ):
+            raise ValueError(
+                "platform='documentdb' requires hostingEnvironment='AWS_DOCUMENTDB'."
+            )
+        return self
 
 
 @dataclass
@@ -290,12 +320,13 @@ class MongoDBSource(StatefulIngestionSourceBase):
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
-    platform: str = "mongodb"
+    platform: Literal["mongodb", "documentdb"]
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report = MongoDBSourceReport()
+        self.platform = config.platform
 
         options = {}
         if self.config.username is not None:
@@ -490,10 +521,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
         assert max_schema_size is not None
         if collection_schema_size > max_schema_size:
             # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
-                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
+                message="Downsampling the collection schema because it has too many schema fields",
+                context=f"schema_size={collection_schema_size}, threshold={max_schema_size}, collection={dataset_urn}",
+                log=False,
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"

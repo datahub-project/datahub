@@ -13,5 +13,9 @@
     "page.subtitle": "Clasifique sus activos de datos y columnas mediante diccionarios de datos",
     "page.title": "Glosario de negocio",
     "section.glossaryTerms": "Términos del glosario",
-    "section.termGroups": "Grupos de términos"
+    "section.termGroups": "Grupos de términos",
+    "sidebar.collapse": "Contraer glosario",
+    "sidebar.expand": "Expandir glosario",
+    "sidebar.home": "Inicio del glosario",
+    "sidebar.section.allTerms": "Todos los términos del glosario"
 }

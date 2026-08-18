@@ -7,7 +7,7 @@ description: Trust boundaries for UI-driven ingestion, locked datahub-actions im
 
 The **ingestion executor** runs recipes submitted from DataHub (for example via managed ingestion sources). Treat it as infrastructure that executes **user-influenced configuration**: anyone who can **create or edit** those sources controls recipe fields the executor processes. Combine that with **least privilege** for platform privileges (for example **Manage Metadata Ingestion**, secrets access, and executor-related tokens) so only trusted operators can define scheduled or ad hoc runs.
 
-The executor Action itself requires a privileged token for secret resolution; see [Ingestion Executor](/docs/actions/actions/executor.md) for prerequisites.
+The executor Action authenticates to GMS as a **trusted ingestion worker** (system client credentials in OSS quickstart via `DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET` in `executor.yaml`). With the default `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, browser sessions and user PATs cannot call `getSecretValues`; **datahub-actions** can. On DataHub Cloud, the equivalent worker is an **embedded executor** (Remote Executor). See [Secret security considerations](/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations).
 
 ## Locked (`*-locked`) images
 

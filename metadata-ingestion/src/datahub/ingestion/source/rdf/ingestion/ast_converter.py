@@ -131,7 +131,7 @@ class RDFToASTConverter:
             logger.info(f"DataHub AST created: {summary_str}")
             return datahub_ast
         except (RuntimeError, ValueError) as e:
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to convert RDF to DataHub AST",
                 context=f"Triples processed: {len(rdf_graph)}",
                 exc=e,
@@ -222,7 +222,7 @@ class RDFToASTConverter:
             )
             return datahub_terms
         except (RuntimeError, ValueError) as e:
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to extract glossary terms",
                 context=f"Entity type: {entity_type}",
                 exc=e,
@@ -265,7 +265,7 @@ class RDFToASTConverter:
                         if hasattr(rdf_rel, "target_urn")
                         else "unknown"
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         "Failed to convert relationship",
                         context=f"Source: {rel_source}, Target: {rel_target}",
                         exc=e,
@@ -280,7 +280,7 @@ class RDFToASTConverter:
             )
             return datahub_relationships
         except (RuntimeError, ValueError) as e:
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to extract relationships",
                 context=f"Entity type: {entity_type}",
                 exc=e,
@@ -298,7 +298,7 @@ class RDFToASTConverter:
             logger.debug(f"Built {len(domains)} domains from glossary term hierarchy")
             return domains
         except (RuntimeError, ValueError) as e:
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to build domain hierarchy",
                 context=f"Glossary terms: {len(glossary_terms)}",
                 exc=e,

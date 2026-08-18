@@ -133,7 +133,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
     const buttons: ModalButton[] = [
         {
             text: tc('cancel'),
-            color: 'violet',
+            color: 'primary',
             variant: 'text',
             onClick: onClose,
             buttonDataTestId: 'create-tag-modal-cancel-button',
@@ -141,7 +141,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
         {
             text: tc('create'),
             id: 'createNewTagButton',
-            color: 'violet',
+            color: 'primary',
             variant: 'filled',
             onClick: onOk,
             disabled: !tagName || isLoading,

@@ -37,6 +37,7 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.List;
@@ -89,8 +90,8 @@ public class BatchIngestionRunResource
       throws Exception {
 
       Authentication auth = AuthenticationContext.getAuthentication();
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
+      final OperationContext opContext = RestliUtils.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
 
       if (!AuthUtil.isAPIAuthorizedEntityType(
@@ -111,7 +112,7 @@ public class BatchIngestionRunResource
           "Both Safe & hardDelete flags were defined, honouring safe flag as hardDelete is deprecated");
     }
     try {
-      return RestliUtils.toTask(systemOperationContext,
+      return RestliUtils.toTask(opContext,
           () -> {
 
               try {
@@ -139,10 +140,23 @@ public class BatchIngestionRunResource
       @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft) {
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
-    return RestliUtils.toTask(systemOperationContext,
+    Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext =
+        RestliUtils.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(auth.getActor().toUrnStr(), getContext(), "list", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizer,
+            auth,
+            true);
+
+    return RestliUtils.toTask(
+        opContext,
         () -> {
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
+                  opContext,
                   pageOffset != null ? pageOffset : DEFAULT_OFFSET,
                   pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                   includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
@@ -163,24 +177,29 @@ public class BatchIngestionRunResource
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext =
+        RestliUtils.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(
+                    auth.getActor().toUrnStr(), getContext(), "describe", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizer,
+            auth,
+            true);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, ENTITY, READ)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
+    }
+
+    return RestliUtils.toTask(
+        opContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "describe", List.of()), authorizer, auth, true);
-
-            if (!AuthUtil.isAPIAuthorized(
-                    opContext,
-                    ENTITY, READ)) {
-                throw new RestLiServiceException(
-                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
-            }
-
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
-                  runId, includeSoft != null && includeSoft, start, count);
+                  opContext, runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
             summaries.forEach(
@@ -188,8 +207,8 @@ public class BatchIngestionRunResource
                   Urn urn = UrnUtils.getUrn(summary.getUrn());
                   try {
                     EnvelopedAspect aspect =
-                        entityService.getLatestEnvelopedAspect(opContext,
-                            urn.getEntityType(), urn, summary.getAspectName());
+                        entityService.getLatestEnvelopedAspect(
+                            opContext, urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);
                     } else {

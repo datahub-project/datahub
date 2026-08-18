@@ -4,7 +4,9 @@ import React, { useCallback, useRef, useState } from 'react';
 import styled, { CSSObject, css, useTheme } from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
+import { PLATFORM_URN_TO_LOGO } from '@app/ingestV2/source/builder/constants';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType } from '@types';
@@ -60,7 +62,12 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
-    const logoUrl = platform?.properties?.logoUrl;
+    // Prefer the platform's own logo URL when present, otherwise fall back
+    // to the static asset registered under the platform URN in
+    // PLATFORM_URN_TO_LOGO. This covers known platforms whose backend
+    // metadata doesn't include a `logoUrl` (e.g. ingested-document source
+    // platforms surfaced in the Context Documents sidebar).
+    const logoUrl = platform?.properties?.logoUrl || (platform?.urn ? PLATFORM_URN_TO_LOGO[platform.urn] : undefined);
 
     const handleError = useCallback(() => {
         const img = imgRef.current;
@@ -70,6 +77,12 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
         }
         onError?.();
     }, [onError, setBackground, theme.colors.bgSurface]);
+
+    const defaultIcon = platform?.properties?.logical ? (
+        <LogicalPlatformDefaultIcon size={size} />
+    ) : (
+        entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
+    );
 
     return (
         <IconContainer
@@ -99,7 +112,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                     onError={handleError}
                 />
             ) : (
-                entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
+                defaultIcon
             )}
         </IconContainer>
     );
