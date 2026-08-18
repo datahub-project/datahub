@@ -112,8 +112,14 @@ public class EntityRelationshipsResultResolver
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
     final boolean includeSoftDelete = input.getIncludeSoftDelete();
+    // Normalize case so callers may pass entity types in the GraphQL enum form ("DATASET") or
+    // the entity-registry form ("dataset", "dataHubPolicy"); Urn.getEntityType() is lowercase.
     final Set<String> relatedEntityTypes =
-        input.getRelatedEntityTypes() == null ? null : new HashSet<>(input.getRelatedEntityTypes());
+        input.getRelatedEntityTypes() == null
+            ? null
+            : input.getRelatedEntityTypes().stream()
+                .map(type -> type.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
 
     if (isDomainDirectChildDomainsQuery(urn, relationshipTypes, resolvedDirection)) {
       return GraphQLConcurrencyUtils.supplyAsync(
@@ -629,10 +635,8 @@ public class EntityRelationshipsResultResolver
                 rel ->
                     (existentUrns == null || existentUrns.contains(rel.getEntity()))
                         && (relatedEntityTypes == null
-                            || relatedEntityTypes.stream()
-                                .anyMatch(
-                                    type ->
-                                        type.equalsIgnoreCase(rel.getEntity().getEntityType())))
+                            || relatedEntityTypes.contains(
+                                rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
                         && (context == null
                             || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());
