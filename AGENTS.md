@@ -289,6 +289,10 @@ const theme = useTheme();
 - `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
 - `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
 
+### Frontend Components
+
+Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code.
+
 ### Code Comments
 
 Only add comments that provide real value beyond what the code already expresses.
