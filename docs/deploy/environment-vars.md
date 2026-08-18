@@ -765,6 +765,8 @@ Per-graph refresh timing (`population.intervalSeconds`) and graph bounds (`bound
 }
 ```
 
+The same overlay can disable a bundled graph (`{"graphs":{"domain":{"enabled":false}}}`) or switch FULL known graphs to `buildSource: graph`. See [Known graphs and bindings](./gms-entity-graph-cache.md#known-graphs-and-bindings).
+
 When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (no automatic rebuild). Recovery: delete domains to reduce vertex count, or raise bounds and manually drop the graph in Hazelcast. See [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes).
 
 `ENTITY_GRAPH_CACHE_ENABLED=true` on **GMS** requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable, or on MAE/MCE/upgrade pods where the graph cache is not loaded (see [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
