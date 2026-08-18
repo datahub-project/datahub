@@ -1318,11 +1318,6 @@ devTooling:
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
-  executor: # bounded pool the hook ingests its two sibling proposals on concurrently (see HookOffloadExecutorFactory)
-    concurrency: ${SIBLINGS_HOOK_EXECUTOR_CONCURRENCY:4}
-    queueSize: ${SIBLINGS_HOOK_EXECUTOR_QUEUE_SIZE:500}
-    keepAliveSeconds: ${SIBLINGS_HOOK_EXECUTOR_KEEP_ALIVE_SECONDS:60}
-    useVirtualThreads: ${SIBLINGS_HOOK_EXECUTOR_USE_VIRTUAL_THREADS:false}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}

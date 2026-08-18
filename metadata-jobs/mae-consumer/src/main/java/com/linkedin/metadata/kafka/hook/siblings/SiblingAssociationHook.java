@@ -17,12 +17,10 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.common.HookOffloadExecutorFactory;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Condition;
@@ -44,15 +42,12 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
@@ -63,8 +58,7 @@ import org.springframework.stereotype.Component;
 @Import({
   EntityRegistryFactory.class,
   RestliEntityClientFactory.class,
-  EntitySearchServiceFactory.class,
-  HookOffloadExecutorFactory.class
+  EntitySearchServiceFactory.class
 })
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
@@ -83,23 +77,16 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
 
-  // This hook's own bounded pool (platform by default). Used to ingest its two independent sibling
-  // proposals concurrently; the hook joins before invoke() returns. See HookOffloadExecutorFactory.
-  private final Executor hookOffloadExecutor;
-
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final EntitySearchService searchService,
       @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled,
-      @Nonnull @Value("${siblings.consumerGroupSuffix}") String consumerGroupSuffix,
-      @Nonnull @Qualifier(HookOffloadExecutorFactory.BEAN_NAME_SIBLINGS)
-          final Executor hookOffloadExecutor) {
+      @Nonnull @Value("${siblings.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.systemEntityClient = systemEntityClient;
     entitySearchService = searchService;
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
-    this.hookOffloadExecutor = hookOffloadExecutor;
   }
 
   @VisibleForTesting
@@ -107,9 +94,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final EntitySearchService searchService,
       @Nonnull Boolean isEnabled) {
-    // Same-thread executor keeps unit tests deterministic; the offloaded path is behaviorally
-    // identical.
-    this(systemEntityClient, searchService, isEnabled, "", Runnable::run);
+    this(systemEntityClient, searchService, isEnabled, "");
   }
 
   @Value("${siblings.enabled:false}")
@@ -389,31 +374,14 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setChangeType(ChangeType.UPSERT);
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
-    // The two proposals are independent UPSERTs to different urns; ingest them concurrently on the
-    // hook's pool and join before returning (the offset still commits only after both complete, so
-    // at-most-once is unchanged). A failure surfaces exactly as it did when the writes were
-    // sequential.
-    final CompletableFuture<Void> dbtWrite =
-        HookUtils.runAsync(
-            () -> ingestSiblingProposal(operationContext, dbtSiblingProposal, dbtUrn, sourceUrn),
-            hookOffloadExecutor);
-    final CompletableFuture<Void> sourceWrite =
-        HookUtils.runAsync(
-            () -> ingestSiblingProposal(operationContext, sourceSiblingProposal, dbtUrn, sourceUrn),
-            hookOffloadExecutor);
-    HookUtils.awaitAll(dbtWrite, sourceWrite);
-  }
-
-  private void ingestSiblingProposal(
-      final OperationContext operationContext,
-      final MetadataChangeProposal proposal,
-      final Urn dbtUrn,
-      final Urn sourceUrn) {
+    // Ingest both proposals in a single batch call: one round trip that succeeds or fails together,
+    // so the two sides can never end up half-linked (no need to fan out on a pool).
     try {
-      systemEntityClient.ingestProposal(operationContext, proposal, true);
+      systemEntityClient.batchIngestProposals(
+          operationContext, ImmutableList.of(dbtSiblingProposal, sourceSiblingProposal), true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
-      throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
+      throw new RuntimeException("Error ingesting sibling proposals. Skipping processing.", e);
     }
   }
 
