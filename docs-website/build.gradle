@@ -121,25 +121,21 @@ task fastReload(type: YarnTask) {
   args = ['run', 'generate-rsync']
 }
 
+def yarnLintInputs = [
+  file('generateDocsDir.ts'),
+  file('sidebars.js'),
+  file('src/pages/index.js'),
+  file('package.json'),
+  file('yarn.lock'),
+]
+
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
-  inputs.files(
-    file('generateDocsDir.ts'),
-    file('sidebars.js'),
-    file('src/pages/index.js'),
-    file('package.json'),
-    file('yarn.lock'),
-  )
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-check']
 }
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
-  inputs.files(
-    file('generateDocsDir.ts'),
-    file('sidebars.js'),
-    file('src/pages/index.js'),
-    file('package.json'),
-    file('yarn.lock'),
-  )
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-fix']
 }
 

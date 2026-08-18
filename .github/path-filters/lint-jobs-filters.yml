@@ -62,4 +62,5 @@ docs-website:
   - "docs-website/build.gradle"
 spotless:
   - added|modified: "**/*.java"
-  - "build.gradle"
+  - "**/*.gradle"
+  - "**/*.gradle.kts"

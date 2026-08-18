@@ -127,8 +127,9 @@ jobs:
           java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       # Restore-only: this workflow is pull_request-only, so a save here would be
-      # ref-scoped to the PR and never shared. Prefix keeps this small entry out of
-      # the '<os>-yarn-' family used by datahub-web-react.
+      # ref-scoped to the PR and never shared. The master-scoped entry is written
+      # by ci-cache-warmup.yml warm-docs-website-yarn-cache. Prefix keeps this
+      # small entry out of the '<os>-yarn-' family used by datahub-web-react.
       - name: Restore yarn cache
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:

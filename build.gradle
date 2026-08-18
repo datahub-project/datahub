@@ -984,11 +984,14 @@ wrapper {
   distributionSha256Sum = 'a3c4ba4aca8f0075688b9c5b18939fd28e8cb4357c227da5c1d9f38343791439'
 }
 
+def spotlessApplyTasks = subprojects.collect { "${it.path}:spotlessApply" }
+def spotlessCheckTasks = subprojects.collect { "${it.path}:spotlessCheck" }
+
 tasks.register('format') {
   dependsOn(':datahub-web-react:graphqlPrettierWrite')
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
-  dependsOn('spotlessApply')
+  dependsOn(spotlessApplyTasks)
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -996,7 +999,7 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
-  dependsOn('spotlessApply')
+  dependsOn(spotlessApplyTasks)
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -1018,7 +1021,7 @@ tasks.register('lintCheck') {
   dependsOn(':datahub-web-react:githubActionsPrettierCheck')
   dependsOn(':datahub-web-react:docusaurusMarkdownLint')
   dependsOn(':docs-website:yarnLint')
-  dependsOn('spotlessCheck')
+  dependsOn(spotlessCheckTasks)
 }
 
 tasks.register('lintFix') {
