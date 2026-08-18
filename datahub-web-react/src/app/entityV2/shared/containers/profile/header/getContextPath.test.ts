@@ -46,8 +46,18 @@ const PARENT: GenericEntityProperties = {
 };
 
 const parentDataProducts: DataProduct[] = [
-    { urn: 'urn:li:dataProduct:parent', type: EntityType.DataProduct, properties: { name: 'Parent DP' } },
-    { urn: 'urn:li:dataProduct:root', type: EntityType.DataProduct, properties: { name: 'Root DP' } },
+    {
+        urn: 'urn:li:dataProduct:parent',
+        type: EntityType.DataProduct,
+        properties: { name: 'Parent DP' },
+        parentDataProducts: [],
+    },
+    {
+        urn: 'urn:li:dataProduct:root',
+        type: EntityType.DataProduct,
+        properties: { name: 'Root DP' },
+        parentDataProducts: [],
+    },
 ];
 
 const dataProduct: DataProduct = {

@@ -26,13 +26,35 @@ export default function MoveEntityMenuAction() {
     const entityRegistry = useEntityRegistry();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
-    const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
-    const isDomainEntity = entityType === EntityType.Domain;
-    const isDataProductEntity = entityType === EntityType.DataProduct;
-    const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
+    const isDomainMoveHidden = !isNestedDomainsEnabled && entityType === EntityType.Domain;
 
     if (isDomainMoveHidden) {
         return null;
+    }
+
+    const closeMoveModal = () => setIsMoveModalVisible(false);
+
+    function renderMoveModal() {
+        if (!isMoveModalVisible) return null;
+
+        switch (entityType) {
+            case EntityType.GlossaryNode:
+            case EntityType.GlossaryTerm:
+                return (
+                    <MoveGlossaryEntityModal
+                        entityData={entityData}
+                        entityType={entityType}
+                        urn={urn}
+                        onClose={closeMoveModal}
+                    />
+                );
+            case EntityType.Domain:
+                return <MoveDomainModal onClose={closeMoveModal} />;
+            case EntityType.DataProduct:
+                return <MoveDataProductModal onClose={closeMoveModal} />;
+            default:
+                return null;
+        }
     }
 
     return (
@@ -49,18 +71,7 @@ export default function MoveEntityMenuAction() {
             >
                 <FolderOpen size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
-            {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal
-                    entityData={entityData}
-                    entityType={entityType}
-                    urn={urn}
-                    onClose={() => setIsMoveModalVisible(false)}
-                />
-            )}
-            {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
-            {isMoveModalVisible && isDataProductEntity && (
-                <MoveDataProductModal onClose={() => setIsMoveModalVisible(false)} />
-            )}
+            {renderMoveModal()}
         </Tooltip>
     );
 }

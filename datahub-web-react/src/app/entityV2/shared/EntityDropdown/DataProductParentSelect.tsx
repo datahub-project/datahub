@@ -1,11 +1,9 @@
-import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
-import { Empty, Select } from 'antd';
-import React, { MouseEvent, useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from 'styled-components';
 
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SelectOption, SimpleSelect, Text } from '@src/alchemy-components';
 
 import { DataProduct, EntityType } from '@types';
 
@@ -33,19 +31,15 @@ export default function DataProductParentSelect({
     excludeUrn,
     initialParentName,
 }: Props) {
-    const theme = useTheme();
     const { t } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
 
     const {
         searchResults,
-        searchQuery,
         selectedParentName,
-        onSelectParent,
         handleSearch,
         clearSelectedParent,
         selectParentFromBrowser,
-        setIsFocusedOnInput,
         autoCompleteResultsLoading,
     } = useParentSelector({
         entityType: EntityType.DataProduct,
@@ -65,45 +59,59 @@ export default function DataProductParentSelect({
         ? searchResults.filter((r) => filterResultsForMove(r as DataProduct, excludeUrn))
         : searchResults;
 
-    const handleClear = (event: MouseEvent) => {
-        event.stopPropagation();
-        clearSelectedParent();
+    const searchOptions: SelectOption[] = useMemo(
+        () =>
+            filteredResults.map((entity) => ({
+                value: entity.urn,
+                label: entityRegistry.getDisplayName(entity.type, entity),
+            })),
+        [filteredResults, entityRegistry],
+    );
+
+    const combinedOptions: SelectOption[] = useMemo(() => {
+        const byValue = new Map<string, SelectOption>();
+        if (selectedParentUrn) {
+            const fromSearch = searchOptions.find((option) => option.value === selectedParentUrn);
+            byValue.set(selectedParentUrn, {
+                value: selectedParentUrn,
+                label: fromSearch?.label || selectedParentName || selectedParentUrn,
+            });
+        }
+        searchOptions.forEach((option) => byValue.set(option.value, option));
+        return Array.from(byValue.values());
+    }, [selectedParentUrn, selectedParentName, searchOptions]);
+
+    const values = useMemo(() => (selectedParentUrn ? [selectedParentUrn] : []), [selectedParentUrn]);
+
+    const onUpdate = (urns: string[]) => {
+        const newUrn = urns[0] || '';
+        if (!newUrn) {
+            clearSelectedParent();
+            return;
+        }
+        const fromSearch = searchResults.find((result) => result.urn === newUrn);
+        const displayName = fromSearch
+            ? entityRegistry.getDisplayName(fromSearch.type, fromSearch)
+            : selectedParentName || newUrn;
+        selectParentFromBrowser(newUrn, displayName);
     };
 
     return (
-        <Select
+        <SimpleSelect
             showSearch
-            allowClear
-            clearIcon={<XCircle weight="fill" onClick={handleClear} />}
-            filterOption={false}
-            defaultActiveFirstOption={false}
+            showClear
+            onSearchChange={handleSearch}
+            values={values}
+            onUpdate={onUpdate}
+            onClear={clearSelectedParent}
+            options={searchOptions}
+            combinedSelectedAndSearchOptions={combinedOptions}
+            filterResultsByQuery={false}
+            isLoading={autoCompleteResultsLoading}
             placeholder={t('dataProductSelect.placeholder')}
-            value={selectedParentName}
-            onSelect={onSelectParent}
-            onSearch={handleSearch}
-            onFocus={() => setIsFocusedOnInput(true)}
-            onBlur={() => setIsFocusedOnInput(false)}
-            notFoundContent={
-                searchQuery ? (
-                    <Empty
-                        description={t('dataProductSelect.notFound')}
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        style={{ color: theme.colors.textTertiary }}
-                    />
-                ) : null
-            }
-            options={
-                autoCompleteResultsLoading
-                    ? []
-                    : filteredResults.map((entity) => {
-                          const displayName = entityRegistry.getDisplayName(entity.type, entity);
-                          return {
-                              value: entity.urn,
-                              label: <span data-testid={`data-product-option-${displayName}`}>{displayName}</span>,
-                          };
-                      })
-            }
-            data-testid="parent-data-product-select"
+            width="full"
+            dataTestId="parent-data-product-select"
+            emptyState={<Text size="sm">{t('dataProductSelect.notFound')}</Text>}
         />
     );
 }

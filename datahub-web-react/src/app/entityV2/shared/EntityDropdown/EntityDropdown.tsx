@@ -181,7 +181,6 @@ const EntityDropdown = (props: Props) => {
     const pageUrl = window.location.href;
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const isDomainEntity = entityType === EntityType.Domain;
-    const isDataProductEntity = entityType === EntityType.DataProduct;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
     const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
 
@@ -559,18 +558,27 @@ const EntityDropdown = (props: Props) => {
                     onCreate={() => setTimeout(() => refetchForEntity?.(), 2000)}
                 />
             )}
-            {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal
-                    entityData={entityData}
-                    urn={urn}
-                    entityType={entityType}
-                    onClose={() => setIsMoveModalVisible(false)}
-                />
-            )}
-            {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
-            {isMoveModalVisible && isDataProductEntity && (
-                <MoveDataProductModal onClose={() => setIsMoveModalVisible(false)} />
-            )}
+            {isMoveModalVisible &&
+                (() => {
+                    switch (entityType) {
+                        case EntityType.GlossaryNode:
+                        case EntityType.GlossaryTerm:
+                            return (
+                                <MoveGlossaryEntityModal
+                                    entityData={entityData}
+                                    urn={urn}
+                                    entityType={entityType}
+                                    onClose={() => setIsMoveModalVisible(false)}
+                                />
+                            );
+                        case EntityType.Domain:
+                            return <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />;
+                        case EntityType.DataProduct:
+                            return <MoveDataProductModal onClose={() => setIsMoveModalVisible(false)} />;
+                        default:
+                            return null;
+                    }
+                })()}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer

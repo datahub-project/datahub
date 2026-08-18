@@ -1,22 +1,24 @@
-import { Form, Typography, message } from 'antd';
+import { Modal, Text, toast } from '@components';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import DataProductParentSelect from '@app/entityV2/shared/EntityDropdown/DataProductParentSelect';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
 
 import { useMoveDataProductMutation } from '@graphql/dataProduct.generated';
-import { EntityType } from '@types';
-
-const StyledItem = styled(Form.Item)`
-    margin-bottom: 0;
-`;
+import { DataProduct, EntityType } from '@types';
 
 const OptionalWrapper = styled.span`
     font-weight: normal;
+`;
+
+const Field = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 `;
 
 type Props = {
@@ -27,13 +29,16 @@ export default function MoveDataProductModal({ onClose }: Props) {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
-    const { urn: dataProductUrn } = useEntityData();
-    const [form] = Form.useForm();
+    const { urn: dataProductUrn, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
     const refetch = useRefetch();
 
-    const [moveDataProductMutation] = useMoveDataProductMutation();
+    const [moveDataProductMutation, { loading }] = useMoveDataProductMutation();
+
+    const oldParentUrn =
+        (entityData as DataProduct | null)?.properties?.parentDataProduct?.urn ||
+        (entityData as DataProduct | null)?.parentDataProducts?.[0]?.urn;
 
     async function moveDataProduct() {
         if (!dataProductUrn) return;
@@ -47,24 +52,23 @@ export default function MoveDataProductModal({ onClose }: Props) {
                     },
                 },
             });
-            message.loading({ content: tcf('updating'), duration: 2 });
-            setTimeout(() => {
-                message.success({
-                    content: t('move.success', {
-                        entityName: entityRegistry.getEntityName(EntityType.DataProduct),
-                    }),
-                    duration: 2,
-                });
-                refetch();
-            }, 2000);
-        } catch (e) {
-            message.destroy();
-            message.error({
-                content: t('move.error', { errorMessage: e instanceof Error ? e.message : '' }),
-                duration: 3,
+            analytics.event({
+                type: EventType.MoveDataProductEvent,
+                oldParentDataProductUrn: oldParentUrn,
+                parentDataProductUrn: selectedParentUrn || undefined,
             });
+            toast.loading(tcf('updating'), { duration: 2 });
+            toast.success(
+                t('move.success', {
+                    entityName: entityRegistry.getEntityName(EntityType.DataProduct),
+                }),
+                { duration: 2 },
+            );
+            refetch();
+            onClose();
+        } catch (e) {
+            toast.error(t('move.error', { errorMessage: e instanceof Error ? e.message : '' }), { duration: 3 });
         }
-        onClose();
     }
 
     return (
@@ -78,32 +82,28 @@ export default function MoveDataProductModal({ onClose }: Props) {
                     text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
+                    disabled: loading,
                 },
                 {
                     text: tc('move'),
                     variant: 'filled',
                     onClick: moveDataProduct,
+                    disabled: loading,
+                    isLoading: loading,
                     buttonDataTestId: 'move-data-product-modal-move-button',
                 },
             ]}
         >
-            <Form form={form} initialValues={{}} layout="vertical">
-                <Form.Item
-                    label={
-                        <Typography.Text strong>
-                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
-                        </Typography.Text>
-                    }
-                >
-                    <StyledItem name="parent">
-                        <DataProductParentSelect
-                            selectedParentUrn={selectedParentUrn}
-                            setSelectedParentUrn={setSelectedParentUrn}
-                            excludeUrn={dataProductUrn}
-                        />
-                    </StyledItem>
-                </Form.Item>
-            </Form>
+            <Field>
+                <Text weight="bold">
+                    <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
+                </Text>
+                <DataProductParentSelect
+                    selectedParentUrn={selectedParentUrn}
+                    setSelectedParentUrn={setSelectedParentUrn}
+                    excludeUrn={dataProductUrn}
+                />
+            </Field>
         </Modal>
     );
 }
