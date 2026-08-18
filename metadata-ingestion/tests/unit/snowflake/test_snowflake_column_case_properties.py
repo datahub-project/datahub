@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Set, Tuple, Type, TypeVar
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeVar
 
 from hypothesis import HealthCheck, given, settings, strategies as st
 
@@ -22,11 +22,16 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     snowflake_identity_key,
 )
 from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     MetricInfoClass,
     MetricRelationshipsClass,
-    SemanticModelInfoClass,
+    SchemaMetadataClass,
     SemanticModelPropertiesClass,
 )
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 _TABLE = "T"
 _DB = "DB"
@@ -34,6 +39,12 @@ _SCHEMA = "SCH"
 # Distinct from every generated name, so the metric doing the deriving can never
 # be one of the metrics it references.
 _DERIVED = "derived_metric"
+# Upstreams point here. It is never emitted, which is the point: a reference to a
+# physical base table is deliberately outside the model's graph and must not be
+# mistaken for a dangling one.
+_PHYSICAL_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.physical,PROD)"
+)
 
 _AspectT = TypeVar("_AspectT")
 
@@ -287,16 +298,64 @@ def _aspects(
 
 
 def _workunits(
-    mapper: SnowflakeSemanticModelMapper, view: SnowflakeSemanticView
+    mapper: SnowflakeSemanticModelMapper,
+    view: SnowflakeSemanticView,
+    fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
 ) -> List[MetadataWorkUnit]:
     return list(
         mapper.gen_workunits(
             semantic_view=view,
             schema_name=_SCHEMA,
             db_name=_DB,
-            fine_grained_lineages=[],
+            fine_grained_lineages=fine_grained_lineages or [],
         )
     )
+
+
+def _referenced_urns(workunits: Iterable[MetadataWorkUnit]) -> Set[str]:
+    """Every URN the emitted aspects point at, by walking the payloads.
+
+    Deliberately not a list of aspect types. Enumerating them by hand is what let
+    a whole class through: this collector named derivedFrom and
+    SemanticModelInfo.datasets, so references carried by a third aspect --
+    fineGrainedLineages -- were invisible to it no matter what the fixture did.
+    """
+    found: Set[str] = set()
+
+    def walk(value: object) -> None:
+        if isinstance(value, str):
+            if value.startswith("urn:li:"):
+                found.add(value)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+
+    for workunit in workunits:
+        mcp = workunit.metadata
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspect is not None:
+            walk(mcp.aspect.to_obj())
+    return found
+
+
+def _emitted_entity_urns(workunits: Iterable[MetadataWorkUnit]) -> Set[str]:
+    urns: Set[str] = set()
+    for workunit in workunits:
+        mcp = workunit.metadata
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.entityUrn:
+            urns.add(mcp.entityUrn)
+    return urns
+
+
+def _declared_field_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    """schemaField URNs the emitted schemas actually declare."""
+    return {
+        str(SchemaFieldUrn(dataset_urn, field.fieldPath))
+        for dataset_urn, schema in _aspects(workunits, SchemaMetadataClass)
+        for field in schema.fields
+    }
 
 
 def _emitted_metric_urns(
@@ -504,16 +563,19 @@ def test_every_metric_belongs_to_a_logical_table_that_exists(
 def test_the_emitted_graph_has_no_dangling_references(
     logical_tables: List[str],
 ) -> None:
-    """Every entity an emitted aspect points at was itself emitted.
+    """Nothing an emitted aspect points at is missing from what was emitted.
 
-    Mechanism-independent, which is the point: the ways a reference can go
-    dangling are exactly the ways nobody thought of. Two have happened here --
-    a metric index that still held a logical table the emitter had dropped, and
-    a model listing a dataset that was never produced -- and both would have
-    failed this without anyone naming them.
+    Both halves are derived, not enumerated: references come from walking every
+    aspect payload, and the entity types that must exist come from what the
+    mapper actually emitted. An earlier version listed two aspects by hand and
+    passed no lineage at all, so it could not see a fineGrainedLineages edge
+    routed onto a field the surviving dataset never declared -- the review found
+    that, not this test.
 
-    Scoped to the semantic model's own graph. Physical base tables are referenced
-    by upstreamLineage and deliberately live outside it.
+    Scoped to the model's own graph: physical base tables are referenced by
+    upstreamLineage and deliberately live outside it, which is why dataset URNs
+    are exempt from the entity check and only fields on schemas we emitted are
+    checked.
     """
     for preserve, convert in _CELLS:
         # Built per config: identity_key is decided at extraction, so a view
@@ -561,19 +623,83 @@ def test_the_emitted_graph_has_no_dangling_references(
         mapper = _mapper(
             preserve_column_case=preserve, convert_urns_to_lowercase=convert
         )
-        workunits = _workunits(mapper, view)
+        # A dimension column per table, named only for that table. Metric columns
+        # are skipped by the lineage router (their lineage flows through the metric
+        # entity), so a dimension is what puts a real schemaField edge in play --
+        # and a per-table name means an edge routed onto a survivor's URN names a
+        # field that survivor cannot declare.
+        for table in logical_tables:
+            view.column_occurrences[f"d_{table}"] = [
+                SemanticViewColumnMetadata(
+                    name=f"d_{table}",
+                    identity_key=snowflake_identity_key(
+                        f"d_{table}", preserve_column_case=preserve
+                    ),
+                    data_type="TEXT",
+                    comment=None,
+                    subtype=SemanticViewColumnSubtype.DIMENSION,
+                    table_name=table,
+                    synonyms=[],
+                    expression=None,
+                )
+            ]
 
-        emitted = {urn for urn, _ in _aspects(workunits, MetricInfoClass)} | {
-            urn for urn, _ in _aspects(workunits, SemanticModelPropertiesClass)
+        # One column-lineage edge per logical table, built the way the resolver
+        # builds them. Passing [] -- as this property used to -- means the whole
+        # fineGrainedLineages path is never exercised.
+        lineages = [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[str(SchemaFieldUrn(_PHYSICAL_DATASET_URN, "c"))],
+                downstreams=[
+                    str(
+                        SchemaFieldUrn(
+                            mapper.identifiers.gen_semantic_model_dataset_urn(
+                                view.name, table, _SCHEMA, _DB
+                            ),
+                            mapper.identifiers.logical_dataset_field_path(f"d_{table}"),
+                        )
+                    )
+                ],
+            )
+            for table in logical_tables
+        ]
+
+        workunits = _workunits(mapper, view, fine_grained_lineages=lineages)
+
+        referenced = _referenced_urns(workunits)
+        emitted = _emitted_entity_urns(workunits)
+        declared = _declared_field_urns(workunits)
+        datasets_with_schema = {
+            urn for urn, _ in _aspects(workunits, SchemaMetadataClass)
         }
 
-        referenced = set()
-        for _urn, aspect in _aspects(workunits, MetricRelationshipsClass):
-            referenced |= {edge.destinationUrn for edge in aspect.derivedFrom}
-        for _urn, model_info in _aspects(workunits, SemanticModelInfoClass):
-            referenced |= set(model_info.datasets or [])
-
-        assert referenced <= emitted, (
+        # Entity types the mapper owns must exist. Derived from what was emitted so
+        # a newly emitted entity type is covered without editing this. Datasets and
+        # schema fields are exempt because both legitimately point outside the
+        # model -- an upstream physical table and its columns are referenced but
+        # never emitted here. References into our *own* datasets are the sharper
+        # check below.
+        owned_types = {guess_entity_type(urn) for urn in emitted} - {
+            DatasetUrn.ENTITY_TYPE,
+            SchemaFieldUrn.ENTITY_TYPE,
+        }
+        owned = {urn for urn in referenced if guess_entity_type(urn) in owned_types}
+        assert owned <= emitted, (
             f"preserve={preserve} convert={convert}: {logical_tables} -> "
-            f"dangling {sorted(referenced - emitted)}"
+            f"dangling entities {sorted(owned - emitted)}"
+        )
+
+        # Any field reference into a dataset we emitted a schema for has to name a
+        # field that schema declares.
+        into_ours = {
+            urn
+            for urn in referenced
+            if guess_entity_type(urn) == SchemaFieldUrn.ENTITY_TYPE
+            and SchemaFieldUrn.from_string(urn).parent in datasets_with_schema
+        }
+        assert into_ours <= declared, (
+            f"preserve={preserve} convert={convert}: {logical_tables} -> "
+            f"lineage onto undeclared fields {sorted(into_ours - declared)}"
         )
