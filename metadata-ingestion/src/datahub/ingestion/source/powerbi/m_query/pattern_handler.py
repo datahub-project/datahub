@@ -200,9 +200,9 @@ _NAVIGATION_RECORD_KEYS = frozenset(
 def _sql_has_unqualified_snowflake_tables(query: str) -> bool:
     try:
         tables = native_sql_parser.get_tables(query)
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to parse native query for Snowflake table qualification: %s", e, exc_info=True)
         return True
-    if not tables:
         return False
     return any(len(name.split(".")) < 3 for name in tables)
 
