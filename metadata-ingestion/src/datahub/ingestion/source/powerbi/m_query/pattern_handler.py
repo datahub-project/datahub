@@ -173,6 +173,16 @@ def _get_data_source_tokens(
             if not isinstance(inner, dict):
                 continue
             val = get_literal_value(inner)
+            if val is None and inner.get("kind") == "IdentifierExpression":
+                # Snowflake.Databases(SnowflakeURL, SnowflakeWarehouse) -- the
+                # positional args are Parameter references, not literals.
+                # Skipping them shifts {[Name=...]} into tokens[1], so
+                # create_lineage treats the key "Name" as the server.
+                ref_name = inner.get("identifier", {}).get("literal", "")
+                if ref_name.startswith('#"') and ref_name.endswith('"'):
+                    ref_name = ref_name[2:-1]
+                if parameters and ref_name in parameters:
+                    val = parameters[ref_name]
             if val is not None:
                 tokens.append(val)
             elif inner.get("kind") == "RecordExpression":

@@ -112,10 +112,9 @@ def _build_native_query_lineage(
 
 def _snowflake_native_query_source_node() -> dict:
     """Structurally faithful (tokenRange/position noise stripped) AST fragment
-    for ``Snowflake.Databases(SnowflakeURL,SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``
-    -- captured from a real M-Query bridge parse (Angle Auto POC repro,
-    ING-2849 / GitHub #15327). ``SnowflakeDBLake`` is an unquoted identifier
-    (a Power Query dataset Parameter reference), not a literal string.
+    for ``Snowflake.Databases(SnowflakeURL,SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``.
+    ``SnowflakeDBLake`` is an unquoted identifier (a Power Query dataset
+    Parameter reference), not a literal string.
     """
     return {
         "kind": "RecursivePrimaryExpression",
@@ -188,44 +187,11 @@ def _snowflake_native_query_source_node() -> dict:
     }
 
 
-def _snowflake_native_query_source_node_literal_server() -> dict:
-    """Same shape as ``_snowflake_native_query_source_node`` but with a literal
-    server/warehouse (``Snowflake.Databases("myserver.snowflakecomputing.com","MYWH")``)
-    instead of identifier references.
-
-    Bare identifier positional arguments (not wrapped in a RecordExpression) are
-    never resolved via ``parameters`` by the current extraction loop -- only
-    ``{[Name=...]}``-style record fields are. That's harmless for the
-    ``create_lineage`` case (the resolved ``server`` value is only used for
-    optional platform-instance lookup, not URN construction -- confirmed against
-    Angle Auto's real M-Query end-to-end), but it means a fixture with identifier
-    server/warehouse args and an unresolved ``Name`` never reaches this file's
-    database-resolution warning at all -- it hits the earlier "server not
-    available" check first. This literal-server variant isolates the ``Name``
-    resolution behaviour specifically, matching the real-world case where the
-    warning is actually reachable (e.g. GitHub #15327 Query 3's literal-server /
-    parameterized-warehouse shape).
-    """
-    node = _snowflake_native_query_source_node()
-    node["recursiveExpressions"]["elements"][0]["content"]["elements"] = [
-        {
-            "kind": "Csv",
-            "node": {
-                "kind": "LiteralExpression",
-                "literalKind": "Text",
-                "literal": '"myserver.snowflakecomputing.com"',
-            },
-        },
-        {
-            "kind": "Csv",
-            "node": {
-                "kind": "LiteralExpression",
-                "literalKind": "Text",
-                "literal": '"MYWH"',
-            },
-        },
-    ]
-    return node
+_SNOWFLAKE_NATIVE_QUERY_PARAMETERS = {
+    "SnowflakeURL": "myserver.snowflakecomputing.com",
+    "SnowflakeWarehouse": "MYWH",
+    "SnowflakeDBLake": "DATA_LAKE_DEV",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -1053,28 +1019,26 @@ def test_is_sql_query_handles_other_platforms_without_raising():
 
 # ---------------------------------------------------------------------------
 # Snowflake Value.NativeQuery with a parameterized database identifier
-# (Angle Auto POC repro; ING-2849 / GitHub #15327)
 # ---------------------------------------------------------------------------
 
 
 def test_get_data_source_tokens_resolves_snowflake_item_access_with_parameter():
-    """``Snowflake.Databases(...){[Name=SnowflakeDBLake]}[Data]`` -- the ``{[...]}``
-    step is an ItemAccessExpression, not an InvokeExpression. Before the fix,
-    the token-extraction loop only handled InvokeExpression elements, so it
-    never even reached the RecordExpression holding ``Name=``, regardless of
-    whether the value was a literal or (as here) an unresolved parameter
-    reference. Both gaps -- the missing ItemAccessExpression branch and the
-    missing ``parameters`` thread-through -- must be fixed for this to pass.
+    """``Snowflake.Databases(SnowflakeURL, SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``.
+    Positional IdentifierExpression args and the ItemAccess ``Name`` field all
+    resolve from dataset parameters, so tokens[1] is the server rather than
+    the record key ``Name``.
     """
     source_node = _snowflake_native_query_source_node()
 
     tokens = _get_data_source_tokens(
         node_map={},
         arg_node=source_node,
-        parameters={"SnowflakeDBLake": "DATA_LAKE_DEV"},
+        parameters=_SNOWFLAKE_NATIVE_QUERY_PARAMETERS,
     )
 
     assert tokens[0] == "Snowflake.Databases"
+    assert tokens[1] == "myserver.snowflakecomputing.com"
+    assert tokens[2] == "MYWH"
     assert "Name" in tokens
     assert tokens[tokens.index("Name") + 1] == "DATA_LAKE_DEV"
 
@@ -1098,8 +1062,7 @@ def test_get_data_source_tokens_omits_name_when_parameter_unresolved():
 
 def test_native_query_lineage_get_db_name_resolves_snowflake_from_name_token():
     """``get_db_name()`` had Databricks and BigQuery branches but fell through
-    to ``None`` for every Snowflake token list, regardless of content -- this
-    is the third coordinated piece of the fix (ING-2849 Scope 1)."""
+    to ``None`` for every Snowflake token list, regardless of content."""
     instance = _build_native_query_lineage(config=_build_config())
 
     tokens = [
@@ -1150,13 +1113,10 @@ def _native_query_arg_list(sql: str, source_node: Optional[dict] = None) -> dict
 
 
 def test_create_lineage_warns_when_snowflake_database_name_unresolved():
-    """Cross-reference: PR #18030 (ING-2913) added a clear warning for the
-    equivalent unresolved-parameter case in the three-step navigation-chain
-    path (``ThreeStepDataAccessPattern``, no embedded SQL). This is the same
-    fix for the ``Value.NativeQuery`` + embedded-SQL path (``NativeQueryLineage``,
-    ING-2849 Scope 1) -- a different class, same underlying failure mode:
-    silently producing no/wrong lineage with no explanation when a parameter
-    reference can't be resolved.
+    """PR #18030 added a warning for the equivalent unresolved-parameter case
+    on the three-step navigation-chain path (no embedded SQL). This is the
+    same failure mode on the ``Value.NativeQuery`` + embedded-SQL path:
+    silently producing no/wrong lineage when a parameter can't be resolved.
     """
     instance = _build_native_query_lineage(
         config=_build_config(enable_advance_lineage_sql_construct=True)
@@ -1164,14 +1124,16 @@ def test_create_lineage_warns_when_snowflake_database_name_unresolved():
     detail = DataAccessFunctionDetail(
         arg_list=_native_query_arg_list(
             "select * from unqualified_table",
-            source_node=_snowflake_native_query_source_node_literal_server(),
+            source_node=_snowflake_native_query_source_node(),
         ),
         data_access_function_name="Value.NativeQuery",
         identifier_accessor=None,
         node_map={},
-        # Server/warehouse are literal in the fixture; SnowflakeDBLake is
-        # deliberately NOT supplied here -- unresolved.
-        parameters={},
+        # Server/warehouse resolve; SnowflakeDBLake is deliberately omitted.
+        parameters={
+            "SnowflakeURL": "myserver.snowflakecomputing.com",
+            "SnowflakeWarehouse": "MYWH",
+        },
     )
 
     instance.create_lineage(detail)
@@ -1188,13 +1150,13 @@ def test_create_lineage_does_not_warn_when_snowflake_database_name_resolved():
     )
     detail = DataAccessFunctionDetail(
         arg_list=_native_query_arg_list(
-            "select contract_id from ambitpstage.termination_quote_current",
-            source_node=_snowflake_native_query_source_node_literal_server(),
+            "select col_a from my_schema.my_table",
+            source_node=_snowflake_native_query_source_node(),
         ),
         data_access_function_name="Value.NativeQuery",
         identifier_accessor=None,
         node_map={},
-        parameters={"SnowflakeDBLake": "DATA_LAKE_DEV"},
+        parameters=_SNOWFLAKE_NATIVE_QUERY_PARAMETERS,
     )
 
     instance.create_lineage(detail)
