@@ -31,14 +31,14 @@ export default function MoveDataProductModal({ onClose }: Props) {
     const { t: tcf } = useTranslation('common.feedback');
     const { urn: dataProductUrn, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const [selectedParentUrn, setSelectedParentUrn] = useState('');
+    const oldParent = (entityData as DataProduct | null)?.properties?.parentDataProduct;
+    const oldParentUrn = oldParent?.urn || '';
+    const oldParentName = oldParent?.properties?.name || oldParentUrn;
+    const [selectedParentUrn, setSelectedParentUrn] = useState(oldParentUrn);
     const refetch = useRefetch();
 
     const [moveDataProductMutation, { loading }] = useMoveDataProductMutation();
-
-    const oldParentUrn =
-        (entityData as DataProduct | null)?.properties?.parentDataProduct?.urn ||
-        (entityData as DataProduct | null)?.parentDataProducts?.[0]?.urn;
+    const isUnchanged = selectedParentUrn === oldParentUrn;
 
     async function moveDataProduct() {
         if (!dataProductUrn) return;
@@ -54,7 +54,7 @@ export default function MoveDataProductModal({ onClose }: Props) {
             });
             analytics.event({
                 type: EventType.MoveDataProductEvent,
-                oldParentDataProductUrn: oldParentUrn,
+                oldParentDataProductUrn: oldParentUrn || undefined,
                 parentDataProductUrn: selectedParentUrn || undefined,
             });
             toast.loading(tcf('updating'), { duration: 2 });
@@ -88,7 +88,7 @@ export default function MoveDataProductModal({ onClose }: Props) {
                     text: tc('move'),
                     variant: 'filled',
                     onClick: moveDataProduct,
-                    disabled: loading,
+                    disabled: loading || isUnchanged,
                     isLoading: loading,
                     buttonDataTestId: 'move-data-product-modal-move-button',
                 },
@@ -102,6 +102,7 @@ export default function MoveDataProductModal({ onClose }: Props) {
                     selectedParentUrn={selectedParentUrn}
                     setSelectedParentUrn={setSelectedParentUrn}
                     excludeUrn={dataProductUrn}
+                    initialParentName={oldParentName || undefined}
                 />
             </Field>
         </Modal>
