@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -67,6 +68,16 @@ public class PreProcessHooksTest {
     expectThrows(
         IllegalStateException.class, () -> PreProcessHooks.validateWhenConsumingMcl(hooks, true));
     PreProcessHooks.validateWhenConsumingMcl(hooks, false);
+  }
+
+  @Test
+  public void testIsMclConsumerEnabled_matchesExactLowercaseTrue() {
+    assertTrue(PreProcessHooks.isMclConsumerEnabled("true", "false"));
+    assertTrue(PreProcessHooks.isMclConsumerEnabled("false", "true"));
+    assertFalse(PreProcessHooks.isMclConsumerEnabled("TRUE", "false"));
+    assertFalse(PreProcessHooks.isMclConsumerEnabled("false", "TRUE"));
+    assertFalse(PreProcessHooks.isMclConsumerEnabled("false", "false"));
+    assertFalse(PreProcessHooks.isMclConsumerEnabled(null, null));
   }
 
   private static void assertContainsIndexingGuidance(IllegalStateException ex) {

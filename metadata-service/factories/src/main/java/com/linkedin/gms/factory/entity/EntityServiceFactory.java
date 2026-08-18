@@ -38,8 +38,8 @@ public class EntityServiceFactory {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
-      @Value("${MAE_CONSUMER_ENABLED:false}") final boolean maeConsumerEnabled,
-      @Value("${MCL_CONSUMER_ENABLED:false}") final boolean mclConsumerEnabled,
+      @Value("${MAE_CONSUMER_ENABLED:false}") final String maeConsumerEnabled,
+      @Value("${MCL_CONSUMER_ENABLED:false}") final String mclConsumerEnabled,
       final List<ThrottleSensor> throttleSensors,
       @javax.annotation.Nullable final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils,
       final ObjectProvider<RetentionBuffer> retentionBufferProvider,
@@ -47,7 +47,8 @@ public class EntityServiceFactory {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
     PreProcessHooks.validateWhenConsumingMcl(
-        featureFlags.getPreProcessHooks(), maeConsumerEnabled || mclConsumerEnabled);
+        featureFlags.getPreProcessHooks(),
+        PreProcessHooks.isMclConsumerEnabled(maeConsumerEnabled, mclConsumerEnabled));
 
     EntityServiceImpl entityService =
         new EntityServiceImpl(

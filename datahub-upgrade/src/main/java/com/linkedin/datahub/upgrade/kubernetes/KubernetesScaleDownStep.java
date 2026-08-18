@@ -391,7 +391,8 @@ public class KubernetesScaleDownStep implements UpgradeStep {
    * Scale-down must not create issue 19119: GMS consuming MCLs with both UI index paths off. The
    * default patch sets {@code PRE_PROCESS_HOOKS_UI_ENABLED=false} together with {@code
    * MAE_CONSUMER_ENABLED=false} in one Deployment edit. Reject a custom map that flips preprocess
-   * off without disabling the MCL consumer.
+   * off without disabling {@code MAE_CONSUMER_ENABLED} (the flag that typically keeps GMS consuming
+   * MCLs). {@code MCL_CONSUMER_ENABLED=false} alone is not enough.
    */
   static void validatePreprocessEnvUpdates(List<DeploymentEnvUpdate> updates) {
     if (updates == null) {
@@ -404,20 +405,28 @@ public class KubernetesScaleDownStep implements UpgradeStep {
       if (!isEnvFalse(update.getEnv().get("PRE_PROCESS_HOOKS_UI_ENABLED"))) {
         continue;
       }
+      // Patches replace only listed keys. Typical GMS has MAE_CONSUMER_ENABLED=true, so
+      // MCL_CONSUMER_ENABLED=false alone would leave GMS still consuming. Require MAE off
+      // and do not allow the patch to turn MCL on.
       if (isEnvFalse(update.getEnv().get("MAE_CONSUMER_ENABLED"))
-          || isEnvFalse(update.getEnv().get("MCL_CONSUMER_ENABLED"))) {
+          && !isEnvTrue(update.getEnv().get("MCL_CONSUMER_ENABLED"))) {
         continue;
       }
       throw new IllegalStateException(
           "systemUpdate.kubernetesScaleDown.deploymentEnvUpdates sets "
-              + "PRE_PROCESS_HOOKS_UI_ENABLED=false without MAE_CONSUMER_ENABLED=false (or "
-              + "MCL_CONSUMER_ENABLED=false). That would restart GMS still consuming MCLs with "
-              + "both UI index paths off (issue 19119). Pair the preprocess disable with consumer "
-              + "disable, matching the default config.");
+              + "PRE_PROCESS_HOOKS_UI_ENABLED=false without MAE_CONSUMER_ENABLED=false. That "
+              + "would restart GMS still consuming MCLs with both UI index paths off (issue "
+              + "19119). Pair the preprocess disable with MAE_CONSUMER_ENABLED=false (and do "
+              + "not set MCL_CONSUMER_ENABLED=true) in the same map, matching the default "
+              + "config.");
     }
   }
 
   private static boolean isEnvFalse(@Nullable String value) {
     return value != null && "false".equalsIgnoreCase(value.trim());
+  }
+
+  private static boolean isEnvTrue(@Nullable String value) {
+    return value != null && "true".equalsIgnoreCase(value.trim());
   }
 }

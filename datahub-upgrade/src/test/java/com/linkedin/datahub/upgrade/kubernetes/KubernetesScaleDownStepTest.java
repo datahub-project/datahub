@@ -360,12 +360,41 @@ public class KubernetesScaleDownStepTest {
   }
 
   @Test
-  public void testValidatePreprocessEnvUpdates_uiOffWithMclOffAllowed() {
-    KubernetesScaleDownStep.validatePreprocessEnvUpdates(
-        List.of(
-            new DeploymentEnvUpdate(
-                "app.kubernetes.io/name=datahub-gms",
-                Map.of("PRE_PROCESS_HOOKS_UI_ENABLED", "false", "MCL_CONSUMER_ENABLED", "false"))));
+  public void testValidatePreprocessEnvUpdates_uiOffWithMclOffAloneThrows() {
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+                    List.of(
+                        new DeploymentEnvUpdate(
+                            "app.kubernetes.io/name=datahub-gms",
+                            Map.of(
+                                "PRE_PROCESS_HOOKS_UI_ENABLED",
+                                "false",
+                                "MCL_CONSUMER_ENABLED",
+                                "false")))));
+    assertTrue(ex.getMessage().contains("MAE_CONSUMER_ENABLED"), ex.getMessage());
+  }
+
+  @Test
+  public void testValidatePreprocessEnvUpdates_uiOffMaeOffMclOnThrows() {
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+                    List.of(
+                        new DeploymentEnvUpdate(
+                            "app.kubernetes.io/name=datahub-gms",
+                            Map.of(
+                                "PRE_PROCESS_HOOKS_UI_ENABLED",
+                                "false",
+                                "MAE_CONSUMER_ENABLED",
+                                "false",
+                                "MCL_CONSUMER_ENABLED",
+                                "true")))));
+    assertTrue(ex.getMessage().contains("19119"), ex.getMessage());
   }
 
   @Test

@@ -18,6 +18,15 @@ public class PreProcessHooks {
   private boolean reprocessEnabled;
 
   /**
+   * Same gate as {@code MetadataChangeLogProcessorCondition}: only lowercase {@code true} enables
+   * the MCL consumer. Spring boolean conversion would treat {@code TRUE}/{@code on} as enabled and
+   * refuse startup in a process that is not actually consuming.
+   */
+  public static boolean isMclConsumerEnabled(String maeConsumerEnabled, String mclConsumerEnabled) {
+    return "true".equals(maeConsumerEnabled) || "true".equals(mclConsumerEnabled);
+  }
+
+  /**
    * Rejects the silent-drop configuration from issue 19119: this process is responsible for
    * indexing UI-sourced writes and both paths are off. UI writes land in primary storage, the MAE
    * hook skips {@code appSource=ui}, and search never sees the entity.

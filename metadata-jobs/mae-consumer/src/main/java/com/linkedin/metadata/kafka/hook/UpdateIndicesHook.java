@@ -50,20 +50,23 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       @Nonnull @Value("${featureFlags.preProcessHooks.reprocessEnabled:false}")
           Boolean reprocessUIEvents,
       @Nonnull @Value("${updateIndices.consumerGroupSuffix}") String consumerGroupSuffix,
-      @Value("${MAE_CONSUMER_ENABLED:false}") boolean maeConsumerEnabled,
-      @Value("${MCL_CONSUMER_ENABLED:false}") boolean mclConsumerEnabled) {
+      @Value("${MAE_CONSUMER_ENABLED:false}") String maeConsumerEnabled,
+      @Value("${MCL_CONSUMER_ENABLED:false}") String mclConsumerEnabled) {
     this.updateIndicesService = updateIndicesService;
     this.isEnabled = isEnabled;
     this.reprocessUIEvents = reprocessUIEvents;
     this.consumerGroupSuffix = consumerGroupSuffix;
     // GMS always constructs this bean (embedded MAE lives on the GMS classpath). Gate on MCL
     // consumption so kubernetesScaleDown can set PRE_PROCESS_HOOKS_UI_ENABLED=false while
-    // MAE_CONSUMER_ENABLED=false. Standalone MAE sets MAE_CONSUMER_ENABLED=true.
+    // MAE_CONSUMER_ENABLED=false. Standalone MAE sets MAE_CONSUMER_ENABLED=true. Helm sets the
+    // same PRE_PROCESS_HOOKS_* pair on GMS and MAE; default MAE is uiEnabled=true (skip UI
+    // events because GMS already indexed them), not the old both-false template.
     if (Boolean.TRUE.equals(isEnabled)) {
       PreProcessHooks hooks = new PreProcessHooks();
       hooks.setUiEnabled(Boolean.TRUE.equals(uiPreprocessEnabled));
       hooks.setReprocessEnabled(Boolean.TRUE.equals(reprocessUIEvents));
-      PreProcessHooks.validateWhenConsumingMcl(hooks, maeConsumerEnabled || mclConsumerEnabled);
+      PreProcessHooks.validateWhenConsumingMcl(
+          hooks, PreProcessHooks.isMclConsumerEnabled(maeConsumerEnabled, mclConsumerEnabled));
     }
   }
 
@@ -81,8 +84,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         uiPreprocessEnabled,
         reprocessUIEvents,
         consumerGroupSuffix,
-        mclConsumerEnabled,
-        false);
+        mclConsumerEnabled ? "true" : "false",
+        "false");
   }
 
   @VisibleForTesting
