@@ -24,6 +24,12 @@ def test_split_quoted_name_list():
         '"Quote""InName"',
         "ROLE_B",
     ]
+    # A quoted element may also close the list, or be the whole of it.
+    assert split_quoted_name_list('ROLE_A,"Trailing,Quoted"') == [
+        "ROLE_A",
+        '"Trailing,Quoted"',
+    ]
+    assert split_quoted_name_list('"Only,One"') == ['"Only,One"']
 
 
 def test_split_quoted_name_list_only_honors_well_formed_quoting():
