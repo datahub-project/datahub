@@ -51,6 +51,7 @@ casing of **upstream warehouse references** against the casing DataHub already s
   casing exactly, that casing wins (`EXACT`). If none of the colliding entities is lowercase-named
   (and there is no exact match), there is no basis to choose and
   the reference is left unchanged and flagged `UNRESOLVED`.
+
 Matching is on the whole URN, so `platform_instance` and `env` are part of the comparison: a `DEV`
 reference is never healed to a same-named `PROD` entity.
 
