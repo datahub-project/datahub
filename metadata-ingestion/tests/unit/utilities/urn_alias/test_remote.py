@@ -26,6 +26,10 @@ _PLATFORM_INSTANCE = "MY_DB"
 _INSTANCE_KEPT = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.my_schema.events,PROD)"
 )
+# `_UPPER` with the instance spelled the other way, as a reference is free to spell it.
+_INSTANCE_LOWERCASED = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.MY_SCHEMA.EVENTS,PROD)"
+)
 
 
 def _specs(*dataset_aspects: str) -> EntityAspectSpecs:
@@ -149,9 +153,11 @@ def test_a_non_dataset_reference_is_never_asked_about() -> None:
 
 def _probe_graph(*existing: str) -> mock.MagicMock:
     graph = mock.MagicMock()
-    graph.get_entities.side_effect = lambda **kwargs: {
-        urn: {} for urn in kwargs["urns"] if urn in existing
-    }
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: [
+        urn
+        for urn in kwargs["extra_or_filters"][0]["and"][0]["values"]
+        if urn in existing
+    ]
     return _reporting(graph, _specs())
 
 
@@ -186,7 +192,7 @@ def test_the_probe_asks_about_a_casing_only_once() -> None:
 
     # A guess that came back empty is still worth keeping, so an entity nothing holds
     # costs one question for the run rather than one per reference to it.
-    assert graph.get_entities.call_count == 1
+    assert graph.get_urns_by_filter.call_count == 1
 
 
 def test_a_casing_that_was_found_settles_only_itself() -> None:
@@ -226,7 +232,7 @@ def test_what_the_probe_asked_is_shared_by_every_consumer_of_the_index() -> None
     assert first.resolve(_UPPER) == _LOWER
     assert second.resolve(_UPPER) == _LOWER
 
-    assert graph.get_entities.call_count == 1
+    assert graph.get_urns_by_filter.call_count == 1
 
 
 def _probing_a_load(graph: mock.MagicMock, *loaded: str) -> UrnAliasResolver:
@@ -260,13 +266,37 @@ def test_preloading_does_not_widen_what_the_probe_can_reach() -> None:
 
 def test_a_failed_probe_records_nothing() -> None:
     graph = mock.MagicMock()
-    graph.get_entities.side_effect = Exception("boom")
+    graph.get_urns_by_filter.side_effect = Exception("boom")
     resolver = _probing(graph)
 
     assert resolver.resolve(_LOWER) is None
     assert resolver.resolve(_LOWER) is None
 
-    assert graph.get_entities.call_count == 2
+    # As above: each reference is asked about, since nothing was recorded.
+    assert graph.get_urns_by_filter.call_count == 2
+
+
+def test_the_probe_leaves_soft_deletion_to_the_server_filter() -> None:
+    # Searched, not fetched by key, so `get_urns_by_filter`'s NOT_SOFT_DELETED default
+    # drops tombstones — the same rule the alias search and the bulk scroll already get.
+    graph = _probe_graph(_LOWER)
+
+    assert _probing(graph).resolve(_UPPER) == _LOWER
+
+    _, kwargs = graph.get_urns_by_filter.call_args
+    assert "status" not in kwargs
+
+
+def test_the_instance_kept_guess_spells_the_instance_as_configured() -> None:
+    # The guess exists to reach the URN a resolver configured with this instance emits, and
+    # that one always spells the instance `MY_DB` — however the reference spelled it. Taking
+    # the spelling from the reference instead only ever reaches URNs that already agree,
+    # which is the case needing no guess at all.
+    graph = _probe_graph(_INSTANCE_KEPT)
+
+    resolved = _probing(graph, _PLATFORM_INSTANCE).resolve(_INSTANCE_LOWERCASED)
+
+    assert resolved == _INSTANCE_KEPT
 
 
 # --- picking the one way to ask -------------------------------------------------------

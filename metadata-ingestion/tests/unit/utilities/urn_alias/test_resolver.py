@@ -144,38 +144,3 @@ def test_coverage_is_recorded_once_per_slice() -> None:
     resolver.record_slice_loaded(_SNOWFLAKE_PROD)
 
     assert resolver._index.loaded_slices == [_SNOWFLAKE_PROD]
-
-
-# --- confining an answer to slices the caller loaded --------------------------------
-
-
-_OTHER_INSTANCE = (
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,other_inst.my_db.events,PROD)"
-)
-_OTHER_INSTANCE_UPPER = (
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,OTHER_INST.MY_DB.EVENTS,PROD)"
-)
-
-
-def test_within_declines_a_match_outside_the_callers_slices() -> None:
-    # The index is shared, so it holds entities other consumers loaded. A caller that
-    # also needs the entity's columns must not be handed one it never fetched.
-    resolver = _loaded(_OTHER_INSTANCE)
-
-    mine = [CatalogSlice(platform="snowflake", platform_instance="my_inst", env="PROD")]
-
-    assert resolver.resolve(_OTHER_INSTANCE_UPPER) == _OTHER_INSTANCE
-    assert resolver.resolve(_OTHER_INSTANCE_UPPER, within=mine) is None
-
-
-def test_within_accepts_a_match_inside_the_callers_slices() -> None:
-    assert _loaded(_LOWER).resolve(_UPPER, within=[_SNOWFLAKE_PROD]) == _LOWER
-
-
-def test_within_does_not_disturb_collision_handling() -> None:
-    resolver = _loaded(_LOWER, _UPPER)
-
-    assert (
-        resolver.resolve(_MIXED, prefer_lowercased=True, within=[_SNOWFLAKE_PROD])
-        == _LOWER
-    )

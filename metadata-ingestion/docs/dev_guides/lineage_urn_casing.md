@@ -202,8 +202,9 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   aspect is still healed at table level; only its column casing is left as the source reported it.
 - **Scope is what you asked for.** By default a reference is resolved only to an entity inside the
   `platform` / `platform_instance` / `env` combinations listed in `upstream_platforms`, so a reference
-  to a `platform_instance` you did not list is reported `UNRESOLVED` even though that entity exists in
-  DataHub. Either add it to `upstream_platforms` (also preloading it) or set
+  to a `platform_instance` you did not list is never looked up at all, even though that entity exists
+  in DataHub. It is left unchanged and unstamped — no `matchType` verdict, and counted under
+  `num_refs_out_of_scope`. Either add it to `upstream_platforms` (also preloading it) or set
   `resolve_all_platforms: true` to reconcile whatever a reference points at.
 - **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that

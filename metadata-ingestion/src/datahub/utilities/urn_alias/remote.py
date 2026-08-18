@@ -1,8 +1,16 @@
 import logging
-from typing import TYPE_CHECKING, Collection, Dict, List, Optional, Protocol, Set
+from typing import (
+    TYPE_CHECKING,
+    Collection,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Set,
+)
 
 from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
-from datahub.metadata.schema_classes import AliasesClass, DatasetKeyClass
+from datahub.metadata.schema_classes import AliasesClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.urn_alias.index import UrnAliasIndex, lowercased_urn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -195,12 +203,26 @@ class CasingProbeLookup:
         return candidates
 
     def _probe(self, candidates: List[str]) -> Optional[Set[str]]:
-        """Which of `candidates` exist, or None if the probe failed."""
+        """Which of `candidates` exist, or None if the probe failed.
+
+        Searched by urn like the alias lookup, so soft-deleted entities are dropped by the
+        same server-side filter rather than a rule of our own.
+        """
+        or_filters: RawSearchFilter = [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field=_URN_FIELD, condition="EQUAL", values=candidates
+                    ).to_raw()
+                ]
+            }
+        ]
         try:
-            entities = self._graph.get_entities(
-                entity_name=_DATASET_ENTITY_TYPE,
-                urns=candidates,
-                aspects=[DatasetKeyClass.ASPECT_NAME],
+            return set(
+                self._graph.get_urns_by_filter(
+                    entity_types=[_DATASET_ENTITY_TYPE],
+                    extra_or_filters=or_filters,
+                )
             )
         except Exception as e:
             logger.warning(
@@ -208,9 +230,6 @@ class CasingProbeLookup:
                 exc_info=True,
             )
             return None
-        # get_entities drops entities with none of the requested aspects, so presence means
-        # "exists". Not schemaMetadata: a schemaless dataset is exactly what this must find.
-        return set(entities)
 
 
 def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:
@@ -228,11 +247,11 @@ def _instance_kept_candidate(urn: str, platform_instance: str) -> Optional[str]:
     # Matched case-insensitively: a reference may spell the instance any way.
     if not name.lower().startswith(prefix.lower()):
         return None
-    instance, rest = name[: len(prefix) - 1], name[len(prefix) :]
+    rest = name[len(prefix) :]
     return str(
         DatasetUrn(
             platform=dataset.platform,
-            name=f"{instance}.{rest.lower()}",
+            name=f"{platform_instance}.{rest.lower()}",
             env=dataset.env,
         )
     )
