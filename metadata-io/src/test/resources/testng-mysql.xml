@@ -11,6 +11,7 @@
             <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConditionalBatchIT">
                 <methods>
                     <include name="mysql"/>
+                    <include name="rewriteBatchedStatementsLatchesBatchingOff"/>
                 </methods>
             </class>
         </classes>

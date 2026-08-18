@@ -246,9 +246,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // Scoped retry is an OL-only flow; enforce the prerequisite at the source so it can never read
     // "on" while optimistic locking is off.
     this.scopedRetryEnabled = optimisticLocking && ebeanConfiguration.isScopedRetryEnabled();
-    // CAS batching is an OL-only throughput optimisation; enforce the prerequisite at the source.
+    // CAS batching requires optimistic locking AND scoped retry: the batched flush only runs on the
+    // scoped-retry compute path (computeAndPersistWithinTransaction). Gate at the source so
+    // isOptimisticWriteBatchEnabled() can never read "on" without its prerequisites — even for a
+    // future direct caller. (scopedRetryEnabled already implies optimisticLocking.)
     this.optimisticWriteBatchEnabled =
-        optimisticLocking && ebeanConfiguration.isOptimisticWriteBatchEnabled();
+        scopedRetryEnabled && ebeanConfiguration.isOptimisticWriteBatchEnabled();
     this.optimisticWriteBatchMinSize = ebeanConfiguration.getOptimisticWriteBatchMinSize();
     if (optimisticLocking) {
       log.info(
@@ -629,22 +632,26 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               incrementConflictByEntityType(entityAspect.getUrn());
               outcomes.add(ConditionalUpdateResult.CONFLICT);
             } else {
-              // Any non-1/0 code (-2 SUCCESS_NO_INFO, -3 EXECUTE_FAILED, or anything else): the
-              // per-row outcome is UNKNOWN and rows may already have applied (SUCCESS_NO_INFO ==
-              // executed, count unavailable — e.g. MySQL rewriteBatchedStatements=true). An in-txn
-              // sequential re-CAS is UNSAFE here: an already-applied row now holds the NEW version,
-              // so a re-CAS on the old expectedVersion matches 0 rows and reports a FALSE CONFLICT
-              // for a write that actually succeeded. The only safe recovery is to abandon the whole
-              // transaction — throw so the outer runInTransactionWithRetry rolls back and re-runs.
+              // A non-throwing executeBatch returns only 1, 0, or -2 (SUCCESS_NO_INFO) here. -3
+              // (EXECUTE_FAILED) does NOT reach this loop — it appears only in a thrown
+              // BatchUpdateException.getUpdateCounts(), which the catch above already handles. So
+              // in
+              // practice this is the SUCCESS_NO_INFO case (MySQL rewriteBatchedStatements): the
+              // driver executed the statements but cannot report per-row counts, so the per-row
+              // outcome is UNKNOWN and rows may already have applied. An in-txn sequential re-CAS
+              // is
+              // UNSAFE — an already-applied row now holds the NEW version, so a re-CAS on the old
+              // expectedVersion matches 0 rows and reports a FALSE CONFLICT for a write that
+              // actually
+              // succeeded. The only safe recovery is to abandon the transaction: throw so the outer
+              // runInTransactionWithRetry rolls back and re-runs.
               //
-              // SUCCESS_NO_INFO specifically is the rewriteBatchedStatements signature: that
-              // setting
-              // is connection-level, so every subsequent batch would hit the same -2 and throw
-              // forever. Latch batching OFF for this process on the FIRST such result so the retry
-              // (and all later writes) take the sequential path and make progress. Only -2 latches
-              // —
-              // a -3 / BatchUpdateException is a transient SQL error (deadlock, serialization) that
-              // must NOT permanently disable batching.
+              // rewriteBatchedStatements is connection-level, so every subsequent batch hits the
+              // same
+              // -2. Latch batching OFF process-wide on the FIRST -2 so the retry (and all later
+              // writes) take the sequential path and make progress. ONLY -2 latches: a thrown
+              // BatchUpdateException (handled by the catch above) may be transient (deadlock,
+              // serialization) and must NOT permanently disable batching.
               if (count == java.sql.Statement.SUCCESS_NO_INFO && !casBatchRuntimeDisabled) {
                 casBatchRuntimeDisabled = true;
                 log.warn(

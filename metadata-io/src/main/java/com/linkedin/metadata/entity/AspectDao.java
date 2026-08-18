@@ -119,7 +119,12 @@ public interface AspectDao {
 
   /**
    * Whether the OL persist loop batches version-0 CAS UPDATEs into one JDBC {@code executeBatch}.
-   * Requires optimistic locking. Off by default.
+   * Off by default.
+   *
+   * <p>Contract for implementations: this must return {@code true} ONLY when BOTH {@link
+   * #isOptimisticLockingEnabled()} and {@link #isScopedRetryEnabled()} are true. Batching's
+   * per-item conflict handling only works on the scoped-retry compute path, so returning {@code
+   * true} without scoped retry would let a caller batch on a path that cannot honor the results.
    */
   @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
   default boolean isOptimisticWriteBatchEnabled() {

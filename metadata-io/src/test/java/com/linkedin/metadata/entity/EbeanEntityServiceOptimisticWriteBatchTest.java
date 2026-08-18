@@ -214,11 +214,7 @@ public class EbeanEntityServiceOptimisticWriteBatchTest {
                 .getLatestAspectsForUrn(opContext, urn, Set.of(STATUS_ASPECT), false)
                 .get(STATUS_ASPECT);
     assertNotNull(storedStatus);
-    if (expectedRemoved) {
-      assertTrue(storedStatus.isRemoved());
-    } else {
-      assertEquals(storedStatus.isRemoved(), expectedRemoved);
-    }
+    assertEquals(storedStatus.isRemoved(), expectedRemoved);
   }
 
   @Test
