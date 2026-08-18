@@ -305,6 +305,65 @@ def test_dataproduct_parent_round_trip_from_datahub(
     assert loaded._resolved_parent_data_product_urn == PARENT_DATA_PRODUCT_URN
 
 
+def _write_parent_yaml(tmp_path: Path, product_id: str, parent: str) -> Path:
+    path = tmp_path / f"{product_id}.yaml"
+    path.write_text(
+        "\n".join(
+            [
+                f"id: {product_id}",
+                "domain: Marketing",
+                f"parent_data_product: {parent}",
+                "assets:",
+                "  - urn:li:container:DATABASE",
+                "",
+            ]
+        )
+    )
+    return path
+
+
+def test_dataproduct_rejects_self_parent_from_yaml(
+    tmp_path: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    yaml_file = _write_parent_yaml(tmp_path, "vendor_equities", PARENT_DATA_PRODUCT_URN)
+    with pytest.raises(ValueError, match="Cannot nest a data product"):
+        DataProduct.from_yaml(yaml_file, base_mock_graph)
+
+
+def test_dataproduct_rejects_descendant_parent_from_yaml(
+    tmp_path: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    research_urn = "urn:li:dataProduct:research"
+    leaf_urn = "urn:li:dataProduct:portfolio_analytics"
+    base_mock_graph.entity_graph[research_urn] = {
+        "dataProductProperties": DataProductPropertiesClass(
+            name="Research",
+            parentDataProduct=PARENT_DATA_PRODUCT_URN,
+        )
+    }
+    base_mock_graph.entity_graph[leaf_urn] = {
+        "dataProductProperties": DataProductPropertiesClass(
+            name="Portfolio Analytics",
+            parentDataProduct=research_urn,
+        )
+    }
+    yaml_file = _write_parent_yaml(tmp_path, "vendor_equities", leaf_urn)
+    with pytest.raises(ValueError, match="Cannot nest a data product"):
+        DataProduct.from_yaml(yaml_file, base_mock_graph)
+
+
+def test_dataproduct_rejects_self_parent_on_generate_mcp() -> None:
+    data_product = DataProduct(
+        id="vendor_equities",
+        domain="urn:li:domain:12345",
+        parent_data_product=PARENT_DATA_PRODUCT_URN,
+    )
+    with pytest.raises(ValueError, match="Cannot nest a data product"):
+        list(data_product.generate_mcp(upsert=False))
+
+
 def test_dataproduct_output_ports_validation_not_urn(
     base_mock_graph: MockDataHubGraph,
 ) -> None:

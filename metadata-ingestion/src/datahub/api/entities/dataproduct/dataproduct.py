@@ -37,6 +37,11 @@ from datahub.utilities.registries.data_product_registry import DataProductRegist
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.urn import Urn
 
+_PARENT_CHAIN_MAX_DEPTH = 20
+_NESTING_CYCLE_ERROR = (
+    "Cannot nest a data product under itself or one of its own descendants."
+)
+
 
 def patch_list(
     orig_list: Optional[list],
@@ -82,6 +87,35 @@ def patch_resolved_urn_field(
         return False
     mutable_dictionary[field_name] = new_value
     return True
+
+
+def walk_parent_chain(graph: DataHubGraph, seed_urn: str) -> List[str]:
+    chain: List[str] = []
+    visited = {seed_urn}
+    current = _resolve_parent_urn(graph, seed_urn)
+    while (
+        current is not None
+        and current not in visited
+        and len(chain) < _PARENT_CHAIN_MAX_DEPTH
+    ):
+        chain.append(current)
+        visited.add(current)
+        current = _resolve_parent_urn(graph, current)
+    return chain
+
+
+def _resolve_parent_urn(graph: DataHubGraph, urn: str) -> Optional[str]:
+    props = graph.get_aspect(urn, DataProductPropertiesClass)
+    if props is None or not props.parentDataProduct:
+        return None
+    return props.parentDataProduct
+
+
+def assert_parent_is_not_descendant(
+    graph: DataHubGraph, child_urn: str, parent_urn: str
+) -> None:
+    if parent_urn == child_urn or child_urn in walk_parent_chain(graph, parent_urn):
+        raise ValueError(_NESTING_CYCLE_ERROR)
 
 
 class Ownership(ConfigModel):
@@ -302,6 +336,9 @@ class DataProduct(ConfigModel):
                 f"data product {self.parent_data_product} to an urn."
             )
 
+        if self._resolved_parent_data_product_urn == self.urn:
+            raise ValueError(_NESTING_CYCLE_ERROR)
+
         yield from self._generate_properties_mcp(upsert_mode=upsert)
 
         mcp = MetadataChangeProposalWrapper(
@@ -409,6 +446,11 @@ class DataProduct(ConfigModel):
                 )
                 parsed_data_product._resolved_parent_data_product_urn = (
                     builder.make_data_product_urn(parent_identifier)
+                )
+                assert_parent_is_not_descendant(
+                    graph,
+                    parsed_data_product.urn,
+                    parsed_data_product._resolved_parent_data_product_urn,
                 )
 
             parsed_data_product._original_yaml_dict = orig_dictionary
