@@ -598,6 +598,43 @@ def test_test_connection_capability_all_success(mock_connect):
     )
 
 
+@patch("snowflake.connector.connect")
+def test_test_connection_role_name_requiring_quotes(mock_connect):
+    queried_roles = []
+
+    def query_results(query):
+        prefix = "show grants to role "
+        if query.startswith(prefix):
+            queried_roles.append(query[len(prefix) :])
+
+        if query == 'show grants to role "TEST_ROLE"':
+            # `show grants` returns case-sensitive role names already wrapped in
+            # double quotes, unlike current_role() which returns them bare.
+            return [
+                {
+                    "privilege": "USAGE",
+                    "granted_on": "ROLE",
+                    "name": '"Mixed_Case_Role"',
+                }
+            ]
+        elif query == 'show grants to role "Mixed_Case_Role"':
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        raise MissingQueryMock(f"Unexpected query: {query}")
+
+    setup_mock_connect(mock_connect, query_results)
+
+    report = test_connection_helpers.run_test_connection(
+        SnowflakeV2Source, default_config_dict
+    )
+
+    assert not report.internal_failure, report.internal_failure_reason
+    assert '"Mixed_Case_Role"' in queried_roles
+    test_connection_helpers.assert_capability_report(
+        capability_report=report.capability_report,
+        success_capabilities=[SourceCapability.CONTAINERS],
+    )
+
+
 def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,

@@ -377,8 +377,9 @@ class SnowflakeV2Source(
         while i < len(roles):
             role = roles[i]
             i = i + 1
-            # for some roles, quoting is necessary. for example test-role
-            cur = conn.query(f'show grants to role "{role}"')
+            cur = conn.query(
+                f"show grants to role {SnowflakeIdentifierBuilder.get_quoted_identifier_for_role(role)}"
+            )
             for row in cur:
                 privilege = SnowflakePrivilege(
                     privilege=row["privilege"],

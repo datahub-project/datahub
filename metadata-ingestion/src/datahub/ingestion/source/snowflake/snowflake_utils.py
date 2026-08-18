@@ -511,6 +511,15 @@ class SnowflakeIdentifierBuilder:
         return name.replace('"', '""')
 
     @staticmethod
+    def get_quoted_identifier_for_role(role_name: str) -> str:
+        # `show grants` reports case-sensitive role names already wrapped in double
+        # quotes (e.g. "My-Role"), whereas current_role() reports them bare. Quoting
+        # an already-quoted name yields invalid SQL, so only quote the bare form.
+        if len(role_name) > 1 and role_name.startswith('"') and role_name.endswith('"'):
+            return role_name
+        return f'"{SnowflakeIdentifierBuilder._escape_identifier(role_name)}"'
+
+    @staticmethod
     def get_quoted_identifier_for_database(db_name):
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         return f'"{db_name}"'
