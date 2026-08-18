@@ -82,8 +82,7 @@ class CatalogSlice:
 def covered_by(urn: str, slices: Collection[CatalogSlice]) -> bool:
     """Whether `urn` falls inside any of `slices`.
 
-    The URN in its stored casing: ``covers`` does the lowercasing, so callers pass
-    whatever they hold.
+    Lowercased here before testing, so callers pass whatever casing they hold.
     """
     key = lowercased_urn(urn)
     return key is not None and any(
