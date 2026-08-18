@@ -324,16 +324,19 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
-def split_quoted_name_list(name_list: str, delimiter: str = ",") -> List[str]:
+_QUOTED_NAME_LIST_DELIMITER = ","
+
+
+def split_quoted_name_list(name_list: str) -> List[str]:
     """
-    Split a delimited list of identifiers, ignoring delimiters inside double quotes.
+    Split a comma delimited list of identifiers, ignoring commas inside double quotes.
 
     Unlike split_qualified_name, quoting is preserved so that callers can tell an
     identifier that needs quoting apart from a bare one.
 
     A double-quote is only treated as quoting when it opens an element and closes it
-    at the next delimiter; anything else falls back to a plain split, so a stray quote
-    inside an otherwise bare name cannot swallow a delimiter and merge two names.
+    at the next comma; anything else falls back to a plain split, so a stray quote
+    inside an otherwise bare name cannot swallow a comma and merge two names.
 
     >>> split_quoted_name_list("ROLE_A,ROLE_B")
     ['ROLE_A', 'ROLE_B']
@@ -345,7 +348,7 @@ def split_quoted_name_list(name_list: str, delimiter: str = ",") -> List[str]:
 
     # Fast path - no quotes.
     if '"' not in name_list:
-        return name_list.split(delimiter)
+        return name_list.split(_QUOTED_NAME_LIST_DELIMITER)
 
     parts: List[str] = []
     pos = 0
@@ -353,16 +356,17 @@ def split_quoted_name_list(name_list: str, delimiter: str = ",") -> List[str]:
         if pos < len(name_list) and name_list[pos] == '"':
             end = _find_closing_quote(name_list, pos)
             if end is None or (
-                end + 1 < len(name_list) and name_list[end + 1] != delimiter
+                end + 1 < len(name_list)
+                and name_list[end + 1] != _QUOTED_NAME_LIST_DELIMITER
             ):
                 # Not a well-formed quoted element - this is not a quoted list.
-                return name_list.split(delimiter)
+                return name_list.split(_QUOTED_NAME_LIST_DELIMITER)
             parts.append(name_list[pos : end + 1])
             if end + 1 == len(name_list):
                 return parts
             pos = end + 2
         else:
-            next_delimiter = name_list.find(delimiter, pos)
+            next_delimiter = name_list.find(_QUOTED_NAME_LIST_DELIMITER, pos)
             if next_delimiter == -1:
                 parts.append(name_list[pos:])
                 return parts
@@ -572,11 +576,24 @@ class SnowflakeIdentifierBuilder:
         return name.replace('"', '""')
 
     @staticmethod
-    def get_quoted_identifier_for_role(role_name: str) -> str:
-        # `show grants` reports case-sensitive role names already wrapped in double
-        # quotes (e.g. "My-Role"), whereas current_role() reports them bare. Quoting
-        # an already-quoted name yields invalid SQL, so only quote the bare form.
-        if len(role_name) > 1 and role_name.startswith('"') and role_name.endswith('"'):
+    def get_quoted_identifier_for_role(
+        role_name: str, *, already_rendered: bool = False
+    ) -> str:
+        """Quote a role name for use in SQL.
+
+        Set `already_rendered` for values that Snowflake itself rendered as SQL
+        identifiers, such as `show grants` output, which wraps a name in double
+        quotes only where the name requires it. Raw names - as reported by
+        current_role() - must always be quoted and escaped: deciding from the
+        string alone would misread a raw name whose own first and last characters
+        happen to be double quotes.
+        """
+        if (
+            already_rendered
+            and len(role_name) > 1
+            and role_name.startswith('"')
+            and role_name.endswith('"')
+        ):
             return role_name
         return f'"{SnowflakeIdentifierBuilder._escape_identifier(role_name)}"'
 

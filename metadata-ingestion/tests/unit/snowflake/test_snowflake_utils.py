@@ -40,9 +40,12 @@ def test_split_quoted_name_list_only_honors_well_formed_quoting():
 def test_get_quoted_identifier_for_role():
     quote = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role
     assert quote("TEST_ROLE") == '"TEST_ROLE"'
-    # `show grants` already quotes names that need it - don't quote them twice.
-    assert quote('"Mixed_Case_Role"') == '"Mixed_Case_Role"'
     assert quote('Quote"InName') == '"Quote""InName"'
+    # `show grants` already quotes names that need it - don't quote them twice.
+    assert quote('"Mixed_Case_Role"', already_rendered=True) == '"Mixed_Case_Role"'
+    # A raw name is escaped even when its own edge characters are quotes, since
+    # there the quotes are part of the name rather than SQL quoting around it.
+    assert quote('"weird"') == '"""weird"""'
 
 
 class TestSnowflakeIdentifierBuilderMarketplace:

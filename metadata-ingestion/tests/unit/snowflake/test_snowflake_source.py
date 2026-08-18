@@ -710,6 +710,35 @@ def test_test_connection_secondary_role_name_containing_comma(mock_connect):
     assert '"PLAIN_ROLE"' in queried_roles
 
 
+@patch("snowflake.connector.connect")
+def test_test_connection_raw_role_name_containing_quote_characters(mock_connect):
+    queried_roles = []
+
+    def query_results(query):
+        prefix = "show grants to role "
+        if query.startswith(prefix):
+            queried_roles.append(query[len(prefix) :])
+
+        if query == "select current_role()":
+            # current_role() reports the raw name, so the quotes here are part of
+            # the role name itself rather than SQL quoting around it.
+            return [{"CURRENT_ROLE()": '"weird"'}]
+        elif query == 'show grants to role """weird"""':
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        elif query == 'show grants to role "PUBLIC"':
+            return []
+        raise MissingQueryMock(f"Unexpected query: {query}")
+
+    setup_mock_connect(mock_connect, query_results)
+
+    report = test_connection_helpers.run_test_connection(
+        SnowflakeV2Source, default_config_dict
+    )
+
+    assert not report.internal_failure, report.internal_failure_reason
+    assert '"""weird"""' in queried_roles
+
+
 def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,

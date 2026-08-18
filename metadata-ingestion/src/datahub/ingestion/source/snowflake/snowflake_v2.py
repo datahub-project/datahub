@@ -373,12 +373,12 @@ class SnowflakeV2Source(
         roles: List[str] = []
         seen_roles: Set[str] = set()
 
-        def add_role(role_name: str) -> None:
+        def add_role(role_name: str, *, already_rendered: bool = False) -> None:
             # Roles are tracked in their quoted form. current_role() reports names
             # bare while `show grants` reports them quoted, so without normalizing
             # the same role would be visited once under each spelling.
             quoted = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role(
-                role_name
+                role_name, already_rendered=already_rendered
             )
             if quoted not in seen_roles:
                 seen_roles.add(quoted)
@@ -386,7 +386,8 @@ class SnowflakeV2Source(
 
         add_role(current_role)
         for secondary_role in secondary_roles:
-            add_role(secondary_role)
+            # The secondary role list preserves Snowflake's own quoting.
+            add_role(secondary_role, already_rendered=True)
         # PUBLIC role is automatically granted to every role
         add_role("PUBLIC")
 
@@ -456,7 +457,7 @@ class SnowflakeV2Source(
 
                 # Due to this, entire role hierarchy is considered
                 if privilege.object_type == "ROLE" and privilege.privilege == "USAGE":
-                    add_role(privilege.object_name)
+                    add_role(privilege.object_name, already_rendered=True)
 
         cur = conn.query("select current_warehouse()")
         current_warehouse = [row["CURRENT_WAREHOUSE()"] for row in cur][0]
