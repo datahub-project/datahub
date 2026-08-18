@@ -357,6 +357,9 @@ public class EntityGraphView {
   private DirectedMultigraph<String, DirectedEdge> buildForwardGraph() {
     DirectedMultigraph<String, DirectedEdge> graph = new DirectedMultigraph<>(DirectedEdge.class);
     for (DirectedEdge edge : edges) {
+      if (!EntityGraphEndpoints.isValidEdge(edge.getSourceUrn(), edge.getDestinationUrn())) {
+        continue;
+      }
       graph.addVertex(edge.getSourceUrn());
       graph.addVertex(edge.getDestinationUrn());
       if (!graph.containsEdge(edge)) {

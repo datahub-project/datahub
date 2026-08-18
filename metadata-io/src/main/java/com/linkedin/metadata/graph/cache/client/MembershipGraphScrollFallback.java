@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
 import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -90,6 +91,9 @@ public final class MembershipGraphScrollFallback {
                 direction == TraversalDirection.FORWARD
                     ? related.getDestinationUrn()
                     : related.getSourceUrn();
+            if (EntityGraphEndpoints.parse(neighborUrn) == null) {
+              continue;
+            }
             neighbors.add(
                 new MembershipNeighborResult.Neighbor(neighborUrn, related.getRelationshipType()));
           }
@@ -148,7 +152,10 @@ public final class MembershipGraphScrollFallback {
         listRelated(opContext, spec, seedUrn, direction, relationshipTypes, 0, Integer.MAX_VALUE);
     LinkedHashSet<Urn> urns = new LinkedHashSet<>();
     for (MembershipNeighborResult.Neighbor neighbor : result.neighborsOrEmpty()) {
-      urns.add(UrnUtils.getUrn(neighbor.neighborUrn()));
+      Urn urn = EntityGraphEndpoints.toUrn(neighbor.neighborUrn());
+      if (urn != null) {
+        urns.add(urn);
+      }
     }
     return urns;
   }

@@ -45,6 +45,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -187,6 +188,85 @@ public class EntityGraphSnapshotBuilderPartialTest {
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertTrue(result.getSnapshot().getTraversalCoverage().canSatisfy(TraversalDirection.FORWARD));
     assertEquals(result.getSnapshot().getEdges().size(), 2);
+  }
+
+  @Test
+  public void searchBuildSkipsJsonNullRelatedField() {
+    String grandchild = "urn:li:foo:grandchild";
+    String child = "urn:li:foo:child";
+    GraphEdgeTriplet triplet =
+        GraphEdgeTriplet.builder()
+            .sourceEntityType("foo")
+            .destinationEntityType("foo")
+            .relationshipType("Related")
+            .build();
+    EntityGraphDefinition definition =
+        partialDefinition(
+            GraphSnapshotSource.SEARCH,
+            List.of(
+                ResolvedGraphEdge.builder()
+                    .triplet(triplet)
+                    .searchField("related")
+                    .searchable(true)
+                    .graphDirection(RelationshipDirection.OUTGOING)
+                    .build()),
+            100);
+
+    SearchRetriever searchRetriever = mock(SearchRetriever.class);
+    when(searchRetriever.scroll(any(), any(), nullable(String.class), anyInt(), any(), any()))
+        .thenReturn(searchScrollResult("related", grandchild, child))
+        .thenReturn(searchScrollResult("related", child, "null"));
+
+    BuildResult result =
+        builder.buildPartial(
+            opContextWithSearch(searchRetriever),
+            definition,
+            GraphSnapshotSource.SEARCH,
+            Set.of(grandchild),
+            TraversalDirection.FORWARD,
+            null,
+            null,
+            null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), grandchild);
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), child);
+  }
+
+  @Test
+  public void primaryBuildSkipsUnsetRelatedEndpoint() {
+    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              HashMap<Urn, Map<String, Aspect>> batch = new HashMap<>();
+              if (urns.contains(UrnUtils.getUrn(CHILD))) {
+                batch.putAll(aspectBatch(CHILD, ROOT));
+              }
+              if (urns.contains(UrnUtils.getUrn(ROOT))) {
+                batch.put(
+                    UrnUtils.getUrn(ROOT),
+                    Map.of("domainProperties", new Aspect(new DomainProperties().data())));
+              }
+              return batch;
+            });
+
+    BuildResult result =
+        builder.buildPartial(
+            opContext,
+            primaryDefinition,
+            GraphSnapshotSource.PRIMARY,
+            Set.of(CHILD),
+            TraversalDirection.FORWARD,
+            null,
+            null,
+            null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), CHILD);
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), ROOT);
   }
 
   @Test
@@ -494,10 +574,14 @@ public class EntityGraphSnapshotBuilderPartialTest {
   }
 
   private static ScrollResult searchScrollResult(String sourceUrn, String destUrn) {
+    return searchScrollResult("parentDomain", sourceUrn, destUrn);
+  }
+
+  private static ScrollResult searchScrollResult(String field, String sourceUrn, String destUrn) {
     SearchEntity entity =
         new SearchEntity()
             .setEntity(UrnUtils.getUrn(sourceUrn))
-            .setExtraFields(new StringMap(Map.of("parentDomain", destUrn)));
+            .setExtraFields(new StringMap(Map.of(field, destUrn)));
     return new ScrollResult().setEntities(new SearchEntityArray(entity));
   }
 
