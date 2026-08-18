@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionV
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.mockito.Answers;
 import org.mockito.Mockito;
@@ -59,6 +61,10 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   private ConfigurationProvider configurationProvider;
 
   @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
+
+  @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private ObjectMapper objectMapper;
 
   @BeforeClass
   private void setup() {
