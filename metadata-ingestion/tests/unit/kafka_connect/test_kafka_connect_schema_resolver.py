@@ -1289,8 +1289,22 @@ class TestSinkFineGrainedLineage:
         )
 
         assert result is not None
+        assert result is not None
         assert len(result) == 2
-
+        upstreams = sorted(l.upstreams[0] for l in result)
+        downstreams = sorted(l.downstreams[0] for l in result)
+        assert upstreams == sorted(
+            [
+                f"urn:li:schemaField:({self._KAFKA_ORDERS_URN},id)",
+                f"urn:li:schemaField:({self._KAFKA_ORDERS_URN},amount)",
+            ]
+        )
+        assert downstreams == sorted(
+            [
+                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),id)",
+                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.orders,PROD),amount)",
+            ]
+        )
     def test_returns_none_when_kafka_schema_missing(self) -> None:
         """Returns None gracefully when the Kafka topic has no schema in DataHub."""
         manifest = ConnectorManifest(
