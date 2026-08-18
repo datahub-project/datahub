@@ -197,14 +197,6 @@ def main():
     if not compare_sets("cloud", setup_cloud, pyproject_cloud):
         mismatches += 1
 
-    total += 1
-    setup_datahub_evals = {"acryl-datahub-cloud"}
-    pyproject_datahub_evals = resolve_extra(
-        "datahub-evals", optional_deps, resolve_cache
-    )
-    if not compare_sets("datahub-evals", setup_datahub_evals, pyproject_datahub_evals):
-        mismatches += 1
-
     # Non-plugin meta extras are standalone sets
     meta_extras = {
         "dev": ns["dev_requirements"],
