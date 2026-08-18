@@ -1,3 +1,4 @@
+import os
 import pathlib
 from unittest.mock import patch
 
@@ -97,4 +98,55 @@ def test_clone_failure_reports_gracefully(
     report = pipeline.source.get_report()
     assert isinstance(report, RDFSourceReport)
     assert report.failures
+    assert report.num_workunits_produced == 0
+
+
+@pytest.mark.integration
+def test_symlink_escaping_checkout_is_not_loaded(
+    tmp_path: pathlib.Path, mock_datahub_graph_instance: DataHubGraph
+) -> None:
+    # A file outside the repo that must never be ingested via the checkout.
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    (outside_dir / "secret.ttl").write_text(_SKOS_TTL, encoding="utf-8")
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    repo = git.Repo.init(repo_dir)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "email", "test@example.com")
+        cw.set_value("user", "name", "Test")
+    # A symlink whose textual path is a clean relative name but resolves outside.
+    os.symlink(outside_dir / "secret.ttl", repo_dir / "escape.ttl")
+    repo.index.add(["escape.ttl"])
+    repo.index.commit("add escaping symlink")
+
+    output_path = tmp_path / "output.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "test-rdf-git-symlink",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": "escape.ttl",
+                    "format": "turtle",
+                    "git_info": {
+                        "repo": "https://github.com/acme/onto",
+                        "repo_ssh_locator": f"file://{repo_dir}",
+                    },
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_path)}},
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+
+    report = pipeline.source.get_report()
+    assert isinstance(report, RDFSourceReport)
+    assert report.git_checkout is not None
+    # Containment is enforced against the checkout, so the outside file is
+    # rejected and nothing is emitted.
+    assert report.failures
+    assert report.num_glossary_terms == 0
     assert report.num_workunits_produced == 0

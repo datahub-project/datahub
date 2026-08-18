@@ -225,12 +225,10 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             return CapabilityReport(
                 capable=True,
                 failure_reason=None,
-                metadata={
-                    "note": (
-                        "Git repository reachability and deploy-key auth are validated "
-                        "during ingestion, not during the connection test."
-                    )
-                },
+                mitigation_message=(
+                    "Git repository reachability and deploy-key auth are validated "
+                    "during ingestion, not during the connection test."
+                ),
             )
 
         if config.source is None:
@@ -306,9 +304,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             return CapabilityReport(
                 capable=True,
                 failure_reason=None,
-                metadata={
-                    "note": "RDF parsing validated during ingestion for git sources"
-                },
+                mitigation_message="RDF parsing validated during ingestion for git sources",
             )
 
         try:
@@ -420,12 +416,16 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                     return
                 self.report.git_checkout = str(checkout_dir)
                 resolved_source: str = self._resolve_git_source(checkout_dir)
+                # Confine loading to the checkout so a symlink inside the repo
+                # can't cause files outside it to be read.
+                base_dir: Optional[str] = str(checkout_dir)
             else:
                 # The model validator guarantees source is set when git_info is None.
                 assert self.config.source is not None
                 resolved_source = self.config.source
+                base_dir = None
 
-            rdf_graph = self._load_rdf_graph(resolved_source)
+            rdf_graph = self._load_rdf_graph(resolved_source, base_dir=base_dir)
             if rdf_graph is None:
                 return
 
@@ -487,9 +487,14 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_triples_processed(filtered_count)
         return filtered_graph
 
-    def _load_rdf_graph(self, source: str) -> Optional[Graph]:
+    def _load_rdf_graph(
+        self, source: str, base_dir: Optional[str] = None
+    ) -> Optional[Graph]:
         """
         Load RDF graph from configured source.
+
+        base_dir, when set, restricts loading to that directory (files resolving
+        outside it are rejected) — used to confine git checkouts.
 
         Returns:
             Loaded RDF graph, or None if loading failed
@@ -501,6 +506,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 format=self.config.format,
                 recursive=self.config.recursive,
                 file_extensions=self.config.extensions,
+                base_dir=base_dir,
             )
             triple_count = len(rdf_graph)
             logger.info(f"Loaded {triple_count} triples from source")
