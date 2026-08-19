@@ -1,7 +1,17 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, FrozenSet, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Final,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 from sqlalchemy.engine.url import make_url
 
@@ -237,6 +247,10 @@ class JdbcParserFactory:
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
+    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only — Cloud
+    # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
+    needs_cluster_topics: ClassVar[bool] = True
+
     # Use imported constants from connector_constants module
     REGEXROUTER = REGEXROUTER_TRANSFORM
     KNOWN_TOPICROUTING_TRANSFORMS = KNOWN_TOPIC_ROUTING_TRANSFORMS
@@ -509,8 +523,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             f"database: {parser.database_name}"
         )
 
-        # Early return if no topics
-        if not self.connector_manifest.topic_names:
+        if not self.connector_manifest.topic_names and not self.all_cluster_topics:
             return []
 
         # Handle query-based connectors early (can't determine source tables from custom queries)
@@ -2178,6 +2191,11 @@ class DebeziumSourceConnector(BaseConnector):
     DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN = (
         DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER
     )
+
+    def requires_cluster_topics(self) -> bool:
+        # Only EventRouter needs the live list to discover post-SMT topic names.
+        # Plain Debezium derives topics from table.include.list / SchemaResolver.
+        return self._has_event_router_transform()
 
     @dataclass
     class DebeziumParser:

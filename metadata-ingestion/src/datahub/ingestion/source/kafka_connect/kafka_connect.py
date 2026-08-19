@@ -188,8 +188,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
-        # For Confluent Cloud, populate all_cluster_topics for validation purposes
-        if connector and self._is_confluent_cloud:
+        # For Confluent Cloud, optionally pass the live cluster topic list into
+        # connectors that need it. Plain Debezium/Cloud CDC derive topics from
+        # config (e.g. table.include.list) and must not receive the whole-cluster
+        # list — that fabricates lineage for every topic.
+        if (
+            connector
+            and self._is_confluent_cloud
+            and connector.requires_cluster_topics()
+        ):
             all_cluster_topics = self._get_all_topics_from_kafka_api()
             if all_cluster_topics:
                 connector.all_cluster_topics = all_cluster_topics
