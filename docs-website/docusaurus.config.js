@@ -335,8 +335,10 @@ module.exports = {
             '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
-            // Our additions
-            'metadata-ingestion/**/CLAUDE.md',
+            // Agent context files — not public docs (see generateDocsDir.ts filter_patterns)
+            '**/CLAUDE.md',
+            '**/CLAUDE.MD',
+            '**/AGENTS.md',
           ],
         },
         blog: {
