@@ -95,6 +95,7 @@ REDSHIFT_SYSTEM_SCHEMA: Dict[str, object] = {
         "session_id": "INT",
     },
     "svv_user_info": {"user_id": "INT", "user_name": "VARCHAR"},
+    "sys_load_detail": {"query_id": "BIGINT"},
 }
 
 
@@ -111,8 +112,44 @@ def assert_valid_redshift_sql(sql: str, expected_ctes: List[str]) -> None:
 
     assert [cte.alias for cte in parsed.find_all(exp.CTE)] == expected_ctes
 
+    # Given a table it has no entry for, qualify() infers a schema rather than failing,
+    # which turns column resolution off for that table with no signal -- a misspelled
+    # table name would take every column on it out of the check. Neither the default nor
+    # infer_schema=False raises, so require the entry instead.
+    referenced = {table.name.lower() for table in parsed.find_all(exp.Table)}
+    cte_names = {cte.alias.lower() for cte in parsed.find_all(exp.CTE)}
+    unregistered = referenced - cte_names - set(REDSHIFT_SYSTEM_SCHEMA)
+    assert not unregistered, (
+        f"{sorted(unregistered)} absent from REDSHIFT_SYSTEM_SCHEMA, so their columns "
+        "would go unchecked; add them"
+    )
+
     # qualify() rewrites in place, so resolve only after reading the CTE order.
     qualify(parsed, schema=REDSHIFT_SYSTEM_SCHEMA, dialect="redshift")
+
+
+def assert_query_text_scoped(sql: str, table: str) -> None:
+    """Assert every scan of `table` is restricted by a subquery predicate.
+
+    Counting occurrences of the predicate text cannot see which scan carries it, so a
+    query that drops the scope from the query-text table and gains a redundant one
+    elsewhere keeps the same count. Locating the scan and inspecting its own WHERE
+    binds the assertion to the scan that matters, and leaves it indifferent to `IN`
+    versus `EXISTS`, to casing and wrapping, and to the driving CTE's name.
+    """
+    parsed = sqlglot.parse_one(sql.replace("%s", "'?'"), dialect="redshift")
+
+    scans = [t for t in parsed.find_all(exp.Table) if t.name.lower() == table.lower()]
+    assert scans, f"{table} is not scanned by this query"
+
+    for scan in scans:
+        select = scan.find_ancestor(exp.Select)
+        where = select and select.args.get("where")
+        assert where is not None, f"the {table} scan has no WHERE clause"
+        assert any(
+            predicate.find(exp.Select) is not None
+            for predicate in where.find_all(exp.In, exp.Exists)
+        ), f"the {table} scan is not restricted by a subquery predicate"
 
 
 # The boundary-aware LISTAGG pattern for 200-byte segments (provisioned).
@@ -312,14 +349,15 @@ class TestQueryTextScopedToWindow:
         # and the stl_scan subquery can be scoped to it.
         assert "target_tables AS" in sql
         assert f"starttime >= '{START_TIME.strftime(redshift_datetime_format)}'" in sql
-        assert sql.lower().count("query in (select query from target_tables)") == 2
+        assert_query_text_scoped(sql, "stl_querytext")
+        assert_query_text_scoped(sql, "stl_scan")
 
     def test_provisioned_insert_create_scopes_query_text(self):
         sql = RedshiftProvisionedQuery.list_insert_create_queries_sql(
             db_name="test_db", start_time=START_TIME, end_time=END_TIME
         )
         assert "with target_queries as" in sql.lower()
-        assert "query in (select query from target_queries)" in sql.lower()
+        assert_query_text_scoped(sql, "stl_querytext")
         # stl_insert is cluster-wide, so the driving set joins SVV_TABLE_INFO to scope
         # by database too; without it the LISTAGG reassembles text for inserts into
         # every other database on the cluster, which the outer query discards.
@@ -328,7 +366,7 @@ class TestQueryTextScopedToWindow:
     def test_provisioned_list_all_queries_scopes_query_text(self):
         sql = RedshiftProvisionedQuery.list_all_queries_sql()
         assert "in_window_queries" in sql
-        assert "query IN (SELECT query FROM in_window_queries)" in sql
+        assert_query_text_scoped(sql, "stl_querytext")
         # The window and database are bound as three positional parameters in the
         # caller's order (start_time, end_time, database); reordering them would
         # silently bind the database name into a timestamp comparison.
@@ -345,7 +383,7 @@ class TestQueryTextScopedToWindow:
         )
         # SYS_QUERY_TEXT is de-duplicated with a ROW_NUMBER() window, which the outer
         # join to the time-filtered `queries` CTE cannot bound.
-        assert "query_id IN (SELECT query_id FROM queries)" in sql
+        assert_query_text_scoped(sql, "sys_query_text")
 
 
 class TestGeneratedSqlResolves:
@@ -388,6 +426,16 @@ class TestGeneratedSqlResolves:
                 "insert_queries",
             ],
         )
+
+    def test_serverless_list_insert_create_queries_sql(self):
+        sql = RedshiftServerlessQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert_valid_redshift_sql(sql, expected_ctes=[])
+        # Naming the column rather than the select alias it is given: Redshift resolves
+        # an alias in WHERE, and so does qualify(), so a slip back to `cluster = ...`
+        # would either empty or silently widen serverless insert lineage unnoticed.
+        assert "sti.database = 'test_db'" in sql
 
 
 def _assert_no_inner_join_on(sql: str, view: str) -> None:

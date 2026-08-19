@@ -21,13 +21,19 @@ _SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
 # only reach them through query ids borrowed from a table that has one -- stl_insert,
 # stl_query or SYS_QUERY_DETAIL.
 #
-# Whether a given use needs that scoping written out depends on what sits between the
-# base table and the time predicate. An aggregate (the LISTAGG that stitches segments)
-# or a window function (the ROW_NUMBER that de-duplicates SYS_QUERY_TEXT) has to
-# materialize over the whole table before an outer join can filter anything, so those
-# uses must restrict their own scan or they reassemble the cluster's entire retained
-# query history on every run, however small start_time makes the window. A plain join
-# in the same WHERE has no such barrier and needs nothing extra.
+# Whether a given use needs that scoping written out depends on whether the window can
+# apply before the segments are stitched. Most uses reassemble text with a LISTAGG, so
+# the presence of an aggregate says nothing on its own: what matters is where the time
+# predicate sits relative to it. In the same query block, WHERE runs before GROUP BY,
+# and an inner select feeding the aggregate has already bounded the scan -- both are
+# fine as written.
+#
+# Scoping has to be spelled out when nothing time-bound is in reach of the aggregate:
+# text reassembled in its own CTE that joins no windowed table, or a ROW_NUMBER window
+# de-duplicating the whole table. There the aggregate materializes over everything and
+# only an outer join can filter, which is too late -- so the query reassembles the
+# cluster's entire retained history on every run, however small start_time makes the
+# window.
 
 # TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size to decide whether to
 # add a space when stitching segments. This approach can't distinguish between padding
@@ -919,8 +925,10 @@ where
             )
             -- No DISTINCT: in_window_queries is one row per stl_query row, query_txt is
             -- grouped by (query, pid) so the join matches at most once, and
-            -- svl_user_info is keyed on usesysid. It would only cost a sort over the
-            -- largest result set in this feed.
+            -- svl_user_info is keyed on usesysid, so it would only cost a sort over the
+            -- largest result set here. Should any of those three stop holding, the
+            -- duplicate reaches the aggregator as a second ObservedQuery and inflates
+            -- usage rather than raising, and this feed is the sole producer of usage.
             SELECT
                 q.query AS query_id,
                 qt.query_text AS query_text,
@@ -1210,8 +1218,6 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     SYS_QUERY_DETAIL qd
                     JOIN SVV_TABLE_INFO sti ON sti.table_id = qd.table_id
                     LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
-                    -- No id scoping needed: this is a plain join in the same WHERE as
-                    -- the qd.start_time window, with no aggregate or window between.
                     LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qd.query_id
                     LEFT JOIN SYS_LOAD_DETAIL ld ON ld.query_id = qd.query_id
                 WHERE
@@ -1376,8 +1382,6 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         WITHIN GROUP (ORDER BY qt.sequence)) AS query_text
                 FROM
                     SYS_QUERY_HISTORY qh
-                    -- No id scoping needed: this is a plain join in the same WHERE as
-                    -- the qh.start_time window, with no aggregate or window between.
                     LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qh.query_id
                     LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qh.user_id
                 WHERE
