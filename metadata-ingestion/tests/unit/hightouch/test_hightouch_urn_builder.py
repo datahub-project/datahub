@@ -2,7 +2,6 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
-from datahub.metadata.urns import DatasetUrn
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hightouch.config import (
@@ -19,6 +18,7 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchSourceConnection,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
+from datahub.metadata.urns import DatasetUrn
 
 
 @pytest.fixture
