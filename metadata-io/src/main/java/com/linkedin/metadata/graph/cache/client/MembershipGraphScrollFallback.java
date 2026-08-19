@@ -91,11 +91,12 @@ public final class MembershipGraphScrollFallback {
                 direction == TraversalDirection.FORWARD
                     ? related.getDestinationUrn()
                     : related.getSourceUrn();
-            if (EntityGraphEndpoints.parse(neighborUrn) == null) {
+            String canonical = EntityGraphEndpoints.parse(neighborUrn);
+            if (canonical == null) {
               continue;
             }
             neighbors.add(
-                new MembershipNeighborResult.Neighbor(neighborUrn, related.getRelationshipType()));
+                new MembershipNeighborResult.Neighbor(canonical, related.getRelationshipType()));
           }
         }
       }

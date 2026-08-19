@@ -842,17 +842,22 @@ public class EntityGraphSnapshotBuilder {
       @Nonnull String relType,
       @Nonnull EntityGraphDefinition definition,
       @Nullable Set<String> neighbors) {
-    if (!EntityGraphEndpoints.isValidEdge(related.getSourceUrn(), related.getDestinationUrn())) {
+    String source = EntityGraphEndpoints.parse(related.getSourceUrn());
+    String dest = EntityGraphEndpoints.parse(related.getDestinationUrn());
+    if (source == null || dest == null) {
       return false;
     }
-    accumulator.addEdge(
-        related.getSourceUrn(),
-        related.getDestinationUrn(),
+    accumulator.addCanonicalEdge(
+        source,
+        dest,
         relType,
         definition.getBounds().getMaxVertices(),
         definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
     if (neighbors != null) {
-      neighbors.add(related.asRelatedEntity().getUrn());
+      String neighbor = EntityGraphEndpoints.parse(related.asRelatedEntity().getUrn());
+      if (neighbor != null) {
+        neighbors.add(neighbor);
+      }
     }
     return true;
   }
@@ -907,12 +912,17 @@ public class EntityGraphSnapshotBuilder {
     }
 
     void addEdge(String sourceUrn, String destUrn, String relType, int maxVertices, int maxEdges) {
-      if (bypassed) {
-        return;
-      }
-      String source = EntityGraphEndpoints.parse(sourceUrn);
-      String dest = EntityGraphEndpoints.parse(destUrn);
-      if (source == null || dest == null) {
+      addCanonicalEdge(
+          EntityGraphEndpoints.parse(sourceUrn),
+          EntityGraphEndpoints.parse(destUrn),
+          relType,
+          maxVertices,
+          maxEdges);
+    }
+
+    void addCanonicalEdge(
+        String source, String dest, String relType, int maxVertices, int maxEdges) {
+      if (bypassed || source == null || dest == null) {
         return;
       }
       vertices.add(source);

@@ -37,6 +37,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.LocalEvictionLi
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.ResolvedGraphEdge;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder.BuildResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.ScrollResult;
@@ -267,6 +268,79 @@ public class EntityGraphSnapshotBuilderPartialTest {
     assertEquals(result.getSnapshot().getEdges().size(), 1);
     assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), CHILD);
     assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), ROOT);
+  }
+
+  @Test
+  public void graphPartialBuildCanonicalizesQuotedNeighborFrontier() {
+    EntityGraphDefinition graphDefinition =
+        partialDefinition(GraphSnapshotSource.GRAPH, resolvedEdges, 100);
+
+    when(graphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            argThat(
+                (RelationshipFilter filter) ->
+                    filter.getDirection() == RelationshipDirection.OUTGOING),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenAnswer(
+            invocation -> {
+              Filter sourceFilter = invocation.getArgument(1);
+              if (filterHasExactUrn(sourceFilter, GRANDCHILD)) {
+                return new RelatedEntitiesScrollResult(
+                    1,
+                    1,
+                    null,
+                    List.of(
+                        new RelatedEntities(
+                            "IsPartOf",
+                            GRANDCHILD,
+                            "\"" + CHILD + "\"",
+                            RelationshipDirection.OUTGOING,
+                            null)));
+              }
+              if (filterHasExactUrn(sourceFilter, CHILD)) {
+                return new RelatedEntitiesScrollResult(
+                    1,
+                    1,
+                    null,
+                    List.of(
+                        new RelatedEntities(
+                            "IsPartOf", CHILD, ROOT, RelationshipDirection.OUTGOING, null)));
+              }
+              return new RelatedEntitiesScrollResult(0, 0, null, List.of());
+            });
+
+    BuildResult result =
+        builder.buildPartial(
+            opContext,
+            graphDefinition,
+            GraphSnapshotSource.GRAPH,
+            Set.of(GRANDCHILD),
+            TraversalDirection.FORWARD,
+            null,
+            null,
+            null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertEquals(result.getSnapshot().getEdges().size(), 2);
+    assertTrue(
+        result.getSnapshot().getEdges().stream()
+            .anyMatch(
+                edge ->
+                    CHILD.equals(edge.getSourceUrn()) && ROOT.equals(edge.getDestinationUrn())));
+    assertTrue(
+        result.getSnapshot().getEdges().stream()
+            .anyMatch(
+                edge ->
+                    GRANDCHILD.equals(edge.getSourceUrn())
+                        && CHILD.equals(edge.getDestinationUrn())));
   }
 
   @Test
@@ -551,6 +625,17 @@ public class EntityGraphSnapshotBuilderPartialTest {
         .scrollBatchSize(100)
         .enabled(true)
         .build();
+  }
+
+  private static boolean filterHasExactUrn(Filter filter, String urn) {
+    if (filter == null || filter.getOr() == null) {
+      return false;
+    }
+    return filter.getOr().stream()
+        .filter(or -> or.getAnd() != null)
+        .flatMap(or -> or.getAnd().stream())
+        .anyMatch(
+            criterion -> criterion.getValues() != null && criterion.getValues().contains(urn));
   }
 
   private OperationContext opContextWithSearch(SearchRetriever searchRetriever) {
