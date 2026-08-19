@@ -37,7 +37,7 @@ Before deploying a Remote Executor, ensure you have the following:
 
 1. **DataHub Cloud**
 
-   - A DataHub User with the **Manage Metadata Ingestion** Platform privilege
+   - A DataHub User with the **Manage Metadata Ingestion** Platform privilege (recipes run as Python on the executor — see [Ingestion executor security](/docs/docker/ingestion-executor-security.md))
    - A DataHub Remote Executor Access Token (generate from **Settings > Access Tokens > Generate new token > Remote Executor**)
    - Your DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`). **NOTE:** you MUST include the trailing `/gms` when configuring the executor.
 

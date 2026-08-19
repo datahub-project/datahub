@@ -765,6 +765,14 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
+    # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
+    # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
+    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
+    # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
+    | aws_common
+    | {"GitPython>2,<4.0.0"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -876,6 +884,9 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
+    "sqlmesh",
     # Debug recording is an optional debugging tool.
     "debug-recording",
 }
@@ -1182,6 +1193,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
+        "sqlmesh = datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
