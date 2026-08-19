@@ -222,6 +222,26 @@ class TestClusterTopicScoping:
 
         assert assigned == [cluster_topics]
 
+    def test_traditional_jdbc_lineage_uses_cluster_topics_when_manifest_empty(
+        self,
+    ) -> None:
+        source = _make_cloud_source()
+        manifest = _make_manifest(
+            name="jdbc-source",
+            connector_type="source",
+            config={
+                "connector.class": JDBC_SOURCE_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/db",
+                "table.whitelist": "public.orders",
+            },
+        )
+        manifest.topic_names = []
+        connector = ConfluentJDBCSourceConnector(manifest, source.config, source.report)
+        connector.all_cluster_topics = ["db.public.orders"]
+        lineages = connector.extract_lineages()
+        assert len(lineages) >= 1
+        assert any(lineage.target_dataset == "db.public.orders" for lineage in lineages)
+
     def test_cloud_cdc_emits_lineage_without_cluster_topics(self) -> None:
         # Live path: PostgresCdcSource → Debezium; empty topic_names + no
         # all_cluster_topics still yields table.include.list-based lineage.
