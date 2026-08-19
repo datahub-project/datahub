@@ -6,6 +6,13 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
+    // Dynamic-configuration seam (com.linkedin.metadata.config.flags): OpenFeature types and
+    // OperationFingerprint both appear in its public signatures, so both are `api`.
+    // OperationFingerprint (not OperationContext) keeps this module free of a
+    // metadata-operation-context dependency — same reason IndexPrefixResolver takes it.
+    api externalDependency.openFeatureSdk
+    api project(':li-utils')
+
     implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.jacksonDataFormatYaml

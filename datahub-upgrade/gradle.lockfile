@@ -188,6 +188,7 @@ commons-net:commons-net:3.9.0=compileClasspath,productionRuntimeClasspath,runtim
 commons-pool:commons-pool:1.6=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 commons-validator:commons-validator:1.9.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 de.erichseifert.vectorgraphics2d:VectorGraphics2D:0.11=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+dev.openfeature:sdk:1.14.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 dnsjava:dnsjava:3.6.1=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 info.picocli:picocli:4.5.0=annotationProcessor,compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.airlift:aircompressor:2.0.3=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
