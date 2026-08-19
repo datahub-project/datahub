@@ -25,7 +25,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -267,7 +266,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
     // 7) Build field set using same logic as keyword search
     Set<String> fieldsToFetch =
-        new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+        SearchDocFieldFetchConfig.resolve(
+            SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH,
+            opContext.getSearchContext().getSearchFlags());
 
     // 8) Execute kNN query via the engine-specific SearchClientShim path
     List<SearchEntity> hits =

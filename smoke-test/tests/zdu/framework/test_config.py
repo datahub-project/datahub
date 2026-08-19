@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.config import ZDUTestConfig, _resolve_gms_token
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 # Repo root resolved the same way config.py does it — keeps the test
 # decoupled from CWD so pytest can be invoked from anywhere.

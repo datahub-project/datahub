@@ -2190,13 +2190,13 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'docs'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kafka'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kinesis'", specifier = ">=2.6.2,<4.0.0" },
-    { name = "nltk", marker = "extra == 'all'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'confluence'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'datahub-documents'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'dev'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'docs'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'notion'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'unstructured'", specifier = "<3.10.1" },
+    { name = "nltk", marker = "extra == 'all'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'confluence'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'datahub-documents'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'dev'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'docs'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'notion'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'unstructured'", specifier = "!=3.10.1" },
     { name = "numpy", marker = "extra == 'all'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'cassandra'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'dev'", specifier = "<2" },
@@ -7741,17 +7741,18 @@ wheels = [
 
 [[package]]
 name = "nltk"
-version = "3.9.3"
+version = "3.10.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
+    { name = "defusedxml" },
     { name = "joblib" },
     { name = "regex" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/8f/915e1c12df07c70ed779d18ab83d065718a926e70d3ea33eb0cd66ffb7c0/nltk-3.9.3.tar.gz", hash = "sha256:cb5945d6424a98d694c2b9a0264519fab4363711065a46aa0ae7a2195b92e71f", size = 2923673, upload-time = "2026-02-24T12:05:53.833Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/e6/fe51d2bb1a3b446f59c5c8165999a9fee208bc346af90a7cbf7657bc0d75/nltk-3.10.3.tar.gz", hash = "sha256:bb9327a461c3811c2fa4900e03840401f2126adfb30c0072827c433bd2444ea4", size = 5137152, upload-time = "2026-08-12T23:46:37.258Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/7e/9af5a710a1236e4772de8dfcc6af942a561327bb9f42b5b4a24d0cf100fd/nltk-3.9.3-py3-none-any.whl", hash = "sha256:60b3db6e9995b3dd976b1f0fa7dec22069b2677e759c28eb69b62ddd44870522", size = 1525385, upload-time = "2026-02-24T12:05:46.54Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/6d/ebd2af4640b12168fdf0cb74b6118df2f32a2f62ec7e0c06fbfd80706639/nltk-3.10.3-py3-none-any.whl", hash = "sha256:ff9598a8e20518ee0d557745890cc4435b9578489e2dcbc69c4f81fa060caf7c", size = 1798643, upload-time = "2026-08-12T23:44:13.478Z" },
 ]
 
 [[package]]

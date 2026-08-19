@@ -306,6 +306,7 @@ deepmerge==2.0
 defusedxml==0.7.1
     # via
     #   acryl-datahub
+    #   nltk
     #   python3-openid
     #   tableauserverclient
 deltalake==0.25.5
@@ -776,7 +777,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.10.3
     # via
     #   acryl-datahub
     #   unstructured
