@@ -59,8 +59,9 @@ public class ParentContainersResolver
                       null);
 
               // batchGetV2 returns an unordered map; re-iterate parentUrns to preserve hierarchy
-              // order. Missing/unauthorized urns resolve to null and are skipped, matching the
-              // previous response != null behavior.
+              // order. Missing entities resolve to null and are skipped. Unauthorized parents are
+              // still returned as field-stripped stubs via ContainerMapper (real URNs from the
+              // hierarchy cache; never rewrite cache entries to restricted entity URNs).
               for (Urn parentUrn : parentUrns) {
                 EntityResponse response = responses.get(parentUrn);
                 if (response != null) {

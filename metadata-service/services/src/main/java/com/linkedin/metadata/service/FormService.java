@@ -9,6 +9,7 @@ import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangePropos
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FieldFormPromptAssociation;
 import com.linkedin.common.FieldFormPromptAssociationArray;
@@ -49,7 +50,10 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -385,6 +389,45 @@ public class FormService extends BaseService {
     }
   }
 
+  /**
+   * Reads the forms aspect for a batch of entities using one call per distinct entity type, rather
+   * than one call per entity. Entities without a forms aspect are absent from the result — callers
+   * decide whether that is an error or an empty starting point.
+   *
+   * <p>This deliberately uses the entityName overload, which bypasses the entity client cache.
+   * These reads are the baseline of a read-modify-write over the whole Forms aspect, so a stale
+   * cached value would silently drop concurrently-assigned forms.
+   */
+  @Nonnull
+  private Map<Urn, Forms> batchGetEntityForms(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> entityUrns) throws Exception {
+    final Map<String, Set<Urn>> urnsByEntityType =
+        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+
+    final Map<Urn, Forms> formsByEntity = new HashMap<>();
+    for (Map.Entry<String, Set<Urn>> entry : urnsByEntityType.entrySet()) {
+      final Map<Urn, EntityResponse> responses =
+          entityClient.batchGetV2(
+              opContext, entry.getKey(), entry.getValue(), ImmutableSet.of(FORMS_ASPECT_NAME));
+      responses.forEach(
+          (entityUrn, response) -> {
+            if (response != null && response.getAspects().containsKey(FORMS_ASPECT_NAME)) {
+              formsByEntity.put(
+                  entityUrn,
+                  new Forms(response.getAspects().get(FORMS_ASPECT_NAME).getValue().data()));
+            }
+          });
+    }
+    return formsByEntity;
+  }
+
+  @Nonnull
+  private static Forms emptyForms() {
+    return new Forms()
+        .setIncompleteForms(new FormAssociationArray())
+        .setCompletedForms(new FormAssociationArray());
+  }
+
   private Forms getEntityForms(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn)
       throws Exception {
     final EntityResponse response =
@@ -541,43 +584,46 @@ public class FormService extends BaseService {
   private List<MetadataChangeProposal> buildAssignFormChanges(
       @Nonnull OperationContext opContext,
       @Nonnull final List<Urn> entityUrns,
-      @Nonnull final Urn formUrn) {
+      @Nonnull final Urn formUrn)
+      throws Exception {
+    // Read once for the whole batch rather than once per entity.
+    final Map<Urn, Forms> formsByEntity = batchGetEntityForms(opContext, entityUrns);
+    final FormInfo formInfo = getFormInfo(opContext, formUrn);
+
     final List<MetadataChangeProposal> results = new ArrayList<>();
-    entityUrns.forEach(
-        entityUrn -> {
-          try {
-            MetadataChangeProposal maybeChange =
-                buildAssignFormChange(opContext, entityUrn, formUrn);
-            if (maybeChange != null) {
-              results.add(maybeChange);
-            }
-          } catch (Exception e) {
-            log.warn(
-                String.format(
-                    "Failed to retrieve form %s for entity %s. Skipping form assignment",
-                    formUrn, entityUrn),
-                e);
-          }
-        });
+    entityUrns.stream()
+        .distinct()
+        .forEach(
+            entityUrn -> {
+              try {
+                MetadataChangeProposal maybeChange =
+                    buildAssignFormChange(
+                        opContext,
+                        entityUrn,
+                        formUrn,
+                        formInfo,
+                        formsByEntity.getOrDefault(entityUrn, emptyForms()));
+                if (maybeChange != null) {
+                  results.add(maybeChange);
+                }
+              } catch (Exception e) {
+                log.warn(
+                    String.format(
+                        "Failed to build form %s assignment for entity %s. Skipping form assignment",
+                        formUrn, entityUrn),
+                    e);
+              }
+            });
     return results;
   }
 
   @Nullable
   private MetadataChangeProposal buildAssignFormChange(
-      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn)
-      throws Exception {
-
-    final EntityResponse response =
-        entityClient.getV2(
-            opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(FORMS_ASPECT_NAME));
-
-    Forms formsAspect = new Forms();
-    formsAspect.setIncompleteForms(new FormAssociationArray());
-    formsAspect.setCompletedForms(new FormAssociationArray());
-    if (response != null && response.getAspects().containsKey(FORMS_ASPECT_NAME)) {
-      formsAspect = new Forms(response.getAspects().get(FORMS_ASPECT_NAME).getValue().data());
-    }
-
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final FormInfo formInfo,
+      @Nonnull final Forms formsAspect) {
     // if this form is already assigned to this entity, leave it and move on
     Optional<FormAssociation> formAssociation =
         Stream.concat(
@@ -595,7 +641,6 @@ public class FormService extends BaseService {
     newAssociation.setUrn(formUrn);
 
     // set all prompts as incomplete when assigning this form
-    FormInfo formInfo = getFormInfo(opContext, formUrn);
     FormPromptAssociationArray formPromptAssociations = new FormPromptAssociationArray();
     formInfo
         .getPrompts()
@@ -616,41 +661,37 @@ public class FormService extends BaseService {
   private List<MetadataChangeProposal> buildUnassignFormChanges(
       @Nonnull OperationContext opContext,
       @Nonnull final List<Urn> entityUrns,
-      @Nonnull final Urn formUrn) {
+      @Nonnull final Urn formUrn)
+      throws Exception {
+    // Read once for the whole batch rather than once per entity.
+    final Map<Urn, Forms> formsByEntity = batchGetEntityForms(opContext, entityUrns);
+
     final List<MetadataChangeProposal> results = new ArrayList<>();
-    entityUrns.forEach(
-        entityUrn -> {
-          try {
-            MetadataChangeProposal maybeChange =
-                buildUnassignFormChange(opContext, entityUrn, formUrn);
-            if (maybeChange != null) {
-              results.add(maybeChange);
-            }
-          } catch (Exception e) {
-            log.warn(
-                String.format(
-                    "Failed to retrieve form %s for entity %s. Skipping form unassignment.",
-                    formUrn, entityUrn),
-                e);
-          }
-        });
+    entityUrns.stream()
+        .distinct()
+        .forEach(
+            entityUrn -> {
+              try {
+                MetadataChangeProposal maybeChange =
+                    buildUnassignFormChange(
+                        entityUrn, formUrn, formsByEntity.getOrDefault(entityUrn, emptyForms()));
+                if (maybeChange != null) {
+                  results.add(maybeChange);
+                }
+              } catch (Exception e) {
+                log.warn(
+                    String.format(
+                        "Failed to build form %s unassignment for entity %s. Skipping form unassignment.",
+                        formUrn, entityUrn),
+                    e);
+              }
+            });
     return results;
   }
 
   @Nullable
   private MetadataChangeProposal buildUnassignFormChange(
-      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn)
-      throws Exception {
-    final EntityResponse response =
-        entityClient.getV2(
-            opContext, entityUrn.getEntityType(), entityUrn, ImmutableSet.of(FORMS_ASPECT_NAME));
-    Forms formsAspect = new Forms();
-    formsAspect.setCompletedForms(new FormAssociationArray());
-    formsAspect.setIncompleteForms(new FormAssociationArray());
-    if (response != null && response.getAspects().containsKey(FORMS_ASPECT_NAME)) {
-      formsAspect = new Forms(response.getAspects().get(FORMS_ASPECT_NAME).getValue().data());
-    }
-
+      @Nonnull final Urn entityUrn, @Nonnull final Urn formUrn, @Nonnull final Forms formsAspect) {
     List<FormAssociation> newCompleted =
         new ArrayList<>(
             new FormAssociationArray(
@@ -681,25 +722,39 @@ public class FormService extends BaseService {
       @Nonnull final List<Urn> entityUrns,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final FormInfo formDefinition) {
+      @Nonnull final FormInfo formDefinition)
+      throws Exception {
+    // Read once for the whole batch rather than once per entity.
+    final Map<Urn, Forms> formsByEntity = batchGetEntityForms(opContext, entityUrns);
+
     final List<MetadataChangeProposal> results = new ArrayList<>();
-    entityUrns.forEach(
-        entityUrn -> {
-          try {
-            MetadataChangeProposal maybeChange =
-                buildUnsetFormPromptChange(
-                    opContext, entityUrn, formUrn, formPromptId, formDefinition);
-            if (maybeChange != null) {
-              results.add(maybeChange);
-            }
-          } catch (Exception e) {
-            log.warn(
-                String.format(
-                    "Failed to retrieve form %s for entity %s. Skipping form unassignment.",
-                    formUrn, entityUrn),
-                e);
-          }
-        });
+    entityUrns.stream()
+        .distinct()
+        .forEach(
+            entityUrn -> {
+              final Forms forms = formsByEntity.get(entityUrn);
+              if (forms == null) {
+                log.warn(
+                    String.format(
+                        "Entity is missing forms aspect, form %s is not assigned to entity with urn %s. Skipping...",
+                        formUrn, entityUrn));
+                return;
+              }
+              try {
+                MetadataChangeProposal maybeChange =
+                    buildUnsetFormPromptChange(
+                        opContext, entityUrn, formUrn, formPromptId, formDefinition, forms);
+                if (maybeChange != null) {
+                  results.add(maybeChange);
+                }
+              } catch (Exception e) {
+                log.warn(
+                    String.format(
+                        "Failed to unset prompt %s of form %s for entity %s. Skipping...",
+                        formPromptId, formUrn, entityUrn),
+                    e);
+              }
+            });
     return results;
   }
 
@@ -709,12 +764,8 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final FormInfo formDefinition)
-      throws Exception {
-
-    // Retrieve entity forms state
-    final Forms forms = getEntityForms(opContext, entityUrn);
-
+      @Nonnull final FormInfo formDefinition,
+      @Nonnull final Forms forms) {
     // First, find the form with the provided urn.
     final FormAssociation formAssociation = getFormWithUrn(forms, formUrn);
 
@@ -915,7 +966,8 @@ public class FormService extends BaseService {
   /**
    * A form is assigned to a user if either the user or a group the user is in is explicitly set on
    * the actors field on a form. Otherwise, if the actors field says that owners are assigned,
-   * ensure this actor, or a group they're in, is an owner of this entity.
+   * ensure this actor, or a group they're in, is an owner of this entity. If specific ownership
+   * types are specified, only owners with those types will be considered assigned.
    */
   public boolean isFormAssignedToUser(
       @Nonnull OperationContext opContext,
@@ -932,7 +984,10 @@ public class FormService extends BaseService {
 
     if (formActorAssignment.isOwners()) {
       Ownership entityOwnership = getEntityOwnership(opContext, entityUrn);
-      return OwnershipUtils.isOwnerOfEntity(entityOwnership, actorUrn, groupsForUser);
+      List<Urn> ownershipTypes =
+          formActorAssignment.hasOwnershipTypes() ? formActorAssignment.getOwnershipTypes() : null;
+      return OwnershipUtils.isOwnerOfEntityWithType(
+          entityOwnership, actorUrn, groupsForUser, ownershipTypes);
     }
 
     return false;
@@ -1032,17 +1087,27 @@ public class FormService extends BaseService {
 
   private void verifyEntitiesExist(
       @Nonnull OperationContext opContext, @Nonnull final List<Urn> entityUrns) {
-    entityUrns.forEach(
-        entityUrn -> {
-          try {
-            verifyEntityExists(opContext, entityUrn);
-          } catch (Exception e) {
-            throw new RuntimeException(
-                String.format(
-                    "Issue verifying whether entity exists when assigning form to it. Entity urn: %s",
-                    entityUrn));
-          }
-        });
+    final Set<Urn> existingUrns = new HashSet<>();
+    for (List<Urn> chunk : Lists.partition(entityUrns, BATCH_FORM_ENTITY_COUNT)) {
+      try {
+        existingUrns.addAll(entityClient.filterExistingUrns(opContext, chunk));
+      } catch (Exception e) {
+        throw new RuntimeException(
+            "Issue verifying whether entities exist when assigning form to them.", e);
+      }
+    }
+
+    final List<Urn> missingUrns =
+        entityUrns.stream()
+            .filter(entityUrn -> !existingUrns.contains(entityUrn))
+            .distinct()
+            .collect(Collectors.toList());
+    if (!missingUrns.isEmpty()) {
+      throw new RuntimeException(
+          String.format(
+              "Entities do not exist. Skipping batch form assignment. Entity urns: %s",
+              missingUrns));
+    }
   }
 
   private void verifyEntityExists(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn)

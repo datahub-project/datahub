@@ -1,15 +1,20 @@
 ---
-title: Search Overview
+title: Search
 description: "Use the DataHub search bar to find datasets, columns, dashboards, charts, and pipelines across your data ecosystem."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import ProductTour from '@site/src/components/ProductTour';
 
 # Search
 
 <FeatureAvailability/>
 
 The **search bar** is an important mechanism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'.
+
+Prefer to explore hands-on? Take the interactive tour below, then read on for the details.
+
+<ProductTour name="search" title="Search" />
 
 <p align="center">
 <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true" />

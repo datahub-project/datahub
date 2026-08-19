@@ -89,7 +89,6 @@ To completely remove containers and volumes for a specific project, you can use 
 # Remove containers and volumes for specific projects
 ./gradlew quickstartNuke          # For default project (datahub)
 ./gradlew quickstartDebugNuke     # For debug project (datahub)
-./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
 ```
 
 > **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](../quickstart.md).

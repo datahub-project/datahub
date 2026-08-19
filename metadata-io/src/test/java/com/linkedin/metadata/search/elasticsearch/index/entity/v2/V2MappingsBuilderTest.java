@@ -87,65 +87,6 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testSearchTextFieldsUseByteSafeIgnoreAbove() {
-    // Analyzed-text fields (TEXT / TEXT_PARTIAL / WORD_GRAM) map to a keyword parent guarded by a
-    // byte-safe ignore_above so an oversized value (e.g. a large document body) is skipped from the
-    // keyword index instead of failing the whole document write. The tokenized .delimited subfield
-    // (no per-term limit) still indexes the value in full and is what full-text queries target. The
-    // .keyword subfield carries the same byte-safe guard.
-    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(operationContext);
-
-    boolean sawGuardedField = false;
-    for (IndexMapping indexMapping : result) {
-      Object propsObj = indexMapping.getMappings().get("properties");
-      if (!(propsObj instanceof Map)) {
-        continue;
-      }
-      @SuppressWarnings("unchecked")
-      Map<String, Object> properties = (Map<String, Object>) propsObj;
-      for (Object fieldMappingObj : properties.values()) {
-        if (!(fieldMappingObj instanceof Map)) {
-          continue;
-        }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> fieldMapping = (Map<String, Object>) fieldMappingObj;
-        Object subFieldsObj = fieldMapping.get("fields");
-        // A keyword parent with BOTH .delimited and .keyword subfields is an analyzed-text field
-        // (getMappingsForSearchText). URN fields also have a .delimited subfield but no .keyword,
-        // so requiring both excludes them.
-        if (!(subFieldsObj instanceof Map)
-            || !((Map<?, ?>) subFieldsObj).containsKey("delimited")
-            || !((Map<?, ?>) subFieldsObj).containsKey("keyword")) {
-          continue;
-        }
-        assertEquals(fieldMapping.get("type"), "keyword", "search-text parent should be keyword");
-        assertEquals(
-            fieldMapping.get("ignore_above"),
-            ESUtils.KEYWORD_IGNORE_ABOVE,
-            "search-text parent must use the byte-safe ignore_above guard");
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> subFields = (Map<String, Object>) subFieldsObj;
-        assertTrue(
-            subFields.containsKey("delimited"),
-            "search-text field must keep the tokenized .delimited subfield (full-body search)");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> keywordSubField = (Map<String, Object>) subFields.get("keyword");
-        assertNotNull(keywordSubField, "search-text field must keep the .keyword subfield");
-        assertEquals(
-            keywordSubField.get("ignore_above"),
-            ESUtils.KEYWORD_IGNORE_ABOVE,
-            "the .keyword subfield must also use the byte-safe ignore_above guard");
-        sawGuardedField = true;
-      }
-    }
-
-    assertTrue(
-        sawGuardedField,
-        "Expected at least one analyzed-text field guarded by byte-safe ignore_above");
-  }
-
-  @Test
   public void testGetIndexMappingsWithStructuredProperty() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
 
@@ -452,7 +393,7 @@ public class V2MappingsBuilderTest {
             "normalizer",
             "keyword_normalizer",
             "ignore_above",
-            ESUtils.KEYWORD_IGNORE_ABOVE,
+            ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH),
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -608,7 +549,7 @@ public class V2MappingsBuilderTest {
             "normalizer",
             "keyword_normalizer",
             "ignore_above",
-            ESUtils.KEYWORD_IGNORE_ABOVE,
+            ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH),
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -863,6 +804,51 @@ public class V2MappingsBuilderTest {
           e instanceof NullPointerException || e instanceof IllegalArgumentException,
           "Should throw appropriate exception for null OperationContext");
     }
+  }
+
+  @Test
+  public void testUrnStructuredPropertyMapsToKeywordParent() throws URISyntaxException {
+    // URN SPs use the shared URN mapping (parent keyword + delimited/ngram). Facets/filters
+    // target the parent via query-time logic (usesKeywordSubfield), not a .keyword subfield.
+    StructuredPropertyDefinition urnProp =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("steward")
+            .setDisplayName("Steward")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
+
+    Urn spUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    EntitySpec datasetSpec = entityRegistry.getEntitySpec("dataset");
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappings(
+            entityRegistry, datasetSpec, List.of(Pair.of(spUrn, urnProp)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spProps = (Map<String, Object>) properties.get("structuredProperties");
+    assertNotNull(spProps, "Dataset mapping must have structuredProperties for a URN prop");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spFields = (Map<String, Object>) spProps.get("properties");
+
+    assertTrue(spFields.containsKey("steward"), "Should contain the steward field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> stewardMapping = (Map<String, Object>) spFields.get("steward");
+    assertEquals(stewardMapping.get("type"), "keyword", "Top-level type should be keyword");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subFields = (Map<String, Object>) stewardMapping.get("fields");
+    assertNotNull(subFields, "URN structured property must have subfields");
+    assertFalse(
+        subFields.containsKey("keyword"),
+        "URN structured property must not require .keyword; query time targets the parent");
+    assertTrue(
+        subFields.containsKey("delimited"),
+        "URN structured property must have .delimited subfield for URN component search");
   }
 
   private EntityRegistry getTestEntityRegistry() {

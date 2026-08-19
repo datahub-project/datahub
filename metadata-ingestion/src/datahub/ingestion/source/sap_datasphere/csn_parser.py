@@ -1,6 +1,5 @@
 from typing import Dict, List
 
-from datahub.ingestion.source.sap_common.models import UnknownColumnType
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ATTR_LABEL,
     CSN_ATTR_LENGTH,
@@ -10,7 +9,10 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_TYPE_ASSOCIATION,
     CSN_TYPE_COMPOSITION,
 )
-from datahub.ingestion.source.sap_datasphere.models import CsnSchemaResult
+from datahub.ingestion.source.sap_datasphere.models import (
+    CsnSchemaResult,
+    UnknownColumnType,
+)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,

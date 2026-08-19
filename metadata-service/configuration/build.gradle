@@ -35,6 +35,34 @@ test {
     exclude '**/cigate/GraphqlUsageRegistryCiGateTest.class'
     exclude '**/cigate/OpenApiUsageRegistryCiGateTest.class'
     exclude '**/cigate/RestliUsageRegistryCiGateTest.class'
+    exclude '**/productupdate/ProductUpdateReleaseSyncTest.class'
+}
+
+// Declare the docs/ release history as inputs too, so promoting release notes re-runs this gate.
+def productUpdateInputs = files(
+    file("${projectDir}/src/main/resources/product-update.json"),
+    file("${projectDir}/src/main/resources/product-update-saas.json"),
+    file("${rootProject.projectDir}/docs/how/updating-datahub.md"),
+    fileTree("${rootProject.projectDir}/docs/managed-datahub/release-notes") { include '*.md' },
+)
+def productUpdateStamp = layout.buildDirectory.file("product-update-release-sync-check.stamp")
+
+tasks.register('productUpdateReleaseSyncCheck', Test) {
+    description = 'Validate bundled product update ("What\'s New" toast) JSONs advertise the latest release.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/productupdate/ProductUpdateReleaseSyncTest.class'
+    inputs.files productUpdateInputs
+    outputs.file(productUpdateStamp)
+    systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
+    reports.junitXml.required = true
+    reports.html.required = true
+    // Only write the declared output after the test succeeds, so changed inputs rerun the gate
+    // while an unchanged successful result can be UP-TO-DATE.
+    doLast {
+        productUpdateStamp.get().asFile.text = 'ok\n'
+    }
 }
 
 // Usage registry CI gates skip when git detects no relevant changes. Force a full scan:
@@ -110,7 +138,7 @@ tasks.register('restLiUsageRegistryCheck', Test) {
     reports.html.required = true
 }
 
-check.dependsOn graphqlUsageRegistryCheck, openApiUsageRegistryCheck, restLiUsageRegistryCheck
+check.dependsOn graphqlUsageRegistryCheck, openApiUsageRegistryCheck, restLiUsageRegistryCheck, productUpdateReleaseSyncCheck
 
 tasks.register('updateGraphqlUsageExemptionSnapshot', JavaExec) {
     dependsOn testClasses

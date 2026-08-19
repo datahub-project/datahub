@@ -7,7 +7,6 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -66,10 +65,10 @@ public class SqlSetupConfig {
 
   @Bean(name = "systemOperationContext")
   @ConditionalOnMissingBean
-  public OperationContext operationContext(EntityRegistry entityRegistry) {
+  public OperationContext operationContext() {
     // Create a minimal OperationContext for SqlSetup that essentially does nothing
     // This avoids the need for complex dependencies like entity services, search, etc.
-    return TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+    return TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Bean(name = "sqlSetupArgs")

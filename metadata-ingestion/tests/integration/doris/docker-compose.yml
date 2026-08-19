@@ -10,7 +10,7 @@ services:
       # TEST-ONLY workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
       # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
       # This fixes: NullPointerException: Cannot invoke "jdk.internal.platform.CgroupInfo.getMountPoint()"
-      # Production deployments should use proper cgroup v2 support or Java 21+
+      # Production deployments should use proper cgroup v2 support or java 25+
       - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
     ports:
       - 58030:8030  # FE web UI
@@ -29,7 +29,7 @@ services:
     environment:
       # TEST-ONLY workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
       # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
-      # Production deployments should use proper cgroup v2 support or Java 21+
+      # Production deployments should use proper cgroup v2 support or java 25+
       - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
     ports:
       - 58040:8040  # BE web UI

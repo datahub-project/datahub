@@ -13,6 +13,23 @@ export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
+export type VolumeOperatorKeyPart = 'AtLeast' | 'AtMost' | 'Between' | 'EqualTo';
+
+export const getVolumeOperatorKeyPart = (operator: AssertionStdOperator): VolumeOperatorKeyPart | null => {
+    switch (operator) {
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+            return 'AtLeast';
+        case AssertionStdOperator.LessThanOrEqualTo:
+            return 'AtMost';
+        case AssertionStdOperator.Between:
+            return 'Between';
+        case AssertionStdOperator.EqualTo:
+            return 'EqualTo';
+        default:
+            return null;
+    }
+};
+
 /* untranslated-text -- sentence fragment, word order differs by language */
 export const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
     switch (volumeType) {

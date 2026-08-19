@@ -4,16 +4,9 @@ from xml.etree.ElementTree import (
     Element,  # nosec B405 - only for type hints; parsing goes through defusedxml
 )
 
-from datahub.ingestion.source.sap_common.edmx import (
-    EDMX_NS,
-    build_schema_field,
-    edm_decimal_native_type,
-    parse_edmx_document,
-)
-from datahub.ingestion.source.sap_common.models import (
-    EdmxParseResult,
-    UnknownColumnType,
-)
+import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
+
 from datahub.ingestion.source.sap_datasphere.constants import (
     CALENDAR_DATE,
     CALENDAR_MONTH,
@@ -30,9 +23,47 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     SEMANTIC_CURRENCY,
     SEMANTIC_UNIT,
 )
-from datahub.metadata.schema_classes import SchemaFieldClass
+from datahub.ingestion.source.sap_datasphere.models import (
+    EdmxParseResult,
+    UnknownColumnType,
+)
+from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
+    BytesTypeClass,
+    DateTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+    TimeTypeClass,
+)
 
 logger = logging.getLogger(__name__)
+
+_NS = {
+    "edmx": "http://docs.oasis-open.org/odata/ns/edmx",
+    "edm": "http://docs.oasis-open.org/odata/ns/edm",
+}
+
+_EDM_TYPE_MAP: Dict[str, type] = {
+    "Edm.String": StringTypeClass,
+    "Edm.Int16": NumberTypeClass,
+    "Edm.Int32": NumberTypeClass,
+    "Edm.Int64": NumberTypeClass,
+    "Edm.Byte": NumberTypeClass,
+    "Edm.SByte": NumberTypeClass,
+    "Edm.Decimal": NumberTypeClass,
+    "Edm.Double": NumberTypeClass,
+    "Edm.Single": NumberTypeClass,
+    "Edm.Boolean": BooleanTypeClass,
+    "Edm.Date": DateTypeClass,
+    "Edm.DateTimeOffset": DateTypeClass,
+    "Edm.TimeOfDay": TimeTypeClass,
+    "Edm.Duration": StringTypeClass,
+    "Edm.Guid": StringTypeClass,
+    "Edm.Binary": BytesTypeClass,
+}
 
 # SAP Common calendar term → sap_calendar_type value
 _CALENDAR_TERMS: Dict[str, str] = {
@@ -48,17 +79,24 @@ _CALENDAR_TERMS: Dict[str, str] = {
 class EdmxParser:
     @staticmethod
     def parse(xml_text: str) -> EdmxParseResult:
-        root, parse_error = parse_edmx_document(xml_text)
-        if parse_error is not None or root is None:
+        try:
+            root = ET.fromstring(xml_text)
+        except (ET.ParseError, DefusedXmlException) as e:
+            # defusedxml raises DTDForbidden / EntitiesForbidden /
+            # ExternalReferenceForbidden (all DefusedXmlException subclasses, not
+            # ParseError) on a hostile or proxy/error-page payload. Catch them here
+            # so they flow through the structured error path (assets_schema_failed)
+            # instead of escaping to the generic per-asset isolation handler and
+            # being miscounted.
             return EdmxParseResult(
                 fields=[],
                 field_custom_props={},
                 entity_label=None,
                 entity_custom_props={},
-                error=parse_error or "Malformed or unsafe EDMX XML",
+                error=f"Malformed or unsafe EDMX XML: {e}",
             )
 
-        entity_type = root.find(".//edm:EntityType", EDMX_NS)
+        entity_type = root.find(".//edm:EntityType", _NS)
         if entity_type is None:
             return EdmxParseResult(
                 fields=[],
@@ -69,25 +107,25 @@ class EdmxParser:
             )
 
         entity_name = entity_type.get("Name", "")
-        namespace_elem = root.find(".//edm:Schema", EDMX_NS)
+        namespace_elem = root.find(".//edm:Schema", _NS)
         namespace = (
             namespace_elem.get("Namespace", "") if namespace_elem is not None else ""
         )
 
         key_props = {
             ref.get("Name")
-            for ref in entity_type.findall("edm:Key/edm:PropertyRef", EDMX_NS)
+            for ref in entity_type.findall("edm:Key/edm:PropertyRef", _NS)
         }
 
         # qualified_target → {term_name: value}
         annotations_map: Dict[str, Dict[str, str]] = {}
-        for annots_block in root.findall(".//edm:Annotations", EDMX_NS):
+        for annots_block in root.findall(".//edm:Annotations", _NS):
             if annots_block.get("Qualifier"):
                 continue
             target = annots_block.get("Target", "")
             if target not in annotations_map:
                 annotations_map[target] = {}
-            for ann in annots_block.findall("edm:Annotation", EDMX_NS):
+            for ann in annots_block.findall("edm:Annotation", _NS):
                 term = ann.get("Term", "")
                 value = EdmxParser._annotation_value(ann)
                 annotations_map[target][term] = value
@@ -113,14 +151,28 @@ class EdmxParser:
         field_custom_props: Dict[str, Dict[str, str]] = {}
         unknown_edm_types_local: List[UnknownColumnType] = []
 
-        for prop in entity_type.findall("edm:Property", EDMX_NS):
+        for prop in entity_type.findall("edm:Property", _NS):
             prop_name = prop.get("Name", "")
             edm_type = prop.get("Type", "Edm.String")
             nullable = prop.get("Nullable", "true").lower() != "false"
             precision = prop.get("Precision")
             scale = prop.get("Scale")
 
-            native_type = edm_decimal_native_type(edm_type, precision, scale)
+            type_class = _EDM_TYPE_MAP.get(edm_type)
+            if type_class is None:
+                logger.warning(
+                    "Unknown Edm type %s on field %s, falling back to NullType",
+                    edm_type,
+                    prop_name,
+                )
+                unknown_edm_types_local.append(
+                    UnknownColumnType(type=edm_type, column=prop_name)
+                )
+                type_class = NullTypeClass
+            native_type = edm_type
+            if edm_type == "Edm.Decimal" and precision:
+                scale_str = scale or "0"
+                native_type = f"Edm.Decimal({precision},{scale_str})"
 
             prop_target = f"{entity_target}/{prop_name}"
             prop_annots = annotations_map.get(prop_target, {})
@@ -142,14 +194,13 @@ class EdmxParser:
                 custom_props[PROP_SAP_IS_MEASURE] = PROP_VALUE_TRUE
 
             schema_fields.append(
-                build_schema_field(
-                    name=prop_name,
-                    edm_type=edm_type,
+                SchemaFieldClass(
+                    fieldPath=prop_name,
+                    type=SchemaFieldDataTypeClass(type=type_class()),
+                    nativeDataType=native_type,
                     nullable=nullable,
-                    is_key=prop_name in key_props,
+                    isPartOfKey=prop_name in key_props,
                     description=description,
-                    native_type=native_type,
-                    unknown_sink=unknown_edm_types_local,
                 )
             )
             if custom_props:
