@@ -360,6 +360,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         self._report_lock = threading.Lock()
         self._schema_resolver: Optional[KafkaSchemaResolver] = None
         self.topic_catalog: Optional[KafkaTopicCatalog] = None
+        # globalTags is a replacement aspect, so a topic missing from a partially
+        # read catalog would be emitted without its catalog tags, deleting tags a
+        # prior complete run applied. Warn once so that loss isn't silent.
+        self._warned_partial_catalog = False
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
             self.source_config.connection
         )
@@ -1315,6 +1319,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if self.topic_catalog is None:
             return
+
+        if not self.topic_catalog.is_complete() and not self._warned_partial_catalog:
+            # Applying tags found on this run stays safe (it only adds), but a topic
+            # dropped by the partial fetch will be re-emitted without its catalog
+            # tags. Flag the run so an operator can re-ingest once the catalog is
+            # fully readable instead of trusting a possibly reduced tag set.
+            self._warned_partial_catalog = True
+            self.report.warning(
+                message="The Confluent Stream Catalog was only partially read, so a topic that "
+                "dropped out of the partial result may have its catalog tags removed. Re-run once "
+                "the catalog is fully readable to restore them.",
+                context="confluent_catalog",
+            )
 
         catalog_topic = self.topic_catalog.get_topic(topic)
         if catalog_topic is None:

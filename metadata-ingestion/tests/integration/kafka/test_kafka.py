@@ -60,13 +60,30 @@ CATALOG_TOPICS = [
 
 
 INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
+IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# The live catalog rejects the whole query on a single unknown field, so the stub
+# must too: `logical_cluster_id` is the real name and `clusterId` 400s in production.
+TOPIC_QUERY_KNOWN_FIELDS = frozenset(
+    {
+        "kafka_topic",
+        "limit",
+        "offset",
+        "name",
+        "qualifiedName",
+        "logical_cluster_id",
+        "tags",
+        "business_metadata",
+        "value",
+    }
+)
 
 
 def _pagination_is_inlined(request: requests_mock.request._RequestObjectProxy) -> bool:
     body = request.json()
-    return "variables" not in body and bool(
-        INLINED_PAGINATION_RE.search(body.get("query", ""))
-    )
+    query = body.get("query", "")
+    unknown = sorted(set(IDENTIFIER_RE.findall(query)) - TOPIC_QUERY_KNOWN_FIELDS)
+    assert not unknown, f"unknown field(s) in TOPIC_CATALOG_QUERY: {unknown}"
+    return "variables" not in body and bool(INLINED_PAGINATION_RE.search(query))
 
 
 def _is_non_inlined_pagination(

@@ -914,13 +914,17 @@ class BaseConnector:
 
         Applies three-way fallback logic:
         1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
-        2. Use subscribed topics if runtime data unavailable
+        2. Use subscribed topics only when the runtime list is unavailable (None)
         3. Use all runtime topics only when no topics / topics.regex subscription is set
 
         An empty result from a configured subscription (e.g. topics.regex matched
-        nothing) must not fall through to the whole-cluster list.
+        nothing) must not fall through to the whole-cluster list. Results are sorted
+        so downstream lineage ordering is deterministic across processes.
         """
-        available_topics = set(self.available_topics())
+        # None = cluster list unavailable (fall back to the configured subscription);
+        # [] = authoritative empty cluster, so a configured subscription is stale and
+        # resolves to nothing rather than lineage for topics that no longer exist.
+        runtime_topics = self.topics_for_regex_expansion()
         subscribed_topics_set = set(subscribed_topics)
         subscription_configured = self._sink_has_topic_subscription()
 
@@ -931,21 +935,23 @@ class BaseConnector:
                     f"resolved to zero topics; not falling back to the cluster list"
                 )
                 return []
-            if available_topics:
-                topic_list = list(available_topics.intersection(subscribed_topics_set))
+            if runtime_topics is None:
+                topic_list = sorted(subscribed_topics_set)
                 logger.debug(
-                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
-                    f"(intersection of {len(available_topics)} runtime topics and "
-                    f"{len(subscribed_topics_set)} configured topics)"
-                )
-            else:
-                topic_list = list(subscribed_topics_set)
-                logger.debug(
-                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"Runtime topics unavailable for {connector_manifest.name}, "
                     f"using {len(topic_list)} topics from connector config"
                 )
+            else:
+                topic_list = sorted(
+                    set(runtime_topics).intersection(subscribed_topics_set)
+                )
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(runtime_topics)} runtime topics and "
+                    f"{len(subscribed_topics_set)} configured topics)"
+                )
         else:
-            topic_list = list(available_topics)
+            topic_list = sorted(runtime_topics or [])
             logger.debug(
                 f"No subscription config found for {connector_manifest.name}, "
                 f"using all {len(topic_list)} available topics"

@@ -2,17 +2,20 @@ from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
+from datahub.ingestion.source.confluent.client import (
+    CatalogFetchResult,
+    ConfluentStreamCatalogClient,
+)
 from datahub.ingestion.source.kafka.confluent_catalog import (
     CatalogKafkaTopic,
     KafkaTopicCatalog,
 )
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
-from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
 
 CONFLUENT_SCHEMA_REGISTRY_URL = "https://psrc-abc123.us-east-1.aws.confluent.cloud"
 SCHEMA_REGISTRY_URL = "http://localhost:8081"
@@ -56,10 +59,10 @@ def enabled_catalog_config(**overrides: object) -> Dict[str, object]:
 
 
 def attach_catalog(
-    source: KafkaSource, topics: List[CatalogKafkaTopic]
+    source: KafkaSource, topics: List[CatalogKafkaTopic], complete: bool = True
 ) -> KafkaTopicCatalog:
     client = Mock(spec=ConfluentStreamCatalogClient)
-    client.fetch_entities.return_value = topics
+    client.fetch_entities.return_value = CatalogFetchResult(topics, complete=complete)
     catalog = KafkaTopicCatalog(
         source.source_config.confluent_catalog, source.report, client=client
     )
@@ -77,7 +80,7 @@ def make_catalog(
     ).confluent_catalog
 
     client = Mock(spec=ConfluentStreamCatalogClient)
-    client.fetch_entities.return_value = topics
+    client.fetch_entities.return_value = CatalogFetchResult(topics, complete=True)
     return KafkaTopicCatalog(config, report, client=client)
 
 
@@ -166,6 +169,36 @@ class TestCatalogConnectionInheritance:
             )
 
 
+class TestCatalogCredentialMasking:
+    def setup_method(self) -> None:
+        from datahub.masking.bootstrap import initialize_secret_masking
+        from datahub.masking.secret_registry import SecretRegistry
+
+        SecretRegistry.reset_instance()
+        initialize_secret_masking(force=True)
+
+    def teardown_method(self) -> None:
+        from datahub.masking.bootstrap import shutdown_secret_masking
+        from datahub.masking.secret_registry import SecretRegistry
+
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+
+    def test_inherited_basic_auth_credentials_are_registered_for_masking(self) -> None:
+        from datahub.masking.secret_registry import SecretRegistry
+
+        make_source_config(
+            catalog={"enabled": True},
+            schema_registry_config={"basic.auth.user.info": "sr-key:sr-secret"},
+        )
+
+        # basic.auth.user.info lives in a plain Dict, so the ConfigModel secret
+        # walker never sees it; the after-validator must register the inherited
+        # halves by hand or they log in the clear.
+        registry = SecretRegistry.get_instance()
+        assert registry.get_secret_value("confluent_catalog.api_secret") == "sr-secret"
+
+
 class TestTopicLookup:
     def test_topic_metadata_is_fetched_once_and_reused(self) -> None:
         report = KafkaSourceReport()
@@ -252,6 +285,7 @@ class TestCatalogMetadataOnTopics:
         mock_kafka: Mock,
         topics: List[CatalogKafkaTopic],
         topic_detail: Optional[object] = None,
+        catalog_complete: bool = True,
         **catalog_overrides: object,
     ) -> KafkaSource:
         cluster_metadata = MagicMock()
@@ -265,7 +299,7 @@ class TestCatalogMetadataOnTopics:
             ),
             PipelineContext(run_id="test"),
         )
-        attach_catalog(source, topics)
+        attach_catalog(source, topics, complete=catalog_complete)
         return source
 
     def test_tags_and_business_metadata_land_on_the_topic(
@@ -392,6 +426,31 @@ class TestCatalogMetadataOnTopics:
         assert any(
             "Partitions" in warning.context[0] for warning in source.report.warnings
         )
+
+    def test_partial_catalog_warns_once_but_still_applies_found_tags(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, tags=["PII"])],
+            catalog_complete=False,
+        )
+
+        workunits = list(source.get_workunits())
+
+        # Tags we did see are still applied; only the (unknown) dropped topics are at risk.
+        tags = aspects_of(workunits, "globalTags")
+        assert any(
+            isinstance(aspect, GlobalTagsClass)
+            and [tag.tag for tag in aspect.tags] == ["urn:li:tag:PII"]
+            for aspect in tags
+        )
+        partial_warnings = [
+            warning
+            for warning in source.report.warnings
+            if "only partially read" in warning.message
+        ]
+        assert len(partial_warnings) == 1
 
     def test_non_confluent_cloud_endpoint_skips_the_catalog(
         self, mock_kafka: Mock, mock_admin_client: Mock

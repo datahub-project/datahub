@@ -3,11 +3,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
+from datahub.metadata.schema_classes import GlobalTagsClass
 from requests.adapters import HTTPAdapter
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
+from datahub.ingestion.source.confluent.client import (
+    CatalogFetchResult,
+    ConfluentStreamCatalogClient,
+)
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka.kafka_config import KafkaConfluentCatalogConfig
 from datahub.ingestion.source.kafka_connect.common import (
@@ -34,7 +38,6 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass
 
 REGISTRY_LOOKUP = (
     "datahub.ingestion.source.kafka_connect.connector_registry."
@@ -70,9 +73,10 @@ def make_catalog(
     connectors: Sequence[Mapping[str, object]], **config_overrides: object
 ) -> ConnectorCatalog:
     client = Mock(spec=ConfluentStreamCatalogClient)
-    client.fetch_entities.return_value = [
-        CatalogConnector.model_validate(payload) for payload in connectors
-    ]
+    client.fetch_entities.return_value = CatalogFetchResult(
+        [CatalogConnector.model_validate(payload) for payload in connectors],
+        complete=True,
+    )
     return ConnectorCatalog(
         make_catalog_config(**config_overrides),
         KafkaConnectSourceReport(),

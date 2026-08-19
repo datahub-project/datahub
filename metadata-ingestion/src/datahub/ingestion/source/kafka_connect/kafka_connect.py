@@ -1,5 +1,7 @@
 import base64
 import logging
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from typing import Dict, Iterable, List, Optional
 
 import jpype
@@ -72,6 +74,26 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
+
+
+class CatalogLineageOutcome(Enum):
+    # Catalog was not consulted for this connector (no catalog entry, lineage
+    # disabled, or not a source), so the caller behaves as if there were no catalog.
+    NOT_APPLICABLE = auto()
+    # Catalog applies but lists no topics for this connector, so the caller falls
+    # back to the connector's config-inferred lineage and records the fallback.
+    NO_CATALOG_TOPICS = auto()
+    # Catalog listed topics but every one was absent from the live Kafka cluster,
+    # so a recognised connector emits no lineage rather than config-inferred edges.
+    FILTERED_OUT = auto()
+    # Catalog produced usable lineage edges.
+    RESOLVED = auto()
+
+
+@dataclass(frozen=True)
+class CatalogLineageResult:
+    outcome: CatalogLineageOutcome
+    lineages: List[KafkaConnectLineage] = field(default_factory=list)
 
 
 @platform_name("Kafka Connect")
@@ -248,31 +270,25 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
                 )
 
-        catalog_lineages = self._build_catalog_lineages(
+        catalog = self._build_catalog_lineages(
             connector_manifest, catalog_connector, all_cluster_topics
         )
 
-        # Catalog lineage wins when it applies (not None) and either the connector
-        # is recognised or the catalog returned edges. The condition is inlined so
-        # mypy narrows catalog_lineages to a non-None list in this branch.
-        if catalog_lineages is not None and (
-            connector is not None or bool(catalog_lineages)
-        ):
-            connector_manifest.lineages = catalog_lineages
-            if not catalog_lineages:
-                # Applicable-but-empty: every catalog topic was filtered out by the
-                # live cluster. Only recognised connectors reach here (unsupported
-                # ones are dropped below), so suppressing their config-inferred
-                # fallback is a real outcome worth warning about.
-                self.report.warning(
-                    message="Dropping all lineage for a connector because none of its "
-                    "Stream Catalog topics are present on the live Kafka cluster; its "
-                    "config-inferred lineage is not used as a fallback",
-                    context=f"connector={connector_manifest.name}",
-                )
+        if catalog.outcome == CatalogLineageOutcome.RESOLVED:
+            connector_manifest.lineages = catalog.lineages
+        elif catalog.outcome == CatalogLineageOutcome.FILTERED_OUT and connector:
+            # Only a recognised connector suppresses its config-inferred fallback here;
+            # an unsupported one falls through to be dropped below.
+            connector_manifest.lineages = []
+            self.report.warning(
+                message="Dropping all lineage for a connector because none of its "
+                "Stream Catalog topics are present on the live Kafka cluster; its "
+                "config-inferred lineage is not used as a fallback",
+                context=f"connector={connector_manifest.name}",
+            )
         elif connector:
             connector_manifest.lineages = connector.extract_lineages()
-            if self._catalog_listed_no_topics(connector_manifest, catalog_connector):
+            if catalog.outcome == CatalogLineageOutcome.NO_CATALOG_TOPICS:
                 self.report.report_catalog_lineage_fallback(connector_manifest.name)
         else:
             self._handle_unsupported_connector(connector_manifest)
@@ -293,33 +309,22 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             return None
         return self._catalog.get_connector(connector_manifest.name)
 
-    def _catalog_listed_no_topics(
-        self,
-        connector_manifest: ConnectorManifest,
-        catalog_connector: Optional[CatalogConnector],
-    ) -> bool:
-        return (
-            catalog_connector is not None
-            and self.config.confluent_catalog.include_lineage
-            and connector_manifest.type == SOURCE
-            and not catalog_connector.get_topic_names()
-        )
-
     def _build_catalog_lineages(
         self,
         connector_manifest: ConnectorManifest,
         catalog_connector: Optional[CatalogConnector],
         all_cluster_topics: Optional[List[str]],
-    ) -> Optional[List[KafkaConnectLineage]]:
-        if not catalog_connector or not self.config.confluent_catalog.include_lineage:
-            return None
-
-        if connector_manifest.type != SOURCE:
-            return None
+    ) -> CatalogLineageResult:
+        if (
+            not catalog_connector
+            or not self.config.confluent_catalog.include_lineage
+            or connector_manifest.type != SOURCE
+        ):
+            return CatalogLineageResult(CatalogLineageOutcome.NOT_APPLICABLE)
 
         topics = catalog_connector.get_topic_names()
         if not topics:
-            return None
+            return CatalogLineageResult(CatalogLineageOutcome.NO_CATALOG_TOPICS)
 
         if all_cluster_topics is not None:
             cluster_topic_set = set(all_cluster_topics)
@@ -332,26 +337,25 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
                 topics = [topic for topic in topics if topic in cluster_topic_set]
             if not topics:
-                # Applicable-but-empty: return [] so a recognised connector emits no
-                # lineage rather than falling back to config-inferred edges. The
-                # caller owns the warning, since only it knows if the connector is
-                # recognised.
-                return []
+                return CatalogLineageResult(CatalogLineageOutcome.FILTERED_OUT)
 
         self.report.catalog_lineage_connectors += 1
         logger.debug(
             f"Using {len(topics)} Stream Catalog topics for connector '{connector_manifest.name}'"
         )
-        return [
-            KafkaConnectLineage(
-                source_dataset=None,
-                source_platform=self.platform,
-                target_dataset=topic,
-                target_platform=KAFKA,
-                job_property_bag={LINEAGE_SOURCE_PROPERTY: LINEAGE_SOURCE_CATALOG},
-            )
-            for topic in topics
-        ]
+        return CatalogLineageResult(
+            CatalogLineageOutcome.RESOLVED,
+            [
+                KafkaConnectLineage(
+                    source_dataset=None,
+                    source_platform=self.platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                    job_property_bag={LINEAGE_SOURCE_PROPERTY: LINEAGE_SOURCE_CATALOG},
+                )
+                for topic in topics
+            ],
+        )
 
     def _apply_catalog_flow_properties(
         self,
@@ -640,6 +644,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             response.raise_for_status()
             topics_data = response.json()
 
+            # The Kafka V3 topic-list endpoint does not paginate — `metadata.next` is
+            # in the schema but is always null here — so this single read is the whole
+            # cluster. The None (unavailable) vs [] (empty cluster) distinction below is
+            # deliberate and load-bearing for the catalog cross-check; do not "fix" this
+            # into topic_cache.py's next-following, []-on-failure shape.
             if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
                 all_topics = [
                     topic["topic_name"]

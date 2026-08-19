@@ -31,16 +31,26 @@ class KafkaTopicCatalog:
         self.report = report
         self.client = client or ConfluentStreamCatalogClient(config, report)
         self._topics: Optional[NameIndex[CatalogKafkaTopic]] = None
+        # False once we know the catalog was only partially read, so callers can
+        # avoid replacing a topic's tags with a set that is missing entries.
+        self._complete = True
 
     def get_topic(self, topic_name: str) -> Optional[CatalogKafkaTopic]:
         if self._topics is None:
             self._topics = self._fetch_topics()
         return self._topics.get(topic_name)
 
+    def is_complete(self) -> bool:
+        if self._topics is None:
+            self._topics = self._fetch_topics()
+        return self._complete
+
     def _fetch_topics(self) -> NameIndex[CatalogKafkaTopic]:
-        topics = self.client.fetch_entities(
+        result = self.client.fetch_entities(
             TOPIC_CATALOG_QUERY, TOPIC_ROOT_KEY, CatalogKafkaTopic
         )
+        self._complete = result.complete
+        topics = result.entities
         if self.config.cluster_id:
             in_cluster = [
                 topic for topic in topics if topic.cluster_id == self.config.cluster_id

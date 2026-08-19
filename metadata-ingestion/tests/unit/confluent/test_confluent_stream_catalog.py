@@ -47,7 +47,7 @@ def make_client(
 
 
 def fetch(client: ConfluentStreamCatalogClient) -> List[SampleEntity]:
-    return client.fetch_entities(QUERY, ROOT_KEY, SampleEntity)
+    return client.fetch_entities(QUERY, ROOT_KEY, SampleEntity).entities
 
 
 class TestConfluentStreamCatalogConfig:
@@ -185,12 +185,11 @@ class TestConfluentStreamCatalogClient:
     def test_query_without_pagination_placeholders_is_a_failure(self) -> None:
         client = make_client([])
 
-        assert (
-            client.fetch_entities(
-                "{ kafka_topic(limit: 10) { name } }", ROOT_KEY, SampleEntity
-            )
-            == []
+        result = client.fetch_entities(
+            "{ kafka_topic(limit: 10) { name } }", ROOT_KEY, SampleEntity
         )
+        assert result.entities == []
+        assert result.complete is False
         session = client.session
         assert isinstance(session, Mock)
         assert session.post.call_count == 0
@@ -211,6 +210,53 @@ class TestConfluentStreamCatalogClient:
         ]
         assert any("Field 'clusterId' is undefined" in context for context in contexts)
 
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_rejected_credentials_are_a_failure_not_a_warning(
+        self, status: int
+    ) -> None:
+        response = Mock()
+        response.status_code = status
+        response.text = "Forbidden"
+        response.raise_for_status.side_effect = requests.HTTPError(
+            f"{status} Client Error", response=response
+        )
+        client = make_client([response])
+
+        result = client.fetch_entities(QUERY, ROOT_KEY, SampleEntity)
+
+        assert result.entities == []
+        assert result.complete is False
+        assert not client.report.warnings
+        assert len(client.report.failures) == 1
+        assert any(
+            "rejected the credentials" in failure.message
+            for failure in client.report.failures
+        )
+
+    def test_a_fully_read_catalog_reports_complete(self) -> None:
+        client = make_client(
+            [make_response([{"name": "topic_0"}, {"name": "topic_1"}])],
+            page_size=5,
+        )
+
+        result = client.fetch_entities(QUERY, ROOT_KEY, SampleEntity)
+
+        assert [entity.name for entity in result.entities] == ["topic_0", "topic_1"]
+        assert result.complete is True
+
+    def test_a_partial_catalog_reports_incomplete(self) -> None:
+        broken = Mock()
+        broken.raise_for_status.side_effect = requests.ConnectionError("reset by peer")
+        client = make_client(
+            [make_response([{"name": "topic_0"}, {"name": "topic_1"}]), broken],
+            page_size=2,
+        )
+
+        result = client.fetch_entities(QUERY, ROOT_KEY, SampleEntity)
+
+        assert [entity.name for entity in result.entities] == ["topic_0", "topic_1"]
+        assert result.complete is False
+
     def test_graphql_errors_are_reported_and_yield_nothing(self) -> None:
         response = Mock()
         response.raise_for_status.return_value = None
@@ -229,7 +275,7 @@ class TestConfluentStreamCatalogClient:
             make_config(), SourceReport(), session=session
         )
 
-        assert client.fetch_entities(QUERY, ROOT_KEY, SampleEntity) == []
+        assert client.fetch_entities(QUERY, ROOT_KEY, SampleEntity).entities == []
         assert len(client.report.warnings) == 1
 
     def test_unparseable_entity_is_skipped_without_losing_the_rest(self) -> None:

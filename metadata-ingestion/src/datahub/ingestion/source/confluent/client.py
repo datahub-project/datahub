@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Type
+from typing import Dict, Generic, List, Optional, Type
 
 import requests
 
@@ -19,11 +19,23 @@ from datahub.ingestion.source.confluent.models import CatalogEntityType
 
 logger = logging.getLogger(__name__)
 
+# HTTP statuses that mean "wrong key / no Stream Governance", not "one bad entity".
+_CREDENTIAL_REJECTED_STATUSES = (401, 403)
+
 
 @dataclass(frozen=True)
 class _CatalogPage:
     items: List[Dict[str, object]]
     raw_count: int
+
+
+@dataclass(frozen=True)
+class CatalogFetchResult(Generic[CatalogEntityType]):
+    entities: List[CatalogEntityType]
+    # False when a page failed mid-pagination or the page safety limit tripped. The
+    # catalog is then only partially known, so callers must not treat a missing
+    # entity as authoritative (e.g. replacing a topic's tags with a reduced set).
+    complete: bool
 
 
 class ConfluentStreamCatalogClient:
@@ -47,7 +59,7 @@ class ConfluentStreamCatalogClient:
         query: str,
         root_key: str,
         model: Type[CatalogEntityType],
-    ) -> List[CatalogEntityType]:
+    ) -> CatalogFetchResult[CatalogEntityType]:
         missing = [
             placeholder
             for placeholder in (LIMIT_PLACEHOLDER, OFFSET_PLACEHOLDER)
@@ -59,11 +71,14 @@ class ConfluentStreamCatalogClient:
                 message="Confluent Stream Catalog query is missing its pagination placeholders",
                 context=f"entity={root_key}, missing={sorted(missing)}",
             )
-            return []
+            return CatalogFetchResult([], complete=False)
 
         entities: List[CatalogEntityType] = []
         offset = 0
         pages = 0
+        # Flips to False the moment a page is missing, so callers can tell a fully
+        # enumerated catalog from one we only saw part of.
+        complete = True
 
         while True:
             if pages >= MAX_CATALOG_PAGES:
@@ -73,11 +88,13 @@ class ConfluentStreamCatalogClient:
                     context=f"entity={root_key}, pages={pages}, entities_retrieved={len(entities)}, "
                     f"page_size={self.config.page_size}",
                 )
+                complete = False
                 break
 
             page = self._fetch_page(query, root_key, offset)
             pages += 1
             if page is None:
+                complete = False
                 if entities:
                     self.report.warning(
                         message="Kept a partial Confluent Stream Catalog result after a page "
@@ -107,7 +124,7 @@ class ConfluentStreamCatalogClient:
         logger.info(
             f"Retrieved {len(entities)} {root_key} entities from the Confluent Stream Catalog"
         )
-        return entities
+        return CatalogFetchResult(entities, complete=complete)
 
     def _fetch_page(
         self, query: str, root_key: str, offset: int
@@ -126,11 +143,25 @@ class ConfluentStreamCatalogClient:
             response.raise_for_status()
             payload = response.json()
         except requests.HTTPError as e:
-            self.report.warning(
-                message="The Confluent Stream Catalog rejected the request",
-                context=f"{context}, response={_response_body(e)}",
-                exc=e,
-            )
+            status = e.response.status_code if e.response is not None else None
+            if status in _CREDENTIAL_REJECTED_STATUSES:
+                # Wrong key, or a key without Stream Catalog read access / an
+                # Essentials-tier environment: not a transient hiccup, and it makes
+                # the whole catalog unreadable, so surface it as a run failure with
+                # an actionable message instead of burying it as one more warning.
+                self.report.failure(
+                    message="The Confluent Stream Catalog rejected the credentials; check the "
+                    "Schema Registry API key has catalog read access on a Stream Governance "
+                    "Advanced environment",
+                    context=f"{context}, status={status}, response={_response_body(e)}",
+                    exc=e,
+                )
+            else:
+                self.report.warning(
+                    message="The Confluent Stream Catalog rejected the request",
+                    context=f"{context}, response={_response_body(e)}",
+                    exc=e,
+                )
             return None
         except Exception as e:
             self.report.warning(
