@@ -617,10 +617,19 @@ def test_list_subscriptions_iam_denied_is_reported_as_failure():
     )
 
 
-def test_list_subscriptions_unclassified_error_is_reported_as_failure():
+@pytest.mark.parametrize(
+    "error",
+    [
+        # A PermissionDenied we cannot classify (no ErrorInfo reason), and an
+        # error that is not a PermissionDenied at all.
+        PermissionDenied("denied"),
+        GoogleAPIError("boom"),
+    ],
+    ids=["unclassified_permission_denied", "generic_api_error"],
+)
+def test_list_subscriptions_unexpected_error_is_reported_as_failure(error):
     ah = MagicMock()
-    # A PermissionDenied we cannot classify (no ErrorInfo reason).
-    ah.list_subscriptions.side_effect = PermissionDenied("denied")
+    ah.list_subscriptions.side_effect = error
     handler = _seeded_handler(ah=ah).handler
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
@@ -925,25 +934,6 @@ def test_publisher_siblings_separate_per_publisher_entity():
     assert len(publisher_wus) == 2
     for wu in publisher_wus:
         assert len(_aspect(wu).siblings) == 1
-
-
-# --- API error path -------------------------------------------------------
-
-
-def test_list_subscriptions_generic_api_error_is_reported_as_failure():
-    ah = MagicMock()
-    ah.list_subscriptions.side_effect = GoogleAPIError("boom")
-    handler = _seeded_handler(ah=ah).handler
-
-    datasets = [BigqueryDataset(name="shared_a", location="US")]
-    handler.populate_for_project("consumer-project", datasets)
-
-    assert handler.get_info("consumer-project", "shared_a") is None
-    assert handler.report.num_linked_dataset_location_errors == 1
-    assert any(
-        f.title == "Unable to list BigQuery Sharing subscriptions"
-        for f in handler.report.failures
-    )
 
 
 # --- Lineage emission guard (schema-gen wiring) ---------------------------
