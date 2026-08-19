@@ -5,7 +5,7 @@
 **Using Gradle (slow but reliable):**
 
 ```bash
-# Development setup from repository root
+# Development setup from metadata-ingestion/
 ../gradlew :metadata-ingestion:installDev   # Setup Python environment
 source venv/bin/activate                    # Activate virtual environment
 
@@ -165,11 +165,11 @@ Connector documentation follows a structured format with specific file types and
 
 ```bash
 # Regenerate documentation after changes
-./gradlew :metadata-ingestion:docGen
+../gradlew :metadata-ingestion:docGen
 
 # Preview locally
-./gradlew :docs-website:yarnStart  # Opens localhost:3001
+../gradlew :docs-website:yarnStart  # Opens localhost:3001
 
 # Format markdown before committing
-./gradlew :datahub-web-react:mdPrettierWrite
+../gradlew :datahub-web-react:mdPrettierWrite
 ```
