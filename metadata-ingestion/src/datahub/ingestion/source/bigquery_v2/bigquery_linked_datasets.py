@@ -446,25 +446,30 @@ class BigQueryLinkedDatasetsHandler:
             project = rm_client.get_project(name=f"projects/{project_number}")
             resolved: Optional[str] = project.project_id
         except GoogleAPIError as e:
+            self.report.num_linked_dataset_project_resolve_errors += 1
             if isinstance(e, Forbidden) and is_iam_permission_denied(e):
-                message = (
-                    "The service account cannot read the publisher project, so no "
-                    "lineage or siblings are emitted for its linked datasets. Grant "
-                    "`resourcemanager.projects.get` on the publisher project."
+                self.report.warning(
+                    title="Missing permission to read publisher project",
+                    message=(
+                        "The service account cannot read the publisher project, so "
+                        "no lineage or siblings are emitted for its linked datasets. "
+                        "Grant `resourcemanager.projects.get` on the publisher "
+                        "project."
+                    ),
+                    context=f"publisher_project_number={project_number}",
+                    exc=e,
                 )
             else:
-                message = (
-                    "`get_project` failed with an unexpected API error, so no "
-                    "lineage or siblings are emitted for this publisher's linked "
-                    "datasets."
+                self.report.warning(
+                    title="Cannot resolve publisher project ID",
+                    message=(
+                        "`get_project` failed with an unexpected API error, so no "
+                        "lineage or siblings are emitted for this publisher's linked "
+                        "datasets."
+                    ),
+                    context=f"publisher_project_number={project_number}",
+                    exc=e,
                 )
-            self.report.num_linked_dataset_project_resolve_errors += 1
-            self.report.warning(
-                title="Cannot resolve publisher project ID",
-                message=message,
-                context=f"publisher_project_number={project_number}",
-                exc=e,
-            )
             resolved = None
 
         self._publisher_project_id_cache[project_number] = resolved

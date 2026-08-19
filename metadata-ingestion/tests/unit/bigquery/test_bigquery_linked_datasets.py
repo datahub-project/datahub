@@ -493,6 +493,39 @@ def test_resource_manager_result_is_cached_per_project_number(rm_result):
     rm.get_project.assert_called_once_with(name="projects/111222333")
 
 
+@pytest.mark.parametrize(
+    "rm_error, expected_title",
+    [
+        (
+            PermissionDenied(
+                "resourcemanager.projects.get denied",
+                error_info=ErrorInfo(
+                    reason="IAM_PERMISSION_DENIED",
+                    domain="cloudresourcemanager.googleapis.com",
+                ),
+            ),
+            "Missing permission to read publisher project",
+        ),
+        (InternalServerError("500"), "Cannot resolve publisher project ID"),
+    ],
+    ids=["iam_denied", "server_error"],
+)
+def test_publisher_resolve_failure_title_matches_the_cause(rm_error, expected_title):
+    handler = _make_handler()
+    ah = _ah_client_returning({"us": [make_subscription(dataset_id="shared_a")]})
+    bq = _bq_client_returning(
+        {"consumer-project.shared_a": make_dataset_with_linked_source()}
+    )
+    rm = _rm_client_returning({"111222333": rm_error})
+    _install_clients(handler, ah=ah, bq=bq, rm=rm)
+
+    handler.populate_for_project(
+        "consumer-project", [BigqueryDataset(name="shared_a", location="US")]
+    )
+
+    assert [w.title for w in handler.report.warnings] == [expected_title]
+
+
 def test_unresolved_source_is_counted_per_dataset_not_per_publisher():
     """Every dataset behind an unreadable publisher is counted, not just the first."""
     handler = _make_handler()
