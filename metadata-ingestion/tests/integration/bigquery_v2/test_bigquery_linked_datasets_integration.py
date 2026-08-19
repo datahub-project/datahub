@@ -160,7 +160,10 @@ def test_bigquery_linked_datasets_ingest(
     tmp_path,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
-    mcp_golden_path = f"{test_resources_dir}/bigquery_linked_datasets_mces_golden.json"
+    variant = "lineage_on" if include_lineage else "lineage_off"
+    mcp_golden_path = (
+        f"{test_resources_dir}/bigquery_linked_datasets_{variant}_mces_golden.json"
+    )
     mcp_output_path = "{}/{}".format(
         tmp_path, "bigquery_linked_datasets_mces_output.json"
     )
@@ -295,6 +298,12 @@ def test_bigquery_linked_datasets_ingest(
     with open(mcp_output_path) as f:
         mcps = json.load(f)
 
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=mcp_output_path,
+        golden_path=mcp_golden_path,
+    )
+
     if not include_lineage:
         # Detection is independent of the lineage flag: the linked dataset is
         # still marked and enriched, but siblings and COPY lineage are suppressed.
@@ -322,13 +331,14 @@ def test_bigquery_linked_datasets_ingest(
             if m.get("aspectName") == "upstreamLineage"
             and any(u["type"] == "COPY" for u in m["aspect"]["json"]["upstreams"])
         ]
+        # The view definition is still registered, so it keeps its own lineage.
+        assert [
+            u["type"]
+            for m in mcps
+            if m.get("aspectName") == "upstreamLineage"
+            for u in m["aspect"]["json"]["upstreams"]
+        ] == ["VIEW"]
         return
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=mcp_output_path,
-        golden_path=mcp_golden_path,
-    )
 
     # A linked view must carry exactly one upstreamLineage, the COPY edge; a
     # second, view-definition-derived one would overwrite it on ingest.
