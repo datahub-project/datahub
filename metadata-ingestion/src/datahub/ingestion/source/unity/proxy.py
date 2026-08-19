@@ -27,6 +27,7 @@ from databricks.sdk.service.catalog import (
     SchemaInfo,
     TableConstraint,
     TableInfo,
+    VolumeInfo,
 )
 from databricks.sdk.service.files import DownloadResponse, FilesAPI
 from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
@@ -74,6 +75,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -646,6 +648,46 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         exc=e,
                         log=False,
                     )
+
+    def volumes(self, schema: Schema) -> Iterable[Volume]:
+        if schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return
+        try:
+            response = self._workspace_client.volumes.list(
+                catalog_name=schema.catalog.name,
+                schema_name=schema.name,
+                include_browse=True,
+                max_results=self.databricks_api_page_size,
+            )
+        except Exception as e:
+            self.report.num_volumes_list_failed += 1
+            self.report.warning(
+                title="Failed to list Unity Catalog volumes",
+                message=(
+                    "Volumes in this schema were skipped. Grant READ VOLUME on the "
+                    "volumes (plus USE CATALOG / USE SCHEMA on the parent) or set "
+                    "include_volumes: false."
+                ),
+                context=schema.id,
+                exc=e,
+                log=False,
+            )
+            return
+        if not response:
+            return
+        for volume in response:
+            try:
+                optional_volume = self._create_volume(schema, volume)
+                if optional_volume:
+                    yield optional_volume
+            except Exception as e:
+                logger.warning(f"Error parsing volume: {e}")
+                self.report.warning(
+                    message="Error parsing volume",
+                    context="volume-parse",
+                    exc=e,
+                    log=False,
+                )
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
@@ -1491,6 +1533,25 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             updated_by=obj.updated_by,
             table_id=obj.table_id,
             comment=obj.comment,
+        )
+
+    def _create_volume(self, schema: Schema, obj: VolumeInfo) -> Optional[Volume]:
+        if not obj.name:
+            self.report.num_volumes_missing_name += 1
+            return None
+        return Volume(
+            name=obj.name,
+            id=f"{schema.id}.{self._escape_sequence(obj.name)}",
+            comment=obj.comment,
+            schema=schema,
+            owner=obj.owner,
+            volume_type=obj.volume_type,
+            storage_location=obj.storage_location,
+            volume_id=obj.volume_id,
+            created_at=(parse_ts_millis(obj.created_at) if obj.created_at else None),
+            created_by=obj.created_by,
+            updated_at=(parse_ts_millis(obj.updated_at) if obj.updated_at else None),
+            updated_by=obj.updated_by,
         )
 
     def _extract_columns(

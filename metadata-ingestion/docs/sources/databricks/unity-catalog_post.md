@@ -48,6 +48,28 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
+#### Volumes
+
+[Unity Catalog Volumes](https://docs.databricks.com/aws/en/volumes/) are named storage locations (managed or external) under a catalog and schema, used for non-tabular files. DataHub ingests each volume as a dataset with subtype `Volume` (`include_volumes: true` by default).
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_volumes: true
+    volume_pattern:
+      allow:
+        - my_catalog\.analytics\..*
+```
+
+Each volume emits:
+
+- A `Volume` subtype so it is distinguishable from tables and views.
+- Dataset properties: comment, owner, `volume_type` (`MANAGED` or `EXTERNAL`), `storage_location`, and volume id.
+- Nesting under the parent schema container.
+
+Files and directories inside a volume are **not** ingested. Hive Metastore catalogs have no volumes and are skipped. Listing requires `READ VOLUME` on the volume plus `USE CATALOG` / `USE SCHEMA` on the parent; a list failure is reported and that schema's volumes are skipped without failing the rest of ingestion. Set `include_volumes: false` to skip the extra `volumes.list` call per schema.
+
 #### Usage statistics
 
 Usage is enabled by default (`include_usage_statistics: true`). Choose how query history is read with `usage_data_source`:
@@ -128,6 +150,9 @@ To ingest Unity Catalog information schema
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+- Unity Catalog Volumes are ingested as datasets; files stored inside a volume are not listed or ingested.
+- Volume tags and volume-to-table lineage are not extracted.
 
 ### Troubleshooting
 

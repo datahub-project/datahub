@@ -13,6 +13,7 @@ from databricks.sdk.service.catalog import (
     DataSourceFormat,
     SecurableType,
     TableType,
+    VolumeType,
 )
 from databricks.sdk.service.sql import QueryStatementType
 from databricks.sdk.service.workspace import Language
@@ -264,6 +265,58 @@ class ExternalTableReference:
 class NotebookReference:
     id: int
     last_updated: Optional[datetime] = None
+
+
+@dataclass(frozen=True, order=True)
+class VolumeReference:
+    metastore: Optional[str]
+    catalog: str
+    schema: str
+    volume: str
+
+    @classmethod
+    def create(cls, volume: "Volume") -> "VolumeReference":
+        return cls(
+            (
+                volume.schema.catalog.metastore.id
+                if volume.schema.catalog.metastore
+                else None
+            ),
+            volume.schema.catalog.name,
+            volume.schema.name,
+            volume.name,
+        )
+
+    def __str__(self) -> str:
+        if self.metastore:
+            return f"{self.metastore}.{self.catalog}.{self.schema}.{self.volume}"
+        return self.qualified_name
+
+    @property
+    def qualified_name(self) -> str:
+        return f"{self.catalog}.{self.schema}.{self.volume}"
+
+    @property
+    def external_path(self) -> str:
+        return f"{self.catalog}/{self.schema}/{self.volume}"
+
+
+@dataclass
+class Volume(CommonProperty):
+    schema: Schema
+    owner: Optional[str]
+    volume_type: Optional[VolumeType]
+    storage_location: Optional[str]
+    volume_id: Optional[str]
+    created_at: Optional[datetime]
+    created_by: Optional[str]
+    updated_at: Optional[datetime]
+    updated_by: Optional[str]
+
+    ref: VolumeReference = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.ref = VolumeReference.create(self)
 
 
 @dataclass

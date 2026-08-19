@@ -3177,3 +3177,122 @@ class TestUnityCatalogViewFiltering:
         assert dropped == [table.id]
         assert view.ref in source.view_refs
         assert metric_view.ref in source.table_refs
+
+
+class TestUnityCatalogVolumes:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        return UnityCatalogSource.create(config, PipelineContext(run_id="test_run"))
+
+    @staticmethod
+    def _build_volume(name: str = "landing") -> tuple:
+        from databricks.sdk.service.catalog import VolumeType
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Volume,
+        )
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        volume = Volume(
+            id=f"c.s.{name}",
+            name=name,
+            comment="landing files",
+            schema=schema,
+            owner="data-eng",
+            volume_type=VolumeType.MANAGED,
+            storage_location="s3://bucket/vols/landing",
+            volume_id="vol-1",
+            created_at=None,
+            created_by="alice",
+            updated_at=None,
+            updated_by=None,
+        )
+        return volume, schema
+
+    def test_include_volumes_false_skips_api(self) -> None:
+        source = self._build_source(include_volumes=False)
+        _, schema = self._build_volume()
+        with patch.object(source.unity_catalog_api_proxy, "volumes") as mock_volumes:
+            assert list(source.process_volumes(schema)) == []
+        mock_volumes.assert_not_called()
+
+    def test_volume_pattern_drops(self) -> None:
+        source = self._build_source(volume_pattern={"deny": [r"c\.s\.landing"]})
+        volume, schema = self._build_volume()
+        source.unity_catalog_api_proxy.volumes = lambda schema: iter([volume])  # type: ignore[assignment]
+        assert list(source.process_volumes(schema)) == []
+        assert list(source.report.volumes.dropped_entities) == [volume.id]
+
+    def test_process_volume_emits_dataset(self) -> None:
+        from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+        from datahub.metadata.schema_classes import (
+            DatasetPropertiesClass,
+            SubTypesClass,
+        )
+
+        source = self._build_source(include_ownership=True)
+        volume, schema = self._build_volume()
+        wus = list(source.process_volume(volume, schema))
+        urns = {wu.get_urn() for wu in wus}
+        assert any("dataset:" in u and "c.s.landing" in u for u in urns)
+
+        subtypes = [
+            wu.get_aspect_of_type(SubTypesClass)
+            for wu in wus
+            if wu.get_aspect_of_type(SubTypesClass) is not None
+        ]
+        assert subtypes
+        assert subtypes[0].typeNames == [DatasetSubTypes.DATABRICKS_VOLUME]
+
+        props = [
+            wu.get_aspect_of_type(DatasetPropertiesClass)
+            for wu in wus
+            if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+        ]
+        assert props
+        assert props[0].qualifiedName == "c.s.landing"
+        assert props[0].customProperties["volume_type"] == "MANAGED"
+        assert (
+            props[0].customProperties["storage_location"] == "s3://bucket/vols/landing"
+        )
+        assert props[0].description == "landing files"

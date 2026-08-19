@@ -113,6 +113,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -388,6 +389,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - metastores
     - schemas
     - tables and column lineage
+    - Unity Catalog volumes (named storage locations)
     - model and model versions
     """
 
@@ -808,6 +810,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
+                    yield from self.process_volumes(schema)
                     yield from self.process_ml_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
@@ -878,6 +881,87 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.tables.processed(table.id, f"table ({table.table_type})")
             if table.is_metric_view and self.config.include_metric_views:
                 self.report.metric_views.processed(table.id)
+
+    def process_volumes(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_volumes:
+            return
+        for volume in self.unity_catalog_api_proxy.volumes(schema=schema):
+            if not self.config.volume_pattern.allowed(volume.ref.qualified_name):
+                self.report.volumes.dropped(volume.id)
+                continue
+            yield from self.process_volume(volume, schema)
+            self.report.volumes.processed(volume.id)
+
+    def process_volume(
+        self, volume: Volume, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_urn = self.gen_volume_urn(volume.ref)
+        yield from self.add_table_to_dataset_container(dataset_urn, schema)
+
+        custom_properties: Dict[str, str] = {}
+        if volume.storage_location is not None:
+            custom_properties["storage_location"] = volume.storage_location
+        if volume.volume_type is not None:
+            custom_properties["volume_type"] = volume.volume_type.value
+        if volume.volume_id:
+            custom_properties["volume_id"] = volume.volume_id
+        if volume.owner:
+            custom_properties["owner"] = volume.owner
+        if volume.created_by:
+            custom_properties["created_by"] = volume.created_by
+        if volume.updated_by:
+            custom_properties["updated_by"] = volume.updated_by
+        if volume.created_at:
+            custom_properties["created_at"] = str(volume.created_at)
+        if volume.updated_at:
+            custom_properties["updated_at"] = str(volume.updated_at)
+
+        created: Optional[TimeStampClass] = None
+        if volume.created_at:
+            created_ts = make_ts_millis(volume.created_at)
+            if created_ts is not None:
+                created = TimeStampClass(
+                    created_ts,
+                    make_user_urn(volume.created_by) if volume.created_by else None,
+                )
+        last_modified = created
+        if volume.updated_at:
+            updated_ts = make_ts_millis(volume.updated_at)
+            if updated_ts is not None:
+                last_modified = TimeStampClass(
+                    updated_ts,
+                    volume.updated_by and make_user_urn(volume.updated_by),
+                )
+
+        owner_urn = self.get_owner_urn(volume.owner)
+        ownership = (
+            OwnershipClass(
+                owners=[OwnerClass(owner=owner_urn, type=OwnershipTypeClass.DATAOWNER)]
+            )
+            if owner_urn is not None
+            else None
+        )
+
+        mcps = MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn,
+            aspects=[
+                DatasetPropertiesClass(
+                    name=volume.name,
+                    qualifiedName=volume.ref.qualified_name,
+                    description=volume.comment,
+                    customProperties=custom_properties,
+                    created=created,
+                    lastModified=last_modified,
+                    externalUrl=f"{self.external_url_base}/{volume.ref.external_path}",
+                ),
+                SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME]),
+                self._create_data_platform_instance_aspect(),
+                self._get_domain_aspect(dataset_name=volume.ref.qualified_name),
+                ownership,
+            ],
+        )
+        for mcp in mcps:
+            yield mcp.as_workunit()
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
@@ -1254,6 +1338,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
+            env=self.config.env,
+        )
+
+    def gen_volume_urn(self, volume_ref: unity_proxy_types.VolumeReference) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.platform_instance_name,
+            name=str(volume_ref),
             env=self.config.env,
         )
 

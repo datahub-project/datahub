@@ -2,7 +2,7 @@
 
 Databricks is a data platform used to store and query analytical or operational data. Learn more in the [official Databricks documentation](https://www.databricks.com/).
 
-The DataHub integration for Databricks covers core metadata entities such as datasets/tables/views, schema fields, and containers. It also captures table- and column-level lineage, usage statistics, data profiling, ownership, and stateful deletion detection.
+The DataHub integration for Databricks covers core metadata entities such as datasets/tables/views, Unity Catalog volumes, schema fields, and containers. It also captures table- and column-level lineage, usage statistics, data profiling, ownership, and stateful deletion detection.
 
 DataHub supports integration with Databricks ecosystem using a multitude of connectors, depending on your exact setup.
 
@@ -28,6 +28,7 @@ To complete the picture, we recommend adding push-based ingestion from your Spar
 | Hive Metastore catalog                    | Container (CATALOG)               | Ingested as a special catalog type when `include_hive_metastore: true` (default). Represents the legacy workspace-level Hive Metastore alongside Unity Catalog. |
 | Schema                                    | Container (SCHEMA)                | Nested under its Catalog container.                                                                                                                             |
 | Table (managed, external, Delta, Iceberg) | Dataset (TABLE)                   | All non-view table types including streaming tables. Schema, descriptions, and tags are extracted.                                                              |
+| Volume (managed or external)              | Dataset (VOLUME)                  | Named Unity Catalog storage location. Description, owner, type, and storage path are extracted. Files inside the volume are not ingested.                       |
 | View / Materialized View                  | Dataset (VIEW)                    | View definition is captured.                                                                                                                                    |
 | Metric View                               | Dataset (METRIC_VIEW)             | Opt-in via `include_metric_views: true`. YAML body is preserved; dimensions and measures are tagged as schema fields.                                           |
 | Notebook                                  | Dataset (NOTEBOOK)                | Ingested when `include_notebooks` is enabled. Lineage to and from tables is extracted.                                                                          |

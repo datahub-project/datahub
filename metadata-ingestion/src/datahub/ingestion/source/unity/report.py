@@ -26,6 +26,7 @@ class UnityCatalogReport(SQLSourceReport):
         type="ml_model_version"
     )
     metric_views: EntityFilterReport = EntityFilterReport.field(type="metric_view")
+    volumes: EntityFilterReport = EntityFilterReport.field(type="volume")
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -70,6 +71,8 @@ class UnityCatalogReport(SQLSourceReport):
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
+    num_volumes_missing_name: int = 0
+    num_volumes_list_failed: int = 0
     num_federation_connections_list_failed: int = 0
     num_foreign_catalogs: int = 0
     num_federation_links_emitted: int = 0

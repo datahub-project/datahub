@@ -314,6 +314,26 @@ class UnityCatalogSourceConfig(
         description="Ingest notebooks, represented as DataHub datasets.",
     )
 
+    include_volumes: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Ingest Unity Catalog Volumes as DataHub datasets with subtype Volume. "
+            "Volumes are named storage locations (managed or external) under a schema; "
+            "files inside a volume are not ingested. Requires READ VOLUME on each volume "
+            "(plus USE CATALOG / USE SCHEMA on the parent). Set to false to skip the "
+            "volumes.list API call per schema."
+        ),
+    )
+
+    volume_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Volumes to filter in ingestion. "
+            "Specify regex to match the full `catalog.schema.volume` name. "
+            "Only applies when `include_volumes` is True."
+        ),
+    )
+
     include_ownership: bool = pydantic.Field(
         default=False,
         description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",

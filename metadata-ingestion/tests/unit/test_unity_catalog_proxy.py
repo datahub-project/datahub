@@ -756,6 +756,160 @@ class TestUnityCatalogProxy:
         )
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volumes_with_page_size(self, mock_workspace_client):
+        from databricks.sdk.service.catalog import VolumeType
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        volume_info = MagicMock()
+        volume_info.name = "landing"
+        volume_info.comment = "files"
+        volume_info.owner = "eng"
+        volume_info.volume_type = VolumeType.EXTERNAL
+        volume_info.storage_location = "s3://bucket/landing"
+        volume_info.volume_id = "vol-1"
+        volume_info.created_at = None
+        volume_info.created_by = None
+        volume_info.updated_at = None
+        volume_info.updated_by = None
+        mock_client.volumes.list.return_value = [volume_info]
+
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+            databricks_api_page_size=50,
+        )
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        volumes = list(proxy.volumes(schema))
+        mock_client.volumes.list.assert_called_with(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            include_browse=True,
+            max_results=50,
+        )
+        assert len(volumes) == 1
+        assert volumes[0].name == "landing"
+        assert volumes[0].ref.qualified_name == "test_catalog.test_schema.landing"
+        assert volumes[0].volume_type == VolumeType.EXTERNAL
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volumes_skips_hive_metastore(self, mock_workspace_client):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            CustomCatalogType,
+            Metastore,
+            Schema,
+        )
+
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="hive_metastore",
+            name="hive_metastore",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=CustomCatalogType.HIVE_METASTORE_CATALOG,
+        )
+        schema = Schema(
+            id="hive_metastore.default",
+            name="default",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        assert list(proxy.volumes(schema)) == []
+        mock_client.volumes.list.assert_not_called()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volumes_list_failure_warns(self, mock_workspace_client):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        mock_client.volumes.list.side_effect = RuntimeError("permission denied")
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        assert list(proxy.volumes(schema)) == []
+        assert proxy.report.num_volumes_list_failed == 1
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_workspace_notebooks_with_page_size(self, mock_workspace_client):
         """Test workspace_notebooks() method passes page size to workspace.list()."""
         # Setup mock

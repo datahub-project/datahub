@@ -55,6 +55,7 @@ class DatasetSubTypes(StrEnum):
     SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
+    DATABRICKS_VOLUME = "Volume"
     CUBE = "Cube"
 
     # TODO: Create separate entity...
