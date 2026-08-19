@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Input, Text } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,20 +17,22 @@ import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
 import { EntityType } from '@types';
 
-const SearchLine = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 2px;
+const SearchWrapper = styled.div`
+    margin-top: 6px;
+    width: 100%;
 `;
 
-const SearchInput = styled(Input)`
-    height: 2em;
+const SearchLine = styled.div`
+    position: relative;
+    width: 100%;
 `;
 
 const LoadingWrapper = styled.div`
-    min-width: 20px;
+    pointer-events: none;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
 `;
 
 const SearchMatchesText = styled(Text)``;
@@ -38,9 +41,12 @@ interface Props {
     data: LineageFilter;
     numMatches: number;
     setNumMatches: (numMatches: number) => void;
+    /** If false, keeps the current viewport in place when search results change,
+     * rather than zooming to the filter node. Defaults to true. */
+    zoomToNode?: boolean;
 }
 
-export default function LineageFilterSearch({ data, numMatches, setNumMatches }: Props) {
+export default function LineageFilterSearch({ data, numMatches, setNumMatches, zoomToNode = true }: Props) {
     const { t } = useTranslation('lineage');
     const { id, direction, parent, limit } = data;
 
@@ -58,9 +64,9 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
         if (filters && searchQuery.length < 3 && oldSearchQuery?.length >= 3) {
             filters.searchUrns = undefined;
             setNumMatches(0);
-            setDisplayVersion(([prev]) => [prev + 1, [id]]);
+            setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);
         }
-    }, [searchQuery, oldSearchQuery, id, parent, direction, nodes, setNumMatches, setDisplayVersion]);
+    }, [searchQuery, oldSearchQuery, id, parent, direction, nodes, setNumMatches, setDisplayVersion, zoomToNode]);
 
     const orFilters = computeOrFilters([{ field: DEGREE_FILTER_NAME, values: ['1'] }]);
     const { loading } = useSearchAcrossLineageNamesQuery({
@@ -96,17 +102,19 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
                 filters.searchUrns = new Set(
                     queryData.searchAcrossLineage?.searchResults?.map((result) => result.entity.urn),
                 );
-                setDisplayVersion(([prev]) => [prev + 1, [id]]);
+                // Keeping the previous zoom node list leaves the viewport in place
+                setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);
             }
         },
     });
 
     return (
-        <>
+        <SearchWrapper>
             <SearchLine>
-                <SearchInput
+                <Input
                     label=""
                     placeholder={t('filter.search.placeholder')}
+                    icon={{ icon: MagnifyingGlass, weight: 'regular', color: 'icon' }}
                     error={!!inputValue && inputValue.length < 3 ? t('filter.search.minCharsError') : undefined}
                     errorOnHover
                     value={inputValue}
@@ -115,11 +123,11 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
                 />
                 <LoadingWrapper>{loading && <Spin indicator={<LoadingOutlined />} />}</LoadingWrapper>
             </SearchLine>
-            <SearchMatchesText type="div" size="xs" color="gray" data-testid="matches">
+            <SearchMatchesText type="div" size="xs" color="textTertiary" data-testid="matches">
                 {searchQuery.length >= 3 &&
                     (!loading || !!numMatches) &&
                     t('filter.search.matchCount', { count: numMatches })}
             </SearchMatchesText>
-        </>
+        </SearchWrapper>
     );
 }

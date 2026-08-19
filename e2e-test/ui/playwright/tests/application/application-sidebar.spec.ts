@@ -23,6 +23,7 @@
 import { test } from '../../fixtures/base-test';
 import { Page } from '@playwright/test';
 import { ApplicationsPage } from '../../pages/applications.page';
+import { isDataHubGraphqlUrl } from '../../utils/api-mock';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 
 const APP_URN = 'urn:li:application:d63587c6-cacc-4590-851c-4f51ca429b51';
@@ -44,7 +45,7 @@ test.describe('Application Sidebar Integration', () => {
   });
 
   async function setApplicationFeatureFlag(page: Page, showSidebarSectionWhenEmpty: boolean): Promise<void> {
-    await page.route('**/api/v2/graphql', async (route) => {
+    await page.route(isDataHubGraphqlUrl, async (route) => {
       const request = route.request();
       const postData = request.postDataJSON();
 
@@ -118,6 +119,7 @@ test.describe('Application Sidebar Integration', () => {
     logger?.info(`Navigating to dataset: ${DATASET_WITHOUT_APP_NAME}`);
     await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     logger?.info(`Adding application: ${TEST_APP_NAME}`);

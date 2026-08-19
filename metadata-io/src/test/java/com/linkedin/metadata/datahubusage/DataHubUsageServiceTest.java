@@ -66,7 +66,8 @@ public class DataHubUsageServiceTest {
   @BeforeMethod
   public void setup() throws Exception {
     // Setup mock index convention to return test index name
-    when(mockIndexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX)).thenReturn(TEST_INDEX_NAME);
+    when(mockIndexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX))
+        .thenReturn(TEST_INDEX_NAME);
 
     // Initialize the service with mocks
     dataHubUsageService = new DataHubUsageServiceImpl(mockElasticClient, mockIndexConvention);
@@ -90,7 +91,7 @@ public class DataHubUsageServiceTest {
 
   @Test
   public void testGetUsageIndexName() {
-    String indexName = dataHubUsageService.getUsageIndexName();
+    String indexName = dataHubUsageService.getUsageIndexName(opContext);
     assertEquals(TEST_INDEX_NAME, indexName);
   }
 

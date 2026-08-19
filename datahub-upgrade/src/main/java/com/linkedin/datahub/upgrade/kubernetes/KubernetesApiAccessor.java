@@ -459,11 +459,15 @@ public class KubernetesApiAccessor {
    */
   public void deleteScaledObject(String name, String namespace) {
     try {
+      // ScaledObjects are namespace-scoped. Without withNamespaced(true) fabric8 defaults it to
+      // false and ignores inNamespace(...), addressing the cluster-scoped path instead.
       ResourceDefinitionContext context =
           new ResourceDefinitionContext.Builder()
               .withGroup(kedaGroup())
               .withVersion(kedaVersion())
+              .withKind("ScaledObject")
               .withPlural(kedaScaledObjectsPlural())
+              .withNamespaced(true)
               .build();
       client.genericKubernetesResources(context).inNamespace(namespace).withName(name).delete();
     } catch (Exception e) {

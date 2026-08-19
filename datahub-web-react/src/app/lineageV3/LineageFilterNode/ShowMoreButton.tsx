@@ -16,6 +16,7 @@ const ExtraButtons = styled.div`
     flex-direction: column;
     align-items: end;
     background-color: ${(props) => props.theme.colors.bg};
+    z-index: 2;
 `;
 
 const Wrapper = styled.div`
@@ -39,7 +40,7 @@ const Button = styled.div`
     align-items: center;
     border-radius: 20px;
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -48,7 +49,7 @@ const Button = styled.div`
 
     :hover {
         background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
-        color: ${(props) => props.theme.colors.textBrand};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

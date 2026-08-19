@@ -225,19 +225,22 @@ Ingestion via REST uses `ingest_file_via_rest(auth_session, filename)` which cre
 
 ### 1.7 Marker Conventions
 
-**Source:** `smoke-test/pyproject.toml:84-88`
+**Source:** `smoke-test/pyproject.toml` (`[tool.pytest.ini_options] markers`)
 
-| Marker              | Purpose                       | When to Use                                  |
-| ------------------- | ----------------------------- | -------------------------------------------- |
-| `read_only`         | Tests that don't mutate data  | Service health, search, analytics            |
-| `no_cypress_suite1` | Module-level batch separation | Large test modules                           |
-| `dependency()`      | Test ordering                 | When test B depends on test A's side effects |
+| Marker              | Purpose                            | When to Use                                  |
+| ------------------- | ---------------------------------- | -------------------------------------------- |
+| `read_only`         | Tests that don't mutate data       | Service health, search, analytics            |
+| `no_cypress_suite1` | Module-level batch separation      | Large test modules                           |
+| `p0`                | Critical enough to run on every PR | High-signal regression guards                |
+| `domain(*names)`    | Product domain(s) owning the test  | Every test; select with `--domain`           |
+| `dependency()`      | Test ordering                      | When test B depends on test A's side effects |
 
 **Rules:**
 
 - WARNING: `read_only` tests must not create, modify, or delete any entities
 - WARNING: `@pytest.mark.dependency()` chains should be kept short (ideally <=3 levels)
 - SUGGESTION: New test modules should specify batch markers for CI parallelism
+- `domain(...)` takes values from the `Domain` enum in `tests/utilities/domains.py`; a test spanning areas declares each one and is selected by any of them
 
 ### 1.8 Environment Variable Discipline
 

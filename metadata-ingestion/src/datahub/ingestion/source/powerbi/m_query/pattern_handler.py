@@ -29,6 +29,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     get_literal_value,
     get_record_field_values,
     resolve_identifier,
+    resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
@@ -92,11 +93,8 @@ def _get_arg_values(
         if val is None and isinstance(inner, dict):
             if inner.get("kind") == "IdentifierExpression":
                 ref_name = inner.get("identifier", {}).get("literal", "")
-                if ref_name.startswith('#"') and ref_name.endswith('"'):
-                    ref_name = ref_name[2:-1]
-                if ref_name in parameters:
-                    val = parameters[ref_name]
-                else:
+                val = resolve_parameter_value(parameters, ref_name)
+                if val is None:
                     logger.debug(
                         "Argument '%s' is an unresolved parameter reference"
                         " — not found in dataset parameters",
@@ -115,7 +113,11 @@ def _get_record_args(node_map: Dict[int, dict], invoke_node: dict) -> Dict[str, 
     return result
 
 
-def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[str]:
+def _get_data_source_tokens(
+    node_map: Dict[int, dict],
+    arg_node: dict,
+    parameters: Optional[Dict[str, str]] = None,
+) -> List[str]:
     """Extract [platform_name, server, ...other_args] from a data source node.
 
     If arg_node is an IdentifierExpression, resolves it through the let scope.
@@ -146,6 +148,19 @@ def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[s
     elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
 
     for elem in elements:
+        if elem.get("kind") == "ItemAccessExpression":
+            # e.g. Snowflake.Databases(...){[Name=X, Kind="Database"]}[Data] --
+            # the {[...]} step is an ItemAccessExpression whose content is the
+            # RecordExpression directly (no ArrayWrapper/Csv wrapping here,
+            # unlike a function call's argument list below).
+            content = elem.get("content", {})
+            if isinstance(content, dict) and content.get("kind") == "RecordExpression":
+                kv = get_record_field_values(node_map, content, parameters=parameters)
+                for k, v in kv.items():
+                    tokens.append(k)
+                    tokens.append(v)
+            continue
+
         if elem.get("kind") != "InvokeExpression":
             continue
         content = elem.get("content", {})
@@ -156,15 +171,45 @@ def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[s
             if not isinstance(inner, dict):
                 continue
             val = get_literal_value(inner)
+            if val is None and inner.get("kind") == "IdentifierExpression":
+                # Snowflake.Databases(SnowflakeURL, SnowflakeWarehouse) -- the
+                # positional args are Parameter references, not literals.
+                # Skipping them shifts {[Name=...]} into tokens[1], so
+                # create_lineage treats the key "Name" as the server.
+                val = resolve_parameter_value(
+                    parameters, inner.get("identifier", {}).get("literal", "")
+                )
             if val is not None:
                 tokens.append(val)
             elif inner.get("kind") == "RecordExpression":
-                kv = get_record_field_values(node_map, inner)
+                kv = get_record_field_values(node_map, inner, parameters=parameters)
                 for k, v in kv.items():
                     tokens.append(k)
                     tokens.append(v)
 
     return tokens
+
+
+# Keys of Snowflake's {[Name=<db>, Kind="Database"]} navigation record.
+# Snowflake.Databases(server, warehouse) takes positional args; if those
+# IdentifierExpression args were unresolved, this record leaks into tokens[1]
+# and must not be treated as the host. Other NativeQuery connectors (BigQuery
+# BillingProject, Databricks Catalog, ...) take a record as the first argument,
+# so a record key in tokens[1] is expected there.
+_SNOWFLAKE_NAVIGATION_RECORD_KEYS = frozenset({"Name", "Kind"})
+
+
+def _sql_has_unqualified_snowflake_tables(query: str) -> bool:
+    try:
+        tables = native_sql_parser.get_tables(query)
+    except Exception as e:
+        logger.debug(
+            "Failed to parse native query for Snowflake table qualification: %s",
+            e,
+            exc_info=True,
+        )
+        return True
+    return any(len(name.split(".")) < 3 for name in tables)
 
 
 def get_next_item(items: List[str], item: str) -> Optional[str]:
@@ -188,10 +233,12 @@ def _remap_column_lineage_to_pbi_fields(
     column_lineage: List[ColumnLineageInfo],
     pbi_columns: Optional[List[Column]],
 ) -> List[ColumnLineageInfo]:
-    """sqlglot returns downstream column names in the upstream's case (Oracle is
-    lowercase), but PowerBI fields keep their original casing in the API
-    response. Without this remap, the downstream schemaField URN does not
-    resolve and the column-level edge points to a non-existent field."""
+    """sqlglot returns downstream column names in the parsed SQL's casing (driven
+    by the query's aliases and the source dialect's identifier folding), but
+    PowerBI fields keep their original casing from the API response. Without this
+    remap the downstream schemaField URN does not resolve and the column-level
+    edge points to a non-existent field. Applied for every SQL-parsing path via
+    parse_custom_sql (native-query, ODBC, and the two/three-step patterns)."""
     if not column_lineage or not pbi_columns:
         return column_lineage
 
@@ -222,13 +269,15 @@ def make_urn(
     data_platform_pair: DataPlatformPair,
     server: str,
     qualified_table_name: str,
+    platform_detail: Optional[PlatformDetail] = None,
 ) -> str:
-    platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
-        PowerBIPlatformDetail(
-            data_platform_pair=data_platform_pair,
-            data_platform_server=server,
+    if platform_detail is None:
+        platform_detail = platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=data_platform_pair,
+                data_platform_server=server,
+            )
         )
-    )
 
     return builder.make_dataset_urn_with_platform_instance(
         platform=data_platform_pair.datahub_data_platform_name,
@@ -456,10 +505,17 @@ class AbstractLineage(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=(
-                parsed_result.column_lineage
-                if parsed_result.column_lineage is not None
-                else []
+            # sqlglot returns downstream columns in the SQL's alias casing, which
+            # rarely matches the casing PowerBI stores its fields in. Remap in this
+            # shared SQL-parsing path so the downstream column resolves to the real
+            # PowerBI field regardless of the platform driving the parse.
+            column_lineage=_remap_column_lineage_to_pbi_fields(
+                (
+                    parsed_result.column_lineage
+                    if parsed_result.column_lineage is not None
+                    else []
+                ),
+                self.table.columns,
             ),
         )
 
@@ -478,7 +534,12 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        column=column.name.lower(),
+                        # Preserve the source column casing so the upstream
+                        # schemaField URN matches the warehouse's field, which
+                        # stores columns in their original casing. Lowercasing is
+                        # governed for the dataset portion by
+                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
+                        column=column.name,
                     )
                 ]
 
@@ -697,8 +758,9 @@ class AmazonRedshiftLineage(AbstractLineage):
 
 
 class OracleLineage(AbstractLineage):
-    _TNS_ALIAS_RE = re.compile(r"^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$")
-    _TNS_SERVICE_NAME_RE = re.compile(r"service_name\s*=\s*([A-Za-z0-9_.]+)")
+    # Hyphens are valid in host names and TNS aliases (e.g. "oracle-tns.example.com").
+    _TNS_ALIAS_RE = re.compile(r"^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$")
+    _TNS_SERVICE_NAME_RE = re.compile(r"service_name\s*=\s*([A-Za-z0-9_.-]+)")
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.ORACLE.value
@@ -729,6 +791,14 @@ class OracleLineage(AbstractLineage):
             value,
         )
         return None, None
+
+    def _resolve_platform_detail(self, server: str) -> PlatformDetail:
+        return self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=self.get_platform_pair(),
+                data_platform_server=server,
+            )
+        )
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -771,22 +841,54 @@ class OracleLineage(AbstractLineage):
                 query=inline_query,
             )
 
-        if db_name is None:
-            logger.debug(
-                "Oracle.Database call has no Query= and no resolvable db_name; "
-                "skipping lineage for %s",
-                args[0],
-            )
-            return Lineage.empty()
-
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None or accessor.next is None:
+            logger.debug(
+                "Oracle.Database for %s has no two-step identifier accessor; "
+                "skipping hierarchical lineage.",
+                self.table.full_name,
+            )
             return Lineage.empty()
 
         schema_name: Optional[str] = accessor.items.get("Schema")
         table_name: Optional[str] = accessor.next.items.get("Name")
+        if schema_name is None or table_name is None:
+            self.reporter.warning(
+                title="Oracle.Database hierarchical navigation missing schema/table",
+                message=(
+                    "Oracle.Database hierarchical navigation was found but its "
+                    "Schema or table Name item is missing; lineage skipped."
+                ),
+                context=(
+                    f"table={self.table.full_name}, server={server}, "
+                    f"schema={schema_name}, name={table_name}"
+                ),
+            )
+            return Lineage.empty()
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        platform_detail = self._resolve_platform_detail(server)
+
+        # A bare TNS alias / descriptor carries no database; fall back to a
+        # configured `default_database` so Oracle ingestions using 3-part URNs
+        # match, otherwise emit a 2-part `schema.table` URN.
+        effective_db: Optional[str] = db_name
+        if effective_db is None and isinstance(platform_detail, OraclePlatformDetail):
+            effective_db = platform_detail.default_database
+        if db_name is None and effective_db is None:
+            self.reporter.info(
+                title="Oracle lineage produced a 2-part URN",
+                message=(
+                    "A bare Oracle TNS alias/descriptor carries no database, so a "
+                    "2-part schema.table URN was produced. If your Oracle "
+                    "ingestion runs with add_database_name_to_urn=true (3-part "
+                    "URNs), set 'default_database' under server_to_platform_instance."
+                ),
+                context=f"table={self.table.full_name}, server={server}",
+            )
+
+        qualified_table_name = ".".join(
+            part for part in (effective_db, schema_name, table_name) if part is not None
+        )
 
         urn = make_urn(
             config=self.config,
@@ -794,6 +896,7 @@ class OracleLineage(AbstractLineage):
             data_platform_pair=self.get_platform_pair(),
             server=server,
             qualified_table_name=qualified_table_name,
+            platform_detail=platform_detail,
         )
 
         column_lineage = self.create_table_column_lineage(urn)
@@ -822,20 +925,13 @@ class OracleLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        platform_detail: PlatformDetail = (
-            self.platform_instance_resolver.get_platform_instance(
-                PowerBIPlatformDetail(
-                    data_platform_pair=self.get_platform_pair(),
-                    data_platform_server=server,
-                )
-            )
-        )
+        platform_detail = self._resolve_platform_detail(server)
 
-        default_schema: Optional[str] = (
-            platform_detail.default_schema
-            if isinstance(platform_detail, OraclePlatformDetail)
-            else None
-        )
+        default_schema: Optional[str] = None
+        default_database: Optional[str] = None
+        if isinstance(platform_detail, OraclePlatformDetail):
+            default_schema = platform_detail.default_schema
+            default_database = platform_detail.default_database
 
         if default_schema is None and self._sql_has_unqualified_tables(query):
             self.reporter.warning(
@@ -849,21 +945,14 @@ class OracleLineage(AbstractLineage):
                 context=f"table={self.table.full_name}, server={server}",
             )
 
-        # database=None yields 2-part `<schema>.<table>` URNs to match Oracle
-        # ingestion's default URN shape.
-        lineage = self.parse_custom_sql(
+        # `default_database` is None for the default 2-part URN shape; set, it
+        # produces 3-part URNs matching `add_database_name_to_urn: true`.
+        return self.parse_custom_sql(
             query=query,
             server=server,
-            database=None,
+            database=default_database,
             schema=default_schema,
             platform_detail=platform_detail,
-        )
-        return Lineage(
-            upstreams=lineage.upstreams,
-            column_lineage=_remap_column_lineage_to_pbi_fields(
-                lineage.column_lineage,
-                self.table.columns,
-            ),
         )
 
     def _sql_has_unqualified_tables(self, query: str) -> bool:
@@ -1466,6 +1555,12 @@ class NativeQueryLineage(AbstractLineage):
         if data_access_tokens[0] == FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value:
             return get_next_item(data_access_tokens, "BillingProject")
 
+        if data_access_tokens[0] == FunctionName.SNOWFLAKE_DATA_ACCESS.value:
+            # Snowflake.Databases(server, warehouse) does not take the database
+            # as a function argument -- it comes from the next navigation step,
+            # e.g. Snowflake.Databases(...){[Name=<db>, Kind="Database"]}[Data].
+            return get_next_item(data_access_tokens, "Name")
+
         return None
 
     def create_lineage(
@@ -1493,7 +1588,9 @@ class NativeQueryLineage(AbstractLineage):
             return Lineage.empty()
 
         # Extract data source tokens from first arg
-        data_access_tokens = _get_data_source_tokens(node_map, source_node)
+        data_access_tokens = _get_data_source_tokens(
+            node_map, source_node, parameters=data_access_func_detail.parameters
+        )
 
         if not data_access_tokens or not self.is_native_parsing_supported(
             data_access_tokens[0]
@@ -1504,17 +1601,22 @@ class NativeQueryLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        if len(data_access_tokens) < 2:
+        platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[data_access_tokens[0]]
+
+        if len(data_access_tokens) < 2 or (
+            platform == SupportedDataPlatform.SNOWFLAKE
+            and data_access_tokens[1] in _SNOWFLAKE_NAVIGATION_RECORD_KEYS
+        ):
             logger.debug(
                 "Server not available in data source tokens for %s",
                 data_access_tokens[0],
             )
             return Lineage.empty()
 
-        self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
-            data_access_tokens[0]
-        ]
+        self.current_data_platform = platform
         # data_access_tokens[0] = platform name, [1] = first literal arg = server
+        # (for record-first connectors such as BigQuery this is a record key,
+        # used only for server_to_platform_instance lookup)
         server = data_access_tokens[1]
 
         if self.config.enable_advance_lineage_sql_construct is False:
@@ -1524,6 +1626,26 @@ class NativeQueryLineage(AbstractLineage):
             )
 
         database_name: Optional[str] = self.get_db_name(data_access_tokens)
+
+        if (
+            database_name is None
+            and self.current_data_platform == SupportedDataPlatform.SNOWFLAKE
+            and _sql_has_unqualified_snowflake_tables(sql_query)
+        ):
+            self.reporter.warning(
+                title="Unresolved database name in Value.NativeQuery",
+                message=(
+                    "Could not determine the Snowflake database from the M-Query's "
+                    "data-access navigation chain (the `{[Name=...]}` step). This "
+                    "typically happens when `Name` is a Power Query parameter or "
+                    "identifier reference rather than a quoted literal, and the "
+                    "dataset's parameter values were not available. Lineage will "
+                    "still be attempted from the SQL text alone; any table "
+                    "referenced there without an explicit database prefix may "
+                    "resolve to the wrong URN or be dropped."
+                ),
+                context=f"table-full-name={self.table.full_name}, server={server}",
+            )
 
         return self.parse_custom_sql(
             query=sql_query,

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -107,6 +108,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final AuthConfig authConfig = new AuthConfig();
     authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
+    final AccessTokenConfiguration accessTokenConfiguration =
+        _authenticationConfiguration.getAccessTokens() != null
+            ? _authenticationConfiguration.getAccessTokens()
+            : AccessTokenConfiguration.defaults();
+    authConfig.setAllowNoExpiry(accessTokenConfiguration.isAllowNoExpiry());
+    authConfig.setAllowedAccessTokenDurations(accessTokenConfiguration.getAllowedDurations());
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
     policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
@@ -256,7 +263,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
-            .setLineageGraphV2(_featureFlags.isLineageGraphV2())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
@@ -272,11 +278,11 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
+            .setShowLineageFilterNodes(_featureFlags.isShowLineageFilterNodes())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
-            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
@@ -286,10 +292,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
             .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
+            .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .setI18nEnabled(_featureFlags.isI18nEnabled())
+            .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
+            .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

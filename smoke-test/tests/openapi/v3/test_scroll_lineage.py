@@ -28,9 +28,12 @@ import pytest
 from conftest import _ingest_cleanup_data_impl
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.openapi import LineageDirection
+from tests.utilities.domains import Domain
 from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 ALPHA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)"
 GAMMA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,gamma,PROD)"

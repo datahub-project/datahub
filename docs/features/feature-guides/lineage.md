@@ -3,6 +3,7 @@ description: "Use DataHub data lineage to map how data flows across your organiz
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import ProductTour from '@site/src/components/ProductTour';
 
 # About DataHub Lineage
 
@@ -10,6 +11,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up.
 This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
+
+Prefer to explore hands-on? Take the interactive tour below, then read on for the details.
+
+<ProductTour name="lineage" title="Lineage" />
 
 With data lineage, you can
 

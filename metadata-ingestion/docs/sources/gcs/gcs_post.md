@@ -194,6 +194,21 @@ For `.zip` archives:
 
 Set `path_spec.enable_compression` to `false` to treat compressed files as opaque and skip this handling.
 
+#### Profiling
+
+Profiling is supported for GCS and, when enabled, extracts:
+
+- Row and column counts for each dataset
+- For each column, if profiling is enabled:
+  - null counts and proportions
+  - distinct counts and proportions
+  - minimum, maximum, mean, median, standard deviation, some quantile values
+  - histograms or frequencies of unique values
+
+Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and requires no Spark, Hadoop, or JVM. Distinct counts and quantiles/histograms are approximate (DataSketches). GCS files are read over the S3-interoperability endpoint using the same credentials configured for ingestion, so no extra setup is needed beyond enabling profiling.
+
+Enabling profiling will slow down ingestion runs.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

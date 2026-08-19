@@ -137,7 +137,14 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         entities: List[Dict[str, Any]],
         with_system_metadata: bool,
         context: str = "response",
+        allow_empty: bool = False,
     ) -> Dict[str, EntityAspects]:
+        """Deserialize entity dicts into typed aspects keyed by urn.
+
+        By default, entities that come back with no (deserializable) aspects are
+        dropped. Set ``allow_empty=True`` to keep them as urn -> {} — useful when
+        scrolling without requesting aspects, where the server returns urns only.
+        """
         result: Dict[str, EntityAspects] = {}
         for entity in entities:
             entity_urn = entity.get("urn")
@@ -184,7 +191,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                     logger.error(f"Error deserializing aspect {aspect_name}: {e}")
                     raise
 
-            if entity_aspects:
+            if entity_aspects or allow_empty:
                 result[entity_urn] = entity_aspects
 
         return result
@@ -248,7 +255,9 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         Args:
             entity_names: Entity type names to restrict results to (e.g. ["dataset", "dashboard"]).
                 If None or empty, all entity types are returned.
-            aspects: Aspect names to include in the response. If None, all aspects are returned.
+            aspects: Aspect names to include in the response. If None, no aspects are fetched and
+                only urns are returned (see allow_empty). Pass an empty list to fetch all aspects,
+                or a specific list to fetch just those.
             count: Number of results per page.
             query: Search query string.
             scroll_id: Pagination cursor from a previous scroll response.
@@ -320,6 +329,7 @@ class OpenApiAPI(OpenAPIGraphProtocol):
                 resp_json.get("entities", []),
                 with_system_metadata=bool(with_system_metadata),
                 context="scroll response",
+                allow_empty=aspects is None,
             ),
             total_count=resp_json.get("totalCount", 0),
         )

@@ -271,6 +271,15 @@ public class BuildIndicesConfiguration {
   private boolean incrementalReindexEnabled;
 
   /**
+   * When true, mapping parameters applied live are also reconciled through the incremental
+   * alias-rebuild path so historical documents are indexed under the new mapping. This is opt-in
+   * because a broad mapping change can rebuild many indices; incremental reindexing must also be
+   * enabled. Enable it on the system-update run that first applies the mapping change because the
+   * reconciliation need can no longer be inferred after the live mapping matches.
+   */
+  @Builder.Default private boolean reconcileInPlaceMappingUpdates = false;
+
+  /**
    * Seconds between polls when checking if a timeseries catch-up reindex task is still running via
    * the listTasks API. Default 5 seconds.
    */

@@ -521,10 +521,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
         assert max_schema_size is not None
         if collection_schema_size > max_schema_size:
             # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
-                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
+                message="Downsampling the collection schema because it has too many schema fields",
+                context=f"schema_size={collection_schema_size}, threshold={max_schema_size}, collection={dataset_urn}",
+                log=False,
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"

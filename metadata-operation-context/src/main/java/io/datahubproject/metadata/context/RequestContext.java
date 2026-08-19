@@ -4,6 +4,8 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_ID_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_ATTR;
 
+import com.datahub.context.Enrichment;
+import com.datahub.context.EnrichmentBundle;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,6 +47,36 @@ public class RequestContext implements ContextInterface {
   public static final String MDC_AUTH_CHANNEL = "authChannel";
   public static final String MDC_USAGE_QUANTITY = "usageQuantity";
 
+  /**
+   * Request-scoped attribute key under which upstream filters may stash an {@link EnrichmentBundle}
+   * instance. {@link RequestContextBuilder#buildOpenapi} and {@link
+   * RequestContextBuilder#buildGraphql} read this attribute and propagate the enrichments into the
+   * built {@link RequestContext} (and thence into the session {@code OperationContext} via {@code
+   * asSession}). Producers should populate this once per request, before the request reaches any
+   * {@code asSession(...)} call site.
+   */
+  public static final String REQUEST_ENRICHMENTS_ATTR =
+      "io.datahubproject.metadata.context.RequestEnrichments";
+
+  /**
+   * Stamp {@code enrichment} onto the request's {@link #REQUEST_ENRICHMENTS_ATTR}, merging with any
+   * {@link EnrichmentBundle} a preceding filter may have set. Use from any servlet filter that
+   * wants to contribute an enrichment without worrying about ordering vs other filters — the
+   * read-modify-write dance is encapsulated here so no caller can accidentally overwrite another
+   * filter's contribution.
+   *
+   * <p>If an enrichment of the same concrete class is already present, {@code enrichment} replaces
+   * it (last-writer-wins). This is intentional — a filter is authoritative for its own enrichment
+   * type.
+   */
+  public static void addEnrichment(
+      @Nonnull final HttpServletRequest request, @Nonnull final Enrichment enrichment) {
+    final Object existing = request.getAttribute(REQUEST_ENRICHMENTS_ATTR);
+    final EnrichmentBundle current =
+        existing instanceof EnrichmentBundle ? (EnrichmentBundle) existing : EnrichmentBundle.EMPTY;
+    request.setAttribute(REQUEST_ENRICHMENTS_ATTR, current.plus(enrichment));
+  }
+
   public static final UserAgentAnalyzer UAA =
       UserAgentAnalyzer.newBuilder()
           .hideMatcherLoadStats()
@@ -78,6 +110,14 @@ public class RequestContext implements ContextInterface {
   @Nullable private final MetricUtils metricUtils;
   @Nullable private final String traceId;
 
+  /**
+   * Typed, class-keyed enrichments stamped by upstream filters (see {@link
+   * #REQUEST_ENRICHMENTS_ATTR}). Downstream code retrieves via {@code
+   * OperationContext.getEnrichment(SomeEnrichment.class)}. Null when no enrichments were provided
+   * on this request.
+   */
+  @Nullable private final EnrichmentBundle enrichmentBundle;
+
   /** Surface-neutral usage operation registry key (e.g. dimensions.usage_operation). */
   @Nullable private final String usageOperation;
 
@@ -100,7 +140,7 @@ public class RequestContext implements ContextInterface {
   private final boolean responseBodyMaterialized;
 
   /** Multiplier for per-proposal ingest cost profiling (batch size). Defaults to 1. */
-  @Builder.Default private final int usageQuantity = 1;
+  @Builder.Default private final long usageQuantity = 1L;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -124,7 +164,8 @@ public class RequestContext implements ContextInterface {
         null,
         false,
         false,
-        1);
+        1,
+        null);
   }
 
   public RequestContext(
@@ -157,7 +198,8 @@ public class RequestContext implements ContextInterface {
         outputBytes,
         requestBodyMaterialized,
         responseBodyMaterialized,
-        1);
+        1,
+        null);
   }
 
   public RequestContext(
@@ -175,7 +217,8 @@ public class RequestContext implements ContextInterface {
       @Nullable Long outputBytes,
       boolean requestBodyMaterialized,
       boolean responseBodyMaterialized,
-      int usageQuantity) {
+      long usageQuantity,
+      @Nullable EnrichmentBundle enrichmentBundle) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
@@ -224,7 +267,8 @@ public class RequestContext implements ContextInterface {
     this.outputBytes = outputBytes;
     this.requestBodyMaterialized = requestBodyMaterialized;
     this.responseBodyMaterialized = responseBodyMaterialized;
-    this.usageQuantity = Math.max(1, usageQuantity);
+    this.usageQuantity = Math.max(1L, usageQuantity);
+    this.enrichmentBundle = enrichmentBundle;
 
     putUsageFieldsInMdc();
 
@@ -243,33 +287,33 @@ public class RequestContext implements ContextInterface {
   }
 
   /** Counts JSON array elements for ingest batch usage quantity; returns 1 when not an array. */
-  public static int resolveIngestUsageQuantity(
+  public static long resolveIngestUsageQuantity(
       @Nonnull String jsonBody, @Nonnull ObjectMapper objectMapper) {
     try {
       JsonNode node = objectMapper.readTree(jsonBody);
       if (node.isArray()) {
-        return Math.max(1, node.size());
+        return Math.max(1L, node.size());
       }
     } catch (JsonProcessingException e) {
       log.debug("Could not parse ingest body for usage quantity", e);
     }
-    return 1;
+    return 1L;
   }
 
   /** Sums array sizes under a JSON object keyed by entity type (generic multi-type ingest). */
-  public static int resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
+  public static long resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
     if (!rootObject.isObject()) {
-      return 1;
+      return 1L;
     }
-    int total = 0;
+    long total = 0L;
     for (JsonNode value : rootObject) {
       if (value.isArray()) {
         total += value.size();
       } else {
-        total += 1;
+        total += 1L;
       }
     }
-    return Math.max(1, total);
+    return Math.max(1L, total);
   }
 
   /** Resolves request wire bytes from servlet {@code Content-Length} when not streaming/chunked. */
@@ -344,10 +388,10 @@ public class RequestContext implements ContextInterface {
 
   public static class RequestContextBuilder {
 
-    private int usageQuantity = 1;
+    private long usageQuantity = 1L;
 
-    public RequestContextBuilder usageQuantity(int usageQuantity) {
-      this.usageQuantity = Math.max(1, usageQuantity);
+    public RequestContextBuilder usageQuantity(long usageQuantity) {
+      this.usageQuantity = Math.max(1L, usageQuantity);
       return this;
     }
 
@@ -380,7 +424,8 @@ public class RequestContext implements ContextInterface {
           this.outputBytes,
           this.requestBodyMaterialized,
           this.responseBodyMaterialized,
-          this.usageQuantity);
+          this.usageQuantity,
+          this.enrichmentBundle);
     }
 
     public RequestContextBuilder buildGraphql(
@@ -396,6 +441,7 @@ public class RequestContext implements ContextInterface {
       if (peekInputBytes() == null) {
         withWireInput(request);
       }
+      readEnrichmentBundle(request);
       return this;
     }
 
@@ -438,6 +484,7 @@ public class RequestContext implements ContextInterface {
       if (resourceContext != null && peekInputBytes() == null) {
         withWireInput(resourceContext);
       }
+      readEnrichmentBundle(resourceContext);
       return this;
     }
 
@@ -463,7 +510,48 @@ public class RequestContext implements ContextInterface {
       if (request != null && peekInputBytes() == null) {
         withWireInput(request);
       }
+      readEnrichmentBundle(request);
       return this;
+    }
+
+    /**
+     * Read {@link RequestContext#REQUEST_ENRICHMENTS_ATTR} off {@code request} (if present) and
+     * stash on this builder via the Lombok-generated {@code enrichmentBundle(...)} setter. Silently
+     * ignores a null request or a wrong-typed attribute value — either indicates that no upstream
+     * filter contributed enrichments for this call.
+     */
+    private void readEnrichmentBundle(@Nullable final HttpServletRequest request) {
+      if (request == null) {
+        return;
+      }
+      final Object attr = request.getAttribute(REQUEST_ENRICHMENTS_ATTR);
+      if (attr instanceof EnrichmentBundle) {
+        final EnrichmentBundle fromRequest = (EnrichmentBundle) attr;
+        if (!fromRequest.isEmpty()) {
+          enrichmentBundle(fromRequest);
+        }
+      }
+    }
+
+    /**
+     * Rest.li equivalent: read {@link RequestContext#REQUEST_ENRICHMENTS_ATTR} off the R2 local
+     * attrs on {@code resourceContext.getRawRequestContext()}. Requires the R2 servlet layer (see
+     * {@code JakartaServletHelper#readRequestContext}) to have propagated the attribute from the
+     * servlet request; upstream servlet filters set it on the {@code HttpServletRequest} and
+     * JakartaServletHelper copies it into R2 local attrs so Rest.li endpoints see it here.
+     */
+    private void readEnrichmentBundle(@Nullable final ResourceContext resourceContext) {
+      if (resourceContext == null || resourceContext.getRawRequestContext() == null) {
+        return;
+      }
+      final Object attr =
+          resourceContext.getRawRequestContext().getLocalAttr(REQUEST_ENRICHMENTS_ATTR);
+      if (attr instanceof EnrichmentBundle) {
+        final EnrichmentBundle fromRequest = (EnrichmentBundle) attr;
+        if (!fromRequest.isEmpty()) {
+          enrichmentBundle(fromRequest);
+        }
+      }
     }
 
     private static String buildRequestId(
@@ -484,14 +572,24 @@ public class RequestContext implements ContextInterface {
     }
 
     private static String extractSourceIP(@Nonnull HttpServletRequest request) {
+      // Both X-Forwarded-For and getRemoteAddr() can be null (async-dispatched requests,
+      // non-IP transports, or unstubbed test mocks). Coalesce to "" so the @Nonnull sourceIP
+      // field setter never sees null.
       return Optional.ofNullable(request.getHeader(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(request.getRemoteAddr());
+          .or(() -> Optional.ofNullable(request.getRemoteAddr()))
+          .orElse("");
     }
 
     private static String extractSourceIP(@Nonnull ResourceContext resourceContext) {
+      // Defensive null-handling: header lookup and REMOTE_ADDR attribute can both be absent.
       return Optional.ofNullable(
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
+          .or(
+              () ->
+                  Optional.ofNullable(
+                          resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR"))
+                      .map(Object::toString))
+          .orElse("");
     }
 
     public RequestAPI peekRequestAPI() {
@@ -541,8 +639,8 @@ public class RequestContext implements ContextInterface {
     }
 
     @Nonnull
-    public RequestContextBuilder withUsageQuantity(int quantity) {
-      return usageQuantity(Math.max(1, quantity));
+    public RequestContextBuilder withUsageQuantity(long quantity) {
+      return usageQuantity(Math.max(1L, quantity));
     }
 
     @Nonnull
@@ -607,17 +705,19 @@ public class RequestContext implements ContextInterface {
       String requestAPI = requestContext.getRequestAPI().toMetricLabel();
       metricUtils.increment(
           String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
-      // Per-request Micrometer counter. When USAGE_AGGREGATION_ENABLED is on, the flush path also
-      // exports datahub_request_count; keep this until aggregation is the default in smoke/dev.
-      metricUtils.incrementMicrometer(
-          MetricUtils.DATAHUB_REQUEST_COUNT,
-          1,
-          "user_category",
-          userCategory,
-          "agent_class",
-          agentClass,
-          "request_api",
-          requestAPI);
+      // Per-request Micrometer counter. Skip when aggregation Micrometer export owns
+      // datahub_request_count (flush uses billing tag keys; Micrometer forbids mixed tag sets).
+      if (!metricUtils.isSuppressLegacyRequestCountMicrometer()) {
+        metricUtils.incrementMicrometer(
+            MetricUtils.DATAHUB_REQUEST_COUNT,
+            1,
+            "user_category",
+            userCategory,
+            "agent_class",
+            agentClass,
+            "request_api",
+            requestAPI);
+      }
     }
   }
 
@@ -693,8 +793,16 @@ public class RequestContext implements ContextInterface {
     RESTLI,
     OPENAPI,
     GRAPHQL,
-    /** Kafka / pgQueue MCP consumption (MCE consumer), not HTTP. */
-    MESSAGING;
+    /**
+     * MetadataChangeProposal queue consumption (Kafka / pgQueue on the MCE consumer). Distinct from
+     * {@link #MCP} (Model Context Protocol server traffic).
+     */
+    MESSAGING,
+    /**
+     * Model Context Protocol server traffic (report-driven metering). Distinct from {@link
+     * #MESSAGING} (MetadataChangeProposal ingest).
+     */
+    MCP;
 
     @Nonnull
     public String toMetricLabel() {

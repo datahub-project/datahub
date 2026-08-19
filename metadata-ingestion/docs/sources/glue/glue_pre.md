@@ -148,3 +148,27 @@ This is useful when Account A has shared its Glue catalog with Account B. If you
 
 - **Without platform instance**: If you ingest the same Glue catalog from different accounts without setting `platform_instance`, DataHub recognizes them as the same entities and creates a single dataset.
 - **With platform instance**: Using different `platform_instance` values creates separate dataset entities with distinct URNs, useful for tracking the same data through different access paths.
+
+**Mapping catalogs to platform instances:**
+
+A single `platform_instance` stamps every table with the same instance. That is a problem when one ingestion run sees tables owned by **different** accounts — for example a cross-account `catalog_id` ingestion, or Lake Formation tables shared into your catalog. Those tables then get the ingestion account's instance, so their URNs do not match the ones the owning account's own Glue ingestion produces, and the same table appears twice.
+
+Use `catalog_to_platform_instance` to map each owning catalog to the `platform_instance` (and optionally `env`) that the owner uses. Each table is stamped according to its own catalog. The key is the catalog's ARN authority `arn:aws:glue:{region}:{account-id}` — account **and** region, since the same account in two regions is two distinct catalogs:
+
+```yaml
+source:
+  type: glue
+  config:
+    aws_region: us-east-1
+    platform_instance: ingestion_acct # fallback for tables with no catalog mapping
+    catalog_to_platform_instance:
+      "arn:aws:glue:us-east-1:111122223333":
+        platform_instance: domain_a
+        env: PROD
+      "arn:aws:glue:us-east-1:444455556666":
+        platform_instance: domain_b
+```
+
+A table whose catalog is not listed falls back to the source's own `platform_instance`/`env`. For Lake Formation resource links, the connector also emits a table-level upstream lineage edge to the owning table's URN (resolved through this same map), so the shared table stitches back to its source instead of looking like a duplicate.
+
+A resource link is only a pointer, so it carries no schema of its own in the catalog. By default (`resolve_resource_link_schema: true`) the connector populates the link's schema from the owning table so its columns are visible on the ingested dataset — read from **DataHub first** (when the owning account has already been ingested, so no extra AWS call is made) and otherwise from a **cross-account `glue:GetTable`** on the target (requires `glue:GetTable` permission on the shared table). When neither source is available the link is left schemaless and its columns remain reachable through the upstream lineage edge. Set `resolve_resource_link_schema: false` to always keep resource links schemaless.

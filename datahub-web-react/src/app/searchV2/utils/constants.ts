@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { EntityType } from '@types';
 
 export const FILTER_URL_PREFIX = 'filter_';
@@ -16,6 +18,7 @@ export const PROPOSED_GLOSSARY_TERMS_FILTER_NAME = 'proposedGlossaryTerms';
 export const PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME = 'proposedSchemaGlossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const PARENT_DOCUMENT_FILTER_NAME = 'parentDocument';
 export const DATA_PRODUCT_FILTER_NAME = 'dataProduct';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
@@ -34,10 +37,14 @@ export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
-export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
+export const ASSERTION_TYPE_FILTER_NAME = 'assertionType';
+export const ASSERTION_FIELD_PATH_FILTER_NAME = 'fieldPath';
+export const ASSERTION_CUSTOM_TYPE_FILTER_NAME = 'customType';
+export const ASSERTION_SOURCE_FILTER_NAME = 'sourceType';
+export const ASSERTION_STATUS_FILTER_NAME = 'assertionStatus';
 export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME = 'showInAssetSummary';
@@ -76,34 +83,90 @@ export const ORDERED_FIELDS = [
     DEGREE_FILTER_NAME,
 ];
 
-export const FIELD_TO_LABEL = {
-    owners: 'Owner',
-    tags: 'Tag',
-    domains: 'Domain',
-    dataProduct: 'Data Product',
-    platform: 'Platform',
-    fieldTags: 'Column Tag',
-    glossaryTerms: 'Glossary Term',
-    fieldGlossaryTerms: 'Column Term',
-    fieldPaths: 'Column Name',
-    description: 'Description',
-    fieldDescriptions: 'Column Description',
-    removed: 'Soft Deleted',
-    entity: 'Entity Type',
-    entityType: 'Entity Type',
-    _entityType: 'Entity Type',
-    container: 'Container',
-    typeNames: 'Sub Type',
-    origin: 'Environment',
-    degree: 'Degree',
-    '_entityType␞typeNames': 'Type',
-    platformInstance: 'Platform Instance',
-    hasActiveIncidents: 'Has Active Incidents',
-    hasFailingAssertions: 'Has Failing Assertions',
-    hasSiblings: 'Has Siblings',
-    [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
-    [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
-    [STRUCTURED_PROPERTIES_FILTER_NAME]: 'Structured Property',
+// Getters, not plain values: each property re-evaluates i18next.t() on every read, so a
+// label picks up the current language on its next render instead of freezing at module-init time.
+export const FIELD_TO_LABEL: Record<string, string> = {
+    get owners() {
+        return i18next.t('search:fieldLabel.owner');
+    },
+    get tags() {
+        return i18next.t('search:fieldLabel.tag');
+    },
+    get domains() {
+        return i18next.t('search:fieldLabel.domain');
+    },
+    get dataProduct() {
+        return i18next.t('search:fieldLabel.dataProduct');
+    },
+    get platform() {
+        return i18next.t('search:fieldLabel.platform');
+    },
+    get fieldTags() {
+        return i18next.t('search:fieldLabel.columnTag');
+    },
+    get glossaryTerms() {
+        return i18next.t('search:fieldLabel.glossaryTerm');
+    },
+    get fieldGlossaryTerms() {
+        return i18next.t('search:fieldLabel.columnTerm');
+    },
+    get fieldPaths() {
+        return i18next.t('search:fieldLabel.columnName');
+    },
+    get description() {
+        return i18next.t('common.labels:description');
+    },
+    get fieldDescriptions() {
+        return i18next.t('search:fieldLabel.columnDescription');
+    },
+    get removed() {
+        return i18next.t('search:fieldLabel.softDeleted');
+    },
+    get entity() {
+        return i18next.t('search:fieldLabel.entityType');
+    },
+    get entityType() {
+        return i18next.t('search:fieldLabel.entityType');
+    },
+    get _entityType() {
+        return i18next.t('search:fieldLabel.entityType');
+    },
+    get container() {
+        return i18next.t('search:fieldLabel.container');
+    },
+    get parentDocument() {
+        return i18next.t('search:fieldLabel.parentDocument');
+    },
+    get typeNames() {
+        return i18next.t('search:fieldLabel.subType');
+    },
+    get origin() {
+        return i18next.t('search:fieldLabel.environment');
+    },
+    get degree() {
+        return i18next.t('search:fieldLabel.degree');
+    },
+    get '_entityType␞typeNames'() {
+        return i18next.t('common.labels:type');
+    },
+    get platformInstance() {
+        return i18next.t('search:fieldLabel.platformInstance');
+    },
+    get hasActiveIncidents() {
+        return i18next.t('search:filters.incidents.hasActiveLabel');
+    },
+    get hasSiblings() {
+        return i18next.t('search:filters.siblings.hasSiblingsLabel');
+    },
+    get [BROWSE_PATH_V2_FILTER_NAME]() {
+        return i18next.t('search:fieldLabel.path');
+    },
+    get [LAST_MODIFIED_FILTER_NAME]() {
+        return i18next.t('search:sort.lastModifiedInSource');
+    },
+    get [STRUCTURED_PROPERTIES_FILTER_NAME]() {
+        return i18next.t('search:fieldLabel.structuredProperty');
+    },
 };
 
 export const ADVANCED_SEARCH_ONLY_FILTERS = [
@@ -120,11 +183,7 @@ export const ADVANCED_SEARCH_ONLY_FILTERS = [
 
 export const ENTITY_TYPE_FIELDS = new Set([ENTITY_SUB_TYPE_FILTER_NAME]);
 
-export const BOOLEAN_FIELDS = new Set([
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    REMOVED_FILTER_NAME,
-]);
+export const BOOLEAN_FIELDS = new Set([HAS_ACTIVE_INCIDENTS_FILTER_NAME, REMOVED_FILTER_NAME]);
 
 export const TEXT_FIELDS = new Set([DESCRIPTION_FILTER_NAME, FIELD_DESCRIPTIONS_FILTER_NAME, FIELD_PATHS_FILTER_NAME]);
 
@@ -139,6 +198,7 @@ export const ENTITY_FIELDS = new Set([
     PROPOSED_TAGS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
     DOMAINS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     DATA_PRODUCT_FILTER_NAME,
 ]);

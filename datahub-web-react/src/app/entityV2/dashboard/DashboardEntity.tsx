@@ -46,15 +46,19 @@ import { DashboardDatasetsTab } from '@app/entityV2/shared/tabs/Entity/Dashboard
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
+import { MatchContext } from '@app/searchV2/matches/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -116,86 +120,96 @@ export class DashboardEntity implements Entity<Dashboard> {
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
-            tabs={[
-                {
-                    name: i18next.t('entity.types:tab.summary'),
-                    component: DashboardSummaryTab,
-                    icon: SUMMARY_TAB_ICON,
-                },
-                {
-                    name: i18next.t('entity.types:tab.contents'),
-                    component: DashboardChartsTab,
-                    icon: AppstoreOutlined,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
-                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
-                    },
-                },
-                {
-                    name: i18next.t('entity.types:dataset.namePlural'),
-                    component: DashboardDatasetsTab,
-                    icon: TableOutlined,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                    },
-                },
-                {
-                    name: i18next.t('entity.types:tab.documentation'),
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:shared.accessTab'),
-                    component: AccessManagement,
-                    icon: UnlockOutlined,
-                    display: {
-                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
-                    },
-                },
-                {
-                    name: i18next.t('common.actions:preview'),
-                    component: EmbedTab,
-                    icon: EyeOutlined,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
-                        enabled: (_, dashboard: GetDashboardQuery) =>
-                            !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
-                    },
-                },
-                {
-                    name: i18next.t('entity.types:tab.lineage'),
-                    component: LineageTab,
-                    icon: PartitionOutlined,
-                    properties: {
-                        defaultDirection: LineageDirection.Upstream,
-                    },
-                    supportsFullsize: true,
-                },
-                {
-                    name: i18next.t('entity.types:tab.properties'),
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:tab.incidents'),
-                    icon: WarningOutlined,
-                    component: IncidentTab,
-                    getCount: (_, dashboard) => {
-                        return dashboard?.dashboard?.activeIncidents?.total;
-                    },
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : DashboardSummaryTab,
+                icon: SUMMARY_TAB_ICON,
+            },
+            {
+                name: i18next.t('entity.types:tab.contents'),
+                component: DashboardChartsTab,
+                icon: AppstoreOutlined,
+                display: {
+                    visible: (_, dashboard: GetDashboardQuery) =>
+                        (dashboard?.dashboard?.charts?.total || 0) > 0 ||
+                        (dashboard?.dashboard?.datasets?.total || 0) === 0,
+                    enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                },
+            },
+            {
+                name: i18next.t('entity.types:dataset.namePlural'),
+                component: DashboardDatasetsTab,
+                icon: TableOutlined,
+                display: {
+                    visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                    enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                },
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:shared.accessTab'),
+                component: AccessManagement,
+                icon: UnlockOutlined,
+                display: {
+                    visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                    enabled: (_, _2) => true,
+                },
+            },
+            {
+                name: i18next.t('common.actions:preview'),
+                component: EmbedTab,
+                icon: EyeOutlined,
+                display: {
+                    visible: (_, dashboard: GetDashboardQuery) =>
+                        !!dashboard?.dashboard?.embed?.renderUrl &&
+                        PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                    enabled: (_, dashboard: GetDashboardQuery) =>
+                        !!dashboard?.dashboard?.embed?.renderUrl &&
+                        PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.lineage'),
+                component: LineageTab,
+                icon: PartitionOutlined,
+                properties: {
+                    defaultDirection: LineageDirection.Upstream,
+                },
+                supportsFullsize: true,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+            {
+                name: i18next.t('entity.types:tab.incidents'),
+                icon: WarningOutlined,
+                component: IncidentTab,
+                getCount: (_, dashboard) => {
+                    return dashboard?.dashboard?.activeIncidents?.total;
+                },
+            },
+        ];
+    };
 
     getSidebarSections = () => [
         {
@@ -303,9 +317,6 @@ export class DashboardEntity implements Entity<Dashboard> {
         const data = result.entity as Dashboard;
         const genericProperties = this.getGenericEntityProperties(data);
 
-        /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchSuffix is an English fragment concatenated
-           into a match-summary sentence by MatchedFieldList; word order differs by language and would require splitting
-           the sentence across keys */
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -330,7 +341,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                        matchSuffix="on a contained chart"
+                        matchContext={MatchContext.ContainedChart}
                     />
                 }
                 subtype={getFirstSubType(data)}
@@ -342,21 +353,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                 previewType={PreviewType.SEARCH}
             />
         );
-        /* eslint-enable i18next/no-literal-string */
     };
 
     renderSearchMatches = (result: SearchResult) => {
         const data = result.entity as Dashboard;
-        /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchSuffix is an English fragment concatenated
-           into a match-summary sentence by MatchedFieldList; word order differs by language and would require splitting
-           the sentence across keys */
         return (
             <MatchedFieldList
                 customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                matchSuffix="on a contained chart"
+                matchContext={MatchContext.ContainedChart}
             />
         );
-        /* eslint-enable i18next/no-literal-string */
     };
 
     getLineageVizConfig = (entity: Dashboard) => {

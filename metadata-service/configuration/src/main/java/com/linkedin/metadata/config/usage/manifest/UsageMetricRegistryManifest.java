@@ -15,7 +15,7 @@ public class UsageMetricRegistryManifest {
     private String mergeKind;
     private String distinctKey;
     private String valueUnit;
-    private boolean metronomeBatch;
     private String emitWhen;
+    private java.util.List<String> requestApis;
   }
 }

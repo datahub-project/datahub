@@ -1,18 +1,29 @@
 import { DatePicker, Modal, TextArea, toast } from '@components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { handleBatchError } from '@app/entity/shared/utils';
+import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
 import type { Dayjs } from '@utils/dayjs';
+import dayjs from '@utils/dayjs';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { Deprecation } from '@types';
 
 type Props = {
     urns: string[];
+    initialDeprecation?: Deprecation | null;
     onClose: () => void;
     refetch?: () => void;
 };
+
+const getInitialFormValues = (initialDeprecation?: Deprecation | null) => ({
+    note: initialDeprecation?.note ?? '',
+    decommissionTime: initialDeprecation?.decommissionTime
+        ? dayjs.unix(decommissionTimeToSeconds(initialDeprecation.decommissionTime))
+        : undefined,
+});
 
 const FieldGroup = styled.div`
     display: flex;
@@ -20,14 +31,24 @@ const FieldGroup = styled.div`
     gap: 16px;
 `;
 
-export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
+export const UpdateDeprecationModal = ({ urns, initialDeprecation, onClose, refetch }: Props) => {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
+    const isEditMode = !!initialDeprecation;
 
-    const [note, setNote] = useState<string>('');
-    const [decommissionTime, setDecommissionTime] = useState<Dayjs | null | undefined>(undefined);
+    const initialFormValues = getInitialFormValues(initialDeprecation);
+    const [note, setNote] = useState<string>(initialFormValues.note);
+    const [decommissionTime, setDecommissionTime] = useState<Dayjs | null | undefined>(
+        initialFormValues.decommissionTime,
+    );
+
+    useEffect(() => {
+        const nextValues = getInitialFormValues(initialDeprecation);
+        setNote(nextValues.note);
+        setDecommissionTime(nextValues.decommissionTime);
+    }, [initialDeprecation]);
 
     const handleSubmit = async () => {
         toast.loading(tf('updating'));
@@ -43,7 +64,9 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                 },
             });
             toast.destroy();
-            toast.success(t('deprecation.markedDeprecatedSuccess'), { duration: 2 });
+            toast.success(isEditMode ? t('deprecation.updated') : t('deprecation.markedDeprecatedSuccess'), {
+                duration: 2,
+            });
         } catch (e: unknown) {
             toast.destroy();
             if (e instanceof Error) {
@@ -61,7 +84,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
 
     return (
         <Modal
-            title={t('deprecation.addDetailsTitle')}
+            title={isEditMode ? t('deprecation.editTitle') : t('deprecation.addDetailsTitle')}
             onCancel={onClose}
             buttons={[
                 {
@@ -71,7 +94,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                 },
                 {
                     buttonDataTestId: 'add-deprecation-submit',
-                    text: t('deprecation.ok'),
+                    text: isEditMode ? tc('save') : t('deprecation.ok'),
                     onClick: handleSubmit,
                 },
             ]}
@@ -85,6 +108,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                     autoFocus
                 />
                 <DatePicker
+                    key={initialDeprecation?.decommissionTime ?? 'new-deprecation'}
                     placeholder={t('deprecation.decommissionDateLabel')}
                     value={decommissionTime}
                     onChange={(v) => setDecommissionTime(v)}

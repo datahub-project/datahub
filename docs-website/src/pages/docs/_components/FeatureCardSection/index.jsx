@@ -1,3 +1,6 @@
+// If you change these feature cards, also update FEATURE_CARD_SECTION_MD in
+// docs-website/generateDocsDir.ts, which mirrors them as plain markdown for the
+// AI-tools "Copy page" feature.
 import React from "react";
 import FeatureCard from '../FeatureCard'
 import {
@@ -19,7 +22,7 @@ const featureCardContent =  [
 {
     title: "Data Governance",
     description: "Define ownership and track PII.",
-    to: "https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb?utm_source=datahub&utm_medium=referral&utm_content=blog",
+    to: "https://datahub.com/blog/",
     icon: <CompassTwoTone />
   },
 {

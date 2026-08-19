@@ -54,7 +54,8 @@ This architecture ensures that:
 To get started with Remote Executor:
 
 1. Review the [Configuring Remote Executor](../operator-guide/setting-up-remote-ingestion-executor.md) guide for deployment instructions
-2. See the [Monitoring Remote Executors](monitoring.md) guide
+2. Review [Remote Executor best practices](best-practices.md)
+3. See the [Monitoring Remote Executors](monitoring.md) guide
 
 ## FAQ
 

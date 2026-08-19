@@ -9,8 +9,10 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,7 +39,9 @@ import com.linkedin.metadata.aspect.consistency.ConsistencyCheckRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyFixRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
+import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
+import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.fix.BatchItemsFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
@@ -61,6 +65,7 @@ import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import org.apache.lucene.search.TotalHits;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
@@ -1419,6 +1424,143 @@ public class FixEntityConsistencyStepTest {
             });
 
     assertFalse(step.skip(mockContext), "Orphan due should prevent skip on targeted success");
+  }
+
+  /**
+   * When effective check IDs span multiple entity types, each per-type dispatch must receive only
+   * the IDs applicable to that type (checkBatch rejects mixed-type ID lists).
+   */
+  @Test
+  public void testFiltersCheckIdsToApplicableEntityTypeBeforeCheckBatch() throws Exception {
+    ConsistencyCheckRegistry checkRegistry =
+        new ConsistencyCheckRegistry(
+            List.of(
+                createMockCheck("assertion-entity-not-found", ASSERTION_ENTITY_NAME, false),
+                createMockCheck("monitor-entity-not-found", "monitor", false)));
+    ConsistencyFixRegistry fixRegistry =
+        new ConsistencyFixRegistry(
+            List.of(
+                new BatchItemsFix(mockEntityService), new HardDeleteEntityFix(mockEntityService)));
+    ConsistencyService multiTypeService =
+        spy(
+            new ConsistencyService(
+                mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry));
+
+    CheckResult emptyResult =
+        CheckResult.builder().entitiesScanned(0).issuesFound(0).issues(List.of()).build();
+    doReturn(emptyResult)
+        .when(multiTypeService)
+        .checkBatch(any(), any(CheckBatchRequest.class), any());
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(
+            mockOpContext,
+            mockEntityService,
+            multiTypeService,
+            createTestConfig(
+                true,
+                10,
+                0,
+                0,
+                false,
+                List.of(ASSERTION_ENTITY_NAME, "monitor"),
+                List.of("assertion-entity-not-found", "monitor-entity-not-found")));
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    UpgradeReport mockReport = mock(UpgradeReport.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+    when(mockContext.report()).thenReturn(mockReport);
+    when(mockContext.opContext()).thenReturn(mockOpContext);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
+
+    assertEquals(step.executable().apply(mockContext).result(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<CheckBatchRequest> requestCaptor =
+        ArgumentCaptor.forClass(CheckBatchRequest.class);
+    verify(multiTypeService, times(2)).checkBatch(any(), requestCaptor.capture(), any());
+
+    Map<String, List<String>> checkIdsByType = new HashMap<>();
+    for (CheckBatchRequest request : requestCaptor.getAllValues()) {
+      checkIdsByType.put(request.getEntityType(), request.getCheckIds());
+    }
+    assertEquals(checkIdsByType.get(ASSERTION_ENTITY_NAME), List.of("assertion-entity-not-found"));
+    assertEquals(checkIdsByType.get("monitor"), List.of("monitor-entity-not-found"));
+  }
+
+  /**
+   * Entity types with no applicable checks for the effective ID list are skipped before checkBatch.
+   */
+  @Test
+  public void testSkipsEntityTypeWhenNoApplicableCheckIds() throws Exception {
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(
+            mockOpContext,
+            mockEntityService,
+            consistencyService,
+            createTestConfig(
+                true, 10, 0, 0, false, List.of("monitor"), List.of("assertion-entity-not-found")));
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    UpgradeReport mockReport = mock(UpgradeReport.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+    when(mockContext.report()).thenReturn(mockReport);
+    when(mockContext.opContext()).thenReturn(mockOpContext);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
+
+    assertEquals(step.executable().apply(mockContext).result(), DataHubUpgradeState.SUCCEEDED);
+
+    verify(mockEsSystemMetadataDAO, never())
+        .scroll(
+            any(OperationContext.class),
+            any(BoolQueryBuilder.class),
+            anyBoolean(),
+            any(),
+            any(),
+            anyString(),
+            anyInt());
+  }
+
+  /** Empty effective check IDs leave the list empty so checkBatch uses entity-type defaults. */
+  @Test
+  public void testEmptyEffectiveCheckIdsPassedThroughToCheckBatch() throws Exception {
+    ConsistencyService spyService = spy(consistencyService);
+    CheckResult emptyResult =
+        CheckResult.builder().entitiesScanned(0).issuesFound(0).issues(List.of()).build();
+    doReturn(emptyResult).when(spyService).checkBatch(any(), any(CheckBatchRequest.class), any());
+
+    EntityConsistencyConfiguration config =
+        createTestConfig(
+            true,
+            10,
+            0,
+            0,
+            false,
+            List.of(ASSERTION_ENTITY_NAME),
+            List.of("assertion-entity-not-found"));
+    EntityConsistencyConfiguration.CheckRunConfig disabled =
+        new EntityConsistencyConfiguration.CheckRunConfig();
+    disabled.setMode("disabled");
+    config.setChecks(Map.of("assertion-entity-not-found", disabled));
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, spyService, config);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    UpgradeReport mockReport = mock(UpgradeReport.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+    when(mockContext.report()).thenReturn(mockReport);
+    when(mockContext.opContext()).thenReturn(mockOpContext);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
+
+    assertEquals(step.executable().apply(mockContext).result(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<CheckBatchRequest> requestCaptor =
+        ArgumentCaptor.forClass(CheckBatchRequest.class);
+    verify(spyService).checkBatch(any(), requestCaptor.capture(), any());
+    assertTrue(requestCaptor.getValue().getCheckIds().isEmpty());
   }
 
   @Test

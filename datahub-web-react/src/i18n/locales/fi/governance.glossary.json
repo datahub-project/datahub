@@ -1,0 +1,21 @@
+{
+    "card.nodeGroupCountTooltip_one": "Sisältää {{count}} termiryhmä",
+    "card.nodeGroupCountTooltip_other": "Sisältää {{count}} termiryhmää",
+    "card.termCountTooltip_one": "Sisältää {{count}} termi",
+    "card.termCountTooltip_other": "Sisältää {{count}} termiä",
+    "empty.addTerm": "Lisää termi",
+    "empty.addTermGroup": "Lisää termiryhmä",
+    "empty.description": "Luo termejä ja termiryhmiä, jotta voit järjestää kohteita yhteisen sanaston avulla.",
+    "empty.title": "Tyhjä sanasto",
+    "list.error": "Sanaston lataaminen epäonnistui! Tapahtui odottamaton virhe.",
+    "list.loading": "Ladataan sanastoa...",
+    "page.createGlossary": "Luo sanasto",
+    "page.subtitle": "Luokittele kohteesi ja sarakkeesi tietosanakirjojen avulla",
+    "page.title": "Sanasto",
+    "section.glossaryTerms": "Sanaston termit",
+    "section.termGroups": "Termiryhmät",
+    "sidebar.collapse": "Pienennä sanasto",
+    "sidebar.expand": "Laajenna sanasto",
+    "sidebar.home": "Sanaston etusivu",
+    "sidebar.section.allTerms": "Kaikki sanaston termit"
+}

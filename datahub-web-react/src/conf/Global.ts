@@ -41,6 +41,8 @@ export enum PageRoutes {
     CONTEXT = '/context',
     CONTEXT_DOCUMENTS = '/context/documents',
     METRICS = '/metrics',
+    METRIC_ENTITY = '/metric',
+    SEMANTIC_MODEL_ENTITY = '/semanticModel',
 }
 
 export enum HelpLinkRoutes {

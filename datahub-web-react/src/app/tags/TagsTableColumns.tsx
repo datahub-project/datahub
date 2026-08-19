@@ -10,6 +10,8 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
+import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
 import { getTagColor } from '@app/tags/utils';
@@ -22,19 +24,6 @@ import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
-
-// The raw deprecated-status SVG has a 16x16 viewBox with artwork filling 100%, while phosphor
-// icons used elsewhere in the menu reserve ~20% padding inside their viewBox. Without scaling,
-// this icon appears visibly larger than its peers in the row action menu.
-interface DeprecatedMenuIconProps extends React.SVGProps<SVGSVGElement> {
-    style?: React.CSSProperties;
-}
-
-const DeprecatedMenuIcon = ({ style, ...rest }: DeprecatedMenuIconProps) => (
-    <DeprecatedIcon {...rest} style={{ ...style, width: '80%', height: '80%' }} />
-);
 
 const TagName = styled.div`
     font-size: 14px;
@@ -283,6 +272,7 @@ export const TagActionsColumn = React.memo(
         const isDeprecated = tagData?.tag?.deprecation?.deprecated ?? false;
 
         const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
+        const [isEditDeprecationModalVisible, setIsEditDeprecationModalVisible] = React.useState(false);
 
         const handleUndeprecate = async () => {
             message.loading({ content: tf('updating') });
@@ -329,6 +319,18 @@ export const TagActionsColumn = React.memo(
             },
             ...(canManageTags
                 ? [
+                      ...(isDeprecated
+                          ? [
+                                {
+                                    type: 'item' as const,
+                                    key: 'edit-deprecation',
+                                    title: te('deprecation.editDeprecated'),
+                                    icon: DeprecatedMenuIcon,
+                                    onClick: () => setIsEditDeprecationModalVisible(true),
+                                    'data-testid': 'action-edit-deprecation',
+                                },
+                            ]
+                          : []),
                       {
                           type: 'item' as const,
                           key: 'deprecate',
@@ -351,16 +353,26 @@ export const TagActionsColumn = React.memo(
         ];
 
         return (
-            <ActionsContainer>
-                <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Button
-                        variant="text"
-                        icon={{ icon: DotsThreeVertical, weight: 'bold', size: '2xl', color: 'gray' }}
-                        isCircle
-                        data-testid={`${tagUrn}-actions`}
+            <>
+                <ActionsContainer>
+                    <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
+                        <Button
+                            variant="text"
+                            icon={{ icon: DotsThreeVertical, weight: 'bold', size: '2xl', color: 'gray' }}
+                            isCircle
+                            data-testid={`${tagUrn}-actions`}
+                        />
+                    </Menu>
+                </ActionsContainer>
+                {isEditDeprecationModalVisible && (
+                    <UpdateDeprecationModal
+                        urns={[tagUrn]}
+                        initialDeprecation={tagData?.tag?.deprecation ?? null}
+                        onClose={() => setIsEditDeprecationModalVisible(false)}
+                        refetch={() => refetch()}
                     />
-                </Menu>
-            </ActionsContainer>
+                )}
+            </>
         );
     },
 );
