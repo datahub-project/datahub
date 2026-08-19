@@ -1239,26 +1239,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
             return self._get_input_fields_from_native_sql(card)
 
-        datasource_urns = self.get_datasource_urn(card)
-        if not datasource_urns:
-            return input_fields
-
-        primary_datasource_urn = datasource_urns[0]
-
-        for meta in card.result_metadata:
-            if not meta.name:
-                continue
-
-            input_fields.append(
-                self._create_input_field(
-                    builder.make_schema_field_urn(
-                        parent_urn=primary_datasource_urn,
-                        field_path=meta.name,
-                    ),
-                    meta,
-                )
-            )
-
         return input_fields
 
     def _emit_chart_workunits(

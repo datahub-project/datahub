@@ -1,12 +1,15 @@
 import json
 import logging
 import pathlib
+from contextlib import ExitStack, contextmanager
+from typing import Dict, Iterator, Optional
 from unittest.mock import patch
 
 import pytest
 import time_machine
 from requests.models import HTTPError
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metabase.source import MetabaseSource
@@ -46,6 +49,79 @@ def _base_response_map():
         f"{_METABASE_API}/api/collection/?exclude-other-user-collections=false": "collections.json",
         f"{_METABASE_API}/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
         f"{_METABASE_API}/api/collection/150/items?models=dashboard": "collection_dashboards.json",
+    }
+
+
+@contextmanager
+def _mocked_metabase(
+    json_response_map: Dict[str, str],
+    mock_datahub_graph=None,
+    failure: bool = False,
+) -> Iterator[None]:
+    session_builder = (
+        MockResponse.build_mocked_requests_failure
+        if failure
+        else MockResponse.build_mocked_requests_sucess
+    )
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "datahub.ingestion.source.metabase.source.requests.session",
+                side_effect=session_builder(json_response_map),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "datahub.ingestion.source.metabase.source.requests.post",
+                side_effect=MockResponse.build_mocked_requests_session_post(
+                    json_response_map
+                ),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "datahub.ingestion.source.metabase.source.requests.delete",
+                side_effect=MockResponse.build_mocked_requests_session_delete(
+                    json_response_map
+                ),
+            )
+        )
+        if mock_datahub_graph is not None:
+            mock_checkpoint = stack.enter_context(
+                patch(
+                    "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+                    mock_datahub_graph,
+                )
+            )
+            mock_checkpoint.return_value = mock_datahub_graph
+        yield
+
+
+def _file_pipeline_config(
+    tmp_path,
+    filename: str,
+    run_id: str,
+    pipeline_name: str,
+    extra_source_config: Optional[Dict[str, object]] = None,
+) -> Dict[str, object]:
+    source_config: Dict[str, object] = {
+        "username": "xxxx",
+        "password": "xxxx",
+        "connect_uri": "http://localhost:3000/",
+    }
+    if extra_source_config:
+        source_config.update(extra_source_config)
+    return {
+        "run_id": run_id,
+        "source": {
+            "type": "metabase",
+            "config": source_config,
+        },
+        "pipeline_name": pipeline_name,
+        "sink": {
+            "type": "file",
+            "config": {"filename": f"{tmp_path}/{filename}"},
+        },
     }
 
 
@@ -397,6 +473,7 @@ def extended_json_response_map():
         f"{_METABASE_API}/api/card/7": "card_7_model_with_join.json",
         f"{_METABASE_API}/api/table/21": "table_21.json",
         f"{_METABASE_API}/api/table/22": "table_22.json",
+        f"{_METABASE_API}/api/field/128": "field_128.json",
         f"{_METABASE_API}/api/field/131": "field_131.json",
         f"{_METABASE_API}/api/field/132": "field_132.json",
         f"{_METABASE_API}/api/field/141": "field_141.json",
@@ -416,70 +493,28 @@ def test_metabase_ingest_with_models_and_collections(
     3. Collection tags are applied to models based on their collection_id
     4. Nested query lineage resolves through multiple levels of card references
     """
-    with (
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.session",
-            side_effect=MockResponse.build_mocked_requests_sucess(
-                extended_json_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.post",
-            side_effect=MockResponse.build_mocked_requests_session_post(
-                extended_json_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.delete",
-            side_effect=MockResponse.build_mocked_requests_session_delete(
-                extended_json_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-            mock_datahub_graph,
-        ) as mock_checkpoint,
-    ):
-        mock_checkpoint.return_value = mock_datahub_graph
-
-        pipeline_config = {
-            "run_id": "metabase-new-features-test",
-            "source": {
-                "type": "metabase",
-                "config": {
-                    "username": "xxxx",
-                    "password": "xxxx",
-                    "connect_uri": "http://localhost:3000/",
-                    "extract_models": True,
-                },
-            },
-            "pipeline_name": "test_new_features_pipeline",
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/metabase_new_features_mces.json",
-                },
-            },
-        }
-
-        pipeline = Pipeline.create(pipeline_config)
+    output_file = "metabase_new_features_mces.json"
+    with _mocked_metabase(extended_json_response_map, mock_datahub_graph):
+        pipeline = Pipeline.create(
+            _file_pipeline_config(
+                tmp_path,
+                output_file,
+                "metabase-new-features-test",
+                "test_new_features_pipeline",
+                extra_source_config={"extract_models": True},
+            )
+        )
         pipeline.run()
         pipeline.raise_from_status()
 
-        # Read output file and check for key entities
-        with open(f"{tmp_path}/metabase_new_features_mces.json", "r") as f:
+        with open(f"{tmp_path}/{output_file}", "r") as f:
             content = f.read()
 
-        # Verify models are extracted as datasets
         assert "model.4" in content, "Model 4 should be extracted as dataset"
         assert "model.6" in content, "Model 6 should be extracted as dataset"
-
-        # Verify collection tags are applied
         assert "metabase_collection_john_doe" in content, (
             "Collection tag should be present"
         )
-
-        # Verify schema metadata is present (models have schema)
         assert (
             "com.linkedin.pegasus2avro.schema.SchemaMetadata" in content
             or "SchemaMetadataClass" in content
@@ -506,6 +541,12 @@ def mbql_cll_response_map():
     }
 
 
+_FILM_URN = "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
+_ACTOR_URN = "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.actor,PROD)"
+_MODEL_6_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
+_MODEL_7_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.7,PROD)"
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_mbql_cll_model(
     pytestconfig, tmp_path, mbql_cll_response_map, mock_datahub_graph
@@ -522,64 +563,26 @@ def test_mbql_cll_model(
           film_count   → field_ref ["aggregation", 0]        → COUNT(*) fan-in
           avg_rental_rate → field_ref ["aggregation", 1]     → AVG(film.rental_rate)
     """
-    with (
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.session",
-            side_effect=MockResponse.build_mocked_requests_sucess(
-                mbql_cll_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.post",
-            side_effect=MockResponse.build_mocked_requests_session_post(
-                mbql_cll_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.delete",
-            side_effect=MockResponse.build_mocked_requests_session_delete(
-                mbql_cll_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-            mock_datahub_graph,
-        ) as mock_checkpoint,
-    ):
-        mock_checkpoint.return_value = mock_datahub_graph
-
-        pipeline_config = {
-            "run_id": "mbql-cll-test",
-            "source": {
-                "type": "metabase",
-                "config": {
-                    "username": "xxxx",
-                    "password": "xxxx",
-                    "connect_uri": "http://localhost:3000/",
-                    "extract_models": True,
-                },
-            },
-            "pipeline_name": "test_mbql_cll",
-            "sink": {
-                "type": "file",
-                "config": {"filename": f"{tmp_path}/mbql_cll_mces.json"},
-            },
-        }
-
-        pipeline = Pipeline.create(pipeline_config)
+    output_file = "mbql_cll_mces.json"
+    with _mocked_metabase(mbql_cll_response_map, mock_datahub_graph):
+        pipeline = Pipeline.create(
+            _file_pipeline_config(
+                tmp_path,
+                output_file,
+                "mbql-cll-test",
+                "test_mbql_cll",
+                extra_source_config={"extract_models": True},
+            )
+        )
         pipeline.run()
 
-        import json as json_module
+        with open(f"{tmp_path}/{output_file}") as f:
+            output = json.load(f)
 
-        with open(f"{tmp_path}/mbql_cll_mces.json") as f:
-            output = json_module.load(f)
-
-        # Find the UpstreamLineage aspect for model.6
         upstream_aspects = [
             item
             for item in output
-            if item.get("entityUrn")
-            == "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
+            if item.get("entityUrn") == _MODEL_6_URN
             and "upstreamLineage" in item.get("aspectName", "")
         ]
         assert len(upstream_aspects) == 1, (
@@ -587,54 +590,35 @@ def test_mbql_cll_model(
         )
 
         lineage_json = upstream_aspects[0]["aspect"]["json"]
-
-        # Table-level lineage: film table should be upstream
-        film_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
-        )
         upstream_datasets = [u["dataset"] for u in lineage_json.get("upstreams", [])]
-        assert film_urn in upstream_datasets, (
+        assert _FILM_URN in upstream_datasets, (
             f"Expected film table in upstreams, got: {upstream_datasets}"
         )
 
-        # Column-level lineage must be present
         fine_grained = lineage_json.get("fineGrainedLineages", [])
         assert len(fine_grained) > 0, (
             "Expected fineGrainedLineages to be populated for MBQL model"
         )
 
-        # Collect all downstream field URNs that appear in CLL entries
-        downstream_cols = {
-            d.split(",")[-1].rstrip(")")
-            for fg in fine_grained
-            for d in fg.get("downstreams", [])
-        }
+        film_rating_urn = builder.make_schema_field_urn(_FILM_URN, "rating")
+        film_rental_rate_urn = builder.make_schema_field_urn(_FILM_URN, "rental_rate")
+        model_rating_urn = builder.make_schema_field_urn(_MODEL_6_URN, "rating")
+        model_avg_urn = builder.make_schema_field_urn(_MODEL_6_URN, "avg_rental_rate")
+        model_count_urn = builder.make_schema_field_urn(_MODEL_6_URN, "film_count")
 
-        # rating → direct field ref to film.rating
-        assert "rating" in downstream_cols, "Direct field ref (rating) should have CLL"
+        downstreams = {d for fg in fine_grained for d in fg.get("downstreams", [])}
+        assert model_rating_urn in downstreams
+        assert model_avg_urn in downstreams
 
-        # avg_rental_rate → aggregation referencing film.rental_rate
-        assert "avg_rental_rate" in downstream_cols, (
-            "Aggregation with explicit field (avg_rental_rate) should have CLL"
-        )
-
-        # film_count → COUNT(*) fan-in; its upstream should include both resolved fields
         count_fgl = next(
-            (
-                fg
-                for fg in fine_grained
-                if any("film_count" in d for d in fg.get("downstreams", []))
-            ),
+            (fg for fg in fine_grained if model_count_urn in fg.get("downstreams", [])),
             None,
         )
         assert count_fgl is not None, "COUNT(*) column (film_count) should have CLL"
-        count_upstream_cols = {
-            u.split(",")[-1].rstrip(")") for u in count_fgl.get("upstreams", [])
+        assert set(count_fgl.get("upstreams", [])) == {
+            film_rating_urn,
+            film_rental_rate_urn,
         }
-        # Both resolved upstream fields (rating=131, rental_rate=132) should be upstream inputs
-        assert (
-            "rating" in count_upstream_cols and "rental_rate" in count_upstream_cols
-        ), f"COUNT(*) should fan in upstream columns, got: {count_upstream_cols}"
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -652,88 +636,44 @@ def test_mbql_join_lineage(pytestconfig, tmp_path, mock_datahub_graph):
         f"{_METABASE_API}/api/card/7": "card_7_model_with_join.json",
         f"{_METABASE_API}/api/table/21": "table_21.json",
         f"{_METABASE_API}/api/table/22": "table_22.json",
+        f"{_METABASE_API}/api/field/128": "field_128.json",
         f"{_METABASE_API}/api/field/131": "field_131.json",
         f"{_METABASE_API}/api/field/132": "field_132.json",
         f"{_METABASE_API}/api/field/141": "field_141.json",
     }
 
-    with (
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.session",
-            side_effect=MockResponse.build_mocked_requests_sucess(join_response_map),
-        ),
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.post",
-            side_effect=MockResponse.build_mocked_requests_session_post(
-                join_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.metabase.source.requests.delete",
-            side_effect=MockResponse.build_mocked_requests_session_delete(
-                join_response_map
-            ),
-        ),
-        patch(
-            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-            mock_datahub_graph,
-        ) as mock_checkpoint,
-    ):
-        mock_checkpoint.return_value = mock_datahub_graph
-
-        pipeline_config = {
-            "run_id": "mbql-join-test",
-            "source": {
-                "type": "metabase",
-                "config": {
-                    "username": "xxxx",
-                    "password": "xxxx",
-                    "connect_uri": "http://localhost:3000/",
-                    "extract_models": True,
-                },
-            },
-            "pipeline_name": "test_mbql_join",
-            "sink": {
-                "type": "file",
-                "config": {"filename": f"{tmp_path}/mbql_join_mces.json"},
-            },
-        }
-
-        pipeline = Pipeline.create(pipeline_config)
+    output_file = "mbql_join_mces.json"
+    with _mocked_metabase(join_response_map, mock_datahub_graph):
+        pipeline = Pipeline.create(
+            _file_pipeline_config(
+                tmp_path,
+                output_file,
+                "mbql-join-test",
+                "test_mbql_join",
+                extra_source_config={"extract_models": True},
+            )
+        )
         pipeline.run()
 
-        import json as json_module
+        with open(f"{tmp_path}/{output_file}") as f:
+            output = json.load(f)
 
-        with open(f"{tmp_path}/mbql_join_mces.json") as f:
-            output = json_module.load(f)
-
-        # Find the UpstreamLineage aspect for model.7 (join model)
         upstream_aspects = [
             item
             for item in output
-            if item.get("entityUrn")
-            == "urn:li:dataset:(urn:li:dataPlatform:metabase,model.7,PROD)"
+            if item.get("entityUrn") == _MODEL_7_URN
             and "upstreamLineage" in item.get("aspectName", "")
         ]
-
         assert upstream_aspects, (
             "No UpstreamLineage aspect found for model.7 — card_7 must appear in the card list"
         )
 
         lineage_json = upstream_aspects[0]["aspect"]["json"]
         upstream_datasets = {u["dataset"] for u in lineage_json.get("upstreams", [])}
-
-        film_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
-        )
-        actor_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.actor,PROD)"
-        )
-
-        assert film_urn in upstream_datasets, (
+        assert _FILM_URN in upstream_datasets, (
             f"Primary source table (film) must be upstream: {upstream_datasets}"
         )
-        assert actor_urn in upstream_datasets, (
+        assert _ACTOR_URN in upstream_datasets, (
             f"Joined table (actor) must be upstream: {upstream_datasets}"
         )
 

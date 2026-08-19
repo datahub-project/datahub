@@ -68,7 +68,7 @@
           "alias": "Actor",
           "condition": [
             "=",
-            ["field", 131, null],
+            ["field", 128, null],
             ["field", 141, {"join-alias": "Actor"}]
           ],
           "fields": "all"

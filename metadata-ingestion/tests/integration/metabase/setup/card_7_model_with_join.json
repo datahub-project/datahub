@@ -6,10 +6,10 @@
   "type": "model",
   "result_metadata": [
     {
-      "name": "rating",
-      "display_name": "Rating",
+      "name": "film_id",
+      "display_name": "Film ID",
       "base_type": "type/Integer",
-      "field_ref": ["field", 131, null]
+      "field_ref": ["field", 128, null]
     },
     {
       "name": "actor_id",
@@ -50,7 +50,7 @@
           "alias": "Actor",
           "condition": [
             "=",
-            ["field", 131, null],
+            ["field", 128, null],
             ["field", 141, {"join-alias": "Actor"}]
           ],
           "fields": "all"
