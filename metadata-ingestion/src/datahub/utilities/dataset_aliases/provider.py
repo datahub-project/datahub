@@ -12,10 +12,9 @@ logger = logging.getLogger(__name__)
 
 _DATASET_ENTITY_TYPE = "dataset"
 
-# Large because a page carries URNs only — no aspects to fetch, unlike the schema scroll.
-_BATCH_SIZE = 5000
+_BATCH_SIZE = 1000
 
-_PROGRESS_EVERY = 10_000
+_PROGRESS_EVERY = 5000
 
 
 @functools.lru_cache(maxsize=None)
