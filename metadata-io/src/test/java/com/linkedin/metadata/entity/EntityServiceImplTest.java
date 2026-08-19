@@ -4,8 +4,10 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
@@ -664,6 +667,46 @@ public class EntityServiceImplTest {
         .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
     verify(entityServiceSpy, times(1))
         .ingestProposalSync(any(OperationContext.class), any(AspectsBatch.class));
+  }
+
+  @Test
+  public void testApplyPostCommitMcpSideEffectsDeletesSyncUpsertsAsync() {
+    EntityServiceImpl entityServiceSpy = spy(entityService);
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    doReturn(Optional.empty())
+        .when(entityServiceSpy)
+        .deleteAspect(any(), anyString(), anyString(), any(), anyBoolean());
+
+    Urn fieldUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_a)");
+    MCPItem deleteItem = mock(MCPItem.class);
+    when(deleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteItem.getUrn()).thenReturn(fieldUrn);
+    when(deleteItem.getAspectName()).thenReturn(DOMAINS_ASPECT_NAME);
+
+    MCPItem keyDeleteItem = mock(MCPItem.class);
+    when(keyDeleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(keyDeleteItem.getUrn()).thenReturn(fieldUrn);
+    when(keyDeleteItem.getAspectName()).thenReturn(SCHEMA_FIELD_KEY_ASPECT);
+
+    MCPItem upsertItem = mock(MCPItem.class);
+    when(upsertItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(upsertItem.getUrn()).thenReturn(fieldUrn);
+    when(upsertItem.getAspectName()).thenReturn(STATUS_ASPECT_NAME);
+
+    entityServiceSpy.applyPostCommitMcpSideEffects(
+        opContext, List.of(deleteItem, keyDeleteItem, upsertItem));
+
+    verify(entityServiceSpy, times(1))
+        .deleteAspect(
+            eq(opContext), eq(fieldUrn.toString()), eq(DOMAINS_ASPECT_NAME), any(), eq(false));
+    verify(entityServiceSpy, times(1))
+        .deleteAspect(
+            eq(opContext), eq(fieldUrn.toString()), eq(SCHEMA_FIELD_KEY_ASPECT), any(), eq(true));
+    verify(entityServiceSpy, times(1)).ingestProposalAsync(eq(opContext), any(AspectsBatch.class));
   }
 
   @Test

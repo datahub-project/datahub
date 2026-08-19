@@ -3,10 +3,11 @@ import json
 import logging
 import os
 import socket
+import time
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import quote, urlparse, urlunparse
 
 import click
@@ -20,8 +21,10 @@ from requests.structures import CaseInsensitiveDict
 from datahub.cli import cli_utils, env_utils
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.entrypoints import datahub
+from datahub.ingestion.graph.client import entity_type_to_graphql
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
+from datahub.utilities.urns.urn import guess_entity_type
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities import env_vars
 
@@ -481,6 +484,243 @@ def run_datahub_cmd(
     return runner.invoke(datahub, command, input=input, env=env)
 
 
+_SEARCH_URNS_QUERY = """
+query searchIngestedUrns($input: SearchAcrossEntitiesInput!) {
+  searchAcrossEntities(input: $input) {
+    searchResults {
+      entity {
+        urn
+      }
+    }
+  }
+}
+"""
+
+_BROWSE_ENTITIES_QUERY = """
+query browse($input: BrowseInput!) {
+  browse(input: $input) {
+    entities {
+      urn
+    }
+  }
+}
+"""
+
+
+def entity_urns_from_ingest_file(filename: str) -> List[str]:
+    """Unique entity URNs from a file ingest payload (MCP or snapshot JSON)."""
+    with open(filename) as f:
+        payload = json.load(f)
+    if not isinstance(payload, list):
+        payload = [payload]
+
+    urns: List[str] = []
+    seen: Set[str] = set()
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+        urn: Optional[str] = None
+        if entry.get("entityUrn"):
+            urn = entry["entityUrn"]
+        else:
+            snapshot_union = entry.get("proposedSnapshot")
+            if isinstance(snapshot_union, dict) and snapshot_union:
+                snapshot = next(iter(snapshot_union.values()))
+                if isinstance(snapshot, dict):
+                    urn = snapshot.get("urn")
+        if urn and urn not in seen:
+            seen.add(urn)
+            urns.append(urn)
+    return urns
+
+
+# Entity types ``searchAcrossEntities`` actually returns for ingest gating.
+# Matches elasticsearch.search.defaultEntityTypes minus types that never show
+# up (or should not gate ingest): schemaField, plus assertion/incident/etc.
+_SEARCH_WAIT_ENTITY_TYPES = frozenset(
+    {
+        "dataset",
+        "dashboard",
+        "chart",
+        "mlModel",
+        "mlModelGroup",
+        "mlFeatureTable",
+        "mlFeature",
+        "mlPrimaryKey",
+        "dataFlow",
+        "dataJob",
+        "glossaryTerm",
+        "glossaryNode",
+        "tag",
+        "role",
+        "corpuser",
+        "corpGroup",
+        "container",
+        "domain",
+        "dataProduct",
+        "notebook",
+        "businessAttribute",
+        "application",
+        "document",
+    }
+)
+
+
+def searchable_ingest_urns(urns: List[str]) -> List[str]:
+    """URNs whose entity types ``searchAcrossEntities`` can return."""
+    kept: List[str] = []
+    for urn in urns:
+        try:
+            entity_type = guess_entity_type(urn)
+        except AssertionError:
+            continue
+        if entity_type in _SEARCH_WAIT_ENTITY_TYPES:
+            kept.append(urn)
+    return kept
+
+
+def _search_results_contain_urns(auth_session, urns: List[str]) -> Optional[Set[str]]:
+    if not urns:
+        return set()
+    graphql_types = sorted(
+        {entity_type_to_graphql(guess_entity_type(urn)) for urn in urns}
+    )
+    try:
+        res_data = execute_graphql(
+            auth_session,
+            _SEARCH_URNS_QUERY,
+            {
+                "input": {
+                    "types": graphql_types,
+                    "query": "*",
+                    "start": 0,
+                    "count": max(len(urns), 1),
+                    "orFilters": [
+                        {
+                            "and": [
+                                {
+                                    "field": "urn",
+                                    "values": urns,
+                                    "condition": "EQUAL",
+                                }
+                            ]
+                        }
+                    ],
+                    "searchFlags": {"skipCache": True},
+                }
+            },
+            expect_errors=True,
+            no_sync_wait=True,
+        )
+    except Exception as exc:
+        logger.warning(
+            "searchAcrossEntities failed during ingest wait; retrying: %s", exc
+        )
+        return None
+    if res_data.get("errors") or not res_data.get("data"):
+        logger.warning(
+            "searchAcrossEntities failed during ingest wait; retrying: %s",
+            res_data.get("errors"),
+        )
+        return None
+    search = res_data["data"].get("searchAcrossEntities")
+    if not search:
+        logger.warning(
+            "searchAcrossEntities returned no data during ingest wait; retrying"
+        )
+        return None
+    results = search.get("searchResults", []) or []
+    return {
+        result["entity"]["urn"]
+        for result in results
+        if result.get("entity") and result["entity"].get("urn")
+    }
+
+
+def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
+    """Poll GraphQL search until searchable ingested URNs are indexed."""
+    remaining: Set[str] = set(
+        searchable_ingest_urns(entity_urns_from_ingest_file(filename))
+    )
+    if not remaining:
+        return
+
+    sleep_sec, sleep_times = get_sleep_info()
+    for attempt in range(sleep_times):
+        found = _search_results_contain_urns(auth_session, sorted(remaining))
+        if found is not None:
+            remaining -= found
+            if not remaining:
+                return
+        if attempt < sleep_times - 1:
+            time.sleep(sleep_sec)
+
+    raise AssertionError(
+        f"Entities not searchable after ingest of {filename}: {sorted(remaining)}"
+    )
+
+
+def wait_for_browse_path_entities(
+    auth_session,
+    path: List[str],
+    expected_urns: List[str],
+    entity_type: str = "DATASET",
+) -> None:
+    """Poll browse v1 until every URN in ``expected_urns`` appears at ``path``."""
+    remaining: Set[str] = set(expected_urns)
+    if not remaining:
+        return
+    sleep_sec, sleep_times = get_sleep_info()
+    found: Set[str] = set()
+    for attempt in range(sleep_times):
+        try:
+            res_data = execute_graphql(
+                auth_session,
+                _BROWSE_ENTITIES_QUERY,
+                {
+                    "input": {
+                        "type": entity_type,
+                        "path": path,
+                        "start": 0,
+                        "count": 100,
+                    }
+                },
+                expect_errors=True,
+                no_sync_wait=True,
+            )
+        except Exception as exc:
+            logger.warning("browse failed during ingest wait; retrying: %s", exc)
+            res_data = {}
+        if res_data.get("errors") or not res_data.get("data"):
+            found = set()
+        else:
+            entities = (
+                res_data.get("data", {}).get("browse", {}).get("entities", []) or []
+            )
+            found = {entity.get("urn") for entity in entities if entity.get("urn")}
+        if remaining <= found:
+            return
+        if attempt < sleep_times - 1:
+            time.sleep(sleep_sec)
+
+    raise AssertionError(
+        f"Browse path {path} did not contain {sorted(remaining)} after ingest; "
+        f"missing {sorted(remaining - found)}"
+    )
+
+
+def wait_for_browse_path_entity(
+    auth_session,
+    path: List[str],
+    expected_urn: str,
+    entity_type: str = "DATASET",
+) -> None:
+    """Poll browse v1 until ``expected_urn`` appears at ``path``."""
+    wait_for_browse_path_entities(
+        auth_session, path, [expected_urn], entity_type=entity_type
+    )
+
+
 def ingest_file_via_rest(
     auth_session, filename: str, mode: str = "ASYNC_BATCH"
 ) -> Pipeline:
@@ -503,6 +743,7 @@ def ingest_file_via_rest(
     pipeline.run()
     pipeline.raise_from_status()
     wait_for_writes_to_sync()
+    wait_for_ingested_urns_searchable(auth_session, filename)
     return pipeline
 
 
@@ -702,6 +943,10 @@ class TestSessionWrapper:
         else:
             self._frontend_url = get_frontend_url()
             self._gms_token_id, self._gms_token = self._generate_gms_token()
+
+        # Do not publish DATAHUB_GMS_TOKEN here — multi-user / PAT wrappers would
+        # overwrite the bootstrap admin token that bare wait_for_writes_to_sync()
+        # reads. Bootstrap publishes in smoke-test/conftest.py only.
 
     def __getattr__(self, name):
         # Intercept method calls

@@ -1,39 +1,71 @@
 import styled from 'styled-components';
 
+import { CardSize } from '@components/components/Card/types';
+
 import { radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
-export const CardContainer = styled.div<{ isClickable?: boolean; width?: string; maxWidth?: string; height?: string }>(
-    ({ isClickable, width, maxWidth, height, theme }) => ({
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: radius.lg,
-        padding: spacing.md,
-        display: 'flex',
-        flex: `1 1 ${maxWidth}`,
-        minWidth: '150px',
-        boxShadow: theme.colors.shadowXs,
-        backgroundColor: theme.colors.bg,
-        flexDirection: 'column',
-        gap: spacing.md,
-        maxWidth,
-        width,
-        height,
+const SIZE_PADDING: Record<CardSize, string> = {
+    sm: spacing.sm,
+    md: spacing.md,
+};
 
-        '&:hover': isClickable
-            ? {
-                  border: `1px solid ${theme.colors.borderBrand}`,
-                  cursor: 'pointer',
-              }
-            : {},
-    }),
-);
+const SIZE_GAP: Record<CardSize, string> = {
+    sm: spacing.xsm,
+    md: spacing.md,
+};
 
-export const Header = styled.div<{ iconAlignment?: IconAlignmentOptions }>(({ iconAlignment }) => ({
+const TITLE_FONT_SIZE: Record<CardSize, string> = {
+    sm: typography.fontSizes.sm,
+    md: typography.fontSizes.lg,
+};
+
+export const CardContainer = styled.div<{
+    isClickable?: boolean;
+    width?: string;
+    maxWidth?: string;
+    height?: string;
+    $size?: CardSize;
+}>(({ isClickable, width, maxWidth, height, $size = 'md', theme }) => ({
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: radius.lg,
+    padding: SIZE_PADDING[$size],
+    display: 'flex',
+    flex: `1 1 ${maxWidth}`,
+    minWidth: '150px',
+    boxShadow: theme.colors.shadowXs,
+    backgroundColor: theme.colors.bg,
+    flexDirection: 'column',
+    gap: SIZE_GAP[$size],
+    maxWidth,
+    width,
+    height,
+    overflow: 'hidden',
+
+    '&:hover': isClickable
+        ? {
+              border: `1px solid ${theme.colors.borderBrand}`,
+              cursor: 'pointer',
+          }
+        : {},
+}));
+
+export const Header = styled.div<{
+    iconAlignment?: IconAlignmentOptions;
+    $size?: CardSize;
+    $collapsible?: boolean;
+}>(({ iconAlignment, $size = 'md', $collapsible }) => ({
     display: 'flex',
     flexDirection: iconAlignment === 'horizontal' ? 'row' : 'column',
     alignItems: iconAlignment === 'horizontal' ? 'center' : 'start',
-    gap: spacing.sm,
+    gap: $size === 'sm' ? spacing.xsm : spacing.sm,
     width: '100%',
+    ...($collapsible
+        ? {
+              cursor: 'pointer',
+              userSelect: 'none' as const,
+          }
+        : {}),
 }));
 
 export const TitleContainer = styled.div({
@@ -41,10 +73,11 @@ export const TitleContainer = styled.div({
     flexDirection: 'column',
     gap: 2,
     width: '100%',
+    minWidth: 0,
 });
 
-export const Title = styled.div<{ $isEmpty?: boolean }>(({ $isEmpty, theme }) => ({
-    fontSize: typography.fontSizes.lg,
+export const Title = styled.div<{ $isEmpty?: boolean; $size?: CardSize }>(({ $isEmpty, $size = 'md', theme }) => ({
+    fontSize: TITLE_FONT_SIZE[$size],
     fontWeight: typography.fontWeights.bold,
     color: $isEmpty ? theme.colors.textTertiary : theme.colors.text,
     display: 'flex',
@@ -59,19 +92,43 @@ export const SubTitleContainer = styled.div({
     alignItems: 'center',
 });
 
-export const SubTitle = styled.div<{ $noOfSubtitleLines?: number }>(({ $noOfSubtitleLines, theme }) => ({
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.normal,
-    color: theme.colors.textSecondary,
-    lineHeight: 'normal',
+export const SubTitle = styled.div<{ $noOfSubtitleLines?: number; $size?: CardSize }>(
+    ({ $noOfSubtitleLines, theme }) => ({
+        fontSize: typography.fontSizes.md,
+        fontWeight: typography.fontWeights.normal,
+        color: theme.colors.textSecondary,
+        lineHeight: 'normal',
+        wordWrap: 'break-word',
 
-    ...($noOfSubtitleLines
-        ? {
-              display: '-webkit-box',
-              WebkitLineClamp: $noOfSubtitleLines,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-          }
-        : {}),
+        ...($noOfSubtitleLines
+            ? {
+                  display: '-webkit-box',
+                  WebkitLineClamp: $noOfSubtitleLines,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+              }
+            : {}),
+    }),
+);
+
+export const ExpandButton = styled.button(({ theme }) => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    padding: 0,
+    margin: 0,
+    border: 'none',
+    background: 'transparent',
+    color: theme.colors.textSecondary,
+    cursor: 'pointer',
+    lineHeight: 0,
+}));
+
+export const CollapsibleBody = styled.div<{ $size?: CardSize }>(({ $size = 'md' }) => ({
+    display: 'flex',
+    flexDirection: 'column',
+    gap: SIZE_GAP[$size],
+    width: '100%',
 }));

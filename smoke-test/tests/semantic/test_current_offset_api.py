@@ -10,11 +10,15 @@ import json
 import logging
 from typing import Any
 
+import pytest
 import requests
 
+from tests.utilities.domains import Domain
 from tests.utils import TestSessionWrapper
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 
 def test_get_current_offset_no_params(auth_session: TestSessionWrapper):

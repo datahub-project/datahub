@@ -134,6 +134,11 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             config=self.config.profiling,
             platform=self.platform,
             env=self.config.env,
+            # Snowflake's schema comes from INFORMATION_SCHEMA, not from
+            # reflection, so its field paths follow source config rather than the
+            # dialect's normalize_name. Handing the rule in lets the profiler make
+            # the translation itself instead of deferring it back to us.
+            field_path_transform=self.identifiers.snowflake_identifier,
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:

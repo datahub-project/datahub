@@ -6,8 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import PrepareOldStackResult, TestContext
 from tests.zdu.framework.phases.cleanup import CleanupPhase
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 @pytest.fixture
