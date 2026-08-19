@@ -94,6 +94,9 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     return filtered
 
 
+ORACLE_PORT = 1521  # Oracle listener port
+
+
 @pytest.fixture(scope="module")
 def oracle_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
@@ -103,13 +106,19 @@ def oracle_runner(docker_compose_runner, pytestconfig):
         wait_for_port(
             docker_services,
             "testoracle",
-            1521,
+            ORACLE_PORT,
             timeout=300,
         )
 
+        # The compose file exposes the listener port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh run
+        # needs. Recipe ymls in this directory pick it up via ${ORACLE_PORT}.
+        oracle_port = docker_services.port_for("testoracle", ORACLE_PORT)
+        os.environ["ORACLE_PORT"] = str(oracle_port)
+
         time.sleep(30)  # Extra time for setup scripts to complete
 
-        yield docker_services
+        yield oracle_port
 
 
 SOURCE_FILES_PATH = "./tests/integration/oracle/source_files"
@@ -176,7 +185,7 @@ def test_oracle_test_connection(oracle_runner):
     config_dict = {
         "username": "system",
         "password": "example",
-        "host_port": "localhost:51521",
+        "host_port": f"localhost:{oracle_runner}",
         "service_name": "XEPDB1",
     }
 

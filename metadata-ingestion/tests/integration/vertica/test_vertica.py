@@ -1,3 +1,4 @@
+import os
 import subprocess
 from typing import List
 
@@ -37,6 +38,12 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "vertica"
     ) as docker_services:
+        # The compose file exposes the client port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. vertica_to_file.yml picks it up via ${VERTICA_PORT}.
+        vertica_port = docker_services.port_for("vertica", 5433)
+        os.environ["VERTICA_PORT"] = str(vertica_port)
+
         wait_for_port(
             docker_services,
             "vertica-ce",

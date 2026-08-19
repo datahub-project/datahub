@@ -1,3 +1,4 @@
+import os
 import subprocess
 from typing import List
 
@@ -30,6 +31,12 @@ def starrocks_runner(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "starrocks"
     ) as docker_services:
+        # The compose file exposes the MySQL protocol port ephemerally, so a
+        # leaked container from a prior run can never hold onto the port a
+        # fresh run needs. starrocks_to_file.yml picks it up via ${STARROCKS_MYSQL_PORT}.
+        mysql_port = docker_services.port_for("teststarrocks", STARROCKS_FE_PORT)
+        os.environ["STARROCKS_MYSQL_PORT"] = str(mysql_port)
+
         wait_for_port(
             docker_services,
             "teststarrocks",
