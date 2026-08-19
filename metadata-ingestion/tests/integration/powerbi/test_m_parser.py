@@ -5,7 +5,6 @@ from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datahub.metadata.schema_classes import NumberTypeClass
 
 import datahub.ingestion.source.common.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -27,6 +26,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
+from datahub.metadata.schema_classes import NumberTypeClass
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
