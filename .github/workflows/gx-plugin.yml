@@ -88,6 +88,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
+      - name: Configure fast APT mirror
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install GX package and test  (extras ${{ matrix.extraPythonRequirement }})

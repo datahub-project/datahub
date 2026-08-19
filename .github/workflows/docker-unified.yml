@@ -29,6 +29,7 @@ on:
       - ".github/workflows/resusable-playwright-tests.yml"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/check_python_package.py"
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
@@ -50,6 +51,7 @@ on:
       - ".github/workflows/resusable-playwright-tests.yml"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/check_python_package.py"
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
@@ -430,7 +432,7 @@ jobs:
             build_modules_flag=("-PbuildModules=$IMAGE_BUILD_MODULES")
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew --max-workers="$(nproc)" $BUILD_TASK "${build_modules_flag[@]}" -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" "$BUILD_TASK" "${build_modules_flag[@]}" -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
@@ -696,6 +698,8 @@ jobs:
             }
           }'
 
+      - name: Configure fast APT mirror
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
 
@@ -907,6 +911,9 @@ jobs:
             }
           }'
 
+      - name: Configure fast APT mirror
+        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         run: ./metadata-ingestion/scripts/install_deps.sh
