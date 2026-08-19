@@ -9,14 +9,17 @@ import requests
 import time_machine
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
+    DataHubRestSinkReport,
     RestSinkMode,
 )
+from datahub.utilities.partition_executor import BatchItemFailures
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -492,3 +495,128 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+def _make_sink(mock_emitter) -> DatahubRestSink:
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink._emitter_thread_local = threading.local()
+    sink._emitter_thread_local.emitter = mock_emitter
+    sink._gms_emit_mode = EmitMode.ASYNC
+    sink.report = DataHubRestSinkReport()
+    return sink
+
+
+def _status_mcp(name: str) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:foo,{name},PROD)",
+        aspect=models.StatusClass(removed=False),
+    )
+
+
+def test_emit_batch_wrapper_isolates_the_record_that_caused_the_rejection():
+    """One invalid record must not take the valid records batched with it down."""
+    good1 = _status_mcp("good1")
+    poison = _status_mcp("poison")
+    good2 = _status_mcp("good2")
+
+    batch_error = OperationalError("batch rejected", {"status": 422})
+    poison_error = OperationalError("record rejected", {"status": 422})
+
+    def emit_mcps(events, emit_mode=None):
+        if len(events) > 1:
+            raise batch_error
+        if events[0] is poison:
+            raise poison_error
+        return [MagicMock()]
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = emit_mcps
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(good1,), (poison,), (good2,)])
+
+    outcomes = exc_info.value.outcomes
+    assert outcomes[0] is None
+    assert outcomes[1] is poison_error
+    assert outcomes[2] is None
+
+    assert sink.report.batches_rejected == 1
+    assert sink.report.records_isolated_after_batch_rejection == 3
+    assert sink.report.records_recovered_after_batch_rejection == 2
+
+
+def test_emit_batch_wrapper_does_not_isolate_a_single_record_batch():
+    """With one record the error is already precise, so re-emitting it is pure waste."""
+    poison = _status_mcp("poison")
+    poison_error = OperationalError("record rejected", {"status": 422})
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = poison_error
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(OperationalError):
+        sink._emit_batch_wrapper([(poison,)])
+
+    assert mock_emitter.emit_mcps.call_count == 1
+    assert sink.report.batches_rejected == 0
+
+
+def test_emit_batch_wrapper_isolation_when_every_record_fails():
+    """A block applied to the whole request, not one poison record.
+
+    Isolation cannot recover anything here, but it must still attribute an error to
+    every record rather than sharing one, and uniform failure is itself diagnostic:
+    it proves no single record was at fault.
+    """
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    error = OperationalError("forbidden", {"message": "403 Client Error: Forbidden"})
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = error
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(record,) for record in records])
+
+    outcomes = exc_info.value.outcomes
+    assert len(outcomes) == 3
+    assert all(outcome is error for outcome in outcomes)
+
+    assert sink.report.batches_rejected == 1
+    assert sink.report.records_isolated_after_batch_rejection == 3
+    assert sink.report.records_recovered_after_batch_rejection == 0
+
+
+def test_emit_batch_wrapper_isolation_keeps_an_mce_record_whole():
+    """An MCE expands to several MCPs; isolation must re-emit them together as one record."""
+    mce = models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:foo,mce,PROD)",
+            aspects=[
+                models.StatusClass(removed=False),
+                models.DatasetPropertiesClass(name="mce"),
+            ],
+        )
+    )
+    good = _status_mcp("good")
+
+    single_record_calls = []
+
+    def emit_mcps(events, emit_mode=None):
+        if len(events) > 2:  # the whole batch: 2 MCPs from the MCE + 1 MCP
+            raise OperationalError("batch rejected", {"status": 422})
+        single_record_calls.append(list(events))
+        return [MagicMock()]
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = emit_mcps
+    sink = _make_sink(mock_emitter)
+
+    with pytest.raises(BatchItemFailures) as exc_info:
+        sink._emit_batch_wrapper([(mce,), (good,)])
+
+    assert exc_info.value.outcomes == [None, None]
+    # Two isolation calls: the MCE's two MCPs together, then the lone MCP.
+    assert [len(call) for call in single_record_calls] == [2, 1]
+    assert sink.report.records_recovered_after_batch_rejection == 2
