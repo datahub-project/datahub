@@ -30,9 +30,16 @@ from datahub.ingestion.source.airbyte.client import (
     create_airbyte_client,
 )
 from datahub.ingestion.source.airbyte.config import (
-    KNOWN_SOURCE_TYPE_MAPPING,
     AirbyteSourceConfig,
     PlatformDetail,
+)
+from datahub.ingestion.source.airbyte.constants import (
+    AIRBYTE_JOB_STATUS_MAP,
+    API_FIELD_STREAM_NAME,
+    JSON_SCHEMA_KEY_PROPERTIES,
+    KNOWN_SOURCE_TYPE_MAPPING,
+    NAMESPACE_DEFINITION_CUSTOM_FORMAT,
+    SOURCE_NAMESPACE_PLACEHOLDER,
 )
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
@@ -48,6 +55,7 @@ from datahub.ingestion.source.airbyte.models import (
     PlatformKind,
     PlatformResolutionRequest,
     PropertyFieldPath,
+    ResolvedSchema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -69,21 +77,6 @@ from datahub.sdk.datajob import DataJob
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 logger = logging.getLogger(__name__)
-
-# Mapping from Airbyte job status to DataHub InstanceRunResult
-AIRBYTE_JOB_STATUS_MAP = {
-    "succeeded": InstanceRunResult.SUCCESS,
-    "completed": InstanceRunResult.SUCCESS,
-    "success": InstanceRunResult.SUCCESS,
-    "failed": InstanceRunResult.FAILURE,
-    "failure": InstanceRunResult.FAILURE,
-    "error": InstanceRunResult.FAILURE,
-    "cancelled": InstanceRunResult.SKIPPED,
-    "canceled": InstanceRunResult.SKIPPED,
-    "running": InstanceRunResult.UP_FOR_RETRY,
-    "incomplete": InstanceRunResult.UP_FOR_RETRY,
-    "pending": InstanceRunResult.UP_FOR_RETRY,
-}
 
 
 def _sanitize_platform_name(platform_name: str) -> str:
@@ -157,6 +150,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         # first connection doesn't repeat the failing call for the rest.
         self._workspace_tags_cache: Dict[str, List[AirbyteTagInfo]] = {}
         self._warned_unknown_statuses: Set[str] = set()
+        self._warned_streams_namespace_source_ids: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AirbyteSource":
@@ -199,6 +193,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             if request.entity_id not in warned:
                 context_parts = [
                     f"{id_label}={request.entity_id}",
+                    f"{type_label}=missing",
                     f"{name_label}={request.name}",
                 ]
                 if request.definition_id:
@@ -214,7 +209,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Platform Detection Fallback",
                     message="Entity missing type info, using name as fallback",
-                    context=f"{entity_label} {request.entity_id}, {type_label}, fallback_name={request.name}, {', '.join(context_parts)}",
+                    context=", ".join(context_parts),
                 )
                 warned.add(request.entity_id)
             platform = _map_source_type_to_platform(
@@ -225,7 +220,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Platform Detection Failed",
                     message="Entity missing both type info and name",
-                    context=f"{entity_label} {request.entity_id}, {id_label}={request.entity_id}",
+                    context=f"{entity_label} {request.entity_id}",
                 )
                 warned.add(request.entity_id)
             platform = ""
@@ -286,6 +281,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 for connection in self.client.list_connections(
                     workspace.workspace_id,
                     pattern=self.source_config.connection_pattern,
+                    include_inactive=self.source_config.include_inactive_connections,
                 ):
                     try:
                         if (
@@ -380,7 +376,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         stream_stats = job_details.get("streamStatuses", [])
         for stream_stat in stream_stats:
-            if stream_stat.get("streamName") == stream_name:
+            if stream_stat.get(API_FIELD_STREAM_NAME) == stream_name:
                 if stream_stat.get("recordsCommitted") is not None:
                     properties["stream_records_committed"] = str(
                         stream_stat["recordsCommitted"]
@@ -534,14 +530,140 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 exc=e,
             )
 
+    def _report_namespace_backfill_gaps(
+        self,
+        pipeline_info: AirbytePipelineInfo,
+        streams_without_namespace: List[str],
+        streams_with_guessed_namespace: List[str],
+        guessed_schema: str,
+    ) -> None:
+        """Must run after resolution: only its outcome says whether a gap was
+        filled, left empty, or filled with a guess."""
+        connection = pipeline_info.connection
+        connection_context = (
+            f"connection_id={connection.connection_id}, "
+            f"connection_name={connection.name}"
+        )
+
+        source_id = pipeline_info.source.source_id
+        # A source is read once and cached, so at most one of these can apply.
+        if source_id not in self._warned_streams_namespace_source_ids:
+            if connection.streams_api_unavailable:
+                self.report.warning(
+                    title="Stream Metadata Unavailable",
+                    message=(
+                        "Airbyte /streams returned 404, so per-stream namespaces "
+                        "and column-level lineage are unavailable. Older Airbyte "
+                        "versions have no such endpoint; on versions that do, a "
+                        "404 means the source is not accessible to these "
+                        "credentials"
+                    ),
+                    context=f"source_id={source_id}, {connection_context}",
+                )
+                self._warned_streams_namespace_source_ids.add(source_id)
+            elif connection.streams_api_namespaces_absent and streams_without_namespace:
+                self.report.warning(
+                    title="Stream Namespaces Not Reported",
+                    message=(
+                        "Airbyte /streams reported no namespace for any of this "
+                        "source's streams and nothing else supplied a schema for "
+                        "the streams below, so their dataset URNs have no schema "
+                        "tier. Airbyte exposes stream namespaces from 1.7.0 "
+                        "onwards; on older deployments set 'default_schema' for "
+                        "this source in 'sources_to_platform_instance'"
+                    ),
+                    context=(
+                        f"source_id={source_id}, "
+                        f"streams={streams_without_namespace}, {connection_context}"
+                    ),
+                )
+                self._warned_streams_namespace_source_ids.add(source_id)
+            elif (
+                connection.streams_api_namespaces_absent
+                and streams_with_guessed_namespace
+            ):
+                self.report.warning(
+                    title="Stream Schema Guessed",
+                    message=(
+                        "Airbyte /streams reported no namespace for any of this "
+                        "source's streams and the source replicates several "
+                        "schemas, so nothing says which stream belongs to which. "
+                        "The streams below all take the schema shown, which is "
+                        "wrong for any that live elsewhere — those URNs point at "
+                        "another table. Airbyte exposes stream namespaces from "
+                        "1.7.0 onwards; upgrading is the only way to tell these "
+                        "streams apart. Ignore this if they do share one schema"
+                    ),
+                    context=(
+                        f"source_id={source_id}, schema={guessed_schema}, "
+                        f"configured_schemas={pipeline_info.source.configured_schemas}, "
+                        f"streams={streams_with_guessed_namespace}, "
+                        f"{connection_context}"
+                    ),
+                )
+                self._warned_streams_namespace_source_ids.add(source_id)
+
+        if (
+            streams_without_namespace
+            and not connection.streams_api_unavailable
+            and not connection.streams_api_namespaces_absent
+        ):
+            # Airbyte named a namespace for this source's other streams, so the
+            # version is not the story here and this cannot be deduped per
+            # source — a sibling connection may be missing different streams.
+            self.report.warning(
+                title="Stream Namespace Missing",
+                message=(
+                    "Airbyte reported no namespace for the streams below, though "
+                    "it did for others on this source, and nothing else supplied "
+                    "a schema for them, so their dataset URNs have no schema "
+                    "tier. Set a per-table schema in the connector configuration, "
+                    "or 'default_schema' for this source in "
+                    "'sources_to_platform_instance' if they all share one schema"
+                ),
+                context=(
+                    f"source_id={source_id}, "
+                    f"streams={streams_without_namespace}, {connection_context}"
+                ),
+            )
+
+        for stream_name, candidates in connection.ambiguous_stream_namespaces.items():
+            self.report.warning(
+                title="Ambiguous Stream Namespace",
+                message=(
+                    "Skipped namespace backfill because several discovered "
+                    "namespaces could belong to this stream and Airbyte does not "
+                    "say which; URNs fall back to the source default schema"
+                ),
+                context=(
+                    f"stream={stream_name}, candidates={candidates}, "
+                    f"{connection_context}"
+                ),
+            )
+
+        for skipped in connection.skipped_stream_payloads:
+            self.report.warning(
+                title="Unreadable Stream Payload",
+                message=(
+                    "Skipped an Airbyte stream payload that could not be parsed. "
+                    "A configurations.streams entry costs that stream's datasets "
+                    "and lineage; a /streams entry costs its namespace and columns"
+                ),
+                context=f"{skipped}, {connection_context}",
+            )
+
     def _fetch_streams_for_source(
         self, pipeline_info: AirbytePipelineInfo
     ) -> List[AirbyteStreamInfo]:
-        # We read streams from the connection's sync_catalog instead of the
-        # `/streams` endpoint — the latter is missing on older Airbyte (e.g.
-        # 0.30.1) and sync_catalog works across all versions.
-        source_id = pipeline_info.source.source_id
-        source_schema = pipeline_info.source.get_schema
+        # We read streams from the connection's sync_catalog rather than calling
+        # `/streams` here: the latter is missing on older Airbyte (e.g. 0.30.1)
+        # and sync_catalog works across all versions. The client does consult
+        # `/streams` when the Public API leaves the catalog's namespaces empty.
+        source = pipeline_info.source
+        source_id = source.source_id
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source_id, PlatformDetail()
+        )
 
         if not source_id:
             self.report.warning(
@@ -568,6 +690,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return []
 
+        streams_without_namespace: List[str] = []
+        streams_with_guessed_namespace: List[str] = []
+        guessed_schema = ""
+
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
                 continue
@@ -575,11 +701,21 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 continue
 
             stream = stream_config.stream
-            namespace = stream.namespace if stream.namespace else source_schema or ""
+            schema = self._resolve_source_schema(
+                stream_namespace=stream.namespace,
+                source=source,
+                source_details=source_details,
+                stream_name=stream.name,
+            )
+            if not schema.name:
+                streams_without_namespace.append(stream.name)
+            elif schema.guessed:
+                streams_with_guessed_namespace.append(stream.name)
+                guessed_schema = schema.name
 
             properties = {}
-            if stream.json_schema and "properties" in stream.json_schema:
-                properties = stream.json_schema.get("properties", {})
+            if stream.json_schema:
+                properties = stream.json_schema.get(JSON_SCHEMA_KEY_PROPERTIES, {})
 
             property_fields = [
                 PropertyFieldPath(path=[field_name])
@@ -589,12 +725,19 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
             stream_details = AirbyteStreamDetails(
                 stream_name=stream.name,
-                namespace=namespace,
+                namespace=schema.name,
                 property_fields=property_fields,
             )
             streams.append(
                 AirbyteStreamInfo(config=stream_config, details=stream_details)
             )
+
+        self._report_namespace_backfill_gaps(
+            pipeline_info,
+            streams_without_namespace=streams_without_namespace,
+            streams_with_guessed_namespace=streams_with_guessed_namespace,
+            guessed_schema=guessed_schema,
+        )
 
         return streams
 
@@ -872,18 +1015,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         connection = pipeline_info.connection
         table_prefix = connection.get_prefix
 
-        # MSSQL etc. carry per-table schemas in the source config; fall back
-        # to the source-wide schema if no per-table override exists.
-        config_schema = (
-            source.get_schema_for_table(stream.stream_name) or source.get_schema
-        )
-
-        schema_name = self._resolve_schema_name(
-            stream.namespace,
-            config_schema,
-            stream.stream_name,
-            source.source_id,
-        )
+        # Already resolved once per stream when the catalog was read.
+        schema_name = stream.namespace
         table_name = stream.stream_name
 
         if table_prefix:
@@ -891,8 +1024,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         # Some connectors (Stripe, Hubspot) emit `<schema>.<table>` as the
         # stream name; we only want the leaf for URN composition.
-        if "." in table_name:
-            table_name = table_name.split(".")[-1]
+        table_name = table_name.split(".")[-1]
 
         source_database = source.get_database
 
@@ -965,18 +1097,29 @@ class AirbyteSource(StatefulIngestionSourceBase):
             source_urn=source_urn, destination_urn=destination_urn
         )
 
-    def _resolve_schema_name(
+    def _resolve_source_schema(
         self,
         stream_namespace: Optional[str],
-        config_schema: Optional[str],
-        stream_name: str,
-        source_id: str,
-    ) -> str:
-        # Per-stream namespace (when set by Airbyte) is more specific than
-        # the connector-wide schema; fall back to the latter otherwise.
-        if stream_namespace:
-            return stream_namespace
-        return config_schema or ""
+        source: AirbyteSourcePartial,
+        source_details: PlatformDetail,
+        stream_name: Optional[str],
+    ) -> ResolvedSchema:
+        # Only these two are per-stream, so only they survive a source that
+        # replicates several schemas. They also outrank the connector-wide
+        # schema because that key can hold something that is not a schema at
+        # all — SQL Server sources sometimes carry the database name there.
+        per_stream = (
+            stream_namespace,
+            source.get_schema_for_table(stream_name) if stream_name else None,
+        )
+        name = next((candidate for candidate in per_stream if candidate), None)
+        if name:
+            return ResolvedSchema(name=name)
+
+        return ResolvedSchema(
+            name=source_details.default_schema or source.get_schema or "",
+            guessed=source.schema_is_guess,
+        )
 
     def _resolve_destination_schema(
         self,
@@ -1003,10 +1146,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
             dest_config_schema = destination.get_schema
             if dest_config_schema:
                 return dest_config_schema
-        elif namespace_def in ("customformat", "custom_format"):
+        elif namespace_def in (NAMESPACE_DEFINITION_CUSTOM_FORMAT, "custom_format"):
             namespace_fmt = connection.get_namespace_format
             if namespace_fmt:
-                return namespace_fmt.replace("${SOURCE_NAMESPACE}", source_schema)
+                return namespace_fmt.replace(
+                    SOURCE_NAMESPACE_PLACEHOLDER, source_schema
+                )
 
         dest_config_schema = destination.get_schema
         if dest_config_schema:

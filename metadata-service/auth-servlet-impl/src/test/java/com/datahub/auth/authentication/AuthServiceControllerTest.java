@@ -1,8 +1,10 @@
 package com.datahub.auth.authentication;
 
 import static com.datahub.auth.authentication.AuthServiceTestConfiguration.SYSTEM_CLIENT_ID;
+import static com.linkedin.metadata.Constants.DATAHUB_LOGIN_SOURCE_HEADER_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.DATAHUB_LOGIN;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -29,7 +31,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
@@ -46,6 +50,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -71,6 +76,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @BeforeMethod
   public void stubSessionEligibility() {
     reset(mockUserSessionEligibilityChecker);
+    reset(mockMetricUtils);
     when(mockUserSessionEligibilityChecker.checkEligibility(
             any(OperationContext.class), anyString(), anyBoolean()))
         .thenReturn(Optional.empty());
@@ -95,6 +101,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Autowired private SpanContext mockSpanContext;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private TrackingService mockTrackingService;
+  @Autowired private MetricUtils mockMetricUtils;
 
   @Autowired private UserSessionEligibilityChecker mockUserSessionEligibilityChecker;
 
@@ -201,6 +208,63 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     Actor capturedActor = actorCaptor.getValue();
     assertEquals(userId, capturedActor.getId());
+    verifyLoginMetric("success", "unknown", "none");
+  }
+
+  @Test
+  public void testGenerateSessionTokenForUserSuccessWithLoginSource() throws Exception {
+    String userId = "ssoUser";
+    String generatedToken = "sso-token";
+
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockTokenService.generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong()))
+        .thenReturn(generatedToken);
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(DATAHUB_LOGIN_SOURCE_HEADER_NAME, LoginSource.SSO_LOGIN.getSource());
+    HttpEntity<String> httpEntity =
+        new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    verifyLoginMetric("success", LoginSource.SSO_LOGIN.getSource(), "none");
+  }
+
+  @Test
+  public void testGenerateSessionTokenForUserUnknownLoginSourceHeader() throws Exception {
+    String userId = "testUser";
+    String generatedToken = "test-token";
+
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockTokenService.generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong()))
+        .thenReturn(generatedToken);
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(DATAHUB_LOGIN_SOURCE_HEADER_NAME, "not-a-real-source");
+    HttpEntity<String> httpEntity =
+        new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    verifyLoginMetric("success", "unknown", "none");
   }
 
   @Test(expectedExceptions = CompletionException.class)
@@ -259,7 +323,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     ObjectNode requestBody = objectMapper.createObjectNode();
     requestBody.put("userId", userId);
-    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(DATAHUB_LOGIN_SOURCE_HEADER_NAME, LoginSource.SSO_LOGIN.getSource());
+    HttpEntity<String> httpEntity =
+        new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
     ResponseEntity<String> response =
         authServiceController.generateSessionTokenForUser(request, httpEntity).join();
@@ -270,6 +337,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         LoginDenialReason.SOFT_DELETED.name(), responseJson.get("loginDenialReason").asText());
     verify(mockTokenService, never())
         .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
+    verifyLoginMetric(
+        "failure", LoginSource.SSO_LOGIN.getSource(), LoginDenialReason.SOFT_DELETED.name());
   }
 
   @Test
@@ -300,6 +369,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertTrue(responseJson.get("doesPasswordMatch").asBoolean());
     assertEquals(
         LoginDenialReason.SUSPENDED.name(), responseJson.get("loginDenialReason").asText());
+    verifyLoginMetric(
+        "failure", LoginSource.PASSWORD_LOGIN.getSource(), LoginDenialReason.SUSPENDED.name());
   }
 
   @Test
@@ -589,6 +660,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(
         LoginDenialReason.INVALID_CREDENTIALS.name(),
         responseJson.get("loginDenialReason").asText());
+    verifyLoginMetric(
+        "failure",
+        LoginSource.PASSWORD_LOGIN.getSource(),
+        LoginDenialReason.INVALID_CREDENTIALS.name());
   }
 
   @Test
@@ -796,6 +871,19 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     ResponseEntity<String> response = authServiceController.getSsoSettings(request, null).join();
 
     assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
+  private void verifyLoginMetric(String outcome, String loginSource, String denialReason) {
+    verify(mockMetricUtils)
+        .incrementMicrometer(
+            eq(DATAHUB_LOGIN),
+            eq(1.0),
+            eq("outcome"),
+            eq(outcome),
+            eq("login_source"),
+            eq(loginSource),
+            eq("denial_reason"),
+            eq(denialReason));
   }
 
   /*

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -53,6 +54,17 @@ public class ReindexConfig {
       Stream.concat(SETTINGS_DYNAMIC.stream(), SETTINGS_STATIC.stream())
           .collect(Collectors.toList());
 
+  /**
+   * Mapping parameters that Elasticsearch/OpenSearch accept on an <i>existing</i> field via {@code
+   * PUT /<index>/_mapping}. A modified field whose changed leaf keys are all in this set can be
+   * applied live instead of forcing a reindex.
+   *
+   * <p>{@code ignore_above} sits on the keyword surface of TEXT / TEXT_PARTIAL / WORD_GRAM, which
+   * exist on nearly every index — so classifying a change to it as reindex-requiring makes {@code
+   * system-update} attempt to rebuild the whole fleet at once.
+   */
+  public static final Set<String> IN_PLACE_UPDATABLE_MAPPING_PARAMETERS = Set.of(IGNORE_ABOVE);
+
   private final String name;
   private final boolean exists;
   private final Settings currentSettings;
@@ -70,6 +82,25 @@ public class ReindexConfig {
   private boolean requiresApplySettings;
   private boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
+
+  /**
+   * True when the mapping diff modifies existing fields but every modification is confined to an
+   * in-place updatable mapping parameter (see {@link #IN_PLACE_UPDATABLE_MAPPING_PARAMETERS}). Such
+   * a diff is applied with a single {@code PutMappingRequest} — no reindex and no backfill. New
+   * fields may be present alongside, since adding fields is already an in-place operation.
+   *
+   * <p>Removals are excluded: dropping {@code ignore_above} makes writes <i>stricter</i> and would
+   * reintroduce immense-term rejections on indices that currently carry the guard.
+   */
+  private final boolean isInPlaceMappingParameterUpdate;
+
+  /**
+   * True when existing documents should eventually be rebuilt under an in-place mapping parameter
+   * update. Applying the mapping live only changes how subsequent writes are indexed, so a
+   * controlled incremental rebuild is required for consistent historical search behavior.
+   */
+  private final boolean requiresMappingReconciliation;
+
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
@@ -137,6 +168,14 @@ public class ReindexConfig {
     }
 
     private ReindexConfigBuilder isPureMappingsAddition(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder isInPlaceMappingParameterUpdate(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder requiresMappingReconciliation(boolean ignored) {
       return this;
     }
 
@@ -280,6 +319,13 @@ public class ReindexConfig {
             super.requiresApplyMappings
                 && mappingsDiff.entriesDiffering().isEmpty()
                 && !mappingsDiff.entriesOnlyOnRight().isEmpty();
+        Set<String> inPlaceApplyableFields =
+            inPlaceApplyableDifferingFields(mappingsDiff.entriesDiffering());
+        super.isInPlaceMappingParameterUpdate =
+            super.requiresApplyMappings
+                && !inPlaceApplyableFields.isEmpty()
+                && inPlaceApplyableFields.equals(mappingsDiff.entriesDiffering().keySet());
+        super.requiresMappingReconciliation = super.isInPlaceMappingParameterUpdate;
         // Compute SP diffs independently of mappingsDiff because calculateMapDifference
         // strips dynamic fields (including structuredProperties) from the comparison.
         Pair<Long, Long> spDiffCount =
@@ -331,9 +377,12 @@ public class ReindexConfig {
             mappingsDiff.entriesOnlyOnRight().keySet().stream()
                 .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
                 .collect(Collectors.toSet());
+        // In-place parameter updates are excluded: they change how subsequent writes are indexed,
+        // not what any document stores, so there is nothing to backfill.
         Set<String> modifiedNonStructuredPropertyFields =
             mappingsDiff.entriesDiffering().keySet().stream()
                 .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .filter(key -> !inPlaceApplyableFields.contains(key))
                 .collect(Collectors.toSet());
         super.requiresDataBackfill =
             !newNonStructuredPropertyFields.isEmpty()
@@ -344,9 +393,16 @@ public class ReindexConfig {
               "Index: {} - New fields have been added to index. Adding: {}",
               super.name,
               mappingsDiff.entriesOnlyOnRight());
+        } else if (super.requiresApplyMappings && super.isInPlaceMappingParameterUpdate) {
+          log.info(
+              "Index: {} - Mapping parameter change applyable in place, no reindex required."
+                  + " Fields: {} Adding: {}",
+              super.name,
+              inPlaceApplyableFields,
+              mappingsDiff.entriesOnlyOnRight().keySet());
         } else if (super.requiresApplyMappings) {
           log.info(
-              "Index: {} - There's diff between new mappings (left) and old mappings (right): {}",
+              "Index: {} - There's diff between old mappings (left) and new mappings (right): {}",
               super.name,
               mappingsDiff.entriesDiffering());
         }
@@ -356,7 +412,9 @@ public class ReindexConfig {
         super.isSettingsReindex = isSettingsReindexRequired();
 
         /* Determine reindexing required - some settings and mappings do not require reindex, analysis always does */
-        if (super.requiresApplyMappings && !super.isPureMappingsAddition) {
+        if (super.requiresApplyMappings
+            && !super.isPureMappingsAddition
+            && !super.isInPlaceMappingParameterUpdate) {
           if (super.enableIndexMappingsReindex) {
             super.requiresReindex = true;
           } else {
@@ -440,6 +498,70 @@ public class ReindexConfig {
       } else {
         return getOrDefault(item, path.subList(1, path.size()));
       }
+    }
+
+    /**
+     * Subset of the modified top-level fields whose changes Elasticsearch/OpenSearch can apply to
+     * the live index via {@code PUT /<index>/_mapping}.
+     *
+     * @param entriesDiffering modified fields, keyed by top-level field name under {@code
+     *     properties}
+     * @return names of the fields that need no reindex
+     */
+    private static Set<String> inPlaceApplyableDifferingFields(
+        Map<String, MapDifference.ValueDifference<Object>> entriesDiffering) {
+      return entriesDiffering.entrySet().stream()
+          .filter(
+              entry ->
+                  isInPlaceApplyableMappingDiff(
+                      entry.getValue().leftValue(), entry.getValue().rightValue()))
+          .map(Map.Entry::getKey)
+          .collect(Collectors.toSet());
+    }
+
+    /**
+     * Whether every leaf difference between a field's current and target mapping is the addition or
+     * modification of an in-place updatable parameter.
+     *
+     * <p>Deliberately conservative — anything else keeps the existing reindex behaviour:
+     *
+     * <ul>
+     *   <li>a key present only in {@code current} is a <b>removal</b>. Removing {@code
+     *       ignore_above} makes writes stricter, so it must not be applied silently in place.
+     *   <li>an added key that is not an in-place updatable parameter is a structural change (a new
+     *       sub-field, a {@code copy_to}, an analyzer), which put-mapping cannot retrofit onto
+     *       already-indexed documents.
+     *   <li>a modified scalar that is not an in-place updatable parameter (notably {@code type})
+     *       cannot be changed on an existing field at all.
+     * </ul>
+     */
+    @SuppressWarnings("unchecked")
+    private static boolean isInPlaceApplyableMappingDiff(
+        @Nullable Object current, @Nullable Object target) {
+      if (!(current instanceof Map) || !(target instanceof Map)) {
+        return false;
+      }
+
+      MapDifference<String, Object> diff =
+          Maps.difference((Map<String, Object>) current, (Map<String, Object>) target);
+
+      if (!diff.entriesOnlyOnLeft().isEmpty()) {
+        return false;
+      }
+      if (!IN_PLACE_UPDATABLE_MAPPING_PARAMETERS.containsAll(diff.entriesOnlyOnRight().keySet())) {
+        return false;
+      }
+
+      return diff.entriesDiffering().entrySet().stream()
+          .allMatch(
+              entry -> {
+                Object leftValue = entry.getValue().leftValue();
+                Object rightValue = entry.getValue().rightValue();
+                if (leftValue instanceof Map && rightValue instanceof Map) {
+                  return isInPlaceApplyableMappingDiff(leftValue, rightValue);
+                }
+                return IN_PLACE_UPDATABLE_MAPPING_PARAMETERS.contains(entry.getKey());
+              });
     }
 
     /**

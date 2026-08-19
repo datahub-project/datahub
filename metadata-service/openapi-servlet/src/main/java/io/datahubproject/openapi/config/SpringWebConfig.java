@@ -66,7 +66,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   public GroupedOpenApi openApiGroupV2() {
     return GroupedOpenApi.builder()
         .group("openapi-v2")
-        .displayName("5. DataHub v2 (OpenAPI)")
+        .displayName("5. DataHub v2 (OpenAPI, deprecated)")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
         .addOpenApiCustomizer(this::configureServerUrl)

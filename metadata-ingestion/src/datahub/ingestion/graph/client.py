@@ -852,6 +852,37 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        """Retrieve a data product urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "values": [data_product_name],
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "dataProduct",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._search_endpoint, search_body)
+        value = results.get("value", {})
+        entities = value.get("entities") or []
+        num_entities = value.get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for data product name {data_product_name}. "
+                f"Will return the first match."
+            )
+        return entities[0]["entity"] if entities else None
+
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 
@@ -2046,8 +2077,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         platform_name: Optional[str] = None,
         platform_urn: Optional[str] = None,
         field_path: Optional[str] = None,
+        field_paths: Optional[List[str]] = None,
         external_url: Optional[str] = None,
         logic: Optional[str] = None,
+        scope: Optional[str] = None,
+        aggregation: Optional[str] = None,
+        operator: Optional[str] = None,
+        parameters: Optional[Dict] = None,
+        native_type: Optional[str] = None,
+        native_parameters: Optional[List[Dict[str, str]]] = None,
     ) -> Dict:
         graph_query: str = """
             mutation upsertCustomAssertion(
@@ -2056,22 +2094,36 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $type: String!,
                 $description: String!,
                 $fieldPath: String,
+                $fieldPaths: [String!],
                 $platformName: String,
                 $platformUrn: String,
                 $externalUrl: String,
-                $logic: String
+                $logic: String,
+                $scope: DatasetAssertionScope,
+                $aggregation: AssertionStdAggregation,
+                $operator: AssertionStdOperator,
+                $parameters: AssertionStdParametersInput,
+                $nativeType: String,
+                $nativeParameters: [StringMapEntryInput!]
             ) {
                 upsertCustomAssertion(urn: $assertionUrn, input: {
                     entityUrn: $entityUrn
                     type: $type
                     description: $description
                     fieldPath: $fieldPath
+                    fieldPaths: $fieldPaths
                     platform: {
                         urn: $platformUrn
                         name: $platformName
                     }
                     externalUrl: $externalUrl
                     logic: $logic
+                    scope: $scope
+                    aggregation: $aggregation
+                    operator: $operator
+                    parameters: $parameters
+                    nativeType: $nativeType
+                    nativeParameters: $nativeParameters
                 }) {
                         urn
                 }
@@ -2084,10 +2136,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "type": type,
             "description": description,
             "fieldPath": field_path,
+            "fieldPaths": field_paths,
             "platformName": platform_name,
             "platformUrn": platform_urn,
             "externalUrl": external_url,
             "logic": logic,
+            "scope": scope,
+            "aggregation": aggregation,
+            "operator": operator,
+            "parameters": parameters,
+            "nativeType": native_type,
+            "nativeParameters": native_parameters,
         }
 
         res = self.execute_graphql(

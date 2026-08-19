@@ -11,11 +11,135 @@
  * needed.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import type { APIRequestContext } from '@playwright/test';
 import { gmsUrl } from '../utils/constants';
 import type { DataHubLogger } from '../utils/logger';
 
 export type Urn = string;
+
+// ── Cross-worker artifact locking ────────────────────────────────────────────
+
+/**
+ * Live holders refresh the lock mtime on this interval. Must be well below
+ * LOCK_STALE_MS so a healthy producer never looks crashed to followers.
+ */
+const LOCK_HEARTBEAT_MS = 10_000;
+/**
+ * If a lock file is older than this with its artifact still missing, its
+ * holder is assumed to have crashed (missed several heartbeats); another
+ * worker reclaims it rather than wedging the whole run.
+ */
+const LOCK_STALE_MS = 45_000;
+const LOCK_POLL_MS = 500;
+/** How long a follower will wait for another worker's artifact before giving up. */
+const LOCK_WAIT_TIMEOUT_MS = 180_000;
+
+function newLockToken(): string {
+  return `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Renew mtime while we hold the lock so slow-but-live producers aren't stolen. */
+function startLockHeartbeat(lockPath: string, token: string): NodeJS.Timeout {
+  const heartbeat = setInterval(() => {
+    try {
+      if (fs.readFileSync(lockPath, 'utf-8') !== token) return;
+      const now = new Date();
+      fs.utimesSync(lockPath, now, now);
+    } catch {
+      // Lock gone or raced — produce()'s finally will no-op the release.
+    }
+  }, LOCK_HEARTBEAT_MS);
+  heartbeat.unref();
+  return heartbeat;
+}
+
+/** Remove the lock only if we still own it — never delete a reclaimer's lock. */
+function releaseLockIfOwned(lockPath: string, token: string): void {
+  try {
+    if (fs.readFileSync(lockPath, 'utf-8') !== token) return;
+    fs.rmSync(lockPath, { force: true });
+  } catch {
+    // Already gone.
+  }
+}
+
+/**
+ * Atomically claims responsibility for producing `artifactPath` across
+ * concurrent worker processes sharing the same filesystem (workers_per_shard
+ * > 1, or fullyParallel scheduling two files/describe-blocks that share a
+ * seed routine onto different workers). `fs.existsSync` + later
+ * `fs.writeFileSync` is a check-then-act race: two callers can both observe
+ * "absent" before either has written, and both duplicate the work.
+ * `fs.openSync(lockPath, 'wx')` is atomic exclusive create -- exactly one
+ * caller can win it -- so only the winner produces the artifact while
+ * everyone else polls for it instead.
+ *
+ * Ownership is a token written into the lock file; the holder heartbeats
+ * mtime during `produce()` so LOCK_STALE_MS reclaim cannot steal a live
+ * producer, and `finally` only deletes the lock when the token still matches
+ * (so a finishing holder cannot clobber a reclaimer's lock).
+ */
+export async function withArtifactLock(artifactPath: string, produce: () => Promise<void>): Promise<void> {
+  if (fs.existsSync(artifactPath)) return;
+
+  const lockPath = `${artifactPath}.lock`;
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+
+  for (;;) {
+    if (fs.existsSync(artifactPath)) return;
+
+    let fd: number | undefined;
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+
+    if (fd !== undefined) {
+      const token = newLockToken();
+      try {
+        fs.writeFileSync(fd, token);
+      } finally {
+        fs.closeSync(fd);
+      }
+      const heartbeat = startLockHeartbeat(lockPath, token);
+      try {
+        if (!fs.existsSync(artifactPath)) {
+          await produce();
+        }
+      } finally {
+        clearInterval(heartbeat);
+        releaseLockIfOwned(lockPath, token);
+      }
+      return;
+    }
+
+    if (Date.now() > deadline) {
+      throw new Error(`Timed out waiting for '${artifactPath}' to be produced by another worker (lock: ${lockPath})`);
+    }
+
+    try {
+      const age = Date.now() - fs.statSync(lockPath).mtimeMs;
+      if (age > LOCK_STALE_MS) fs.rmSync(lockPath, { force: true });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      // Lock file was removed between the acquisition attempt and stat/rm; re-poll.
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, LOCK_POLL_MS));
+  }
+}
+
+/** Write JSON atomically: readers never observe a partially-written file. */
+export function writeJsonAtomic(filePath: string, data: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}`;
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+  fs.renameSync(tmpPath, filePath);
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

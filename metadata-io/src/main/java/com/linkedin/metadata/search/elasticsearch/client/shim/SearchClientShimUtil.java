@@ -453,7 +453,10 @@ public class SearchClientShimUtil {
 
     // Create a new config with the detected engine type
     ShimConfiguration detectedConfig =
-        new ShimConfigurationBuilder(config).withEngineType(detectedType).build();
+        new ShimConfigurationBuilder(config)
+            .withEngineType(detectedType)
+            .withEngineTypeAutoDetected(true)
+            .build();
 
     return createShim(detectedConfig, objectMapper);
   }
@@ -477,6 +480,7 @@ public class SearchClientShimUtil {
       ShimConfiguration testConfig =
           new ShimConfigurationBuilder(config)
               .withEngineType(SearchEngineType.OPENSEARCH_2)
+              .withEngineTypeAutoDetected(true)
               .build();
 
       try (SearchClientShim<?> testShim = new OpenSearch2SearchClientShim(testConfig)) {
@@ -498,6 +502,7 @@ public class SearchClientShimUtil {
       ShimConfiguration testConfig =
           new ShimConfigurationBuilder(config)
               .withEngineType(SearchEngineType.ELASTICSEARCH_7)
+              .withEngineTypeAutoDetected(true)
               .build();
 
       try (SearchClientShim<?> testShim = new Es7CompatibilitySearchClientShim(testConfig)) {
@@ -519,6 +524,7 @@ public class SearchClientShimUtil {
       ShimConfiguration testConfig =
           new ShimConfigurationBuilder(config)
               .withEngineType(SearchEngineType.ELASTICSEARCH_8)
+              .withEngineTypeAutoDetected(true)
               .build();
 
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
@@ -567,6 +573,7 @@ public class SearchClientShimUtil {
     private Integer connectionRequestTimeout = 5000;
     private Integer socketTimeout = 30000;
     private SSLContext sSLContext;
+    private boolean engineTypeAutoDetected = false;
 
     public ShimConfigurationBuilder() {}
 
@@ -584,6 +591,7 @@ public class SearchClientShimUtil {
       this.connectionRequestTimeout = existing.getConnectionRequestTimeout();
       this.socketTimeout = existing.getSocketTimeout();
       this.sSLContext = existing.getSSLContext();
+      this.engineTypeAutoDetected = existing.isEngineTypeAutoDetected();
     }
 
     public ShimConfigurationBuilder withEngineType(SearchEngineType engineType) {
@@ -643,6 +651,11 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withEngineTypeAutoDetected(boolean engineTypeAutoDetected) {
+      this.engineTypeAutoDetected = engineTypeAutoDetected;
+      return this;
+    }
+
     public ShimConfiguration build() {
       return new ShimConfigurationImpl(
           engineType,
@@ -657,7 +670,8 @@ public class SearchClientShimUtil {
           threadCount,
           connectionRequestTimeout,
           socketTimeout,
-          sSLContext);
+          sSLContext,
+          engineTypeAutoDetected);
     }
   }
 
@@ -677,6 +691,7 @@ public class SearchClientShimUtil {
     private final Integer connectionRequestTimeout;
     private final Integer socketTimeout;
     private final SSLContext sSLContext;
+    private final boolean engineTypeAutoDetected;
 
     public ShimConfigurationImpl(
         SearchEngineType engineType,
@@ -691,7 +706,8 @@ public class SearchClientShimUtil {
         Integer threadCount,
         Integer connectionRequestTimeout,
         Integer socketTimeout,
-        SSLContext sslContext) {
+        SSLContext sslContext,
+        boolean engineTypeAutoDetected) {
       this.engineType = engineType;
       this.host = host;
       this.port = port;
@@ -705,6 +721,7 @@ public class SearchClientShimUtil {
       this.connectionRequestTimeout = connectionRequestTimeout;
       this.socketTimeout = socketTimeout;
       this.sSLContext = sslContext;
+      this.engineTypeAutoDetected = engineTypeAutoDetected;
     }
   }
 }
