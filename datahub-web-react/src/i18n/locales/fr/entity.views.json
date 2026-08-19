@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "L'instance de plateforme spécifique où se trouve l'Asset.",
     "prop.softDeleted": "Supprimé provisoirement",
     "prop.softDeletedDesc": "Indique si l'Asset a été supprimé provisoirement.",
+    "prop.structuredPropertyGroup": "Propriété structurée",
     "prop.subType": "Sous-type",
     "prop.subTypeDesc": "Le sous-type de l'Asset (par exemple Table, Vue, Topic).",
     "publicTab": "Vues publiques",

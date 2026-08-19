@@ -267,7 +267,10 @@ class AirbyteBaseClient(ABC):
         return [AirbyteWorkspacePartial.model_validate(w) for w in workspaces_data]
 
     def list_connections(
-        self, workspace_id: str, pattern: Optional[AllowDenyPattern] = None
+        self,
+        workspace_id: str,
+        pattern: Optional[AllowDenyPattern] = None,
+        include_inactive: bool = False,
     ) -> List[AirbyteConnectionPartial]:
         self._check_auth_before_request()
         params = {API_QUERY_WORKSPACE_ID: workspace_id}
@@ -279,16 +282,17 @@ class AirbyteBaseClient(ABC):
             )
         )
 
-        active_connections = [
-            conn
-            for conn in connections
-            if conn.get(API_FIELD_STATUS) != API_STATUS_INACTIVE
-        ]
+        if not include_inactive:
+            connections = [
+                conn
+                for conn in connections
+                if conn.get(API_FIELD_STATUS) != API_STATUS_INACTIVE
+            ]
 
         if pattern:
-            active_connections = apply_pattern(active_connections, pattern)
+            connections = apply_pattern(connections, pattern)
 
-        return [AirbyteConnectionPartial.model_validate(c) for c in active_connections]
+        return [AirbyteConnectionPartial.model_validate(c) for c in connections]
 
     def list_jobs(
         self,

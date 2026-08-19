@@ -1,7 +1,11 @@
 import json
 import logging
+import time
 from random import randint
 
+import pytest
+
+from datahub.cli.migration_utils import get_incoming_relationships
 from datahub.emitter.mce_builder import (
     make_dashboard_urn,
     make_data_platform_urn,
@@ -47,9 +51,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urns, run_datahub_cmd
+from tests.utilities.domains import Domain
+from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 PLATFORM = "snowflake"
 ENV = "PROD"
@@ -380,6 +387,29 @@ def _seed_urns_mapping_scenario(graph_client: DataHubGraph) -> None:
     wait_for_writes_to_sync()
 
 
+def _wait_for_incoming_asserts(
+    graph: DataHubGraph, dataset_urn: str, assertion_urns: list[str]
+) -> None:
+    """Poll until assertion URNs are incoming Asserts edges on the dataset."""
+    expected = set(assertion_urns)
+    sleep_sec, sleep_times = get_sleep_info()
+    found: set[str] = set()
+    for attempt in range(sleep_times):
+        found = {
+            rel.urn
+            for rel in get_incoming_relationships(dataset_urn, graph=graph)
+            if rel.relationship_type == "Asserts"
+        }
+        if expected <= found:
+            return
+        if attempt < sleep_times - 1:
+            time.sleep(sleep_sec)
+    raise AssertionError(
+        f"Incoming Asserts on {dataset_urn} did not include {sorted(expected)}; "
+        f"found {sorted(found)}"
+    )
+
+
 def test_urns_mapping_full_scenario(graph_client: DataHubGraph, tmp_path) -> None:
     """A multi-entity urns-mapping migration (dataset + dashboard) carries every
     user aspect, rewrites the dataset's own column-level lineage, and repoints the
@@ -397,6 +427,7 @@ def test_urns_mapping_full_scenario(graph_client: DataHubGraph, tmp_path) -> Non
     delete_urns(graph_client, all_urns)
     wait_for_writes_to_sync()
     _seed_urns_mapping_scenario(graph_client)
+    _wait_for_incoming_asserts(graph_client, um_ds_src, [um_assert1, um_assert2])
 
     # Migrate the referenced entity (dataset) before the referrer (dashboard):
     # the dataset's incoming-reference pass repoints the dashboard in the primary
@@ -490,6 +521,7 @@ def test_assertion_reference_is_rewritten(graph_client: DataHubGraph) -> None:
     ]:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    _wait_for_incoming_asserts(graph_client, asrt_src, [assertion_urn])
 
     try:
         result = run_datahub_cmd(

@@ -56,7 +56,9 @@ import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -86,6 +88,7 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
@@ -96,13 +99,17 @@ import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.http.HttpStatus;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -1855,6 +1862,117 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     assertFalse(capturedFlags.isSkipCache());
     assertFalse(capturedFlags.isIncludeSoftDeleted());
     assertNull(capturedFlags.getSliceOptions());
+  }
+
+  @Test
+  public void testPatchEntityBatchAuthAllowed() throws Exception {
+    Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,batch-auth,PROD)");
+    stubIngestProposalReturningUrn(testUrn);
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+      authUtils
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedBatchItems(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Collection<? extends BatchItem> items = invocation.getArgument(1);
+                return items.stream()
+                    .map(item -> Pair.of((BatchItem) item, HttpStatus.SC_OK))
+                    .collect(Collectors.toList());
+              });
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.patch("/openapi/v3/entity/dataset")
+                  .content(statusRemovedFalsePatchBody(testUrn))
+                  .contentType("application/json-patch+json")
+                  .param("async", "false")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(testUrn.toString()));
+    }
+
+    verify(mockEntityService)
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), eq(false));
+  }
+
+  @Test
+  public void testPatchEntityBatchAuthDenied() throws Exception {
+    Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,batch-auth-deny,PROD)");
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+      authUtils
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedBatchItems(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Collection<? extends BatchItem> items = invocation.getArgument(1);
+                return items.stream()
+                    .map(item -> Pair.of((BatchItem) item, HttpStatus.SC_FORBIDDEN))
+                    .collect(Collectors.toList());
+              });
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.patch("/openapi/v3/entity/dataset")
+                  .content(statusRemovedFalsePatchBody(testUrn))
+                  .contentType("application/json-patch+json")
+                  .param("async", "false")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+    }
+
+    verify(mockEntityService, times(0))
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  private static String statusRemovedFalsePatchBody(Urn urn) {
+    return "[\n"
+        + "    {\n"
+        + "      \"urn\": \""
+        + urn
+        + "\",\n"
+        + "      \"status\": {\n"
+        + "        \"value\": {\n"
+        + "          \"patch\": [{\n"
+        + "            \"op\": \"add\",\n"
+        + "            \"path\": \"/removed\",\n"
+        + "            \"value\": false\n"
+        + "          }]\n"
+        + "        }\n"
+        + "      }\n"
+        + "    }\n"
+        + "]";
+  }
+
+  private void stubIngestProposalReturningUrn(Urn urn) {
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              AspectsBatch batch = invocation.getArgument(1);
+              List<IngestResult> results = new ArrayList<>();
+              for (MCPItem item : batch.getMCPItems()) {
+                results.add(
+                    IngestResult.builder()
+                        .urn(item.getUrn())
+                        .request(item)
+                        .result(
+                            UpdateAspectResult.builder()
+                                .urn(item.getUrn())
+                                .auditStamp(item.getAuditStamp())
+                                .newValue(new Status().setRemoved(false))
+                                .newSystemMetadata(new SystemMetadata())
+                                .build())
+                        .sqlCommitted(true)
+                        .isUpdate(true)
+                        .publishedMCL(true)
+                        .build());
+              }
+              return results;
+            });
   }
 
   private SearchResultMetadata testSearchResultMetadata() {
