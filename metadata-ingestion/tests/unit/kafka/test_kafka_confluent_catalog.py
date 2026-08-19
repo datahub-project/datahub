@@ -192,9 +192,8 @@ class TestCatalogCredentialMasking:
             schema_registry_config={"basic.auth.user.info": "sr-key:sr-secret"},
         )
 
-        # basic.auth.user.info lives in a plain Dict, so the ConfigModel secret
-        # walker never sees it; the after-validator must register the inherited
-        # halves by hand or they log in the clear.
+        # basic.auth.user.info lives in a plain Dict the ConfigModel secret walker
+        # never sees, so the after-validator must register the inherited halves by hand.
         registry = SecretRegistry.get_instance()
         assert registry.get_secret_value("confluent_catalog.api_secret") == "sr-secret"
 
@@ -438,7 +437,6 @@ class TestCatalogMetadataOnTopics:
 
         workunits = list(source.get_workunits())
 
-        # Tags we did see are still applied; only the (unknown) dropped topics are at risk.
         tags = aspects_of(workunits, "globalTags")
         assert any(
             isinstance(aspect, GlobalTagsClass)

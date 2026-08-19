@@ -19,7 +19,6 @@ from datahub.ingestion.source.confluent.models import CatalogEntityType
 
 logger = logging.getLogger(__name__)
 
-# HTTP statuses that mean "wrong key / no Stream Governance", not "one bad entity".
 _CREDENTIAL_REJECTED_STATUSES = (401, 403)
 
 
@@ -32,9 +31,8 @@ class _CatalogPage:
 @dataclass(frozen=True)
 class CatalogFetchResult(Generic[CatalogEntityType]):
     entities: List[CatalogEntityType]
-    # False when a page failed mid-pagination or the page safety limit tripped. The
-    # catalog is then only partially known, so callers must not treat a missing
-    # entity as authoritative (e.g. replacing a topic's tags with a reduced set).
+    # False on a partial read (a page failed or the safety limit tripped): a missing
+    # entity is then unknown, not absent, so callers must not treat it as authoritative.
     complete: bool
 
 
@@ -76,8 +74,6 @@ class ConfluentStreamCatalogClient:
         entities: List[CatalogEntityType] = []
         offset = 0
         pages = 0
-        # Flips to False the moment a page is missing, so callers can tell a fully
-        # enumerated catalog from one we only saw part of.
         complete = True
 
         while True:
@@ -145,10 +141,8 @@ class ConfluentStreamCatalogClient:
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else None
             if status in _CREDENTIAL_REJECTED_STATUSES:
-                # Wrong key, or a key without Stream Catalog read access / an
-                # Essentials-tier environment: not a transient hiccup, and it makes
-                # the whole catalog unreadable, so surface it as a run failure with
-                # an actionable message instead of burying it as one more warning.
+                # A wrong key or an Essentials-tier environment makes the whole catalog
+                # unreadable, so fail the run rather than bury it as one more warning.
                 self.report.failure(
                     message="The Confluent Stream Catalog rejected the credentials; check the "
                     "Schema Registry API key has catalog read access on a Stream Governance "

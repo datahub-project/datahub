@@ -31,8 +31,6 @@ class KafkaTopicCatalog:
         self.report = report
         self.client = client or ConfluentStreamCatalogClient(config, report)
         self._topics: Optional[NameIndex[CatalogKafkaTopic]] = None
-        # False once we know the catalog was only partially read, so callers can
-        # avoid replacing a topic's tags with a set that is missing entries.
         self._complete = True
 
     def get_topic(self, topic_name: str) -> Optional[CatalogKafkaTopic]:

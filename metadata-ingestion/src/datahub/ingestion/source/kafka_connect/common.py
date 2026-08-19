@@ -921,9 +921,8 @@ class BaseConnector:
         nothing) must not fall through to the whole-cluster list. Results are sorted
         so downstream lineage ordering is deterministic across processes.
         """
-        # None = cluster list unavailable (fall back to the configured subscription);
-        # [] = authoritative empty cluster, so a configured subscription is stale and
-        # resolves to nothing rather than lineage for topics that no longer exist.
+        # None = cluster list unavailable (fall back to the subscription); [] = an
+        # authoritative empty cluster, so a configured subscription resolves to nothing.
         runtime_topics = self.topics_for_regex_expansion()
         subscribed_topics_set = set(subscribed_topics)
         subscription_configured = self._sink_has_topic_subscription()

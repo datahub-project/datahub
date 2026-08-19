@@ -37,8 +37,6 @@ class ConnectorCatalog:
         self.report = report
         self.client = client or ConfluentStreamCatalogClient(config, report)
         self._connectors: Optional[NameIndex[CatalogConnector]] = None
-        # False once we know the catalog was only partially read, so callers can
-        # avoid replacing a connector's tags with a set that is missing entries.
         self._complete = True
 
     def is_complete(self) -> bool:

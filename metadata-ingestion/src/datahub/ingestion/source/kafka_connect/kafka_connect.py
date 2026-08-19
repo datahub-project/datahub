@@ -77,16 +77,12 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogLineageOutcome(Enum):
-    # Catalog was not consulted for this connector (no catalog entry, lineage
-    # disabled, or not a source), so the caller behaves as if there were no catalog.
+    # No catalog entry, lineage disabled, or not a source: behave as if no catalog.
     NOT_APPLICABLE = auto()
-    # Catalog applies but lists no topics for this connector, so the caller falls
-    # back to the connector's config-inferred lineage and records the fallback.
+    # Catalog applies but lists no topics: fall back to config-inferred lineage.
     NO_CATALOG_TOPICS = auto()
-    # Catalog listed topics but every one was absent from the live Kafka cluster,
-    # so a recognised connector emits no lineage rather than config-inferred edges.
+    # Every catalog topic was absent from the live cluster: emit no lineage.
     FILTERED_OUT = auto()
-    # Catalog produced usable lineage edges.
     RESOLVED = auto()
 
 
@@ -277,8 +273,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         if catalog.outcome == CatalogLineageOutcome.RESOLVED:
             connector_manifest.lineages = catalog.lineages
         elif catalog.outcome == CatalogLineageOutcome.FILTERED_OUT and connector:
-            # Only a recognised connector suppresses its config-inferred fallback here;
-            # an unsupported one falls through to be dropped below.
+            # Unsupported connectors fall through to be dropped below instead.
             connector_manifest.lineages = []
             self.report.warning(
                 message="Dropping all lineage for a connector because none of its "
@@ -644,11 +639,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             response.raise_for_status()
             topics_data = response.json()
 
-            # The Kafka V3 topic-list endpoint does not paginate — `metadata.next` is
-            # in the schema but is always null here — so this single read is the whole
-            # cluster. The None (unavailable) vs [] (empty cluster) distinction below is
-            # deliberate and load-bearing for the catalog cross-check; do not "fix" this
-            # into topic_cache.py's next-following, []-on-failure shape.
+            # The Kafka V3 topic-list endpoint does not paginate (`metadata.next` is
+            # always null), so this single read is the whole cluster. The None
+            # (unavailable) vs [] (empty cluster) distinction below is load-bearing for
+            # the catalog cross-check; don't collapse it into topic_cache.py's shape.
             if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
                 all_topics = [
                     topic["topic_name"]
