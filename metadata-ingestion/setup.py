@@ -1363,6 +1363,9 @@ setuptools.setup(
         ),
         "sso": list(framework_common | {"playwright>=1.40.0,<2.0.0"}),
         "cloud": ["acryl-datahub-cloud"],
+        # TODO: add a >= bound once the acryl-datahub-cloud release shipping the
+        # datahub-evals extra is on PyPI. Until then an older installed cloud
+        # release satisfies this and `datahub evals` stays a shim.
         "datahub-evals": ["acryl-datahub-cloud[datahub-evals]"],
         "dev": list(dev_requirements),
         "docs": list(

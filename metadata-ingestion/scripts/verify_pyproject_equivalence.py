@@ -199,7 +199,7 @@ def main():
 
     # "datahub-evals" extra forwards to the cloud package's own extra
     total += 1
-    setup_evals = {"acryl-datahub-cloud[datahub-evals]"}
+    setup_evals = set(ns["_setup_args"]["extras_require"]["datahub-evals"])
     pyproject_evals = resolve_extra("datahub-evals", optional_deps, resolve_cache)
     if not compare_sets("datahub-evals", setup_evals, pyproject_evals):
         mismatches += 1
