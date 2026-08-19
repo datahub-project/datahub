@@ -2,7 +2,6 @@ import io
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from boto3.session import Session
@@ -279,11 +278,10 @@ class TestGetFieldsZip:
         self._write_zip(zip_path, "data.csv", b"name,age\nAlice,30\n")
 
         source = _make_local_source()
-        with patch.object(source.report, "report_warning") as mock_warn:
-            fields = source.get_fields(
-                self._table_data(str(zip_path)),
-                PathSpec(include=str(tmp_path / "*.zip"), enable_compression=False),
-            )
+        fields = source.get_fields(
+            self._table_data(str(zip_path)),
+            PathSpec(include=str(tmp_path / "*.zip"), enable_compression=False),
+        )
 
         assert fields == []
-        mock_warn.assert_called_once()
+        assert any("unsupported extension" in w.message for w in source.report.warnings)
