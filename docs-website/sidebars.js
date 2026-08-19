@@ -23,11 +23,6 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
-          type: "doc",
-          label: "Use Docs with AI",
-          id: "docs/use-docs-with-ai",
-        },
-        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -681,6 +676,11 @@ module.exports = {
           id: "docs/features/feature-guides/views/overview",
         },
       ],
+    },
+    {
+      type: "doc",
+      label: "Use Docs with AI Tools",
+      id: "docs/use-docs-with-ai",
     },
     // DataHub Cloud.
     {
