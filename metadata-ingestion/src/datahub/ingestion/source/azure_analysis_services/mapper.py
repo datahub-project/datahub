@@ -78,7 +78,7 @@ class AasMapper:
         # same logical entity and merge in the catalog.
         self._align_powerbi = self.config.platform == constants.PLATFORM_POWERBI
 
-    # --- Container keys ---------------------------------------------------
+    # Container keys
 
     def _server_key(self) -> AasServerContainerKey:
         return AasServerContainerKey(
@@ -97,7 +97,7 @@ class AasMapper:
             model=catalog,
         )
 
-    # --- URN naming -------------------------------------------------------
+    # URN naming
 
     def _table_dataset_name(self, catalog: str, table_name: str) -> str:
         if self._align_powerbi:
@@ -133,7 +133,7 @@ class AasMapper:
     def _cube_dataset_urn(self, catalog: str) -> str:
         return self._dataset_urn(self._cube_dataset_name(catalog))
 
-    # --- Shared dataset aspects -------------------------------------------
+    # Shared dataset aspects
 
     @staticmethod
     def _status_wu(dataset_urn: str) -> MetadataWorkUnit:
@@ -154,7 +154,7 @@ class AasMapper:
             ),
         ).as_workunit()
 
-    # --- Top-level entry --------------------------------------------------
+    # Top-level entry
 
     def map_model(self, model: AasTabularModel) -> Iterable[MetadataWorkUnit]:
         server_key = self._server_key()
@@ -204,7 +204,7 @@ class AasMapper:
 
         yield from self._map_cube_dataset(model, model_key)
 
-    # --- Model container properties ---------------------------------------
+    # Model container properties
 
     def _model_container_properties(self, model: AasTabularModel) -> Dict[str, str]:
         props: Dict[str, str] = {
@@ -220,7 +220,7 @@ class AasMapper:
                 )
         return props
 
-    # --- Per-table datasets -----------------------------------------------
+    # Per-table datasets
 
     def _map_table(
         self,
@@ -316,7 +316,7 @@ class AasMapper:
             )
         return None
 
-    # --- Schema -----------------------------------------------------------
+    # Schema
 
     def _schema_metadata(
         self,
@@ -415,7 +415,7 @@ class AasMapper:
             )
         return constraints
 
-    # --- Model-level cube dataset -----------------------------------------
+    # Model-level cube dataset
 
     def _map_cube_dataset(
         self, model: AasTabularModel, model_key: AasModelContainerKey
@@ -478,7 +478,7 @@ class AasMapper:
             fields=fields,
         )
 
-    # --- Intra-model DAX lineage ------------------------------------------
+    # Intra-model DAX lineage
 
     def _intra_model_fgl_by_dataset(
         self, model: AasTabularModel, dataset_urn_by_table: Dict[str, str]

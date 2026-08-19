@@ -161,7 +161,7 @@ class AasCalcDependencyRow(AasRow):
     referenced_object: Optional[str] = Field(default=None, alias="REFERENCED_OBJECT")
 
 
-# --- Resolved domain models -----------------------------------------------
+# Resolved domain models
 # Assembled from the raw rows with foreign keys resolved. The column/table
 # shapes intentionally satisfy the shared M-Query engine protocols
 # (MQueryColumn / MQueryTable) so lineage can be driven without an adapter.
