@@ -503,16 +503,12 @@ class AutoResolveLineageUrnsProcessor(
                 # _resolvers_by_platform and out of scope. The warnings above already
                 # said why; a "loaded 0 URNs" line on top would only be noise.
                 continue
-            # The resolver caches are held for the pipeline's lifetime; log their size,
+            # The schema caches are held for the pipeline's lifetime; log their size,
             # escalating to WARNING once large enough to matter. Summed across the
-            # platform's slices, since their combined disk use is what matters.
-            # Read from the load rather than the stores: get_urns() is derived from the
-            # schema cache, which omits entities that have no schemaMetadata.
-            cache_count = sum(
-                r.report.num_urns_loaded for r in resolvers if r.report is not None
-            )
+            # platform's regions, since their combined disk use is what matters.
+            cache_count = sum(r.schema_count() for r in resolvers)
             message = (
-                f"Loaded {cache_count} '{platform}' dataset URNs for lineage casing "
+                f"Loaded {cache_count} '{platform}' dataset schemas for lineage casing "
                 f"reconciliation."
             )
             if cache_count > _CATALOG_SIZE_WARN_THRESHOLD:

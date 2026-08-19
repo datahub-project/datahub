@@ -73,15 +73,12 @@ class SchemaResolverProvider:
         needs only a subset of a large platform doesn't load the whole platform. A
         prefix is exact (unlike a free-text query, which over-matches shared prefixes).
         """
-        # Always given a report, so callers can read back what the load put in even when
-        # they did not supply one.
-        report = self._report or SchemaResolverReport()
         resolver = SchemaResolver(
             platform=platform,
             platform_instance=platform_instance,
             env=env,
             graph=None,
-            report=report,
+            report=self._report,
         )
         extra_filters: Optional[List[RawSearchFilterRule]] = (
             [
@@ -94,59 +91,36 @@ class SchemaResolverProvider:
         )
         scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
-        num_urns = 0
-        num_schemas = 0
+        count = 0
         with PerfTimer() as timer:
-            try:
-                for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(
-                    platform=platform,
-                    platform_instance=platform_instance,
-                    env=env,
-                    extraFilters=extra_filters,
-                    batch_size=self._batch_size,
-                ):
-                    num_urns += 1
-                    if schema_info is not None:
-                        try:
-                            resolver.add_graphql_schema_metadata(urn, schema_info)
-                            num_schemas += 1
-                        except Exception:
-                            logger.warning(
-                                f"Failed to add schema info for {urn}", exc_info=True
-                            )
+            for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                extraFilters=extra_filters,
+                batch_size=self._batch_size,
+            ):
+                try:
+                    resolver.add_graphql_schema_metadata(urn, schema_info)
+                    count += 1
+                except Exception:
+                    logger.warning(
+                        f"Failed to add schema info for {urn}", exc_info=True
+                    )
 
-                    if num_urns % 1000 == 0:
-                        logger.debug(
-                            f"Loaded {num_urns} urns in {timer.elapsed_seconds()} seconds"
-                        )
-            except Exception:
-                logger.warning(
-                    f"Bulk fetch for platform {platform}, env {env}{scope} failed after "
-                    f"{num_urns} urns.",
-                    exc_info=True,
-                )
-                raise
+                if count > 0 and count % 1000 == 0:
+                    logger.debug(
+                        f"Loaded {count} schema info in {timer.elapsed_seconds()} seconds"
+                    )
             logger.info(
-                f"Finished loading {num_urns} urns ({num_schemas} with schemas) in "
-                f"{timer.elapsed_seconds()} seconds"
+                f"Finished loading {count} schema info in {timer.elapsed_seconds()} seconds"
             )
-        report.num_urns_loaded += num_urns
-        report.num_schemas_loaded += num_schemas
 
-        fetched_scope = (
-            f"platform={platform}, platform_instance={platform_instance}, env={env}"
-        )
-        if num_urns == 0:
+        if count == 0:
             logger.warning(
-                f"Bulk fetch returned 0 datasets for {fetched_scope}. Schema resolver "
-                "will be empty — SQL lineage may be incomplete."
-            )
-        elif num_schemas == 0:
-            # The datasets resolve by URN, but with no schemaMetadata there are no columns
-            # to match against, so column-level lineage cannot be produced.
-            logger.warning(
-                f"Bulk fetch found {num_urns} datasets for {fetched_scope} but none had "
-                "a schema — SQL lineage may be incomplete."
+                f"Bulk schema fetch returned 0 results for platform={platform}, "
+                f"platform_instance={platform_instance}, env={env}. "
+                "Schema resolver will be empty — SQL lineage may be incomplete."
             )
         return resolver
 
