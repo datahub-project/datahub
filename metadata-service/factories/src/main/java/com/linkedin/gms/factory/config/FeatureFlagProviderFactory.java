@@ -11,22 +11,27 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 /**
- * Wires {@link FeatureFlagProvider} and the OSS defaults behind it: {@link EnvironmentFeatureProvider} over
- * Spring's {@link Environment}, and a resolver that targets nothing.
+ * Wires {@link FeatureFlagProvider} and the OSS defaults behind it: {@link
+ * EnvironmentFeatureProvider} over Spring's {@link Environment}, and a resolver that targets
+ * nothing.
  *
- * <p><b>An extension module overrides either default with a {@code @Primary} bean of the same type, and
- * {@code @Primary} is what does the work.</b> The {@link ConditionalOnMissingBean} guards cannot see it:
- * extension beans reach the context through auto-configuration, which Spring Boot processes after all user
- * {@code @Configuration} classes, so at the moment these conditions are evaluated the extension bean is not
- * yet defined. Both beans register and injection succeeds only because the extension one is
- * {@code @Primary} — omit it and startup fails with {@code NoUniqueBeanDefinitionException}. The guards
- * remain for an extension contributed as a user configuration. Same shape as how {@code
- * IndexConventionFactory} wires {@code IndexPrefixResolver}.
+ * <p><b>An extension module overrides either default with a {@code @Primary} bean of the same type,
+ * and {@code @Primary} is what does the work.</b> The {@link ConditionalOnMissingBean} guards
+ * cannot see it: extension beans reach the context through auto-configuration, which Spring Boot
+ * processes after all user {@code @Configuration} classes, so at the moment these conditions are
+ * evaluated the extension bean is not yet defined. Both beans register and injection succeeds only
+ * because the extension one is {@code @Primary} — omit it and startup fails with {@code
+ * NoUniqueBeanDefinitionException}. The guards remain for an extension contributed as a user
+ * configuration. Same shape as how {@code IndexConventionFactory} wires {@code
+ * IndexPrefixResolver}.
  */
 @Configuration
 public class FeatureFlagProviderFactory {
 
-  /** OSS targets nothing: one deployment, one set of values, so there is no identity to evaluate against. */
+  /**
+   * OSS targets nothing: one deployment, one set of values, so there is no identity to evaluate
+   * against.
+   */
   @Bean
   @ConditionalOnMissingBean(FlagEvaluationContextResolver.class)
   protected FlagEvaluationContextResolver flagEvaluationContextResolver() {
