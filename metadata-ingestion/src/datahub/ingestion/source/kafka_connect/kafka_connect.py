@@ -1123,16 +1123,19 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def _warn_if_catalog_partial(self) -> None:
         # Mirror the kafka source: a partial catalog read means some connectors may
-        # silently miss their catalog tags this run. Only relevant when tags are applied.
+        # silently miss their catalog metadata this run. Only relevant when it is applied.
         if (
-            self.config.confluent_catalog.include_tags
+            (
+                self.config.confluent_catalog.include_tags
+                or self.config.confluent_catalog.include_business_metadata
+            )
             and self._catalog is not None
             and not self._catalog.is_complete()
         ):
             self.report.warning(
                 message="The Confluent Stream Catalog was only partially read, so some "
-                "connectors may be missing their catalog tags this run. Re-run once the "
-                "catalog is fully readable.",
+                "connectors may be missing catalog tags or business metadata this run. Re-run "
+                "once the catalog is fully readable.",
                 context="confluent_catalog",
             )
 
