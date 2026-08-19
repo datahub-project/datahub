@@ -476,4 +476,88 @@ public class SiblingsSearchBatchLoaderTest {
     assertEquals(results.get(0).getTotal(), 0);
     assertTrue(results.get(0).getSearchResults().isEmpty());
   }
+
+  private static final String SNOW_ORDERS_B =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,analytics.orders,PROD)";
+  private static final String SNOW_ORDERS_C =
+      "urn:li:dataset:(urn:li:dataPlatform:redshift,analytics.orders,PROD)";
+
+  /**
+   * Regression: hits must come back in search-relevance order, not batchGetV2's map order.
+   *
+   * <p>batchGetV2 returns an unordered HashMap. Attributing hits by walking that map appends them
+   * in hash order, so a dataset with several siblings resolves {@code searchResults[0]} to an
+   * arbitrary one — and the lineage graph, schema tab and stats tab all read exactly that element.
+   * The aspect stub here deliberately returns the responses reversed relative to the search order.
+   */
+  @Test
+  public void testHitsKeepSearchOrderRegardlessOfAspectResponseOrder() throws Exception {
+    final List<String> searchOrder = List.of(SNOW_ORDERS, SNOW_ORDERS_B, SNOW_ORDERS_C);
+    stubSearch(searchResult(searchOrder, Map.of(DBT_ORDERS, 3L)));
+
+    // Reversed on purpose: the loader must not inherit this ordering.
+    final Map<Urn, EntityResponse> reversed = new LinkedHashMap<>();
+    for (String hitUrn : List.of(SNOW_ORDERS_C, SNOW_ORDERS_B, SNOW_ORDERS)) {
+      final UrnArray siblings = new UrnArray();
+      siblings.add(UrnUtils.getUrn(DBT_ORDERS));
+      reversed.put(
+          UrnUtils.getUrn(hitUrn),
+          new EntityResponse()
+              .setUrn(UrnUtils.getUrn(hitUrn))
+              .setAspects(
+                  new EnvelopedAspectMap(
+                      Map.of(
+                          SIBLINGS_ASPECT_NAME,
+                          new EnvelopedAspect()
+                              .setValue(
+                                  new Aspect(new Siblings().setSiblings(siblings).data()))))));
+    }
+    Mockito.when(_entityClient.batchGetV2(any(), any(), any(), any(), any())).thenReturn(reversed);
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_ORDERS, 3)), _context, _entityClient, _viewService);
+
+    final List<String> actual =
+        results.get(0).getSearchResults().stream()
+            .map(r -> r.getEntity().getUrn())
+            .collect(java.util.stream.Collectors.toList());
+    assertEquals(actual, searchOrder, "hits did not follow search-relevance order");
+  }
+
+  /**
+   * Regression: a dropped facet bucket must not yield total 0 next to populated results.
+   *
+   * <p>The terms aggregation is capped, and its bucket space is every distinct sibling urn across
+   * the matched documents — so a chunk urn's bucket can be dropped even though its rows came back.
+   * The original starvation guard could not catch this: {@code hits.size() < min(count, 0)} is
+   * never true. Callers gate the siblings tab on {@code !!total}, so it would vanish.
+   */
+  @Test
+  public void testMissingFacetBucketIsRequeriedRatherThanReportedAsZero() throws Exception {
+    // First call: hits present, but the facet has no bucket for DBT_ORDERS. Second call is the
+    // per-key requery, whose total comes from numEntities rather than the facet.
+    Mockito.when(
+            _entityClient.searchAcrossEntities(
+                any(),
+                any(),
+                any(),
+                nullable(Filter.class),
+                anyInt(),
+                nullable(Integer.class),
+                any(),
+                any()))
+        .thenReturn(
+            searchResult(List.of(SNOW_ORDERS), Map.of()),
+            searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_ORDERS, 1)), _context, _entityClient, _viewService);
+
+    assertEquals(results.get(0).getTotal(), 1, "total must not be 0 while results are populated");
+    assertEquals(results.get(0).getSearchResults().size(), 1);
+    verifySearchCount(2);
+  }
 }

@@ -48,26 +48,16 @@ import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
 /**
- * Per-request DataLoader for {@code Dataset.siblingsSearch}, collapsing the previous one search per
- * dataset row into a fixed number of searches per request.
+ * Per-request DataLoader for {@code Dataset.siblingsSearch}, replacing one search per dataset row
+ * with one search per chunk.
  *
- * <p>The field asks the reverse question to the {@code siblings} aspect — "which entities index me
- * as their sibling" — so it cannot be served from the aspect, which only records the forward
- * direction. Siblings written through {@code SiblingsPatchBuilder} are not guaranteed symmetric.
+ * <p>The field asks which entities list this urn as a sibling. That is the reverse of the {@code
+ * siblings} aspect, which records only the forward direction and is not guaranteed symmetric, so it
+ * has to be a search.
  *
- * <p>Unlike the other GMS batch loaders the key is not a bare urn: {@code siblingsSearch} takes an
- * {@code input} argument, so two rows in one request can ask different questions about the same
- * urn. {@link Key} therefore carries the query shape alongside the urn. The GraphQL-generated input
- * classes have identity equality only, so the key holds the Pegasus equivalents ({@link Filter},
- * {@link SearchFlags}), which compare by value.
- *
- * <p>Each chunk issues one search filtered to the chunk's urns and faceted on {@code siblings}. The
- * facet gives an exact per-urn total; the hits are attributed back to the urn that matched them by
- * reading their own {@code siblings} aspect, which the search response does not carry.
- *
- * <p><b>Window caveat.</b> One urn with many siblings can crowd others out of the shared hit
- * window. Any key that ends up with fewer hits than its total warrants is re-queried on its own, so
- * a crowded window costs extra searches rather than returning short results.
+ * <p>Each chunk runs one search filtered to the chunk's urns and faceted on {@code siblings}. The
+ * facet supplies each urn's total; hits are attributed by reading their own {@code siblings}
+ * aspect, which the search response does not carry.
  */
 @Slf4j
 public final class SiblingsSearchBatchLoader {
@@ -75,25 +65,22 @@ public final class SiblingsSearchBatchLoader {
   public static final String LOADER_NAME = "SiblingsSearch";
 
   private static final String SIBLINGS_FIELD = "siblings";
-  private static final String MATCH_ALL_QUERY = "*";
 
-  // Keep chunks under the search-layer terms-bucket cap (min(maxAggValues, maxTermBucketSize),
-  // maxTermBucketSize defaults to 60). Unlike the container equivalent an entity may list several
-  // siblings, so a matched document can contribute buckets outside the chunk — hence the wide
-  // margin rather than sitting near the ceiling.
+  // Terms buckets are capped at min(maxAggValues, maxTermBucketSize), default 60. An entity may
+  // list several siblings, so matched docs add buckets beyond the chunk — keep well under.
   private static final int MAX_URNS_PER_AGG = 25;
   private static final int MAX_AGG_VALUES = 1000;
 
-  // Hits are shared across the chunk, so ask for more than the per-key count to reduce how often
-  // the per-key fallback has to run.
+  // Hits are shared across the chunk, so over-fetch to reduce per-key re-queries.
   private static final int WINDOW_HEADROOM_FACTOR = 3;
   private static final int MAX_WINDOW = 500;
 
   private SiblingsSearchBatchLoader() {}
 
   /**
-   * Identifies one {@code siblingsSearch} call. Everything except {@link #urn} describes the query
-   * shape and is what keys sharing a batch must agree on.
+   * One {@code siblingsSearch} call. The field takes arguments, so the key is not a bare urn —
+   * everything besides {@code urn} is the query shape, which keys in a batch must agree on. Holds
+   * Pegasus {@link Filter}/{@link SearchFlags}; the GraphQL input classes compare by identity.
    */
   public static final class Key {
     private final String urn;
@@ -242,9 +229,7 @@ public final class SiblingsSearchBatchLoader {
           resultByKey.putAll(
               loadChunk(group.getKey(), chunk, queryContext, entityClient, viewService));
         } catch (Exception e) {
-          // Surface rather than swallow: an empty ScrollResults is indistinguishable from "this
-          // dataset has no siblings" and would silently stop the UI merging sibling rows. Matches
-          // the throw-on-failure contract of the unbatched resolver path.
+          // Throw rather than return empty, which would read as "no siblings".
           throw new RuntimeException(
               String.format("Failed to resolve siblings search for %d entities", chunk.size()), e);
         }
@@ -273,18 +258,20 @@ public final class SiblingsSearchBatchLoader {
     }
 
     final List<String> urns = chunk.stream().map(Key::getUrn).collect(Collectors.toList());
-    final int window = Math.min(MAX_WINDOW, urns.size() * group.count * WINDOW_HEADROOM_FACTOR);
+    // long: a large caller-supplied `count` would overflow the product.
+    final int window =
+        (int) Math.min(MAX_WINDOW, (long) urns.size() * group.count * WINDOW_HEADROOM_FACTOR);
 
     final OperationContext opContext =
         queryContext
             .getOperationContext()
             .withSearchFlags(
                 flags -> {
-                  // `flags` arrives as a copy (SearchContext#withFlagDefaults), but the group's
-                  // flags are part of the DataLoader key — mutating them would corrupt its hash.
+                  // Copy: the group's flags are part of the key, so mutating them breaks its
+                  // hash. `flags` is already a copy. Default facets would be computed and dropped.
                   final SearchFlags base =
                       group.searchFlags != null ? copyFlags(group.searchFlags) : flags;
-                  return base.setMaxAggValues(MAX_AGG_VALUES);
+                  return base.setMaxAggValues(MAX_AGG_VALUES).setIncludeDefaultFacets(false);
                 });
 
     final SearchResult searchResult =
@@ -310,9 +297,9 @@ public final class SiblingsSearchBatchLoader {
               .limit(group.count)
               .collect(Collectors.toList());
 
-      // The window is shared, so a urn with many siblings can starve its neighbours. Re-query any
-      // key that came back with fewer hits than its own total warrants.
-      if (hits.size() < Math.min(group.count, total)) {
+      // Re-query alone if the shared window starved this key, or if its facet bucket was
+      // dropped (total 0 beside populated rows would hide the siblings tab).
+      if (hits.size() < Math.min(group.count, total) || (total == 0 && !hits.isEmpty())) {
         results.put(key, loadSingle(key, group, resolved, queryContext, entityClient));
         continue;
       }
@@ -329,12 +316,14 @@ public final class SiblingsSearchBatchLoader {
       final EntityClient entityClient)
       throws Exception {
 
+    // No facets requested, so don't aggregate the default set.
     final OperationContext opContext =
-        group.searchFlags != null
-            ? queryContext
-                .getOperationContext()
-                .withSearchFlags(flags -> copyFlags(group.searchFlags))
-            : queryContext.getOperationContext();
+        queryContext
+            .getOperationContext()
+            .withSearchFlags(
+                flags ->
+                    (group.searchFlags != null ? copyFlags(group.searchFlags) : flags)
+                        .setIncludeDefaultFacets(false));
 
     final SearchResult result =
         entityClient.searchAcrossEntities(
@@ -351,10 +340,7 @@ public final class SiblingsSearchBatchLoader {
         queryContext, result.getEntities(), result.hasNumEntities() ? result.getNumEntities() : 0);
   }
 
-  /**
-   * Maps each hit back to the chunk urns it is a sibling of. The search response carries only urns,
-   * so the edge direction has to be read from the hits' own {@code siblings} aspect.
-   */
+  /** Maps each hit to the chunk urns it is a sibling of, read from the hit's own aspect. */
   private static Map<String, List<SearchEntity>> attributeHits(
       @Nullable final SearchResult searchResult,
       final List<String> chunkUrns,
@@ -374,28 +360,30 @@ public final class SiblingsSearchBatchLoader {
 
     final Set<String> chunkUrnSet = new HashSet<>(chunkUrns);
 
-    // batchGetV2 is per entity type; siblings are datasets today but group defensively.
+    // batchGetV2 takes one entity type; siblings are datasets today, but group anyway.
     final Map<String, Set<Urn>> byEntityType = new LinkedHashMap<>();
     for (Urn urn : hitByUrn.keySet()) {
       byEntityType.computeIfAbsent(urn.getEntityType(), t -> new LinkedHashSet<>()).add(urn);
     }
 
+    final Map<Urn, EntityResponse> responses = new HashMap<>();
     for (Map.Entry<String, Set<Urn>> entry : byEntityType.entrySet()) {
-      // alwaysIncludeKeyAspect=false: only the siblings edge is read, so the key aspect is dead
-      // weight on the response.
-      final Map<Urn, EntityResponse> responses =
+      // Only the siblings edge is read, so skip the key aspect.
+      responses.putAll(
           entityClient.batchGetV2(
-              opContext, entry.getKey(), entry.getValue(), Set.of(SIBLINGS_ASPECT_NAME), false);
+              opContext, entry.getKey(), entry.getValue(), Set.of(SIBLINGS_ASPECT_NAME), false));
+    }
 
-      for (Map.Entry<Urn, EntityResponse> response : responses.entrySet()) {
-        final SearchEntity hit = hitByUrn.get(response.getKey());
-        if (hit == null) {
-          continue;
-        }
-        for (String siblingUrn : readSiblingUrns(response.getValue())) {
-          if (chunkUrnSet.contains(siblingUrn)) {
-            hitsByUrn.computeIfAbsent(siblingUrn, u -> new ArrayList<>()).add(hit);
-          }
+    // Iterate hits, not responses: batchGetV2 returns an unordered map, and callers read
+    // searchResults[0]. Walking responses would pick an arbitrary sibling per request.
+    for (Map.Entry<Urn, SearchEntity> hitEntry : hitByUrn.entrySet()) {
+      final EntityResponse response = responses.get(hitEntry.getKey());
+      if (response == null) {
+        continue;
+      }
+      for (String siblingUrn : readSiblingUrns(response)) {
+        if (chunkUrnSet.contains(siblingUrn)) {
+          hitsByUrn.computeIfAbsent(siblingUrn, u -> new ArrayList<>()).add(hitEntry.getValue());
         }
       }
     }
@@ -475,12 +463,9 @@ public final class SiblingsSearchBatchLoader {
   private static ScrollResults toScrollResults(
       final QueryContext queryContext, final List<SearchEntity> hits, final long total) {
     final ScrollResults results = new ScrollResults();
-    // A grouped query cannot produce a per-key scroll cursor. Callers that pass a scrollId take the
-    // unbatched path, so this only affects starting a scroll.
+    // A grouped query has no per-key cursor. Requests with a scrollId take the unbatched path.
     results.setNextScrollId(null);
-    // `count` is how many entities this result set carries, not the requested page size — the
-    // unbatched path derives it from the response (UrnScrollResultsMapper#apply), so a key with no
-    // siblings reports 0 rather than the count it asked for.
+    // Entities returned, not the requested page size — matches UrnScrollResultsMapper.
     results.setCount(hits.size());
     results.setTotal((int) Math.min(total, Integer.MAX_VALUE));
     results.setSearchResults(
@@ -499,7 +484,7 @@ public final class SiblingsSearchBatchLoader {
     try {
       return flags.copy();
     } catch (CloneNotSupportedException e) {
-      // Unreachable: DataTemplate extends Cloneable. Required by Object.clone()'s signature.
+      // Unreachable: DataTemplate is Cloneable.
       throw new IllegalStateException("Failed to clone SearchFlags", e);
     }
   }
