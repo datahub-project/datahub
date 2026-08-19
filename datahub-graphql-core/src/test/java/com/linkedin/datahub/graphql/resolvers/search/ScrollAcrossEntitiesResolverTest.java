@@ -164,7 +164,7 @@ public class ScrollAcrossEntitiesResolverTest {
   }
 
   @Test
-  public void testIncludeHiddenLifecycleStagesKeepsDocumentDefaultFiltersWithoutManageDocuments()
+  public void testIncludeHiddenLifecycleStagesBypassesDocumentDefaultFiltersWithoutManageDocuments()
       throws Exception {
     ScrollResult mockResult = new ScrollResult();
     mockResult.setPageSize(0);
@@ -172,6 +172,9 @@ public class ScrollAcrossEntitiesResolverTest {
     mockResult.setMetadata(new SearchResultMetadata());
     mockResult.setEntities(new SearchEntityArray());
 
+    // includeHiddenLifecycleStages alone is sufficient to bypass default document filters —
+    // internal callers (agent dashboards, eval tooling) set this flag and already have
+    // system-level access, so the canManageDocuments privilege check is unnecessary.
     SearchFlags searchFlags = new SearchFlags();
     searchFlags.setIncludeHiddenLifecycleStages(true);
 
@@ -204,8 +207,8 @@ public class ScrollAcrossEntitiesResolverTest {
             eq("5m"),
             eq(Collections.emptyList()),
             eq(10));
-    assertTrue(filterContainsField(filterCaptor.getValue(), "state"));
-    assertTrue(filterContainsField(filterCaptor.getValue(), "showInGlobalContext"));
+    // includeHiddenLifecycleStages alone is sufficient to bypass default document filters
+    assertNull(filterCaptor.getValue());
   }
 
   @Test
@@ -250,7 +253,9 @@ public class ScrollAcrossEntitiesResolverTest {
             eq("5m"),
             eq(Collections.emptyList()),
             eq(10));
-    assertTrue(filterContainsField(filterCaptor.getValue(), "state"));
+    // With canManageDocuments=true (mock allows all), the state field is omitted from
+    // unpublished clauses and replaced by a lifecycleStage EXISTS + lifecycleStage != DRAFT clause.
+    assertTrue(filterContainsField(filterCaptor.getValue(), "lifecycleStage"));
     assertTrue(filterContainsField(filterCaptor.getValue(), "showInGlobalContext"));
   }
 

@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.es_client import ElasticsearchClient
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _resp(json_data: object = None, status: int = 200, text: str = "") -> MagicMock:

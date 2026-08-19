@@ -29,8 +29,7 @@ import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/Creat
 import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
-import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import {
@@ -557,15 +556,14 @@ const EntityDropdown = (props: Props) => {
                     onCreate={() => setTimeout(() => refetchForEntity?.(), 2000)}
                 />
             )}
-            {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal
+            {isMoveModalVisible && (
+                <MoveEntityModal
+                    entityType={entityType}
                     entityData={entityData}
                     urn={urn}
-                    entityType={entityType}
                     onClose={() => setIsMoveModalVisible(false)}
                 />
             )}
-            {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer
@@ -619,6 +617,8 @@ const EntityDropdown = (props: Props) => {
                     versionList={[]}
                     hideSemanticVersions
                     entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    currentVersionUrn={entityData?.versionProperties?.versionSet?.urn ? urn : undefined}
                 />
             )}
         </>

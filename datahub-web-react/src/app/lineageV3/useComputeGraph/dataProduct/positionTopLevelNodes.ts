@@ -1,6 +1,9 @@
 import type { XYPosition } from '@reactflow/core/dist/esm/types';
 
-import { BOUNDING_BOX_PADDING } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import {
+    BOUNDING_BOX_LABEL_HEIGHT,
+    BOUNDING_BOX_PADDING,
+} from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import {
     FetchStatus,
     LINEAGE_FILTER_TYPE,
@@ -24,9 +27,6 @@ import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduc
 import { EntityType, LineageDirection } from '@types';
 
 type Urn = string;
-
-// Matches the default cardHeight in LineageBoundingBoxNode (rendered above the box via translateY(-100%)).
-const BOUNDING_BOX_LABEL_HEIGHT = 54;
 
 /**
  * Flag for data-product-to-data-product positioning.

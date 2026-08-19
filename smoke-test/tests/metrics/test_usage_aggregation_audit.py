@@ -47,6 +47,7 @@ from tests.metrics.usage_aggregation_metrics import (
     wait_for_metric_at_least,
     wait_for_metric_delta,
 )
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import get_prometheus_metrics
 from tests.utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 from tests.utils import (
@@ -57,6 +58,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _require_prometheus_url() -> str:
@@ -118,7 +121,9 @@ class TestUsageAggregationAdminSessions:
             baseline = fetch_metric_total(
                 pat_session, gms_url, OUTPUT_BYTES_METRIC, tags
             )
-            generate_openapi_metadata_read_traffic(pat_session, repeat=2)
+            # Slightly more traffic than other admin tests: PAT path + flush
+            # window can miss a 2-request burst under load.
+            generate_openapi_metadata_read_traffic(pat_session, repeat=3)
             wait_for_metric_delta(
                 pat_session,
                 gms_url,

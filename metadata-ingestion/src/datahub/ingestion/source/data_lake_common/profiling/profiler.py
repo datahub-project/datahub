@@ -1,9 +1,20 @@
 import logging
 import os
-from typing import IO, Any, Collection, Iterable, List, Optional, Protocol, Union
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Collection,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Union,
+)
 
 from smart_open import open as smart_open
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -13,6 +24,15 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     is_s3_uri,
+)
+
+# abs_utils is dependency-light (no Azure SDK), so it is safe to import here
+# without pulling azure packages into the s3/gcs profiling path.
+from datahub.ingestion.source.azure.abs_utils import (
+    get_abs_prefix,
+    get_container_name,
+    get_container_relative_path,
+    is_abs_uri,
 )
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
     ColumnStats,
@@ -26,8 +46,6 @@ from datahub.ingestion.source.data_lake_common.profiling.readers import (
     read_json,
     read_parquet,
 )
-from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
-from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -37,6 +55,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    # Type-only import: AzureConnectionConfig pulls the Azure SDK, which is not
+    # installed for s3/gcs. The instance is supplied at runtime by the abs
+    # source (which does install it), so we never import the SDK here.
+    from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -62,6 +86,49 @@ class TableDataLike(Protocol):
     def partitions(self) -> Optional[Collection[Any]]: ...
 
 
+class ProfilingReport(Protocol):
+    """The report surface the profiler needs.
+
+    Declared structurally so the profiler doesn't import a specific connector's
+    report class; the s3 and abs ``DataLakeSourceReport`` variants both satisfy it.
+    """
+
+    def report_file_dropped(self, file: str) -> None: ...
+    def warning(
+        self,
+        message: Any,
+        context: Optional[str] = ...,
+        title: Optional[Any] = ...,
+        exc: Optional[BaseException] = ...,
+        log: bool = ...,
+        log_category: Optional[Any] = ...,
+    ) -> None: ...
+
+
+class ProfilingConfig(Protocol):
+    """The profiling-config surface the profiler reads.
+
+    Structural, for the same reason as ``ProfilingReport``: the s3 and abs
+    ``DataLakeProfilerConfig`` variants are twins and both satisfy it.
+    """
+
+    max_number_of_fields_to_profile: Optional[int]
+    profile_table_level_only: bool
+    include_field_sample_values: bool
+    include_field_null_count: bool
+    include_field_min_value: bool
+    include_field_max_value: bool
+    include_field_mean_value: bool
+    include_field_median_value: bool
+    include_field_stddev_value: bool
+    include_field_quantiles: bool
+    include_field_histogram: bool
+    include_field_distinct_value_frequencies: bool
+
+    @property
+    def _allow_deny_patterns(self) -> AllowDenyPattern: ...
+
+
 def null_str(value: Any) -> Optional[str]:
     return str(value) if value is not None else None
 
@@ -82,15 +149,19 @@ class FileProfiler:
         self,
         aws_config: Optional[AwsConnectionConfig],
         verify_ssl: Optional[Union[bool, str]],
-        report: DataLakeSourceReport,
+        report: ProfilingReport,
         profiling_times_taken: List[float],
-        profiling_config: DataLakeProfilerConfig,
+        profiling_config: ProfilingConfig,
+        azure_config: Optional["AzureConnectionConfig"] = None,
     ):
         self.aws_config = aws_config
         self.verify_ssl = verify_ssl
         self.report = report
         self.profiling_times_taken = profiling_times_taken
         self.profiling_config = profiling_config
+        # Set only by the abs source; s3/gcs leave it None and never touch the
+        # Azure branches below.
+        self.azure_config = azure_config
 
     def _open_file(self, path: str) -> IO[bytes]:
         # S3 and GCS both go through this branch: GCSSource rewrites gs:// paths
@@ -106,6 +177,17 @@ class FileProfiler:
                 f"s3://{get_bucket_name(path)}/{get_bucket_relative_path(path)}"
             )
             return smart_open(normalized, "rb", transport_params={"client": s3_client})
+        if is_abs_uri(path):
+            if self.azure_config is None:
+                raise ValueError("Azure config is required to profile ABS files")
+            blob_client = self.azure_config.get_blob_service_client()
+            container = get_container_name(path)
+            rel_path = get_container_relative_path(path)
+            return smart_open(
+                f"azure://{container}/{rel_path}",
+                "rb",
+                transport_params={"client": blob_client},
+            )
         return smart_open(path, "rb")
 
     def _iter_table_paths(self, table_data: TableDataLike) -> Iterable[str]:
@@ -132,6 +214,20 @@ class FileProfiler:
             for obj in list_objects_recursive(bucket, prefix, self.aws_config):
                 if obj.key.endswith(extension):
                     yield f"s3://{obj.bucket_name}/{obj.key}"
+        elif is_abs_uri(table_path):
+            if self.azure_config is None:
+                raise ValueError("Azure config is required to profile ABS files")
+            container = get_container_name(table_path)
+            prefix = get_container_relative_path(table_path)
+            abs_prefix = get_abs_prefix(table_path)  # https://<account>.../
+            container_client = (
+                self.azure_config.get_blob_service_client().get_container_client(
+                    container
+                )
+            )
+            for blob in container_client.list_blobs(name_starts_with=prefix):
+                if blob.name.endswith(extension):
+                    yield f"{abs_prefix}{container}/{blob.name}"
         else:
             for root, _dirs, files in os.walk(table_path):
                 for name in files:

@@ -46,6 +46,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -130,6 +132,13 @@ public class UpdateIndicesHookTest {
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
+
+    // Hook invoke paths call flushAndWaitIfConfigured(); stub a disabled ack path.
+    ESWriteDAO mockWriteDAO = mock(ESWriteDAO.class);
+    ESBulkProcessor mockBulkProcessor = mock(ESBulkProcessor.class);
+    when(mockEntitySearchService.getEsWriteDAO()).thenReturn(mockWriteDAO);
+    when(mockWriteDAO.getBulkProcessor()).thenReturn(mockBulkProcessor);
+    when(mockBulkProcessor.isAckAfterTransfer()).thenReturn(false);
 
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);

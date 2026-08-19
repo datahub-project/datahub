@@ -1305,3 +1305,83 @@ def test_connection_auto_discovery_reports_no_spaces() -> None:
     assert report.basic_connectivity.capable is True
     assert report.capability_report is not None
     assert report.capability_report["Auto-Discovery"].capable is False
+
+
+class _PastSkipGate(Exception):
+    """Sentinel raised once execution passes the empty/length skip gate."""
+
+
+def _run_filter(source, text, page_id="p1", parents=None):
+    """Drive _create_document_entity for one page with a controlled extracted
+    text, isolating the empty/length skip decision. Returns (skip_mock,
+    passed_gate); passed_gate is True iff execution reached the post-skip build
+    (i.e. the page was not dropped)."""
+    parents = parents if parents is not None else set()
+    passed_gate = False
+    with patch.object(source, "_extract_text_from_page", return_value=text):
+        with patch.object(source.report, "report_page_skipped") as skip_mock:
+            with patch(
+                "datahub.ingestion.source.confluence.confluence_source."
+                "ConfluenceHierarchyExtractor.extract_page_title",
+                side_effect=_PastSkipGate,
+            ):
+                try:
+                    list(
+                        source._create_document_entity({"id": page_id}, set(), parents)
+                    )
+                except _PastSkipGate:
+                    passed_gate = True
+    return skip_mock, passed_gate
+
+
+class TestConfluenceEmptyAndLengthFilter:
+    """Empty/short-page filtering in _create_document_entity (min_text_length
+    now defaults to 0, so only empty pages are dropped by default)."""
+
+    def _source(
+        self, config: ConfluenceSourceConfig, ctx: PipelineContext
+    ) -> ConfluenceSource:
+        with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+            return ConfluenceSource(config, ctx)
+
+    def test_short_page_embeds_by_default(
+        self, cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+    ) -> None:
+        source = self._source(cloud_config, pipeline_context)
+        skip_mock, passed_gate = _run_filter(source, "hi")
+        assert passed_gate
+        skip_mock.assert_not_called()
+
+    def test_empty_page_reports_no_text_content(
+        self, cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+    ) -> None:
+        source = self._source(cloud_config, pipeline_context)
+        skip_mock, passed_gate = _run_filter(source, "")
+        assert not passed_gate
+        skip_mock.assert_called_once()
+        assert skip_mock.call_args.args[1] == "No text content"
+
+    def test_positive_threshold_still_skips_short_page(
+        self, pipeline_context: PipelineContext
+    ) -> None:
+        config = ConfluenceSourceConfig.model_validate(
+            {
+                "url": "https://test.atlassian.net/wiki",
+                "username": "test@example.com",
+                "api_token": "test-token-123",
+                "cloud": True,
+                "filtering": {"min_text_length": 50},
+            }
+        )
+        source = self._source(config, pipeline_context)
+        skip_mock, passed_gate = _run_filter(source, "hi")
+        assert not passed_gate
+        skip_mock.assert_called_once()
+
+    def test_parent_page_exempt_from_empty_filter(
+        self, cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+    ) -> None:
+        source = self._source(cloud_config, pipeline_context)
+        skip_mock, passed_gate = _run_filter(source, "", parents={"p1"})
+        assert passed_gate
+        skip_mock.assert_not_called()
