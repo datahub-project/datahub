@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 import tenacity
@@ -201,7 +201,7 @@ class MetabaseTestClient:
             "dataset_query": query,
             "display": display,
             "visualization_settings": {},
-            "dataset": dataset,
+            "type": "model" if dataset else "question",
         }
 
         if collection_id:
@@ -251,27 +251,34 @@ class MetabaseTestClient:
         retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException),
         reraise=True,
     )
-    def add_card_to_dashboard(self, dashboard_id: int, card_id: int) -> Dict[str, Any]:
-        """Add a card to a dashboard."""
-        payload = {
-            "cardId": card_id,
-            "col": 0,
-            "row": 0,
-            "size_x": 4,
-            "size_y": 4,
-        }
-
-        response = self.session.post(
-            f"{self.base_url}/api/dashboard/{dashboard_id}/cards",
+    def add_cards_to_dashboard(
+        self, dashboard_id: int, card_ids: List[int]
+    ) -> Dict[str, Any]:
+        """Attach cards to a dashboard via PUT /api/dashboard/:id (POST .../cards is gone)."""
+        dashcards: List[Dict[str, Any]] = [
+            {
+                "id": -(index + 1),
+                "card_id": card_id,
+                "row": index * 4,
+                "col": 0,
+                "size_x": 4,
+                "size_y": 4,
+                "parameter_mappings": [],
+                "visualization_settings": {},
+            }
+            for index, card_id in enumerate(card_ids)
+        ]
+        response = self.session.put(
+            f"{self.base_url}/api/dashboard/{dashboard_id}",
             headers=self._get_headers(),
-            json=payload,
+            json={"dashcards": dashcards},
             timeout=15,
         )
-        logger.info(f"Add card response status: {response.status_code}")
+        logger.info(f"Add cards response status: {response.status_code}")
         if response.status_code >= 400:
-            logger.error(f"Failed to add card. Response: {response.text}")
+            logger.error(f"Failed to add cards. Response: {response.text}")
         response.raise_for_status()
-        logger.info(f"Successfully added card {card_id} to dashboard {dashboard_id}")
+        logger.info(f"Successfully added cards {card_ids} to dashboard {dashboard_id}")
         return response.json()
 
 
@@ -410,9 +417,10 @@ def setup_metabase_test_data(base_url: str, credentials: Dict[str, str]) -> None
 
     # Add cards to dashboard
     try:
-        client.add_card_to_dashboard(dashboard["id"], simple_card["id"])
-        client.add_card_to_dashboard(dashboard["id"], sql_card["id"])
-        client.add_card_to_dashboard(dashboard["id"], model_card["id"])
+        client.add_cards_to_dashboard(
+            dashboard["id"],
+            [simple_card["id"], sql_card["id"], model_card["id"]],
+        )
     except Exception as e:
         logger.error(f"Failed to add cards to dashboard {dashboard['id']}: {e}")
         logger.error(f"Dashboard object: {dashboard}")

@@ -418,7 +418,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Sum of Quantity",
                         "type": {
@@ -435,8 +435,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001339,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752003306,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -888,7 +888,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),RATING)",
                     "schemaField": {
-                        "fieldPath": "avg",
+                        "fieldPath": "RATING",
                         "nullable": true,
                         "description": "Average of Rating",
                         "type": {
@@ -905,8 +905,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001572,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752003767,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1485,7 +1485,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -1517,7 +1517,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),RATING)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "RATING",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -1534,8 +1534,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001728,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752004427,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1922,7 +1922,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Sum of Discount",
                         "type": {
@@ -1939,8 +1939,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001784,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752004576,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2207,7 +2207,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Sum of Quantity",
                         "type": {
@@ -2224,8 +2224,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001819,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752004632,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2373,7 +2373,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Sum of Quantity",
                         "type": {
@@ -2390,8 +2390,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001856,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752004671,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2724,7 +2724,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -2741,8 +2741,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002001,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752004773,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3328,7 +3328,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -3360,7 +3360,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -3377,8 +3377,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002290,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752005656,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3451,7 +3451,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),SOURCE)",
                     "schemaField": {
-                        "fieldPath": "CREATED_AT",
+                        "fieldPath": "SOURCE",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -3468,8 +3468,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002325,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastObserved": 1705752005538,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3704,7 +3704,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),SOURCE)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "SOURCE",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -3737,8 +3737,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002471,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752005696,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3853,7 +3853,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),SOURCE)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "SOURCE",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -3886,8 +3886,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002394,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752005672,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4051,7 +4051,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),BIRTH_DATE)",
                     "schemaField": {
-                        "fieldPath": "Age",
+                        "fieldPath": "BIRTH_DATE",
                         "nullable": true,
                         "description": "Age",
                         "type": {
@@ -4228,8 +4228,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002507,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752005749,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4387,7 +4387,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -4420,8 +4420,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002623,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752005873,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4766,100 +4766,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "Metrics": "",
-                "Filters": "",
-                "Dimensions": "id, name, category, price, total_sold",
-                "database_id": "2"
-            },
-            "title": "Product Sales Model",
-            "description": "",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 1784020505704,
-                    "actor": "urn:li:corpuser:admin@test.com"
-                }
-            },
-            "chartUrl": "http://localhost:3001/card/40",
-            "inputEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
-                    "lastModified": {
-                        "time": 1784020505704,
-                        "actor": "urn:li:corpuser:admin@test.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
-                    "lastModified": {
-                        "time": 1784020505704,
-                        "actor": "urn:li:corpuser:admin@test.com"
-                    }
-                }
-            ],
-            "type": "TABLE"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002557,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "chartQuery",
-    "aspect": {
-        "json": {
-            "rawQuery": "SELECT p.id, p.name, p.category, p.price, SUM(o.quantity) as total_sold FROM products p LEFT JOIN orders o ON p.id = o.product_id GROUP BY p.id, p.name, p.category, p.price",
-            "type": "SQL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002557,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:admin@test.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002557,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -4896,123 +4802,6 @@
     "systemMetadata": {
         "lastObserved": 1705752002882,
         "runId": "metabase-docker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:metabase_collection_sales_analytics"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002557,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),category)",
-                    "schemaField": {
-                        "fieldPath": "category",
-                        "nullable": true,
-                        "description": "category",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),id)",
-                    "schemaField": {
-                        "fieldPath": "id",
-                        "nullable": true,
-                        "description": "id",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Integer",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),name)",
-                    "schemaField": {
-                        "fieldPath": "name",
-                        "nullable": true,
-                        "description": "name",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),price)",
-                    "schemaField": {
-                        "fieldPath": "price",
-                        "nullable": true,
-                        "description": "price",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Decimal",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),total_sold)",
-                    "schemaField": {
-                        "fieldPath": "total_sold",
-                        "nullable": true,
-                        "description": "total_sold",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002558,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5086,7 +4875,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -5119,24 +4908,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002672,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002558,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastObserved": 1705752005918,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5183,27 +4956,6 @@
     "systemMetadata": {
         "lastObserved": 1705752002922,
         "runId": "metabase-docker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
-                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002558,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5303,7 +5055,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "TOTAL",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -5320,8 +5072,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002737,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752006028,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5516,7 +5268,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -5532,7 +5284,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -5548,7 +5300,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "sum_2",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Sum of Discount",
                         "type": {
@@ -5564,7 +5316,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "TOTAL",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -5580,7 +5332,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
                     "schemaField": {
-                        "fieldPath": "avg",
+                        "fieldPath": "TOTAL",
                         "nullable": true,
                         "description": "Average of Total",
                         "type": {
@@ -5596,7 +5348,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
                     "schemaField": {
-                        "fieldPath": "max",
+                        "fieldPath": "TOTAL",
                         "nullable": true,
                         "description": "Max of Total",
                         "type": {
@@ -5628,7 +5380,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -5645,8 +5397,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002813,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752006124,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5677,7 +5429,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Sum of Quantity",
                         "type": {
@@ -5694,8 +5446,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002711,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752005956,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6087,7 +5839,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -6103,7 +5855,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -6119,7 +5871,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -6135,7 +5887,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "sum_3",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Sum of Discount",
                         "type": {
@@ -6151,7 +5903,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -6167,7 +5919,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -6183,7 +5935,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "sum_2",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Sum of Quantity",
                         "type": {
@@ -6199,7 +5951,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -6231,7 +5983,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -6247,7 +5999,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -6264,8 +6016,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002767,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752006106,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7165,7 +6917,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -7181,7 +6933,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "sum_2",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Sum of Discount",
                         "type": {
@@ -7197,7 +6949,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "DISCOUNT",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -7229,7 +6981,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "QUANTITY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -7245,7 +6997,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "TOTAL",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -7261,7 +7013,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "TOTAL",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -7293,7 +7045,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -7310,8 +7062,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002972,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastObserved": 1705752006336,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7347,16 +7099,38 @@
             "title": "Sales Dashboard",
             "description": "Test dashboard: Sales Dashboard",
             "charts": [],
-            "chartEdges": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,38)",
+                    "lastModified": {
+                        "time": 1787161174674,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,39)",
+                    "lastModified": {
+                        "time": 1787161174674,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:chart:(metabase,40)",
+                    "lastModified": {
+                        "time": 1787161174674,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                }
+            ],
             "datasets": [],
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1770631631484,
+                    "time": 1787161174674,
                     "actor": "urn:li:corpuser:admin@test.com"
                 },
                 "lastModified": {
-                    "time": 1770631631484,
+                    "time": 1787161174674,
                     "actor": "urn:li:corpuser:admin@test.com"
                 }
             },
@@ -7364,8 +7138,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752004289,
-        "runId": "metabase-docker-test",
+        "lastObserved": 1705752006651,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7442,7 +7216,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
                         "description": "Sum of Total",
                         "type": {
@@ -7459,8 +7233,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003134,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752006269,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7760,7 +7534,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "CATEGORY",
                         "nullable": true,
                         "description": "Count",
                         "type": {
@@ -7777,8 +7551,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003206,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752006353,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8003,25 +7777,9 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),category)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),id)",
                     "schemaField": {
-                        "fieldPath": "category",
-                        "nullable": true,
-                        "description": "category",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),order_count)",
-                    "schemaField": {
-                        "fieldPath": "order_count",
+                        "fieldPath": "id",
                         "nullable": true,
                         "description": "order_count",
                         "type": {
@@ -8035,9 +7793,9 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),total_quantity)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),quantity)",
                     "schemaField": {
-                        "fieldPath": "total_quantity",
+                        "fieldPath": "quantity",
                         "nullable": true,
                         "description": "total_quantity",
                         "type": {
@@ -8049,13 +7807,29 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD),category)",
+                    "schemaField": {
+                        "fieldPath": "category",
+                        "nullable": true,
+                        "description": "category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002266,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastObserved": 1705752005461,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8380,6 +8154,130 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "model_id": "40",
+                "display_type": "table",
+                "metabase_url": "http://localhost:3001/model/40",
+                "query_type": "native",
+                "query": "SELECT p.id, p.name, p.category, p.price, SUM(o.quantity) as total_sold FROM products p LEFT JOIN orders o ON p.id = o.product_id GROUP BY p.id, p.name, p.category, p.price"
+            },
+            "name": "Product Sales Model",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006673,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Product Sales Model",
+            "platform": "urn:li:dataPlatform:metabase",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "name",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "category",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "price",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/Decimal",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_sold",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "type/BigInteger",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006674,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,25)",
     "changeType": "UPSERT",
@@ -8396,6 +8294,25 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Metabase Model",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006674,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,26)",
     "changeType": "UPSERT",
@@ -8408,6 +8325,24 @@
     "systemMetadata": {
         "lastObserved": 1705752004314,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT p.id, p.name, p.category, p.price, SUM(o.quantity) as total_sold FROM products p LEFT JOIN orders o ON p.id = o.product_id GROUP BY p.id, p.name, p.category, p.price",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006675,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8444,6 +8379,132 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:metabase_collection_sales_analytics"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006676,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD),category)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD),category)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD),price)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD),price)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),quantity)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD),total_sold)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006675,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006676,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,29)",
     "changeType": "UPSERT",
@@ -8456,6 +8517,32 @@
     "systemMetadata": {
         "lastObserved": 1705752004315,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@test.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006676,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8488,6 +8575,27 @@
     "systemMetadata": {
         "lastObserved": 1705752001683,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006676,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -9035,22 +9143,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,40)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752003268,
-        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,30)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -9104,6 +9196,22 @@
     "systemMetadata": {
         "lastObserved": 1705752002426,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752006681,
+        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
         "lastRunId": "no-run-id-provided"
     }
 }

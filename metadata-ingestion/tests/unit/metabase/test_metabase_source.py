@@ -1556,3 +1556,144 @@ def test_native_sql_input_fields_resolve_per_table(mock_post, mock_get, mock_del
         "amount",
     }
     metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_native_sql_input_fields_table_error_returns_empty(
+    mock_post, mock_get, mock_delete
+):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    parsed = MagicMock()
+    parsed.debug_info.table_error = "no tables"
+    parsed.column_lineage = []
+    metabase_source._parse_native_sql = MagicMock(  # type: ignore[method-assign]
+        return_value=(parsed, DatasourceInfo(platform="postgres"))
+    )
+    card = MetabaseCard(
+        id=10,
+        name="Broken SQL",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="native", native={"query": "SELECT 1"}),
+        result_metadata=[{"name": "user_id", "base_type": "type/Integer"}],
+    )
+
+    fields = metabase_source._get_input_fields_from_native_sql(card)
+    assert fields == []
+    assert any(
+        "Native SQL Lineage Parse Failure" in str(warning)
+        for warning in metabase_source.report.warnings
+    )
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_native_sql_input_fields_unresolved_column_warns(
+    mock_post, mock_get, mock_delete
+):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    parsed = MagicMock()
+    parsed.debug_info.table_error = None
+    parsed.column_lineage = []
+    metabase_source._parse_native_sql = MagicMock(  # type: ignore[method-assign]
+        return_value=(parsed, DatasourceInfo(platform="postgres"))
+    )
+    card = MetabaseCard(
+        id=11,
+        name="Unresolved SQL",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT 1 AS user_id"}
+        ),
+        result_metadata=[{"name": "user_id", "base_type": "type/Integer"}],
+    )
+
+    fields = metabase_source._get_input_fields_from_native_sql(card)
+    assert fields == []
+    assert any(
+        "Native SQL Input Field Unresolved" in str(warning)
+        for warning in metabase_source.report.warnings
+    )
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_native_sql_input_fields_accumulate_duplicate_output_columns(
+    mock_post, mock_get, mock_delete
+):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    users_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)"
+    orders_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    users_id_urn = builder.make_schema_field_urn(users_urn, "id")
+    orders_user_id_urn = builder.make_schema_field_urn(orders_urn, "user_id")
+
+    first = MagicMock()
+    first.downstream.column = "user_id"
+    first.upstream_schema_field_urns.return_value = [users_id_urn]
+    second = MagicMock()
+    second.downstream.column = "user_id"
+    second.upstream_schema_field_urns.return_value = [orders_user_id_urn]
+
+    parsed = MagicMock()
+    parsed.debug_info.table_error = None
+    parsed.column_lineage = [first, second]
+    metabase_source._parse_native_sql = MagicMock(  # type: ignore[method-assign]
+        return_value=(parsed, DatasourceInfo(platform="postgres"))
+    )
+    card = MetabaseCard(
+        id=12,
+        name="Union SQL",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT id AS user_id FROM users"}
+        ),
+        result_metadata=[{"name": "user_id", "base_type": "type/Integer"}],
+    )
+
+    fields = metabase_source._get_input_fields_from_native_sql(card)
+    assert {f.schemaFieldUrn for f in fields} == {users_id_urn, orders_user_id_urn}
+    metabase_source.close()

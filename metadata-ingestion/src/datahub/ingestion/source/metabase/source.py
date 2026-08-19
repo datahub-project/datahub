@@ -1180,7 +1180,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     continue
                 upstream_urns = col_lineage.upstream_schema_field_urns()
                 if upstream_urns:
-                    by_output[col_lineage.downstream.column.lower()] = upstream_urns
+                    existing = by_output.setdefault(
+                        col_lineage.downstream.column.lower(), []
+                    )
+                    for urn in upstream_urns:
+                        if urn not in existing:
+                            existing.append(urn)
 
         input_fields: List[InputFieldClass] = []
         for meta in card.result_metadata:

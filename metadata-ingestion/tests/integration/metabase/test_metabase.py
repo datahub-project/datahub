@@ -3,7 +3,7 @@ import logging
 import pathlib
 from contextlib import ExitStack, contextmanager
 from typing import Dict, Iterator, Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
@@ -55,14 +55,9 @@ def _base_response_map():
 @contextmanager
 def _mocked_metabase(
     json_response_map: Dict[str, str],
-    mock_datahub_graph: Optional[object] = None,
-    failure: bool = False,
+    mock_datahub_graph: Optional[MagicMock] = None,
 ) -> Iterator[None]:
-    session_builder = (
-        MockResponse.build_mocked_requests_failure
-        if failure
-        else MockResponse.build_mocked_requests_sucess
-    )
+    session_builder = MockResponse.build_mocked_requests_sucess
     with ExitStack() as stack:
         stack.enter_context(
             patch(
