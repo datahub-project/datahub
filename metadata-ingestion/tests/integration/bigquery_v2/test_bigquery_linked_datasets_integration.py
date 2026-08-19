@@ -232,7 +232,12 @@ def test_bigquery_linked_datasets_ingest(
                         created=None,
                         # Deliberately unrealistic: BigQuery hides a linked view's
                         # DDL, but the suppression guard needs a value to suppress.
-                        view_definition="SELECT * FROM users WHERE active",
+                        # Fully qualified so the parsed upstream resolves to the
+                        # table this fixture also emits.
+                        view_definition=(
+                            "SELECT * FROM consumer-project.shared_dataset.users "
+                            "WHERE active"
+                        ),
                         last_altered=None,
                         size_in_bytes=None,
                         rows_count=None,

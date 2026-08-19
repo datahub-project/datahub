@@ -775,13 +775,13 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT * FROM users WHERE active",
+            "viewLogic": "SELECT * FROM consumer-project.shared_dataset.users WHERE active",
             "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-9p8im3",
+        "runId": "bigquery-2022_02_03-07_00_00-fuokoq",
         "lastRunId": "no-run-id-provided"
     }
 },
