@@ -214,33 +214,21 @@ class TestCreateViewProjectMap:
             view_name=view_name,
         )
 
-    def test_cross_project_primary_view_not_overridden(self) -> None:
-        # Regression test: the primary view's project must NOT be replaced with the explore's
-        # project when the view is a cross-project import (project_name already set correctly).
-        view_field = self._make_view_field("my_view", project_name="project-a")
+    def test_cross_project_views_keep_their_own_project(self) -> None:
+        # Regression test: a cross-project imported view must keep the project taken from its
+        # source_file, even when it is the explore's primary view and the explore belongs to a
+        # different project. Overriding it produced upstream URNs that matched no view entity.
         result = create_view_project_map(
-            view_fields=[view_field],
-            explore_primary_view="my_view",
-            explore_project_name="project-b",
+            view_fields=[
+                self._make_view_field("my_view", project_name="project-a"),
+                self._make_view_field("other_view", project_name="project-b"),
+            ]
         )
-        assert result["my_view"] == "project-a"
-
-    def test_cross_project_non_primary_view(self) -> None:
-        view_field = self._make_view_field("other_view", project_name="project-a")
-        result = create_view_project_map(
-            view_fields=[view_field],
-            explore_primary_view="my_view",
-            explore_project_name="project-b",
-        )
-        assert result["other_view"] == "project-a"
+        assert result == {"my_view": "project-a", "other_view": "project-b"}
 
     def test_same_project_view_not_in_map(self) -> None:
         # Same-project views have project_name=None; they should not appear in the map
-        # and fall back to explore_project_name via the BASE_PROJECT_NAME sentinel.
+        # and fall back to the explore's project via the BASE_PROJECT_NAME sentinel.
         view_field = self._make_view_field("my_view", project_name=None)
-        result = create_view_project_map(
-            view_fields=[view_field],
-            explore_primary_view="my_view",
-            explore_project_name="project-b",
-        )
+        result = create_view_project_map(view_fields=[view_field])
         assert "my_view" not in result

@@ -513,19 +513,13 @@ def extract_project_from_imported_file_path(file_path: str) -> Optional[str]:
     return None
 
 
-def create_view_project_map(
-    view_fields: List[ViewField],
-    explore_primary_view: Optional[str] = None,
-    explore_project_name: Optional[str] = None,
-) -> Dict[str, str]:
+def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
 
     Args:
         view_fields: List of ViewField objects
-        explore_primary_view: The primary view name of the explore (explore.view_name)
-        explore_project_name: The project name of the explore (explore.project_name)
     """
     view_project_map: Dict[str, str] = {}
     for view_field in view_fields:
@@ -1277,11 +1271,7 @@ class LookerExplore:
                                 )
                             )
 
-            view_project_map: Dict[str, str] = create_view_project_map(
-                view_fields,
-                explore_primary_view=explore.view_name,
-                explore_project_name=explore.project_name,
-            )
+            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
