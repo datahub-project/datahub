@@ -1597,6 +1597,25 @@ class TestFetchStreamApiMetadata:
         with pytest.raises(AirbyteAuthenticationError, match="401"):
             client._fetch_stream_api_metadata("source-id-123")
 
+    @pytest.mark.parametrize("status_code", [401, 403])
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_reraises_auth_status_codes(
+        self, mock_list_streams, status_code
+    ):
+        mock_list_streams.side_effect = AirbyteApiError(
+            f"Airbyte API request failed: {status_code}",
+            status_code=status_code,
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteAuthenticationError):
+            client._fetch_stream_api_metadata("source-id-123")
+
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_500_returns_unavailable(self, mock_list_streams):
         mock_list_streams.side_effect = AirbyteApiError(

@@ -430,7 +430,11 @@ class AirbyteBaseClient(ABC):
             detailed_streams = self.list_streams(source_id=source_id)
         except AirbyteAuthenticationError:
             raise
-        except AirbyteApiError:
+        except AirbyteApiError as e:
+            if e.status_code in (401, 403):
+                raise AirbyteAuthenticationError(
+                    str(e), status_code=e.status_code
+                ) from e
             # 404 (no /streams, or inaccessible source), 5xx, and retry
             # exhaustion all mean namespaces and column-level lineage are
             # unavailable for this source. Raising would fail the whole

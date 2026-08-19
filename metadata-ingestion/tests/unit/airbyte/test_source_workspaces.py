@@ -398,15 +398,15 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
 
     assert len(pipelines) == 1
     assert pipelines[0].connection.connection_id == "connection-2"
-    assert not source.report.failures
-    assert len(source.report.warnings) == 1
+    assert len(source.report.failures) == 1
+    assert not source.report.warnings
 
 
 @patch(
     "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
 )
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-def test_pipeline_processing_error_is_warning(
+def test_pipeline_processing_error_is_failure(
     mock_create_client, mock_create_lineage, mock_ctx, mock_client
 ):
     mock_create_client.return_value = mock_client
@@ -446,8 +446,8 @@ def test_pipeline_processing_error_is_warning(
         workunits = list(source.get_workunits_internal())
 
     assert workunits == ["lineage_workunit"]
-    assert not source.report.failures
-    assert len(source.report.warnings) == 1
+    assert len(source.report.failures) == 1
+    assert not source.report.warnings
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
