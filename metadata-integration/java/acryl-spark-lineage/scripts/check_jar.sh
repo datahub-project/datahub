@@ -1,16 +1,27 @@
 # This script checks the shadow jar to ensure that we only have allowed classes being exposed through the jar
 set -x
 libName=acryl-spark-lineage
-jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
-jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
-
-# Every guard below lives inside the loop, so an empty match would skip all of them and fall straight
-# through to `exit 0` — reporting success without inspecting anything. Fail before the loop instead.
-if [ -z "$jarFiles" ]; then
-  echo "💥 No ${libName}*.jar found under build/libs — nothing was verified."
-  echo "   Refusing to exit 0 without inspecting an artifact; build the shadow jar first."
-  exit 1
-fi
+# Both published artifacts must be inspected. This used to `tail -n 1` the whole listing and check
+# only the most recently written jar, which was survivable while the two differed just in their
+# bundled openlineage-spark — but since #19289 they carry *separately compiled* project classes
+# (Scala 2.12 vs 2.13 method descriptors), so checking one says nothing about the other. Pick the
+# newest jar per Scala version rather than every match, so a stale artifact left behind by an earlier
+# version bump doesn't fail the build.
+scalaVersions="2.12 2.13"
+jarFiles=""
+for sv in ${scalaVersions}; do
+  svJar=$(find build/libs -name "${libName}_${sv}-*.jar" ! -name '*-sources.jar' ! -name '*-javadoc.jar' -exec ls -1rt "{}" +)
+  svJar=$(echo "$svJar" | tail -n 1)
+  # Every guard below lives inside the loop, so an empty match would skip all of them and fall
+  # straight through to `exit 0` — reporting success without inspecting anything. Fail before the
+  # loop instead.
+  if [ -z "$svJar" ]; then
+    echo "💥 No ${libName}_${sv}-*.jar found under build/libs — nothing was verified."
+    echo "   Refusing to exit 0 without inspecting an artifact; build the shadow jars first."
+    exit 1
+  fi
+  jarFiles="${jarFiles} ${svJar}"
+done
 
 for jarFile in ${jarFiles}; do
   # Read the entry listing ONCE and require it to be non-empty before any guard runs. Every check
@@ -151,7 +162,75 @@ for jarFile in ${jarFiles}; do
     exit 1
   fi
   rewrittenNames=$(LC_ALL=C grep -raoE "io\.acryl\.shaded\.(${hostSupplied})[A-Za-z0-9_.\$]*" "$scanDir" | sed "s|^${scanDir}/||" | sort -u)
+
+  # Guard the Scala binary version of the compiled classes (issue #19289).
+  #
+  # javac bakes the declared return type of a call into its invokevirtual descriptor, and the JVM
+  # resolves methods on the full descriptor — return type included. Every Spark API returning a Seq
+  # has a different descriptor per cross-build: `()Lscala/collection/Seq;` on 2.12 and
+  # `()Lscala/collection/immutable/Seq;` on 2.13 (FileScanRDD.filePartitions(), UnionRDD.rdds(),
+  # LogicalPlan.output(), TreeNode.children(), …). The build compiled the project sources once,
+  # against Scala 2.12, and packed that same output into both jars, so on a Spark 4 / Scala 2.13
+  # cluster the _2.13 agent threw NoSuchMethodError — and on the RDD path that Error escapes
+  # `catch (Exception)` and Spark's tryOrStopSparkContext kills the whole application.
+  #
+  # Descriptors live in the constant pool as plain UTF8 strings, so a literal grep is enough — no
+  # javap, no JVM start per class. `()Lscala/collection/Seq;` is the discriminator: it is emitted
+  # only for these Scala-cross-built APIs. Its mirror image is NOT usable as the 2.12 signal, because
+  # ScalaConversionUtils.asScalaSeqEmpty() returns immutable.Seq in *both* cross-builds.
+  seq212Hits=$(LC_ALL=C grep -rlaF '()Lscala/collection/Seq;' "$scanDir" | sed "s|^${scanDir}/||" | sort -u)
   rm -rf "$scanDir"
+
+  # Map each hit back to the source file it was compiled from, keeping only classes this project
+  # owns. The scanned region also holds the relocated openlineage-spark bundle, whose own 2.12
+  # classes would otherwise satisfy the positive check below without saying anything about ours.
+  ownSeq212Hits=""
+  for hitClass in ${seq212Hits}; do
+    hitSrc="src/main/java/${hitClass#io/acryl/shaded/}"
+    hitSrc="${hitSrc%%\$*}"          # inner classes compile from their outer class's source
+    hitSrc="${hitSrc%.class}.java"
+    if [ -f "$hitSrc" ]; then
+      ownSeq212Hits="${ownSeq212Hits}${hitClass}
+"
+    fi
+  done
+
+  case "$jarFile" in
+    *_2.13-*)
+      # Asserted over the WHOLE scanned region, not just our classes: openlineage-spark_2.12 landing
+      # in the 2.13 jar is the same defect one layer down, and equally invisible.
+      if [ -n "$seq212Hits" ]; then
+        echo "💥 Scala 2.12 method descriptors found in the Scala 2.13 artifact ${jarFile}:"
+        echo "$seq212Hits"
+        echo "   These classes call Spark APIs through '()Lscala/collection/Seq;', which does not"
+        echo "   exist on Scala 2.13 (Spark returns scala.collection.immutable.Seq there), so every"
+        echo "   such call throws NoSuchMethodError — and on the RDD path that stops the"
+        echo "   SparkContext (issue #19289)."
+        echo "   Fix: shadowJar_2_13 must package sourceSets.scala213.output and depend on"
+        echo "   openlineage-spark_2.13 (see build.gradle)."
+        exit 1
+      fi
+      ;;
+    *_2.12-*)
+      if [ -z "$ownSeq212Hits" ]; then
+        echo "💥 No Scala 2.12 method descriptors found in this project's classes in ${jarFile}."
+        echo "   The classes calling Spark's Seq-returning APIs must compile to"
+        echo "   '()Lscala/collection/Seq;' here. Their absence means the Scala 2.13 compilation was"
+        echo "   packaged into the 2.12 jar — the mirror image of issue #19289, and just as fatal on"
+        echo "   a Scala 2.12 cluster."
+        exit 1
+      fi
+      ;;
+    *)
+      # No fail-open: if the artifact naming ever changes, neither branch above would run and this
+      # guard would quietly verify nothing — exactly the trap the rest of this script exists to avoid.
+      echo "💥 Cannot tell which Scala binary version ${jarFile} is for."
+      echo "   The Scala descriptor guard keys off the _2.12- / _2.13- infix in the artifact name;"
+      echo "   update it alongside any change to the archiveBaseName in build.gradle."
+      exit 1
+      ;;
+  esac
+
   if [ -n "$rewrittenNames" ]; then
     echo "💥 Shading rewrote reflection class-name constants for host-supplied packages in ${jarFile}:"
     echo "$rewrittenNames"

@@ -6,7 +6,8 @@ This module integrates OpenLineage with DataHub's Spark lineage collection. It c
 
 This module:
 
-- Builds shadow JARs for multiple Scala versions (2.12 and 2.13)
+- Builds shadow JARs for multiple Scala versions (2.12 and 2.13), compiling its own sources once per
+  Scala binary version — see "Scala cross-compilation" below
 - Contains custom OpenLineage class implementations
 - Depends on `io.openlineage:openlineage-spark` as specified by `ext.openLineageVersion` in the root `build.gradle`
 
@@ -127,6 +128,52 @@ OpenLineage/DataHub classes for host-supplied package names rewritten under `io.
 the real jar. When debugging by hand, use `grep -a`, **not** `strings`: a `.class` file begins with
 `0xCAFEBABE`, the same magic as a Mach-O universal binary, so macOS `strings` refuses to scan it.
 
+### Scala cross-compilation (2.12 vs 2.13)
+
+The module's sources are compiled **twice**: `main` against a Scala 2.12 Spark/OpenLineage classpath,
+and the `scala213` source set (same `src/main/java`, declared in `build.gradle`) against the 2.13
+one. `shadowJar_2_12` packages `sourceSets.main.output`, `shadowJar_2_13` packages
+`sourceSets.scala213.output`.
+
+**Why one compilation cannot serve both** (issue #19289): javac bakes the declared return type of a
+call into its `invokevirtual` descriptor, and the JVM resolves methods on the _full_ descriptor,
+return type included. Every Spark API returning a `Seq` therefore has a different descriptor per
+cross-build:
+
+| Call site                                         | Scala 2.12                 | Scala 2.13                           |
+| ------------------------------------------------- | -------------------------- | ------------------------------------ |
+| `FileScanRDD.filePartitions()`, `UnionRDD.rdds()` | `()Lscala/collection/Seq;` | `()Lscala/collection/immutable/Seq;` |
+| `LogicalPlan.output()`, `TreeNode.children()`     | `()Lscala/collection/Seq;` | `()Lscala/collection/immutable/Seq;` |
+| `ArrayBuffer.toSeq()`                             | `()Lscala/collection/Seq;` | `()Lscala/collection/immutable/Seq;` |
+
+Shipping the 2.12 output inside `_2.13` threw `NoSuchMethodError` at each of those. On the RDD path
+that is _fatal_, not merely lossy: it is an `Error`, so `catch (Exception)` does not stop it and it
+is not covered by `PlanUtils.safeApply`'s `NoSuchMethodError` guard — Spark's `tryOrStopSparkContext`
+shuts the SparkContext down and the application fails.
+
+Note this was **masked** until the duplicate-entry fix in #19254: the jar previously carried both our
+copy and upstream's genuinely cross-compiled `openlineage-spark_2.13` copy at the same path, and the
+JVM resolves the _last_ zip entry — so on 2.13 the correct upstream classes loaded and every DataHub
+customization was silently inert. Two invariants have to hold together: our copy must win, **and**
+the winning copy must be compiled for the artifact's Scala binary version.
+
+**Keeping the two classpaths in step.** The 2.13 declarations mirror the `main` ones with `_2.13`
+coordinates. Spark 3.5.0 publishes both cross-builds, so both compilations target the same Spark API
+baseline. Two `compileOnly` reference points have no 2.13 release at the version the 2.12 side pins,
+so the nearest published 2.13 builds are used non-transitively (`delta-core_2.13`,
+`spark-redshift_2.13`); neither contributes a Scala-collection descriptor, so the exact versions do
+not affect the shipped bytecode. `scala213*` configurations are excluded from dependency locking, for
+the same reason the per-Scala shadow jars use detached configurations.
+
+**Enforcement.** `scripts/check_jar.sh` asserts the discriminator `()Lscala/collection/Seq;` is
+_present_ in this project's classes in `_2.12` and _absent_ everywhere in `_2.13` — both directions,
+so the two assertions are mutually exclusive and one output feeding both jars cannot pass.
+`ShadedScalaBinaryVersionTest` (in `sparkSmoke4`) covers it behaviourally on a real Spark 4 runtime,
+driving `RddDatasetInfoExtractor` over a genuine `FileScanRDD` and `UnionRDD`. Descriptors live in
+the constant pool as plain UTF-8, so `grep -a '()Lscala/collection/Seq;'` over a `.class` file is a
+valid hand check — but the mirror image is not: `ScalaConversionUtils.asScalaSeqEmpty()` returns
+`immutable.Seq` in _both_ cross-builds.
+
 ### Relationship to upstream trimmers & the CLL consistency gap
 
 Upstream OpenLineage (since 1.39, PR #3996) ships **dataset name trimmers** — heuristic,
@@ -213,8 +260,12 @@ optional first pass only.
 
    ```bash
    ./gradlew :metadata-integration:java:openlineage-converter:compileJava \
-             :metadata-integration:java:acryl-spark-lineage:compileTestJava
+             :metadata-integration:java:acryl-spark-lineage:compileTestJava \
+             :metadata-integration:java:acryl-spark-lineage:compileScala213Java
    ```
+
+   `compileScala213Java` is the second (Scala 2.13) compilation of the same sources — an OL or Spark
+   API change can break only that one, and `compileTestJava` would not notice.
 
 7. **Drop backports upstream now ships natively.** Check the OL changelog for the intervening
    versions and remove any DataHub workaround that became redundant (e.g. the `AwsUtils` Glue-ARN
