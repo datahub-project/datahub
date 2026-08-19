@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_C
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -79,7 +80,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   private final IndexConvention _indexConvention =
       IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
-  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
+  private final String _indexName =
+      _indexConvention.getIndexName(OperationFingerprint.EMPTY, INDEX_NAME);
   private ElasticSearchGraphService _client;
   private OperationContext operationContext;
 

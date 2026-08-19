@@ -10,6 +10,7 @@ import {
     SELECT_ASSETS_TAB_KEY,
 } from '@app/entityV2/view/builder/constants';
 import { ViewBuilderMode, ViewFilter } from '@app/entityV2/view/builder/types';
+import { useViewBuilderProperties } from '@app/entityV2/view/builder/useViewBuilderProperties';
 import {
     buildViewDefinition,
     filtersToLogicalPredicate,
@@ -18,7 +19,6 @@ import {
     logicalPredicateToFilters,
     selectedUrnsToFilters,
 } from '@app/entityV2/view/builder/utils';
-import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
@@ -43,6 +43,7 @@ type Props = {
 
 export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const { t } = useTranslation('entity.views');
+    const properties = useViewBuilderProperties();
     const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
     const existingOperator = state.definition?.filter?.operator;
 
@@ -113,7 +114,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
                     <LogicalFiltersBuilder
                         filters={dynamicFilter ?? DEFAULT_DYNAMIC_FILTER}
                         onChangeFilters={handleDynamicFilterChange}
-                        properties={viewBuilderProperties}
+                        properties={properties}
                         hideAddGroup
                     />
                 </ScrollableFiltersWrapper>

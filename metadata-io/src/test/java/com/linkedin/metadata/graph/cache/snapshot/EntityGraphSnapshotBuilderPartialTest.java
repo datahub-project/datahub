@@ -37,6 +37,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.LocalEvictionLi
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.ResolvedGraphEdge;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder.BuildResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.ScrollResult;
@@ -45,6 +46,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -187,6 +189,158 @@ public class EntityGraphSnapshotBuilderPartialTest {
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertTrue(result.getSnapshot().getTraversalCoverage().canSatisfy(TraversalDirection.FORWARD));
     assertEquals(result.getSnapshot().getEdges().size(), 2);
+  }
+
+  @Test
+  public void searchBuildSkipsJsonNullRelatedField() {
+    String grandchild = "urn:li:foo:grandchild";
+    String child = "urn:li:foo:child";
+    GraphEdgeTriplet triplet =
+        GraphEdgeTriplet.builder()
+            .sourceEntityType("foo")
+            .destinationEntityType("foo")
+            .relationshipType("Related")
+            .build();
+    EntityGraphDefinition definition =
+        partialDefinition(
+            GraphSnapshotSource.SEARCH,
+            List.of(
+                ResolvedGraphEdge.builder()
+                    .triplet(triplet)
+                    .searchField("related")
+                    .searchable(true)
+                    .graphDirection(RelationshipDirection.OUTGOING)
+                    .build()),
+            100);
+
+    SearchRetriever searchRetriever = mock(SearchRetriever.class);
+    when(searchRetriever.scroll(any(), any(), nullable(String.class), anyInt(), any(), any()))
+        .thenReturn(searchScrollResult("related", grandchild, child))
+        .thenReturn(searchScrollResult("related", child, "null"));
+
+    BuildResult result =
+        builder.buildPartial(
+            opContextWithSearch(searchRetriever),
+            definition,
+            GraphSnapshotSource.SEARCH,
+            Set.of(grandchild),
+            TraversalDirection.FORWARD,
+            null,
+            null,
+            null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), grandchild);
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), child);
+  }
+
+  @Test
+  public void primaryBuildSkipsUnsetRelatedEndpoint() {
+    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              HashMap<Urn, Map<String, Aspect>> batch = new HashMap<>();
+              if (urns.contains(UrnUtils.getUrn(CHILD))) {
+                batch.putAll(aspectBatch(CHILD, ROOT));
+              }
+              if (urns.contains(UrnUtils.getUrn(ROOT))) {
+                batch.put(
+                    UrnUtils.getUrn(ROOT),
+                    Map.of("domainProperties", new Aspect(new DomainProperties().data())));
+              }
+              return batch;
+            });
+
+    BuildResult result =
+        builder.buildPartial(
+            opContext,
+            primaryDefinition,
+            GraphSnapshotSource.PRIMARY,
+            Set.of(CHILD),
+            TraversalDirection.FORWARD,
+            null,
+            null,
+            null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), CHILD);
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), ROOT);
+  }
+
+  @Test
+  public void graphPartialBuildCanonicalizesQuotedNeighborFrontier() {
+    EntityGraphDefinition graphDefinition =
+        partialDefinition(GraphSnapshotSource.GRAPH, resolvedEdges, 100);
+
+    when(graphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            argThat(
+                (RelationshipFilter filter) ->
+                    filter.getDirection() == RelationshipDirection.OUTGOING),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenAnswer(
+            invocation -> {
+              Filter sourceFilter = invocation.getArgument(1);
+              if (filterHasExactUrn(sourceFilter, GRANDCHILD)) {
+                return new RelatedEntitiesScrollResult(
+                    1,
+                    1,
+                    null,
+                    List.of(
+                        new RelatedEntities(
+                            "IsPartOf",
+                            GRANDCHILD,
+                            "\"" + CHILD + "\"",
+                            RelationshipDirection.OUTGOING,
+                            null)));
+              }
+              if (filterHasExactUrn(sourceFilter, CHILD)) {
+                return new RelatedEntitiesScrollResult(
+                    1,
+                    1,
+                    null,
+                    List.of(
+                        new RelatedEntities(
+                            "IsPartOf", CHILD, ROOT, RelationshipDirection.OUTGOING, null)));
+              }
+              return new RelatedEntitiesScrollResult(0, 0, null, List.of());
+            });
+
+    BuildResult result =
+        builder.buildPartial(
+            opContext,
+            graphDefinition,
+            GraphSnapshotSource.GRAPH,
+            Set.of(GRANDCHILD),
+            TraversalDirection.FORWARD,
+            null,
+            null,
+            null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertEquals(result.getSnapshot().getEdges().size(), 2);
+    assertTrue(
+        result.getSnapshot().getEdges().stream()
+            .anyMatch(
+                edge ->
+                    CHILD.equals(edge.getSourceUrn()) && ROOT.equals(edge.getDestinationUrn())));
+    assertTrue(
+        result.getSnapshot().getEdges().stream()
+            .anyMatch(
+                edge ->
+                    GRANDCHILD.equals(edge.getSourceUrn())
+                        && CHILD.equals(edge.getDestinationUrn())));
   }
 
   @Test
@@ -473,6 +627,17 @@ public class EntityGraphSnapshotBuilderPartialTest {
         .build();
   }
 
+  private static boolean filterHasExactUrn(Filter filter, String urn) {
+    if (filter == null || filter.getOr() == null) {
+      return false;
+    }
+    return filter.getOr().stream()
+        .filter(or -> or.getAnd() != null)
+        .flatMap(or -> or.getAnd().stream())
+        .anyMatch(
+            criterion -> criterion.getValues() != null && criterion.getValues().contains(urn));
+  }
+
   private OperationContext opContextWithSearch(SearchRetriever searchRetriever) {
     EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
     return TestOperationContexts.systemContext(
@@ -494,10 +659,14 @@ public class EntityGraphSnapshotBuilderPartialTest {
   }
 
   private static ScrollResult searchScrollResult(String sourceUrn, String destUrn) {
+    return searchScrollResult("parentDomain", sourceUrn, destUrn);
+  }
+
+  private static ScrollResult searchScrollResult(String field, String sourceUrn, String destUrn) {
     SearchEntity entity =
         new SearchEntity()
             .setEntity(UrnUtils.getUrn(sourceUrn))
-            .setExtraFields(new StringMap(Map.of("parentDomain", destUrn)));
+            .setExtraFields(new StringMap(Map.of(field, destUrn)));
     return new ScrollResult().setEntities(new SearchEntityArray(entity));
   }
 

@@ -85,6 +85,21 @@ class TestTextPartitioner:
 
         assert elements == []
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason="unstructured requires Python 3.10+",
+    )
+    def test_partition_single_character_falls_back(self):
+        """A single-character document yields zero elements from the markdown
+        partitioner; the fallback keeps it embeddable instead of silently
+        dropping it."""
+        partitioner = TextPartitioner()
+
+        elements = partitioner.partition_text("x")
+
+        assert len(elements) == 1
+        assert elements[0]["text"] == "x"
+
 
 class TestDataHubDocumentsConfig:
     """Test configuration validation."""
@@ -96,7 +111,7 @@ class TestDataHubDocumentsConfig:
         assert config.platform_filter is None  # Default: None = all NATIVE documents
         assert config.incremental.enabled is True
         assert config.skip_empty_text is True
-        assert config.min_text_length == 50
+        assert config.min_text_length == 0
         assert config.event_mode.enabled is False
         assert config.chunking.strategy == "by_title"
         assert config.partition_strategy == "markdown"

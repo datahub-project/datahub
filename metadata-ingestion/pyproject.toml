@@ -69,6 +69,7 @@ dependencies = [
     "toml>=0.10.0,<=0.10.2",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
+    "urllib3>=2.5.0,<3.0",
 ]
 
 [project.urls]
@@ -138,7 +139,6 @@ aws-secret-manager = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 azure-ad = []
@@ -203,7 +203,7 @@ bigquery-slim = [
 
 cassandra = [
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "numpy<2",
 ]
 
@@ -242,7 +242,6 @@ cockroachdb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 confluence = [
@@ -253,10 +252,9 @@ confluence = [
     "graphql-core>=3.0.0,<4.0.0",
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
 ]
 
 cube = [
@@ -299,10 +297,9 @@ datahub-documents = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
 ]
 
 datahub-gc = []
@@ -326,7 +323,6 @@ datahub-pg-queue = [
     "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
     "psycopg2-binary<3.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 datahub-rest = [
@@ -359,7 +355,6 @@ dbt = [
     "more-itertools<11.0.0",
     "requests<3.0.0",
     "sqlglot[c]==30.12.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 dbt-cloud = [
@@ -390,7 +385,6 @@ delta-lake = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -407,7 +401,6 @@ doris = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 dremio = [
@@ -431,12 +424,11 @@ druid = [
 dynamodb = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 elasticsearch = [
     "cachetools<6.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
 ]
 
 excel = [
@@ -455,7 +447,6 @@ excel = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -525,7 +516,6 @@ gcs = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -540,7 +530,6 @@ gcs-slim = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -552,7 +541,6 @@ glue = [
     "cachetools<6.0.0",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 grafana = [
@@ -609,7 +597,6 @@ iceberg = [
 iceberg-catalog = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 informatica = [
@@ -646,7 +633,6 @@ kinesis = [
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 ldap = [
@@ -680,7 +666,6 @@ mariadb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 matillion-dpc = [
@@ -746,7 +731,6 @@ mysql = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 neo4j = [
@@ -765,17 +749,15 @@ notion = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
 ]
 
 odcs = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "GitPython>2,<4.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 okta = [
@@ -812,7 +794,6 @@ postgres = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 powerbi = [
@@ -873,7 +854,6 @@ quicksight = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "sqlglot[c]==30.12.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 rdf = [
@@ -925,7 +905,6 @@ s3 = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -940,7 +919,6 @@ s3-slim = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -952,7 +930,6 @@ sac = [
 sagemaker = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 salesforce = [
@@ -1045,7 +1022,6 @@ sql-queries = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 sqlalchemy = [
@@ -1086,7 +1062,7 @@ sync-file-emitter = [
 
 tableau = [
     "sqlglot[c]==30.12.0",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.34,<=0.40",
 ]
 
 teradata = [
@@ -1112,7 +1088,6 @@ tidb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 timescaledb = [
@@ -1125,7 +1100,6 @@ timescaledb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
 ]
 
 trino = [
@@ -1154,10 +1128,9 @@ unstructured = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
 ]
 
 vertexai = [
@@ -1187,7 +1160,7 @@ all = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[avro,schemaregistry]>=2.10.1,!=2.8.1,<2.13.0",
     "cryptography>=49.0.0,<51.0.0",
@@ -1238,11 +1211,11 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
     "packaging<26.0.0",
     "pandas<2.2.0",
@@ -1286,7 +1259,7 @@ all = [
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
@@ -1295,7 +1268,6 @@ all = [
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
@@ -1322,7 +1294,7 @@ dev = [
     "build<2.0.0",
     "cached_property<3.0.0",
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -1391,10 +1363,10 @@ dev = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
     "orderly-set!=5.4.0,<6.0.0",
     "packaging<26.0.0",
@@ -1457,7 +1429,7 @@ dev = [
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1488,7 +1460,7 @@ dev = [
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -1514,7 +1486,7 @@ docs = [
     "build<2.0.0",
     "cached_property<3.0.0",
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -1583,10 +1555,10 @@ docs = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
     "orderly-set!=5.4.0,<6.0.0",
     "packaging<26.0.0",
@@ -1649,7 +1621,7 @@ docs = [
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1680,7 +1652,7 @@ docs = [
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -1764,7 +1736,6 @@ integration-tests = [
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
     "vcrpy>=8.0.0,<9.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -2003,6 +1974,10 @@ constraint-dependencies = [
     # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
     "PyJWT>=2.13.0,<3.0.0",
+    # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 (fixed 2.6.3), CVE-2026-44431 (2.7.0).
+    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.7.0 is enforced here at lock time
+    # only, since Airflow constraints pin urllib3 below 2.7.
+    "urllib3>=2.7.0,<3.0.0",
 ]
 
 [tool.ruff]

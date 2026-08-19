@@ -81,7 +81,8 @@ public class SemanticEntitySearchServiceTest {
     mappingsBuilder = new NoOpMappingsBuilder();
 
     // Setup basic mock behavior
-    when(mockIndexConvention.getEntityIndexName(TEST_ENTITY_NAME)).thenReturn(TEST_BASE_INDEX);
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, TEST_ENTITY_NAME))
+        .thenReturn(TEST_BASE_INDEX);
     when(mockEmbeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
         .thenReturn(TEST_EMBEDDING);
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
@@ -295,8 +296,10 @@ public class SemanticEntitySearchServiceTest {
   @Test
   public void testSearchMultipleEntityTypes() throws IOException {
     // Setup multiple entity types
-    when(mockIndexConvention.getEntityIndexName("dataset")).thenReturn("datasetindex_v2");
-    when(mockIndexConvention.getEntityIndexName("chart")).thenReturn("chartindex_v2");
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, "dataset"))
+        .thenReturn("datasetindex_v2");
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, "chart"))
+        .thenReturn("chartindex_v2");
 
     setupMockKnnResponse(
         List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));
@@ -358,6 +361,7 @@ public class SemanticEntitySearchServiceTest {
     extraFields.add("name");
     extraFields.add("platform");
     extraFields.add("qualifiedName");
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
 
     SearchResult result =
         service.search(
@@ -368,10 +372,15 @@ public class SemanticEntitySearchServiceTest {
 
     SearchEntity entity = result.getEntities().get(0);
     assertNotNull(entity.getExtraFields());
-    assertTrue(entity.getExtraFields().size() > 0);
     assertTrue(entity.getExtraFields().containsKey("name"));
     assertTrue(entity.getExtraFields().containsKey("platform"));
     assertTrue(entity.getExtraFields().containsKey("qualifiedName"));
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    assertTrue(requestCaptor.getValue().fieldsToFetch().containsAll(extraFields));
+    assertTrue(requestCaptor.getValue().fieldsToFetch().contains("urn"));
   }
 
   @Test
