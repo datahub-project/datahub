@@ -1,30 +1,21 @@
-"""Backfill Metric → SMD lineage for Semantic Models on the older catalog shape.
+"""Report Semantic Model container-model migration status.
 
-For each ``semanticModel`` that still has ``semanticModelInfo.datasets`` populated,
-for each metric whose ``metricInfo.semanticModel`` points at that model and that
-lacks ``metricUpstreams.datasetUpstreams``, write dataset upstream edges to the
-listed Semantic Model Dataset URNs.
+For each ``semanticModel`` that still has ``semanticModelInfo.datasets`` populated
+(the older catalog shape), discover metrics whose ``metricInfo.semanticModel``
+points at that model and report which lack ``metricUpstreams.datasetUpstreams``.
 
-Producers that populated ``semanticModelInfo.datasets`` also wrote
-``semanticModelProperties.semanticModel``, so ``IsPartOf`` membership is already
-present; this CLI does not touch it. Never clears or rewrites
-``semanticModelInfo.datasets``. Safe to re-run.
+This command does not write metadata. Re-ingest (or an SDK write with
+``upstream_datasets``) is the migration path — both emit per-metric
+``metricUpstreams`` with correct routing. Safe to re-run.
 """
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
-from datahub.metadata.schema_classes import (
-    EdgeClass,
-    MetricUpstreamsClass,
-    SemanticModelInfoClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import MetricUpstreamsClass, SemanticModelInfoClass
 from datahub.utilities.urns.urn import guess_entity_type
 
 log = logging.getLogger(__name__)
@@ -37,11 +28,11 @@ class ContainerMigrationResult:
     semantic_model_urn: str
     datasets_seen: List[str] = field(default_factory=list)
     metrics_seen: List[str] = field(default_factory=list)
-    upstreams_written: List[str] = field(default_factory=list)
-    upstreams_skipped: List[str] = field(default_factory=list)
+    metrics_missing_upstreams: List[str] = field(default_factory=list)
+    metric_errors: List[Tuple[str, str]] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
     # True when semanticModelInfo.datasets is empty — already new-shape / nothing
-    # to backfill from stored datasets (mirrors subtype_skipped in snowflake migrate).
+    # to report from stored datasets (mirrors subtype_skipped in snowflake migrate).
     skipped_empty_datasets: bool = False
     error: Optional[str] = None
 
@@ -57,41 +48,50 @@ class ContainerMigrationReport:
         skipped = [
             r for r in self.results if r.error is None and r.skipped_empty_datasets
         ]
-        migrated = [
+        old_shape = [
             r for r in self.results if r.error is None and not r.skipped_empty_datasets
         ]
-        upstreams_written = sum(len(r.upstreams_written) for r in migrated)
-        upstreams_skipped = sum(len(r.upstreams_skipped) for r in migrated)
+        new_shape_ready = [
+            r
+            for r in old_shape
+            if not r.metrics_missing_upstreams and not r.metric_errors
+        ]
+        needs_reingest = [r for r in old_shape if r.metrics_missing_upstreams]
+        metric_error_count = sum(len(r.metric_errors) for r in self.results)
         lines = [
             f"{prefix}Semantic Model Container Migration Report:",
             "--------------",
-            f"{prefix}Semantic models with stored datasets (old shape) = {len(migrated)}",
+            f"{prefix}Semantic models on the old shape "
+            f"(semanticModelInfo.datasets populated) = {len(old_shape)}",
+            f"{prefix}Semantic models with all metrics on the new shape "
+            f"(metricUpstreams populated) = {len(new_shape_ready)}",
+            f"{prefix}Semantic models with metrics still missing metricUpstreams "
+            f"(re-ingest required) = {len(needs_reingest)}",
             f"{prefix}Semantic models skipped "
             f"(empty semanticModelInfo.datasets) = {len(skipped)}",
             f"{prefix}Semantic models errored = {len(failed)}",
-            f"{prefix}metricUpstreams.datasetUpstreams written = {upstreams_written}",
-            f"{prefix}metricUpstreams.datasetUpstreams skipped = {upstreams_skipped}",
+            f"{prefix}metric-level errors = {metric_error_count}",
         ]
         if skipped:
             lines.append(f"{prefix}Skipped (empty semanticModelInfo.datasets):")
             for r in skipped:
                 lines.append(f"{prefix}  skipped: {r.semantic_model_urn}")
         lines.append(f"{prefix}Details:")
-        for r in migrated:
+        for r in old_shape:
             lines.append(f"{prefix}  {r.semantic_model_urn}")
             lines.append(
                 f"{prefix}    datasets from semanticModelInfo.datasets: "
                 f"{len(r.datasets_seen)}"
             )
             lines.append(f"{prefix}    metrics seen: {len(r.metrics_seen)}")
-            if r.upstreams_written:
+            if r.metrics_missing_upstreams:
                 lines.append(
-                    f"{prefix}    upstreams written: {', '.join(r.upstreams_written)}"
+                    f"{prefix}    metrics missing metricUpstreams: "
+                    f"{', '.join(r.metrics_missing_upstreams)}"
                 )
-            if r.upstreams_skipped:
-                lines.append(
-                    f"{prefix}    upstreams skipped: {', '.join(r.upstreams_skipped)}"
-                )
+            if r.metric_errors:
+                for metric_urn, message in r.metric_errors:
+                    lines.append(f"{prefix}    metric error: {metric_urn}: {message}")
             for note in r.notes:
                 lines.append(f"{prefix}    note: {note}")
         for r in failed:
@@ -107,16 +107,6 @@ def _status_filter(
     if include_soft_deleted:
         return RemovedStatusFilter.ALL
     return RemovedStatusFilter.NOT_SOFT_DELETED
-
-
-def _emit_aspect(
-    graph: DataHubGraph, entity_urn: str, aspect: _Aspect, dry_run: bool
-) -> None:
-    if not dry_run:
-        graph.emit_mcp(
-            MetadataChangeProposalWrapper(entityUrn=entity_urn, aspect=aspect),
-            emit_mode=EmitMode.SYNC_PRIMARY,
-        )
 
 
 def discover_semantic_model_urns(
@@ -159,36 +149,13 @@ def discover_metrics_for_semantic_model(
     )
 
 
-def _backfill_metric_upstreams(
-    graph: DataHubGraph,
-    *,
-    metric_urn: str,
-    dataset_urns: Sequence[str],
-    dry_run: bool,
-    result: ContainerMigrationResult,
-) -> None:
-    existing = graph.get_aspect(metric_urn, MetricUpstreamsClass)
-    if (
-        existing is not None
-        and existing.datasetUpstreams is not None
-        and len(existing.datasetUpstreams) > 0
-    ):
-        result.upstreams_skipped.append(f"{metric_urn} (datasetUpstreams already set)")
-        return
-
-    if not dataset_urns:
-        result.upstreams_skipped.append(f"{metric_urn} (no datasets to link)")
-        return
-
-    edges = [EdgeClass(destinationUrn=urn) for urn in dataset_urns]
-    if existing is None:
-        aspect = MetricUpstreamsClass(datasetUpstreams=edges)
-    else:
-        existing.datasetUpstreams = edges
-        aspect = existing
-
-    _emit_aspect(graph, metric_urn, aspect, dry_run)
-    result.upstreams_written.append(metric_urn)
+def _metric_has_dataset_upstreams(graph: DataHubGraph, metric_urn: str) -> bool:
+    upstreams = graph.get_aspect(metric_urn, MetricUpstreamsClass)
+    return (
+        upstreams is not None
+        and upstreams.datasetUpstreams is not None
+        and len(upstreams.datasetUpstreams) > 0
+    )
 
 
 def migrate_semantic_model(
@@ -197,6 +164,7 @@ def migrate_semantic_model(
     dry_run: bool,
     include_soft_deleted: bool = False,
 ) -> ContainerMigrationResult:
+    del dry_run  # report-only; retained for CLI signature compatibility
     result = ContainerMigrationResult(semantic_model_urn=semantic_model_urn)
     if guess_entity_type(semantic_model_urn) != "semanticModel":
         result.error = f"not a semanticModel URN: {semantic_model_urn}"
@@ -210,14 +178,11 @@ def migrate_semantic_model(
         dataset_urns: List[str] = list(info.datasets) if info is not None else []
         result.datasets_seen = list(dataset_urns)
 
-        # Older modeling = non-empty semanticModelInfo.datasets. Empty means
-        # already container-shaped (or never used the deprecated field) — skip
-        # like snowflake-semantic-views skips non-Semantic-View subtypes.
         if not dataset_urns:
             result.skipped_empty_datasets = True
             result.notes.append(
                 "semanticModelInfo.datasets empty or missing; "
-                "nothing to backfill from stored datasets"
+                "nothing to report from stored datasets"
             )
             return result
 
@@ -228,15 +193,18 @@ def migrate_semantic_model(
         )
         result.metrics_seen = list(metric_urns)
         for metric_urn in metric_urns:
-            _backfill_metric_upstreams(
-                graph,
-                metric_urn=metric_urn,
-                dataset_urns=dataset_urns,
-                dry_run=dry_run,
-                result=result,
-            )
+            try:
+                if not _metric_has_dataset_upstreams(graph, metric_urn):
+                    result.metrics_missing_upstreams.append(metric_urn)
+            except Exception as e:
+                log.warning(
+                    "Failed to inspect metricUpstreams for %s: %s",
+                    metric_urn,
+                    e,
+                )
+                result.metric_errors.append((metric_urn, str(e)))
     except Exception as e:
-        log.warning(f"Failed to migrate {semantic_model_urn}: {e}")
+        log.warning(f"Failed to report on {semantic_model_urn}: {e}")
         result.error = str(e)
     return result
 

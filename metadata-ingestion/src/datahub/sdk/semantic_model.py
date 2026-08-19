@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -495,10 +496,32 @@ class SemanticModel(
         # join-path aliases against the full picture (a construction-time check
         # sees an incomplete set when datasets are attached after relationships).
         self._validate_relationships(strict=True)
-        # Membership is member-side; this field is @deprecated and retained for
-        # backwards-read only. Write it empty so get → edit → emit never
-        # re-emits stale membership from a hydrated model.
-        self._ensure_model_props().datasets = []
+
+        aspect_name = SemanticModelInfoClass.ASPECT_NAME
+        prev = (self._prev_aspects or {}).get(aspect_name)
+        curr = self._aspects.get(aspect_name)
+
+        if prev is not None and curr is not None and curr == prev:
+            # Hydrated, user did not touch semanticModelInfo. Skip emit so stored
+            # datasets is preserved for migration read-back.
+            popped = self._aspects.pop(aspect_name)
+            try:
+                return super().as_mcps(change_type=change_type)
+            finally:
+                self._aspects[aspect_name] = popped
+
+        if curr is not None and (curr.datasets or []):
+            # Touched (or authored from scratch with stale datasets): strip
+            # datasets on the emit copy so we do not write to the deprecated
+            # field. Do not mutate the persistent aspect.
+            emit_copy = copy.deepcopy(curr)
+            emit_copy.datasets = []
+            self._aspects[aspect_name] = emit_copy
+            try:
+                return super().as_mcps(change_type=change_type)
+            finally:
+                self._aspects[aspect_name] = curr
+
         return super().as_mcps(change_type=change_type)
 
 

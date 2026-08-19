@@ -1296,16 +1296,16 @@ def semantic_model_container(
     dry_run: bool,
     force: bool,
 ) -> None:
-    """Backfill Metric → SMD lineage from deprecated semanticModelInfo.datasets.
+    """Report Semantic Model container-model migration status.
 
-    Discovers all semanticModel entities (any platform). For each model with a
+    Discovers semanticModel entities (any platform). For each model with a
     non-empty stored ``semanticModelInfo.datasets`` list (older metrics-catalog
-    shape), finds metrics with ``metricInfo.semanticModel`` pointing at the model
-    and, when they lack ``metricUpstreams.datasetUpstreams``, writes dataset
-    upstream edges to those Semantic Model Dataset URNs.
+    shape), lists metrics with ``metricInfo.semanticModel`` pointing at the
+    model that still lack ``metricUpstreams.datasetUpstreams``.
 
-    Models with empty ``datasets`` are skipped, so run this before re-ingesting.
-    Idempotent; safe to re-run.
+    Does not write metadata. Re-ingest (or an SDK write with
+    ``upstream_datasets``) populates ``metricUpstreams`` with per-metric routing.
+    Run this before re-ingesting to see what still needs coverage. Safe to re-run.
     """
     graph = get_default_graph(ClientMode.CLI)
 
@@ -1338,13 +1338,13 @@ def semantic_model_container(
                     "--include-soft-deleted after reviewing that set."
                 )
                 return
-        click.echo("No semanticModel entities found to migrate.")
+        click.echo("No semanticModel entities found to report on.")
         return
 
-    click.echo(f"Found {len(urns_to_process)} semanticModel entities to migrate.")
+    click.echo(f"Found {len(urns_to_process)} semanticModel entities to report on.")
     if not force and not dry_run:
         sample = urns_to_process[:5]
-        click.echo(f"Will migrate urns such as: {sample}")
+        click.echo(f"Will report on urns such as: {sample}")
         click.confirm("Ok to proceed?", abort=True)
 
     report = run_semantic_model_container_migration(

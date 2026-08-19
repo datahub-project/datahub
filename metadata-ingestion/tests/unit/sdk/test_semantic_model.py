@@ -1295,6 +1295,64 @@ def test_hydrated_model_partial_add_dataset_warns_on_other_aliases(
     assert "CUSTOMERS" in warning_text or "ITEMS" in warning_text
 
 
+def test_hydrated_no_edit_omits_semantic_model_info() -> None:
+    """Hydrated get → emit with no edits must not emit semanticModelInfo."""
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+    ]
+    model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+
+    aspect_names = {mcp.aspectName for mcp in hydrated.as_mcps()}
+    assert "semanticModelInfo" not in aspect_names
+    assert hydrated._ensure_model_props().datasets == stale
+
+
+def test_hydrated_edit_native_definition_emits_with_datasets_cleared() -> None:
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+    ]
+    model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+
+    hydrated.set_native_definition("CREATE SEMANTIC VIEW ...")
+    info = next(
+        mcp.aspect
+        for mcp in hydrated.as_mcps()
+        if mcp.aspectName == "semanticModelInfo"
+    )
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.datasets == []
+    assert info.nativeDefinition == "CREATE SEMANTIC VIEW ..."
+    assert hydrated._ensure_model_props().datasets == stale
+
+
+def test_hydrated_add_dataset_does_not_mutate_in_memory_aspect() -> None:
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+    ]
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=[
+            _ds("ORDERS", "analytics.orders_model.orders_ds", ["order_id"]),
+        ],
+    )
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    before = list(hydrated._ensure_model_props().datasets)
+
+    hydrated.add_dataset(
+        _ds("CUSTOMERS", "analytics.orders_model.customers_ds", ["customer_id"])
+    )
+    hydrated.as_mcps()
+
+    assert hydrated._ensure_model_props().datasets == before
+
+
 def test_hydrated_model_clears_deprecated_datasets_on_emit() -> None:
     """get → edit → upsert must not re-emit stale semanticModelInfo.datasets."""
     stale = [
@@ -1306,6 +1364,7 @@ def test_hydrated_model_clears_deprecated_datasets_on_emit() -> None:
     hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
     assert hydrated._ensure_model_props().datasets == stale
 
+    hydrated.set_description("updated")
     info = next(
         mcp.aspect
         for mcp in hydrated.as_mcps()
@@ -1313,3 +1372,4 @@ def test_hydrated_model_clears_deprecated_datasets_on_emit() -> None:
     )
     assert isinstance(info, SemanticModelInfoClass)
     assert info.datasets == []
+    assert hydrated._ensure_model_props().datasets == stale
