@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from datahub.metadata.schema_classes import GlobalTagsClass
 from requests.adapters import HTTPAdapter
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -38,6 +37,7 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
+from datahub.metadata.schema_classes import GlobalTagsClass
 
 REGISTRY_LOOKUP = (
     "datahub.ingestion.source.kafka_connect.connector_registry."

@@ -2,7 +2,6 @@ from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -16,6 +15,7 @@ from datahub.ingestion.source.kafka.confluent_catalog import (
 )
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
+from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
 
 CONFLUENT_SCHEMA_REGISTRY_URL = "https://psrc-abc123.us-east-1.aws.confluent.cloud"
 SCHEMA_REGISTRY_URL = "http://localhost:8081"
