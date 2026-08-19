@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { ExternalPluginKey, ExtraEnvKey, ExtraPluginKey, ExtraReqKey } from '@app/ingestV2/source/extraArgKeys';
 import { AntdFormCompatibleCheckbox } from '@app/ingestV2/source/multiStepBuilder/components/AntdCompatibleCheckbox';
 import { ExpandCollapseButton } from '@app/ingestV2/source/multiStepBuilder/components/ExpandCollapseButton';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
@@ -34,16 +35,12 @@ interface Props {
     updateState: (newState: Partial<MultiStepSourceBuilderState>) => void;
 }
 
-const ExtraEnvKey = 'extra_env_vars';
-const ExtraReqKey = 'extra_pip_requirements';
-const ExtraPluginKey = 'extra_pip_plugins';
-
 const EXECUTOR_ID_PLACEHOLDER = 'default';
 const CLI_VERSION_PLACEHOLDER = '(e.g. 0.15.0)';
 const EXTRA_ENV_PLACEHOLDER = '{"MY_CUSTOM_ENV": "my_custom_value2"}';
 const EXTRA_ARGS_PLACEHOLDER = '["debug"]';
 const EXTRA_PIP_PLACEHOLDER = '["sqlparse==0.4.3"]';
-
+const EXTERNAL_PLUGIN_PLACEHOLDER = '["github:owner/my-source"]';
 export function AdvancedSection({ state, updateState }: Props) {
     const { t } = useTranslation('ingestion.sourceBuilder');
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -65,6 +62,7 @@ export function AdvancedSection({ state, updateState }: Props) {
             extra_args: retrieveValueFromExtraArgs(state, ExtraEnvKey),
             extra_pip_plugin: retrieveValueFromExtraArgs(state, ExtraPluginKey),
             extra_pip_reqs: retrieveValueFromExtraArgs(state, ExtraReqKey),
+            external_plugins: retrieveValueFromExtraArgs(state, ExternalPluginKey),
         };
     }, [state]);
 
@@ -83,6 +81,7 @@ export function AdvancedSection({ state, updateState }: Props) {
                         { key: ExtraEnvKey, value: values.extra_args },
                         { key: ExtraPluginKey, value: values.extra_pip_plugin },
                         { key: ExtraReqKey, value: values.extra_pip_reqs },
+                        { key: ExternalPluginKey, value: values.external_plugins },
                     ],
                 },
             });
@@ -155,6 +154,14 @@ export function AdvancedSection({ state, updateState }: Props) {
                         name="extra_pip_reqs"
                     >
                         <Input data-testid="extra-pip-reqs-input" placeholder={EXTRA_PIP_PLACEHOLDER} />
+                    </CustomLabelFormItem>
+
+                    <CustomLabelFormItem
+                        label={t('multiStep.connection.externalPlugins.label')}
+                        help={t('multiStep.connection.externalPlugins.help')}
+                        name="external_plugins"
+                    >
+                        <Input data-testid="external-plugins-input" placeholder={EXTERNAL_PLUGIN_PLACEHOLDER} />
                     </CustomLabelFormItem>
                 </FormContainer>
             </Container>

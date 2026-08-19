@@ -91,7 +91,7 @@ export const IngestionSourceBuilderModal = ({
         },
     );
 
-    const { ingestionSources } = useIngestionSources();
+    const { ingestionSources, communityPluginMeta } = useIngestionSources();
 
     const sendAnalyticsStepViewedEvent = useCallback(
         (step: IngestionSourceBuilderStep) => {
@@ -203,6 +203,7 @@ export const IngestionSourceBuilderModal = ({
                     selectedSource={selectedSource}
                     selectedSourceType={selectedSourceType}
                     setSelectedSourceType={setSelectedSourceType}
+                    communityPluginMeta={communityPluginMeta}
                 />
             </Spin>
         </Modal>

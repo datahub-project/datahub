@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { type CommunityPluginMeta, useCommunityPlugins } from '@app/ingestV2/source/builder/useCommunityPlugins';
 
 function toSourceKey(name: string): string {
     return name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -27,11 +28,21 @@ function resolveSource(source: SourceConfig, t: TFunction<'ingest.sources'>): So
 export function useIngestionSources() {
     const { t, i18n } = useTranslation('ingest.sources');
     // TODO: replace with call to server once we have access to dynamic list of sources
-    const ingestionSources: SourceConfig[] = useMemo(
+    const builtInSources: SourceConfig[] = useMemo(
         () => (JSON.parse(JSON.stringify(sourcesJson)) as SourceConfig[]).map((s) => resolveSource(s, t)),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [t, i18n.language],
     );
+    const { communityPlugins, communityPluginMeta, isLoading: communityLoading } = useCommunityPlugins();
 
-    return { ingestionSources };
+    // Merge: built-in sources take precedence over community plugins with the same name
+    const ingestionSources: SourceConfig[] = useMemo(() => {
+        const builtInNames = new Set(builtInSources.map((s) => s.name));
+        const uniqueCommunity = communityPlugins.filter((cp) => !builtInNames.has(cp.name));
+        return [...builtInSources, ...uniqueCommunity];
+    }, [builtInSources, communityPlugins]);
+
+    return { ingestionSources, communityPluginMeta, communityLoading };
 }
+
+export type { CommunityPluginMeta };

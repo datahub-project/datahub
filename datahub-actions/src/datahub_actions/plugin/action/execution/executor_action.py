@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib
+import contextlib
 import json
 import logging
+import os
 import sys
-from typing import Any, List, Optional, cast
+import time
+from typing import Dict, Iterator, List, Optional, Union
 
 from acryl.executor.dispatcher.default_dispatcher import DefaultDispatcher
 from acryl.executor.execution.reporting_executor import (
@@ -25,11 +27,13 @@ from acryl.executor.execution.reporting_executor import (
 from acryl.executor.execution.task import TaskConfig
 from acryl.executor.request.execution_request import ExecutionRequest
 from acryl.executor.request.signal_request import SignalRequest
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.metadata.schema_classes import MetadataChangeLogClass
+from datahub.plugin.github_resolver import resolve_plugin_spec
 from datahub.secret.datahub_secret_store import DataHubSecretStoreConfig
 from datahub.secret.secret_store import SecretStoreConfig
+from datahub.utilities.ingest_utils import parse_json_list
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
@@ -37,45 +41,30 @@ from datahub_actions.pipeline.pipeline_context import PipelineContext
 
 logger = logging.getLogger(__name__)
 
+
 DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
 DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput"
 DATAHUB_EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal"
 APPLICATION_JSON_CONTENT_TYPE = "application/json"
 
 
-def _is_importable(path: str) -> bool:
-    return "." in path or ":" in path
-
-
-def import_path(path: str) -> Any:
-    """
-    Import an item from a package, where the path is formatted as 'package.module.submodule.ClassName'
-    or 'package.module.submodule:ClassName.classmethod'. The dot-based format assumes that the bit
-    after the last dot is the item to be fetched. In cases where the item to be imported is embedded
-    within another type, the colon-based syntax can be used to disambiguate.
-    """
-    assert _is_importable(path), "path must be in the appropriate format"
-
-    if ":" in path:
-        module_name, object_name = path.rsplit(":", 1)
-    else:
-        module_name, object_name = path.rsplit(".", 1)
-
-    item = importlib.import_module(module_name)
-    for attr in object_name.split("."):
-        item = getattr(item, attr)
-    return item
-
-
 class ExecutorConfig(BaseModel):
-    executor_id: Optional[str] = None
-    task_configs: Optional[List[TaskConfig]] = None
+    model_config = ConfigDict(extra="forbid")
+
+    executor_id: Optional[str] = Field(
+        default=None,
+        description="ID of the executor; defaults to 'default' at runtime.",
+    )
+    task_configs: Optional[List[TaskConfig]] = Field(
+        default=None,
+        description="Custom task configurations; uses built-in defaults when absent.",
+    )
 
 
 # Listens to new Execution Requests & dispatches them to the appropriate handler.
 class ExecutorAction(Action):
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
+    def create(cls, config_dict: Dict[str, object], ctx: PipelineContext) -> "Action":
         config = ExecutorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
@@ -93,7 +82,13 @@ class ExecutorAction(Action):
     def act(self, event: EventEnvelope) -> None:
         """This method listens for ExecutionRequest changes to execute in schedule and trigger events"""
         if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
-            orig_event = cast(MetadataChangeLogClass, event.event)
+            if not isinstance(event.event, MetadataChangeLogClass):
+                logger.warning(
+                    "Expected MetadataChangeLogClass but got %s",
+                    type(event.event).__name__,
+                )
+                return
+            orig_event = event.event
             if (
                 orig_event.get("entityType") == DATAHUB_EXECUTION_REQUEST_ENTITY_NAME
                 and orig_event.get("changeType") == "UPSERT"
@@ -111,51 +106,123 @@ class ExecutorAction(Action):
                     logger.debug("Received execution request signal. Processing...")
                     self._handle_execution_request_signal(orig_event)
 
-    def _handle_execution_request_input(self, orig_event):
-        entity_urn = orig_event.get("entityUrn")
+    @staticmethod
+    def _extract_exec_id(orig_event: MetadataChangeLogClass) -> Optional[str]:
+        """Extract the execution request ID from the event key or URN."""
         entity_key = orig_event.get("entityKeyAspect")
-
-        # Get the run id to use.
-        exec_request_id = None
         if entity_key is not None:
-            exec_request_key = json.loads(
-                entity_key.get("value")
-            )  # this becomes the run id.
-            exec_request_id = exec_request_key.get("id")
-        elif entity_urn is not None:
-            urn_parts = entity_urn.split(":")
-            exec_request_id = urn_parts[len(urn_parts) - 1]
+            raw_key = entity_key.get("value")
+            if raw_key is not None:
+                try:
+                    return json.loads(raw_key).get("id")
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning(
+                        "Failed to parse entityKeyAspect value as JSON: %s",
+                        raw_key[:200] if raw_key else raw_key,
+                    )
+                    return None
+            logger.warning("entityKeyAspect present but 'value' is None")
+            return None
+
+        entity_urn = orig_event.get("entityUrn")
+        if entity_urn is not None:
+            return entity_urn.split(":")[-1]
+        return None
+
+    def _handle_execution_request_input(
+        self, orig_event: MetadataChangeLogClass
+    ) -> None:
+        exec_request_id = self._extract_exec_id(orig_event)
 
         # Decode the aspect json into something more readable :)
-        exec_request_input = json.loads(orig_event.get("aspect").get("value"))
+        aspect = orig_event.get("aspect")
+        if aspect is None:
+            logger.warning(
+                "Missing aspect in execution request event for %s", exec_request_id
+            )
+            return
+        try:
+            exec_request_input = json.loads(aspect.get("value"))
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.error(
+                "Failed to parse execution request aspect as JSON for %s: %s",
+                exec_request_id,
+                e,
+            )
+            self._report_execution_failure(
+                exec_request_id,
+                f"Failed to parse execution request input: {e}",
+            )
+            return
+
+        task_name = exec_request_input.get("task")
+        args = exec_request_input.get("args")
+
+        # Resolve external plugins before running ingestion
+        if task_name == "RUN_INGEST" and args:
+            try:
+                self._install_external_plugins(args)
+            except Exception as e:
+                logger.error(
+                    "Plugin resolution failed, aborting execution %s: %s",
+                    exec_request_id,
+                    e,
+                    exc_info=True,
+                )
+                self._report_execution_failure(
+                    exec_request_id, f"Failed to resolve external plugins: {e}"
+                )
+                return
 
         # Build an Execution Request
         exec_request = ExecutionRequest(
             executor_id=exec_request_input.get("executorId"),
             exec_id=exec_request_id,
-            name=exec_request_input.get("task"),
-            args=exec_request_input.get("args"),
+            name=task_name,
+            args=args,
         )
 
         # Try to dispatch the execution request
         try:
             self.dispatcher.dispatch(exec_request)
         except Exception:
-            logger.error("ERROR", exc_info=sys.exc_info())
+            logger.error(
+                "Failed to dispatch execution request %s",
+                exec_request_id,
+                exc_info=sys.exc_info(),
+            )
+            self._report_execution_failure(
+                exec_request_id,
+                f"Failed to dispatch execution request: {sys.exc_info()[1]}",
+            )
 
-    def _handle_execution_request_signal(self, orig_event):
+    def _handle_execution_request_signal(
+        self, orig_event: MetadataChangeLogClass
+    ) -> None:
         entity_urn = orig_event.get("entityUrn")
 
-        if (
-            orig_event.get("aspect").get("contentType") == APPLICATION_JSON_CONTENT_TYPE
-            and entity_urn is not None
-        ):
-            # Decode the aspect json into something more readable :)
-            signal_request_input = json.loads(orig_event.get("aspect").get("value"))
+        aspect = orig_event.get("aspect")
+        if aspect is None or entity_urn is None:
+            logger.debug(
+                "Ignoring signal event with missing aspect or entityUrn "
+                "(aspect=%s, entityUrn=%s)",
+                "present" if aspect is not None else "None",
+                entity_urn,
+            )
+            return
 
-            # Build a Signal Request
-            urn_parts = entity_urn.split(":")
-            exec_id = urn_parts[len(urn_parts) - 1]
+        if aspect.get("contentType") == APPLICATION_JSON_CONTENT_TYPE:
+            try:
+                signal_request_input = json.loads(aspect.get("value"))
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.error(
+                    "Failed to parse signal aspect as JSON for %s: %s",
+                    entity_urn,
+                    e,
+                )
+                return
+
+            exec_id = entity_urn.split(":")[-1]
             signal_request = SignalRequest(
                 executor_id=signal_request_input.get("executorId"),
                 exec_id=exec_id,
@@ -166,20 +233,206 @@ class ExecutorAction(Action):
             try:
                 self.dispatcher.dispatch_signal(signal_request)
             except Exception:
-                logger.error("ERROR", exc_info=sys.exc_info())
+                logger.error(
+                    "Failed to dispatch signal for execution %s",
+                    exec_id,
+                    exc_info=sys.exc_info(),
+                )
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _temporary_github_token(args: Dict[str, str]) -> Iterator[None]:
+        """Temporarily inject GITHUB_TOKEN from extra_env_vars into os.environ.
+
+        The UI passes credentials via extra_env_vars, but the GitHub resolver
+        reads os.environ. This context manager bridges the gap and guarantees
+        the original value is restored on exit.
+        """
+        extra_env_raw = args.get("extra_env_vars", "")
+        try:
+            extra_env = json.loads(extra_env_raw) if extra_env_raw else {}
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                "Failed to parse extra_env_vars as JSON; GITHUB_TOKEN injection skipped"
+            )
+            extra_env = {}
+
+        token = extra_env.get("GITHUB_TOKEN") if isinstance(extra_env, dict) else None
+        if not token:
+            yield
+            return
+
+        old_token = os.environ.get("GITHUB_TOKEN")
+        os.environ["GITHUB_TOKEN"] = token
+        try:
+            yield
+        finally:
+            if old_token is not None:
+                os.environ["GITHUB_TOKEN"] = old_token
+            else:
+                os.environ.pop("GITHUB_TOKEN", None)
+
+    @staticmethod
+    def _resolve_single_spec(
+        entry: Union[str, Dict[str, str]], existing_reqs: List[str]
+    ) -> Optional[str]:
+        """Resolve one plugin entry and append the pip target to *existing_reqs*.
+
+        An entry is either a bare spec string, or a ``{"spec": ..., "sha256": ...}``
+        object — the UI attaches the registry checksum so the downloaded wheel is
+        verified before it is installed. The spec uses the shared
+        ``resolve_plugin_spec`` grammar (``github:owner/repo``, ``pypi:pkg[==ver]``,
+        bare pip specs), matching the ``datahub plugin install`` CLI.
+
+        Returns an error string on failure, or ``None`` on success.
+        """
+        if isinstance(entry, dict):
+            spec = entry.get("spec")
+            expected_sha256 = entry.get("sha256")
+        else:
+            spec = entry
+            expected_sha256 = None
+        if not isinstance(spec, str) or not spec.strip():
+            return f"{entry!r}: missing or invalid plugin spec"
+        spec = spec.strip()
+
+        try:
+            pip_target = resolve_plugin_spec(spec, expected_sha256=expected_sha256)
+            logger.info(
+                "Resolved %s -> %s%s",
+                spec,
+                pip_target,
+                " (checksum verified)" if expected_sha256 else "",
+            )
+            existing_reqs.append(pip_target)
+        except Exception as e:
+            logger.error("Failed to resolve external plugin: %s", spec, exc_info=True)
+            return f"{spec}: {e}"
+        return None
+
+    def _install_external_plugins(self, args: Dict[str, str]) -> None:
+        """Resolve external DataHub plugin specs and inject them into extra_pip_requirements.
+
+        The datahub_plugins arg is a JSON-encoded list whose entries are either a
+        bare spec string or a ``{"spec": ..., "sha256": ...}`` object (the UI adds
+        the registry checksum so the wheel is verified before install). Each spec
+        is resolved to a pip-installable target (downloaded wheel path or
+        git+https://) and appended to extra_pip_requirements so that
+        SubProcessIngestionTask installs them in the subprocess venv.
+        """
+        raw = args.get("datahub_plugins")
+        if not raw:
+            return
+
+        try:
+            specs = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                "datahub_plugins is not valid JSON; treating as single spec: %s",
+                raw[:200],
+            )
+            specs = [raw]
+
+        if not isinstance(specs, list):
+            raise ValueError(
+                f"datahub_plugins must be a JSON array of specs "
+                f"(strings or {{spec, sha256}} objects), "
+                f"but got {type(specs).__name__}. "
+                f"Example: '[\"github:owner/repo\"]'"
+            )
+        if not specs:
+            return
+
+        try:
+            existing_reqs = parse_json_list(
+                args.get("extra_pip_requirements", ""), "extra_pip_requirements"
+            )
+        except ValueError:
+            logger.warning(
+                "extra_pip_requirements is malformed; starting with empty list",
+                exc_info=True,
+            )
+            existing_reqs = []
+        errors: List[str] = []
+
+        with self._temporary_github_token(args):
+            for entry in specs:
+                if entry is None or (isinstance(entry, str) and not entry.strip()):
+                    logger.debug("Skipping blank plugin entry")
+                    continue
+                logger.info("Resolving external plugin: %r", entry)
+                error = self._resolve_single_spec(entry, existing_reqs)
+                if error:
+                    errors.append(error)
+
+        if errors:
+            raise RuntimeError(
+                "Failed to resolve external plugin(s): " + "; ".join(errors)
+            )
+
+        args["extra_pip_requirements"] = json.dumps(existing_reqs)
+
+    def _report_execution_failure(
+        self, exec_id: Optional[str], error_message: str
+    ) -> None:
+        """Report an execution failure directly to GMS so it's visible in the UI."""
+        try:
+            from datahub.emitter.mcp import MetadataChangeProposalWrapper
+            from datahub.metadata.schema_classes import (
+                ExecutionRequestKeyClass,
+                ExecutionRequestResultClass,
+            )
+
+            now_ms = int(time.time() * 1000)
+            key = ExecutionRequestKeyClass(id=exec_id or "unknown")
+            result = ExecutionRequestResultClass(
+                status="FAILURE",
+                report=error_message,
+                startTimeMs=now_ms,
+                durationMs=0,
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityType=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+                changeType="UPSERT",
+                entityKeyAspect=key,
+                aspect=result,
+            )
+            if self.ctx.graph is None:
+                logger.warning(
+                    "No DataHub graph available; cannot report execution failure for %s",
+                    exec_id,
+                )
+                return
+            graph = self.ctx.graph.graph
+            graph.emit_mcp(mcp, async_flag=False)
+            logger.info("Reported execution failure for %s to GMS", exec_id)
+        except Exception:
+            # Preserve the original error message so operators can still diagnose
+            logger.error(
+                "Failed to report execution failure to GMS for %s. Original error: %s",
+                exec_id,
+                error_message,
+                exc_info=True,
+            )
 
     def _build_executor_config(
         self, config: ExecutorConfig, ctx: PipelineContext
     ) -> ReportingExecutorConfig:
+        if not ctx.graph:
+            raise Exception(
+                "Invalid configuration provided to action. DataHub Graph Client Required. Try including the 'datahub' block in your configuration."
+            )
+
+        graph = ctx.graph.graph
+
         if config.task_configs:
             task_configs = config.task_configs
         else:
-            # Build default task config
             task_configs = [
                 TaskConfig(
                     name="RUN_INGEST",
                     type="acryl.executor.execution.sub_process_ingestion_task.SubProcessIngestionTask",
-                    configs=dict({}),
+                    configs={},
                 ),
                 TaskConfig(
                     name="TEST_CONNECTION",
@@ -188,19 +441,12 @@ class ExecutorAction(Action):
                 ),
             ]
 
-        if not ctx.graph:
-            raise Exception(
-                "Invalid configuration provided to action. DataHub Graph Client Required. Try including the 'datahub' block in your configuration."
-            )
-
-        graph = ctx.graph.graph
-
         # Build default executor config
         local_executor_config = ReportingExecutorConfig(
             id=config.executor_id or "default",
             task_configs=task_configs,
             secret_stores=[
-                SecretStoreConfig(type="env", config=dict({})),
+                SecretStoreConfig(type="env", config={}),
                 SecretStoreConfig(
                     type="datahub",
                     # TODO: Once SecretStoreConfig is updated to accept arbitrary types

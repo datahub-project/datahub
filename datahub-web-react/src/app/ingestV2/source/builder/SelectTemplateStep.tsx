@@ -9,6 +9,8 @@ import { CUSTOM } from '@app/ingestV2/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingestV2/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+import { ExternalPluginKey, PluginSourceUrlKey } from '@app/ingestV2/source/extraArgKeys';
+import { yamlToJson } from '@app/ingestV2/source/utils';
 
 const Container = styled.div`
     max-height: 82vh;
@@ -73,7 +75,9 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const { name, displayName, description } = source;
     const theme = useTheme();
 
-    const logoUrl = useGetSourceLogoUrl(name);
+    // Community plugins provide logoUrl directly; built-in sources resolve via GQL/constants.
+    const builtInLogoUrl = useGetSourceLogoUrl(name);
+    const logoUrl = source.logoUrl || builtInLogoUrl;
     let logoComponent;
     if (name === CUSTOM) {
         logoComponent = <FormOutlined style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
@@ -100,6 +104,7 @@ export const SelectTemplateStep = ({
     goTo,
     ingestionSources,
     setSelectedSourceType,
+    communityPluginMeta,
 }: StepProps) => {
     const { t } = useTranslation('ingestion.sourceBuilder');
     const [searchFilter, setSearchFilter] = useState('');
@@ -112,9 +117,51 @@ export const SelectTemplateStep = ({
     };
 
     const onSelectTemplate = (type: string) => {
+        const meta = communityPluginMeta?.[type];
+        const source = ingestionSources.find((s) => s.name === type);
+
+        let extraArgs = state.config?.extraArgs || [];
+
+        // Auto-populate extraArgs so the executor installs the community plugin before ingestion.
+        if (meta) {
+            // Forward the registry checksum (when present) so the executor verifies
+            // the downloaded wheel before installing it.
+            const pluginEntry = meta.sha256 ? { spec: meta.installSpec, sha256: meta.sha256 } : meta.installSpec;
+            const installSpecArray = JSON.stringify([pluginEntry]);
+            const setExtraArg = (key: string, value: string) => {
+                const idx = extraArgs.findIndex((arg) => arg.key === key);
+                if (idx >= 0) {
+                    extraArgs = [...extraArgs];
+                    extraArgs[idx] = { key, value };
+                } else {
+                    extraArgs = [...extraArgs, { key, value }];
+                }
+            };
+            setExtraArg(ExternalPluginKey, installSpecArray);
+            if (meta.sourceUrl) {
+                setExtraArg(PluginSourceUrlKey, meta.sourceUrl);
+            }
+        }
+
+        // Community plugin recipes are YAML strings; state.config.recipe expects JSON.
+        let recipeJson: string | undefined;
+        if (meta && source?.recipe) {
+            try {
+                recipeJson = yamlToJson(source.recipe);
+            } catch {
+                recipeJson = source.recipe;
+            }
+        }
+
         const newState: SourceBuilderState = {
             ...state,
-            config: undefined,
+            config: meta
+                ? {
+                      ...state.config,
+                      recipe: recipeJson,
+                      extraArgs,
+                  }
+                : undefined,
             type,
         };
         updateState(newState);

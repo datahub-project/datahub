@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { BugOutlined, DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -6,10 +6,12 @@ import YAML from 'yamljs';
 
 import { ScrollableDetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
+import { StructuredReportItemLevel } from '@app/ingestV2/executions/components/reporting/types';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
 import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
+import { PluginSourceUrlKey } from '@app/ingestV2/source/extraArgKeys';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
@@ -46,6 +48,61 @@ const StatusSection = styled.div`
 const IngestedAssetsSection = styled.div`
     padding: 16px 20px 16px 0;
 `;
+
+const CommunityPluginActions = styled.div`
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 12px 0;
+`;
+
+function buildIssueUrl(sourceUrl: string, sourceType: string | undefined, errorSummary: string): string {
+    const title = encodeURIComponent(`[Connector Issue] ${sourceType || 'unknown'}: ${errorSummary.slice(0, 80)}`);
+    const body = encodeURIComponent(
+        [
+            '## Connector Issue Report',
+            '',
+            `**Connector type:** ${sourceType || 'N/A'}`,
+            '',
+            '**Error summary:**',
+            '```',
+            errorSummary.slice(0, 500),
+            '```',
+            '',
+            '**Steps to reproduce:**',
+            '1. ',
+            '',
+            '**Expected behavior:**',
+            '',
+            '**Additional context:**',
+            '',
+        ].join('\n'),
+    );
+    // Append /issues/new for GitHub URLs; for other URLs just link to the project
+    const baseUrl = sourceUrl.replace(/\/$/, '');
+    if (baseUrl.includes('github.com')) {
+        return `${baseUrl}/issues/new?title=${title}&body=${body}&labels=bug`;
+    }
+    return baseUrl;
+}
+
+// The source URL is community-plugin-controlled, so only open http(s) URLs — this
+// rejects javascript:/data: schemes that would otherwise be an XSS vector. Opens in
+// a new tab with noopener/noreferrer.
+function openExternalUrl(rawUrl: string | undefined): void {
+    if (!rawUrl) {
+        return;
+    }
+    let parsed: URL;
+    try {
+        parsed = new URL(rawUrl, window.location.origin);
+    } catch {
+        return;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return;
+    }
+    window.open(parsed.href, '_blank', 'noopener,noreferrer');
+}
 
 export const SummaryTab = ({
     urn,
@@ -88,6 +145,23 @@ export const SummaryTab = ({
         downloadFile(recipe, `recipe-${urn}.yaml`);
     };
 
+    const sourceType = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    let parsedSourceType: string | undefined;
+    try {
+        const parsed = sourceType ? JSON.parse(sourceType) : undefined;
+        parsedSourceType = parsed?.source?.type;
+    } catch {
+        // ignore parse errors
+    }
+
+    const firstError = structuredReport?.items?.find((entry) => entry.level === StructuredReportItemLevel.ERROR);
+    const errorSummary = firstError?.message || firstError?.title || 'Ingestion issue';
+
+    // Show "Report an Issue" only for community plugins — read source URL from metadata
+    const pluginSourceUrl = data?.executionRequest?.input?.arguments?.find(
+        (arg) => arg.key === PluginSourceUrlKey,
+    )?.value;
+
     return (
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
@@ -97,6 +171,26 @@ export const SummaryTab = ({
                     )}
                     {structuredReport && <StructuredReport report={structuredReport} />}
                 </StatusSection>
+            )}
+            {pluginSourceUrl && (
+                <CommunityPluginActions>
+                    <Button
+                        variant="text"
+                        onClick={() => {
+                            openExternalUrl(pluginSourceUrl);
+                        }}
+                    >
+                        <FileTextOutlined /> {t('executions.viewDocumentation')}
+                    </Button>
+                    <Button
+                        variant="text"
+                        onClick={() => {
+                            openExternalUrl(buildIssueUrl(pluginSourceUrl, parsedSourceType, errorSummary));
+                        }}
+                    >
+                        <BugOutlined /> {t('executions.reportAnIssue')}
+                    </Button>
+                </CommunityPluginActions>
             )}
             <IngestedAssetsSection>
                 {data?.executionRequest?.id && (

@@ -164,6 +164,7 @@ def plugins(source: Optional[str], verbose: bool) -> None:
     click.echo(
         f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'"
     )
+    click.echo("For community plugins, try: datahub plugin search <name>")
 
 
 @check.command()
