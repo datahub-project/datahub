@@ -14,6 +14,7 @@ from moto import mock_aws
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.profiling.profiler import FileProfiler
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -235,6 +236,23 @@ def test_profiles_local_tsv_and_json_files(tmp_path: Path) -> None:
             )
         )
         assert get_profile(work_units[0]).rowCount == 2
+
+
+def test_extension_map_resolves_custom_extension_for_profiling(tmp_path: Path) -> None:
+    # A `.js` file that actually contains JSON is profiled when the PathSpec maps
+    # the extension, instead of being skipped as unsupported.
+    path = tmp_path / "events.js"
+    path.write_text('{"id": 1, "name": "a"}\n{"id": 2, "name": "b"}\n')
+    path_spec = PathSpec(include=f"{tmp_path}/*.js", extension_map={"js": "json"})
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
 
 
 def test_corrupt_file_with_valid_extension_reports_warning(tmp_path: Path) -> None:

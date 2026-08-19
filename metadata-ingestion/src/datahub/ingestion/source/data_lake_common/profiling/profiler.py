@@ -34,6 +34,7 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_container_relative_path,
     is_abs_uri,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
     ColumnStats,
     TableAccumulator,
@@ -301,10 +302,20 @@ class FileProfiler:
         return field_profile
 
     def get_table_profile(
-        self, table_data: TableDataLike, dataset_urn: str
+        self,
+        table_data: TableDataLike,
+        dataset_urn: str,
+        path_spec: Optional[PathSpec] = None,
     ) -> Iterable[MetadataWorkUnit]:
         config = self.profiling_config
         extension = os.path.splitext(table_data.full_path)[1]
+
+        # Resolve custom extensions (e.g. `.js` -> `.json`) so files declared via
+        # PathSpec.extension_map are profiled instead of skipped as unsupported.
+        if path_spec is not None:
+            if extension == "" and path_spec.default_extension:
+                extension = f".{path_spec.default_extension}"
+            extension = path_spec.resolve_extension(extension)
 
         telemetry.telemetry_instance.ping("data_lake_file", {"extension": extension})
 
