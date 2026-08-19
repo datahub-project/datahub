@@ -52,7 +52,12 @@ class UrnAliasResolver:
         self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(tablename=_TABLE)
 
     def add(self, urn: str) -> None:
-        """Record `urn` as stored, from a scroll that enumerated it."""
+        """Record `urn` as stored, from a scroll that enumerated it.
+
+        For the bulk load in `provide_urn_alias_resolver` only. A key written without an
+        exhaustive search behind it looks settled to `find_match`, which then answers from
+        it rather than fetching.
+        """
         key = lowercased_urn(urn)
         if key is None:
             return
