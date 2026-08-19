@@ -508,10 +508,10 @@ class BigQueryLinkedDatasetsHandler:
 
         for column in columns:
             column_name = column.name
-            if not column_name:
-                continue
             if lowercase:
                 column_name = column_name.lower()
+            # A complex column yields one row per nested field path, all under the
+            # same column name, so dedup to one lineage per top-level column.
             if column_name in seen:
                 continue
             seen.add(column_name)
