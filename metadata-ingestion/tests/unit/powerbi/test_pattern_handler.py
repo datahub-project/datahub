@@ -1235,7 +1235,7 @@ def test_create_lineage_does_not_skip_bigquery_billing_project_record_key():
 
     with (
         patch(
-            "datahub.ingestion.source.powerbi.m_query.pattern_handler._get_data_source_tokens",
+            "datahub.ingestion.source.common.m_query.pattern_handler._get_data_source_tokens",
             return_value=[
                 "GoogleBigQuery.Database",
                 "BillingProject",
