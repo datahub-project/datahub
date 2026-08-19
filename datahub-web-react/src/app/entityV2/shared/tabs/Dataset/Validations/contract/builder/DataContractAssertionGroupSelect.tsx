@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AcrylDatasetAssertionsList } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsList';
 import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { getDataContractCategoryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 
 import { Assertion } from '@types';
 
@@ -38,10 +40,11 @@ export const DataContractAssertionGroupSelect = ({
     selectedUrns,
     onSelect,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     return (
         <>
             <Category>
-                {category} <Hint> {!multiple && `(Choose 1)`}</Hint>
+                {getDataContractCategoryLabel(category)} <Hint> {!multiple && t('contractBuilder.chooseOne')}</Hint>
             </Category>
             <AcrylDatasetAssertionsList
                 assertions={assertions}

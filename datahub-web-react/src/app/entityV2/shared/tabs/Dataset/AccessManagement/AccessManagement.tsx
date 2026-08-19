@@ -1,8 +1,9 @@
 import { Table } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import {
     RoleAccessData,
     renderAccessButton,
@@ -10,14 +11,14 @@ import {
 import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
-import { GetDatasetQuery, useGetExternalRolesQuery } from '@graphql/dataset.generated';
+import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
 
 const StyledTable = styled(Table)`
     overflow: inherit;
     height: inherit;
 
     &&& .ant-table-cell {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bg};
     }
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;
@@ -63,8 +64,9 @@ const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
  * and "Request" (enabled) buttons for roles they can request access to.
  */
 export default function AccessManagement() {
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const entityUrn = baseEntity?.dataset?.urn as string;
+    const { t } = useTranslation('entity.profile.access');
+    const { t: tl } = useTranslation('common.labels');
+    const { urn: entityUrn } = useEntityData();
 
     const { data: externalRoles } = useGetExternalRolesQuery({
         variables: { urn: entityUrn },
@@ -73,12 +75,12 @@ export default function AccessManagement() {
 
     const columns = [
         {
-            title: 'Role Name',
+            title: t('accessManagement.columnRoleName'),
             dataIndex: 'name',
             key: 'name',
         },
         {
-            title: 'Description',
+            title: tl('description'),
             dataIndex: 'description',
             key: 'description',
             render: (roleDescription) => {
@@ -86,12 +88,12 @@ export default function AccessManagement() {
             },
         },
         {
-            title: 'Access Type',
+            title: t('accessManagement.columnAccessType'),
             dataIndex: 'accessType',
             key: 'accessType',
         },
         {
-            title: 'Access',
+            title: t('accessManagement.columnAccess'),
             dataIndex: 'hasAccess',
             key: 'hasAccess',
             render: renderAccessCell,
@@ -106,7 +108,7 @@ export default function AccessManagement() {
             dataSource={tableData}
             columns={columns}
             pagination={false}
-            aria-label="Access management roles table"
+            aria-label={t('accessManagement.tableAriaLabel')}
         />
     );
 }

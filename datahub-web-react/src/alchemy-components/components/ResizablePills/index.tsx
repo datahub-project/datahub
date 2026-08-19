@@ -1,5 +1,6 @@
 import { Pill, Tooltip } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import type { ResizablePillsProps } from '@components/components/ResizablePills/types';
@@ -22,6 +23,7 @@ export function ResizablePills<T>({
     renderPill,
     getItemWidth,
     overflowTooltipContent,
+    /* untranslated-text -- programmatic "+N" count badge, no translatable text */
     overflowLabel = (count) => `+${count}`,
     gap = 4,
     overflowButtonWidth = 50,
@@ -31,6 +33,7 @@ export function ResizablePills<T>({
     keyExtractor,
     debounceMs = 150,
 }: ResizablePillsProps<T>) {
+    const { t } = useTranslation('alchemy');
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(2);
     const timeoutRef = useRef<NodeJS.Timeout>();
@@ -103,7 +106,7 @@ export function ResizablePills<T>({
         <Pill
             variant="outline"
             label={overflowLabel(hiddenItems.length)}
-            aria-label={`${hiddenItems.length} more items hidden`}
+            aria-label={t('resizablePills.moreHiddenCount', { count: hiddenItems.length })}
         />
     ) : null;
 

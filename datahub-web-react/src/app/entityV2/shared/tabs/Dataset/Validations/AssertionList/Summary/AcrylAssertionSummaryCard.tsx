@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -98,6 +99,7 @@ type Props = {
 };
 
 export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
@@ -107,11 +109,9 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const headerByStatus = getAssertionSummaryCardHeaderByStatus(theme.colors);
 
-    const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
-    // add No running state if there is no running state assertions
-    if (visibleStatuses.length === 0) {
-        visibleStatuses.push(NO_RUNNING_STATE);
-    }
+    const visibleStatuses: string[] = ['passing', 'failing', 'erroring', 'initializing', 'notRunning'].filter(
+        (status) => group.summary?.[status],
+    );
 
     const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]) || NO_RUNNING_STATE;
     const headerTitle = status ? headerByStatus[status].headerComponent : null;
@@ -127,7 +127,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     };
 
     return (
-        <StyledCard onClick={(event) => handleCardClick(group.type, event)}>
+        <StyledCard onClick={(event) => handleCardClick(group.type, event)} data-testid="assertion-summary-card">
             {/* **********************Render Summary Card header **************************** */}
             <div>{headerTitle}</div>
 
@@ -144,7 +144,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                 <ChartSectionContainer>
                     {/* **********************Render Assertion Summary Card Summary Section**************************** */}
                     <AcrylAssertionSummarySection group={group} visibleStatus={visibleStatuses} />
-                    <Button variant="text">View All</Button>
+                    <Button variant="text">{tc('viewAll')}</Button>
                 </ChartSectionContainer>
 
                 {/* **********************Render Progress bar **************************** */}

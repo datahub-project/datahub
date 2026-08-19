@@ -1,0 +1,255 @@
+fragment recommendationEntityPreview on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        platform {
+            ...platformFields
+        }
+        editableProperties {
+            name
+        }
+        properties {
+            name
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on CorpUser {
+        username
+        info {
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+        }
+        editableProperties {
+            displayName
+            title
+            pictureLink
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+        }
+    }
+    ... on Dashboard {
+        tool
+        dashboardId
+        properties {
+            name
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Chart {
+        tool
+        chartId
+        properties {
+            name
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataFlow {
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        health {
+            ...entityHealth
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on DataJob {
+        jobId
+        dataFlow {
+            platform {
+                ...platformFields
+            }
+        }
+        properties {
+            name
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+        }
+        parentNodes {
+            ...parentNodesFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+        }
+        parentNodes {
+            ...parentNodesFields
+        }
+    }
+    ... on MLFeatureTable {
+        name
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModel {
+        name
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLFeature {
+        name
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+            colorHex
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on Domain {
+        properties {
+            name
+            description
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        ...domainEntitiesFields
+    }
+    ... on Container {
+        ...entityContainer
+    }
+    ... on DataProduct {
+        ...dataProductFields
+    }
+}

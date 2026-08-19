@@ -1,6 +1,7 @@
 import { Tooltip } from '@components';
 import { Col, Pagination, Row } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -14,6 +15,7 @@ type Props = {
     urn: string;
     initialRelationships?: Array<EntityRelationship> | null;
     pageSize: number;
+    totalRelationships: number;
 };
 
 const GroupsViewWrapper = styled.div`
@@ -83,7 +85,8 @@ const GroupDescription = styled.span`
     max-width: 100%;
 `;
 
-export default function UserGroups({ urn, initialRelationships, pageSize }: Props) {
+export default function UserGroups({ urn, initialRelationships, pageSize, totalRelationships }: Props) {
+    const { t } = useTranslation('entity.types');
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
 
@@ -97,14 +100,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     };
 
     const relationships = groupsData ? groupsData.corpUser?.relationships?.relationships : initialRelationships;
-    const userGroups = [...(relationships || [])]
-        .filter((rel) => {
-            const group = rel?.entity as CorpGroup;
-            return group?.info || group?.editableProperties;
-        })
-        .map((rel) => rel.entity as CorpGroup);
-    const total = userGroups.length;
-
+    const userGroups = [...(relationships || [])].map((rel) => rel.entity as CorpGroup);
     return (
         <GroupsViewWrapper>
             <Row justify="start">
@@ -117,8 +113,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                                         <Row className="title-row">
                                             <GroupTitle>{item.info?.displayName || item.name}</GroupTitle>
                                             <GroupMember>
-                                                {item.relationships?.total}
-                                                {item.relationships?.total === 1 ? ' member' : ' members'}
+                                                {t('shared.membersCount', { count: item.relationships?.total || 0 })}
                                             </GroupMember>
                                         </Row>
                                         <Row className="description-row">
@@ -138,7 +133,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
                 <Pagination
                     current={page}
                     pageSize={pageSize}
-                    total={total}
+                    total={totalRelationships}
                     showLessItems
                     onChange={onChangeGroupsPage}
                     showSizeChanger={false}

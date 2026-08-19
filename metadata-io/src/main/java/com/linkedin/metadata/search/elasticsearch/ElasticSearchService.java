@@ -16,6 +16,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -87,7 +88,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
-        indexBuilder.buildIndex(config);
+        indexBuilder.buildIndex(opContext, config);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -131,7 +132,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         // Filter to only recreate indices that were deleted
         for (ReindexConfig config : allConfigs) {
           if (deletedIndexNames.contains(config.name())) {
-            indexBuilder.buildIndex(config);
+            indexBuilder.buildIndex(opContext, config);
             log.info("Recreated index {} after clearing", config.name());
           }
         }
@@ -175,12 +176,15 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param docId the ID of the document
    */
   public void upsertDocumentByIndexName(
-      @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     log.debug(
         String.format(
             "Upserting Search document indexName: %s, document: %s, docId: %s",
             indexName, document, docId));
-    esWriteDAO.upsertDocumentByIndexName(indexName, document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, indexName, document, docId);
   }
 
   @Override
@@ -198,9 +202,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param indexName name of the index
    * @param docId the ID of the document to delete
    */
-  public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+  public void deleteDocumentByIndexName(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String docId) {
     log.debug(String.format("Deleting Search document indexName: %s, docId: %s", indexName, docId));
-    esWriteDAO.deleteDocumentByIndexName(indexName, docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
   }
 
   /**
@@ -209,8 +214,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param indexName name of the index to check
    * @return true if the index exists, false otherwise
    */
-  public boolean indexExists(@Nonnull String indexName) {
-    return esWriteDAO.indexExists(indexName);
+  public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return esWriteDAO.indexExists(opContext, indexName);
   }
 
   /**
@@ -224,6 +229,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param upsert the document to upsert if it doesn't exist
    */
   public void applyScriptUpdateByIndexName(
+      @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String docId,
       @Nonnull String scriptSource,
@@ -234,7 +240,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         indexName,
         docId,
         scriptSource);
-    esWriteDAO.applyScriptUpdateByIndexName(indexName, docId, scriptSource, scriptParams, upsert);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext, indexName, docId, scriptSource, scriptParams, upsert);
   }
 
   /**
@@ -306,10 +313,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     // Dual-write to semantic index if it exists (with caching to avoid repeated HEAD requests)
     String semanticIndexName =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameSemantic(opContext, entityName);
     Boolean semanticExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (semanticExists == null) {
-      semanticExists = indexExists(semanticIndexName);
+      semanticExists = indexExists(opContext, semanticIndexName);
       semanticIndexExistsCache.put(semanticIndexName, semanticExists);
     }
     if (semanticExists) {
@@ -319,7 +329,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           entityName,
           docId,
           runId);
-      applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
+      applyScriptUpdateByIndexName(
+          opContext, semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
     } else {
       log.debug(
           "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
@@ -463,6 +474,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         field,
         requestParams,
         limit);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+    return esSearchDAO.getActiveIncidentStats(opContext, entityUrns);
   }
 
   @Nonnull
@@ -657,9 +675,14 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+  public boolean validateAndSwapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
       throws Exception {
-    return indexBuilder.validateAndSwapAlias(aliasName, newBackingIndex);
+    return indexBuilder.validateAndSwapAlias(
+        opContext, aliasName, newBackingIndex, expectedSourceDocCount);
   }
 
   @Override

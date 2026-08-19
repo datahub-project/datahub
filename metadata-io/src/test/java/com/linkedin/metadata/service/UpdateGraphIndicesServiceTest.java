@@ -114,7 +114,8 @@ public class UpdateGraphIndicesServiceTest {
 
     ArgumentCaptor<Script> scriptCaptor = ArgumentCaptor.forClass(Script.class);
     verify(mockWriteDAO, times(EdgeUrnType.values().length))
-        .updateByQuery(scriptCaptor.capture(), any(QueryBuilder.class));
+        .updateByQuery(
+            any(OperationContext.class), scriptCaptor.capture(), any(QueryBuilder.class));
 
     scriptCaptor
         .getAllValues()
@@ -142,7 +143,8 @@ public class UpdateGraphIndicesServiceTest {
             .setAspect(removedTrue));
     ArgumentCaptor<Script> scriptCaptor = ArgumentCaptor.forClass(Script.class);
     verify(mockWriteDAO, times(EdgeUrnType.values().length))
-        .updateByQuery(scriptCaptor.capture(), any(QueryBuilder.class));
+        .updateByQuery(
+            any(OperationContext.class), scriptCaptor.capture(), any(QueryBuilder.class));
     scriptCaptor
         .getAllValues()
         .forEach(script -> assertEquals(script.getParams().get("newValue").toString(), "true"));
@@ -160,7 +162,8 @@ public class UpdateGraphIndicesServiceTest {
             .setPreviousAspectValue(removedTrue)
             .setAspect(removedFalse));
     verify(mockWriteDAO, times(EdgeUrnType.values().length))
-        .updateByQuery(scriptCaptor.capture(), any(QueryBuilder.class));
+        .updateByQuery(
+            any(OperationContext.class), scriptCaptor.capture(), any(QueryBuilder.class));
     scriptCaptor
         .getAllValues()
         .forEach(script -> assertEquals(script.getParams().get("newValue").toString(), "false"));
@@ -178,7 +181,8 @@ public class UpdateGraphIndicesServiceTest {
             .setPreviousAspectValue(removedTrue)
             .setAspect(removedTrue));
     verify(mockWriteDAO, times(EdgeUrnType.values().length))
-        .updateByQuery(scriptCaptor.capture(), any(QueryBuilder.class));
+        .updateByQuery(
+            any(OperationContext.class), scriptCaptor.capture(), any(QueryBuilder.class));
     scriptCaptor
         .getAllValues()
         .forEach(script -> assertEquals(script.getParams().get("newValue").toString(), "true"));
@@ -327,7 +331,8 @@ public class UpdateGraphIndicesServiceTest {
 
     // Verify that deleteDocument was called for the removed edge
     ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockWriteDAO, times(1)).deleteDocument(docIdCaptor.capture());
+    verify(mockWriteDAO, times(1))
+        .deleteDocument(any(OperationContext.class), docIdCaptor.capture());
 
     String docId = docIdCaptor.getValue();
     // The doc ID should contain hash of the edge including source and destination
@@ -370,7 +375,9 @@ public class UpdateGraphIndicesServiceTest {
     // Verify that upsertDocument was called for the new edge
     ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockWriteDAO, times(2)).upsertDocument(docIdCaptor.capture(), documentCaptor.capture());
+    verify(mockWriteDAO, times(2))
+        .upsertDocument(
+            any(OperationContext.class), docIdCaptor.capture(), documentCaptor.capture());
 
     String docId = docIdCaptor.getValue();
     assertNotNull(docId);
@@ -426,7 +433,9 @@ public class UpdateGraphIndicesServiceTest {
     // Verify that upsertDocument was called for the updated edge
     ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockWriteDAO, times(1)).upsertDocument(docIdCaptor.capture(), documentCaptor.capture());
+    verify(mockWriteDAO, times(1))
+        .upsertDocument(
+            any(OperationContext.class), docIdCaptor.capture(), documentCaptor.capture());
 
     String document = documentCaptor.getValue();
     // The updated document should contain the new audit stamp info
@@ -480,11 +489,12 @@ public class UpdateGraphIndicesServiceTest {
 
     // Verify all three operations occurred
     // 1 delete for upstream2 removal
-    verify(mockWriteDAO, times(1)).deleteDocument(any(String.class));
+    verify(mockWriteDAO, times(1)).deleteDocument(any(OperationContext.class), any(String.class));
 
     // 2 upserts: one for upstream1 update, one for upstream3 addition
     ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockWriteDAO, times(2)).upsertDocument(any(String.class), documentCaptor.capture());
+    verify(mockWriteDAO, times(2))
+        .upsertDocument(any(OperationContext.class), any(String.class), documentCaptor.capture());
 
     List<String> documents = documentCaptor.getAllValues();
     // Verify that we have documents for both the update and the addition

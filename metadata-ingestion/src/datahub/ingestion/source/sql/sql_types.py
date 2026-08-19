@@ -243,12 +243,16 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
 
 
 def resolve_trino_modified_type(type_string: str) -> Any:
+    # Trino types are conventionally lowercase, but dbt catalogs (e.g. types
+    # rendered from a CAST(... AS DECIMAL(38,2)) in the compiled SQL) may
+    # surface them uppercase, so normalize before lookup.
+    type_string = type_string.lower()
     # for cases like timestamp(3), decimal(10,0), row(...)
     match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
     if match:
         modified_type_base: str = match.group(1)
-        return TRINO_SQL_TYPES_MAP[modified_type_base]
-    return TRINO_SQL_TYPES_MAP[type_string]
+        return TRINO_SQL_TYPES_MAP.get(modified_type_base)
+    return TRINO_SQL_TYPES_MAP.get(type_string)
 
 
 def resolve_athena_modified_type(type_string: str) -> Any:

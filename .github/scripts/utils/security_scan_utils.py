@@ -9,6 +9,7 @@ from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 # Trivy rows: (artifact_ref, result_target, class/type, vuln). artifact_ref = scanned image ref for scope.
 GroupedRows = dict[str, list[tuple[str, str, str, dict[str, Any]]]]
@@ -221,6 +222,32 @@ def grype_severity_to_trivy_upper(v: dict[str, Any]) -> str:
     return s
 
 
+def grype_pkg_name(art: dict[str, Any]) -> str:
+    """Package name for a Grype artifact, using Trivy's `groupId:artifactId` form for Maven.
+
+    Grype names Java archives by artifactId alone (`netty-codec-http2`) while Trivy uses
+    `io.netty:netty-codec-http2`. Linear issue titles embed this name and dedup is by exact
+    title, so a grype-only detection of a CVE Trivy previously reported would otherwise
+    open a duplicate issue.
+    """
+    name = str(art.get("name") or "").strip()
+    if ":" in name:
+        return name
+    purl = str(art.get("purl") or "").strip()
+    if purl.startswith("pkg:maven/"):
+        path = purl[len("pkg:maven/") :].split("@", 1)[0].split("?", 1)[0]
+        parts = [unquote(p) for p in path.split("/") if p]
+        if len(parts) >= 2:
+            return f"{parts[0]}:{parts[-1]}"
+    meta = art.get("metadata")
+    if isinstance(meta, dict):
+        group = str(meta.get("pomGroupID") or "").strip()
+        artifact = str(meta.get("pomArtifactID") or "").strip() or name
+        if group and artifact:
+            return f"{group}:{artifact}"
+    return name
+
+
 def grype_match_to_trivy_vuln(match: dict[str, Any]) -> dict[str, Any]:
     """Shape a Grype match like a Trivy Vulnerabilities[] entry."""
     v = match.get("vulnerability") or {}
@@ -241,7 +268,7 @@ def grype_match_to_trivy_vuln(match: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "VulnerabilityID": vid,
         "Title": vid,
-        "PkgName": str(art.get("name") or ""),
+        "PkgName": grype_pkg_name(art),
         "InstalledVersion": str(art.get("version") or ""),
         "Severity": sev,
         "PrimaryURL": primary,
@@ -402,6 +429,9 @@ LEGACY_REFS_HEADERS = (
     "### DataHub security scans: git branch/tag",
 )
 LEGACY_REFS_MARKER = "<!-- datahub-trivy-refs -->"
+# Other automation sharing this Linear workspace may append this section to the same
+# comment; rebuilding the comment from ref keys alone would silently erase it.
+SLACK_NOTIFIED_SECTION_HEADER = "### Slack notifications"
 
 
 def plain_scalar_for_cell(val: Any) -> str:
@@ -671,7 +701,7 @@ def build_description(
 def parse_existing_ref_keys(comment_body: str) -> dict[str, str]:
     keys: dict[str, str] = {}
     for line in comment_body.splitlines():
-        m = re.match(r"^\s*-\s+\*\*(Branch|Tag)\*\*:\s+`([^`]+)`\b", line)
+        m = re.match(r"^\s*-\s+\*\*(Branch|Tag)\*\*:\s+`([^`]+)`", line)
         if not m:
             continue
         kind = m.group(1).lower()
@@ -718,10 +748,15 @@ def merge_refs_comment(
     if previous_body:
         keys = parse_existing_ref_keys(previous_body)
     key = f"{scan_ref_kind}:{scan_ref_name}"
-    if key in keys:
-        return format_refs_comment_body(keys)
-    keys[key] = new_line
-    return format_refs_comment_body(keys)
+    if key not in keys:
+        keys[key] = new_line
+    new_body = format_refs_comment_body(keys)
+    # format_refs_comment_body rebuilds from scratch, so re-append any trailing section this
+    # comment already had that we don't own (e.g. a Slack-notified stamp from another deployment).
+    if previous_body and SLACK_NOTIFIED_SECTION_HEADER in previous_body:
+        idx = previous_body.index(SLACK_NOTIFIED_SECTION_HEADER)
+        new_body = new_body.rstrip() + "\n\n" + previous_body[idx:].rstrip() + "\n"
+    return new_body
 
 
 def comment_has_refs_anchor(body: str) -> bool:

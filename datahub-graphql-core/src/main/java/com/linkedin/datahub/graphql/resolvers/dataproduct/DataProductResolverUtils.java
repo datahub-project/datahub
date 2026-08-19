@@ -6,6 +6,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.DataProductService;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /** Utility methods shared across Data Product GraphQL resolvers. */
@@ -16,8 +18,49 @@ public class DataProductResolverUtils {
   }
 
   /**
+   * Verifies that all resources exist.
+   *
+   * @param resources list of resource URN strings to verify
+   * @param context the GraphQL query context
+   * @param dataProductService service to check entity existence
+   * @throws RuntimeException if any resource does not exist
+   */
+  public static void verifyResourcesExist(
+      @Nonnull final List<String> resources,
+      @Nonnull final QueryContext context,
+      @Nonnull final DataProductService dataProductService) {
+    final List<Urn> resourceUrns =
+        resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        dataProductService.filterExistingUrns(context.getOperationContext(), resourceUrns);
+
+    for (Urn resourceUrn : resourceUrns) {
+      if (!existingUrns.contains(resourceUrn)) {
+        throw new RuntimeException(
+            String.format(
+                "Failed to update data products, resource %s does not exist", resourceUrn));
+      }
+    }
+  }
+
+  /**
+   * Verifies that a data product exists and the actor may change membership from the product side.
+   */
+  public static void verifyProductSideMembershipChange(
+      @Nonnull final String dataProductUrn,
+      @Nonnull final QueryContext context,
+      @Nonnull final DataProductService dataProductService) {
+    verifyDataProduct(dataProductUrn, context, dataProductService);
+    if (!DataProductAuthorizationUtils.isAuthorizedToChangeMembershipFromProductSide(
+        context, dataProductService, UrnUtils.getUrn(dataProductUrn))) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+  }
+
+  /**
    * Verifies that all resources exist and that the user has permission to update data products for
-   * them.
+   * them (asset-side {@code EDIT_ENTITY_DATA_PRODUCTS}).
    *
    * @param resources list of resource URN strings to verify
    * @param context the GraphQL query context
@@ -30,11 +73,16 @@ public class DataProductResolverUtils {
       @Nonnull final List<String> resources,
       @Nonnull final QueryContext context,
       @Nonnull final DataProductService dataProductService) {
-    for (String resource : resources) {
-      final Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!dataProductService.verifyEntityExists(context.getOperationContext(), resourceUrn)) {
+    final List<Urn> resourceUrns =
+        resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        dataProductService.filterExistingUrns(context.getOperationContext(), resourceUrns);
+
+    for (Urn resourceUrn : resourceUrns) {
+      if (!existingUrns.contains(resourceUrn)) {
         throw new RuntimeException(
-            String.format("Failed to update data products, resource %s does not exist", resource));
+            String.format(
+                "Failed to update data products, resource %s does not exist", resourceUrn));
       }
       if (!DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(
           context, resourceUrn)) {
@@ -56,8 +104,16 @@ public class DataProductResolverUtils {
       @Nonnull final List<String> dataProductUrns,
       @Nonnull final QueryContext context,
       @Nonnull final DataProductService dataProductService) {
-    for (String dataProductUrn : dataProductUrns) {
-      verifyDataProduct(dataProductUrn, context, dataProductService);
+    final List<Urn> urns =
+        dataProductUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        dataProductService.filterExistingUrns(context.getOperationContext(), urns);
+
+    for (Urn urn : urns) {
+      if (!existingUrns.contains(urn)) {
+        throw new RuntimeException(
+            String.format("Failed to update data products, data product %s does not exist", urn));
+      }
     }
   }
 

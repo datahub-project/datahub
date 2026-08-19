@@ -9,6 +9,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.client.EntityGraphCacheClients;
+import com.linkedin.metadata.graph.cache.client.GraphExpandRequest;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -16,7 +21,9 @@ import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -148,6 +155,17 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
     if (!queryUrns.isEmpty()) {
 
+      TraversalDirection direction =
+          relationshipDirection == RelationshipDirection.INCOMING
+              ? TraversalDirection.REVERSE
+              : TraversalDirection.FORWARD;
+      Optional<TermsQueryBuilder> cached =
+          tryExpandTermsViaEntityGraphCache(
+              opContext, termsQueryBuilder, List.of(direction), limit);
+      if (cached.isPresent()) {
+        return cached.get();
+      }
+
       try (CascadeOperationContext cascade =
           CascadeOperationContext.begin(
               metricUtils, getClass().getSimpleName(), null, -1, "datahub.filter_rewrite")) {
@@ -183,6 +201,56 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
             termsQueryBuilder.fieldName(), values.stream().map(Urn::toString).sorted().toArray())
         .queryName(termsQueryBuilder.queryName())
         .boost(termsQueryBuilder.boost());
+  }
+
+  /** Resolve the graph binding for this rewriter from registry bindings. */
+  @Nonnull
+  protected Optional<EntityGraphBinding> resolveEntityGraphBinding(
+      @Nonnull OperationContext opContext) {
+    return Optional.empty();
+  }
+
+  /**
+   * Attempt cached expansion for the rewriter's bound graph. Returns empty when cache is
+   * unavailable, inactive, or cannot expand all requested directions (caller should use legacy
+   * path).
+   */
+  @Nonnull
+  protected Optional<TermsQueryBuilder> tryExpandTermsViaEntityGraphCache(
+      @Nonnull OperationContext opContext,
+      @Nonnull TermsQueryBuilder termsQueryBuilder,
+      @Nonnull List<TraversalDirection> directions,
+      int limit) {
+    Optional<EntityGraphBinding> binding = resolveEntityGraphBinding(opContext);
+    if (binding.isEmpty()) {
+      return Optional.empty();
+    }
+    Set<String> roots =
+        termsQueryBuilder.values().stream().map(Object::toString).collect(Collectors.toSet());
+    if (roots.isEmpty()) {
+      return Optional.empty();
+    }
+
+    Set<String> union = new LinkedHashSet<>(roots);
+    for (TraversalDirection direction : directions) {
+      GraphReadResult expanded =
+          EntityGraphCacheClients.expand(
+              GraphExpandRequest.builder()
+                  .opContext(opContext)
+                  .cache(opContext.getEntityGraphCache())
+                  .binding(binding.get())
+                  .direction(direction)
+                  .roots(roots)
+                  .limit(limit)
+                  .build());
+      if (expanded.isMiss()) {
+        return Optional.empty();
+      }
+      union.addAll(expanded.verticesOrEmpty());
+    }
+
+    Set<Urn> expandedUrns = union.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+    return Optional.of(expandTermsQueryUrnValues(termsQueryBuilder, expandedUrns));
   }
 
   private void scrollGraph(

@@ -2,10 +2,11 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -57,6 +58,7 @@ class PlatformAdapter(ABC):
         self.config = config
         self.report = report
         self.base_engine = base_engine
+        self._inspector: Optional[Inspector] = None
 
     # =========================================================================
     # Setup & Teardown
@@ -226,8 +228,14 @@ class PlatformAdapter(ABC):
         """
         Get platform-specific mean (AVG) expression.
 
-        Default implementation returns AVG(column).
-        Some platforms (e.g., Redshift) need to cast columns for full precision.
+        Default implementation returns `AVG(column * 1.0)`. The `* 1.0` forces
+        float promotion before AVG, which:
+          - prevents integer truncation on MSSQL (`AVG(int_col)` returns int there);
+          - prevents precision loss on MySQL/Doris (which return DECIMAL(N,4) for
+            AVG over integer columns without the cast).
+
+        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Redshift adapter
+        overrides this with an explicit CAST for full precision.
 
         Args:
             column: Column name
@@ -235,20 +243,7 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy expression for AVG
         """
-        return sa.func.avg(sa.column(column))
-
-    def get_stdev_null_value(self) -> Optional[float]:
-        """
-        Get value to return for standard deviation when all values are NULL.
-
-        Different platforms have different behaviors:
-        - Most platforms: return None (NULL)
-        - Redshift: return 0.0 (to match GE behavior)
-
-        Returns:
-            Value to use for all-NULL columns (None or 0.0)
-        """
-        return None
+        return sa.func.avg(sa.column(column) * 1.0)
 
     # =========================================================================
     # Row Count Estimation
@@ -418,39 +413,44 @@ class PlatformAdapter(ABC):
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting.
-        For all-null columns, behavior is database-specific (handled by adapter).
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            Standard deviation
+        Returns the raw database result to preserve native type formatting. We use
+        `stddev_samp` explicitly (some dialects' bare `stddev()` defaults to
+        population stddev). When the dialect returns NULL we disambiguate the cause:
+          - exactly one non-null value: stddev is mathematically undefined → return None
+          - multiple rows but all-equal: zero variance → return 0.0
+          - all-null column: dialect-specific (most return None, Redshift returns 0.0)
         """
-        query = sa.select([sa.func.stddev(sa.column(column))]).select_from(table)
+        # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
+        # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
+        # explicitly keeps semantics consistent across dialects.
+        query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
         result = conn.execute(query).scalar()
-        # Some databases return NULL for STDDEV when there's only one row
-        # For a single value, standard deviation is mathematically undefined (None)
-        # For multiple values with no variation, stdev is 0.0
         if result is None:
-            # Check if there's at least one non-null value
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
-                # Single value: stdev is undefined, return None (matches GE behavior)
+                # Single value: stddev is mathematically undefined.
                 return None
-            elif non_null_count > 1:
-                # Multiple values but database returned NULL (all same value): stdev is 0.0
+            if non_null_count > 1:
+                # Multiple values, all equal: zero variance.
                 return 0.0
-            # No non-null values: use adapter to get platform-specific behavior
-            # (e.g., Redshift returns 0.0, PostgreSQL returns None)
+            # No non-null values: defer to adapter-specific behavior.
             return self.get_stdev_null_value()
-        # Return raw result to preserve database-native formatting (like GE does)
         return result
 
+    def get_stdev_null_value(self) -> Optional[Any]:
+        """
+        Value to return when stddev_samp returns NULL and the column has no
+        non-null values. Most dialects return None (matches GE for all-null
+        columns); Redshift returns 0.0 (it returns 0.0 from STDDEV on all-null).
+        """
+        return None
+
     def get_column_unique_count(
-        self, table: sa.Table, column: str, conn: Connection, use_approx: bool = True
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        use_approx: bool = True,
     ) -> int:
         """
         Get unique count (approximate if use_approx=True).
@@ -475,26 +475,50 @@ class PlatformAdapter(ABC):
 
     def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
         """
-        Get median value for a column (database-specific).
+        Get median value for a column.
 
-        Returns raw database result to preserve native type formatting.
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            Median value, or None if not supported
+        Adapters that target platforms without a native MEDIAN function should
+        return None from `get_median_expr` to engage the Python OFFSET/LIMIT
+        fallback below (the GenericAdapter does so by default). The execution
+        of the native expression is also wrapped in `try/except SQLAlchemyError`
+        as a safety net: if an adapter optimistically returns an expression that
+        turns out to fail on a specific column type, we still produce a median
+        value via the fallback rather than emitting nothing.
         """
         expr = self.get_median_expr(column)
-        if expr is None:
-            return None
+        if expr is not None:
+            try:
+                query = sa.select([expr]).select_from(table)
+                # Return raw result to preserve database-native formatting.
+                return conn.execute(query).scalar()
+            except SQLAlchemyError as e:
+                logger.debug(
+                    f"Native MEDIAN expression failed for column {column}; "
+                    f"falling back to OFFSET/LIMIT in Python: {e}"
+                )
 
-        query = sa.select([expr]).select_from(table)
-        result = conn.execute(query).scalar()
-        # Return raw result to preserve database-native formatting (like GE does)
-        return result
+        # Python-side fallback (mirrors GE's get_column_median for dialects
+        # without a native MEDIAN function: MySQL, Doris, etc.).
+        non_null_count = self.get_column_non_null_count(table, column, conn)
+        if non_null_count == 0:
+            return None
+        offset = max(non_null_count // 2 - 1, 0)
+        middle_query = (
+            sa.select([sa.column(column)])
+            .select_from(table)
+            .where(sa.column(column).is_not(None))
+            .order_by(sa.column(column))
+            .offset(offset)
+            .limit(2)
+        )
+        rows = [row[0] for row in conn.execute(middle_query).fetchall()]
+        if not rows:
+            return None
+        if non_null_count % 2 == 0 and len(rows) == 2:
+            # Even count: average the two center values.
+            return (float(rows[0]) + float(rows[1])) / 2.0
+        # Odd count: second row of the [offset, offset+1] window is the true center.
+        return rows[-1]
 
     def get_column_quantiles(
         self,
@@ -596,8 +620,16 @@ class PlatformAdapter(ABC):
         if min_val is None or max_val is None:
             return []
 
+        # Constant column: GE's expect_column_kl_divergence_to_be_less_than fails when
+        # min == max (zero variance), and the surrounding try/except in
+        # ge_data_profiler.py results in no histogram being emitted. Match that:
+        # emit nothing rather than a degenerate 10-bucket histogram where bucket 0
+        # holds all rows and buckets 1-9 are empty.
+        if max_val == min_val:
+            return []
+
         # Calculate bucket size
-        bucket_size = (max_val - min_val) / num_buckets if max_val != min_val else 1.0
+        bucket_size = (max_val - min_val) / num_buckets
 
         # Generate SQL to count values in each bucket using CASE WHEN
         buckets = []
@@ -696,25 +728,36 @@ class PlatformAdapter(ABC):
         conn: Connection,
     ) -> List[Tuple[Any, int]]:
         """
-        Get all distinct values with their counts (sorted by value).
+        Get all distinct non-null values with their counts, sorted by value in Python.
 
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            List of (value, count) tuples, sorted by value
+        Mirrors the GE profiler's `_get_dataset_column_distinct_value_frequencies`
+        query structure intentionally:
+          - `WHERE col IS NOT NULL` filters nulls and (importantly) changes
+            predicate pushdown for the Trino JDBC connector so the GROUP BY runs
+            Trino-side, where Trino's JSON type supports GROUP BY. Without this
+            clause Trino pushes the whole query down to PostgreSQL, which fails
+            on `GROUP BY <json column>` because Postgres `json` has no equality
+            operator.
+          - `COUNT(<col>)` instead of `COUNT(*)` matches GE's projection exactly.
+          - Sorting is done in Python after fetch because not all column types
+            (Trino/Athena JSON) are orderable in SQL.
         """
-        count_expr = sa.func.count().label("count")
+        count_expr = sa.func.count(sa.column(column)).label("count")
         query = (
             sa.select([sa.column(column), count_expr])
             .select_from(table)
+            .where(sa.column(column).is_not(None))
             .group_by(sa.column(column))
-            .order_by(sa.column(column))
         )
 
-        result = conn.execute(query).fetchall()
+        rows = [(row[0], int(row[1])) for row in conn.execute(query).fetchall()]
+        try:
+            rows.sort(key=lambda r: (r[0] is None, r[0]))
+        except TypeError:
+            # Mixed/uncomparable values (e.g., dict vs str from JSON columns) —
+            # fall back to a stringified key so the output is still deterministic.
+            rows.sort(key=lambda r: (r[0] is None, str(r[0])))
+        result = rows
         logger.debug(
             f"get_column_distinct_value_frequencies for {column}: got {len(result)} rows"
         )
@@ -789,10 +832,169 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy Table object
         """
+        engine = autoload_with or self.base_engine
         metadata = sa.MetaData()
-        return sa.Table(
+        sql_table = sa.Table(
             table,
             metadata,
             schema=schema,
-            autoload_with=autoload_with or self.base_engine,
+            autoload_with=engine,
         )
+        return self._use_stored_column_names(sql_table, engine)
+
+    def _case_fold_inspector(self, engine: Union[Engine, Connection]) -> Inspector:
+        """A reused Inspector for the base engine, so reflection hits its cache.
+
+        Dialects fetch a whole schema's columns in one query and memoize it on the
+        Inspector's info cache. A fresh ``sa.inspect()`` per table would defeat that
+        and issue one round trip per table; holding one makes it one per schema.
+
+        Only the base engine is cached. Profiling opens a fresh Connection per
+        table, and an Inspector keeps a strong reference to the bind it was built
+        from — caching those would pin one dead Connection per profiled table for
+        the adapter's lifetime. They would not even pay off: a per-table connection
+        exists to reflect its own temp table exactly once.
+        """
+        if engine is self.base_engine and self._inspector is not None:
+            return self._inspector
+
+        # cast rather than the house-preferred assert isinstance: sa.inspect is
+        # overloaded and mypy picks InstanceState for a Union[Engine, Connection],
+        # but on a bind it is always an Inspector. A runtime check would only
+        # force every test that patches sa.inspect to use a spec'd mock.
+        inspector = cast(Inspector, sa.inspect(engine))
+        if engine is self.base_engine:
+            self._inspector = inspector
+        return inspector
+
+    def _use_stored_column_names(
+        self, sql_table: sa.Table, engine: Union[Engine, Connection]
+    ) -> sa.Table:
+        """Name every column the way the database stores it.
+
+        Dialects that normalize identifiers -- of the ones DataHub's SQL
+        connectors use, Snowflake and Oracle -- fold
+        reflected column names, so two columns differing only by case — legal via
+        quoted identifiers — arrive under the same name. ``sa.Table`` rejects the
+        second one, silently dropping a real column before profiling ever sees it.
+
+        Reflection returns both, so re-inspect and rebuild from the as-stored
+        identifiers, each forced to quote on render. Quoting is what makes the
+        emitted SQL address exactly one physical column: the recovered name of a
+        lowercase-stored column would otherwise be folded straight back up.
+
+        This is unconditional rather than reserved for the colliding columns. A
+        profile's field path is a separate concern from the identifier its SQL
+        uses, and ``field_path_for`` translates between them; deciding the SQL
+        name by whether some *other* column happened to collide only entangles
+        the two again. Keys are synthetic because ``sa.Table`` de-duplicates on a
+        column's name, not only on its key.
+
+        Subclasses that build the table themselves must call this on the result.
+        Dialects that do not normalize are returned untouched — their reflected
+        names are already the stored ones.
+
+        The end-to-end win is Snowflake's, because it is the source that can keep
+        both spellings in its schema. On Oracle the recovered column is profiled
+        and then its profile is dropped at emission: normalize_name folds "col"
+        and "COL" to the same path, so schemaMetadata declares one field and the
+        second profile has nothing to attach to. That costs a few queries and
+        gains nothing today; it becomes useful if the Oracle source ever stops
+        folding. Recovering the column is still right — dropping a profile is
+        recoverable, never collecting it is not.
+        """
+        # Declared on DefaultDialect rather than the Dialect interface, and third
+        # party dialects need not set it at all.
+        if not getattr(engine.dialect, "requires_name_normalize", False):
+            return sql_table
+
+        try:
+            reflected = self._case_fold_inspector(engine).get_columns(
+                sql_table.name, schema=sql_table.schema
+            )
+        except SQLAlchemyError as e:
+            # Returning the reflected table means any case-only pair stays folded
+            # and one of them goes unprofiled -- the exact loss this method exists
+            # to prevent. Silent recovery from a silent bug is not recovery.
+            self.report.warning(
+                title="Could not read stored column names",
+                message="Re-inspection failed, so columns differing only by case "
+                "stay folded together and only one of each pair is profiled.",
+                context=f"{sql_table.fullname}: {type(e).__name__}: {e}",
+                exc=e,
+            )
+            return sql_table
+
+        denormalize = engine.dialect.denormalize_name
+        # Only the name and type are carried over: profiling reads nothing else off
+        # these columns (no nullable, default or comment anywhere in this package),
+        # and schemaMetadata comes from the source, not from here.
+        columns = [
+            sa.Column(
+                sa.sql.quoted_name(denormalize(col["name"]), quote=True),
+                col["type"],
+                key=f"_dh_col_{index}",
+            )
+            for index, col in enumerate(reflected)
+        ]
+        # Reuse the original name objects so any quoting decided by the caller
+        # (Snowflake quotes mixed-case table and schema names) is preserved.
+        rebuilt = sa.Table(
+            sql_table.name, sa.MetaData(), *columns, schema=sql_table.schema
+        )
+        if len(rebuilt.columns) > len(sql_table.columns):
+            logger.info(
+                f"Recovered case-folded columns for {sql_table.fullname}: "
+                f"{sorted(str(c.name) for c in rebuilt.columns)}"
+            )
+        elif len(rebuilt.columns) < len(sql_table.columns):
+            # The check used to run one way only, so it announced recoveries and
+            # said nothing about losses. sa.Table de-duplicates on name, so two
+            # stored names that denormalize to one string drop a column here.
+            self.report.warning(
+                title="Lost columns while reading stored names",
+                message="Rebuilding the table from its stored column names "
+                "produced fewer columns than reflection did, so some columns "
+                "will not be profiled.",
+                context=f"{sql_table.fullname}: "
+                f"{len(sql_table.columns)} reflected, {len(rebuilt.columns)} rebuilt",
+            )
+        return rebuilt
+
+    def field_path_for(
+        self, stored_name: str, engine: Union[Engine, Connection]
+    ) -> str:
+        """The field path a profile of ``stored_name`` should be emitted under.
+
+        Profiling addresses columns by their stored identifier, but a profile has
+        to attach to the field path the *source* emitted in schemaMetadata. For a
+        SQLAlchemy source that is reflection's normalized name, which is what this
+        returns.
+
+        Overriding is only needed where both of these hold, which is narrower than
+        it sounds:
+
+        1. the dialect sets ``requires_name_normalize`` — otherwise this returns
+           the name untouched and the choice cannot matter. Of the dialects
+           DataHub's SQL connectors use, only Oracle and Snowflake do; db2
+           deliberately clears the flag because ibm_db_sa's casing is unreliable;
+        2. the source builds schemaMetadata from something other than reflection.
+
+        Snowflake meets both — it reads INFORMATION_SCHEMA — but does *not*
+        override this method. Its field path depends on the source's own casing
+        configuration (``convert_urns_to_lowercase``, and whatever else the
+        source's identifier rules take into account), which this layer cannot
+        see, so ``snowflake_profiler`` hands the profiler
+        ``field_path_transform=snowflake_identifier`` instead; the profiler prefers that transform over
+        this method, so nothing here runs for Snowflake at all. Oracle meets the
+        second condition alone: ``OracleInspectorObjectWrapper`` supplies its own
+        columns, but names them with ``dialect.normalize_name`` exactly as
+        reflection would, so the default is already right for it.
+        """
+        if not getattr(engine.dialect, "requires_name_normalize", False):
+            # str() because callers pass sql_table column names, which this module
+            # rebuilds as quoted_name -- a str subclass whose .lower()/.upper()
+            # return self while the identifier is quoted. Returning the subclass
+            # makes every later fold silently do nothing.
+            return str(stored_name)
+        return str(engine.dialect.normalize_name(stored_name) or stored_name)

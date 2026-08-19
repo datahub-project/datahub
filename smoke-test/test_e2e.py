@@ -3,16 +3,25 @@ import logging
 import time
 import urllib
 from http import HTTPStatus
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import pytest
 import requests
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.domains import Domain
+from tests.utilities.messaging_transport import (
+    build_pgqueue_sink_config,
+    is_pgqueue_transport,
+)
 from tests.utilities.metadata_operations import update_description
 from tests.utils import (
     execute_graphql,
     get_admin_credentials,
+    get_db_password,
+    get_db_type,
+    get_db_url,
+    get_db_username,
     get_frontend_session,
     get_kafka_broker_url,
     get_kafka_schema_registry,
@@ -24,7 +33,10 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM, Domain.CATALOG),
+]
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
@@ -32,7 +44,12 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 30
+async_messaging_post_ingestion_wait_sec = 30
+
+BQ_SAMPLE_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+    "bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)"
+)
 
 
 @with_test_retry()
@@ -118,34 +135,61 @@ def fixture_ingestion_usage_via_rest(auth_session):
     ingest_file_via_rest(auth_session, usage_sample_data)
 
 
-def fixture_ingestion_via_kafka(auth_session):
+def _run_file_ingestion_pipeline(auth_session, sink_config: dict) -> None:
     pipeline = Pipeline.create(
         {
             "source": {
                 "type": "file",
                 "config": {"filename": bq_sample_data},
             },
-            "sink": {
-                "type": "datahub-kafka",
-                "config": {
-                    "connection": {
-                        "bootstrap": get_kafka_broker_url(),
-                        "schema_registry_url": get_kafka_schema_registry(),
-                    }
-                },
-            },
+            "sink": sink_config,
         }
     )
     pipeline.run()
     pipeline.raise_from_status()
-    _ensure_dataset_present(
-        auth_session,
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)",
-    )
+    _ensure_dataset_present(auth_session, BQ_SAMPLE_DATASET_URN)
 
-    # Since Kafka emission is asynchronous, we must wait a little bit so that
-    # the changes are actually processed.
-    time.sleep(kafka_post_ingestion_wait_sec)
+
+def fixture_ingestion_via_kafka(auth_session):
+    _run_file_ingestion_pipeline(
+        auth_session,
+        {
+            "type": "datahub-kafka",
+            "config": {
+                "connection": {
+                    "bootstrap": get_kafka_broker_url(),
+                    "schema_registry_url": get_kafka_schema_registry(),
+                }
+            },
+        },
+    )
+    # Kafka emission is asynchronous; allow consumers to catch up.
+    time.sleep(async_messaging_post_ingestion_wait_sec)
+
+
+def fixture_ingestion_via_pgqueue(auth_session):
+    if get_db_type() != "postgres":
+        raise AssertionError(
+            "pgQueue ingestion requires a postgres datastore (set DB_TYPE=postgres)"
+        )
+    _run_file_ingestion_pipeline(
+        auth_session,
+        build_pgqueue_sink_config(
+            schema_registry_url=get_kafka_schema_registry(),
+            host_port=get_db_url(),
+            database="datahub",
+            username=get_db_username(),
+            password=get_db_password(),
+        ),
+    )
+    wait_for_writes_to_sync()
+
+
+def fixture_ingestion_via_messaging(auth_session):
+    if is_pgqueue_transport(auth_session):
+        fixture_ingestion_via_pgqueue(auth_session)
+    else:
+        fixture_ingestion_via_kafka(auth_session)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -158,7 +202,7 @@ def test_run_ingestion(auth_session):
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         futures = []
         for ingestion_fixture in [
-            "fixture_ingestion_via_kafka",
+            "fixture_ingestion_via_messaging",
             "fixture_ingestion_via_rest",
         ]:
             futures.append(executor.submit(globals()[ingestion_fixture], auth_session))
@@ -298,8 +342,43 @@ def test_gms_usage_fetch(auth_session):
 
     data = response.json()["value"]
 
-    assert len(data["buckets"]) == 6
-    assert data["buckets"][0]["metrics"]["topSqlQueries"]
+    # bigquery_usages_golden.json seeds three non-empty DAY buckets for this resource.
+    # DAY date_histogram uses min_doc_count=0, so empty interstitial days (May 29–31) are
+    # also returned. Assert seeded days + gap-filled empties rather than a bare length check.
+    expected_non_empty = {
+        1622073600000: 4,  # 2021-05-27
+        1622160000000: 2,  # 2021-05-28
+        1622505600000: 1,  # 2021-06-01
+    }
+    expected_empty = (
+        1622246400000,  # 2021-05-29
+        1622332800000,  # 2021-05-30
+        1622419200000,  # 2021-05-31
+    )
+    expected_top_sql_queries = {
+        "\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n\n",
+        "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`",
+    }
+    buckets_by_ts = {bucket["bucket"]: bucket for bucket in data["buckets"]}
+    for ts, total_sql_queries in expected_non_empty.items():
+        assert ts in buckets_by_ts, (
+            f"missing usage bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
+        metrics = buckets_by_ts[ts]["metrics"]
+        assert metrics["totalSqlQueries"] == total_sql_queries
+        assert metrics["uniqueUserCount"] == 1
+    for ts in expected_empty:
+        assert ts in buckets_by_ts, (
+            f"missing empty interstitial bucket {ts}; got {sorted(buckets_by_ts)}"
+        )
+        metrics = buckets_by_ts[ts].get("metrics") or {}
+        assert metrics.get("totalSqlQueries") is None, metrics
+        assert metrics.get("uniqueUserCount") is None, metrics
+        assert not metrics.get("topSqlQueries"), metrics
+    assert (
+        set(buckets_by_ts[1622073600000]["metrics"]["topSqlQueries"])
+        == expected_top_sql_queries
+    )
 
     fields = data["aggregations"].pop("fields")
     assert len(fields) == 12
@@ -498,6 +577,7 @@ def test_ingest_with_system_metadata(auth_session, test_run_ingestion):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -530,6 +610,7 @@ def test_ingest_with_blank_system_metadata(auth_session):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -559,6 +640,7 @@ def test_ingest_without_system_metadata(auth_session):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -674,6 +756,11 @@ def test_list_users(auth_session):
 
 
 @pytest.mark.dependency()
+# The bootstrapped groups come from bootstrap_mce.json and are only visible here
+# once Elasticsearch has indexed them. wait_for_writes_to_sync() inside
+# execute_graphql() only covers the write pipeline, not the search refresh, so
+# an unretried run can legitimately see fewer than the 2 expected groups.
+@with_test_retry()
 def test_list_groups(auth_session):
     query = """query listGroups($input: ListGroupsInput!) {
         listGroups(input: $input) {
@@ -717,7 +804,7 @@ def test_add_remove_members_from_group(auth_session):
             }
         }
     }"""
-    variables = {"urn": "urn:li:corpuser:jdoe"}
+    variables: Dict[str, Any] = {"urn": "urn:li:corpuser:jdoe"}
     res_data = execute_graphql(auth_session, query, variables)
 
     assert res_data["data"]["corpUser"]
@@ -896,7 +983,7 @@ def test_remove_group(auth_session):
 def test_create_group(auth_session):
     query = """mutation createGroup($input: CreateGroupInput!) {\n
             createGroup(input: $input) }"""
-    variables = {
+    variables: Dict[str, Any] = {
         "input": {
             "id": "test-id",
             "name": "Test Group",
@@ -951,6 +1038,49 @@ def test_home_page_recommendations(auth_session):
     assert (
         len(res_data["data"]["listRecommendations"]["modules"])
         > min_expected_recommendation_modules
+    )
+
+
+def test_home_page_recommendations_with_module_filter(auth_session):
+    def get_recommendation_module_ids(modules_filter):
+        json = {
+            "query": """query listRecommendations($input: ListRecommendationsInput!) {\n
+                listRecommendations(input: $input) { modules { moduleId } } }""",
+            "variables": {
+                "input": {
+                    "userUrn": get_root_urn(),
+                    "requestContext": {
+                        "scenario": "HOME",
+                        "modules": modules_filter,
+                    },
+                    "limit": 10,
+                }
+            },
+        }
+
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+        )
+        response.raise_for_status()
+        res_data = response.json()
+        logger.info(res_data)
+
+        assert res_data
+        assert res_data["data"]
+        assert res_data["data"]["listRecommendations"]
+        assert "errors" not in res_data
+
+        return {
+            module["moduleId"]
+            for module in res_data["data"]["listRecommendations"]["modules"]
+        }
+
+    # Filtering to a single module should only ever return that module
+    assert get_recommendation_module_ids(["DOMAINS"]).issubset({"Domains"})
+
+    # Filtering to multiple modules should only return modules from that set
+    assert get_recommendation_module_ids(["PLATFORMS", "DOMAINS"]).issubset(
+        {"Platforms", "Domains"}
     )
 
 

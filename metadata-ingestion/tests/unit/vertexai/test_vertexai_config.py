@@ -29,8 +29,11 @@ def test_multi_project_initialization_with_explicit_ids(
     mock_resolve.assert_called_once()
 
 
+@patch("datahub.ingestion.source.vertexai.vertexai.ProjectsClient")
 @patch("datahub.ingestion.source.vertexai.vertexai.resolve_gcp_projects")
-def test_multi_project_initialization_with_labels(mock_resolve: MagicMock) -> None:
+def test_multi_project_initialization_with_labels(
+    mock_resolve: MagicMock, mock_projects_client: MagicMock
+) -> None:
     mock_resolve.return_value = [
         GcpProject(id="dev-project", name="Development"),
         GcpProject(id="prod-project", name="Production"),

@@ -1,0 +1,133 @@
+name: Notify Slack Workflow Status
+
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        type: string
+        required: false
+        default: ""
+        description: >-
+          Run ID to fetch details for via the GitHub API. Leave empty to use
+          event/run context instead.
+      attempt:
+        type: string
+        required: false
+        default: "1"
+        description: Run attempt number to fetch job details for.
+      conclusion:
+        type: string
+        required: false
+        default: ""
+        description: >-
+          Workflow conclusion (success, failure, timed_out, cancelled). When
+          run_id is provided and this is empty, fetched from the API.
+      channel:
+        type: string
+        required: false
+        default: "#datahub-oss-build-notifications"
+        description: Slack channel to post to
+      thread_ts_file:
+        type: string
+        required: false
+        default: ""
+        description: >-
+          Workspace-relative path to a JSON file storing {channel: thread_ts}
+          for threaded notifications. Omit to always post a standalone message.
+
+  # Allows standalone testing from the Actions UI.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        type: string
+        required: true
+        description: Run ID to fetch details for (leave empty to use current run context)
+      attempt:
+        type: string
+        required: false
+        default: "1"
+        description: Run attempt number to fetch job details for.
+      conclusion:
+        type: string
+        required: false
+        description: "Workflow conclusion: success, failure, timed_out, cancelled"
+      channel:
+        type: string
+        required: false
+        default: "#datahub-build-notifications"
+        description: Slack channel to post to
+      thread_ts_file:
+        type: string
+        required: false
+        description: Workspace-relative path to thread-ts JSON file
+
+jobs:
+  notify:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv pip install requests --system
+
+      - name: Fetch workflow details
+        id: fetch-details
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONCLUSION_INPUT: ${{ inputs.conclusion }}
+          RUN_ID: ${{ inputs.run_id }}
+          ATTEMPT: ${{ inputs.attempt || '1' }}
+        run: |
+          cd .github/scripts
+          ARGS=(
+            --run-id "${RUN_ID}"
+            --attempt "${ATTEMPT}"
+            --repo "${{ github.repository }}"
+            --output workflow-details.json
+          )
+          [ -n "${CONCLUSION_INPUT}" ] && ARGS+=(--conclusion "${CONCLUSION_INPUT}")
+          python fetch_workflow_details.py "${ARGS[@]}"
+          echo "head_sha=$(jq -r .head_sha workflow-details.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Slack thread cache
+        id: thread-cache
+        if: inputs.thread_ts_file != ''
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ inputs.thread_ts_file }}
+          key: slack-thread-${{ steps.fetch-details.outputs.head_sha }}
+
+      - name: Post Slack notification
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          cd .github/scripts
+          ARGS=(
+            --input-file workflow-details.json
+            --channel "${CHANNEL}"
+          )
+          if [ -n "${{ inputs.thread_ts_file }}" ]; then
+            ARGS+=(--thread-ts-file "$GITHUB_WORKSPACE/${{ inputs.thread_ts_file }}")
+          fi
+          python notify_workflow_status_slack.py "${ARGS[@]}"
+
+      - name: Save Slack thread cache
+        if: >-
+          inputs.thread_ts_file != '' && steps.thread-cache.outputs.cache-hit !=
+          'true' && hashFiles(inputs.thread_ts_file) != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ inputs.thread_ts_file }}
+          key: slack-thread-${{ steps.fetch-details.outputs.head_sha }}

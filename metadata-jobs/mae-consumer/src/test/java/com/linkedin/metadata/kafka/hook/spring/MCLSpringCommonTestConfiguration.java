@@ -9,6 +9,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -38,12 +39,12 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @Configuration
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.kafka",
+      "com.linkedin.metadata.pgqueue",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.timeline.eventgenerator",
@@ -55,14 +56,22 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     })
 public class MCLSpringCommonTestConfiguration {
 
-  // TODO: We cannot move from MockBeans here because we are reliant on their behavior in
-  // configuration classes
-  @MockitoBean public EntityRegistry entityRegistry;
+  @Bean
+  @Primary
+  public EntityRegistry entityRegistry() {
+    return TestOperationContexts.constructNewEntityRegistry();
+  }
 
   @Bean
   @Primary
   public ElasticSearchGraphService graphService() {
     return Mockito.mock(ElasticSearchGraphService.class);
+  }
+
+  @Bean(name = "graphClient")
+  @Primary
+  public GraphClient graphClient() {
+    return Mockito.mock(GraphClient.class);
   }
 
   @Bean

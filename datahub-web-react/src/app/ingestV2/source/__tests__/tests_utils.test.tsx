@@ -579,6 +579,14 @@ describe('formatTimezone', () => {
         vi.restoreAllMocks();
     });
 
+    it('should format common backend timezone values', () => {
+        const timezones = ['UTC', 'Etc/UTC', 'GMT', 'Etc/GMT', 'CET', 'Asia/Kolkata', 'US/Eastern'];
+
+        timezones.forEach((timezone) => {
+            expect(formatTimezone(timezone)).toBeTruthy();
+        });
+    });
+
     it('should handle invalid timezone gracefully', () => {
         // Mock the current time to ensure consistent testing
         const mockDate = new Date('2024-01-01T12:00:00Z');

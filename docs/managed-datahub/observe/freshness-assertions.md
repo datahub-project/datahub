@@ -106,6 +106,20 @@ Change Source types vary by the platform, but generally fall into these categori
   of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc).
   Note that for Databricks, [this option](https://docs.databricks.com/en/delta/table-details.html) is only available for tables stored in Delta format.
 
+- **Platform API** (BigQuery Only): Uses the Data Warehouse's native metadata API to check when a Table was last modified. This is the
+  most cost-effective option as it does not run any SQL queries or scan any data — the metadata is retrieved via a free API call.
+  For BigQuery, this uses the [tables.get](https://cloud.google.com/bigquery/docs/reference/rest/v2/tables/get) API, which requires
+  the `bigquery.tables.get` permission (included in the `roles/bigquery.metadataViewer` role).
+  This method is only supported for Tables, not Views.
+
+  :::caution Quota considerations
+  The `tables.get` API is subject to BigQuery's [API request rate limits](https://cloud.google.com/bigquery/quotas#api_quotas_and_limits).
+  These limits are quite high, but should be considered when running this assertion against a very large number of tables on a frequent
+  schedule. DataHub Cloud automatically jitters and distributes the execution of Smart Assertions and assertions it manages on its end
+  to avoid bursts of API calls. If you are configuring your own custom schedules across many assertions, consider staggering them
+  (e.g., varying the minute offset across assertions) to avoid hitting per-minute API quotas.
+  :::
+
 - **Last Modified Column**: A Date or Timestamp column that represents the last time that a specific _row_ was touched or updated.
   Adding a Last Modified Column to each warehouse Table is a pattern is often used for existing use cases around change management.
   If this change source is used, a query will be issued to the Table to search for rows that have been modified within a specific

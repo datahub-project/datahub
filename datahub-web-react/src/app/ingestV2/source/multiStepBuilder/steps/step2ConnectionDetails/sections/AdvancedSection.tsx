@@ -2,6 +2,7 @@ import { Input, spacing, transition } from '@components';
 import { Form } from 'antd';
 import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AntdFormCompatibleCheckbox } from '@app/ingestV2/source/multiStepBuilder/components/AntdCompatibleCheckbox';
@@ -37,7 +38,14 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
+const EXECUTOR_ID_PLACEHOLDER = 'default';
+const CLI_VERSION_PLACEHOLDER = '(e.g. 0.15.0)';
+const EXTRA_ENV_PLACEHOLDER = '{"MY_CUSTOM_ENV": "my_custom_value2"}';
+const EXTRA_ARGS_PLACEHOLDER = '["debug"]';
+const EXTRA_PIP_PLACEHOLDER = '["sqlparse==0.4.3"]';
+
 export function AdvancedSection({ state, updateState }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const sectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -95,7 +103,7 @@ export function AdvancedSection({ state, updateState }: Props) {
         <Form form={form} layout="vertical" initialValues={initialState} onValuesChange={onValuesChange}>
             <Container ref={sectionRef}>
                 <SectionName
-                    name="Advanced Settings"
+                    name={t('multiStep.connection.advancedSettings')}
                     topRowLeftItems={<ExpandCollapseButton expanded={isExpanded} />}
                     onHeaderClick={toggleIsExpanded}
                 />
@@ -103,53 +111,50 @@ export function AdvancedSection({ state, updateState }: Props) {
                 <FormContainer $expanded={isExpanded}>
                     {/* NOTE: Executor ID is OSS-only, used by actions pod */}
                     <CustomLabelFormItem
-                        label="Executor ID"
-                        help="Provide the ID of the executor that should execute this ingestion recipe. This ID is used to route
-                    execution requests of the recipe to the executor of the same ID. The built-in DataHub executor ID is
-                    'default'. Do not change this unless you have configured a custom executor via actions
-                    framework."
+                        label={t('multiStep.connection.executorId.label')}
+                        help={t('multiStep.connection.executorId.help')}
                         name="executor_id"
                     >
-                        <Input placeholder="default" value={state.config?.executorId || ''} />
+                        <Input placeholder={EXECUTOR_ID_PLACEHOLDER} value={state.config?.executorId || ''} />
                     </CustomLabelFormItem>
 
                     <CustomLabelFormItem
-                        label="CLI Version"
-                        help="Advanced: Provide a custom CLI version to use for ingestion."
+                        label={t('multiStep.connection.cliVersion.label')}
+                        help={t('multiStep.connection.cliVersion.help')}
                         name="cli_version"
                     >
-                        <Input data-testid="cli-version-input" placeholder="(e.g. 0.15.0)" />
+                        <Input data-testid="cli-version-input" placeholder={CLI_VERSION_PLACEHOLDER} />
                     </CustomLabelFormItem>
 
-                    <CustomLabelFormItem label="Debug Mode" name="debug_mode">
+                    <CustomLabelFormItem label={t('multiStep.connection.debugMode.label')} name="debug_mode">
                         <AntdFormCompatibleCheckbox
                             checked={state.config?.debugMode || false}
-                            helper="Advanced: Turn on debug mode in order to get more verbose logs."
+                            helper={t('multiStep.connection.debugMode.help')}
                         />
                     </CustomLabelFormItem>
 
                     <CustomLabelFormItem
-                        label="Extra Enviroment Variables"
-                        help="Advanced: Set extra environment variables to an ingestion execution"
+                        label={t('multiStep.connection.extraEnvVars.label')}
+                        help={t('multiStep.connection.extraEnvVars.help')}
                         name="extra_args"
                     >
-                        <Input data-testid="extra-args-input" placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}' />
+                        <Input data-testid="extra-args-input" placeholder={EXTRA_ENV_PLACEHOLDER} />
                     </CustomLabelFormItem>
 
                     <CustomLabelFormItem
-                        label="Extra DataHub plugins"
-                        help="Advanced: Set extra DataHub plugins for an ingestion execution"
+                        label={t('multiStep.connection.extraPlugins.label')}
+                        help={t('multiStep.connection.extraPlugins.help')}
                         name="extra_pip_plugin"
                     >
-                        <Input data-testid="extra-pip-plugin-input" placeholder='["debug"]' />
+                        <Input data-testid="extra-pip-plugin-input" placeholder={EXTRA_ARGS_PLACEHOLDER} />
                     </CustomLabelFormItem>
 
                     <CustomLabelFormItem
-                        label="Extra Pip Libraries"
-                        help="Advanced: Add extra pip libraries for an ingestion execution"
+                        label={t('multiStep.connection.extraPipLibraries.label')}
+                        help={t('multiStep.connection.extraPipLibraries.help')}
                         name="extra_pip_reqs"
                     >
-                        <Input data-testid="extra-pip-reqs-input" placeholder='["sqlparse==0.4.3"]' />
+                        <Input data-testid="extra-pip-reqs-input" placeholder={EXTRA_PIP_PLACEHOLDER} />
                     </CustomLabelFormItem>
                 </FormContainer>
             </Container>

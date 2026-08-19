@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
@@ -12,6 +13,9 @@ import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { Dataset, Entity } from '@types';
+
+// eslint-disable-next-line i18next/no-literal-string -- API filter field name, not UI text
+const SIBLINGS_FILTER_FIELD = 'siblings';
 
 const EntityListContainer = styled.div`
     display: flex;
@@ -33,6 +37,7 @@ const AndMoreWrapper = styled.div`
 `;
 
 export const SidebarSiblingsSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, urn } = useEntityData();
 
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
@@ -50,7 +55,7 @@ export const SidebarSiblingsSection = () => {
     if (!showSeparateSiblings && isHideSiblingMode) {
         return (
             <SidebarSection
-                title="Part of"
+                title={t('sidebar.siblings.partOfTitle')}
                 content={
                     <EntityListContainer>
                         <CompactEntityNameList entities={[entityData as Entity]} showFullTooltips />
@@ -82,7 +87,7 @@ export const SidebarSiblingsSection = () => {
     return (
         <>
             <SidebarSection
-                title="Composed of"
+                title={t('sidebar.siblings.composedOfTitle')}
                 content={
                     <EntityListContainer data-testid="siblings-list">
                         <CompactEntityNameList
@@ -92,7 +97,7 @@ export const SidebarSiblingsSection = () => {
                         />
                         {numSiblingsNotShown > 0 && (
                             <AndMoreWrapper onClick={() => setShowAllSiblings(true)}>
-                                and {numSiblingsNotShown} more
+                                {t('sidebar.siblings.andMore', { count: numSiblingsNotShown })}
                             </AndMoreWrapper>
                         )}
                     </EntityListContainer>
@@ -100,10 +105,10 @@ export const SidebarSiblingsSection = () => {
             />
             {showAllSiblings && (
                 <EmbeddedListSearchModal
-                    title="View All Siblings"
+                    title={t('sidebar.siblings.viewAllTitle')}
                     fixedFilters={{
                         unionType: UnionType.OR,
-                        filters: [{ field: 'siblings', values: [urn] }],
+                        filters: [{ field: SIBLINGS_FILTER_FIELD, values: [urn] }],
                     }}
                     onClose={() => setShowAllSiblings(false)}
                 />

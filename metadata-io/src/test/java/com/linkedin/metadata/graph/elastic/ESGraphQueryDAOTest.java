@@ -314,12 +314,13 @@ public class ESGraphQueryDAOTest {
       throw new RuntimeException(e);
     }
 
-    when(mockDelegate.executeSearch(eq(mockSearchRequest))).thenReturn(mockSearchResponse);
+    when(mockDelegate.executeSearch(any(OperationContext.class), eq(mockSearchRequest)))
+        .thenReturn(mockSearchResponse);
 
-    SearchResponse result = dao.executeSearch(mockSearchRequest);
+    SearchResponse result = dao.executeSearch(mockOperationContext, mockSearchRequest);
 
     assertEquals(result, mockSearchResponse);
-    verify(mockDelegate).executeSearch(mockSearchRequest);
+    verify(mockDelegate).executeSearch(any(OperationContext.class), eq(mockSearchRequest));
   }
 
   @Test
@@ -538,9 +539,11 @@ public class ESGraphQueryDAOTest {
             mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
 
     String pitId = "test-pit-id";
-    dao.cleanupPointInTime(pitId);
+    dao.cleanupPointInTime(mockOperationContext, pitId);
 
     // Verify ESUtils.cleanupPointInTime was called with correct parameters
-    verify(mockClient, times(1)).deletePit(argThat(req -> req.getPitIds().contains(pitId)), any());
+    verify(mockClient, times(1))
+        .deletePit(
+            eq(mockOperationContext), argThat(req -> req.getPitIds().contains(pitId)), any());
   }
 }

@@ -1,6 +1,8 @@
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import AllowedValuesField from '@app/govern/structuredProperties/AllowedValuesField';
 import RequiredAsterisk from '@app/govern/structuredProperties/RequiredAsterisk';
@@ -10,6 +12,7 @@ import {
     RowContainer,
     SubTextContainer,
 } from '@app/govern/structuredProperties/styledComponents';
+import useAvailablePlatforms, { PlatformOption } from '@app/govern/structuredProperties/useAvailablePlatforms';
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
 import {
     APPLIES_TO_ENTITIES,
@@ -19,7 +22,18 @@ import {
     isEntityTypeSelected,
 } from '@app/govern/structuredProperties/utils';
 import { Icon, SimpleSelect, Text, Tooltip } from '@src/alchemy-components';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { AllowedValue, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
+
+const PlatformOptionLabel = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const ALLOWED_TYPES_FIELD_PATH = ['typeQualifier', 'allowedTypes'];
+const ENTITY_TYPES_FIELD = 'entityTypes';
+const ALLOWED_PLATFORMS_FIELD = 'allowedPlatforms';
 
 interface Props {
     selectedProperty: StructuredPropertyEntity | undefined;
@@ -48,11 +62,15 @@ const StructuredPropsFormSection = ({
     valueField,
     setShowAllowedValuesDrawer,
 }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+    const platformOptions = useAvailablePlatforms();
+
     const {
         handleSelectChange,
         handleSelectUpdateChange,
         getEntitiesListOptions,
         disabledEntityTypeValues,
+        disabledAllowedPlatformValues,
         disabledTypeQualifierValues,
     } = useStructuredProp({
         selectedProperty,
@@ -76,32 +94,23 @@ const StructuredPropsFormSection = ({
                 <RowContainer>
                     <FieldLabel>
                         <FlexContainer>
-                            Allowed Entity Types
-                            <Tooltip
-                                title="Choose the types of entities that are allowed as values for this property"
-                                showArrow={false}
-                            >
-                                <Icon icon={Info} color="violet" size="lg" />
+                            {t('allowedEntityTypes.title')}
+                            <Tooltip title={t('allowedEntityTypes.tooltip')} showArrow={false}>
+                                <Icon icon={Info} color="iconBrand" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                         {isEditMode && (
                             <SubTextContainer>
                                 <Text size="sm" weight="medium">
-                                    <Tooltip
-                                        title="Once a property is created, entity types cannot be removed"
-                                        showArrow={false}
-                                    >
-                                        (Add-only)
+                                    <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
+                                        {t('addOnly')}
                                     </Tooltip>
                                 </Text>
                             </SubTextContainer>
                         )}
                     </FieldLabel>
                     <Tooltip
-                        title={
-                            !formValues?.typeQualifier?.allowedTypes?.length &&
-                            'Any entity type will be accepted as a value'
-                        }
+                        title={!formValues?.typeQualifier?.allowedTypes?.length && t('allowedEntityTypes.anyTooltip')}
                         showArrow={false}
                     >
                         <Form.Item name={['typeQualifier', 'allowedTypes']}>
@@ -109,10 +118,10 @@ const StructuredPropsFormSection = ({
                                 options={getEntitiesListOptions(SEARCHABLE_ENTITY_TYPES)}
                                 onUpdate={(values) =>
                                     isEditMode
-                                        ? handleSelectUpdateChange(['typeQualifier', 'allowedTypes'], values)
-                                        : handleSelectChange(['typeQualifier', 'allowedTypes'], values)
+                                        ? handleSelectUpdateChange(ALLOWED_TYPES_FIELD_PATH, values)
+                                        : handleSelectChange(ALLOWED_TYPES_FIELD_PATH, values)
                                 }
-                                placeholder="Any"
+                                placeholder={t('allowedEntityTypes.anyPlaceholder')}
                                 isMultiSelect
                                 values={formValues?.typeQualifier?.allowedTypes}
                                 disabledValues={disabledTypeQualifierValues}
@@ -126,23 +135,17 @@ const StructuredPropsFormSection = ({
             <RowContainer>
                 <FieldLabel>
                     <FlexContainer>
-                        Applies to
+                        {t('appliesTo.title')}
                         <RequiredAsterisk />
-                        <Tooltip
-                            title="Select the types of entities that this property can be added to"
-                            showArrow={false}
-                        >
-                            <Icon icon={Info} color="violet" size="lg" />
+                        <Tooltip title={t('appliesTo.tooltip')} showArrow={false}>
+                            <Icon icon={Info} color="iconBrand" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                     {isEditMode && (
                         <SubTextContainer>
                             <Text size="sm" weight="medium">
-                                <Tooltip
-                                    title="Once a property is created entity types cannot be removed"
-                                    showArrow={false}
-                                >
-                                    (Add-only)
+                                <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
+                                    {t('addOnly')}
                                 </Tooltip>
                             </Text>
                         </SubTextContainer>
@@ -154,7 +157,7 @@ const StructuredPropsFormSection = ({
                     rules={[
                         {
                             required: true,
-                            message: 'Please select asset types this applies to',
+                            message: t('appliesTo.error'),
                         },
                     ]}
                 >
@@ -162,21 +165,69 @@ const StructuredPropsFormSection = ({
                         options={getEntitiesListOptions(APPLIES_TO_ENTITIES)}
                         onUpdate={(values) =>
                             isEditMode
-                                ? handleSelectUpdateChange('entityTypes', values)
-                                : handleSelectChange('entityTypes', values)
+                                ? handleSelectUpdateChange(ENTITY_TYPES_FIELD, values)
+                                : handleSelectChange(ENTITY_TYPES_FIELD, values)
                         }
-                        placeholder="Select Entity Types"
+                        placeholder={t('appliesTo.placeholder')}
                         isMultiSelect
                         values={formValues?.entityTypes ? formValues?.entityTypes : undefined}
                         disabledValues={disabledEntityTypeValues}
                         width="full"
                         showSelectAll
-                        selectAllLabel="All Asset Types"
+                        selectAllLabel={t('appliesTo.allAssetTypes')}
                         data-testid="structured-props-select-input-applies-to"
                         optionListTestId="applies-to-options-list"
                     />
                 </Form.Item>
             </RowContainer>
+            {!(isEditMode && !selectedProperty?.definition?.allowedPlatforms?.length) && (
+                <RowContainer>
+                    <FieldLabel>
+                        <FlexContainer>
+                            {t('allowedPlatforms.title')}
+                            <Tooltip title={t('allowedPlatforms.tooltip')} showArrow={false}>
+                                <Icon icon={Info} color="iconBrand" size="lg" />
+                            </Tooltip>
+                        </FlexContainer>
+                        {isEditMode && (
+                            <SubTextContainer>
+                                <Text size="sm" weight="medium">
+                                    <Tooltip title={t('addOnlyTooltip')} showArrow={false}>
+                                        {t('addOnly')}
+                                    </Tooltip>
+                                </Text>
+                            </SubTextContainer>
+                        )}
+                    </FieldLabel>
+                    <Tooltip
+                        title={!formValues?.allowedPlatforms?.length && t('allowedPlatforms.anyTooltip')}
+                        showArrow={false}
+                    >
+                        <Form.Item name={ALLOWED_PLATFORMS_FIELD}>
+                            <SimpleSelect<PlatformOption>
+                                options={platformOptions}
+                                onUpdate={(values) =>
+                                    isEditMode
+                                        ? handleSelectUpdateChange(ALLOWED_PLATFORMS_FIELD, values)
+                                        : handleSelectChange(ALLOWED_PLATFORMS_FIELD, values)
+                                }
+                                placeholder={t('allowedPlatforms.anyPlaceholder')}
+                                isMultiSelect
+                                showSearch
+                                values={formValues?.allowedPlatforms}
+                                disabledValues={disabledAllowedPlatformValues}
+                                width="full"
+                                renderCustomOptionText={(option) => (
+                                    <PlatformOptionLabel>
+                                        <PlatformIcon platform={option.platform} size={16} styles={{ padding: 0 }} />
+                                        <span>{option.label}</span>
+                                    </PlatformOptionLabel>
+                                )}
+                            />
+                        </Form.Item>
+                    </Tooltip>
+                </RowContainer>
+            )}
         </>
     );
 };

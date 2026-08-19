@@ -422,6 +422,8 @@ KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-
 SCHEMA_REGISTRY_TYPE=INTERNAL
 DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
 DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT}
+DATAHUB_SYSTEM_CLIENT_ID=${DATAHUB_SYSTEM_CLIENT_ID:-__datahub_system}
+DATAHUB_SYSTEM_CLIENT_SECRET=${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}
 ELASTICSEARCH_HOST=search
 ELASTICSEARCH_PORT=${DATAHUB_MAPPED_ELASTIC_PORT:-9200}
 ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
@@ -460,30 +462,42 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 
             # continue to issue the restore indices command
             # TODO Use --version if passed
-            command = (
-                "docker pull acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
-                + f" && docker run --network datahub_network --env-file {env_fp.name} "
-                + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head} -u RestoreIndices -a clean"
-            )
-            logger.info(f"Running index restore command: {command}")
-            result = subprocess.run(
-                args=[
-                    "bash",
-                    "-c",
-                    "docker pull acryldata/datahub-upgrade:"
-                    + "${DATAHUB_VERSION:-head}"
-                    + f" && docker run --network {DOCKER_COMPOSE_PROJECT_NAME}_network --env-file {env_fp.name} "
-                    + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
-                    + " -u RestoreIndices -a clean",
-                ],
-                capture_output=True,
+            upgrade_tag = os.environ.get("DATAHUB_VERSION") or "quickstart"
+            network = f"{DOCKER_COMPOSE_PROJECT_NAME}_network"
+            pull_cmd = f"docker pull acryldata/datahub-upgrade:{upgrade_tag}"
+            run_cmd = (
+                f"docker run --rm --network {network} --env-file {env_fp.name} "
+                f"acryldata/datahub-upgrade:{upgrade_tag} -u RestoreIndices -a clean"
             )
             logger.info(
-                f"Index restore command finished with status {result.returncode}"
+                "Running index restore: DATAHUB_VERSION=%s image=acryldata/datahub-upgrade:%s network=%s",
+                os.environ.get("DATAHUB_VERSION", "<unset>"),
+                upgrade_tag,
+                network,
             )
-        if result.returncode != 0:
-            logger.info(result.stderr)
-        logger.debug(result.stdout)
+            logger.info("Pulling upgrade image: %s", pull_cmd)
+            # Stream stdout/stderr so CI/local runs show pull + RestoreIndices progress
+            # instead of appearing hung for hours with capture_output=True.
+            pull_result = subprocess.run(args=["bash", "-c", pull_cmd])
+            if pull_result.returncode != 0:
+                logger.error(
+                    "Failed to pull upgrade image %s (exit %s)",
+                    upgrade_tag,
+                    pull_result.returncode,
+                )
+                return pull_result.returncode
+
+            logger.info("Running RestoreIndices: %s", run_cmd)
+            result = subprocess.run(args=["bash", "-c", run_cmd])
+            logger.info(
+                "Index restore command finished with status %s", result.returncode
+            )
+            if result.returncode != 0:
+                logger.error(
+                    "RestoreIndices failed with exit code %s", result.returncode
+                )
+            return result.returncode
+
     return result.returncode
 
 
@@ -614,6 +628,11 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
 )
+@click.option(
+    "--accept-version-default/--no-accept-version-default",
+    default=False,
+    help="If the requested --version is unrecognized, use the suggested quickstart configuration without prompting.",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "version",
@@ -623,6 +642,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "restore",
         "restore_indices",
         "arch",
+        "accept_version_default",
     ]
 )
 def quickstart(
@@ -641,6 +661,7 @@ def quickstart(
     restore_indices: bool,
     no_restore_indices: bool,
     arch: Optional[str],
+    accept_version_default: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -671,7 +692,8 @@ def quickstart(
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
 
     quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
-        version
+        version,
+        accept_version_default=accept_version_default,
     )
     logger.info(f"Using quickstart plan: {quickstart_execution_plan}")
 

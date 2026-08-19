@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { useGetDocumentQuery } from '@graphql/document.generated';
 
 interface UseParentDocumentTitleResult {
@@ -49,7 +51,7 @@ export function useParentDocumentTitle(parentUrn?: string | null): UseParentDocu
     if (error) {
         console.error('Failed to fetch parent document title:', error);
         return {
-            title: 'Unknown (Deleted?)',
+            title: i18next.t('entity.types:document.unknownDeletedFallback'),
             loading: false,
             error: true,
         };
@@ -57,7 +59,7 @@ export function useParentDocumentTitle(parentUrn?: string | null): UseParentDocu
 
     // Success - return the title
     return {
-        title: data?.document?.info?.title || 'Unknown (Deleted?)',
+        title: data?.document?.info?.title || i18next.t('entity.types:document.unknownDeletedFallback'),
         loading: false,
         error: false,
     };

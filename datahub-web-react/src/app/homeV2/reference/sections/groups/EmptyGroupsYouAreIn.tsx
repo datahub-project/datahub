@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Text = styled.div`
@@ -7,5 +8,6 @@ const Text = styled.div`
 `;
 
 export const EmptyGroupsYouAreIn = () => {
-    return <Text>You are not part of any groups yet.</Text>;
+    const { t } = useTranslation('home.v2');
+    return <Text>{t('yourGroups.empty')}</Text>;
 };

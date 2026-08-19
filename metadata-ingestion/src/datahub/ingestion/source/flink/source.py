@@ -13,7 +13,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -40,9 +39,6 @@ from datahub.ingestion.source.flink.lineage import (
 )
 from datahub.ingestion.source.flink.report import FlinkSourceReport
 from datahub.ingestion.source.flink.sql_gateway_client import FlinkSQLGatewayClient
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -106,9 +102,6 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
             platform_resolver=self.platform_resolver,
         )
         self.entity_builder = FlinkEntityBuilder(config)
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, config, ctx
-        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FlinkSource":
@@ -117,12 +110,6 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> FlinkSourceReport:
         return self.report
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
 
     def get_workunits_internal(
         self,

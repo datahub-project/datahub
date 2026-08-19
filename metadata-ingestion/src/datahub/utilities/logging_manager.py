@@ -32,7 +32,6 @@ BASE_LOGGING_FORMAT = (
 DATAHUB_PACKAGES = [
     "datahub",
     "datahub_provider",
-    "datahub_classify",
     "datahub_actions",
     "acryl_datahub_cloud",
 ]
@@ -345,4 +344,3 @@ logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
 logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
-logging.getLogger("pyodata").setLevel(logging.WARNING)

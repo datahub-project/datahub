@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import useStatsTabContext from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/hooks/useStatsTabContext';
@@ -13,6 +14,7 @@ const Container = styled.div`
 `;
 
 export default function Header() {
+    const { t } = useTranslation('entity.profile.schema');
     const { properties } = useStatsTabContext();
     const profiles = properties?.profiles;
     const theLatestProfile = profiles?.[0];
@@ -22,8 +24,8 @@ export default function Header() {
 
     return (
         <Container>
-            <Text weight="semiBold">Stats & Insights</Text>
-            <Text>Last Updated: {lastUpdatedAtString}</Text>
+            <Text weight="semiBold">{t('statsV2Insights.sectionHeading')}</Text>
+            <Text>{t('statsV2Insights.lastUpdated', { timestamp: lastUpdatedAtString })}</Text>
         </Container>
     );
 }

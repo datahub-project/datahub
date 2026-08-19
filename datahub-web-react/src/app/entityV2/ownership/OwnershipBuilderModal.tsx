@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { OwnershipTypeBuilderState } from '@app/entityV2/ownership/table/types';
 import { Input, Modal, TextArea, toast } from '@src/alchemy-components';
@@ -14,6 +15,9 @@ type Props = {
 };
 
 export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType }: Props) => {
+    const { t } = useTranslation('entity.ownership');
+    const { t: tc } = useTranslation('common.actions');
+
     const [ownershipTypeBuilderState, setOwnershipTypeBuilderState] = useState<OwnershipTypeBuilderState>({
         name: ownershipType?.info?.name || ownershipType?.urn || '',
         description: ownershipType?.info?.description || '',
@@ -52,16 +56,15 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 },
             })
                 .then(() => {
-                    setName('');
-                    setDescription('');
+                    setOwnershipTypeBuilderState({ name: '', description: '' });
                     onClose();
-                    toast.success('Successfully created ownership type.');
+                    toast.success(t('createSuccess'));
                     setTimeout(() => {
                         refetch();
                     }, 3000);
                 })
                 .catch(() => {
-                    toast.error('Failed to create ownership type');
+                    toast.error(t('createError'));
                 });
         }
     };
@@ -78,22 +81,21 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                 },
             })
                 .then(() => {
-                    setName('');
-                    setDescription('');
+                    setOwnershipTypeBuilderState({ name: '', description: '' });
                     onClose();
-                    toast.success('Successfully updated ownership type.');
+                    toast.success(t('updateSuccess'));
                     setTimeout(() => {
                         refetch();
                     }, 3000);
                 })
                 .catch(() => {
-                    toast.error('Failed to update ownership type');
+                    toast.error(t('updateError'));
                 });
         }
     };
 
     const onUpsert = ownershipType ? onUpdateOwnershipType : onCreateOwnershipType;
-    const titleText = ownershipType ? 'Edit Ownership Type' : 'Create Ownership Type';
+    const titleText = ownershipType ? t('editTitle') : t('createOwnershipType');
 
     return (
         <Modal
@@ -102,14 +104,14 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
             title={titleText}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                     buttonDataTestId: 'ownership-builder-cancel',
                 },
                 {
                     type: 'submit',
-                    text: 'Save',
+                    text: tc('save'),
                     onClick: onUpsert,
                     disabled: !ownershipTypeBuilderState.name,
                     buttonDataTestId: 'ownership-builder-save',
@@ -118,19 +120,19 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
         >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <Input
-                    label="Name"
+                    label={t('form.name')}
                     isRequired
                     value={ownershipTypeBuilderState.name}
                     setValue={setName}
-                    placeholder="Provide a name"
+                    placeholder={t('form.namePlaceholder')}
                     inputTestId="ownership-type-name-input"
                     maxLength={50}
                 />
                 <TextArea
-                    label="Description"
+                    label={t('form.description')}
                     value={ownershipTypeBuilderState.description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Provide a description"
+                    placeholder={t('form.descriptionPlaceholder')}
                     data-testid="ownership-type-description-input"
                     maxLength={250}
                     rows={3}

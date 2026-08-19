@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.documentation import HasDocumentationPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
 from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
@@ -130,6 +131,7 @@ class DatasetPatchBuilder(
     HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
     HasFineGrainedLineagePatch,
     HasSiblingsPatch,
     HasDocumentationPatch,

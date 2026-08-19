@@ -4,14 +4,18 @@
  * Mirrors the pattern established by loginFixture:
  *
  *   1. A suite opts in by setting the `featureName` option at describe level.
- *   2. The fixture checks whether `.seeded/{featureName}.json` exists on disk.
- *   3a. State EXISTS  → data was already ingested this run; skip injection.
- *   3b. State MISSING → read `tests/{featureName}/fixtures/data.json`, POST
- *       each MCP to the GMS REST API, then write the state file so that other
- *       workers (and subsequent tests in this worker) skip ingestion.
+ *   2. The fixture claims `.seeded/{featureName}.json` via withArtifactLock.
+ *   2a. State EXISTS  → data was already ingested this run; skip injection.
+ *   2b. Lock acquired → read `tests/{featureName}/fixtures/data.json`, POST
+ *       each MCP to the GMS REST API, wait for the search index to catch up,
+ *       then write the state file so other workers skip ingestion.
+ *   2c. Lock held by another worker → poll for the state file it is
+ *       producing instead of duplicating the ingestion (see withArtifactLock;
+ *       this is what makes seeding safe under workers_per_shard > 1).
  *
- * Worker-scoped means seeding happens AT MOST ONCE per worker process for a
- * given feature name, regardless of how many tests request it.
+ * Worker-scoped means seeding is attempted AT MOST ONCE per worker process for
+ * a given feature name, regardless of how many tests request it; across
+ * workers sharing a filesystem, exactly one of them actually performs it.
  *
  * NOTE: This fixture is intentionally worker-scoped.  Worker-scoped fixtures
  * cannot depend on test-scoped fixtures such as `logger`.  A dedicated logger
@@ -49,10 +53,17 @@ import { test as base, request, type Browser } from '@playwright/test';
 import { readGmsToken, gmsTokenPath } from './login';
 import type { UserCredentials } from '../data/users';
 import { LoginPage } from '../pages/login.page';
-import { gmsUrl } from '../utils/constants';
-import { extractUrn, type Mcp } from '../helpers/seeder-utils';
+import { DATAHUB_GRAPHQL_PATH, gmsUrl } from '../utils/constants';
+import {
+  extractUrn,
+  normalizeMcp,
+  extractComplexAspects,
+  ingestComplexAspects,
+  withArtifactLock,
+  writeJsonAtomic,
+  type Mcp,
+} from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
-import { seedLineageFromDataJson } from '../utils/lineage-seeder';
 
 // ── GMS token bootstrap ───────────────────────────────────────────────────────
 
@@ -83,7 +94,7 @@ async function bootstrapGmsToken(browser: Browser, user: UserCredentials): Promi
       extraHTTPHeaders: { Cookie: cookieHeader },
     });
     try {
-      const resp = await apiCtx.post('/api/v2/graphql', {
+      const resp = await apiCtx.post(DATAHUB_GRAPHQL_PATH, {
         data: {
           query: `mutation createAccessToken($input: CreateAccessTokenInput!) {
             createAccessToken(input: $input) { accessToken metadata { id } }
@@ -105,8 +116,7 @@ async function bootstrapGmsToken(browser: Browser, user: UserCredentials): Promi
       const token = body.data?.createAccessToken?.accessToken;
       const tokenId = body.data?.createAccessToken?.metadata?.id;
       if (!token) throw new Error('Empty access token in response');
-      fs.mkdirSync(path.dirname(tokenFile), { recursive: true });
-      fs.writeFileSync(tokenFile, JSON.stringify({ token, tokenId, actorUrn: actorCookie.value }, null, 2));
+      writeJsonAtomic(tokenFile, { token, tokenId, actorUrn: actorCookie.value });
       return token;
     } finally {
       await apiCtx.dispose();
@@ -125,17 +135,6 @@ const TESTS_DIR = path.join(__dirname, '../tests');
 /** Global shared data ingested before any feature-specific seeding. */
 const GLOBAL_DATA_FILE = path.join(__dirname, '../test-data/data.json');
 const GLOBAL_FEATURE_NAME = 'global-data';
-
-/**
- * Separate state feature name for the MCP lineage re-seeder.
- *
- * The legacy /entities?action=ingest endpoint fails for entities whose platformSchema
- * embeds Avro union types (HTTP 500 "Unknown dereferenced type STRING").  The
- * upstreamLineage aspects inside those snapshots are therefore never stored.
- * We compensate by re-ingesting every upstreamLineage aspect via MCP after the
- * main global data seed runs.
- */
-const LINEAGE_RESEED_FEATURE_NAME = 'global-lineage-reseed';
 
 /** Shape written to the state file after a successful seed. */
 interface SeedState {
@@ -218,15 +217,19 @@ async function ingestMcps(
         continue;
       }
 
+      // Normalise the MCP: strip explicit nulls (RestLi rejects null for optional fields)
+      // and convert "aspect.json: {...}" shorthand to the required GenericAspect format.
+      const normalized = normalizeMcp(mcp);
+
       // Legacy snapshot format uses /entities?action=ingest;
       // new MCP format (with entityUrn but no proposedSnapshot) uses /aspects?action=ingestProposal.
-      const response = mcp.proposedSnapshot
+      const response = normalized.proposedSnapshot
         ? await apiContext.post(`${gmsBaseUrl}/entities?action=ingest`, {
-            data: { entity: { value: mcp.proposedSnapshot } },
+            data: { entity: { value: normalized.proposedSnapshot } },
             failOnStatusCode: false,
           })
         : await apiContext.post(`${gmsBaseUrl}/aspects?action=ingestProposal`, {
-            data: { proposal: mcp },
+            data: { proposal: normalized },
             failOnStatusCode: false,
           });
 
@@ -248,15 +251,31 @@ async function ingestMcps(
       }
     }
 
+    // Second pass: re-ingest aspects that /entities?action=ingest silently drops
+    // (Avro union types, null optional fields, enum union formats). extractComplexAspects
+    // pulls only the affected aspects from the already-parsed MCPs and ingestComplexAspects
+    // posts them via /aspects?action=ingestProposal which accepts them correctly.
+    const complexAspects = extractComplexAspects(mcps);
+    if (complexAspects.length > 0) {
+      logger.info(`re-ingesting ${complexAspects.length} complex aspects via MCP endpoint`);
+      await ingestComplexAspects(apiContext, gmsToken, complexAspects, logger);
+    }
+
+    // Wait for the search index to catch up BEFORE marking this seed complete.
+    // The state file's mere existence is the fixture's signal that data is safe
+    // to read; writing it any earlier let workers that reuse it proceed against
+    // not-yet-indexed data.
+    logger.info('waiting 15s for search index to catch up before marking seed complete');
+    await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+
     // Write state file so other workers (and next runs) skip re-seeding.
     // Written even on partial failures (when throwOnFailure=false) so we don't retry endlessly.
-    fs.mkdirSync(SEEDED_DIR, { recursive: true });
     const state: SeedState = {
       featureName,
       seededAt: new Date().toISOString(),
       entityCount: mcps.length,
     };
-    fs.writeFileSync(stateFilePath(featureName), JSON.stringify(state, null, 2));
+    writeJsonAtomic(stateFilePath(featureName), state);
     logger.info('state saved', { featureName });
   } finally {
     await apiContext.dispose();
@@ -265,7 +284,7 @@ async function ingestMcps(
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
   // ── Option: injectable feature name (worker-scoped) ───────────────────────
   featureName: [null, { option: true, scope: 'worker' }],
@@ -288,90 +307,39 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
         return;
       }
 
+      // Each artifact below is guarded by withArtifactLock: exactly one worker
+      // produces it (ingest + wait for the search index) while any concurrent
+      // workers_per_shard > 1 siblings poll for it instead of duplicating the
+      // ingestion.
       const tokenFile = gmsTokenPath(user.username);
-      const gmsToken = fs.existsSync(tokenFile) ? readGmsToken(user.username) : await bootstrapGmsToken(browser, user);
+      await withArtifactLock(tokenFile, () => bootstrapGmsToken(browser, user).then(() => undefined));
+      const gmsToken = readGmsToken(user.username);
 
-      // Track whether any fresh ingestion happened this run so we can wait
-      // for the search index to catch up before tests start.
-      let freshlySeeded = false;
-
-      // Always seed global shared data (test-data/data.json) once per worker.
+      // Always seed global shared data (test-data/data.json) once per run.
       if (fs.existsSync(GLOBAL_DATA_FILE)) {
         const globalStateFile = stateFilePath(GLOBAL_FEATURE_NAME);
-        if (fs.existsSync(globalStateFile)) {
-          const state = JSON.parse(fs.readFileSync(globalStateFile, 'utf-8')) as SeedState;
-          logger.info('reusing global data', { seededAt: state.seededAt, entityCount: state.entityCount });
-        } else {
+        await withArtifactLock(globalStateFile, () =>
           // throwOnFailure=false: global data has mixed-format MCPs; partial failures are non-blocking.
-          await ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false);
-          freshlySeeded = true;
-        }
-
-        // Always re-seed upstreamLineage aspects via MCP endpoint once per worker.
-        // The legacy /entities?action=ingest endpoint fails for entities with complex Avro
-        // schemas (union types), so their upstreamLineage aspects never reach GMS.
-        // We fix this by re-ingesting all lineage aspects via /aspects?action=ingestProposal.
-        const lineageStateFile = stateFilePath(LINEAGE_RESEED_FEATURE_NAME);
-        if (!fs.existsSync(lineageStateFile)) {
-          const apiCtx = await request.newContext({
-            baseURL: gmsUrl(),
-            extraHTTPHeaders: {
-              Authorization: `Bearer ${gmsToken}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          try {
-            await seedLineageFromDataJson(apiCtx, gmsToken, logger);
-          } finally {
-            await apiCtx.dispose();
-          }
-          fs.mkdirSync(SEEDED_DIR, { recursive: true });
-          const lineageState: SeedState = {
-            featureName: LINEAGE_RESEED_FEATURE_NAME,
-            seededAt: new Date().toISOString(),
-            entityCount: 0,
-          };
-          fs.writeFileSync(lineageStateFile, JSON.stringify(lineageState, null, 2));
-          freshlySeeded = true;
-        }
+          ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false),
+        );
+        const state = JSON.parse(fs.readFileSync(globalStateFile, 'utf-8')) as SeedState;
+        logger.info('global data ready', { seededAt: state.seededAt, entityCount: state.entityCount });
       }
 
       if (!featureName) {
-        if (freshlySeeded) {
-          logger.info('waiting 15s for search index to catch up');
-          await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
-        }
         await use();
         return;
       }
 
       const stateFile = stateFilePath(featureName);
-      if (fs.existsSync(stateFile)) {
-        const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
-        logger.info('reusing seeded data', {
-          featureName,
-          seededAt: state.seededAt,
-          entityCount: state.entityCount,
-        });
-        if (freshlySeeded) {
-          logger.info('waiting 15s for search index to catch up');
-          await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
-        }
-        await use();
-        return;
-      }
-
-      // Slow path: seed feature-specific data and save state.
-      await ingestMcps(featureName, gmsToken, gmsUrl(), logger);
-      freshlySeeded = true;
-
-      logger.info('waiting 15s for search index to catch up');
-      await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+      await withArtifactLock(stateFile, () => ingestMcps(featureName, gmsToken, gmsUrl(), logger));
+      const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
+      logger.info('feature data ready', { featureName, seededAt: state.seededAt, entityCount: state.entityCount });
 
       await use();
     },
-    // 90 s: ingestMcps + 15 s ES index wait + network overhead can exceed the
-    // default fixture timeout (which mirrors the 30 s test timeout).
-    { auto: true, scope: 'worker', timeout: 90_000 },
+    // Generous ceiling: worst case one worker produces token + global + feature,
+    // each with ingest + a 15s ES index wait under withArtifactLock.
+    { auto: true, scope: 'worker', timeout: 180_000 },
   ],
 });

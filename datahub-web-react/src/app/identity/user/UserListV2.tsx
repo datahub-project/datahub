@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import {
@@ -6,6 +7,8 @@ import {
     FilterContainer,
     FiltersHeader,
     ModalFooter,
+    PageContainer,
+    PaginationContainer,
     SearchContainer,
     TableContainer,
     UserActionsMenu,
@@ -21,7 +24,7 @@ import {
     useUserListData,
     useUserListState,
 } from '@app/identity/user/UserListV2.hooks';
-import { NO_ROLE_TEXT, NO_ROLE_URN, STATUS_FILTER_OPTIONS } from '@app/identity/user/UserListV2.utils';
+import { NO_ROLE_URN } from '@app/identity/user/UserListV2.utils';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
@@ -29,7 +32,13 @@ import { Button, Modal, Pagination, SearchBar, SimpleSelect, Table, Text } from 
 
 import { DataHubRole } from '@types';
 
+const ALL_FILTER = 'all';
+const MIN_CHARS_TEXT_STYLE = { marginTop: '4px' };
+
 export const UserList = () => {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
+
     // State management
     const {
         query,
@@ -84,30 +93,35 @@ export const UserList = () => {
         setUsersList(users);
     }, [data, setUsersList]);
 
+    const statusFilterOptions = [
+        { value: 'active', label: t('users.statusFilter.active') },
+        { value: 'suspended', label: t('users.statusFilter.suspended') },
+    ];
+
     const columns = [
         {
-            title: 'Name',
+            title: t('users.columns.name'),
             dataIndex: 'name',
             key: ENTITY_NAME_FIELD,
             minWidth: '30%',
             render: (user: UserListItem) => <UserNameCell user={user} />,
         },
         {
-            title: 'Status',
+            title: t('users.columns.status'),
             dataIndex: 'status',
             key: 'status',
             minWidth: '10%',
             render: (user: UserListItem) => <UserStatusCell user={user} />,
         },
         {
-            title: 'Assigned Groups',
+            title: t('users.columns.assignedGroups'),
             dataIndex: 'groups',
             key: 'groups',
             minWidth: '35%',
             render: (user: UserListItem) => <UserGroupsCell user={user} />,
         },
         {
-            title: 'Role',
+            title: t('users.columns.role'),
             key: 'roles',
             minWidth: '10%',
             render: (user: UserListItem) => {
@@ -132,7 +146,7 @@ export const UserList = () => {
                                 onSelectRole(user.urn, user.username, currentRoleUrn, newRoleUrn);
                             }
                         }}
-                        placeholder={NO_ROLE_TEXT}
+                        placeholder={t('users.noRole')}
                         size="md"
                         width="fit-content"
                     />
@@ -157,15 +171,15 @@ export const UserList = () => {
     ];
 
     return (
-        <>
-            {!data && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+        <PageContainer>
+            {!data && loading && <Message type="loading" content={t('users.loading')} />}
+            {error && <Message type="error" content={t('users.loadError')} />}
 
             <UserContainer>
                 <FiltersHeader>
                     <SearchContainer>
                         <SearchBar
-                            placeholder="Search..."
+                            placeholder={t('users.search')}
                             value={query}
                             onChange={(value) => {
                                 setQuery(value);
@@ -175,23 +189,20 @@ export const UserList = () => {
                             allowClear
                         />
                         {query.length > 0 && query.length < 3 && (
-                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
-                                Enter at least 3 characters to search
+                            <Text size="xs" color="gray" style={MIN_CHARS_TEXT_STYLE}>
+                                {t('users.searchMinChars')}
                             </Text>
                         )}
                     </SearchContainer>
                     <FilterContainer>
                         <SimpleSelect
-                            placeholder="Status"
+                            placeholder={t('users.statusFilter.placeholder')}
                             position="end"
-                            options={STATUS_FILTER_OPTIONS.filter((option) => option.value !== 'all').map((option) => ({
-                                value: option.value,
-                                label: option.label,
-                            }))}
-                            values={statusFilter === 'all' ? [] : [statusFilter]}
+                            options={statusFilterOptions}
+                            values={statusFilter === ALL_FILTER ? [] : [statusFilter]}
                             showClear
                             onUpdate={(values) => {
-                                setStatusFilter(values.length > 0 ? values[0] : 'all');
+                                setStatusFilter(values.length > 0 ? values[0] : ALL_FILTER);
                                 setPage(1);
                             }}
                         />
@@ -203,7 +214,7 @@ export const UserList = () => {
                 {usersList.length > 0 ? (
                     <>
                         <Table columns={columns} data={usersList} isLoading={loading} isScrollable />
-                        <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
+                        <PaginationContainer>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
@@ -217,11 +228,11 @@ export const UserList = () => {
                                 showSizeChanger
                                 pageSizeOptions={[10, 25, 50, 100]}
                             />
-                        </div>
+                        </PaginationContainer>
                     </>
                 ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}>
-                        {loading ? 'Loading users...' : 'No users found'}
+                        {loading ? t('users.loading') : t('users.noUsersFound')}
                     </div>
                 )}
             </TableContainer>
@@ -238,15 +249,15 @@ export const UserList = () => {
             {roleAssignmentState && (
                 <Modal
                     open={roleAssignmentState.isViewingAssignRole}
-                    title="Confirm Role Assignment"
+                    title={t('roleAssignment.confirmTitle')}
                     onCancel={onCancelRoleAssignment}
                     footer={
                         <ModalFooter>
                             <Button variant="outline" onClick={onCancelRoleAssignment}>
-                                Cancel
+                                {tc('cancel')}
                             </Button>
                             <Button variant="filled" onClick={onConfirmRoleAssignment}>
-                                Confirm
+                                {tc('confirm')}
                             </Button>
                         </ModalFooter>
                     }
@@ -257,22 +268,19 @@ export const UserList = () => {
                         );
                         return (
                             <Text>
-                                Are you sure you want to{' '}
-                                {roleToAssign?.urn === NO_ROLE_URN ? (
-                                    <>
-                                        remove the role from user <strong>{roleAssignmentState.username}</strong>?
-                                    </>
-                                ) : (
-                                    <>
-                                        assign role <strong>{roleToAssign?.name}</strong> to user{' '}
-                                        <strong>{roleAssignmentState.username}</strong>?
-                                    </>
-                                )}
+                                {roleToAssign?.urn === NO_ROLE_URN
+                                    ? t('users.roleAssign.removeConfirmation', {
+                                          username: roleAssignmentState.username,
+                                      })
+                                    : t('users.roleAssign.assignConfirmation', {
+                                          roleName: roleToAssign?.name,
+                                          username: roleAssignmentState.username,
+                                      })}
                             </Text>
                         );
                     })()}
                 </Modal>
             )}
-        </>
+        </PageContainer>
     );
 };

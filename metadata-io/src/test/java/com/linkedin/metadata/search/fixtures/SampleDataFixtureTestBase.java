@@ -12,6 +12,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -162,7 +163,9 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       EntitySpec entitySpec = entry.getKey();
       GetMappingsRequest req = new GetMappingsRequest().indices(entry.getValue());
 
-      GetMappingsResponse resp = getSearchClient().getIndexMapping(req, RequestOptions.DEFAULT);
+      GetMappingsResponse resp =
+          getSearchClient()
+              .getIndexMapping(OperationFingerprint.EMPTY, req, RequestOptions.DEFAULT);
       Map<String, Map<String, Object>> mappings =
           (Map<String, Map<String, Object>>)
               resp.mappings().get(entry.getValue()).sourceAsMap().get("properties");
@@ -299,7 +302,8 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Test
   public void testDatasetHasTags() throws IOException {
     GetMappingsRequest req = new GetMappingsRequest().indices("smpldat_datasetindex_v2");
-    GetMappingsResponse resp = getSearchClient().getIndexMapping(req, RequestOptions.DEFAULT);
+    GetMappingsResponse resp =
+        getSearchClient().getIndexMapping(OperationFingerprint.EMPTY, req, RequestOptions.DEFAULT);
     Map<String, Map<String, String>> mappings =
         (Map<String, Map<String, String>>)
             resp.mappings().get("smpldat_datasetindex_v2").sourceAsMap().get("properties");
@@ -2224,6 +2228,9 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request)
       throws IOException {
-    return getSearchClient().analyzeIndex(request, RequestOptions.DEFAULT).getTokens().stream();
+    return getSearchClient()
+        .analyzeIndex(OperationFingerprint.EMPTY, request, RequestOptions.DEFAULT)
+        .getTokens()
+        .stream();
   }
 }

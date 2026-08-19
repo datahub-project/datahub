@@ -1,6 +1,7 @@
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Text, Tooltip } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
@@ -28,6 +29,8 @@ export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuI
     /**
      * Whether button has been clicked
      */
+    const { t } = useTranslation('shared.share');
+    const { t: tc } = useTranslation('common.actions');
     const { origin } = window.location;
     const entityRegistry = useEntityRegistryV2();
 
@@ -43,10 +46,10 @@ export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuI
                 setIsClicked(true);
             }}
         >
-            <Tooltip title="Copy a shareable link to this entity.">
+            <Tooltip title={t('copyLink.tooltip')}>
                 {isClicked ? <CheckOutlined /> : <StyledLinkOutlined />}
                 <TextSpan>
-                    <b>Copy Link</b>
+                    <b>{tc('copyLink')}</b>
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>

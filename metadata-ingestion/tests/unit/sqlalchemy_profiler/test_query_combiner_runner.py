@@ -355,7 +355,7 @@ class TestQueryCombinerRunner:
             assert max_future.result() == 30.5
 
     def test_queries_are_batched_with_multiple_ctes(
-        self, sqlite_engine, test_adapter, test_table, caplog
+        self, sqlite_engine, test_adapter, test_table
     ):
         """
         CRITICAL TEST: Verify queries are batched into one SQL with multiple CTEs.
@@ -363,6 +363,11 @@ class TestQueryCombinerRunner:
         This test prevents regression where each query was flushed individually,
         defeating the purpose of query batching.
         """
+        executed_statements: list = []
+
+        def _capture_sql(conn, cursor, statement, parameters, context, executemany):
+            executed_statements.append(statement)
+
         with (
             sqlite_engine.connect() as conn,
             SQLAlchemyQueryCombiner(
@@ -372,6 +377,8 @@ class TestQueryCombinerRunner:
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
+            event.listen(conn, "before_cursor_execute", _capture_sql)
+
             runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
 
             # Schedule multiple queries
@@ -390,7 +397,6 @@ class TestQueryCombinerRunner:
             assert mean_future.result() == 20.5
 
             # CRITICAL: Verify batching actually happened
-            # Check query combiner report
             assert query_combiner.report.combined_queries_issued >= 1, (
                 "No combined queries were issued - batching is not working!"
             )
@@ -398,21 +404,13 @@ class TestQueryCombinerRunner:
                 f"Expected 4 queries to be combined, got {query_combiner.report.queries_combined}"
             )
 
-            # Verify we see a combined query with multiple CTEs in logs
-            # Combined queries have format: WITH cte1 AS (...), cte2 AS (...), ...
-            combined_query_found = False
-            for record in caplog.records:
-                if "Executing combined query" in record.message:
-                    combined_query_found = True
-                    # Count CTEs in the query (should have multiple)
-                    cte_count = record.message.count(" AS \n(SELECT ")
-                    assert cte_count >= 2, (
-                        f"Combined query should have multiple CTEs, found {cte_count}"
-                    )
-                    break
-
-            assert combined_query_found, (
-                "No combined query found in logs - queries may be executing individually!"
+            # Verify the actual SQL contains multiple CTEs
+            combined_sqls = [
+                s for s in executed_statements if s.count("AS \n(SELECT ") >= 2
+            ]
+            assert len(combined_sqls) == 1, (
+                f"Expected 1 combined SQL with multiple CTEs, found {len(combined_sqls)} "
+                f"out of {len(executed_statements)} total statements"
             )
 
     def test_strategic_batching_with_multiple_flush_points(
@@ -425,6 +423,11 @@ class TestQueryCombinerRunner:
         - Stage 1: Row count + column cardinality
         - Stage 2: Numeric stats (min/max/mean/stdev)
         """
+        executed_statements: list = []
+
+        def _capture_sql(conn, cursor, statement, parameters, context, executemany):
+            executed_statements.append(statement)
+
         with (
             sqlite_engine.connect() as conn,
             SQLAlchemyQueryCombiner(
@@ -434,6 +437,8 @@ class TestQueryCombinerRunner:
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
+            event.listen(conn, "before_cursor_execute", _capture_sql)
+
             runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
 
             # Stage 1: Schedule row count and cardinality queries
@@ -475,6 +480,15 @@ class TestQueryCombinerRunner:
                 query_combiner.report.queries_combined == 7
             )  # 4 in stage 1, 3 in stage 2
 
+            # Verify each stage produced a combined SQL with multiple CTEs
+            combined_sqls = [
+                s for s in executed_statements if s.count("AS \n(SELECT ") >= 2
+            ]
+            assert len(combined_sqls) == 2, (
+                f"Expected 2 combined SQL statements (one per stage), "
+                f"found {len(combined_sqls)} out of {len(executed_statements)} total"
+            )
+
     def test_flush_required_before_result(
         self, sqlite_engine, test_adapter, test_table
     ):
@@ -501,9 +515,7 @@ class TestQueryCombinerRunner:
             query_combiner.flush()
             assert row_count_future.result() == 3
 
-    def test_no_batching_regression(
-        self, sqlite_engine, test_adapter, test_table, caplog
-    ):
+    def test_no_batching_regression(self, sqlite_engine, test_adapter, test_table):
         """
         REGRESSION TEST: Ensure we don't regress to one-query-per-flush pattern.
 

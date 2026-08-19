@@ -1,5 +1,6 @@
 import { Checkbox, Empty, Table, TableProps } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -8,7 +9,7 @@ import {
     DetailsColumn,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 
 import { Assertion, AssertionRunStatus, DataContract } from '@types';
@@ -106,6 +107,7 @@ export const AcrylAssertionsTable = ({
     onSelect,
     refetch,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
 
@@ -141,8 +143,6 @@ export const AcrylAssertionsTable = ({
             assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents.runEvents[0].result?.externalUrl,
         assertion,
-        monitor:
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0]?.entity,
     }));
 
     const assertionsTableCols = [
@@ -208,7 +208,12 @@ export const AcrylAssertionsTable = ({
                 dataSource={assertionsTableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: (
+                        <Empty
+                            description={t('assertionList.noAssertionsTitle')}
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                    ),
                 }}
                 onRow={(record) => {
                     return {

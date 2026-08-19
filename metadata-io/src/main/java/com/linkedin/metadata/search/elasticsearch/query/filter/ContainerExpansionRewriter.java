@@ -5,15 +5,23 @@ import static com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilte
 import static com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterSearchType.STRUCTURED_SEARCH;
 
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
+import com.linkedin.metadata.graph.cache.client.HierarchyReadSpec;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 
 @Builder
 public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
@@ -30,6 +38,16 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
   @Override
   public Set<String> getRewriterFieldNames() {
     return Set.of("container.keyword");
+  }
+
+  @Nonnull
+  @Override
+  protected Optional<EntityGraphBinding> resolveEntityGraphBinding(
+      @Nonnull OperationContext opContext) {
+    Optional<HierarchyReadSpec> spec =
+        HierarchyBindings.resolveByFilterFieldWithFallback(
+            opContext, "container.keyword", KnownEntityGraph.CONTAINER);
+    return spec.map(HierarchyReadSpec::getBinding);
   }
 
   @Override
@@ -58,9 +76,18 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
               RelationshipDirection.OUTGOING,
               config.getPageSize(),
               config.getLimit());
-        default:
-          // UNDIRECTED doesn't work at the graph service layer
-          // RelationshipDirection.UNDIRECTED;
+        case RELATED_INCL:
+          if (filterQuery instanceof TermsQueryBuilder termsQueryBuilder) {
+            Optional<TermsQueryBuilder> cached =
+                tryExpandTermsViaEntityGraphCache(
+                    opContext,
+                    termsQueryBuilder,
+                    List.of(TraversalDirection.REVERSE, TraversalDirection.FORWARD),
+                    config.getLimit());
+            if (cached.isPresent()) {
+              return (T) cached.get();
+            }
+          }
           T descendantQuery =
               expandUrnsByGraph(
                   opContext,
@@ -72,6 +99,22 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
           return expandUrnsByGraph(
               opContext,
               descendantQuery,
+              Set.of("IsPartOf"),
+              RelationshipDirection.OUTGOING,
+              config.getPageSize(),
+              config.getLimit());
+        default:
+          T defaultDescendantQuery =
+              expandUrnsByGraph(
+                  opContext,
+                  filterQuery,
+                  Set.of("IsPartOf"),
+                  RelationshipDirection.INCOMING,
+                  config.getPageSize(),
+                  config.getLimit());
+          return expandUrnsByGraph(
+              opContext,
+              defaultDescendantQuery,
               Set.of("IsPartOf"),
               RelationshipDirection.OUTGOING,
               config.getPageSize(),

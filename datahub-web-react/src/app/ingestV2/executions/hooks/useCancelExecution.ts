@@ -1,4 +1,5 @@
 import { message } from 'antd';
+import i18next from 'i18next';
 import { useCallback } from 'react';
 
 import { useCancelIngestionExecutionRequestMutation } from '@graphql/ingestion.generated';
@@ -18,19 +19,21 @@ export default function useCancelExecution(refetch?: () => void) {
                     },
                 },
             })
+                .then(() => {
+                    message.success({
+                        content: i18next.t('ingestion:executions.cancelSuccess'),
+                        duration: 3,
+                    });
+                })
                 .catch((e) => {
                     message.destroy();
                     message.error({
-                        content: `Failed to cancel execution!: \n ${e.message || ''}`,
+                        content: i18next.t('ingestion:executions.cancelError', { errorMessage: e.message || '' }),
                         duration: 3,
                     });
                 })
                 .finally(() => {
-                    message.success({
-                        content: `Successfully submitted cancellation request!`,
-                        duration: 3,
-                    });
-                    // Refresh once a job was cancelled.
+                    // Refresh regardless of outcome to re-sync the executions list.
                     if (refetch) setTimeout(() => refetch(), REFETCH_TIMEOUT_MS);
                 });
         },

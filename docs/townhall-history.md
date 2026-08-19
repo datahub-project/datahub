@@ -1,7 +1,7 @@
 # Town Hall History
 
 :::note
-For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live event history](https://www.linkedin.com/company/acryl-data/events/).
+For the Town Hall meetings after June 2023, please refer to our [YouTube recordings playlist](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9).
 :::
 
 ### June 2023

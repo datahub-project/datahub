@@ -3,6 +3,7 @@ import { Tooltip } from '@components';
 import { Button, Dropdown, Menu } from 'antd';
 import MenuItem from 'antd/lib/menu/MenuItem';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const DownArrow = styled(CaretDownOutlined)`
@@ -47,8 +48,9 @@ type Props = {
 };
 
 export default function ActionDropdown({ name, actions, disabled }: Props) {
+    const { t } = useTranslation('entity.shared.components');
     return (
-        <Tooltip title={disabled ? 'This action is not supported for the selected types.' : ''}>
+        <Tooltip title={disabled ? t('searchActions.notSupported') : ''}>
             <Dropdown
                 disabled={disabled}
                 trigger={['click']}

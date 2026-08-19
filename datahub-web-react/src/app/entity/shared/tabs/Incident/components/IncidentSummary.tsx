@@ -1,10 +1,8 @@
 import { CheckCircleFilled, StopOutlined, WarningFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { useTranslation } from 'react-i18next';
+import styled, { DefaultTheme, useTheme } from 'styled-components';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -41,36 +39,32 @@ type Props = {
     summary: IncidentsSummary;
 };
 
-const getSummaryIcon = (summary: IncidentsSummary) => {
+const getSummaryIcon = (summary: IncidentsSummary, theme: DefaultTheme) => {
     if (summary.totalIncident === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: theme.colors.icon, fontSize: 28 }} />;
     }
     if (summary.resolvedIncident === summary.totalIncident) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircleFilled style={{ color: theme.colors.iconSuccess, fontSize: 28 }} />;
     }
-    return <WarningFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
-};
-
-const getSummaryMessage = (summary: IncidentsSummary) => {
-    if (summary.totalIncident === 0) {
-        return 'No incidents have been raised';
-    }
-    if (summary.resolvedIncident === summary.totalIncident) {
-        return 'There are no active incidents';
-    }
-    if (summary.activeIncident === 1) {
-        return `There is ${summary.activeIncident} active incident`;
-    }
-    if (summary.activeIncident > 1) {
-        return `There are ${summary.activeIncident} active incidents`;
-    }
-    return null;
+    return <WarningFilled style={{ color: theme.colors.iconError, fontSize: 28 }} />;
 };
 
 export const IncidentSummary = ({ summary }: Props) => {
-    const summaryIcon = getSummaryIcon(summary);
-    const summaryMessage = getSummaryMessage(summary);
-    const subtitleMessage = `${summary.activeIncident} active incidents, ${summary.resolvedIncident} resolved incidents`;
+    const { t } = useTranslation('entity.profile.incident');
+    const theme = useTheme();
+    const summaryIcon = getSummaryIcon(summary, theme);
+    let summaryMessage: string | null = null;
+    if (summary.totalIncident === 0) {
+        summaryMessage = t('summary.noneRaised');
+    } else if (summary.resolvedIncident === summary.totalIncident) {
+        summaryMessage = t('summary.noActive');
+    } else if (summary.activeIncident > 0) {
+        summaryMessage = t('summary.activeCount', { count: summary.activeIncident });
+    }
+    const subtitleMessage = t('summary.subtitle', {
+        active: summary.activeIncident,
+        resolved: summary.resolvedIncident,
+    });
     return (
         <SummaryHeader>
             <SummaryContainer>

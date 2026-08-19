@@ -1,0 +1,69 @@
+{
+  "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "workspaces": [
+        {
+          "id": "64ED5CAD-7C10-4684-8180-826122881108",
+          "name": "Operating Indicators",
+          "type": "Workspace",
+          "state": "Active",
+          "datasets": [
+            {
+              "id": "a8149dea-aa76-44e7-b6a2-cb888b71443f",
+              "name": "Data Architecture Dataset v2",
+              "description": "Semantic model backing the paginated report",
+              "tables": [
+                {
+                  "name": "Features",
+                  "source": [
+                    {
+                      "expression": "dummy"
+                    }
+                  ]
+                },
+                {
+                  "name": "Epics",
+                  "source": [
+                    {
+                      "expression": "dummy"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dashboards": [],
+          "reports": [
+            {
+              "id": "0d8a7c10-3c4d-4f2a-9b7e-1a2b3c4d5e6f",
+              "reportType": "PaginatedReport",
+              "name": "OperatingIndicators_DataArchitectureDatasetv2",
+              "description": "Paginated report bound to a shared Power BI dataset via RDL (no datasetId in scan)",
+              "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/0d8a7c10-3c4d-4f2a-9b7e-1a2b3c4d5e6f"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/0d8a7c10-3c4d-4f2a-9b7e-1a2b3c4d5e6f/datasources": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "value": [
+        {
+          "name": "OperatingIndicators_DataArchitectureDatasetv2",
+          "datasourceType": "AnalysisServices",
+          "datasourceId": "36535f71-dc7a-4284-9d1e-a203e200ac37",
+          "gatewayId": "1f69e798-5852-4fdd-ab01-33bb14b6e931",
+          "connectionDetails": {
+            "server": "pbiazure://api.powerbi.com/",
+            "database": "sobe_wowvirtualserver-a8149dea-aa76-44e7-b6a2-cb888b71443f"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -34,9 +34,14 @@ which are continuously deployed to [Docker Hub](https://hub.docker.com/u/acrylda
 You can easily download and run all these images and their dependencies with our
 [quick start guide](../docs/quickstart.md).
 
+**Compose layout:** Quickstart and local development use [Docker Compose profiles](profiles/docker-compose.yml) under
+`docker/profiles/`. The CLI downloads a flattened compose file at
+`docker/quickstart/docker-compose.quickstart-profile.yml`. Legacy root-level `docker-compose*.yml` files and shell
+scripts (`quickstart.sh`, `dev.sh`, `nuke.sh`) have been removed.
+
 DataHub Docker Images:
 
-Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. Please use `head` or tags specific for versions like `v0.8.40`. For production we recommend using version specific tags not `head`.
+Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. For local Compose / quickstart, use the coordinated `quickstart` tag or a version-specific tag like `v0.8.40`. For production and Kubernetes, pin a release tag (`v*`) or an immutable commit tag (`sha-<short_sha>`). Do not use `quickstart` in production clusters.
 
 - [acryldata/datahub-ingestion](https://hub.docker.com/r/acryldata/datahub-ingestion/)
 - [acryldata/datahub-gms](https://hub.docker.com/repository/docker/acryldata/datahub-gms/)
@@ -84,19 +89,22 @@ acryldata/datahub-ingestion:v0.x.y-locked   # locked
 | Glue                  | Yes  | Yes  |   -    |
 | Spark lineage (JRE)   | Yes  |  -   |   -    |
 | Oracle client         | Yes  |  -   |   -    |
+| MSSQL ODBC driver     | Yes  |  -   |   -    |
 | Runtime `pip install` | Yes  | Yes  |   -    |
 
 ### datahub-actions Feature Matrix
 
-| Feature                      | full | slim | locked |
-| ---------------------------- | :--: | :--: | :----: |
-| Core actions                 | Yes  | Yes  |  Yes   |
-| Kafka / Executor             | Yes  | Yes  |  Yes   |
-| Slack / Teams                | Yes  | Yes  |  Yes   |
-| Tag / Term / Doc propagation | Yes  | Yes  |  Yes   |
-| Snowflake tag propagation    | Yes  | Yes  |  Yes   |
-| Bundled CLI venvs            | Yes  | Yes  |  Yes   |
-| Runtime `pip install`        | Yes  | Yes  |   -    |
+| Feature                       | full | slim | locked |
+| ----------------------------- | :--: | :--: | :----: |
+| Core actions                  | Yes  | Yes  |  Yes   |
+| Kafka / Executor              | Yes  | Yes  |  Yes   |
+| Slack / Teams                 | Yes  | Yes  |  Yes   |
+| Tag / Term / Doc propagation  | Yes  | Yes  |  Yes   |
+| Snowflake tag propagation     | Yes  | Yes  |  Yes   |
+| Bundled CLI venvs             | Yes  | Yes  |  Yes   |
+| Oracle client (full only)     | Yes  |  -   |   -    |
+| MSSQL ODBC driver (full only) | Yes  |  -   |   -    |
+| Runtime `pip install`         | Yes  | Yes  |   -    |
 
 ### CI Testing Coverage
 
@@ -172,10 +180,10 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 
 - **`quickstartNuke`** - Removes containers and volumes for the default project namespace (`datahub`)
 - **`quickstartDebugNuke`** - Removes containers and volumes for the debug configuration (`datahub`)
-- **`quickstartCypressNuke`** - Removes containers and volumes for the cypress configuration (`dh-cypress`)
 - **`quickstartDebugMinNuke`** - Removes containers and volumes for the debug-min configuration (`datahub`)
 - **`quickstartDebugConsumersNuke`** - Removes containers and volumes for the debug-consumers configuration (`datahub`)
-- **`quickstartPgNuke`** - Removes containers and volumes for the postgres configuration (`datahub`)
+- **`quickstartPgNuke`** - Removes containers and volumes for the quickstart-postgres configuration (`datahub`)
+- **`quickstartPgConsumersNuke`** - Removes containers and volumes for the quickstart-postgres-consumers configuration (`datahub`)
 - **`quickstartPgDebugNuke`** - Removes containers and volumes for the debug-postgres configuration (`datahub`)
 - **`quickstartSlimNuke`** - Removes containers and volumes for the backend configuration (`datahub`)
 - **`quickstartSparkNuke`** - Removes containers and volumes for the spark configuration (`datahub`)
@@ -185,7 +193,6 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 ### Project Namespace Behavior
 
 - **Default project namespace (`datahub`)**: Most configurations use this, so their nuke tasks will clean up containers in the same namespace
-- **Custom project namespace (`dh-cypress`)**: The cypress configuration uses its own namespace for isolation
 
 ## Usage
 
@@ -194,9 +201,9 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 ```bash
 # Remove containers and volumes for specific configurations
 ./gradlew quickstartDebugNuke      # For debug configuration
-./gradlew quickstartCypressNuke    # For cypress configuration
 ./gradlew quickstartDebugMinNuke   # For debug-min configuration
-./gradlew quickstartPgNuke         # For postgres configuration
+./gradlew quickstartPgNuke           # For quickstart-postgres (slim)
+./gradlew quickstartPgConsumersNuke  # For quickstart-postgres-consumers (with MAE/MCE)
 
 # For general cleanup of all containers
 ./gradlew quickstartDown
@@ -208,7 +215,7 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 
   - You want to clean up a specific configuration environment
   - You need targeted cleanup without affecting other configurations
-  - You're working with a particular development setup (debug, postgres, cypress, etc.)
+  - You're working with a particular development setup (debug, postgres, etc.)
 
 - **Use `quickstartDown` when:**
   - You want to stop all running containers
@@ -261,9 +268,9 @@ The nuke tasks are automatically generated based on the `quickstart_configs` in 
 
 ## Related Commands
 
-- **Start services**: `./gradlew quickstartDebug`, `./gradlew quickstartCypress`
+- **Start services**: `./gradlew quickstartDebug`
 - **Stop services**: `./gradlew quickstartDown`
-- **Reload services**: `./gradlew debugReload`, `./gradlew cypressReload`
+- **Reload services**: `./gradlew debugReload`
 
 ## Examples
 
@@ -277,25 +284,14 @@ The nuke tasks are automatically generated based on the `quickstart_configs` in 
 ./gradlew quickstartDebug
 ```
 
-### Cypress Environment Isolation
-
-```bash
-# Clean up cypress environment
-./gradlew quickstartCypressNuke
-
-# Start fresh cypress environment
-./gradlew quickstartCypress
-```
-
 ### Mixed Environment Management
 
 ```bash
-# Clean up only cypress (leaving main environment intact)
-./gradlew quickstartCypressNuke
-
-# Clean up only debug environment (leaving cypress intact)
+# Clean up only debug environment (leaving other environments intact)
 ./gradlew quickstartDebugNuke
 
 # Clean up only postgres environment (leaving others intact)
 ./gradlew quickstartPgNuke
+# Or the postgres + consumers variant:
+./gradlew quickstartPgConsumersNuke
 ```

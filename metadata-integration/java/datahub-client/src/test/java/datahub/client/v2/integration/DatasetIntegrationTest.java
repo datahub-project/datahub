@@ -3,10 +3,18 @@ package datahub.client.v2.integration;
 import static org.junit.Assert.*;
 
 import com.linkedin.common.OwnershipType;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.structured.PropertyCardinality;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import datahub.client.MetadataWriteResponse;
+import datahub.client.rest.RestEmitter;
 import datahub.client.v2.entity.Dataset;
+import datahub.event.MetadataChangeProposalWrapper;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -178,7 +186,20 @@ public class DatasetIntegrationTest extends BaseIntegrationTest {
 
   @Test
   public void testDatasetWithStructuredProperties() throws Exception {
-    String uniqueName = "test_dataset_with_structured_properties_" + System.currentTimeMillis();
+    long runId = System.currentTimeMillis();
+    String uniqueName = "test_dataset_with_structured_properties_" + runId;
+    // Structured property values are validated against their definitions at write time, so the
+    // definitions must exist before values can be assigned.
+    String slaProperty = "io.acryl.test.replicationSLA_" + runId;
+    String scoreProperty = "io.acryl.test.qualityScore_" + runId;
+    String certificationsProperty = "io.acryl.test.certifications_" + runId;
+    String retentionProperty = "io.acryl.test.retentionDays_" + runId;
+    createStructuredPropertyDefinition(slaProperty, "string", PropertyCardinality.SINGLE);
+    createStructuredPropertyDefinition(scoreProperty, "number", PropertyCardinality.SINGLE);
+    createStructuredPropertyDefinition(
+        certificationsProperty, "string", PropertyCardinality.MULTIPLE);
+    createStructuredPropertyDefinition(retentionProperty, "number", PropertyCardinality.MULTIPLE);
+
     Dataset dataset =
         Dataset.builder()
             .platform("java_sdk_v2_test")
@@ -188,13 +209,12 @@ public class DatasetIntegrationTest extends BaseIntegrationTest {
             .build();
 
     // Set single value properties (type automatically detected)
-    dataset.setStructuredProperty("io.acryl.dataManagement.replicationSLA", "24h");
-    dataset.setStructuredProperty("io.acryl.dataQuality.qualityScore", 95.5);
+    dataset.setStructuredProperty(slaProperty, "24h");
+    dataset.setStructuredProperty(scoreProperty, 95.5);
 
     // Set multiple value properties
-    dataset.setStructuredProperty(
-        "io.acryl.dataManagement.certifications", Arrays.asList("SOC2", "HIPAA", "GDPR"));
-    dataset.setStructuredProperty("io.acryl.privacy.retentionDays", 90, 180, 365);
+    dataset.setStructuredProperty(certificationsProperty, Arrays.asList("SOC2", "HIPAA", "GDPR"));
+    dataset.setStructuredProperty(retentionProperty, 90, 180, 365);
 
     client.entities().upsert(dataset);
 
@@ -211,6 +231,51 @@ public class DatasetIntegrationTest extends BaseIntegrationTest {
 
     // We should have 4 structured properties
     assertEquals(4, structuredProps.getProperties().size());
+  }
+
+  @Test
+  public void testDatasetStructuredPropertyWithoutDefinitionRejected() throws Exception {
+    long runId = System.currentTimeMillis();
+    Dataset dataset =
+        Dataset.builder()
+            .platform("java_sdk_v2_test")
+            .name("test_dataset_sp_missing_definition_" + runId)
+            .env("DEV")
+            .build();
+    // No definition is ever created for this property. The patch write must be rejected the same
+    // way an equivalent upsert is (regression guard: patches previously bypassed this validation).
+    dataset.setStructuredProperty("io.acryl.test.doesNotExist_" + runId, "some value");
+
+    assertThrows(Exception.class, () -> client.entities().upsert(dataset));
+  }
+
+  private static void createStructuredPropertyDefinition(
+      String qualifiedName, String valueType, PropertyCardinality cardinality) throws Exception {
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(qualifiedName)
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub." + valueType))
+            .setCardinality(cardinality)
+            .setEntityTypes(
+                new UrnArray(
+                    Collections.singletonList(
+                        Urn.createFromString("urn:li:entityType:datahub.dataset"))));
+
+    MetadataChangeProposalWrapper mcpw =
+        MetadataChangeProposalWrapper.create(
+            b ->
+                b.entityType("structuredProperty")
+                    .entityUrn("urn:li:structuredProperty:" + qualifiedName)
+                    .upsert()
+                    .aspect(definition)
+                    .aspectName("propertyDefinition"));
+
+    try (RestEmitter emitter =
+        RestEmitter.create(b -> b.server(TEST_SERVER).token(getAccessToken()))) {
+      MetadataWriteResponse response = emitter.emit(mcpw, null).get();
+      assertTrue(
+          "Failed to create structured property definition " + qualifiedName, response.isSuccess());
+    }
   }
 
   @Test

@@ -420,7 +420,7 @@ class TestSchemaProcessorIgluExtraction:
 
         # Should return empty and report failure
         assert len(workunits) == 0
-        processor_iglu_mode.report.report_failure.assert_called_once()
+        processor_iglu_mode.report.failure.assert_called_once()
 
     def test_extract_schemas_from_uris_handles_invalid_uri(
         self, processor_iglu_mode, mock_deps_with_iglu
@@ -470,7 +470,7 @@ class TestSchemaProcessorIgluExtraction:
         # No workunits but no exception
         assert len(workunits) == 0
         # Failure should be reported
-        processor_iglu_mode.report.report_failure.assert_called()
+        processor_iglu_mode.report.failure.assert_called()
 
 
 class TestSchemaProcessorSchemaPatternFiltering:

@@ -1,0 +1,191 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553a",
+                "odcs.schemaName": "tbl",
+                "odcs.qualityRuleCount": "0",
+                "odcs.version": "1.0.0",
+                "odcs.apiVersion": "v3.0.2",
+                "odcs.status": "active",
+                "odcs.sourceFile": "fundamentals__table-column-description.odcs.yaml"
+            },
+            "name": "my_quantum \u2014 tbl",
+            "description": "Provides core payment metrics",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-fundamentals__table-column-description",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "tbl",
+            "platform": "urn:li:dataPlatform:odcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "txn_ref_dt",
+                    "nullable": true,
+                    "description": "Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-fundamentals__table-column-description",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553a",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+                "schema": {
+                    "schemaName": "tbl",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "txn_ref_dt",
+                            "nullable": true,
+                            "description": "Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.DateType": {}
+                                }
+                            },
+                            "nativeDataType": "date",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '53581432-6c55-4ba2-a65f-72344a91553a' schema 'tbl'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-fundamentals__table-column-description",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-fundamentals__table-column-description",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-fundamentals__table-column-description",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-fundamentals__table-column-description",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

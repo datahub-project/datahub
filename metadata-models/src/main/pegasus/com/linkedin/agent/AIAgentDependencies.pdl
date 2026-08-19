@@ -1,0 +1,62 @@
+namespace com.linkedin.agent
+
+import com.linkedin.common.Urn
+
+/**
+ * Dependencies of an AI agent: the skills it adopts, the tools it
+ * invokes, and the models it runs on. These are governance/discovery
+ * relationships to first-class catalog entities.
+ */
+@Aspect = {
+  "name": "aiAgentDependencies"
+}
+record AIAgentDependencies {
+  /**
+   * High-level skills this agent adopts.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "AgentHasSkill",
+      "entityTypes": [ "agentSkill" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "skills",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  skills: optional array[Urn]
+
+  /**
+   * APIs this agent invokes (cataloged API entities).
+   */
+  @Relationship = {
+    "/*": {
+      "name": "AgentUsesTool",
+      "entityTypes": [ "api" ],
+      "isLineage": true,
+      "isUpstream": true
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "tools",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  tools: optional array[Urn]
+
+  /**
+   * Models (LLMs) this agent runs on.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "AgentUsesModel",
+      "entityTypes": [ "mlModel" ]
+    }
+  }
+  models: optional array[Urn]
+}

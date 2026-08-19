@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.lifecycle.LifecycleStageTransitionPolicy;
@@ -69,10 +70,13 @@ public class LifecycleStageTransitionHook extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     List<Pair<ChangeMCP, Boolean>> results = new ArrayList<>();
     for (ChangeMCP item : changeMCPS) {
-      results.add(Pair.of(item, revertIfInvalidTransition(item, retrieverContext)));
+      results.add(
+          Pair.of(item, revertIfInvalidTransition(item, operationContext, retrieverContext)));
     }
     return results.stream();
   }
@@ -82,7 +86,8 @@ public class LifecycleStageTransitionHook extends MutationHook {
    * lifecycleStage} field in the proposed Status aspect to its previous value (in-place mutation),
    * logs a WARN, and returns {@code true} to indicate a mutation occurred.
    */
-  private boolean revertIfInvalidTransition(ChangeMCP item, RetrieverContext retrieverContext) {
+  private boolean revertIfInvalidTransition(
+      ChangeMCP item, OperationFingerprint operationContext, RetrieverContext retrieverContext) {
     if (!Constants.STATUS_ASPECT_NAME.equals(item.getAspectName())) {
       return false;
     }
@@ -108,7 +113,8 @@ public class LifecycleStageTransitionHook extends MutationHook {
     }
 
     // Look up the PROPOSED (destination) stage's entry policy via RetrieverContext.
-    LifecycleStageTransitionPolicy policy = getTransitionPolicy(proposedStageUrn, retrieverContext);
+    LifecycleStageTransitionPolicy policy =
+        getTransitionPolicy(proposedStageUrn, operationContext, retrieverContext);
     if (policy == null || !policy.hasAllowedPreviousStages()) {
       // No policy on destination stage → open entry, allow.
       return false;
@@ -150,12 +156,12 @@ public class LifecycleStageTransitionHook extends MutationHook {
    */
   @Nullable
   private LifecycleStageTransitionPolicy getTransitionPolicy(
-      Urn stageUrn, RetrieverContext retrieverContext) {
+      Urn stageUrn, OperationFingerprint operationContext, RetrieverContext retrieverContext) {
     try {
       var stageAspect =
           retrieverContext
               .getAspectRetriever()
-              .getLatestAspectObject(stageUrn, LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
+              .getLatestAspectObject(operationContext, stageUrn, LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
       if (stageAspect == null) {
         log.warn("Lifecycle stage {} not found in aspect store, allowing transition", stageUrn);
         return null;

@@ -6,4 +6,5 @@ import lombok.Data;
 @Data
 public class MCPValidationConfig {
   private ModelExtensionValidationConfiguration extensions;
+  private UrlValidationConfig urlValidation;
 }

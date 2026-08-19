@@ -1,0 +1,689 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/profiling_input/measurements.csv",
+                "number_of_files": "1",
+                "size_in_bytes": "1129"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=profiling_input/measurements.csv",
+            "name": "measurements.csv",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "measurements.csv",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "score",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "grade",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1785137048000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "bucket_name": "my-test-bucket"
+            },
+            "name": "my-test-bucket",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "S3 bucket"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/profiling_input"
+            },
+            "name": "profiling_input",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100,
+            "columnCount": 3,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 99,
+                    "uniqueProportion": 0.99,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "0",
+                    "max": "98",
+                    "mean": "48.51",
+                    "median": "49.0",
+                    "stdev": "28.849088373811743",
+                    "quantiles": [
+                        {
+                            "quantile": "0.05",
+                            "value": "4.0"
+                        },
+                        {
+                            "quantile": "0.25",
+                            "value": "24.0"
+                        },
+                        {
+                            "quantile": "0.5",
+                            "value": "49.0"
+                        },
+                        {
+                            "quantile": "0.75",
+                            "value": "74.0"
+                        },
+                        {
+                            "quantile": "0.95",
+                            "value": "94.0"
+                        }
+                    ],
+                    "histogram": {
+                        "boundaries": [
+                            "0",
+                            "3.92",
+                            "7.84",
+                            "11.76",
+                            "15.68",
+                            "19.6",
+                            "23.52",
+                            "27.44",
+                            "31.36",
+                            "35.28",
+                            "39.2",
+                            "43.12",
+                            "47.04",
+                            "50.96",
+                            "54.88",
+                            "58.8",
+                            "62.72",
+                            "66.64",
+                            "70.56",
+                            "74.48",
+                            "78.4",
+                            "82.32",
+                            "86.24",
+                            "90.16",
+                            "94.08"
+                        ],
+                        "heights": [
+                            5.0,
+                            3.9999999999999996,
+                            4.000000000000001,
+                            4.000000000000001,
+                            3.9999999999999982,
+                            4.000000000000001,
+                            3.9999999999999982,
+                            4.0000000000000036,
+                            3.9999999999999982,
+                            3.9999999999999982,
+                            4.0000000000000036,
+                            3.9999999999999982,
+                            3.0000000000000027,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036
+                        ]
+                    },
+                    "sampleValues": [
+                        "14",
+                        "17",
+                        "2",
+                        "26",
+                        "3",
+                        "40",
+                        "43",
+                        "44",
+                        "47",
+                        "5",
+                        "52",
+                        "64",
+                        "65",
+                        "68",
+                        "73",
+                        "78",
+                        "81",
+                        "82",
+                        "86",
+                        "91"
+                    ]
+                },
+                {
+                    "fieldPath": "score",
+                    "uniqueCount": 100,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "0.0",
+                    "max": "147.0",
+                    "mean": "72.765",
+                    "median": "73.5",
+                    "stdev": "43.273632560717616",
+                    "quantiles": [
+                        {
+                            "quantile": "0.05",
+                            "value": "6.0"
+                        },
+                        {
+                            "quantile": "0.25",
+                            "value": "36.0"
+                        },
+                        {
+                            "quantile": "0.5",
+                            "value": "73.5"
+                        },
+                        {
+                            "quantile": "0.75",
+                            "value": "111.0"
+                        },
+                        {
+                            "quantile": "0.95",
+                            "value": "141.0"
+                        }
+                    ],
+                    "histogram": {
+                        "boundaries": [
+                            "0.0",
+                            "5.88",
+                            "11.76",
+                            "17.64",
+                            "23.52",
+                            "29.4",
+                            "35.28",
+                            "41.16",
+                            "47.04",
+                            "52.92",
+                            "58.8",
+                            "64.68",
+                            "70.56",
+                            "76.44",
+                            "82.32",
+                            "88.2",
+                            "94.08",
+                            "99.96",
+                            "105.84",
+                            "111.72",
+                            "117.6",
+                            "123.48",
+                            "129.36",
+                            "135.24",
+                            "141.12"
+                        ],
+                        "heights": [
+                            5.0,
+                            3.9999999999999996,
+                            4.000000000000001,
+                            4.000000000000001,
+                            3.9999999999999982,
+                            4.000000000000001,
+                            3.9999999999999982,
+                            4.0000000000000036,
+                            3.9999999999999982,
+                            3.9999999999999982,
+                            4.0000000000000036,
+                            3.9999999999999982,
+                            3.0000000000000027,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036,
+                            4.0000000000000036,
+                            3.9999999999999925,
+                            4.0000000000000036
+                        ]
+                    },
+                    "sampleValues": [
+                        "102.0",
+                        "109.5",
+                        "117.0",
+                        "121.5",
+                        "123.0",
+                        "129.0",
+                        "136.5",
+                        "21.0",
+                        "25.5",
+                        "3.0",
+                        "39.0",
+                        "4.5",
+                        "60.0",
+                        "64.5",
+                        "66.0",
+                        "7.5",
+                        "70.5",
+                        "78.0",
+                        "96.0",
+                        "97.5"
+                    ]
+                },
+                {
+                    "fieldPath": "grade",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 0.04,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "A",
+                            "frequency": 25
+                        },
+                        {
+                            "value": "B",
+                            "frequency": 25
+                        },
+                        {
+                            "value": "C",
+                            "frequency": 25
+                        },
+                        {
+                            "value": "D",
+                            "frequency": 25
+                        }
+                    ],
+                    "sampleValues": [
+                        "A",
+                        "A",
+                        "A",
+                        "A",
+                        "A",
+                        "B",
+                        "B",
+                        "B",
+                        "B",
+                        "B",
+                        "C",
+                        "C",
+                        "C",
+                        "C",
+                        "C",
+                        "C",
+                        "D",
+                        "D",
+                        "D",
+                        "D"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+                },
+                {
+                    "id": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b",
+                    "urn": "urn:li:container:b26baa9489b99c7c2b1f3423097a104b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/profiling_input/measurements.csv,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1785137048000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "s3-profiling",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

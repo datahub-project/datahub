@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { getExistingIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 
 import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
@@ -8,11 +10,15 @@ export const PAGE_SIZE = 100;
 export const INCIDENT_DISPLAY_TYPES = [
     {
         type: IncidentType.Operational,
-        name: 'Operational',
+        get name() {
+            return i18next.t('entity.profile.incident:type.operational');
+        },
     },
     {
         type: 'OTHER',
-        name: 'Custom',
+        get name() {
+            return i18next.t('entity.profile.incident:type.custom');
+        },
     },
 ];
 

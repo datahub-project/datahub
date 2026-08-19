@@ -91,7 +91,9 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
 
       String runEventsIndexName =
           indexConvention.getTimeseriesAspectIndexName(
-              DATA_PROCESS_INSTANCE_ENTITY_NAME, DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+              opContext,
+              DATA_PROCESS_INSTANCE_ENTITY_NAME,
+              DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
 
       DataHubUpgradeState upgradeState = DataHubUpgradeState.SUCCEEDED;
 
@@ -130,7 +132,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           SearchResponse response;
 
           try {
-            response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+            response = restHighLevelClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (IOException e) {
             log.error(Throwables.getStackTraceAsString(e));
             log.error("Error querying index {}", runEventsIndexName);

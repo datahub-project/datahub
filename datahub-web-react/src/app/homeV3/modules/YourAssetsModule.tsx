@@ -1,6 +1,7 @@
 import { InfiniteScrollList } from '@components';
 import { User } from '@phosphor-icons/react/dist/csr/User';
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -22,6 +23,7 @@ const ContentWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function YourAssetsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { user } = useUserContext();
     const { loading, fetchEntities, total } = useGetAssetsYouOwn(user, DEFAULT_PAGE_SIZE);
 
@@ -44,9 +46,9 @@ export default function YourAssetsModule(props: ModuleProps) {
                     emptyState={
                         <EmptyContent
                             icon={User}
-                            title="No Owned Assets"
-                            description="Select an asset and add yourself as an owner to see the assets in this list"
-                            linkText="Discover the assets you want to own"
+                            title={t('yourAssets.emptyTitle')}
+                            description={t('yourAssets.emptyDescription')}
+                            linkText={t('yourAssets.emptyLink')}
                             onLinkClick={navigateToSearch}
                         />
                     }

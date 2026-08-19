@@ -1,0 +1,28 @@
+// Validates that a string is a well-formed http/https URL.
+// Returns false for null or empty (treated as "not configured").
+// Throws GradleException for a non-empty value that is not a valid http/https URL.
+//
+// Stored in gradle.ext so it is accessible from both settings.gradle and all project build scripts:
+//
+//   apply from: "../../gradle/validation/url-validation.gradle"
+//   gradle.ext.validateUrl(url)          // single URL
+//   gradle.ext.validateUrls(urls, 'property.name')        // space-separated list
+gradle.ext.validateUrl = { String url ->
+  if (url == null || url.trim().isEmpty()) {
+    return false
+  }
+  if (!url.matches('^https?://[^\\s]+$')) {
+    throw new GradleException(
+      "Invalid URL: '${url}' — must be a valid http:// or https:// URL"
+    )
+  }
+  return true
+}
+
+// Validates a space-separated list of URLs; no-op for null or empty.
+gradle.ext.validateUrls = { String urls ->
+  if (urls == null || urls.trim().isEmpty()) {
+    return
+  }
+  urls.trim().split(/\s+/).each { gradle.ext.validateUrl(it, propName) }
+}

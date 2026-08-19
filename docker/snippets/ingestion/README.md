@@ -28,6 +28,8 @@ If **no** `BUNDLED_VENV_PLUGINS_*` variables are set, each plugin in `BUNDLED_VE
 
 `BUNDLED_VENV_PLUGINS` remains the **authoritative full list** of plugins that must receive a `{plugin}-bundled` path; every member of every group must appear in that list, and each plugin appears in **at most one** group (or as a singleton).
 
+**Source aliases:** When a plugin is built, the builder also creates `{alias}-bundled` symlinks for known alias pairs in `bundled_venv_config.py` (e.g. list only `unity-catalog` and both `unity-catalog-bundled` and `databricks-bundled` are created). Do not list both names in `BUNDLED_VENV_PLUGINS`.
+
 ## Slim mode and PySpark
 
 When **`BUNDLED_VENV_SLIM_MODE`** is `true`, extras for plugins in `PLUGINS_WITH_SLIM_VARIANT` use the corresponding **`-slim`** extra (e.g. `s3-slim` instead of `s3`) so PySpark is not pulled for data-lake stacks that support it.
@@ -44,14 +46,14 @@ Unless overridden in code/tests via an internal `extras` list on a group dict, i
 
 ## Environment variables
 
-| Variable                            | Description                                                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `BUNDLED_VENV_PLUGINS`              | Comma-separated list of every plugin that must have a `{plugin}-bundled` path.                               |
-| `BUNDLED_VENV_PLUGINS_<suffix>`     | Comma-separated plugins sharing `{suffix.lower()}-venv`; symlinks `{plugin}-bundled` → that dir when needed. |
-| `BUNDLED_VENV_AUX_PRIMARY_<suffix>` | Optional. One plugin name from that group; suffix matches the same group’s `BUNDLED_VENV_PLUGINS_<suffix>`.  |
-| `BUNDLED_CLI_VERSION`               | PyPI version pin for `acryl-datahub` (single version for all bundled venvs).                                 |
-| `DATAHUB_BUNDLED_VENV_PATH`         | Directory for venvs and `constraints.txt` (default `/opt/datahub/venvs`).                                    |
-| `BUNDLED_VENV_SLIM_MODE`            | When `true`, use `-slim` extras where defined and verify PySpark is absent after install.                    |
+| Variable                            | Description                                                                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BUNDLED_VENV_PLUGINS`              | Comma-separated list of every plugin that must have a `{plugin}-bundled` path.                                                                                   |
+| `BUNDLED_VENV_PLUGINS_<suffix>`     | Comma-separated plugins sharing `{suffix.lower()}-venv`; symlinks `{plugin}-bundled` → that dir when needed.                                                     |
+| `BUNDLED_VENV_AUX_PRIMARY_<suffix>` | Optional. One plugin name from that group; suffix matches the same group’s `BUNDLED_VENV_PLUGINS_<suffix>`.                                                      |
+| `BUNDLED_CLI_VERSION`               | PyPI version pin for `acryl-datahub` (single version for all bundled venvs). Inherited from published images; if unset, falls back to installed `acryl-datahub`. |
+| `DATAHUB_BUNDLED_VENV_PATH`         | Directory for venvs and `constraints.txt` (default `/opt/datahub/venvs`).                                                                                        |
+| `BUNDLED_VENV_SLIM_MODE`            | When `true`, use `-slim` extras where defined and verify PySpark is absent after install.                                                                        |
 
 ## Validation
 

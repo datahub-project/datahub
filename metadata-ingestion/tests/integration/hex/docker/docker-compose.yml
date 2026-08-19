@@ -7,6 +7,8 @@ services:
     volumes:
       - ./hex_projects_response.json:/app/hex_projects_response.json
       - ./mock_hex_server.py:/app/mock_hex_server.py
+    environment:
+      - ENTERPRISE_MODE=${ENTERPRISE_MODE:-0}
     command:
       - sh
       - -c

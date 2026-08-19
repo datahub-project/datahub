@@ -1,6 +1,7 @@
 import { Icon } from '@components';
 import { House } from '@phosphor-icons/react/dist/csr/House';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Wrapper = styled.div`
@@ -26,10 +27,11 @@ interface Props {
 }
 
 export default function HomePill({ showText }: Props) {
+    const { t } = useTranslation('lineage');
     return (
         <Wrapper>
             <StyledIcon icon={House} weight="fill" size="lg" />
-            {showText && 'Home'}
+            {showText && t('node.homePill.label')}
         </Wrapper>
     );
 }

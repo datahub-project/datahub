@@ -26,11 +26,14 @@ export class WelcomeModalPage extends BasePage {
     // cause false failures in expectModalVisible / expectModalNotVisible.
     this.modal = page.getByRole('dialog').filter({ hasText: 'Welcome to DataHub' });
     this.modalTitle = page.getByRole('heading', { name: 'Welcome to DataHub' });
-    this.closeButton = page.locator('[data-testid="modal-close-icon"]');
+    this.closeButton = page.getByTestId('modal-close-icon');
 
     // Carousel navigation selectors
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel dots have no ARIA role or data-testid
     this.carouselDots = page.locator('.slick-dots li');
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel dots have no ARIA role or data-testid
     this.lastCarouselDot = page.locator('.slick-dots li').last();
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick active dot has no ARIA role or data-testid
     this.activeCarouselDot = page.locator('.slick-dots li.slick-active');
 
     // CTA selectors (on final slide)
@@ -72,6 +75,7 @@ export class WelcomeModalPage extends BasePage {
     });
 
     // Wait for carousel dots to be visible (more reliable than .slick-slider)
+    // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel container has no ARIA role or data-testid
     const carouselDots = this.page.locator('.slick-dots');
     await carouselDots.waitFor({ state: 'visible', timeout: 15000 });
   }
@@ -102,10 +106,26 @@ export class WelcomeModalPage extends BasePage {
   }
 
   async closeViaEscape(): Promise<void> {
-    // Ensure the modal has focus so the Escape key event is captured by Ant Design.
+    // The modal's keydown listener is bound to document, so focus inside the modal
+    // is not required — but a defensive click is kept for older code paths that
+    // expected antd's built-in Esc handler (which needs focus inside the modal).
     await this.modal.click({ position: { x: 5, y: 5 }, force: true }).catch(() => {});
     await this.page.keyboard.press('Escape');
     await this.modal.waitFor({ state: 'hidden' });
+  }
+
+  async pressArrowRight(): Promise<void> {
+    await this.page.keyboard.press('ArrowRight');
+    // react-slick afterChange fires via setTimeout(speed=500ms). Match the
+    // wait used by clickCarouselDot for consistency.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await this.page.waitForTimeout(500);
+  }
+
+  async pressArrowLeft(): Promise<void> {
+    await this.page.keyboard.press('ArrowLeft');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await this.page.waitForTimeout(500);
   }
 
   async closeViaOutsideClick(): Promise<void> {
@@ -118,6 +138,7 @@ export class WelcomeModalPage extends BasePage {
     await this.carouselDots.nth(index).click();
     // react-slick does not emit a DOM signal when the slide CSS transition finishes (~300 ms).
     // There is no reliable locator to await, so a short fixed delay is the least-fragile option.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
@@ -156,6 +177,7 @@ export class WelcomeModalPage extends BasePage {
       // react-slick's default animation speed is 500 ms, so 700 ms covers the
       // setTimeout(afterChange, speed) call with margin.
       await this.waitForSlideChange(0, 5000).catch(() => {});
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(700);
       await this.lastCarouselDot.click({ force: true });
       await this.getStartedButton.waitFor({ state: 'attached', timeout: 20000 });

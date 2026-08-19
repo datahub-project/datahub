@@ -1,4 +1,5 @@
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -41,10 +42,10 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
     getPathName = () => 'platform';
 
     // Currently unused.
-    getEntityName = () => 'Data Platform';
+    getEntityName = () => i18next.t('entity.types:dataPlatform.name');
 
     // Currently unused.
-    getCollectionName = () => 'Data Platforms';
+    getCollectionName = () => i18next.t('entity.types:dataPlatform.namePlural');
 
     // Currently unused.
     renderProfile = (_: string) => <></>;

@@ -1,0 +1,60 @@
+{
+  "data": {
+    "virtualConnectionsConnection": {
+      "nodes": [
+        {
+          "id": "vc-123",
+          "name": "Test Virtual Connection 1",
+          "luid": "vc-luid-123",
+          "projectName": "Samples",
+          "description": "Test virtual connection for integration testing",
+          "tables": [
+            {
+              "id": "vc-table-1",
+              "name": "test.table1",
+              "columns": [
+                {
+                  "id": "col1",
+                  "name": "customer_id",
+                  "remoteType": "INTEGER",
+                  "description": "Customer identifier"
+                },
+                {
+                  "id": "col2",
+                  "name": "customer_name",
+                  "remoteType": "STRING",
+                  "description": "Customer name"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "vc-456",
+          "name": "Test Virtual Connection 2",
+          "luid": "vc-luid-456",
+          "projectName": "Samples",
+          "description": "Second test virtual connection",
+          "tables": [
+            {
+              "id": "vc-table-2",
+              "name": "test.table2",
+              "columns": [
+                {
+                  "id": "col3",
+                  "name": "order_id",
+                  "remoteType": "INTEGER",
+                  "description": "Order identifier"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}

@@ -16,6 +16,7 @@ import jakarta.json.Json;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,6 +39,20 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
    * ordering (e.g. {@code removeOwner} with non-contiguous null fields).
    */
   @Nullable protected Map<String, List<String>> arrayPrimaryKeysOverride = null;
+
+  /**
+   * Builds all patch MCPs for this builder.
+   *
+   * <p>The default implementation returns a single-element list containing {@link #build()}.
+   * Subclasses that require multiple MCPs (e.g. {@link GlobalTagsPatchBuilder} when both
+   * add/attributed-remove and unattributed-remove operations are present) override this method.
+   *
+   * @return list of MCPs; never empty
+   * @throws IllegalArgumentException if no operations have been added
+   */
+  public List<MetadataChangeProposal> buildAll() {
+    return Collections.singletonList(build());
+  }
 
   /**
    * Builder method

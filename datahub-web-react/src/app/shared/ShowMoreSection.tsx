@@ -1,19 +1,17 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const ShowMoreButton = styled.div`
     padding: 4px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: left;
     font-weight: 700;
     font-size: 12px;
     font-family: 'Mulish';
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.text};
         text-decoration: underline;
     }
 `;
@@ -26,10 +24,11 @@ type Props = {
 };
 
 export const ShowMoreSection = ({ totalCount, visibleCount, setVisibleCount, pageSize = 4 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const showMoreCount = visibleCount + pageSize > totalCount ? totalCount - visibleCount : pageSize;
     return (
         <ShowMoreButton onClick={() => setVisibleCount(visibleCount + pageSize)}>
-            {showMoreCount ? `show ${showMoreCount} more` : 'show more'}
+            {showMoreCount ? tc('showCountMore', { count: showMoreCount }) : tc('showMore')}
         </ShowMoreButton>
     );
 };

@@ -2,6 +2,7 @@ import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
 import { debounce } from 'lodash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -67,6 +68,7 @@ export const SearchSelect = ({
     setSelectedEntities,
     limit,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -164,15 +166,15 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
+            {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
                 <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                     <FilterOutlined />
-                    <Typography.Text>Filters</Typography.Text>
+                    <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText={placeholderText || 'Search entities...'}
+                    placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                     suggestions={[]}
                     style={SEARCH_BAR_STYLE}
                     inputStyle={SEARCH_INPUT_STYLE}

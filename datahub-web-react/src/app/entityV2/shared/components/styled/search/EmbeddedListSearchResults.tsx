@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import LanguageIcon from '@mui/icons-material/Language';
 import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
@@ -212,6 +213,8 @@ export const EmbeddedListSearchResults = ({
     errorMessage,
     selectLimit,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
@@ -239,13 +242,13 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
 
-                <ResultContainer>
+                <ResultContainer data-testid="embedded-list-search-results">
                     {view && (
                         <ViewsContainer>
-                            <ViewLabel>View</ViewLabel>
+                            <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
                                 <LanguageIconStyle selected={!selectedViewUrn} />
-                                <span>All</span>
+                                <span>{tc('all')}</span>
                                 {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
                             </Pill>
                             {defaultViewUrn === view.urn && (
@@ -288,13 +291,19 @@ export const EmbeddedListSearchResults = ({
                         />
                     )}
                 </ResultContainer>
-                <PaginationInfoContainer>
+                <PaginationInfoContainer data-testid="embedded-list-search-pagination">
                     <PaginationRow>
                         <PaginationInfo>
-                            <b>
-                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                            </b>{' '}
-                            of <b>{totalResults}</b>
+                            <Trans
+                                t={t}
+                                i18nKey="embeddedSearch.paginationRange"
+                                components={{ bold: <b /> }}
+                                values={{
+                                    rangeStart: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                                    rangeEnd: lastResultIndex,
+                                    total: totalResults,
+                                }}
+                            />
                         </PaginationInfo>
                         <StyledPagination
                             current={page}

@@ -181,7 +181,10 @@ describe('useAssetSummaryOperations', () => {
             expect(validateElementType).toHaveBeenCalledWith(SummaryElementType.Tags);
             expect(validateStructuredProperty).toHaveBeenCalledWith(SummaryElementType.Tags, undefined);
             expect(getTemplateToUpdate).toHaveBeenCalled();
-            expect(validateTemplateAvailability).toHaveBeenCalledWith(mockPersonalTemplate);
+            expect(validateTemplateAvailability).toHaveBeenCalledWith(
+                mockPersonalTemplate,
+                'No template available to update',
+            );
             expect(updateTemplateStateOptimistically).toHaveBeenCalled();
             expect(persistTemplateChanges).toHaveBeenCalledWith(
                 expect.any(Object),
@@ -197,7 +200,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -242,7 +245,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -272,12 +275,15 @@ describe('useAssetSummaryOperations', () => {
             });
 
             expect(getTemplateToUpdate).toHaveBeenCalled();
-            expect(validateTemplateAvailability).toHaveBeenCalledWith(mockGlobalTemplate);
+            expect(validateTemplateAvailability).toHaveBeenCalledWith(
+                mockGlobalTemplate,
+                'No template available to update',
+            );
             expect(persistTemplateChanges).toHaveBeenCalledWith(
                 expect.any(Object),
                 expect.any(Object),
                 false, // isPersonal = false
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -371,7 +377,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'remove summary element',
+                'removeSummaryElement',
             );
         });
 
@@ -406,7 +412,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'remove summary element',
+                'removeSummaryElement',
             );
         });
 
@@ -502,7 +508,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'replace summary element',
+                'replaceSummaryElement',
             );
         });
 
@@ -551,7 +557,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'replace summary element',
+                'replaceSummaryElement',
             );
         });
 
@@ -668,7 +674,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
 
@@ -719,7 +725,7 @@ describe('useAssetSummaryOperations', () => {
                     }),
                 }),
                 true,
-                'add summary element',
+                'addSummaryElement',
             );
         });
     });

@@ -1,5 +1,6 @@
 import { Skeleton } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -20,6 +21,8 @@ const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
 `;
 
 export const DataProducts = () => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const { dataProducts, loading } = useGetDataProducts();
 
@@ -28,7 +31,7 @@ export const DataProducts = () => {
             type: EventType.HomePageClick,
             module: HomePageModule.Discover,
             section: 'Data Products',
-            value: 'View all',
+            value: tc('viewAll'),
         });
         history.push(PageRoutes.DATA_PRODUCTS);
     };
@@ -46,7 +49,11 @@ export const DataProducts = () => {
         <div id={HOME_PAGE_DATA_PRODUCTS_ID}>
             {loading && <HorizontalListSkeletons Component={SkeletonCard} />}
             {!loading && dataProducts && !!dataProducts.length && (
-                <Section title="Data Products" actionText="View all" onClickAction={navigateToDataProducts}>
+                <Section
+                    title={t('dataProducts.title')}
+                    actionText={tc('viewAll')}
+                    onClickAction={navigateToDataProducts}
+                >
                     <Carousel>
                         {dataProducts.map((item) => {
                             const { dataProduct, domain } = item;

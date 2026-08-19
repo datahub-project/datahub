@@ -1,0 +1,45 @@
+# Test databases for Airbyte integration tests
+# These run alongside abctl to provide source/destination databases
+services:
+  # PostgreSQL test database (source and destination)
+  test-postgres:
+    image: postgres:13
+    container_name: test-postgres
+    environment:
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test
+      - POSTGRES_DB=test
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MySQL test database (source)
+  test-mysql:
+    image: mysql:8.0
+    container_name: test-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpwd123
+      - MYSQL_DATABASE=test
+      - MYSQL_USER=test
+      - MYSQL_PASSWORD=test
+    ports:
+      - "30306:3306"
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+      - ./setup/init-test-mysql.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "test", "-ptest"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_test_data:
+  mysql_test_data:
+

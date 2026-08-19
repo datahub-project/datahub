@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -49,6 +50,7 @@ const EntitiesList = styled.div`
 `;
 
 export default function DashboardSummaryOverview() {
+    const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const dashboard = useBaseEntity<GetDashboardQuery>()?.dashboard;
     const entityRegistry = useEntityRegistryV2();
@@ -87,18 +89,18 @@ export default function DashboardSummaryOverview() {
     return (
         <SummaryColumns>
             <MainSection>
-                <SummaryHeader>General Info</SummaryHeader>
+                <SummaryHeader>{t('shared.generalInfo')}</SummaryHeader>
 
                 {!!owner && <SummaryCreatedBySection owner={owner} />}
             </MainSection>
 
             <MainSection>
-                <SummaryHeader>Related Assets</SummaryHeader>
+                <SummaryHeader>{t('shared.relatedAssets')}</SummaryHeader>
                 <AssetSections>
                     {!!dataSources?.length && (
                         <MainSection>
                             <StyledTitle>
-                                Data Sources
+                                {t('shared.dataSources')}
                                 <Count>{dataSources.length} </Count>
                             </StyledTitle>
                             <EntitiesList>
@@ -128,7 +130,7 @@ export default function DashboardSummaryOverview() {
                     {!!charts?.length && (
                         <MainSection>
                             <StyledTitle>
-                                Contents
+                                {t('tab.contents')}
                                 <Count>{charts.length} </Count>
                             </StyledTitle>
                             <EntitiesList>

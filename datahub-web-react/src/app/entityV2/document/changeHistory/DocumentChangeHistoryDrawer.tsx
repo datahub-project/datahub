@@ -1,5 +1,6 @@
 import { Drawer } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DocumentHistoryTimeline } from '@app/entityV2/document/changeHistory/DocumentHistoryTimeline';
@@ -20,6 +21,7 @@ interface DocumentChangeHistoryDrawerProps {
 }
 
 export const DocumentChangeHistoryDrawer: React.FC<DocumentChangeHistoryDrawerProps> = ({ urn, open, onClose }) => {
+    const { t } = useTranslation('entity.types');
     const { data, loading } = useGetDocumentChangeHistoryQuery({
         variables: {
             urn,
@@ -33,7 +35,7 @@ export const DocumentChangeHistoryDrawer: React.FC<DocumentChangeHistoryDrawerPr
 
     return (
         <Drawer
-            title="History"
+            title={t('document.historyTitle')}
             open={open}
             onClose={onClose}
             width={542}
