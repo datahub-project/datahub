@@ -68,7 +68,5 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
       values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_DOCUMENTS_REVISION"
-      # This source only produces embeddings for semantic search. Without it the
-      # scheduled runs scroll, chunk, and emit nothing, so skip creating the
-      # source when semantic search is off.
+      # Only produces embeddings for semantic search, so don't create it when off.
       enabledEnvVar: "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED"
