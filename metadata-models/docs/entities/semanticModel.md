@@ -37,10 +37,8 @@ Core metadata is stored in the `semanticModelInfo` aspect:
 - **`datasets`** — **deprecated.** Retained so already-ingested aspects remain readable;
   `@Relationship` / `@Searchable` annotations are stripped so the field no longer writes
   graph or search edges. New writes must not populate it. Membership is authoritative on
-  each logical dataset's `semanticModelProperties.semanticModel` (`IsPartOf`). Operators
-  upgrading from the earlier metrics-catalog shape should run
-  `datahub migrate semantic-model-container` to backfill metric→dataset lineage
-  (`metricUpstreams.datasetUpstreams`) from stored `datasets` values.
+  each logical dataset's `semanticModelProperties.semanticModel` (`IsPartOf`). Re-ingest
+  to populate `metricUpstreams.datasetUpstreams` with per-metric routing by the connector.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-alias, to-alias, join columns, optional
   name, optional cardinality reusing `ERModelRelationshipCardinality`, and optional per-relationship
@@ -173,8 +171,8 @@ Earlier metrics-catalog ingestions stored logical-dataset membership on the cont
 `semanticModelInfo.datasets` (with a lineage-flagged `Contains` edge). That field is
 deprecated: it stays in the PDL for stored-data compatibility, but annotations are stripped
 and producers no longer write it. Membership already lives on
-`semanticModelProperties.semanticModel`; run `datahub migrate semantic-model-container` to
-backfill `metricUpstreams.datasetUpstreams` from stored `datasets`. GraphQL
+`semanticModelProperties.semanticModel`; re-ingest to populate
+`metricUpstreams.datasetUpstreams` with per-metric routing by the connector. GraphQL
 `SemanticModelInfo.datasets` is likewise deprecated and returns empty — discover
 member datasets via an Elasticsearch filter on `semanticModelProperties.semanticModel`
 (and `metrics(...)` / `metricInfo.semanticModel` for metrics).
