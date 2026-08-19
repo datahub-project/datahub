@@ -19,8 +19,9 @@ os.environ.setdefault("SPARK_VERSION", "3.5")
 pytest.importorskip("pyspark")
 pytest.importorskip("pydeequ")
 
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.profiling import SparkProfiler
+
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 
 pytestmark = pytest.mark.integration

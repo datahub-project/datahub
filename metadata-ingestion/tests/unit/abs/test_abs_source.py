@@ -430,6 +430,7 @@ def test_connection_string_account_check_handles_base64_key_padding():
             connection_string=f"AccountName=devstoreaccount1;AccountKey={key};",
         )
 
+
 _ABS_INCLUDE = "https://testaccount.blob.core.windows.net/testcontainer/*.*"
 
 
@@ -613,4 +614,3 @@ def test_abs_get_fields_csv_zip(tmp_path):
 
     field_names = {f.fieldPath for f in fields}
     assert {"product", "price"}.issubset(field_names)
-
