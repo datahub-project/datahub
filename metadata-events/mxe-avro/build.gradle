@@ -26,7 +26,7 @@ def genDir = file("src/generated/java")
 task avroCodeGen(type: com.github.davidmc24.gradle.plugin.avro.GenerateAvroJavaTask, dependsOn: configurations.avsc) {
   source("$rootDir/metadata-events/mxe-schemas/src/renamed/avro")
   outputDir = genDir
-  dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+  dependsOn(':metadata-events:mxe-schemas:syncRenamedAvroToSrc')
 }
 
 compileJava.source(avroCodeGen.outputs)
