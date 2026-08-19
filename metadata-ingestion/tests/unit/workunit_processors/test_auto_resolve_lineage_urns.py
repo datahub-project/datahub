@@ -47,11 +47,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.server_config_util import RestServiceConfig
-from datahub.utilities.urn_alias.index import (
-    CatalogSlice,
-    UrnAliasIndex,
-    covered_by,
-)
+from datahub.utilities.urn_alias.resolver import UrnAliasResolver
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
 UPPER = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE")
@@ -70,7 +66,7 @@ _PATCH_TARGET = "datahub.sql_parsing.schema_resolver_provider.provide_schema_res
 # Imported at module scope by the processor, so patch it there.
 _LOAD_INDEX_TARGET = (
     "datahub.ingestion.workunit_processors.auto_resolve_lineage_urns"
-    ".load_urn_alias_index"
+    ".provide_urn_alias_resolver"
 )
 
 
@@ -116,26 +112,31 @@ def _schema_fetches(graph: mock.MagicMock) -> int:
     )
 
 
+_Region = Tuple[str, Optional[str], str]
+
+_SNOWFLAKE_PROD: _Region = ("snowflake", None, "PROD")
+
+
 def _seed_index(
     graph: Any,
     urns: List[str],
-    slices: Sequence[CatalogSlice] = (
-        CatalogSlice(platform="snowflake", platform_instance=None, env="PROD"),
-    ),
+    regions: Sequence[_Region] = (_SNOWFLAKE_PROD,),
 ) -> Any:
-    """A `load_urn_alias_index` stand-in over completed scrolls of `slices`.
+    """A `provide_urn_alias_resolver` stand-in over completed loads of `regions`.
 
-    Identity lives in these indexes, not in any SchemaResolver, so this is what makes an
-    entity findable. One index per slice, holding only what that scroll would have reached.
+    Identity lives in these resolvers, not in any SchemaResolver, so this is what makes an
+    entity findable. One per region, holding only what that load would have reached.
     """
     _registers_aliases(graph)
-    indexes: Dict[CatalogSlice, UrnAliasIndex] = {}
-    for catalog_slice in slices:
-        index = UrnAliasIndex(catalog_slice)
+    resolvers: Dict[_Region, UrnAliasResolver] = {}
+    for region in regions:
+        resolver = UrnAliasResolver()
+        platform, instance, env = region
         for urn in urns:
-            if covered_by(urn, [catalog_slice]):
-                index.add(urn)
-        indexes[catalog_slice] = index
+            in_region = f"dataPlatform:{platform}," in urn and urn.endswith(f",{env})")
+            if in_region and (instance is None or f",{instance}." in urn):
+                resolver.add(urn)
+        resolvers[region] = resolver
 
     def _load(
         *,
@@ -144,12 +145,8 @@ def _seed_index(
         platform_instance: Optional[str],
         env: str,
         **kwargs: Any,
-    ) -> Optional[UrnAliasIndex]:
-        return indexes.get(
-            CatalogSlice(
-                platform=platform, platform_instance=platform_instance, env=env
-            )
-        )
+    ) -> Optional[UrnAliasResolver]:
+        return resolvers.get((platform, platform_instance, env))
 
     return mock.MagicMock(side_effect=_load)
 
@@ -458,7 +455,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     load_index = _seed_index(
         pipeline_ctx.graph,
         [mssql_table],
-        [CatalogSlice(platform="mssql", platform_instance=None, env="PROD")],
+        [("mssql", None, "PROD")],
     )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -533,8 +530,8 @@ def test_multi_platform_upstreams_both_healed():
         pipeline_ctx.graph,
         [sf_real, rs_real],
         [
-            CatalogSlice(platform="snowflake", platform_instance=None, env="PROD"),
-            CatalogSlice(platform="redshift", platform_instance=None, env="PROD"),
+            ("snowflake", None, "PROD"),
+            ("redshift", None, "PROD"),
         ],
     )
     ctx = mock.MagicMock()
@@ -623,11 +620,7 @@ def test_platform_instance_is_threaded_through_and_heals():
     load_index = _seed_index(
         pipeline_ctx.graph,
         [stored],
-        [
-            CatalogSlice(
-                platform="snowflake", platform_instance="my_instance", env="PROD"
-            )
-        ],
+        [("snowflake", "my_instance", "PROD")],
     )
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -855,7 +848,7 @@ def test_configured_platform_matching_nothing_warns():
     load_index = _seed_index(
         pipeline_ctx.graph,
         [UPPER],
-        [CatalogSlice(platform="Snowflake", platform_instance=None, env="PROD")],
+        [("Snowflake", None, "PROD")],
     )
     with (
         mock.patch(_PATCH_TARGET, provide_mock),
@@ -913,7 +906,7 @@ def test_catalog_load_failure_is_reported_and_passes_through():
         for c in cast(mock.MagicMock, ctx.source_report).warning.call_args_list
     }
     assert titles == {
-        "Lineage URN casing: upstream URN index not loaded",
+        "Lineage URN casing: upstream URNs not loaded",
         "Lineage URN casing: upstream catalog not loaded",
     }
 
@@ -1255,14 +1248,14 @@ def _processor_for(
     cfg: AutoResolveLineageUrnsConfig,
     resolver: SchemaResolver,
     seed: List[str],
-    slices: Sequence[CatalogSlice],
+    regions: Sequence[_Region],
     provide: Optional[mock.MagicMock] = None,
 ) -> Tuple[AutoResolveLineageUrnsProcessor, Any, Any]:
     """`provide` overrides the patched provide_schema_resolver, for a load that fails."""
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    load_index = _seed_index(pipeline_ctx.graph, seed, slices)
+    load_index = _seed_index(pipeline_ctx.graph, seed, regions)
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
@@ -1279,7 +1272,7 @@ def test_a_match_from_a_slice_we_did_not_load_is_not_used():
     # Identity comes from an index shared with every consumer, so it can hold entities
     # some other consumer loaded — here, a platform_instance the operator did not list.
     # Resolving to one would heal the reference outside what was configured, and leave
-    # its columns unreachable. The answer is confined to our own slices instead.
+    # its columns unreachable. The answer is confined to our own regions instead.
     stored = _instanced("db.schema.table", "other_instance")
     referenced = _instanced("DB.SCHEMA.TABLE", "other_instance")
 
@@ -1295,11 +1288,7 @@ def test_a_match_from_a_slice_we_did_not_load_is_not_used():
         cfg,
         _resolver({}),
         [stored],
-        [
-            CatalogSlice(
-                platform="snowflake", platform_instance="other_instance", env="PROD"
-            )
-        ],
+        [("snowflake", "other_instance", "PROD")],
     )
     try:
         [out] = list(processor.process(iter([_upstream_wu(referenced)])))
@@ -1323,9 +1312,7 @@ def test_a_match_from_a_slice_we_did_not_load_is_not_used():
 BQ_UPPER = make_dataset_urn("bigquery", "PROJ.DS.T")
 BQ_LOWER = make_dataset_urn("bigquery", "proj.ds.t")
 
-_SNOWFLAKE_SLICE = CatalogSlice(
-    platform="snowflake", platform_instance=None, env="PROD"
-)
+_SNOWFLAKE_SLICE: _Region = ("snowflake", None, "PROD")
 
 
 def _widened(
@@ -1581,9 +1568,7 @@ def test_one_failed_instance_does_not_disable_the_one_that_loaded():
     # writing off the platform and discarding a catalog it already paid for.
     stored = _instanced("db.schema.table", _MY_INSTANCE)
     referenced = _instanced("DB.SCHEMA.TABLE", _MY_INSTANCE)
-    loaded_slice = CatalogSlice(
-        platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
-    )
+    loaded_slice: _Region = ("snowflake", _MY_INSTANCE, "PROD")
     provide = mock.MagicMock(
         side_effect=[_resolver({stored: {"amount": "int"}}), RuntimeError("boom")]
     )
@@ -1614,15 +1599,13 @@ def test_one_failed_instance_does_not_disable_the_one_that_loaded():
     )
 
 
-def test_a_reference_into_the_failed_instance_is_reported_out_of_scope():
-    # The platform is in scope because a sibling loaded, but the slice this reference
-    # lives in never was, so nothing looked it up. That is not an absence — it is counted
-    # under the out-of-scope bucket, alongside the "upstream catalog not loaded" warning
-    # that already says why.
+def test_a_reference_into_the_failed_instance_is_left_as_emitted():
+    # The sibling instance loaded, so the platform and env are in scope and this
+    # reference is looked up against what did load. It is not found, so it is reported
+    # UNRESOLVED — alongside the "upstream catalog not loaded" warning that says why the
+    # instance it lives in was never read. The URN itself is untouched either way.
     referenced = _instanced("DB.SCHEMA.TABLE", _OTHER_INSTANCE)
-    loaded_slice = CatalogSlice(
-        platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
-    )
+    loaded_slice: _Region = ("snowflake", _MY_INSTANCE, "PROD")
     provide = mock.MagicMock(side_effect=[_resolver({}), RuntimeError("boom")])
 
     processor, _graph, patcher = _processor_for(
@@ -1634,9 +1617,9 @@ def test_a_reference_into_the_failed_instance_is_reported_out_of_scope():
         patcher.stop()
 
     assert _stored_upstream(out) == referenced  # left exactly as emitted
-    assert _upstream_aspect(out).upstreams[0].matchType is None
-    assert processor.report.num_refs_out_of_scope == 1
-    assert processor.report.num_refs_unresolved == 0
+    assert _catalog_not_loaded_warnings(
+        cast(mock.MagicMock, processor.ctx.source_report)
+    )
 
 
 # --- what checking a column actually established -------------------------------------

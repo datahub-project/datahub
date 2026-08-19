@@ -144,9 +144,9 @@ is answered individually — right for a source that touches only a handful of w
 whose warehouse is too large to read.
 
 Preloading and querying divide the work rather than stacking on it. A catalog read that finishes
-covers its region, so a reference it does not find is already known to be absent and is never
+answers its own misses, so a reference it does not find is already known to be absent and is never
 re-asked; queries are spent only on references outside everything that was read. A read that fails
-part way covers nothing — its references fall back to queries rather than being told, wrongly, that
+part way is discarded — its references fall back to queries rather than being told, wrongly, that
 DataHub holds no such entity. Column casing works
 the same way in both cases — a preloaded catalog carries its schemas, and an unlisted table's columns
 are fetched with it.

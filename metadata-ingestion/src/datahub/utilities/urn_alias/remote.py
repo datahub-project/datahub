@@ -1,8 +1,7 @@
 import logging
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, List
 
 from datahub.ingestion.graph.filters import RawSearchFilter, SearchFilterRule
-from datahub.utilities.urn_alias.index import lowercased_urn
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -21,17 +20,17 @@ _MIN_CLOUD_VERSION = (2, 2, 0)
 _MIN_OSS_VERSION = (1, 8, 0)
 
 
-def search_aliases(graph: "DataHubGraph", keys: List[str]) -> Dict[str, List[str]]:
-    """Every stored casing of each of `keys`, from one search. Raises if it fails.
+def search_aliases(graph: "DataHubGraph", key: str) -> List[str]:
+    """Every stored casing of `key`, a lowercased dataset URN. Raises if the search fails.
 
-    Exhaustive, so an empty list for a key is a genuine absence. Searched by urn as well as
-    by alias: GMS writes aliases asynchronously, so one that has not landed yet is findable
-    only under its own urn.
+    Exhaustive, so an empty list is a genuine absence. Searched by urn as well as by alias:
+    GMS writes aliases asynchronously, so one that has not landed yet is findable only
+    under its own urn.
     """
     or_filters: RawSearchFilter = [
         {
             "and": [
-                SearchFilterRule(field=field, condition="EQUAL", values=keys).to_raw()
+                SearchFilterRule(field=field, condition="EQUAL", values=[key]).to_raw()
             ]
         }
         for field in (_LOWERCASED_URN_FIELD, _URN_FIELD)
@@ -39,13 +38,8 @@ def search_aliases(graph: "DataHubGraph", keys: List[str]) -> Dict[str, List[str
     stored_urns = graph.get_urns_by_filter(
         entity_types=[_DATASET_ENTITY_TYPE], extra_or_filters=or_filters
     )
-    matches_by_key: Dict[str, List[str]] = {key: [] for key in keys}
     # Deduped: a scroll that repeated a urn would otherwise read as a casing collision.
-    for stored_urn in dict.fromkeys(stored_urns):
-        key = lowercased_urn(stored_urn)
-        if key in matches_by_key:
-            matches_by_key[key].append(stored_urn)
-    return matches_by_key
+    return list(dict.fromkeys(stored_urns))
 
 
 def gms_maintains_urn_aliases(graph: "DataHubGraph") -> bool:
