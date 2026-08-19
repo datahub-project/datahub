@@ -63,7 +63,8 @@ public class SemanticSearchAcrossEntitiesResolver
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 
-    final List<String> entityNames = getEntityNames(input.getTypes());
+    final List<String> entityNames =
+        getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());

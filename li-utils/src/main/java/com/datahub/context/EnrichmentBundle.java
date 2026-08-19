@@ -1,9 +1,11 @@
 package com.datahub.context;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /**
@@ -135,5 +137,41 @@ public final class EnrichmentBundle {
   @Override
   public int hashCode() {
     return byType.hashCode();
+  }
+
+  /**
+   * Deterministic, collision-resistant token identifying this bundle's contents, for folding into
+   * cache keys (see {@code OperationContext#getSearchContextId}). Unlike {@link #hashCode()} — a
+   * 32-bit int prone to collisions (e.g. record values {@code "Aa"} and {@code "BB"} share a Java
+   * hash) that would let two distinct enrichments collapse onto the same cache key — this
+   * concatenates each enrichment's type and value, sorted by type name so it is independent of
+   * insertion order. Each segment is length-prefixed ({@code len:text}) so a value containing the
+   * {@code =} or {@code ;} delimiters cannot make two differently-shaped bundles produce the same
+   * token. Empty bundle returns {@code ""}.
+   *
+   * <p>Value identity comes from each {@link Enrichment}'s {@code toString()}: implementations used
+   * for cache isolation must have a value-distinguishing {@code toString()} (records satisfy this).
+   */
+  @Nonnull
+  public String stableCacheToken() {
+    if (byType.isEmpty()) {
+      return "";
+    }
+    return byType.entrySet().stream()
+        .sorted(
+            Comparator.comparing(
+                (Map.Entry<Class<? extends Enrichment>, Enrichment> entry) ->
+                    entry.getKey().getName()))
+        .map(
+            entry ->
+                lengthPrefixed(entry.getKey().getName())
+                    + "="
+                    + lengthPrefixed(String.valueOf(entry.getValue())))
+        .collect(Collectors.joining(";"));
+  }
+
+  /** {@code text} prefixed with its length ({@code "5:acme_"}) so segments are self-delimiting. */
+  private static String lengthPrefixed(@Nonnull String text) {
+    return text.length() + ":" + text;
   }
 }

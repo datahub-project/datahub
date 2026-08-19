@@ -1,10 +1,14 @@
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogEntry
+from datahub.ingestion.source.airbyte.client import AirbyteOSSClient
 from datahub.ingestion.source.airbyte.config import (
+    AirbyteClientConfig,
     AirbyteDeploymentType,
     AirbyteSourceConfig,
     PlatformDetail,
@@ -17,6 +21,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteStream,
     AirbyteStreamConfig,
     AirbyteStreamDetails,
+    AirbyteSyncCatalog,
     AirbyteWorkspacePartial,
     PlatformInfo,
     PropertyFieldPath,
@@ -283,6 +288,161 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_include_schema_in_urn_forces_three_tier_postgres(mock_create_client, mock_ctx):
+    mock_create_client.return_value = MagicMock()
+
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        sources_to_platform_instance={
+            "source-1": PlatformDetail(
+                platform="postgres",
+                platform_instance="my_instance",
+                include_schema_in_urn=True,
+                convert_urns_to_lowercase=True,
+            )
+        },
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
+    connection = AirbyteConnectionPartial(
+        connection_id="conn-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="dest-1",
+        status="active",
+    )
+    source_obj = AirbyteSourcePartial(
+        source_id="source-1",
+        name="Test Source",
+        source_type="PostgreSQL",
+        source_definition_id="def-1",
+        workspace_id="ws-1",
+        configuration={"database": "my_db"},
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="dest-1",
+        name="Test Dest",
+        destination_definition_id="def-2",
+        workspace_id="ws-1",
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=workspace,
+        connection=connection,
+        source=source_obj,
+        destination=destination,
+    )
+
+    stream_details = AirbyteStreamDetails(
+        stream_name="events",
+        namespace="my_schema",
+        property_fields=[],
+    )
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="events", namespace="my_schema"),
+        config={},
+    )
+
+    urns = source._create_dataset_urns(pipeline_info, stream_config, stream_details)
+
+    assert "my_instance.my_db.my_schema.events" in urns.source_urn
+    assert "my_db.events," not in urns.source_urn
+
+
+@patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+@patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_streams_namespace_backfill_to_dataset_urn(
+    mock_create_client, mock_make_request, mock_list_streams, mock_ctx
+):
+    mock_make_request.return_value = {
+        "connectionId": "conn-1",
+        "sourceId": "source-1",
+        "destinationId": "dest-1",
+        "name": "Test Connection",
+        "status": "active",
+        "configurations": {
+            "streams": [{"name": "events", "syncMode": "full_refresh_overwrite"}]
+        },
+    }
+    # Field names match the Public API's StreamProperties schema exactly, so this
+    # seam breaks if real-Airbyte support regresses.
+    mock_list_streams.return_value = [
+        {
+            "streamName": "events",
+            "streamnamespace": "my_schema",
+            "propertyFields": [["id"]],
+        }
+    ]
+
+    client = AirbyteOSSClient(
+        AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+    )
+    connection = client.get_connection("conn-1")
+    assert connection.sync_catalog is not None
+    assert connection.sync_catalog.streams[0].stream.namespace == "my_schema"
+
+    mock_create_client.return_value = client
+    source = AirbyteSource(
+        AirbyteSourceConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            sources_to_platform_instance={
+                "source-1": PlatformDetail(
+                    platform="postgres",
+                    platform_instance="my_instance",
+                    include_schema_in_urn=True,
+                    convert_urns_to_lowercase=True,
+                )
+            },
+            destinations_to_platform_instance={
+                "dest-1": PlatformDetail(
+                    platform="snowflake",
+                    platform_instance="my_instance",
+                    convert_urns_to_lowercase=True,
+                )
+            },
+        ),
+        mock_ctx,
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace"),
+        connection=connection,
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_type="PostgreSQL",
+            source_definition_id="def-1",
+            workspace_id="ws-1",
+            configuration={"database": "my_db"},
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="dest-1",
+            name="Test Dest",
+            destination_type="Snowflake",
+            destination_definition_id="def-2",
+            workspace_id="ws-1",
+            configuration={"database": "raw"},
+        ),
+    )
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+    assert len(streams) == 1
+    assert streams[0].details.namespace == "my_schema"
+
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "my_instance.my_db.my_schema.events" in urns.source_urn
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
     # Some connectors emit `<schema>.<table>` as the stream name; we only
     # want the leaf for URN composition so we don't end up with
@@ -504,3 +664,314 @@ def test_warning_deduplication(mock_create_client, mock_ctx):
     initial_warning_count = len(source.report.warnings)
     source._get_platform_for_source(source_obj)
     assert len(source.report.warnings) == initial_warning_count
+
+
+def _source_schema_pipeline(
+    source_configuration: Dict[str, Any],
+    stream_namespace: Optional[str] = None,
+) -> AirbytePipelineInfo:
+    return AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace"),
+        connection=AirbyteConnectionPartial(
+            connection_id="conn-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="dest-1",
+            status="active",
+            sync_catalog=AirbyteSyncCatalog(
+                streams=[
+                    AirbyteStreamConfig(
+                        stream=AirbyteStream(
+                            name="transfers", namespace=stream_namespace
+                        ),
+                        config={"selected": True},
+                    )
+                ]
+            ),
+        ),
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_type="mssql",
+            source_definition_id="def-1",
+            workspace_id="ws-1",
+            configuration=source_configuration,
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="dest-1",
+            name="Test Dest",
+            destination_type="Snowflake",
+            destination_definition_id="def-2",
+            workspace_id="ws-1",
+            configuration={"database": "raw"},
+        ),
+    )
+
+
+def _source_with_details(mock_ctx: MagicMock, details: PlatformDetail) -> AirbyteSource:
+    with patch(
+        "datahub.ingestion.source.airbyte.source.create_airbyte_client"
+    ) as mock_create_client:
+        mock_create_client.return_value = MagicMock()
+        return AirbyteSource(
+            AirbyteSourceConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+                host_port="http://localhost:8000",
+                sources_to_platform_instance={"source-1": details},
+            ),
+            mock_ctx,
+        )
+
+
+def test_per_table_schema_outranks_connector_wide_schema(mock_ctx):
+    # The connector-wide schema key holds the database name here, which used to
+    # shadow the per-table schema and collapse the URN to two tiers.
+    source = _source_with_details(
+        mock_ctx, PlatformDetail(platform="mssql", convert_urns_to_lowercase=True)
+    )
+    pipeline_info = _source_schema_pipeline(
+        {
+            "database": "wallet_db",
+            "schemas": ["wallet_db"],
+            "tables": [{"name": "transfers", "schema": "dbo"}],
+        }
+    )
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "dbo"
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "wallet_db.dbo.transfers" in urns.source_urn
+
+
+def test_default_schema_fills_in_when_no_schema_is_discoverable(mock_ctx):
+    source = _source_with_details(
+        mock_ctx,
+        PlatformDetail(
+            platform="mssql", default_schema="dbo", convert_urns_to_lowercase=True
+        ),
+    )
+    pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "dbo"
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "wallet_db.dbo.transfers" in urns.source_urn
+
+
+def test_default_schema_yields_to_schemas_airbyte_and_the_connector_report(mock_ctx):
+    source = _source_with_details(
+        mock_ctx,
+        PlatformDetail(
+            platform="mssql", default_schema="dbo", convert_urns_to_lowercase=True
+        ),
+    )
+
+    from_airbyte = source._fetch_streams_for_source(
+        _source_schema_pipeline({"database": "wallet_db"}, stream_namespace="reporting")
+    )
+    assert from_airbyte[0].details.namespace == "reporting"
+
+    from_per_table = source._fetch_streams_for_source(
+        _source_schema_pipeline(
+            {
+                "database": "wallet_db",
+                "tables": [{"name": "transfers", "schema": "audit"}],
+            }
+        )
+    )
+    assert from_per_table[0].details.namespace == "audit"
+
+
+def _namespace_warnings(source: AirbyteSource) -> List[StructuredLogEntry]:
+    return [
+        warning
+        for warning in source.report.warnings
+        if "Stream Namespaces Not Reported" in str(warning)
+    ]
+
+
+def _guessed_schema_warnings(source: AirbyteSource) -> List[StructuredLogEntry]:
+    return [
+        warning
+        for warning in source.report.warnings
+        if "Stream Schema Guessed" in str(warning)
+    ]
+
+
+def _missing_namespace_warnings(source: AirbyteSource) -> List[StructuredLogEntry]:
+    return [
+        warning
+        for warning in source.report.warnings
+        if "Stream Namespace Missing" in str(warning)
+    ]
+
+
+def test_warns_when_a_stream_alone_has_no_namespace(mock_ctx):
+    # Airbyte answered with namespaces for this source, so a stream left
+    # without one is its own gap and the version cannot be blamed for it.
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline({"database": "wallet_db"})
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == ""
+    warnings = _missing_namespace_warnings(source)
+    assert len(warnings) == 1
+    assert "transfers" in str(warnings[0])
+    assert _namespace_warnings(source) == []
+
+
+@pytest.mark.parametrize(
+    "source_configuration",
+    [
+        {"database": "wallet_db"},
+        # A schemas entry naming nothing we recognise has to leave the tier
+        # empty; reading the wrong key would point the URN at a made-up schema.
+        {"database": "wallet_db", "schemas": [{"dataset": "wallet_db"}]},
+    ],
+)
+def test_warns_once_per_source_when_streams_api_reports_no_namespaces(
+    mock_ctx, source_configuration
+):
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline(source_configuration)
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+    source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == ""
+    assert len(_namespace_warnings(source)) == 1
+    assert "transfers" in str(_namespace_warnings(source)[0])
+
+
+@pytest.mark.parametrize(
+    "details,source_configuration",
+    [
+        (
+            PlatformDetail(platform="mssql", default_schema="dbo"),
+            {"database": "wallet_db"},
+        ),
+        (
+            PlatformDetail(platform="mssql"),
+            {
+                "database": "wallet_db",
+                "tables": [{"name": "transfers", "schema": "dbo"}],
+            },
+        ),
+    ],
+)
+def test_no_namespace_warning_when_another_tier_supplies_the_schema(
+    mock_ctx, details, source_configuration
+):
+    # The warning has to reflect what resolution produced, not what Airbyte
+    # sent, or it points operators at a setting they already applied.
+    source = _source_with_details(mock_ctx, details)
+    pipeline_info = _source_schema_pipeline(source_configuration)
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "dbo"
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "wallet_db.dbo.transfers" in urns.source_urn
+    assert _namespace_warnings(source) == []
+    assert _guessed_schema_warnings(source) == []
+
+
+@pytest.mark.parametrize(
+    "schemas",
+    [
+        ["source_schema", "audit_schema"],
+        [{"name": "source_schema"}, {"schema": "audit_schema"}],
+    ],
+)
+def test_warns_when_a_multi_schema_list_forces_a_guessed_schema(mock_ctx, schemas):
+    # Reproduced against Airbyte 1.6.9: a Postgres source over two schemas
+    # reports no namespace on either surface, so every stream takes schemas[0]
+    # and the ones living elsewhere claim another table's URN.
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline({"database": "test", "schemas": schemas})
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+    source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "source_schema"
+    warnings = _guessed_schema_warnings(source)
+    assert len(warnings) == 1
+    assert "transfers" in str(warnings[0])
+    assert "audit_schema" in str(warnings[0])
+    # The schema tier is populated, just not trustworthy.
+    assert _namespace_warnings(source) == []
+
+
+def test_default_schema_on_a_multi_schema_source_still_warns(mock_ctx):
+    # default_schema is one name for the whole source, so on a source that
+    # replicates several schemas it is right for at most one of them.
+    source = _source_with_details(
+        mock_ctx, PlatformDetail(platform="postgres", default_schema="audit_schema")
+    )
+    pipeline_info = _source_schema_pipeline(
+        {"database": "test", "schemas": ["source_schema", "audit_schema"]}
+    )
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "audit_schema"
+    warnings = _guessed_schema_warnings(source)
+    assert len(warnings) == 1
+    assert "schema=audit_schema" in str(warnings[0])
+
+
+def test_per_table_schema_is_trusted_on_a_multi_schema_source(mock_ctx):
+    # A per-table schema is per-stream, so it stays authoritative even when the
+    # connector replicates several schemas.
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline(
+        {
+            "database": "test",
+            "schemas": ["source_schema", "audit_schema"],
+            "tables": [{"name": "transfers", "schema": "audit_schema"}],
+        }
+    )
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "audit_schema"
+    assert _guessed_schema_warnings(source) == []
+
+
+@pytest.mark.parametrize(
+    "source_configuration",
+    [
+        {"database": "test", "schemas": ["source_schema"]},
+        {"database": "test", "schema": "source_schema"},
+        # Snowflake / BigQuery send objects rather than bare names, under
+        # either key.
+        {"database": "test", "schemas": [{"name": "source_schema"}]},
+        {"database": "test", "schemas": [{"schema": "source_schema"}]},
+    ],
+)
+def test_no_guess_warning_when_the_configuration_names_one_schema(
+    mock_ctx, source_configuration
+):
+    source = _source_with_details(mock_ctx, PlatformDetail(platform="postgres"))
+    pipeline_info = _source_schema_pipeline(source_configuration)
+    pipeline_info.connection.streams_api_namespaces_absent = True
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert streams[0].details.namespace == "source_schema"
+    assert _guessed_schema_warnings(source) == []
+    assert _namespace_warnings(source) == []

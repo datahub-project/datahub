@@ -8,11 +8,7 @@ import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile
 import UpstreamEntitiesList from '@app/entityV2/shared/embed/UpstreamHealth/UpstreamEntitiesList';
 import { DATASET_COUNT } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import {
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    IS_DEPRECATED_FILTER_NAME,
-} from '@app/search/utils/constants';
+import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, IS_DEPRECATED_FILTER_NAME } from '@app/search/utils/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
@@ -95,20 +91,6 @@ export default function UpstreamHealth() {
                                 },
                                 {
                                     field: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-                                    condition: FilterOperator.Equal,
-                                    values: ['true'],
-                                },
-                            ],
-                        },
-                        {
-                            and: [
-                                {
-                                    field: 'degree',
-                                    condition: FilterOperator.Equal,
-                                    values: degree,
-                                },
-                                {
-                                    field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
                                     condition: FilterOperator.Equal,
                                     values: ['true'],
                                 },

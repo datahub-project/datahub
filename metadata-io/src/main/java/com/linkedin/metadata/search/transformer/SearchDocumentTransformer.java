@@ -462,7 +462,7 @@ public class SearchDocumentTransformer {
         return Optional.of(JsonNodeFactory.instance.numberNode((Float) fieldValue));
       case DOUBLE:
         return Optional.of(JsonNodeFactory.instance.numberNode((Double) fieldValue));
-        // By default run toString
+      // By default run toString
       default:
         String value = fieldValue.toString();
         // Sanitize text fields based on annotation flag
