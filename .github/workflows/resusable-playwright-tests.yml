@@ -199,6 +199,9 @@ jobs:
               }
             }'
 
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install Playwright dependencies
         working-directory: e2e-test/ui/playwright
         run: |

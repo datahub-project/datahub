@@ -50,6 +50,9 @@ jobs:
         with:
           python-version: "3.10"
           cache: "pip"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run model generation
