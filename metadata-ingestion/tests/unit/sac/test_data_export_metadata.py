@@ -1,6 +1,7 @@
 from datahub.ingestion.source.sac.data_export_metadata import (
     parse_data_export_metadata,
 )
+from datahub.ingestion.source.sap_common.models import UnknownColumnType
 from datahub.metadata.schema_classes import (
     NullTypeClass,
     NumberTypeClass,
@@ -62,7 +63,7 @@ def test_unknown_edm_type_falls_back_to_null_and_is_reported():
 
     assert isinstance(weird_col.type.type, NullTypeClass)
     assert result.unknown_edm_types == [
-        result.unknown_edm_types[0].__class__(type="Edm.Fancy", column="weird_col")
+        UnknownColumnType(type="Edm.Fancy", column="weird_col")
     ]
 
 

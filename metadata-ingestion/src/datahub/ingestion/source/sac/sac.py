@@ -442,10 +442,15 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         if (
             not model.is_import
-            and model.system_type is None
             and self.config.ingest_acquired_data_model_schema_metadata
         ):
-            yield from self._emit_acquired_model_schema(dataset_urn, model)
+            if model.system_type is None:
+                yield from self._emit_acquired_model_schema(dataset_urn, model)
+            else:
+                # Known live models (BW/HANA/DWC) keep their schema in the source
+                # system; the DES returns 412 for them, so skip the request and
+                # count it the same way the 412 path does.
+                self.report.acquired_model_schema_skipped_live += 1
 
         if model.system_type in ("BW", "HANA") and model.external_id is not None:
             upstream_dataset_name: Optional[str] = None
