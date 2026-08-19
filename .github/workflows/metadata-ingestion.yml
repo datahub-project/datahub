@@ -152,6 +152,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
       - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
@@ -385,7 +386,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Configure fast APT mirror
-        if: steps.check-changes.outputs.should_run == 'true'
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.check-changes.outputs.should_run == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install system dependencies
         if: steps.check-changes.outputs.should_run == 'true'

@@ -699,6 +699,7 @@ jobs:
           }'
 
       - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
@@ -912,7 +913,7 @@ jobs:
           }'
 
       - name: Configure fast APT mirror
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         if: steps.retry-check.outputs.parse_result != 'all_passed'

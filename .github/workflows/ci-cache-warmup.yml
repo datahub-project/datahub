@@ -66,7 +66,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Configure fast APT mirror
-        if: steps.uv-cache.outputs.cache-hit != 'true'
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.uv-cache.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install system dependencies
         if: steps.uv-cache.outputs.cache-hit != 'true'

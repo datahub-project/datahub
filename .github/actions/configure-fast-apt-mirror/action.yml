@@ -1,12 +1,12 @@
 name: Configure fast APT mirror
 description: >
-  Select a fast Ubuntu APT mirror when vars.CI_USE_FAST_API_MIRROR is 'true'.
-  No-op otherwise. Change the underlying action here to swap implementations
-  everywhere.
+  Select a fast Ubuntu APT mirror. Callers must gate this action with
+  `if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}` (composite actions
+  cannot read `vars`). Change the underlying action here to swap
+  implementations everywhere.
 
 runs:
   using: composite
   steps:
     - name: Configure fast APT mirror
-      if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
       uses: vegardit/fast-apt-mirror.sh@806c59276adfff2df420124ad5e4587f018c358a # v1.4.5
