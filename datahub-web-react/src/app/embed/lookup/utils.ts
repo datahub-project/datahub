@@ -175,7 +175,11 @@ function getPowerBiContainTokens(externalUrl: string): string[] {
  * Always includes the original URL; may include normalized variants for known platforms.
  */
 export function getExternalUrlCandidates(externalUrl: string): string[] {
-    const candidates = [externalUrl, ...getBigQueryEqualCandidates(externalUrl), ...getPowerBiEqualCandidates(externalUrl)];
+    const candidates = [
+        externalUrl,
+        ...getBigQueryEqualCandidates(externalUrl),
+        ...getPowerBiEqualCandidates(externalUrl),
+    ];
     return [...new Set(candidates)];
 }
 
