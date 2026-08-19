@@ -117,7 +117,7 @@ source:
       include_lineage: false
 ```
 
-**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants Stream Catalog read access (for example **DataSteward** or **DataDiscovery** on the environment). This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
+**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants Stream Catalog read access — in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough, as it administers the environment but does not carry the catalog read permission. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
 
 **What each option changes:**
 
@@ -144,6 +144,8 @@ to:
 ```
 
 The Kafka topic edge becomes exact, but the source table disappears from the graph, and with it the column-level lineage derived from that table's schema. If you want `postgres -> kafka -> snowflake` to read as one connected chain, leave this off.
+
+Toggling `include_lineage` also **re-keys the DataJob URNs**: config-inferred jobs are keyed on the source table, while catalog jobs are keyed on the target topic, so tags, documentation, and ownership attached to the old job URNs are orphaned when you flip the flag. Treat enabling it as a one-way move for a given connector rather than something to turn on and off.
 
 Scope of the change:
 
