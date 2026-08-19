@@ -2,7 +2,7 @@ import re
 from enum import IntEnum
 from typing import Pattern
 
-# --- XMLA / SOAP protocol -------------------------------------------------
+# XMLA / SOAP protocol
 
 XMLA_NAMESPACE = "urn:schemas-microsoft-com:xml-analysis"
 SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -31,7 +31,7 @@ PROPERTY_FORMAT = "Format"
 PROPERTY_CONTENT = "Content"
 FORMAT_TABULAR = "Tabular"
 
-# --- Request-body templates -----------------------------------------------
+# Request-body templates
 # Kept as named templates rather than inline f-strings so the SOAP/XMLA wire
 # format lives in one place (and out of the transport code).
 
@@ -58,7 +58,7 @@ DISCOVER_METADATA_REQUEST_TEMPLATE = (
     "{properties}</Discover>"
 )
 
-# --- Response element / rowset key names ----------------------------------
+# Response element / rowset key names
 # Rowset elements are namespace-qualified and matched on their local name.
 
 ELEMENT_ROOT = "root"
@@ -77,7 +77,7 @@ ROW_KEY_NAME = "Name"
 # warning so operators can tell "no models" from "parse failed".
 ROOTLESS_SNIPPET_LEN = 200
 
-# --- Endpoints ------------------------------------------------------------
+# Endpoints
 
 ASAZURE_CLUSTER_RESOLVE_URL = (
     "https://{region}.asazure.windows.net/webapi/clusterResolve"
@@ -91,7 +91,7 @@ ASAZURE_CLUSTER_FQDN_KEY = "clusterFQDN"
 # exposed as an AS-compatible endpoint).
 POWERBI_XMLA_SCOPE = "https://analysis.windows.net/powerbi/api/.default"
 
-# --- DMV / rowset queries -------------------------------------------------
+# DMV / rowset queries
 # Tabular metadata DMVs. Selecting explicit columns keeps the rowset stable
 # across engine versions (SELECT * ordering is not guaranteed).
 
@@ -143,12 +143,12 @@ class PartitionType(IntEnum):
     QUERY = 4
 
 
-# --- Native-type labels ---------------------------------------------------
+# Native-type labels
 
 NATIVE_TYPE_MEASURE = "measure"
 NATIVE_TYPE_CALCULATED_COLUMN = "calculated_column"
 
-# --- View / schema metadata -----------------------------------------------
+# View / schema metadata
 
 VIEW_LANGUAGE_M = "M"
 VIEW_LANGUAGE_DAX = "DAX"
@@ -162,12 +162,12 @@ PROP_ROLE_PREFIX = "role."
 PROP_MEASURE_COUNT = "measure_count"
 PROP_TABLE_COUNT = "table_count"
 
-# --- Platform -------------------------------------------------------------
+# Platform
 
 PLATFORM_AAS = "azure-analysis-services"
 PLATFORM_POWERBI = "powerbi"
 
-# --- Precompiled regex ----------------------------------------------------
+# Precompiled regex
 # ``asazure://westeurope.asazure.windows.net/myserver`` or the https form; the
 # region drives the token scope and cluster-resolve call, the trailing segment
 # is the logical server name.

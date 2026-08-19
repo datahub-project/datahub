@@ -128,7 +128,7 @@ class AzureAnalysisServicesConfig(
         default=True, description="Extract security roles as custom properties."
     )
 
-    # --- Shared M-Query engine surface (MQueryLineageConfig protocol) --------
+    # Shared M-Query engine surface (MQueryLineageConfig protocol)
     server_to_platform_instance: Dict[
         str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = Field(

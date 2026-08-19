@@ -1,5 +1,11 @@
 from typing import Dict
 
+from datahub.metadata.schema_classes import (
+    SchemaMetadataClass,
+    SubTypesClass,
+    ViewPropertiesClass,
+)
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services.config import (
@@ -18,11 +24,6 @@ from datahub.ingestion.source.azure_analysis_services.report import (
     AzureAnalysisServicesReport,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.metadata.schema_classes import (
-    SchemaMetadataClass,
-    SubTypesClass,
-    ViewPropertiesClass,
-)
 
 _SERVER = "asazure://westeurope.asazure.windows.net/myserver"
 

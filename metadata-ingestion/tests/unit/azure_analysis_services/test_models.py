@@ -1,14 +1,15 @@
-from datahub.ingestion.source.azure_analysis_services import constants
-from datahub.ingestion.source.azure_analysis_services.models import (
-    AasColumn,
-    tom_data_type_to_datahub,
-)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
     StringTypeClass,
+)
+
+from datahub.ingestion.source.azure_analysis_services import constants
+from datahub.ingestion.source.azure_analysis_services.models import (
+    AasColumn,
+    tom_data_type_to_datahub,
 )
 
 

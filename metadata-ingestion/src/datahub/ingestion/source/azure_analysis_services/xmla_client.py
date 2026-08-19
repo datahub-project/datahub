@@ -117,7 +117,7 @@ class XmlaClient:
                 ),
             )
 
-    # --- Endpoint / auth --------------------------------------------------
+    # Endpoint / auth
 
     @property
     def server_display_name(self) -> str:
@@ -238,7 +238,7 @@ class XmlaClient:
             self._xmla_url = self._cluster_resolve()
         return self._xmla_url
 
-    # --- SOAP transport ---------------------------------------------------
+    # SOAP transport
 
     def _headers(self, soap_action: str) -> Dict[str, str]:
         headers = {
@@ -298,7 +298,7 @@ class XmlaClient:
             )
         return constants.PROPERTY_LIST_TEMPLATE.format(properties="".join(parts))
 
-    # --- Public API -------------------------------------------------------
+    # Public API
 
     def _query_dmv(
         self, dmv: str, catalog: Optional[str] = None
@@ -336,7 +336,7 @@ class XmlaClient:
         response_text = self._post_soap(constants.SOAP_ACTION_DISCOVER, inner)
         return self._extract_metadata_definition(response_text)
 
-    # --- Response parsing -------------------------------------------------
+    # Response parsing
 
     @staticmethod
     def _find_root_element(envelope: Element) -> Optional[Element]:
@@ -426,7 +426,7 @@ class XmlaClient:
                 return element.text
         return None
 
-    # --- Typed fetch + assembly ------------------------------------------
+    # Typed fetch + assembly
 
     def _fetch_rows(
         self, dmv: str, model_cls: Type[_RowT], catalog: Optional[str] = None

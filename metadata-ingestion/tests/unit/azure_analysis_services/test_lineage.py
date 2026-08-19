@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from unittest import mock
 
+from datahub.metadata.schema_classes import NullTypeClass
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services.config import (
@@ -17,7 +19,6 @@ from datahub.ingestion.source.azure_analysis_services.models import (
 from datahub.ingestion.source.azure_analysis_services.report import (
     AzureAnalysisServicesReport,
 )
-from datahub.metadata.schema_classes import NullTypeClass
 
 _SERVER = "asazure://westeurope.asazure.windows.net/myserver"
 
