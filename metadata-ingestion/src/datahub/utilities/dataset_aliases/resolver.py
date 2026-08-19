@@ -89,7 +89,7 @@ class UrnAliasResolver:
                 return []
             # The search is exhaustive, so `[]` is a genuine absence and is recorded as
             # one — the same name is not asked about twice.
-            entry = self._graph.get_dataset_urns_by_lowercased_urn(key)
+            entry = self._graph.get_dataset_urns_ignoring_case(key)
             self._urns_by_key[key] = entry
         return entry
 

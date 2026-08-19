@@ -38,7 +38,7 @@ def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
             raise RuntimeError("boom")
 
     graph.get_urns_by_filter.side_effect = scroll
-    graph.get_dataset_urns_by_lowercased_urn.side_effect = lambda key: [
+    graph.get_dataset_urns_ignoring_case.side_effect = lambda key: [
         urn for urn in stored if lowercased_urn(urn) == key
     ]
     return graph
@@ -47,7 +47,7 @@ def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
 def _asked(graph: mock.MagicMock) -> List[str]:
     """The key each per-URN search asked about, in order."""
     return [
-        call.args[0] for call in graph.get_dataset_urns_by_lowercased_urn.call_args_list
+        call.args[0] for call in graph.get_dataset_urns_ignoring_case.call_args_list
     ]
 
 
@@ -132,7 +132,7 @@ def test_a_bulk_loaded_resolver_never_asks() -> None:
 
     assert resolver.resolve(_UPPER) == _LOWER
     assert resolver.resolve(_OTHER) is None
-    graph.get_dataset_urns_by_lowercased_urn.assert_not_called()
+    graph.get_dataset_urns_ignoring_case.assert_not_called()
 
 
 def test_a_graph_backed_resolver_asks_under_the_key() -> None:
@@ -167,14 +167,14 @@ def test_a_failed_search_records_nothing() -> None:
     # A transient failure recorded as "known absent" would decline every later reference
     # to a real entity for the rest of the run.
     graph = mock.MagicMock()
-    graph.get_dataset_urns_by_lowercased_urn.side_effect = Exception("search failed")
+    graph.get_dataset_urns_ignoring_case.side_effect = Exception("search failed")
     resolver = UrnAliasResolver(graph)
 
     with pytest.raises(Exception, match="search failed"):
         resolver.resolve(_UPPER)
 
-    graph.get_dataset_urns_by_lowercased_urn.side_effect = None
-    graph.get_dataset_urns_by_lowercased_urn.return_value = [_LOWER]
+    graph.get_dataset_urns_ignoring_case.side_effect = None
+    graph.get_dataset_urns_ignoring_case.return_value = [_LOWER]
     assert resolver.resolve(_UPPER) == _LOWER
 
 

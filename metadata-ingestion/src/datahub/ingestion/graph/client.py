@@ -1230,12 +1230,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
 
-    def get_dataset_urns_by_lowercased_urn(self, lowercased_urn: str) -> List[str]:
-        """Every dataset URN whose name lowercases to `lowercased_urn`.
+    def get_dataset_urns_ignoring_case(self, lowercased_urn: str) -> List[str]:
+        """Every stored casing of `lowercased_urn`, which must already be lowercased.
 
-        Reads the `aliases.lowercasedUrn` GMS maintains, so one search returns every
-        stored casing of a name. Searched by `urn` as well: aliases are written
-        asynchronously, so one that has not landed yet is findable only under its own urn.
+        Matched on `urn` as well as `aliases.lowercasedUrn`: GMS skips the alias for a
+        dataset already equal to its lowercased form, so that one is findable only by urn.
         """
         or_filters: RawSearchFilter = [
             {
