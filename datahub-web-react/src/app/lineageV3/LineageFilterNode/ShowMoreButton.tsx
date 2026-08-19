@@ -16,6 +16,7 @@ const ExtraButtons = styled.div`
     flex-direction: column;
     align-items: end;
     background-color: ${(props) => props.theme.colors.bg};
+    z-index: 2;
 `;
 
 const Wrapper = styled.div`

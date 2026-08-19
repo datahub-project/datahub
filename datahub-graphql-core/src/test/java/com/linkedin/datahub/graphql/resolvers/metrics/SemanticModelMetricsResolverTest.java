@@ -105,23 +105,39 @@ public class SemanticModelMetricsResolverTest {
 
     _resolver.get(_dataFetchingEnvironment).get();
 
-    // Verify the filter contains semanticModel=<urn> criterion
+    // Verify the filter contains both semanticModel=<urn> and hasParentMetric=false in the same
+    // conjunction, so the resolver returns only root metrics of the given semantic model.
     Mockito.verify(_entityClient)
         .scrollAcrossEntities(
             any(),
             any(),
             any(),
             Mockito.argThat(
-                filter ->
-                    filter != null
-                        && filter.getOr().stream()
-                            .flatMap(cc -> cc.getAnd().stream())
-                            .anyMatch(
-                                c ->
-                                    SemanticModelMetricsResolver.SEMANTIC_MODEL_FIELD_NAME.equals(
-                                            c.getField())
-                                        && c.getValues() != null
-                                        && c.getValues().contains(TEST_SEMANTIC_MODEL_URN))),
+                filter -> {
+                  if (filter == null) return false;
+                  return filter.getOr().stream()
+                      .anyMatch(
+                          cc -> {
+                            boolean hasSemanticModel =
+                                cc.getAnd().stream()
+                                    .anyMatch(
+                                        c ->
+                                            SemanticModelMetricsResolver.SEMANTIC_MODEL_FIELD_NAME
+                                                    .equals(c.getField())
+                                                && c.getValues() != null
+                                                && c.getValues().contains(TEST_SEMANTIC_MODEL_URN));
+                            boolean hasNoParent =
+                                cc.getAnd().stream()
+                                    .anyMatch(
+                                        c ->
+                                            SemanticModelMetricsResolver
+                                                    .HAS_PARENT_METRIC_FIELD_NAME
+                                                    .equals(c.getField())
+                                                && c.getValues() != null
+                                                && c.getValues().contains("false"));
+                            return hasSemanticModel && hasNoParent;
+                          });
+                }),
             any(),
             any(),
             any(),

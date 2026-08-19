@@ -97,9 +97,9 @@ class DataHubDatabaseReader:
             FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
             JOIN (
                 SELECT *,
-                JSON_EXTRACT(metadata, '$.removed') as removed
+                {self._get_json_extract_expression()} as removed
                 FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
-                WHERE aspect = "status" AND version = 0
+                WHERE aspect = 'status' AND version = 0
             ) as sd ON sd.urn = mav.urn
             WHERE sd.removed = true
             ORDER BY mav.urn

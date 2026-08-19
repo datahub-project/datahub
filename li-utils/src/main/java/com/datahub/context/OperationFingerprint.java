@@ -3,6 +3,7 @@ package com.datahub.context;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 /**
@@ -22,13 +23,14 @@ public interface OperationFingerprint {
   OperationFingerprint EMPTY =
       new OperationFingerprint() {
         private static final String EMPTY_ID = "empty";
-        private final AuditStamp EMPTY_AUDIT_STAMP =
-            new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:UNKNOWN")).setTime(0L);
+        private static final Urn EMPTY_ACTOR = UrnUtils.getUrn("urn:li:corpuser:UNKNOWN");
+        private static final AuditStamp EMPTY_AUDIT_STAMP =
+            new AuditStamp().setActor(EMPTY_ACTOR).setTime(0L);
 
         @Nonnull
         @Override
         public Urn getActor() {
-          return UrnUtils.getUrn("urn:li:corpuser:UNKNOWN");
+          return EMPTY_ACTOR;
         }
 
         @Nonnull
@@ -79,4 +81,19 @@ public interface OperationFingerprint {
 
   @Nonnull
   String getEntityContextId();
+
+  /**
+   * Return the {@link Enrichment} of the given concrete class stamped onto this operation, or
+   * {@link Optional#empty()} if no such enrichment is present.
+   *
+   * <p>Defaults to {@link Optional#empty()} so shim/test implementations that don't participate in
+   * the enrichment SPI don't need boilerplate overrides. {@code OperationContext} overrides this to
+   * propagate enrichments from its request-side {@link
+   * io.datahubproject.metadata.context.RequestContext}. See {@link Enrichment} for the extension
+   * pattern.
+   */
+  @Nonnull
+  default <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
+    return Optional.empty();
+  }
 }

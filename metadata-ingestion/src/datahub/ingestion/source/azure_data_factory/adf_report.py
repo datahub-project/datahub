@@ -108,20 +108,22 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_lineage_failed(self, entity_name: str, error: str) -> None:
         """Record a lineage extraction failure."""
         self.lineage_extraction_failures += 1
-        self.report_warning(
+        self.warning(
             title="Lineage Extraction Failed",
             message="Unable to extract lineage for this entity.",
             context=f"entity={entity_name}, error={error}",
+            log=False,
         )
 
     def report_unmapped_platform(
         self, dataset_name: str, linked_service_type: str
     ) -> None:
         """Record a dataset with unmapped platform via structured warning."""
-        self.report_warning(
+        self.warning(
             title="Unmapped Linked Service Type",
             message="Lineage skipped for dataset using unsupported linked service type.",
             context=f"dataset={dataset_name}, linked_service_type={linked_service_type}",
+            log=False,
         )
 
     def report_column_lineage_extracted(self) -> None:
@@ -164,8 +166,9 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_api_error(self, endpoint: str, error: str) -> None:
         """Record an API error."""
         self.api_calls_total_error_count += 1
-        self.report_warning(
+        self.warning(
             title="API Error",
             message="Failed to call Azure Data Factory API.",
             context=f"endpoint={endpoint}, error={error}",
+            log=False,
         )

@@ -6,9 +6,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import SeededEntity, TestContext
 from tests.zdu.framework.datahub_client import AspectResponse
 from tests.zdu.framework.phases.runtime_migration import RuntimeMigrationPhase
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _seeded(i: int, expected_version: int = 4) -> SeededEntity:

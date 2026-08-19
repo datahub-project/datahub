@@ -1,13 +1,15 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from 'reactflow';
 
+import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
-import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
+import { ColumnRef, LineageDisplayContext, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import useBulkDataProductMemberships from '@app/lineageV3/queries/useBulkDataProductMemberships';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
@@ -32,24 +34,46 @@ export default function LineageDisplay({
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions, levelsInfo, levelsMap } = useComputeGraph();
+    const {
+        fineGrainedLineage,
+        flowNodes,
+        flowEdges,
+        resetPositions,
+        levelsInfo,
+        levelsMap,
+        lineageFilters,
+        adjacencyList: displayedAdjacencyList,
+    } = useComputeGraph();
 
     const addAnnotationNodes = useAddAnnotationNodes();
 
     const { isModuleView } = useContext(LineageGraphContext);
 
     const shownUrns = useMemo(
-        () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
+        () =>
+            flowNodes
+                .filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME && node.type !== LINEAGE_ANNOTATION_NODE_NAME)
+                .map((node) => node.data.urn || node.id),
         [flowNodes],
     );
+    // Node ids are not always urns: data product members have data-product-qualified ids, and an
+    // entity in multiple data products is rendered once per product. Column edges are computed from
+    // urns, so they need this to find the nodes to attach to.
+    const nodeIdsByUrn = useMemo(() => {
+        const map = new Map<string, string[]>();
+        flowNodes.forEach((node) => setDefault(map, node.data.urn || node.id, []).push(node.id));
+        return map;
+    }, [flowNodes]);
     const refetchUrn = useBulkEntityLineage(shownUrns);
+    useBulkDataProductMemberships();
 
-    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode);
+    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
     const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
         shownUrns,
+        nodeIdsByUrn,
     );
 
     const finalNodes = useMemo(() => {
@@ -107,6 +131,7 @@ export default function LineageDisplay({
             value={{
                 hoveredNode,
                 setHoveredNode,
+                lineageFilters,
                 displayedMenuNode,
                 setDisplayedMenuNode,
                 selectedColumn,

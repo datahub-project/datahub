@@ -1,0 +1,48 @@
+namespace com.linkedin.api
+
+/**
+ * REST-specific properties for APIs of subtype REST_ENDPOINT.
+ *
+ * Only attached to API entities where subType = REST_ENDPOINT. The (method, path)
+ * pair identifies a REST operation, so an endpoint that serves the same path
+ * under multiple HTTP methods (e.g. GET vs POST /orders) is modeled as a
+ * distinct API entity per method, each carrying its own apiSignature. Kept on
+ * this subtype-specific aspect rather than the protocol-agnostic apiProperties
+ * so callers can filter by method and group endpoints that share a path.
+ */
+@Aspect = {
+  "name": "restApiProperties"
+}
+record RestApiProperties {
+
+  /**
+   * The HTTP method this endpoint responds to.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "HTTP Method"
+  }
+  method: enum HttpMethod {
+    GET
+    POST
+    PUT
+    PATCH
+    DELETE
+    HEAD
+    OPTIONS
+    TRACE
+  }
+
+  /**
+   * The route/path template of the endpoint, relative to the owning service's
+   * base URL, e.g. "/orders/{orderId}". Endpoints that share a path (across
+   * methods) can be grouped by filtering on this value.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Route"
+  }
+  path: string
+}

@@ -50,6 +50,8 @@ export default function LineageSearchFilters() {
         setShowDataProcessInstances,
         showGhostEntities,
         setShowGhostEntities,
+        outputPortsOnly,
+        setOutputPortsOnly,
     } = useContext(LineageNodesContext);
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
 
@@ -64,6 +66,22 @@ export default function LineageSearchFilters() {
         <ControlPanel>
             <ControlPanelTitle>{t('controls.filters.title')}</ControlPanelTitle>
             <ControlPanelSubtext>{t('controls.filters.description')}</ControlPanelSubtext>
+            {rootType === EntityType.DataProduct && (
+                <ToggleWrapper>
+                    <ToggleLabel>
+                        {t('controls.filters.outputPortsOnly.label')}
+                        <StyledInfoPopover
+                            content={<PopoverWrapper>{t('controls.filters.outputPortsOnly.tooltip')}</PopoverWrapper>}
+                        />
+                    </ToggleLabel>
+                    <Switch
+                        label=""
+                        labelStyle={{ display: 'none' }}
+                        isChecked={outputPortsOnly}
+                        onChange={() => setOutputPortsOnly(!outputPortsOnly)}
+                    />
+                </ToggleWrapper>
+            )}
             <ToggleWrapper>
                 <ToggleLabel>
                     {t('controls.filters.hideTransformations.label')}

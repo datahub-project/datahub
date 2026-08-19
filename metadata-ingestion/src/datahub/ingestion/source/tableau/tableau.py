@@ -11,7 +11,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -100,6 +99,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     DatasourceType,
     LineageResult,
     MetadataQueryException,
+    OverriddenInfoFn,
     TableauLineageOverrides,
     TableauUpstreamReference,
     clean_query,
@@ -596,6 +596,18 @@ class TableauConfig(
     database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = Field(
         default=None,
         description="Mappings to change platform instance in generated dataset urns based on database. Use only if you really know what you are doing.",
+    )
+
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Mappings from Tableau database id to DataHub platform_instance. "
+            "Use when distinct connections share a hostname so "
+            "`database_hostname_to_platform_instance_map` cannot tell them "
+            "apart (e.g. AWS Athena workgroups behind a regional endpoint, "
+            "or multiple Snowflake accounts behind a single proxy). Takes "
+            "precedence over hostname-based routing when both match."
+        ),
     )
 
     extract_usage_stats: bool = Field(
@@ -1289,8 +1301,24 @@ class TableauSiteSource:
             database_server_id = database_server.get(c.ID)
             server_connection = database_server.get(c.HOST_NAME)
             host_name = maybe_parse_hostname()
-            if host_name:
+            name = database_server.get(c.NAME) or ""
+            connection_type = database_server.get(c.CONNECTION_TYPE) or ""
+
+            # An id-less server gets no map entry: None is the only "absent id"
+            # sentinel, so a placeholder key here could collide with a table whose
+            # own database id is missing and misroute it to this server.
+            if database_server_id and host_name:
                 self.database_server_hostname_map[str(database_server_id)] = host_name
+
+            # Log every server so users can find ids for the id routing map
+            # without hitting the Tableau Metadata API directly.
+            logger.info(
+                "Tableau database server: id=%s name=%r hostName=%s connectionType=%s",
+                database_server_id,
+                name,
+                host_name,
+                connection_type,
+            )
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
         all_project_map: Dict[str, TableauProject] = {}
@@ -1300,6 +1328,13 @@ class TableauSiteSource:
                 return all_project_map
 
             for project in TSC.Pager(self.server.projects):
+                if project.id is None or project.name is None:
+                    self.report.warning(
+                        title="Project without an id or name skipped",
+                        message="A project returned by the Tableau API has no id or name and was excluded from the project hierarchy.",
+                        context=f"id={project.id}, name={project.name}",
+                    )
+                    continue
                 all_project_map[project.id] = TableauProject(
                     id=project.id,
                     name=project.name,
@@ -1309,19 +1344,21 @@ class TableauSiteSource:
                     path=[],
                 )
             # Set parent project name
-            for _project_id, project in all_project_map.items():
-                if project.parent_id is None:
+            for _project_id, tableau_project in all_project_map.items():
+                if tableau_project.parent_id is None:
                     continue
 
-                if project.parent_id in all_project_map:
-                    project.parent_name = all_project_map[project.parent_id].name
+                if tableau_project.parent_id in all_project_map:
+                    tableau_project.parent_name = all_project_map[
+                        tableau_project.parent_id
+                    ].name
                 else:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
+                        context=f"Missing {tableau_project.parent_id}, referenced by {tableau_project.id} {tableau_project.name}",
                     )
-                    project.parent_id = None
+                    tableau_project.parent_id = None
 
             # Post-condition
             assert all(
@@ -1449,6 +1486,13 @@ class TableauSiteSource:
                         f"registry"
                     )
                     continue
+                if ds.id is None:
+                    self.report.warning(
+                        title="Datasource without an id skipped",
+                        message="A datasource returned by the Tableau API has no id and was excluded from the datasource-to-project map.",
+                        context=f"name={ds.name}, project_id={ds.project_id}",
+                    )
+                    continue
                 self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
@@ -1467,6 +1511,13 @@ class TableauSiteSource:
                 logger.debug(
                     f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
                     f"registry"
+                )
+                continue
+            if wb.id is None:
+                self.report.warning(
+                    title="Workbook without an id skipped",
+                    message="A workbook returned by the Tableau API has no id and was excluded from the workbook-to-project map.",
+                    context=f"name={wb.name}, project_id={wb.project_id}",
                 )
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
@@ -1701,8 +1752,8 @@ class TableauSiteSource:
 
                 if other_errors:
                     self.report.warning(
-                        message=f"Received error fetching Query Connection {connection_type}",
-                        context=f"Errors: {other_errors}",
+                        message="Received error fetching Query Connection",
+                        context=f"connection_type={connection_type}, errors={other_errors}",
                     )
 
                 if permission_mode_errors:
@@ -2178,11 +2229,12 @@ class TableauSiteSource:
                 continue
 
             table_urn = ref.make_dataset_urn(
-                self.config.env,
-                self.config.platform_instance_map,
-                self.config.lineage_overrides,
-                self.config.database_hostname_to_platform_instance_map,
-                self.database_server_hostname_map,
+                env=self.config.env,
+                platform_instance_map=self.config.platform_instance_map,
+                lineage_overrides=self.config.lineage_overrides,
+                database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
+                database_server_hostname_map=self.database_server_hostname_map,
+                database_id_to_platform_instance_map=self.config.database_id_to_platform_instance_map,
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
@@ -2614,7 +2666,7 @@ class TableauSiteSource:
                     f"registry"
                 )
             else:
-                self.datasource_project_map[ds_result.id] = ds_result.project_id
+                self.datasource_project_map[ds_luid] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
             self.report.warning(
@@ -2745,20 +2797,7 @@ class TableauSiteSource:
         platform: str,
         env: str,
         platform_instance: Optional[str],
-        func_overridden_info: Optional[
-            Callable[
-                [
-                    str,
-                    Optional[str],
-                    Optional[str],
-                    Optional[Dict[str, str]],
-                    Optional[TableauLineageOverrides],
-                    Optional[Dict[str, str]],
-                    Optional[Dict[str, str]],
-                ],
-                Tuple[Optional[str], Optional[str], str, str],
-            ]
-        ],
+        func_overridden_info: Optional[OverriddenInfoFn],
     ) -> Optional["CustomSqlParseResult"]:
         database_field = datasource.get(c.DATABASE) or {}
         database_id: Optional[str] = database_field.get(c.ID)
@@ -2795,13 +2834,14 @@ class TableauSiteSource:
         if func_overridden_info is not None:
             # Override the information as per configuration
             upstream_db, platform_instance, platform, _ = func_overridden_info(
-                database_connection_type,
-                database_name,
-                database_id,
-                self.config.platform_instance_map,
-                self.config.lineage_overrides,
-                self.config.database_hostname_to_platform_instance_map,
-                self.database_server_hostname_map,
+                connection_type=database_connection_type,
+                upstream_db=database_name,
+                upstream_db_id=database_id,
+                platform_instance_map=self.config.platform_instance_map,
+                lineage_overrides=self.config.lineage_overrides,
+                database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
+                database_server_hostname_map=self.database_server_hostname_map,
+                database_id_to_platform_instance_map=self.config.database_id_to_platform_instance_map,
             )
 
         logger.debug(
@@ -2989,6 +3029,9 @@ class TableauSiteSource:
             upstream_db, platform_instance, platform, _ = get_overridden_info(
                 connection_type=conn.connection_type,
                 upstream_db=conn.database,
+                # Initial SQL is read from the workbook/datasource definition XML,
+                # which carries no Tableau database id, so neither id- nor
+                # hostname-keyed platform_instance routing can apply here.
                 upstream_db_id=None,
                 platform_instance_map=self.config.platform_instance_map,
                 lineage_overrides=self.config.lineage_overrides,
@@ -3883,12 +3926,20 @@ class TableauSiteSource:
             self.config.permission_ingestion
             and self.config.permission_ingestion.enable_workbooks
         ):
-            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
-            workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
-            self.server.workbooks.populate_permissions(workbook_instance)
-            custom_props = self._create_workbook_properties(
-                workbook_instance.permissions
-            )
+            workbook_luid = workbook.get(c.LUID)
+            logger.debug(f"Ingest access roles of workbook-id='{workbook_luid}'")
+            if workbook_luid:
+                workbook_instance = self.server.workbooks.get_by_id(workbook_luid)
+                self.server.workbooks.populate_permissions(workbook_instance)
+                custom_props = self._create_workbook_properties(
+                    workbook_instance.permissions
+                )
+            else:
+                self.report.warning(
+                    title="Workbook permissions skipped",
+                    message="Workbook has no LUID, so its access roles could not be ingested.",
+                    context=f"name={workbook.get(c.NAME)}, id={workbook.get(c.ID)}",
+                )
 
         luid_props: Dict = (
             {c.LUID: str(workbook[c.LUID])} if workbook.get(c.LUID) else {}
@@ -4290,6 +4341,13 @@ class TableauSiteSource:
 
     def _fetch_groups(self):
         for group in TSC.Pager(self.server.groups):
+            if group.id is None:
+                self.report.warning(
+                    title="Group without an id skipped",
+                    message="A group returned by the Tableau API has no id and was excluded from the group map.",
+                    context=f"name={group.name}",
+                )
+                continue
             self.group_map[group.id] = group
 
     def _get_allowed_capabilities(self, capabilities: Dict[str, str]) -> List[str]:
@@ -4310,7 +4368,8 @@ class TableauSiteSource:
         groups = []
         for rule in permissions:
             if rule.grantee.tag_name == "group":
-                group = self.group_map.get(rule.grantee.id)
+                grantee_id = rule.grantee.id
+                group = self.group_map.get(grantee_id) if grantee_id else None
                 if not group or not group.name:
                     logger.debug(f"Group {rule.grantee.id} not found in group map.")
                     continue
@@ -4374,14 +4433,15 @@ class TableauSiteSource:
             schema = db_table.get(c.SCHEMA, "")
             database_info = db_table.get(c.DATABASE, {})
 
+            database_id: Optional[str]
             if database_info and isinstance(database_info, dict):
                 connection_type = database_info.get(c.CONNECTION_TYPE)
                 database_name = database_info.get(c.NAME, "")
-                database_id = database_info.get(c.ID, "")
+                database_id = database_info.get(c.ID)
             else:
                 connection_type = None
                 database_name = ""
-                database_id = ""
+                database_id = None
 
             raw_table_name = full_name or table_name
             if not connection_type or not raw_table_name:
@@ -4391,7 +4451,7 @@ class TableauSiteSource:
                 upstream_db,
                 platform_instance,
                 platform,
-                original_platform,
+                _,
             ) = get_overridden_info(
                 connection_type=connection_type,
                 upstream_db=database_name,
@@ -4400,10 +4460,11 @@ class TableauSiteSource:
                 platform_instance_map=self.config.platform_instance_map,
                 database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
                 database_server_hostname_map=self.database_server_hostname_map,
+                database_id_to_platform_instance_map=self.config.database_id_to_platform_instance_map,
             )
 
             fully_qualified_name = get_fully_qualified_table_name(
-                platform=original_platform,
+                platform=platform,
                 upstream_db=upstream_db or "",
                 schema=schema,
                 table_name=raw_table_name,
@@ -4517,9 +4578,12 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
-            # Populate the map of database names and database hostnames to be used later to map
-            # databases to platform instances.
-            if self.config.database_hostname_to_platform_instance_map:
+            # `is not None` rather than truthiness: an empty map is a valid way to opt
+            # into the per-server INFO log while working out which ids to route.
+            if (
+                self.config.database_hostname_to_platform_instance_map is not None
+                or self.config.database_id_to_platform_instance_map is not None
+            ):
                 with PerfTimer() as timer:
                     self._populate_database_server_hostname_map()
                     self.report.populate_database_server_hostname_map_timer[

@@ -308,6 +308,7 @@
     "tab.properties": "Egenskaper",
     "tab.queries": "Queries",
     "tab.runs": "Runs",
+    "tab.definition": "Definition",
     "tab.summary": "Sammanfattning",
     "tag.name": "Tag",
     "tag.namePlural": "Tags",
@@ -326,5 +327,6 @@
     "user.tab.ownerOf": "Owner av",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Team",
-    "user.titleRoleLabel": "Titel/Roll"
+    "user.titleRoleLabel": "Titel/Roll",
+    "dataProduct.parentLabel": "Överordnat Data Product"
 }

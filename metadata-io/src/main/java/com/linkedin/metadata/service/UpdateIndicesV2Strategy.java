@@ -700,7 +700,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
 
     // Condition 3: Semantic index must exist
-    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     Boolean indexExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (indexExists == null) {
       // Check if the index exists and cache the result
@@ -756,7 +756,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String entityName,
       @Nonnull String document,
       @Nonnull String docId) {
-    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
         "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
         semanticIndexName,
@@ -774,7 +774,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    */
   private void deleteFromSemanticIndex(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
-    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
         "Semantic dual-write: DELETE from '{}' for entity '{}', docId='{}'",
         semanticIndexName,

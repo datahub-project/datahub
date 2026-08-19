@@ -5,8 +5,11 @@ import logging
 import pytest
 
 from datahub.configuration.common import GraphError
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 # --- A. Basic integration — projection doesn't break valid queries ---

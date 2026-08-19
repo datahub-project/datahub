@@ -19,6 +19,7 @@ import com.linkedin.metadata.usage.registry.metrics.UsageMetricContributor;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import com.linkedin.metadata.usage.registry.operations.UsageOperationsRegistry;
 import com.linkedin.metadata.usage.store.InMemoryUsageAggregationStore;
+import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
@@ -134,18 +135,21 @@ public class MceUsageAggregationFactory {
         flush.getMaxWindowSeconds(),
         flush.getRetryAttempts(),
         flush.getRetryInitialBackoffMillis(),
-        flush.getAlignmentPeriodSeconds());
+        flush.getAlignmentPeriodSeconds(),
+        flush.isIncludeAgentNameDimension());
   }
 
   @Bean
   @Nonnull
   public AdaptiveFlushCoordinator mceAdaptiveFlushCoordinator(
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       @Qualifier("usageAggregationStore") InMemoryUsageAggregationStore usageAggregationStore,
       ConfigurationProvider configurationProvider) {
     UsageAggregationConfiguration config =
         UsageAggregationFactory.resolveAggregationConfig(configurationProvider);
     adaptiveFlushCoordinator =
         new AdaptiveFlushCoordinator(
+            systemOperationContext,
             usageAggregationStore,
             config.getFlush().getScheduledIntervalSeconds(),
             usageAggregationStore.clock());

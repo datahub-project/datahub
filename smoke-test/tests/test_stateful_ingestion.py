@@ -1,5 +1,6 @@
 from typing import Any, Dict, Union, cast
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
@@ -8,7 +9,10 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.testing.state_helpers import get_current_checkpoint_from_pipeline
+from tests.utilities.domains import Domain
 from tests.utils import get_db_password, get_db_type, get_db_url, get_db_username
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def test_stateful_ingestion(auth_session):
