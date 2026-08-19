@@ -18,9 +18,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import MlModelUrn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 generated_urns: List[str] = []
 
