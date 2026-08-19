@@ -1,8 +1,8 @@
 name: Configure fast APT mirror
 description: >
   Select a fast Ubuntu APT mirror. Callers must gate this action with
-  `if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}` (composite actions
-  cannot read `vars`). Change the underlying action here to swap
+  if: vars.CI_USE_FAST_API_MIRROR == 'true' (composite actions cannot
+  read the vars context). Change the underlying action here to swap
   implementations everywhere.
 
 runs:
