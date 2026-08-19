@@ -678,6 +678,7 @@ def default_query_results(  # noqa: C901
     ):
         return [
             {
+                "QUERY_ID": f"01a2b3c4-0000-0000-0000-00000000{op_idx:04d}",
                 "QUERY_START_TIME": datetime(2022, 6, 2, 4, 41, 1, 367000).replace(
                     tzinfo=timezone.utc
                 ),

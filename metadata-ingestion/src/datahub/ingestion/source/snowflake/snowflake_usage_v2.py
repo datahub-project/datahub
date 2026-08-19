@@ -92,6 +92,7 @@ class SnowflakeObjectAccessEntry(PermissiveModel):
 
 
 class SnowflakeJoinedAccessEvent(PermissiveModel):
+    query_id: Optional[str] = None
     query_start_time: datetime
     query_text: str
     query_type: str
@@ -488,13 +489,20 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         if operation_type is OperationTypeClass.CUSTOM
                         else None
                     ),
+                    # GMS derives the timeseries docId from timestampMillis + urn +
+                    # messageId. Since every aspect in a run is stamped with the current
+                    # time, two operations on the same table land on the same docId and
+                    # silently overwrite each other unless we supply a messageId. The
+                    # Snowflake query id identifies the execution and is stable across
+                    # runs, so re-ingesting an overlapping window stays idempotent.
+                    messageId=event.query_id,
                 )
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(
-                    id=f"{start_time.isoformat()}-operation-aspect-{resource}",
+                    id=f"{event.query_id or start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
                 yield wu

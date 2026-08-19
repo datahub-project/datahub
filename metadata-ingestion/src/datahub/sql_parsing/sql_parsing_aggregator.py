@@ -2007,6 +2007,11 @@ class SqlParsingAggregator(Closeable):
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
+            # timestampMillis is the ingestion time, so the timeseries docId
+            # (timestampMillis + urn + messageId) would collide for two queries writing
+            # the same table in the same millisecond. The query fingerprint keeps them
+            # apart and is stable across runs.
+            messageId=query.query_id,
             actor=query.actor.urn() if query.actor else None,
             sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
             queries=(
