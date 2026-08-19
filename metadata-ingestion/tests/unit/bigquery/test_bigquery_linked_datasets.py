@@ -869,9 +869,28 @@ def test_convert_column_urns_to_lowercase_lowercases_both_sides():
         )
 
 
-def test_duplicate_column_names_deduped():
+def _nested_column(name: str, field_path: str) -> BigqueryColumn:
+    """One row of a complex column: the rows share a column name and differ only
+    in field path."""
+    return BigqueryColumn(
+        name=name,
+        ordinal_position=1,
+        is_nullable=False,
+        field_path=field_path,
+        is_partition_column=False,
+        cluster_column_position=None,
+        data_type="STRUCT<city STRING, country STRING>",
+        comment="",
+    )
+
+
+def test_complex_column_yields_one_lineage_per_top_level_column():
     handler = _seed_with_linked_dataset()
-    columns = [_column("id"), _column("id")]
+    columns = [
+        _nested_column("address", "address"),
+        _nested_column("address", "address.city"),
+        _nested_column("address", "address.country"),
+    ]
     wus = list(
         handler.gen_lineage_workunits(
             consumer_project_id="consumer-project",
@@ -927,24 +946,25 @@ def test_finegrained_failure_emits_nothing():
     assert handler.report.num_linked_dataset_lineage_emitted == 0
 
 
-def test_publisher_siblings_grouped_across_consumers():
+def test_publisher_siblings_grouped_and_sorted_across_consumers():
     """One publisher shared into several linked datasets gets a single aspect
-    listing every consumer, rather than one aspect per consumer."""
-    handler = _seed_with_linked_dataset()
-    handler._lookup[("other-project", "other_shared")] = LinkedDatasetInfo(
-        publisher=PublisherRef(
-            dataset="publisher_dataset", project_id="publisher-project"
-        ),
-    )
+    listing every consumer in a stable order."""
+    handler = _make_handler()
+    consumers = [f"consumer-{index}" for index in range(6)]
+    for consumer in consumers:
+        handler._lookup[(consumer, "shared_dataset")] = LinkedDatasetInfo(
+            publisher=PublisherRef(
+                dataset="publisher_dataset", project_id="publisher-project"
+            ),
+        )
 
-    for project_id, dataset in (
-        ("consumer-project", "shared_dataset"),
-        ("other-project", "other_shared"),
-    ):
+    # Emitted in reverse order, so the consumer list has to be sorted on the way
+    # out; the set the handler accumulates into does not preserve either order.
+    for consumer in reversed(consumers):
         list(
             handler.gen_lineage_workunits(
-                consumer_project_id=project_id,
-                consumer_dataset=dataset,
+                consumer_project_id=consumer,
+                consumer_dataset="shared_dataset",
                 entity_name="users",
                 columns=[_column("id")],
             )
@@ -956,8 +976,7 @@ def test_publisher_siblings_grouped_across_consumers():
     sibling = _aspect(publisher_wus[0])
     assert sibling.primary is True
     assert [u.split(",")[1] for u in sibling.siblings] == [
-        "consumer-project.shared_dataset.users",
-        "other-project.other_shared.users",
+        f"{consumer}.shared_dataset.users" for consumer in consumers
     ]
 
 
@@ -978,6 +997,10 @@ def test_publisher_siblings_separate_per_publisher_entity():
     assert len(publisher_wus) == 2
     for wu in publisher_wus:
         assert len(_aspect(wu).siblings) == 1
+    assert [_urn(wu).split(",")[1] for wu in publisher_wus] == [
+        "publisher-project.publisher_dataset.orders",
+        "publisher-project.publisher_dataset.users",
+    ]
 
 
 # --- Lineage emission guard (schema-gen wiring) ---------------------------
