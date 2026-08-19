@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
 
@@ -54,3 +55,37 @@ def test_disables_itself_when_the_file_cannot_be_written(tmp_path):
 
     assert writer.records_written == 0
     writer.close()
+
+
+class RaisingStr:
+    def __str__(self):
+        raise ValueError("Intentional serialization failure")
+
+
+def test_disables_itself_when_serialization_fails(tmp_path):
+    """A serialization error must not raise."""
+    path = tmp_path / "parse-errors.jsonl"
+    writer = QuarantineWriter(str(path))
+
+    bad_row = _row()
+    bad_row["bad_value"] = RaisingStr()
+
+    writer.write(bad_row, "some error")  # must not raise
+
+    assert writer.records_written == 0
+    writer.close()
+
+
+def test_handles_close_failure_gracefully(tmp_path):
+    """A close-time failure must not raise."""
+    path = tmp_path / "parse-errors.jsonl"
+    writer = QuarantineWriter(str(path))
+    writer.write(_row(), "some error")
+
+    # Simulate a close failure
+    writer._file.close = MagicMock(side_effect=OSError("Simulated close failure"))
+
+    writer.close()  # must not raise
+
+    # _file should be cleared even on failure
+    assert writer._file is None
