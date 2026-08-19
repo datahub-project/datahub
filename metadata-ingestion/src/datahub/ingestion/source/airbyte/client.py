@@ -428,12 +428,15 @@ class AirbyteBaseClient(ABC):
     def _collect_stream_api_metadata(self, source_id: str) -> AirbyteStreamApiMetadata:
         try:
             detailed_streams = self.list_streams(source_id=source_id)
-        except AirbyteApiError as e:
-            if e.status_code == 404:
-                # Older Airbyte has no /streams, and an inaccessible source
-                # answers the same way. Either way namespaces are unavailable.
-                return AirbyteStreamApiMetadata(unavailable=True)
+        except AirbyteAuthenticationError:
             raise
+        except AirbyteApiError:
+            # 404 (no /streams, or inaccessible source), 5xx, and retry
+            # exhaustion all mean namespaces and column-level lineage are
+            # unavailable for this source. Raising would fail the whole
+            # connection and, via report.failure, skip stale-entity removal
+            # for every other connection on the run.
+            return AirbyteStreamApiMetadata(unavailable=True)
 
         property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
         namespaces_by_name: Dict[str, List[str]] = {}

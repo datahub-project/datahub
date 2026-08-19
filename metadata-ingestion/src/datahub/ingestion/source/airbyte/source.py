@@ -334,7 +334,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         conn_id = getattr(connection, "connection_id", "unknown")
                         conn_name = getattr(connection, "name", "unknown")
                         ws_id = getattr(workspace, "workspace_id", "unknown")
-                        self.report.failure(
+                        self.report.warning(
+                            title="Failed to Process Connection",
                             message="Failed to process connection",
                             context=f"workspace-{ws_id}/connection-{conn_id}/{conn_name}",
                             exc=e,
@@ -360,7 +361,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 yield from self._create_lineage_workunits(pipeline_info)
             except Exception as e:
                 conn_id = pipeline_info.connection.connection_id or "unknown"
-                self.report.failure(
+                self.report.warning(
+                    title="Failed to Process Pipeline",
                     message="Failed to process pipeline",
                     context=f"pipeline-{conn_id}",
                     exc=e,
@@ -552,11 +554,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Stream Metadata Unavailable",
                     message=(
-                        "Airbyte /streams returned 404, so per-stream namespaces "
-                        "and column-level lineage are unavailable. Older Airbyte "
-                        "versions have no such endpoint; on versions that do, a "
-                        "404 means the source is not accessible to these "
-                        "credentials"
+                        "Airbyte /streams could not be read, so per-stream "
+                        "namespaces and column-level lineage are unavailable. "
+                        "Older Airbyte versions have no such endpoint; on "
+                        "versions that do, a 404 means the source is not "
+                        "accessible to these credentials, and a 5xx means "
+                        "Airbyte failed while describing the source"
                     ),
                     context=f"source_id={source_id}, {connection_context}",
                 )

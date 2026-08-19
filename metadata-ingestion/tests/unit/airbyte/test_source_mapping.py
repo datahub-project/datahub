@@ -240,8 +240,9 @@ def _connection_with_one_stream(**overrides: object) -> AirbyteConnectionPartial
 
 
 def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
-    """A 404 from /streams costs namespaces and column-level lineage, so it has
-    to reach the report — but only once per source, not once per connection."""
+    """An unavailable /streams response costs namespaces and column-level
+    lineage, so it has to reach the report — but only once per source, not
+    once per connection."""
     pipeline_info = _pipeline_with_connection(
         _connection_with_one_stream(streams_api_unavailable=True)
     )

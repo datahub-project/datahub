@@ -1573,8 +1573,11 @@ class TestFetchStreamApiMetadata:
         )
         client = AirbyteOSSClient(config)
 
-        with pytest.raises(AirbyteApiError, match="500"):
-            client._fetch_stream_api_metadata("source-id-123")
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.unavailable is True
+        assert metadata.property_fields_by_stream == {}
+        assert metadata.namespaces_by_name == {}
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_reraises_authentication_error(
@@ -1595,7 +1598,7 @@ class TestFetchStreamApiMetadata:
             client._fetch_stream_api_metadata("source-id-123")
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_api_metadata_non_404_reraises(self, mock_list_streams):
+    def test_fetch_stream_api_metadata_500_returns_unavailable(self, mock_list_streams):
         mock_list_streams.side_effect = AirbyteApiError(
             "500 Internal Server Error", status_code=500
         )
@@ -1606,8 +1609,32 @@ class TestFetchStreamApiMetadata:
         )
         client = AirbyteOSSClient(config)
 
-        with pytest.raises(AirbyteApiError, match="500"):
-            client._fetch_stream_api_metadata("source-id-123")
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.unavailable is True
+        assert metadata.property_fields_by_stream == {}
+        assert metadata.namespaces_by_name == {}
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_retry_exhausted_returns_unavailable(
+        self, mock_list_streams
+    ):
+        mock_list_streams.side_effect = AirbyteApiError(
+            "Error connecting to Airbyte API: Max retries exceeded with url: "
+            "/api/public/v1/streams (Caused by ResponseError('too many 500 "
+            "error responses'))"
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.unavailable is True
+        assert metadata.property_fields_by_stream == {}
 
 
 class TestGetConnection:
@@ -1683,6 +1710,34 @@ class TestGetConnection:
         assert stream is not None
         assert stream.name == "events"
         assert stream.namespace == "my_schema"
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_connection_survives_streams_500(
+        self, mock_make_request, mock_list_streams
+    ):
+        mock_make_request.return_value = {
+            "connectionId": "conn-123",
+            "sourceId": "source-123",
+            "destinationId": "dest-123",
+            "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
+        }
+        mock_list_streams.side_effect = AirbyteApiError(
+            "500 Internal Server Error", status_code=500
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client.get_connection("conn-123")
+
+        assert result.connection_id == "conn-123"
+        assert result.streams_api_unavailable is True
+        assert result.sync_catalog is not None
+        assert result.sync_catalog.streams[0].stream.name == "users"
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_connection_with_existing_sync_catalog(self, mock_make_request):
