@@ -3264,6 +3264,8 @@ class TestUnityCatalogVolumes:
         assert list(source.report.volumes.dropped_entities) == [volume.id]
 
     def test_process_volume_emits_dataset(self) -> None:
+        from typing import Optional
+
         from datahub.ingestion.source.common.subtypes import DatasetSubTypes
         from datahub.metadata.schema_classes import (
             DatasetPropertiesClass,
@@ -3276,23 +3278,23 @@ class TestUnityCatalogVolumes:
         urns = {wu.get_urn() for wu in wus}
         assert any("dataset:" in u and "c.s.landing" in u for u in urns)
 
-        subtypes = [
-            wu.get_aspect_of_type(SubTypesClass)
-            for wu in wus
-            if wu.get_aspect_of_type(SubTypesClass) is not None
-        ]
-        assert subtypes
-        assert subtypes[0].typeNames == [DatasetSubTypes.DATABRICKS_VOLUME]
+        subtype: Optional[SubTypesClass] = None
+        for wu in wus:
+            found_subtype = wu.get_aspect_of_type(SubTypesClass)
+            if found_subtype is not None:
+                subtype = found_subtype
+                break
+        assert subtype is not None
+        assert subtype.typeNames == [DatasetSubTypes.DATABRICKS_VOLUME]
 
-        props = [
-            wu.get_aspect_of_type(DatasetPropertiesClass)
-            for wu in wus
-            if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
-        ]
-        assert props
-        assert props[0].qualifiedName == "c.s.landing"
-        assert props[0].customProperties["volume_type"] == "MANAGED"
-        assert (
-            props[0].customProperties["storage_location"] == "s3://bucket/vols/landing"
-        )
-        assert props[0].description == "landing files"
+        props: Optional[DatasetPropertiesClass] = None
+        for wu in wus:
+            found_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if found_props is not None:
+                props = found_props
+                break
+        assert props is not None
+        assert props.qualifiedName == "c.s.landing"
+        assert props.customProperties["volume_type"] == "MANAGED"
+        assert props.customProperties["storage_location"] == "s3://bucket/vols/landing"
+        assert props.description == "landing files"
