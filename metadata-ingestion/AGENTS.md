@@ -22,10 +22,8 @@ source venv/bin/activate                    # Activate virtual environment
 **Direct Python commands (when venv is activated):**
 
 ```bash
-# Linting
-ruff format src/ tests/
-ruff check src/ tests/
-mypy src/ tests/
+# Linting and type checks (preferred)
+../gradlew :metadata-ingestion:lintFix
 
 # Testing
 pytest -vv                                 # Run all tests
