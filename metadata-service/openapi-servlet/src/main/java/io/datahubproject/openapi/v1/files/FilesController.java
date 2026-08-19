@@ -203,7 +203,7 @@ public class FilesController {
       case ASSET_DOCUMENTATION_LINKS:
         validateAssetReadPermissions(fileInfo, opContext, authentication);
         break;
-        // Add additional scenarios here as needed
+      // Add additional scenarios here as needed
       default:
         log.warn("Unknown file upload scenario: {}", scenario);
         throw new UnauthorizedException(

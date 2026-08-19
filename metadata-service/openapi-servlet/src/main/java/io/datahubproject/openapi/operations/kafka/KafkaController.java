@@ -120,7 +120,8 @@ public class KafkaController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(
               ErrorResponse.builder()
@@ -194,7 +195,8 @@ public class KafkaController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(
               ErrorResponse.builder()
@@ -270,7 +272,8 @@ public class KafkaController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(
               ErrorResponse.builder()

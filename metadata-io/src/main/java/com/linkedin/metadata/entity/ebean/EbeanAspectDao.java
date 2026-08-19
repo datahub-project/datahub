@@ -22,6 +22,8 @@ import com.linkedin.metadata.config.TransactionRetryConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.AspectWriteDisabledException;
+import com.linkedin.metadata.entity.ConditionalAspectUpdate;
+import com.linkedin.metadata.entity.ConditionalUpdateResult;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.OptimisticLockConflictException;
@@ -119,6 +121,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // Opt-in scoped-retry: derived from config (not a constructor arg) so existing call sites are
   // unchanged; only takes effect when optimistic locking is on.
   private final boolean scopedRetryEnabled;
+  // Opt-in CAS batching: derived from config; only takes effect when optimistic locking is on.
+  private final boolean optimisticWriteBatchEnabled;
+  private final int optimisticWriteBatchMinSize;
+  // Latched true the first time a batch returns SUCCESS_NO_INFO (the rewriteBatchedStatements
+  // signature): per-row counts are then unavailable for the life of the connection pool, so
+  // batching
+  // is disabled process-wide and writes fall back to the sequential path. Never reset — a restart
+  // is
+  // required to re-enable after fixing the datasource URL.
+  private volatile boolean casBatchRuntimeDisabled = false;
 
   public enum Dialect {
     MYSQL,
@@ -234,17 +246,35 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     // Scoped retry is an OL-only flow; enforce the prerequisite at the source so it can never read
     // "on" while optimistic locking is off.
     this.scopedRetryEnabled = optimisticLocking && ebeanConfiguration.isScopedRetryEnabled();
+    // CAS batching requires optimistic locking AND scoped retry: the batched flush only runs on the
+    // scoped-retry compute path (computeAndPersistWithinTransaction). Gate at the source so
+    // isOptimisticWriteBatchEnabled() can never read "on" without its prerequisites — even for a
+    // future direct caller. (scopedRetryEnabled already implies optimisticLocking.)
+    this.optimisticWriteBatchEnabled =
+        scopedRetryEnabled && ebeanConfiguration.isOptimisticWriteBatchEnabled();
+    this.optimisticWriteBatchMinSize = ebeanConfiguration.getOptimisticWriteBatchMinSize();
     if (optimisticLocking) {
       log.info(
-          "EbeanAspectDao optimistic locking enabled (dialect={}, scopedRetry={})",
+          "EbeanAspectDao optimistic locking enabled (dialect={}, scopedRetry={}, casBatch={})",
           dialect,
-          scopedRetryEnabled);
+          scopedRetryEnabled,
+          optimisticWriteBatchEnabled);
     }
   }
 
   @Override
   public boolean isOptimisticLockingEnabled() {
     return optimisticLocking;
+  }
+
+  @Override
+  public boolean isOptimisticWriteBatchEnabled() {
+    return optimisticWriteBatchEnabled && !casBatchRuntimeDisabled;
+  }
+
+  @Override
+  public int getOptimisticWriteBatchMinSize() {
+    return optimisticWriteBatchMinSize;
   }
 
   @Override
@@ -473,7 +503,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               server
                   .sqlUpdate(
                       buildConditionalUpdateSql(
-                          dialect, tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME)))
+                          dialect,
+                          tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME),
+                          false))
                   .setParameter("metadata", entityAspect.getMetadata())
                   .setParameter("systemMetadata", entityAspect.getSystemMetadata())
                   .setParameter("createdOn", entityAspect.getCreatedOn())
@@ -514,31 +546,176 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         });
   }
 
+  @Override
+  @Nonnull
+  public List<ConditionalUpdateResult> updateAspectsConditionalBatch(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull List<ConditionalAspectUpdate> updates) {
+    validateConnection();
+    ensureWritableForOptimisticWrite();
+
+    return txnFactory.runInScope(
+        opContext,
+        () -> {
+          if (updates.isEmpty()) {
+            return List.of();
+          }
+
+          Transaction tx = txContext != null ? txContext.tx() : null;
+          if (tx == null) {
+            throw new IllegalStateException(
+                "updateAspectsConditionalBatch requires an active transaction");
+          }
+
+          String sql =
+              buildConditionalUpdateSql(
+                  dialect, tableResolver.aspectTable(opContext, EbeanAspectV2.TABLE_NAME), true);
+
+          // Ebean has no per-row batch API, so drop to raw JDBC on the transaction's own
+          // connection. Flush any Ebean-buffered writes first so our statements run against a
+          // consistent connection state and Ebean does not reorder its buffer around ours.
+          boolean priorBatchMode = tx.isBatchMode();
+          if (priorBatchMode) {
+            tx.flush();
+            tx.setBatchMode(false);
+          }
+
+          int[] results;
+          try {
+            java.sql.Connection conn = tx.connection();
+            try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+              for (ConditionalAspectUpdate update : updates) {
+                EntityAspect entityAspect = update.getNewAspect().asLatest();
+                ps.setString(1, entityAspect.getMetadata());
+                ps.setString(2, entityAspect.getSystemMetadata());
+                ps.setObject(3, entityAspect.getCreatedOn());
+                ps.setString(4, entityAspect.getCreatedBy());
+                ps.setString(5, entityAspect.getCreatedFor());
+                ps.setString(6, entityAspect.getUrn());
+                ps.setString(7, entityAspect.getAspect());
+                ps.setString(8, update.getExpectedSystemMetadataVersion());
+                ps.addBatch();
+              }
+              results = ps.executeBatch();
+            }
+          } catch (java.sql.SQLException e) {
+            // A thrown batch error (BatchUpdateException is a SQLException) means the outcome is
+            // unknown and rows may have partially applied. Never continue in this transaction —
+            // wrap so the outer runInTransactionWithRetry rolls back and retries on the sequential
+            // path. (On Postgres the txn is already aborted; on MySQL earlier rows applied.)
+            incrementOptimisticMetric("optimistic_lock_batch_ambiguous_result");
+            throw new jakarta.persistence.PersistenceException(
+                "Conditional CAS batch failed; rolling back for sequential retry", e);
+          } finally {
+            if (priorBatchMode) {
+              tx.setBatchMode(true);
+            }
+          }
+
+          // Map per-item results to outcomes. Reuse helper to emit per-item metrics.
+          List<ConditionalUpdateResult> outcomes = new ArrayList<>();
+
+          for (int i = 0; i < results.length; i++) {
+            int count = results[i];
+            ConditionalAspectUpdate update = updates.get(i);
+            EntityAspect entityAspect = update.getNewAspect().asLatest();
+
+            if (count == 1) {
+              // CAS match: row updated
+              incrementOptimisticMetric("optimistic_lock_update_attempt");
+              outcomes.add(ConditionalUpdateResult.UPDATED);
+            } else if (count == 0) {
+              // CAS miss: legitimate conflict, transaction still healthy
+              incrementOptimisticMetric("optimistic_lock_update_attempt");
+              incrementOptimisticMetric("optimistic_lock_update_conflict");
+              incrementConflictByEntityType(entityAspect.getUrn());
+              outcomes.add(ConditionalUpdateResult.CONFLICT);
+            } else {
+              // A non-throwing executeBatch returns only 1, 0, or -2 (SUCCESS_NO_INFO) here. -3
+              // (EXECUTE_FAILED) does NOT reach this loop — it appears only in a thrown
+              // BatchUpdateException.getUpdateCounts(), which the catch above already handles. So
+              // in
+              // practice this is the SUCCESS_NO_INFO case (MySQL rewriteBatchedStatements): the
+              // driver executed the statements but cannot report per-row counts, so the per-row
+              // outcome is UNKNOWN and rows may already have applied. An in-txn sequential re-CAS
+              // is
+              // UNSAFE — an already-applied row now holds the NEW version, so a re-CAS on the old
+              // expectedVersion matches 0 rows and reports a FALSE CONFLICT for a write that
+              // actually
+              // succeeded. The only safe recovery is to abandon the transaction: throw so the outer
+              // runInTransactionWithRetry rolls back and re-runs.
+              //
+              // rewriteBatchedStatements is connection-level, so every subsequent batch hits the
+              // same
+              // -2. Latch batching OFF process-wide on the FIRST -2 so the retry (and all later
+              // writes) take the sequential path and make progress. ONLY -2 latches: a thrown
+              // BatchUpdateException (handled by the catch above) may be transient (deadlock,
+              // serialization) and must NOT permanently disable batching.
+              if (count == java.sql.Statement.SUCCESS_NO_INFO && !casBatchRuntimeDisabled) {
+                casBatchRuntimeDisabled = true;
+                log.warn(
+                    "JDBC batch returned SUCCESS_NO_INFO — rewriteBatchedStatements is likely enabled "
+                        + "on the datasource. CAS batching cannot report per-row counts and is now "
+                        + "disabled for this process; writes fall back to the sequential path.");
+              }
+              incrementOptimisticMetric("optimistic_lock_batch_ambiguous_result");
+              throw new jakarta.persistence.PersistenceException(
+                  String.format(
+                      "Ambiguous JDBC batch result code %d for item %d (urn=%s aspect=%s); rolling "
+                          + "back for sequential retry",
+                      count, i, entityAspect.getUrn(), entityAspect.getAspect()));
+            }
+          }
+
+          // Emit batch-level metrics: batch_size is the ROW COUNT of this executeBatch (so
+          // batch_size/executions = avg rows per batch); executions counts the calls.
+          incrementOptimisticMetric("optimistic_lock_batch_size", results.length);
+          incrementOptimisticMetric("optimistic_lock_batch_executions");
+
+          return outcomes;
+        });
+  }
+
   @VisibleForTesting
   @Nonnull
   public String buildConditionalUpdateSql(@Nonnull Dialect sqlDialect) {
-    return buildConditionalUpdateSql(sqlDialect, " metadata_aspect_v2 ");
+    return buildConditionalUpdateSql(sqlDialect, " metadata_aspect_v2 ", false);
   }
 
+  /**
+   * The version-0 CAS UPDATE. {@code positional=false} emits Ebean named params ({@code :metadata}
+   * …) for the single-row {@link #updateAspectConditional}; {@code positional=true} emits JDBC
+   * {@code ?} for the batched raw {@code PreparedStatement} in {@link
+   * #updateAspectsConditionalBatch}. Single source of the dialect version-predicate and column
+   * list, so the sequential and batch SQL cannot diverge.
+   */
   @Nonnull
   private static String buildConditionalUpdateSql(
-      @Nonnull Dialect sqlDialect, @Nonnull String aspectTable) {
+      @Nonnull Dialect sqlDialect, @Nonnull String aspectTable, boolean positional) {
+    String v = positional ? "?" : ":expectedVersion";
     String versionPredicate =
         switch (sqlDialect) {
-          case POSTGRES -> "(systemmetadata::jsonb ->> 'version') = :expectedVersion";
-          case MYSQL -> "systemmetadata->>'$.version' = :expectedVersion";
-            // H2 has no JSON path operator comparable to MySQL/Postgres. This INSTR substring
-            // match is a TEST-ONLY approximation and can false-positive/negative vs real JSON
-            // path equality — do not treat H2 CAS results as production dialect coverage.
-          case H2_OR_OTHER -> "INSTR(CAST(systemmetadata AS VARCHAR), "
-              + "CONCAT('\"version\":\"', :expectedVersion, '\"')) > 0";
+          case POSTGRES -> "(systemmetadata::jsonb ->> 'version') = " + v;
+          case MYSQL -> "systemmetadata->>'$.version' = " + v;
+          // H2 has no JSON path operator comparable to MySQL/Postgres. This INSTR substring match
+          // is
+          // a TEST-ONLY approximation and can false-positive/negative vs real JSON path equality —
+          // do
+          // not treat H2 CAS results as production dialect coverage.
+          case H2_OR_OTHER ->
+              "INSTR(CAST(systemmetadata AS VARCHAR), CONCAT('\"version\":\"', "
+                  + v
+                  + ", '\"')) > 0";
         };
-    return "UPDATE"
-        + aspectTable
-        + "SET metadata = :metadata, systemmetadata = :systemMetadata, "
-        + "createdon = :createdOn, createdby = :createdBy, createdfor = :createdFor "
-        + "WHERE urn = :urn AND aspect = :aspect AND version = 0 AND "
-        + versionPredicate;
+    String columns =
+        positional
+            ? "SET metadata = ?, systemmetadata = ?, createdon = ?, createdby = ?, createdfor = ? "
+                + "WHERE urn = ? AND aspect = ? AND version = 0 AND "
+            : "SET metadata = :metadata, systemmetadata = :systemMetadata, "
+                + "createdon = :createdOn, createdby = :createdBy, createdfor = :createdFor "
+                + "WHERE urn = :urn AND aspect = :aspect AND version = 0 AND ";
+    return "UPDATE" + aspectTable + columns + versionPredicate;
   }
 
   @Override
@@ -637,8 +814,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   private void incrementOptimisticMetric(@Nonnull String name) {
+    incrementOptimisticMetric(name, 1);
+  }
+
+  private void incrementOptimisticMetric(@Nonnull String name, long count) {
     if (metricUtils != null) {
-      metricUtils.increment(MetricRegistry.name(this.getClass(), name), 1);
+      metricUtils.increment(MetricRegistry.name(this.getClass(), name), count);
     }
   }
 

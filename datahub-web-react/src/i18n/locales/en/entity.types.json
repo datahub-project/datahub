@@ -53,6 +53,7 @@
     "dataProduct.newDataProduct": "New Data Product",
     "dataProduct.noDataProductsEmpty": "No Data Products",
     "dataProduct.outputPortsCountTitle": "Output Ports ({{count}})",
+    "dataProduct.parentLabel": "Parent Data Product",
     "dataProduct.searchPlaceholder": "Search data products...",
     "dataProduct.updateError": "Failed to update Data Product. An unexpected error occurred",
     "dataProduct.updateSuccess": "Updated Data Product!",

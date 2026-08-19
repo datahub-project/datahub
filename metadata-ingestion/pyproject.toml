@@ -203,7 +203,7 @@ bigquery-slim = [
 
 cassandra = [
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "numpy<2",
 ]
 
@@ -252,7 +252,7 @@ confluence = [
     "graphql-core>=3.0.0,<4.0.0",
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -297,7 +297,7 @@ datahub-documents = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -428,7 +428,7 @@ dynamodb = [
 
 elasticsearch = [
     "cachetools<6.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
 ]
 
 excel = [
@@ -749,7 +749,7 @@ notion = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -1128,7 +1128,7 @@ unstructured = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -1160,7 +1160,7 @@ all = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[avro,schemaregistry]>=2.10.1,!=2.8.1,<2.13.0",
     "cryptography>=49.0.0,<51.0.0",
@@ -1211,11 +1211,11 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
     "packaging<26.0.0",
     "pandas<2.2.0",
@@ -1294,7 +1294,7 @@ dev = [
     "build<2.0.0",
     "cached_property<3.0.0",
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -1363,10 +1363,10 @@ dev = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
     "orderly-set!=5.4.0,<6.0.0",
     "packaging<26.0.0",
@@ -1486,7 +1486,7 @@ docs = [
     "build<2.0.0",
     "cached_property<3.0.0",
     "cachetools<6.0.0",
-    "cassandra-driver>=3.28.0,<4.0.0",
+    "cassandra-driver>=3.30.1,<4.0.0",
     "click-default-group<2.0.0",
     "click-spinner<0.2.0",
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -1555,10 +1555,10 @@ docs = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
-    "opensearch-py>=2.6.0,<4.0.0",
+    "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
     "orderly-set!=5.4.0,<6.0.0",
     "packaging<26.0.0",

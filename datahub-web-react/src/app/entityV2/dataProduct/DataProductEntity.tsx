@@ -45,6 +45,7 @@ import { DataProduct, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
