@@ -1,4 +1,3 @@
-import os
 import subprocess
 from typing import List
 
@@ -32,7 +31,7 @@ def is_mariadb_up(container_name: str, port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
-def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "mariadb"
     ) as docker_services:
@@ -40,7 +39,9 @@ def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         # a prior run can never hold onto the port a fresh run needs. mariadb_to_file.yml
         # picks it up via ${MARIADB_HOST_PORT}.
         host_port = docker_services.port_for("testmariadb", MARIADB_PORT)
-        os.environ["MARIADB_HOST_PORT"] = str(host_port)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("MARIADB_HOST_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
 
         wait_for_port(
             docker_services,

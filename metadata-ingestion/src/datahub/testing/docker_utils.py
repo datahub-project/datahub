@@ -97,9 +97,27 @@ def docker_compose_runner(
         # fixed container_name (and thus its fixed host port) forever, and belongs to a
         # different compose project than this run, so `docker compose down` can't reach
         # it. Force-remove by name first so a stale container never fails a fresh `up`.
+        # This assumes only one run of a given fixture is ever live on a runner at once
+        # (true for CI today); two deliberately-concurrent runs sharing a fixed name
+        # would race here. Removing that assumption needs per-run container names
+        # (dropping `container_name:` from the compose files), a larger follow-up.
         stale_names = _fixed_container_names(compose_file_path)
         if stale_names:
-            subprocess.run(["docker", "rm", "-f", *stale_names], capture_output=True)
+            result = subprocess.run(
+                ["docker", "rm", "-f", *stale_names],
+                capture_output=True,
+                text=True,
+            )
+            # "No such container" is the expected, benign outcome on every clean
+            # run (nothing was leaked). Anything else means the removal itself
+            # failed, so a genuinely stale container could still be sitting on
+            # our port when `up` runs next -- surface that instead of masking
+            # it as a confusing name/port-in-use error from `up`.
+            if result.returncode != 0 and "No such container" not in result.stderr:
+                logger.warning(
+                    f"Failed to remove stale container(s) {stale_names}: "
+                    f"{result.stderr.strip()}"
+                )
 
         # We deliberately do NOT delegate to pytest_docker.get_docker_services: it
         # runs docker_setup *before* the try/finally that owns cleanup, so a setup

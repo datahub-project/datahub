@@ -1,4 +1,3 @@
-import os
 import subprocess
 from datetime import datetime, timezone
 
@@ -59,7 +58,7 @@ def load_setup_sql(setup_sql_path: str, host_port: int) -> None:
 
 
 @pytest.fixture(scope="module")
-def tidb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def tidb_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "tidb"
     ) as docker_services:
@@ -74,7 +73,9 @@ def tidb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         # leaked container from a prior run can never hold onto the port a
         # fresh run needs. tidb_to_file.yml picks it up via ${TIDB_PORT}.
         host_port = docker_services.port_for("testtidb", TIDB_PORT)
-        os.environ["TIDB_PORT"] = str(host_port)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("TIDB_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
         load_setup_sql(str(test_resources_dir / "setup" / "setup.sql"), host_port)
         yield host_port
 

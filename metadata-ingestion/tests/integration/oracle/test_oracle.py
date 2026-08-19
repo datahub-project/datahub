@@ -98,7 +98,7 @@ ORACLE_PORT = 1521  # Oracle listener port
 
 
 @pytest.fixture(scope="module")
-def oracle_runner(docker_compose_runner, pytestconfig):
+def oracle_runner(docker_compose_runner, pytestconfig, request):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "oracle"
@@ -114,7 +114,9 @@ def oracle_runner(docker_compose_runner, pytestconfig):
         # container from a prior run can never hold onto the port a fresh run
         # needs. Recipe ymls in this directory pick it up via ${ORACLE_PORT}.
         oracle_port = docker_services.port_for("testoracle", ORACLE_PORT)
-        os.environ["ORACLE_PORT"] = str(oracle_port)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("ORACLE_PORT", str(oracle_port))
+        request.addfinalizer(mp.undo)
 
         time.sleep(30)  # Extra time for setup scripts to complete
 

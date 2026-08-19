@@ -34,7 +34,7 @@ def is_doris_up(container_name: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "doris"
     ) as docker_services:
@@ -43,7 +43,9 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         # fresh run needs. Recipe ymls in this directory pick it up via
         # ${DORIS_MYSQL_PORT}.
         mysql_port = docker_services.port_for("doris-fe", DORIS_PORT)
-        os.environ["DORIS_MYSQL_PORT"] = str(mysql_port)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("DORIS_MYSQL_PORT", str(mysql_port))
+        request.addfinalizer(mp.undo)
 
         print("Waiting for Doris FE to start...")
         try:

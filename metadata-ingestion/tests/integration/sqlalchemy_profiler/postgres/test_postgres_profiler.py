@@ -358,7 +358,7 @@ def test_edge_case_all_nulls(postgres_source):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_row_count_estimation(postgres_source, postgres_runner):
+def test_row_count_estimation(postgres_runner):
     """Test row count estimation for PostgreSQL."""
     from datahub.ingestion.source.sql.postgres import PostgresConfig
 

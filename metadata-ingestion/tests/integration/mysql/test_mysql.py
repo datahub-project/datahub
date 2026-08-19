@@ -1,4 +1,3 @@
-import os
 import subprocess
 from datetime import datetime, timezone
 
@@ -33,7 +32,7 @@ def is_mysql_up(container_name: str, port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
-def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "mysql"
     ) as docker_services:
@@ -48,7 +47,9 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         # container from a prior run can never hold onto the port a fresh
         # run needs. Recipe ymls in this directory pick it up via ${MYSQL_HOST_PORT}.
         host_port = docker_services.port_for("testmysql", MYSQL_PORT)
-        os.environ["MYSQL_HOST_PORT"] = str(host_port)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("MYSQL_HOST_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
         yield host_port
 
 

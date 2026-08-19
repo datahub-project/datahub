@@ -30,7 +30,7 @@ def check_mockserver_health(port: int) -> bool:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def docker_datahub_service(docker_compose_runner, pytestconfig):
+def docker_datahub_service(docker_compose_runner, pytestconfig, request):
     """Start Docker mock DataHub service for all tests."""
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
@@ -42,7 +42,9 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
         # container from a prior run can never hold onto the port a fresh run
         # needs. Recipe ymls in this directory pick it up via ${SQL_QUERIES_MOCK_PORT}.
         mock_port = docker_services.port_for("datahub-mock", 8080)
-        os.environ["SQL_QUERIES_MOCK_PORT"] = str(mock_port)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("SQL_QUERIES_MOCK_PORT", str(mock_port))
+        request.addfinalizer(mp.undo)
 
         wait_for_port(
             docker_services,

@@ -35,7 +35,7 @@ def check_neo4j_setup_completed(bolt_port: int) -> bool:
         from neo4j import GraphDatabase
 
         driver = GraphDatabase.driver(
-            f"neo4j://localhost:{bolt_port}", auth=("neo4j", "testpassword")
+            f"bolt://localhost:{bolt_port}", auth=("neo4j", "testpassword")
         )
         with driver.session() as session:
             # Check if test data is loaded
@@ -63,7 +63,7 @@ def test_neo4j_ingest(neo4j_runner, pytestconfig, tmp_path):
             "source": {
                 "type": "neo4j",
                 "config": {
-                    "uri": f"neo4j://localhost:{neo4j_runner}",
+                    "uri": f"bolt://localhost:{neo4j_runner}",
                     "username": "neo4j",
                     "password": "testpassword",
                     "env": "TEST",
