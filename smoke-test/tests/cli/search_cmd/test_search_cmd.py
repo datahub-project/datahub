@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urns_from_file,
     get_sleep_info,
@@ -35,6 +36,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.CATALOG)
 
 _TEST_DATA = "tests/cli/search_cmd/search_test_data.json"
 

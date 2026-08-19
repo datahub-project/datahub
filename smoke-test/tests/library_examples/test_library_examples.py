@@ -19,7 +19,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.utilities.domains import Domain
+
 from .example_manifest import EXAMPLE_DEPENDENCIES, EXAMPLE_MANIFEST
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 # Path to metadata-ingestion examples
 EXAMPLES_DIR = (
