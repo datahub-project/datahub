@@ -1,11 +1,8 @@
-import functools
 import logging
 from typing import TYPE_CHECKING, List, Optional
 
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.urn_alias.remote import search_aliases
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -14,17 +11,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _TABLE = "urn_aliases"
-_DATASET_ENTITY_TYPE = "dataset"
+
+# Where GMS started maintaining the dataset `aliases` aspect resolution reads.
+_MIN_CLOUD_VERSION = (2, 2, 0)
+_MIN_OSS_VERSION = (1, 8, 0)
 
 # Sized to the distinct upstreams a source references rather than to the catalog: a BI
 # tool names the same warehouse table across many charts, so the repeats answer from
 # memory.
 _CACHE_MAX_SIZE = 10_000
-
-# Large because a page carries URNs only — no aspects to fetch, unlike the schema scroll.
-_BATCH_SIZE = 5000
-
-_PROGRESS_EVERY = 10_000
 
 
 def lowercased_urn(urn: str) -> Optional[str]:
@@ -94,7 +89,7 @@ class UrnAliasResolver:
                 return []
             # The search is exhaustive, so `[]` is a genuine absence and is recorded as
             # one — the same name is not asked about twice.
-            entry = search_aliases(self._graph, key)
+            entry = self._graph.get_dataset_urns_by_lowercased_urn(key)
             self._urns_by_key[key] = entry
         return entry
 
@@ -116,67 +111,12 @@ class UrnAliasResolver:
         self._urns_by_key.close()
 
 
-@functools.lru_cache(maxsize=None)
-def provide_urn_alias_resolver(
-    graph: "DataHubGraph",
-    platform: str,
-    platform_instance: Optional[str],
-    env: str,
-    batch_size: int = _BATCH_SIZE,
-) -> Optional[UrnAliasResolver]:
-    """A resolver over one bulk-loaded region of DataHub's catalog, cached per region.
+def maintains_dataset_aliases(graph: "DataHubGraph") -> bool:
+    """Whether the server maintains the dataset `aliases` aspect resolution reads.
 
-    None, not a half-filled resolver, when the scroll fails: a key holds every casing of a
-    name, so a partial one answers a later reference with the wrong entity.
-
-    Scrolls URNs alone; schemas are a separate concern with a separate loader.
+    The gate on the whole feature: without aliases there is no way to reach a stored
+    casing, and approximating one would report healthy lineage as broken.
     """
-    scope = f"platform={platform}, platform_instance={platform_instance}, env={env}"
-    logger.info(f"Loading URN aliases for {scope}; this may take a while...")
-    resolver = UrnAliasResolver()
-    count = 0
-    try:
-        with PerfTimer() as timer:
-            for urn in graph.get_urns_by_filter(
-                entity_types=[_DATASET_ENTITY_TYPE],
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                batch_size=batch_size,
-            ):
-                resolver.add(urn)
-                count += 1
-                if count % _PROGRESS_EVERY == 0:
-                    logger.debug(
-                        f"Loaded {count} URNs for {scope} in "
-                        f"{timer.elapsed_seconds()} seconds"
-                    )
-            logger.info(
-                f"Loaded {count} URNs for {scope} in {timer.elapsed_seconds()} seconds"
-            )
-    except Exception:
-        logger.warning(
-            f"Failed to load URN aliases for {scope} after {count} URNs; references "
-            "there will be resolved one at a time instead.",
-            exc_info=True,
-        )
-        resolver.close()
-        return None
-
-    if count == 0:
-        # An instance filter matches the `dataPlatformInstance` aspect, which a connector
-        # may never emit even with the instance in the URN.
-        logger.warning(
-            f"Loaded 0 URNs for {scope}. If this platform instance does hold datasets, "
-            "its connector likely does not emit the dataPlatformInstance aspect the "
-            "filter matches; drop platform_instance to load it."
-        )
-    return resolver
-
-
-@functools.lru_cache(maxsize=None)
-def graph_urn_alias_resolver(graph: "DataHubGraph") -> UrnAliasResolver:
-    """The resolver that asks `graph` about one name at a time, for references outside
-    every bulk-loaded region. Shared, so a question one consumer paid for is not asked
-    twice."""
-    return UrnAliasResolver(graph)
+    config = graph.server_config
+    minimum = _MIN_CLOUD_VERSION if config.is_datahub_cloud else _MIN_OSS_VERSION
+    return config.is_version_at_least(*minimum)

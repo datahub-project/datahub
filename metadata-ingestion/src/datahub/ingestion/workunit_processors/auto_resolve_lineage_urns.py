@@ -50,13 +50,15 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
-from datahub.utilities.lossy_collections import LossySet
-from datahub.utilities.urn_alias.remote import gms_maintains_urn_aliases
-from datahub.utilities.urn_alias.resolver import (
-    UrnAliasResolver,
+from datahub.utilities.dataset_aliases.provider import (
     graph_urn_alias_resolver,
     provide_urn_alias_resolver,
 )
+from datahub.utilities.dataset_aliases.resolver import (
+    UrnAliasResolver,
+    maintains_dataset_aliases,
+)
+from datahub.utilities.lossy_collections import LossySet
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -282,7 +284,7 @@ class AutoResolveLineageUrnsProcessor(
             return False
         # Resolution reads the `aliases` aspect GMS maintains, so a server too old to
         # have it cannot answer at all.
-        if not gms_maintains_urn_aliases(graph):
+        if not maintains_dataset_aliases(graph):
             ctx.source_report.warning(
                 title="Lineage URN casing resolution disabled",
                 message="This server does not maintain the dataset `aliases` aspect that "

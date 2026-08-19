@@ -52,6 +52,7 @@ from datahub.ingestion.graph.filters import (
     RawSearchFilter,
     RawSearchFilterRule,
     RemovedStatusFilter,
+    SearchFilterRule,
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
@@ -1228,6 +1229,32 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def get_dataset_urns_by_lowercased_urn(self, lowercased_urn: str) -> List[str]:
+        """Every dataset URN whose name lowercases to `lowercased_urn`.
+
+        Reads the `aliases.lowercasedUrn` GMS maintains, so one search returns every
+        stored casing of a name. Searched by `urn` as well: aliases are written
+        asynchronously, so one that has not landed yet is findable only under its own urn.
+        """
+        or_filters: RawSearchFilter = [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field=field, condition="EQUAL", values=[lowercased_urn]
+                    ).to_raw()
+                ]
+            }
+            for field in ("lowercasedUrn", "urn")
+        ]
+        # Deduped: matching under both fields would otherwise read as a casing collision.
+        return list(
+            dict.fromkeys(
+                self.get_urns_by_filter(
+                    entity_types=["dataset"], extra_or_filters=or_filters
+                )
+            )
+        )
 
     def get_results_by_filter(
         self,

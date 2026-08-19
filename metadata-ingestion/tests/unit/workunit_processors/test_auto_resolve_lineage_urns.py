@@ -46,8 +46,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.utilities.dataset_aliases.resolver import UrnAliasResolver
 from datahub.utilities.server_config_util import RestServiceConfig
-from datahub.utilities.urn_alias.resolver import UrnAliasResolver
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
 UPPER = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE")
@@ -1361,7 +1361,7 @@ def test_a_preloaded_catalog_answers_its_own_misses():
 
     # The scroll covered this slice, so the miss is an answer, not a question.
     assert _stored_upstream(out) == UPPER
-    graph.get_urns_by_filter.assert_not_called()
+    graph.get_dataset_urns_by_lowercased_urn.assert_not_called()
 
 
 def test_an_unlisted_platform_is_healed_when_scope_is_widened():
@@ -1371,7 +1371,7 @@ def test_an_unlisted_platform_is_healed_when_scope_is_widened():
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
-    graph.get_urns_by_filter.return_value = [BQ_LOWER]
+    graph.get_dataset_urns_by_lowercased_urn.return_value = [BQ_LOWER]
     graph.get_aspect.return_value = None  # exists, but holds no schemaMetadata
     try:
         [out] = list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
@@ -1391,7 +1391,7 @@ def test_an_unlisted_platform_gets_column_casing_too():
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
-    graph.get_urns_by_filter.return_value = [BQ_LOWER]
+    graph.get_dataset_urns_by_lowercased_urn.return_value = [BQ_LOWER]
     graph.get_aspect.return_value = _schema_metadata("bigquery", ["amount"])
     try:
         [out] = list(
@@ -1411,7 +1411,7 @@ def test_a_failed_schema_fetch_keeps_the_table_level_healing():
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
-    graph.get_urns_by_filter.return_value = [BQ_LOWER]
+    graph.get_dataset_urns_by_lowercased_urn.return_value = [BQ_LOWER]
     graph.get_aspect.side_effect = Exception("boom")
     try:
         [out] = list(
@@ -1447,7 +1447,7 @@ def test_a_listed_platform_is_still_answered_locally_when_scope_is_widened():
         patcher.stop()
 
     assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "amount")]
-    graph.get_urns_by_filter.assert_not_called()
+    graph.get_dataset_urns_by_lowercased_urn.assert_not_called()
     assert _schema_fetches(graph) == 0
 
 
@@ -1475,7 +1475,7 @@ def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = _widened(upstream_platforms=[])
     _registers_aliases(pipeline_ctx.graph)
-    pipeline_ctx.graph.get_urns_by_filter.return_value = [LOWER]
+    pipeline_ctx.graph.get_dataset_urns_by_lowercased_urn.return_value = [LOWER]
     pipeline_ctx.graph.get_aspect.return_value = None
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
@@ -1542,7 +1542,7 @@ def test_a_failed_catalog_load_still_gets_column_casing_when_scope_is_widened():
         [],  # the scroll failed, so it recorded no coverage
         provide=mock.MagicMock(side_effect=RuntimeError("boom")),
     )
-    graph.get_urns_by_filter.return_value = [LOWER]
+    graph.get_dataset_urns_by_lowercased_urn.return_value = [LOWER]
     graph.get_aspect.return_value = _schema_metadata("snowflake", ["amount"])
     try:
         [out] = list(
@@ -1588,7 +1588,7 @@ def test_one_failed_instance_does_not_disable_the_one_that_loaded():
     assert _fine_grained(out).upstreams == [make_schema_field_urn(stored, "amount")]
     assert processor.report.num_column_urns_normalized == 1
     # The instance that loaded answers locally; only the failed one is reported.
-    graph.get_urns_by_filter.assert_not_called()
+    graph.get_dataset_urns_by_lowercased_urn.assert_not_called()
     assert (
         len(
             _catalog_not_loaded_warnings(
@@ -1703,7 +1703,7 @@ def test_a_failed_lookup_leaves_the_reference_unstamped():
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
-    graph.get_urns_by_filter.side_effect = Exception("boom")
+    graph.get_dataset_urns_by_lowercased_urn.side_effect = Exception("boom")
     try:
         [out] = list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
     finally:
@@ -1721,7 +1721,7 @@ def test_a_failed_lookup_is_reported_apart_from_broken_lineage():
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
     )
-    graph.get_urns_by_filter.side_effect = Exception("boom")
+    graph.get_dataset_urns_by_lowercased_urn.side_effect = Exception("boom")
     try:
         list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
     finally:

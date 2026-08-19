@@ -121,3 +121,40 @@ def test_get_urns_by_filter_rejects_draft_when_server_does_not_support_flag() ->
             )
 
     assert mock_execute_graphql.call_count == 1
+
+
+_LOWERCASED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.events,PROD)"
+_STORED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.EVENTS,PROD)"
+
+
+def _queried_fields(mock_get_urns: Mock) -> dict:
+    """The values each filter clause asked for, by the field it asked under."""
+    rules = [
+        group["and"][0] for group in mock_get_urns.call_args.kwargs["extra_or_filters"]
+    ]
+    return {rule["field"]: rule["values"] for rule in rules}
+
+
+def test_get_dataset_urns_by_lowercased_urn_asks_under_both_fields() -> None:
+    # Aliases are written asynchronously, so one that has not landed yet is findable
+    # only under `urn`. Both clauses are OR'd into a single query.
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    with patch.object(graph, "get_urns_by_filter", return_value=iter([_STORED])) as m:
+        assert graph.get_dataset_urns_by_lowercased_urn(_LOWERCASED) == [_STORED]
+
+    assert _queried_fields(m) == {
+        "lowercasedUrn": [_LOWERCASED],
+        "urn": [_LOWERCASED],
+    }
+    assert m.call_args.kwargs["entity_types"] == ["dataset"]
+
+
+def test_get_dataset_urns_by_lowercased_urn_dedupes() -> None:
+    # A urn matching under both fields would otherwise read as two stored casings.
+    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
+
+    with patch.object(
+        graph, "get_urns_by_filter", return_value=iter([_STORED, _STORED])
+    ):
+        assert graph.get_dataset_urns_by_lowercased_urn(_LOWERCASED) == [_STORED]
