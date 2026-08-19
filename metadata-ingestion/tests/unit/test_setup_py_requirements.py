@@ -94,10 +94,11 @@ def test_all_extras_require_are_valid_pep508() -> None:
 def test_datahub_evals_extra_forwards_to_the_cloud_extra() -> None:
     """The datahub-evals extra has to request the cloud package's own extra.
 
-    Requiring a bare acryl-datahub-cloud installs the package without the evals
-    dependencies, so `datahub evals` stays a shim after an install that reported
-    success. A version bound belongs here too, once the cloud release shipping
-    the extra is published.
+    Requiring a bare acryl-datahub-cloud installs the package without
+    graphql-core, so `datahub evals` stays a shim after an install that
+    reported success. A version bound would guard the same failure mode for
+    older cloud releases, but cannot be added while those releases pin
+    acryl-datahub exactly — see the comment in setup.py.
     """
     deps = _extract_extras_require()["datahub-evals"]
     assert len(deps) == 1
