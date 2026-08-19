@@ -93,6 +93,9 @@ export class PoliciesPage extends BaseSettingsPage {
     // for a moment after the last keystroke. Callers open a row menu immediately after searching,
     // and the debounced refetch then unmounts the table rows — silently closing that open menu.
     // Wait for the debounce to fire and its refetch to finish before handing control back.
+    // A fixed wait is required here: repeat searches for the same term short-circuit in the UI
+    // (no refetch is issued), so there is no network response or DOM change to wait on.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
     await this.page.waitForLoadState('networkidle');
   }
