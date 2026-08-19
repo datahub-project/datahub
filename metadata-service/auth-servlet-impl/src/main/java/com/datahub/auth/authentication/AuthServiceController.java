@@ -17,6 +17,7 @@ import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizerChain;
@@ -27,7 +28,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.auth.LoginIdentityMask;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
@@ -36,6 +39,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
+import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
@@ -45,6 +49,7 @@ import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -113,6 +118,8 @@ public class AuthServiceController {
 
   @Autowired private StatelessTokenService _statelessTokenService;
 
+  @Autowired private Authentication _systemAuthentication;
+
   @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
@@ -179,9 +186,6 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication authentication = maybeAuth.get();
-    if (!isSystemClient(authentication)) {
-      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
-    }
     recordUsageSession(
         httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
     final String actorUrn = authentication.getActor().toUrnStr();
@@ -197,6 +201,9 @@ public class AuthServiceController {
             Authorizer.SYSTEM,
             authentication,
             true);
+    if (!isTrustedAuthHelperCaller(opContext)) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -320,7 +327,15 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth)) {
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
+            Authorizer.SYSTEM,
+            auth,
+            true);
+    if (!isTrustedAuthHelperCaller(opContext)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
@@ -339,14 +354,6 @@ public class AuthServiceController {
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
     log.info("Attempting to create native user {}", userUrnString);
-    final OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
-            Authorizer.SYSTEM,
-            auth,
-            true);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -415,9 +422,6 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth)) {
-      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
-    }
     recordUsageSession(
         httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
     log.info("Attempting to reset credentials for native user {}", userUrnString);
@@ -430,6 +434,9 @@ public class AuthServiceController {
             Authorizer.SYSTEM,
             auth,
             true);
+    if (!isTrustedAuthHelperCaller(opContext)) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -489,9 +496,6 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth)) {
-      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
-    }
     recordUsageSession(
         httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
     log.info(
@@ -506,6 +510,9 @@ public class AuthServiceController {
             Authorizer.SYSTEM,
             auth,
             true);
+    if (!isTrustedAuthHelperCaller(opContext)) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -643,9 +650,6 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth)) {
-      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
-    }
     recordUsageSession(
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
@@ -658,6 +662,9 @@ public class AuthServiceController {
             Authorizer.SYSTEM,
             auth,
             true);
+    if (!isTrustedAuthHelperCaller(opContext)) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -696,14 +703,49 @@ public class AuthServiceController {
   }
 
   /**
-   * Frontend and other internal callers authenticate with HTTP Basic. User sessions are Bearer
-   * JWTs, even when the actor id happens to match a system client id, so scheme is the trust signal
-   * — do not re-validate secrets or pin a single actor id.
+   * UI session JWTs are never allowed. Otherwise allow the GMS system principal or a corp user with
+   * {@code CorpUserInfo.system} (same identity check as SecretService).
    */
-  private boolean isSystemClient(@Nonnull Authentication authentication) {
-    final String credentials = authentication.getCredentials();
-    return credentials != null
-        && (credentials.startsWith("Basic ") || credentials.startsWith("basic "));
+  private boolean isTrustedAuthHelperCaller(@Nonnull OperationContext opContext) {
+    Authentication session = opContext.getSessionAuthentication();
+    if (isUiSessionToken(session)) {
+      return false;
+    }
+    if (ActorContext.isSystemSession(session, _systemAuthentication)) {
+      return true;
+    }
+    Urn actorUrn = opContext.getSessionActorContext().getActorUrn();
+    if (SYSTEM_ACTOR.equals(actorUrn.toString())) {
+      return true;
+    }
+    return isSystemCorpUser(actorUrn);
+  }
+
+  private boolean isUiSessionToken(@Nonnull Authentication authentication) {
+    Map<String, Object> claims = authentication.getClaims();
+    if (claims == null) {
+      return false;
+    }
+    Object tokenType = claims.get(TokenClaims.TOKEN_TYPE_CLAIM_NAME);
+    return TokenType.SESSION.name().equals(String.valueOf(tokenType));
+  }
+
+  private boolean isSystemCorpUser(@Nonnull Urn actorUrn) {
+    if (!CORP_USER_ENTITY_NAME.equals(actorUrn.getEntityType())) {
+      return false;
+    }
+    try {
+      RecordTemplate aspect =
+          _entityService.getLatestAspect(
+              systemOperationContext, actorUrn, CORP_USER_INFO_ASPECT_NAME);
+      if (!(aspect instanceof CorpUserInfo info)) {
+        return false;
+      }
+      return info.isSystem();
+    } catch (Exception e) {
+      log.debug("Failed to load CorpUserInfo for {} — deny auth helper", actorUrn, e);
+      return false;
+    }
   }
 
   private String buildTokenResponse(final String token) {

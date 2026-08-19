@@ -1,6 +1,7 @@
 package com.datahub.auth.authentication;
 
 import static com.datahub.auth.authentication.AuthServiceTestConfiguration.SYSTEM_CLIENT_ID;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_LOGIN_SOURCE_HEADER_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
@@ -22,6 +23,7 @@ import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
@@ -29,8 +31,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -42,6 +46,7 @@ import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.trace.SpanContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +82,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     reset(mockUserSessionEligibilityChecker);
     reset(mockMetricUtils);
     reset(mockTokenService);
+    reset(mockEntityService);
     when(mockUserSessionEligibilityChecker.checkEligibility(
             any(OperationContext.class), anyString(), anyBoolean()))
         .thenReturn(Optional.empty());
@@ -309,6 +315,11 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     AuthenticationContext.setAuthentication(
         new Authentication(
             new Actor(ActorType.USER, "other-system"), "Basic other-system:shared-secret"));
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class),
+            eq(UrnUtils.getUrn("urn:li:corpuser:other-system")),
+            eq(CORP_USER_INFO_ASPECT_NAME)))
+        .thenReturn(new CorpUserInfo().setSystem(true));
     when(mockTokenService.generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong()))
         .thenReturn("test-token-123");
     when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
@@ -320,6 +331,26 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         authServiceController.generateSessionTokenForUser(request, httpEntity).join();
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
+  }
+
+  @Test
+  public void testGenerateSessionTokenRejectsSessionEvenWhenCorpUserIsSystem() throws Exception {
+    setBearerAuthentication("other-system");
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class),
+            eq(UrnUtils.getUrn("urn:li:corpuser:other-system")),
+            eq(CORP_USER_INFO_ASPECT_NAME)))
+        .thenReturn(new CorpUserInfo().setSystem(true));
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", "testUser");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockTokenService, never())
+        .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
   }
 
   @Test
@@ -1006,7 +1037,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   private void setBearerAuthentication(String actorId) {
     reset(mockTokenService, mockNativeUserService, mockInviteTokenService, mockEntityService);
     AuthenticationContext.setAuthentication(
-        new Authentication(new Actor(ActorType.USER, actorId), "Bearer user-token"));
+        new Authentication(
+            new Actor(ActorType.USER, actorId),
+            "Bearer user-token",
+            Map.of(TokenClaims.TOKEN_TYPE_CLAIM_NAME, TokenType.SESSION.name())));
   }
 
   private void verifyLoginMetric(String outcome, String loginSource, String denialReason) {
