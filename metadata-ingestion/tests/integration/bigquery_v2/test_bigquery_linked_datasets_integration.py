@@ -5,12 +5,12 @@
 """
 
 import json
-from types import SimpleNamespace
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+from google.cloud import bigquery_analyticshub_v1, resourcemanager_v3
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -70,7 +70,7 @@ def _recipe(
     }
 
 
-def _make_columns() -> list:
+def _make_columns() -> List[BigqueryColumn]:
     """Five-column fixture so per-column FineGrainedLineage is exercised."""
     return [
         BigqueryColumn(
@@ -259,7 +259,9 @@ def test_bigquery_linked_datasets_ingest(
     ah_mock = MagicMock()
     subscription = make_subscription()
 
-    def _list_subscriptions(parent: str, **kwargs: Any) -> list:
+    def _list_subscriptions(
+        parent: str, **kwargs: Any
+    ) -> List[bigquery_analyticshub_v1.Subscription]:
         if parent == "projects/consumer-project/locations/us":
             return [subscription]
         return []
@@ -283,7 +285,9 @@ def test_bigquery_linked_datasets_ingest(
 
     # Cloud Resource Manager mock — resolve publisher project number.
     rm_mock = MagicMock()
-    rm_mock.get_project.return_value = SimpleNamespace(project_id="publisher-project")
+    rm_mock.get_project.return_value = resourcemanager_v3.Project(
+        project_id="publisher-project"
+    )
     handler_get_rm_client.return_value = rm_mock
 
     override = None if include_lineage else {"include_linked_dataset_lineage": False}

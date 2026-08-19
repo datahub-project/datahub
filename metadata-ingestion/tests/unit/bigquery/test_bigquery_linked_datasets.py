@@ -11,7 +11,7 @@ from google.api_core.exceptions import (
     ResourceExhausted,
     ServiceUnavailable,
 )
-from google.cloud import bigquery_analyticshub_v1
+from google.cloud import bigquery_analyticshub_v1, resourcemanager_v3
 from google.rpc.error_details_pb2 import ErrorInfo
 
 from datahub.configuration.common import AllowDenyPattern
@@ -47,8 +47,11 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
 )
 from tests.integration.bigquery_v2.common import (
-    DEFAULT_STATE_ACTIVE,
+    DEFAULT_CREATION_TIME,
+    DEFAULT_LAST_MODIFY_TIME,
+    STATE_ACTIVE,
     make_dataset_with_linked_source,
+    make_dataset_without_linked_source,
     make_subscription,
 )
 
@@ -137,7 +140,7 @@ def _rm_client_returning(
         result = project_ids[number]
         if isinstance(result, BaseException):
             raise result
-        return SimpleNamespace(project_id=result)
+        return resourcemanager_v3.Project(project_id=result)
 
     mock_client.get_project.side_effect = _get_project
     return mock_client
@@ -227,12 +230,12 @@ def test_extra_properties_includes_source_when_publisher_resolved():
             dataset="publisher_dataset",
             project_id="publisher-project",
         ),
-        subscription_state=bigquery_analyticshub_v1.Subscription.State(
-            DEFAULT_STATE_ACTIVE
-        ),
+        subscription_state=STATE_ACTIVE,
         link_state="LINKED",
         listing="listing_a",
         publisher_organization="Publisher Inc",
+        creation_time="2024-01-02T03:04:05+00:00",
+        last_modify_time="2024-03-04T05:06:07+00:00",
     )
     props = info.to_extra_properties()
     assert props["linked_dataset.source"] == "publisher-project.publisher_dataset"
@@ -240,6 +243,8 @@ def test_extra_properties_includes_source_when_publisher_resolved():
     assert props["analytics_hub.listing"] == "listing_a"
     assert props["analytics_hub.subscription_state"] == "STATE_ACTIVE"
     assert props["analytics_hub.publisher_organization"] == "Publisher Inc"
+    assert props["analytics_hub.link_creation_time"] == "2024-01-02T03:04:05+00:00"
+    assert props["analytics_hub.last_modify_time"] == "2024-03-04T05:06:07+00:00"
 
 
 def test_extra_properties_omits_unpopulated_keys():
@@ -273,13 +278,43 @@ def test_extra_properties_no_source_when_publisher_unresolved():
 # --- populate_for_project tests --------------------------------------------
 
 
+def test_subscription_fields_mapped_onto_linked_dataset_info():
+    handler = _make_handler()
+    ah = _ah_client_returning({"us": [make_subscription(dataset_id="shared_a")]})
+    bq = _bq_client_returning(
+        {
+            "consumer-project.shared_a": make_dataset_with_linked_source(
+                dataset_id="shared_a"
+            )
+        }
+    )
+    rm = _rm_client_returning({"111222333": "publisher-project"})
+    _install_clients(handler, ah=ah, bq=bq, rm=rm)
+
+    handler.populate_for_project(
+        "consumer-project", [BigqueryDataset(name="shared_a", location="US")]
+    )
+
+    info = handler.get_info("consumer-project", "shared_a")
+    assert info is not None
+    assert info.publisher == PublisherRef(
+        dataset="publisher_dataset", project_id="publisher-project"
+    )
+    assert info.link_state == "LINKED"
+    assert info.listing == "listing_a"
+    assert info.subscription_state == STATE_ACTIVE
+    assert info.publisher_organization == "Publisher Inc"
+    assert info.creation_time == DEFAULT_CREATION_TIME.isoformat()
+    assert info.last_modify_time == DEFAULT_LAST_MODIFY_TIME.isoformat()
+
+
 def test_only_bigquery_dataset_subscriptions_advance():
     """Non-BigQuery shared resources (e.g. Pub/Sub) are skipped."""
     handler = _make_handler()
     bq_dataset_sub = make_subscription(dataset_id="shared_a")
     pubsub_sub = make_subscription(
         dataset_id="shared_b",
-        resource_type=99,  # any non-BIGQUERY_DATASET value
+        resource_type=bigquery_analyticshub_v1.SharedResourceType.PUBSUB_TOPIC,
     )
 
     ah = _ah_client_returning({"us": [bq_dataset_sub, pubsub_sub]})
@@ -377,12 +412,13 @@ def test_linked_dataset_without_source_is_warned_and_kept():
     handler = _make_handler()
     sub = make_subscription(dataset_id="shared_a")
     ah = _ah_client_returning({"us": [sub]})
-    # get_dataset succeeds but exposes no linkedDatasetSource (e.g. the
-    # subscriber cannot see the publisher project).
-    dataset_no_source = SimpleNamespace(
-        _properties={"linkedDatasetMetadata": {"linkState": "LINKED"}}
+    bq = _bq_client_returning(
+        {
+            "consumer-project.shared_a": make_dataset_without_linked_source(
+                dataset_id="shared_a"
+            )
+        }
     )
-    bq = _bq_client_returning({"consumer-project.shared_a": dataset_no_source})
     _install_clients(handler, ah=ah, bq=bq)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
@@ -649,7 +685,10 @@ def test_one_failing_location_does_not_stop_the_others():
 def test_data_exchange_only_subscription_is_skipped():
     """Test only listing-level subscriptions are processed."""
     handler = _make_handler()
-    sub = make_subscription(dataset_id="shared_a", listing="")
+    sub = make_subscription(
+        dataset_id="shared_a",
+        data_exchange="projects/123456789/locations/us/dataExchanges/exch_a",
+    )
     ah = _ah_client_returning({"us": [sub]})
     bq = MagicMock()
     _install_clients(handler, ah=ah, bq=bq)

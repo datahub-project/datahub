@@ -121,7 +121,9 @@
                 "linked_dataset.link_state": "LINKED",
                 "analytics_hub.listing": "listing_a",
                 "analytics_hub.subscription_state": "STATE_ACTIVE",
-                "analytics_hub.publisher_organization": "Publisher Inc"
+                "analytics_hub.publisher_organization": "Publisher Inc",
+                "analytics_hub.link_creation_time": "2024-01-02T03:04:05+00:00",
+                "analytics_hub.last_modify_time": "2024-03-04T05:06:07+00:00"
             },
             "externalUrl": "https://console.cloud.google.com/bigquery?project=consumer-project&ws=!1m4!1m3!3m2!1sconsumer-project!2sshared_dataset",
             "name": "shared_dataset",
@@ -131,7 +133,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-9p8im3",
+        "runId": "bigquery-2022_02_03-07_00_00-kl5pt1",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -1,66 +1,108 @@
-from types import SimpleNamespace
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
-from google.cloud import bigquery_analyticshub_v1
+from google.cloud import bigquery, bigquery_analyticshub_v1
 
-DEFAULT_STATE_ACTIVE = int(bigquery_analyticshub_v1.Subscription.State.STATE_ACTIVE)
-DEFAULT_RESOURCE_TYPE_BQ = int(
-    bigquery_analyticshub_v1.SharedResourceType.BIGQUERY_DATASET
+DEFAULT_LISTING = (
+    "projects/123456789/locations/us/dataExchanges/exch_a/listings/listing_a"
 )
+# Constructed rather than referenced, because mypy types a proto-plus enum
+# member as plain `int`.
+STATE_ACTIVE = bigquery_analyticshub_v1.Subscription.State(
+    bigquery_analyticshub_v1.Subscription.State.STATE_ACTIVE
+)
+DEFAULT_CREATION_TIME = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+DEFAULT_LAST_MODIFY_TIME = datetime(2024, 3, 4, 5, 6, 7, tzinfo=timezone.utc)
 
 
 def make_subscription(
     *,
-    state: int = DEFAULT_STATE_ACTIVE,
+    state: int = STATE_ACTIVE,
     dataset_id: str = "shared_dataset",
     project_id: str = "consumer-project",
-    listing: str = (
-        "projects/123456789/locations/us/dataExchanges/exch_a/listings/listing_a"
-    ),
+    listing: str = DEFAULT_LISTING,
+    data_exchange: str = "",
     org_display: str = "Publisher Inc",
-    resource_type: int = DEFAULT_RESOURCE_TYPE_BQ,
-) -> SimpleNamespace:
-    """Minimal stand-in for `Subscription`.
+    resource_type: int = bigquery_analyticshub_v1.SharedResourceType.BIGQUERY_DATASET,
+    creation_time: Optional[datetime] = DEFAULT_CREATION_TIME,
+    last_modify_time: Optional[datetime] = DEFAULT_LAST_MODIFY_TIME,
+) -> bigquery_analyticshub_v1.Subscription:
+    """Build a Subscription as the Analytics Hub API returns it.
 
-    SimpleNamespace avoids the real proto's field typing. `state` is stored as
-    the enum member the real proto exposes, so the handler reads it directly.
+    `listing` and `data_exchange` are a proto `oneof`, so passing
+    `data_exchange` leaves `listing` unset.
     """
-    destination = SimpleNamespace(
-        dataset_reference=SimpleNamespace(project_id=project_id, dataset_id=dataset_id)
-    )
-    return SimpleNamespace(
+    subscription = bigquery_analyticshub_v1.Subscription(
         name=f"projects/{project_id}/locations/us/subscriptions/sub_1",
-        listing=listing,
-        state=bigquery_analyticshub_v1.Subscription.State(state),
+        state=state,
         organization_id="987654321",
         organization_display_name=org_display,
         subscriber_contact="ops@example.com",
-        creation_time=None,
-        last_modify_time=None,
+        creation_time=creation_time,
+        last_modify_time=last_modify_time,
         log_linked_dataset_query_user_email=False,
         resource_type=resource_type,
-        destination_dataset=destination,
+        destination_dataset=bigquery_analyticshub_v1.DestinationDataset(
+            dataset_reference=bigquery_analyticshub_v1.DestinationDatasetReference(
+                project_id=project_id, dataset_id=dataset_id
+            ),
+        ),
     )
+    if data_exchange:
+        subscription.data_exchange = data_exchange
+    else:
+        subscription.listing = listing
+    return subscription
 
 
 def make_dataset_with_linked_source(
     *,
+    project_id: str = "consumer-project",
+    dataset_id: str = "shared_dataset",
     publisher_project_number: str = "111222333",
     publisher_dataset: str = "publisher_dataset",
     link_state: str = "LINKED",
-) -> SimpleNamespace:
-    """Stand-in for the Dataset returned by `get_dataset`.
-
-    The handler reads `_properties` for linked-dataset fields not exposed as
-    typed attributes.
-    """
-    properties: Dict[str, Any] = {
-        "linkedDatasetSource": {
+) -> bigquery.Dataset:
+    """Build the Dataset `get_dataset` returns for a linked dataset."""
+    return _make_dataset(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        link_state=link_state,
+        linked_dataset_source={
             "sourceDataset": {
                 "projectId": publisher_project_number,
                 "datasetId": publisher_dataset,
             }
         },
+    )
+
+
+def make_dataset_without_linked_source(
+    *,
+    project_id: str = "consumer-project",
+    dataset_id: str = "shared_dataset",
+    link_state: str = "LINKED",
+) -> bigquery.Dataset:
+    """Build the Dataset `get_dataset` returns with no linked source exposed."""
+    return _make_dataset(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        link_state=link_state,
+        linked_dataset_source=None,
+    )
+
+
+def _make_dataset(
+    *,
+    project_id: str,
+    dataset_id: str,
+    link_state: str,
+    linked_dataset_source: Optional[Dict[str, Any]],
+) -> bigquery.Dataset:
+    resource: Dict[str, Any] = {
+        "datasetReference": {"projectId": project_id, "datasetId": dataset_id},
         "linkedDatasetMetadata": {"linkState": link_state},
     }
-    return SimpleNamespace(_properties=properties)
+    if linked_dataset_source is not None:
+        resource["linkedDatasetSource"] = linked_dataset_source
+    return bigquery.Dataset.from_api_repr(resource)
