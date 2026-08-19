@@ -1014,11 +1014,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
-    ) -> Iterable[Tuple[str, Optional["GraphQLSchemaMetadata"]]]:
-        """Fetch datasets, with their schema info, that match all of the given filters.
+    ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
+        """Fetch schema info for datasets that match all of the given filters.
 
-        :return: An iterable of (urn, schema info) tuples. The schema info is None for a
-            dataset that has no schemaMetadata aspect.
+        :return: An iterable of (urn, schema info) tuple that match the filters.
         """
         types = self._get_types(["dataset"])
 
@@ -1076,9 +1075,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):
-            # Datasets with no schemaMetadata are reported with a None schema: a caller
-            # may only need to know the URN exists (see UrnAliasResolver).
-            yield entity["urn"], entity.get("schemaMetadata")
+            if entity.get("schemaMetadata"):
+                yield entity["urn"], entity["schemaMetadata"]
 
     def get_urns_by_filter(
         self,

@@ -38,11 +38,6 @@ class SchemaResolverReport:
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
 
-    # What a bulk load put in, recorded by SchemaResolverProvider. The schema cache
-    # cannot answer this itself: it drops datasets that have no schemaMetadata.
-    num_urns_loaded: int = 0
-    num_schemas_loaded: int = 0
-
 
 class GraphQLSchemaField(TypedDict):
     fieldPath: str

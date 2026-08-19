@@ -270,14 +270,10 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     def create_indexes(self) -> None:
         if self.indexes_created:
             return
-        # Guarded like the create table above: a persisted file already carries its
-        # indexes, and without this reopening one fails on the first extra column.
-        if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
         # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns:
             self._conn.execute(
-                f"CREATE INDEX {if_not_exists} {self.tablename}_{column_name} "
-                f"ON {self.tablename} ({column_name})"
+                f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
         self.indexes_created = True
 
