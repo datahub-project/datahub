@@ -135,13 +135,13 @@ def _queried_fields(mock_get_urns: Mock) -> dict:
     return {rule["field"]: rule["values"] for rule in rules}
 
 
-def test_get_dataset_urns_by_lowercased_urn_asks_under_both_fields() -> None:
-    # Aliases are written asynchronously, so one that has not landed yet is findable
-    # only under `urn`. Both clauses are OR'd into a single query.
+def test_get_dataset_urns_ignoring_case_asks_under_both_fields() -> None:
+    # GMS skips the alias for a dataset already equal to its lowercased form, so that
+    # one is findable only by `urn`. Both clauses are OR'd into a single query.
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
     with patch.object(graph, "get_urns_by_filter", return_value=iter([_STORED])) as m:
-        assert graph.get_dataset_urns_by_lowercased_urn(_LOWERCASED) == [_STORED]
+        assert graph.get_dataset_urns_ignoring_case(_LOWERCASED) == [_STORED]
 
     assert _queried_fields(m) == {
         "lowercasedUrn": [_LOWERCASED],
@@ -150,11 +150,11 @@ def test_get_dataset_urns_by_lowercased_urn_asks_under_both_fields() -> None:
     assert m.call_args.kwargs["entity_types"] == ["dataset"]
 
 
-def test_get_dataset_urns_by_lowercased_urn_dedupes() -> None:
+def test_get_dataset_urns_ignoring_case_dedupes() -> None:
     # A urn matching under both fields would otherwise read as two stored casings.
     graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
 
     with patch.object(
         graph, "get_urns_by_filter", return_value=iter([_STORED, _STORED])
     ):
-        assert graph.get_dataset_urns_by_lowercased_urn(_LOWERCASED) == [_STORED]
+        assert graph.get_dataset_urns_ignoring_case(_LOWERCASED) == [_STORED]
