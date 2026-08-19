@@ -188,6 +188,32 @@ public class GraphQueryUtilsTest {
   }
 
   @Test
+  public void testPlatformMatchesSchemaField() {
+    // A schema field takes the platform of the dataset it is a field of, so that ignoreAsHops can
+    // be scoped by platform for columns the same way it is for datasets
+    Urn dbtColumn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD),order_id)");
+    Urn warehouseColumn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD),order_id)");
+    UrnArray dbt = new UrnArray();
+    dbt.add(UrnUtils.getUrn("urn:li:dataPlatform:dbt"));
+
+    assertTrue(GraphQueryUtils.platformMatches(dbtColumn, dbt));
+    assertFalse(GraphQueryUtils.platformMatches(warehouseColumn, dbt));
+  }
+
+  @Test
+  public void testPlatformMatchesEntityWithoutPlatform() {
+    // Rather than failing the whole lineage query it is part of
+    UrnArray dbt = new UrnArray();
+    dbt.add(UrnUtils.getUrn("urn:li:dataPlatform:dbt"));
+
+    assertFalse(GraphQueryUtils.platformMatches(UrnUtils.getUrn("urn:li:domain:marketing"), dbt));
+  }
+
+  @Test
   public void testClonePath() {
     UrnArray originalPath = new UrnArray();
     originalPath.add(TEST_URN_1);

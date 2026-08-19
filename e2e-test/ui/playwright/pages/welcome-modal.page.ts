@@ -118,11 +118,13 @@ export class WelcomeModalPage extends BasePage {
     await this.page.keyboard.press('ArrowRight');
     // react-slick afterChange fires via setTimeout(speed=500ms). Match the
     // wait used by clickCarouselDot for consistency.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
   async pressArrowLeft(): Promise<void> {
     await this.page.keyboard.press('ArrowLeft');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
@@ -136,6 +138,7 @@ export class WelcomeModalPage extends BasePage {
     await this.carouselDots.nth(index).click();
     // react-slick does not emit a DOM signal when the slide CSS transition finishes (~300 ms).
     // There is no reliable locator to await, so a short fixed delay is the least-fragile option.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
@@ -174,6 +177,7 @@ export class WelcomeModalPage extends BasePage {
       // react-slick's default animation speed is 500 ms, so 700 ms covers the
       // setTimeout(afterChange, speed) call with margin.
       await this.waitForSlideChange(0, 5000).catch(() => {});
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(700);
       await this.lastCarouselDot.click({ force: true });
       await this.getStartedButton.waitFor({ state: 'attached', timeout: 20000 });
