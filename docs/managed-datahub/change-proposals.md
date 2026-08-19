@@ -185,19 +185,19 @@ Which are granted by default **Editor** and **Admin** roles.
 
 ### Proposing a new Domain
 
-1. Navigate to **Govern > Domains**, or open a parent Domain if you want to nest the new Domain.
-2. Click the plus button to create a new Domain.
-3. Fill in the Domain name (required) and optionally a description, parent Domain, and custom id.
-4. Click **Propose** instead of **Save**. If you also have permission to create Domains, you can still create immediately; otherwise only **Propose** is available.
-5. This proposal is sent to reviewers who hold `Manage Domains`. From the Task Center they can accept or reject it. Accepting creates the Domain.
+1. Navigate to **Govern > Domains**. The plus button on the Domains page and in the Domains sidebar is available if you have `Create Domains` or `Propose Create Domain`. Users who can only propose see a **Propose new Domain** tooltip on that button.
+2. Click plus to open **Create New Domain**. To nest the Domain, pick a parent Domain (or open plus from an existing parent Domain).
+3. Fill in the Domain name (required). Optionally add a description and a custom id.
+4. Click **Propose**. **Save** creates the Domain immediately and requires `Create Domains`. **Propose** requires `Propose Create Domain`. You can add an optional note for reviewers.
+5. The proposal appears in the **Task Center** for users with `Manage Domains`. Accepting creates the Domain (nested under the parent Domain when one was set). Rejecting leaves no Domain behind.
 
 ### Proposing a new Data Product
 
 1. Open the Domain that should own the Data Product and go to the **Data Products** tab.
-2. Click the plus button to create a new Data Product.
-3. Fill in the Data Product name (required) and optionally a description. The parent Domain is taken from the Domain you launched from.
-4. Click **Propose** instead of **Create**. If you also have `Manage Data Products` on that Domain, you can still create immediately; otherwise only **Propose** is available.
-5. This proposal is sent to reviewers who hold `Manage Data Products` on that Domain. From the Task Center they can accept or reject it. Accepting creates the Data Product in the parent Domain.
+2. Click plus to open the create Data Product modal. The parent Domain is the Domain you launched from.
+3. Fill in the Data Product name (required) and optionally a description.
+4. Click **Propose**. **Create** writes the Data Product immediately and requires `Manage Data Products` on that Domain. **Propose** requires `Propose Create Data Product`. You can add an optional note for reviewers.
+5. The proposal appears in the **Task Center** for users with `Manage Data Products` on that Domain. Accepting creates the Data Product in the parent Domain. Rejecting leaves no Data Product behind.
 
 ### Reviewing Proposals
 
