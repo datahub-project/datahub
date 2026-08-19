@@ -1,4 +1,5 @@
 import pytest
+from datahub.metadata.schema_classes import StringTypeClass
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
@@ -26,7 +27,6 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Table,
 )
-from datahub.metadata.schema_classes import StringTypeClass
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
