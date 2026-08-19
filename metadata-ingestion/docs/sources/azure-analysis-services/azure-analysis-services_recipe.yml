@@ -1,0 +1,42 @@
+source:
+  type: "azure-analysis-services"
+  config:
+    # Azure Analysis Services endpoint (or a Power BI Premium XMLA endpoint).
+    server: "asazure://westeurope.asazure.windows.net/myserver"
+
+    # Service-principal authentication (recommended for automation).
+    auth_type: "service_principal"
+    tenant_id: "a949d688-67c0-4bf1-a344-e939411c6c0a"
+    client_id: "12345678-abcd-abcd-abcd-123456789012"
+    client_secret: "${AAS_CLIENT_SECRET}"
+
+    # Optional: restrict which models / tables are ingested.
+    database_pattern:
+      allow:
+        - "Sales.*"
+    table_pattern:
+      deny:
+        - ".*_staging"
+
+    # Lineage feature toggles.
+    extract_lineage: true
+    extract_column_level_lineage: true
+    extract_model_definition: true
+
+    # Map upstream servers referenced in partition M/Power Query to their DataHub
+    # platform instance / env so lineage stitches to the native connector's URNs.
+    server_to_platform_instance:
+      myserver.database.windows.net:
+        platform_instance: prod_sql
+        env: PROD
+
+    # Set platform to "powerbi" when the models are also ingested by the Power BI
+    # connector, so the emitted URNs align and the entities merge.
+    # platform: "powerbi"
+
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  # sink configs
