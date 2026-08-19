@@ -51,14 +51,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
 from datahub.utilities.lossy_collections import LossySet
-from datahub.utilities.urn_alias.index import (
-    CatalogSlice,
-    UrnAliasIndex,
-    covered_by,
-)
-from datahub.utilities.urn_alias.loader import load_urn_alias_index
 from datahub.utilities.urn_alias.remote import gms_maintains_urn_aliases
-from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
+from datahub.utilities.urn_alias.resolver import (
+    UrnAliasResolver,
+    graph_urn_alias_resolver,
+    provide_urn_alias_resolver,
+)
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
@@ -204,13 +202,11 @@ class AutoResolveLineageUrnsProcessor(
         # resolver below needs a network fallback: inside a preloaded slice that load
         # already answers its own misses.
         self._resolve_all_platforms: bool = cfg.resolve_all_platforms
-        # The catalogs this processor actually read, and so the entities whose schemas it
-        # holds locally. Filled by _load_catalogs per scroll that finished, never from
-        # the config: a slice whose load failed holds nothing, and claiming it would
-        # suppress the per-URN fallbacks that make up for it. See _schema_of.
-        self._loaded_slices: List[CatalogSlice] = []
-        # One per region whose scroll finished; a region that failed is simply absent.
-        self._alias_indexes: List[UrnAliasIndex] = []
+        # Bulk-loaded UrnAliasResolvers, alongside the SchemaResolvers below: identity
+        # from one, columns from the other, loaded and failing apart. Keyed by
+        # (platform, env) — both are URN components, so a reference selects its own
+        # resolvers. platform_instance is not, which is why it is not part of the key.
+        self._alias_resolvers: Dict[Tuple[str, str], List[UrnAliasResolver]] = {}
         # Resolve the sqlglot-backed schema_resolver callables once, here — a single
         # honest chokepoint rather than imports buried in two leaf methods. Deferred into
         # __init__ (not module level) so importing this module stays sqlglot-free
@@ -261,12 +257,6 @@ class AutoResolveLineageUrnsProcessor(
             aspect_cls.ASPECT_NAME for aspect_cls, _ in self._normalizers
         }
         self._load_catalogs()
-        # Built after the loads, so it resolves across every region that loaded.
-        self._urn_aliases = get_urn_alias_resolver(
-            graph=self._graph,
-            indexes=self._alias_indexes,
-            query_on_demand=self._resolve_all_platforms,
-        )
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
@@ -466,25 +456,26 @@ class AutoResolveLineageUrnsProcessor(
             )
             resolvers: List[SchemaResolver] = []
             for entry in entries:
+                region = (entry.platform, entry.env)
                 # Independent of the schema load below: identity comes from the alias
-                # index, columns from the schema cache, so one failing leaves the other.
-                alias_index = load_urn_alias_index(
+                # resolver, columns from the schema cache, so one failing leaves the other.
+                alias_resolver = provide_urn_alias_resolver(
                     graph=self._graph,
                     platform=entry.platform,
                     platform_instance=entry.platform_instance,
                     env=entry.env,
                 )
-                if alias_index is None:
+                if alias_resolver is None:
                     self.ctx.source_report.warning(
-                        title="Lineage URN casing: upstream URN index not loaded",
-                        message="Failed to index an upstream platform's URNs from "
+                        title="Lineage URN casing: upstream URNs not loaded",
+                        message="Failed to load an upstream platform's URNs from "
                         "DataHub; references to it are resolved one at a time where "
                         "resolve_all_platforms allows, and left unchanged otherwise.",
                         context=f"{entry.platform}, platform_instance="
                         f"{entry.platform_instance}, env={entry.env}",
                     )
                 else:
-                    self._alias_indexes.append(alias_index)
+                    self._alias_resolvers.setdefault(region, []).append(alias_resolver)
                 try:
                     resolver = self._provide_schema_resolver(
                         graph=self._graph,
@@ -494,7 +485,7 @@ class AutoResolveLineageUrnsProcessor(
                     )
                 except Exception as e:
                     # A catalog-load failure must not crash the pipeline: report it and
-                    # leave the slice unloaded, so its references are emitted unchanged.
+                    # leave the region unloaded, so its references are emitted unchanged.
                     # Scoped to the entry that failed, so a sibling instance or env that
                     # loaded stays usable.
                     self.ctx.source_report.warning(
@@ -507,15 +498,6 @@ class AutoResolveLineageUrnsProcessor(
                     )
                     continue
                 resolvers.append(resolver)
-                # Recorded only now the scroll has finished, which is what lets
-                # _schema_of read a column miss here as an answer rather than a gap.
-                self._loaded_slices.append(
-                    CatalogSlice(
-                        platform=entry.platform,
-                        platform_instance=entry.platform_instance,
-                        env=entry.env,
-                    )
-                )
             if not resolvers:
                 # Nothing loaded for this platform, so it stays absent from
                 # _resolvers_by_platform and out of scope. The warnings above already
@@ -560,30 +542,24 @@ class AutoResolveLineageUrnsProcessor(
         _schema_of, which is where identity and columns are paired back up.
         """
         try:
-            platform = DataPlatformUrn.from_string(
-                DatasetUrn.from_string(urn).platform
-            ).platform_name
+            dataset = DatasetUrn.from_string(urn)
+            platform = DataPlatformUrn.from_string(dataset.platform).platform_name
+            region = (platform, dataset.env)
         except Exception:
             return _Resolution(urn, None, None)
         # Track referenced platforms so _warn_unmatched_platforms can flag configured
         # platforms that no reference used (usually a case/spelling typo in the config).
         self._seen_reference_platforms.add(platform)
         resolvers = self._resolvers_by_platform.get(platform) or []
-        if not resolvers and not self._resolve_all_platforms:
+        alias_resolvers = self._alias_resolvers.get(region) or []
+        if not alias_resolvers and not self._resolve_all_platforms:
             # Out of scope: left untouched, and unstamped (no verdict == not processed).
-            self.report.num_refs_out_of_scope += 1
-            return _Resolution(urn, None, None)
-
-        # The alias indexes, not the schema slices: identity is what is decided here, and
-        # the two loads fail independently. Outside them nothing was looked up, so no
-        # verdict — not UNRESOLVED.
-        if not self._resolve_all_platforms and not self._urn_aliases.covered(urn):
             self.report.num_refs_out_of_scope += 1
             return _Resolution(urn, None, None)
         # prefer_lowercased: when two stored casings of the same name collide, heal to
         # the lowercase-named entity rather than leaving the lineage broken.
         try:
-            resolved = self._urn_aliases.resolve(urn, prefer_lowercased=True)
+            resolved = self._resolve_alias(urn, alias_resolvers)
         except Exception as e:
             # Nothing was answered, so nothing is stamped: UNRESOLVED would claim DataHub
             # holds no such entity, on the strength of a query that failed.
@@ -608,20 +584,36 @@ class AutoResolveLineageUrnsProcessor(
             resolved, self._schema_of(resolved, platform, resolvers), match_type
         )
 
+    def _resolve_alias(
+        self, urn: str, alias_resolvers: List[UrnAliasResolver]
+    ) -> Optional[str]:
+        """The stored casing of `urn`, from a bulk-loaded region or by asking DataHub.
+
+        A bulk-loaded resolver answers its own misses, so the fetch is spent only where
+        nothing was loaded for the region at all.
+        """
+        for resolver in alias_resolvers:
+            resolved = resolver.resolve(urn, prefer_lowercased=True)
+            if resolved is not None:
+                return resolved
+        if alias_resolvers:
+            return None
+        return graph_urn_alias_resolver(self._graph).resolve(
+            urn, prefer_lowercased=True
+        )
+
     def _schema_of(
         self, urn: str, platform: str, resolvers: List["SchemaResolver"]
     ) -> Optional[SchemaInfo]:
         """The columns DataHub stores for `urn`, or None for an entity that has none.
 
         A platform can be configured several times (one entry per platform_instance /
-        env), so its resolvers are tried in turn; only the one whose slice holds `urn`
+        env), so its resolvers are tried in turn; only the one whose region holds `urn`
         can answer, so the first hit is the only hit.
 
-        Inside a slice we loaded, a miss is the answer — that load fetched every schema
-        the slice holds — so asking the server would spend a round trip on something we
-        know. Outside them nothing was loaded, so the columns are fetched. A slice whose
-        load failed is not one we loaded, so its references fall through to the fetch
-        rather than being told, wrongly, that DataHub has no columns for them.
+        A bulk load fetched every schema it holds, so a miss among them is the answer and
+        asking the server would spend a round trip on something we know. Where nothing was
+        loaded for the platform, the columns are fetched instead.
 
         A failed fetch answers None: columns are an enrichment on top of an identity that
         is already resolved, so losing them must not unwind the reference itself.
@@ -630,7 +622,7 @@ class AutoResolveLineageUrnsProcessor(
             schema = resolver.resolve_urn(urn)[1]
             if schema is not None:
                 return schema
-        if covered_by(urn, self._loaded_slices):
+        if resolvers:
             return None
         try:
             return self._graph_resolver_for(platform).resolve_urn(urn)[1]

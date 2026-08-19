@@ -1,47 +1,86 @@
-from typing import List
+from typing import List, Optional
 from unittest import mock
 
-from datahub.utilities.urn_alias.index import CatalogSlice, UrnAliasIndex
-from datahub.utilities.urn_alias.resolver import UrnAliasResolver
+import pytest
+
+from datahub.utilities.urn_alias.resolver import (
+    UrnAliasResolver,
+    graph_urn_alias_resolver,
+    lowercased_urn,
+    provide_urn_alias_resolver,
+)
 
 _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
 _MIXED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Db.My_Schema.Events,PROD)"
 _OTHER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
-_REDSHIFT = "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.my_schema.events,PROD)"
-
-_SNOWFLAKE_PROD = CatalogSlice(platform="snowflake", platform_instance=None, env="PROD")
 
 
 def _loaded(*urns: str) -> UrnAliasResolver:
-    """A resolver over a completed load of `urns`, not allowed to ask the server."""
-    index = UrnAliasIndex(_SNOWFLAKE_PROD)
+    """A resolver over a completed bulk load, which answers its own misses."""
+    resolver = UrnAliasResolver()
     for urn in urns:
-        index.add(urn)
-    return UrnAliasResolver(mock.MagicMock(), [index])
+        resolver.add(urn)
+    return resolver
 
 
-def _server(*stored: str) -> mock.MagicMock:
-    """A graph answering every search with `stored`, recording what it was asked."""
+def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
+    """A graph holding `stored`, whose scroll optionally dies part way through."""
     graph = mock.MagicMock()
-    graph.get_urns_by_filter.return_value = list(stored)
+
+    def scroll(**kwargs: object) -> object:
+        yield from stored
+        if fails:
+            raise RuntimeError("boom")
+
+    graph.get_urns_by_filter.side_effect = scroll
     return graph
 
 
-def _asked(graph: mock.MagicMock) -> List[List[str]]:
-    """The keys each search asked about, in order."""
+def _asked(graph: mock.MagicMock) -> List[str]:
+    """The key each search asked about, in order."""
     return [
-        call.kwargs["extra_or_filters"][0]["and"][0]["values"]
+        call.kwargs["extra_or_filters"][0]["and"][0]["values"][0]
         for call in graph.get_urns_by_filter.call_args_list
     ]
 
 
-def _asking(*stored: str) -> UrnAliasResolver:
-    """A resolver with nothing loaded, allowed to ask the server."""
-    return UrnAliasResolver(_server(*stored), query_on_demand=True)
+def _load(graph: mock.MagicMock, instance: str = "") -> Optional[UrnAliasResolver]:
+    return provide_urn_alias_resolver(
+        graph=graph,
+        platform="snowflake",
+        platform_instance=instance or None,
+        env="PROD",
+    )
 
 
-# --- choosing a URN out of the matches ---------------------------------------------
+# --- the key ---------------------------------------------------------------------------
+
+
+def test_only_the_dataset_name_is_lowercased() -> None:
+    # Platform and env keep their casing; GMS lowercases the name alone.
+    assert lowercased_urn(_MIXED) == _LOWER
+
+
+def test_a_non_dataset_urn_has_no_key() -> None:
+    assert lowercased_urn("urn:li:corpuser:alice") is None
+
+
+def test_a_non_dataset_urn_is_neither_stored_nor_matched() -> None:
+    assert _loaded("urn:li:corpuser:alice").find_match("urn:li:corpuser:alice") == []
+
+
+# --- choosing a URN out of the matches -------------------------------------------------
+
+
+def test_every_casing_of_a_name_answers_under_one_key() -> None:
+    # Two datasets differing only by case can both exist, and a caller has to see the
+    # ambiguity rather than be handed an arbitrary winner.
+    assert _loaded(_LOWER, _UPPER).find_match(_MIXED) == [_LOWER, _UPPER]
+
+
+def test_the_same_urn_is_stored_once() -> None:
+    assert _loaded(_LOWER, _LOWER).find_match(_UPPER) == [_LOWER]
 
 
 def test_resolve_returns_the_stored_urn_for_a_different_casing() -> None:
@@ -75,88 +114,92 @@ def test_resolve_prefers_lowercased_does_not_override_an_exact_match() -> None:
     assert _loaded(_LOWER, _UPPER).resolve(_UPPER, prefer_lowercased=True) == _UPPER
 
 
-def test_find_match_is_empty_when_nothing_matches() -> None:
-    assert _loaded(_LOWER).find_match(_OTHER) == []
+# --- bulk-loaded answers its own misses; graph-backed asks -----------------------------
 
 
-def test_with_nothing_loaded_and_nothing_to_ask_a_urn_is_unresolved() -> None:
-    assert _loaded().resolve(_LOWER) is None
-
-
-# --- when the server is asked --------------------------------------------------------
-
-
-def test_a_miss_inside_a_loaded_slice_is_answered_without_asking() -> None:
-    # A miss here is a fact, not a gap, so it must not cost a round trip.
-    graph = _server()
-    resolver = UrnAliasResolver(
-        graph, [UrnAliasIndex(_SNOWFLAKE_PROD)], query_on_demand=True
-    )
-
-    assert resolver.resolve(_OTHER) is None
-    assert _asked(graph) == []
-
-
-def test_a_miss_outside_every_loaded_slice_is_asked_about() -> None:
+def test_a_bulk_loaded_resolver_never_asks() -> None:
+    # Its load ran to completion, so a miss is a fact rather than a gap.
     graph = _server(_LOWER)
-    resolver = UrnAliasResolver(graph, query_on_demand=True)
+    resolver = _load(graph)
+    assert resolver is not None
+    graph.get_urns_by_filter.reset_mock()
 
     assert resolver.resolve(_UPPER) == _LOWER
-    # Asked under the key, not the reference's own casing — one key covers every casing.
-    assert _asked(graph) == [[_LOWER]]
+    assert resolver.resolve(_OTHER) is None
+    graph.get_urns_by_filter.assert_not_called()
 
 
-def test_prefetch_asks_only_about_references_no_loaded_slice_answers() -> None:
-    graph = _server()
-    resolver = UrnAliasResolver(
-        graph, [UrnAliasIndex(_SNOWFLAKE_PROD)], query_on_demand=True
-    )
+def test_a_graph_backed_resolver_asks_under_the_key() -> None:
+    graph = _server(_LOWER)
 
-    resolver.prefetch([_UPPER, _REDSHIFT])
-
-    # Nothing here has ever looked at redshift, so that one is still a question.
-    assert _asked(graph) == [[_REDSHIFT]]
+    assert UrnAliasResolver(graph).resolve(_UPPER) == _LOWER
+    # Asked under the key, not the reference's own casing.
+    assert _asked(graph) == [_LOWER]
 
 
 def test_references_sharing_a_key_are_one_question() -> None:
     graph = _server(_LOWER)
-    resolver = UrnAliasResolver(graph, query_on_demand=True)
+    resolver = UrnAliasResolver(graph)
 
-    resolver.prefetch([_UPPER, _MIXED, _LOWER])
+    resolver.resolve(_UPPER)
+    resolver.resolve(_MIXED)
 
-    assert _asked(graph) == [[_LOWER]]
-
-
-def test_an_answer_from_a_query_does_not_make_the_next_miss_look_settled() -> None:
-    # Per-URN answers land in the scratch index, which covers nothing.
-    graph = _server(_LOWER)
-    resolver = UrnAliasResolver(graph, query_on_demand=True)
-
-    assert resolver.resolve(_UPPER) == _LOWER
-    assert resolver.covered(_OTHER) is False
-
-    resolver.resolve(_OTHER)
-    assert _asked(graph) == [[_LOWER], [_OTHER]]
+    assert _asked(graph) == [_LOWER]
 
 
-def test_a_recorded_absence_is_not_asked_about_twice() -> None:
+def test_an_absence_is_recorded_so_it_is_asked_once() -> None:
     graph = _server()
-    resolver = UrnAliasResolver(graph, query_on_demand=True)
+    resolver = UrnAliasResolver(graph)
 
     assert resolver.resolve(_UPPER) is None
     assert resolver.resolve(_MIXED) is None
 
-    assert _asked(graph) == [[_LOWER]]
+    assert _asked(graph) == [_LOWER]
 
 
-def test_matches_are_read_across_every_loaded_index() -> None:
-    snowflake = UrnAliasIndex(_SNOWFLAKE_PROD)
-    snowflake.add(_LOWER)
-    redshift = UrnAliasIndex(
-        CatalogSlice(platform="redshift", platform_instance=None, env="PROD")
-    )
-    redshift.add(_REDSHIFT)
-    resolver = UrnAliasResolver(mock.MagicMock(), [snowflake, redshift])
+def test_a_failed_search_records_nothing() -> None:
+    # A transient failure recorded as "known absent" would decline every later reference
+    # to a real entity for the rest of the run.
+    graph = mock.MagicMock()
+    graph.get_urns_by_filter.side_effect = Exception("search failed")
+    resolver = UrnAliasResolver(graph)
 
+    with pytest.raises(Exception, match="search failed"):
+        resolver.resolve(_UPPER)
+
+    graph.get_urns_by_filter.side_effect = None
+    graph.get_urns_by_filter.return_value = [_LOWER]
     assert resolver.resolve(_UPPER) == _LOWER
-    assert resolver.find_match(_REDSHIFT) == [_REDSHIFT]
+
+
+def test_the_graph_backed_resolver_is_shared_per_server() -> None:
+    graph = mock.MagicMock()
+
+    assert graph_urn_alias_resolver(graph) is graph_urn_alias_resolver(graph)
+
+
+# --- the bulk load ---------------------------------------------------------------------
+
+
+def test_a_load_that_fails_part_way_yields_no_resolver() -> None:
+    # Its rows are real, but their keys would claim to hold every casing of the name, and
+    # a partial answer resolves a later reference to the wrong entity.
+    assert _load(_server(_LOWER, fails=True)) is None
+
+
+def test_one_resolver_is_shared_by_every_consumer_of_a_region() -> None:
+    graph = _server(_LOWER)
+
+    assert _load(graph) is _load(graph)
+    assert graph.get_urns_by_filter.call_count == 1
+
+
+def test_an_empty_region_still_loads_and_says_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The known hole while platform_instance is still a scroll filter — see
+    # docs/dev_guides/lineage_urn_casing.md.
+    resolver = _load(_server(), instance="prod_wh")
+
+    assert resolver is not None
+    assert any("Loaded 0 URNs" in r.message for r in caplog.records)

@@ -1,9 +1,10 @@
 import functools
 import logging
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional
 
 from datahub.metadata.urns import DatasetUrn
-from datahub.utilities.urn_alias.index import UrnAliasIndex, lowercased_urn
+from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urn_alias.remote import search_aliases
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -11,6 +12,33 @@ if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
+
+_TABLE = "urn_aliases"
+_DATASET_ENTITY_TYPE = "dataset"
+
+# Sized to the distinct upstreams a source references rather than to the catalog: a BI
+# tool names the same warehouse table across many charts, so the repeats answer from
+# memory.
+_CACHE_MAX_SIZE = 10_000
+
+# Large because a page carries URNs only — no aspects to fetch, unlike the schema scroll.
+_BATCH_SIZE = 5000
+
+_PROGRESS_EVERY = 10_000
+
+
+def lowercased_urn(urn: str) -> Optional[str]:
+    """`urn` with the dataset name lowercased, or None for a non-dataset URN."""
+    # Mirrors AliasesUtils.lowercaseDatasetUrn, the value GMS indexes in `aliases`.
+    try:
+        dataset = DatasetUrn.from_string(urn)
+    except InvalidUrnError:
+        return None
+    return str(
+        DatasetUrn(
+            platform=dataset.platform, name=dataset.name.lower(), env=dataset.env
+        )
+    )
 
 
 def _has_lowercased_name(urn: str) -> bool:
@@ -26,58 +54,49 @@ def _has_lowercased_name(urn: str) -> bool:
 class UrnAliasResolver:
     """Resolves a dataset URN to the URN DataHub stores for it, ignoring case.
 
-    Reads across the indexes loaded for it plus a scratch index, which is where per-URN
-    searches put their answers.
+    Keyed by the lowercased URN, the value GMS indexes as a dataset's alias, so one row
+    answers for every casing of a name.
+
+    With `graph`, an unknown name is fetched. Without it the resolver answers from what it
+    holds alone, so a miss is an absence — which is only true of one filled by a bulk load
+    that ran to completion, and is why `provide_urn_alias_resolver` returns None otherwise.
     """
 
-    def __init__(
-        self,
-        graph: "DataHubGraph",
-        indexes: Iterable[UrnAliasIndex] = (),
-        query_on_demand: bool = False,
-        scratch: Optional[UrnAliasIndex] = None,
-    ) -> None:
+    def __init__(self, graph: "Optional[DataHubGraph]" = None) -> None:
+        # Backed by sqlite: a bulk load holds a whole platform's URNs for the pipeline's
+        # lifetime, roughly 500 bytes per dataset on disk.
         self._graph = graph
-        self._indexes = tuple(indexes)
-        self._scratch = scratch if scratch is not None else UrnAliasIndex()
-        # A policy of the consumer, not the server.
-        self._query_on_demand = query_on_demand
+        self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(
+            tablename=_TABLE, cache_max_size=_CACHE_MAX_SIZE
+        )
 
-    @property
-    def _readable(self) -> Tuple[UrnAliasIndex, ...]:
-        return (*self._indexes, self._scratch)
-
-    def covered(self, urn: str) -> bool:
-        """Whether a load already answered for `urn`, so a miss is an absence."""
-        return any(index.covers(urn) for index in self._indexes)
-
-    def prefetch(self, urns: List[str]) -> None:
-        """Learn what is not already known about `urns`, in as few searches as possible."""
-        if not self._query_on_demand:
+    def add(self, urn: str) -> None:
+        """Record `urn` as stored, from a scroll that enumerated it."""
+        key = lowercased_urn(urn)
+        if key is None:
             return
-        # Answered two ways, and both count: a load that covers it, or any index already
-        # holding its key. One key covers every casing, so a batch collapses to far fewer
-        # questions.
-        keys: List[str] = []
-        for urn in urns:
-            key = lowercased_urn(urn)
-            if key is None or key in keys or self._knows(urn):
-                continue
-            keys.append(key)
-        if not keys:
-            return
-        for key, matches in search_aliases(self._graph, keys).items():
-            self._scratch.record(key, matches)
+        entry = self._urns_by_key.get(key)
+        if entry is None:
+            self._urns_by_key[key] = [urn]
+        elif urn not in entry:
+            # Reassigned rather than appended in place, so the store persists it.
+            self._urns_by_key[key] = entry + [urn]
 
     def find_match(self, urn: str) -> List[str]:
-        """Stored URNs matching `urn` ignoring case."""
-        self.prefetch([urn])
-        matches: List[str] = []
-        for index in self._readable:
-            for match in index.matches(urn):
-                if match not in matches:
-                    matches.append(match)
-        return matches
+        """Stored URNs matching `urn` ignoring case. Raises if a fetch fails."""
+        key = lowercased_urn(urn)
+        if key is None:
+            # Not a dataset, so it has no casing to reconcile.
+            return []
+        entry = self._urns_by_key.get(key)
+        if entry is None:
+            if self._graph is None:
+                return []
+            # The search is exhaustive, so `[]` is a genuine absence and is recorded as
+            # one — the same name is not asked about twice.
+            entry = search_aliases(self._graph, key)
+            self._urns_by_key[key] = entry
+        return entry
 
     def resolve(self, urn: str, prefer_lowercased: bool = False) -> Optional[str]:
         """The dataset URN DataHub stores for `urn`, or None without a single match.
@@ -93,29 +112,71 @@ class UrnAliasResolver:
             return next((m for m in matches if _has_lowercased_name(m)), None)
         return None
 
-    def _knows(self, urn: str) -> bool:
-        return self.covered(urn) or any(index.knows(urn) for index in self._readable)
+    def close(self) -> None:
+        self._urns_by_key.close()
 
 
 @functools.lru_cache(maxsize=None)
-def _scratch_index(graph: "DataHubGraph") -> UrnAliasIndex:
-    """The one index per server for what per-URN searches answered.
-
-    Shared, so a question one consumer paid for is not asked twice. Carries no slice, so it
-    settles only the URNs actually asked about.
-    """
-    return UrnAliasIndex()
-
-
-def get_urn_alias_resolver(
+def provide_urn_alias_resolver(
     graph: "DataHubGraph",
-    indexes: Iterable[UrnAliasIndex] = (),
-    query_on_demand: bool = False,
-) -> UrnAliasResolver:
-    """The way to resolve URN casing against `graph`, over the regions already loaded.
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    batch_size: int = _BATCH_SIZE,
+) -> Optional[UrnAliasResolver]:
+    """A resolver over one bulk-loaded region of DataHub's catalog, cached per region.
 
-    `indexes` come from `load_urn_alias_index`; a region whose load failed is simply absent.
-    `query_on_demand` lets a consumer ask about references outside them — never inside, as
-    those loads already answer.
+    None, not a half-filled resolver, when the scroll fails: a key holds every casing of a
+    name, so a partial one answers a later reference with the wrong entity.
+
+    Scrolls URNs alone; schemas are a separate concern with a separate loader.
     """
-    return UrnAliasResolver(graph, indexes, query_on_demand, _scratch_index(graph))
+    scope = f"platform={platform}, platform_instance={platform_instance}, env={env}"
+    logger.info(f"Loading URN aliases for {scope}; this may take a while...")
+    resolver = UrnAliasResolver()
+    count = 0
+    try:
+        with PerfTimer() as timer:
+            for urn in graph.get_urns_by_filter(
+                entity_types=[_DATASET_ENTITY_TYPE],
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                batch_size=batch_size,
+            ):
+                resolver.add(urn)
+                count += 1
+                if count % _PROGRESS_EVERY == 0:
+                    logger.debug(
+                        f"Loaded {count} URNs for {scope} in "
+                        f"{timer.elapsed_seconds()} seconds"
+                    )
+            logger.info(
+                f"Loaded {count} URNs for {scope} in {timer.elapsed_seconds()} seconds"
+            )
+    except Exception:
+        logger.warning(
+            f"Failed to load URN aliases for {scope} after {count} URNs; references "
+            "there will be resolved one at a time instead.",
+            exc_info=True,
+        )
+        resolver.close()
+        return None
+
+    if count == 0:
+        # An instance filter matches the `dataPlatformInstance` aspect, which a connector
+        # may never emit even with the instance in the URN.
+        logger.warning(
+            f"Loaded 0 URNs for {scope}. If this platform instance does hold datasets, "
+            "its connector likely does not emit the dataPlatformInstance aspect the "
+            "filter matches; drop platform_instance to load it."
+        )
+    return resolver
+
+
+@functools.lru_cache(maxsize=None)
+def graph_urn_alias_resolver(graph: "DataHubGraph") -> UrnAliasResolver:
+    """The resolver that asks `graph` about one name at a time, for references outside
+    every bulk-loaded region. Shared, so a question one consumer paid for is not asked
+    twice."""
+    return UrnAliasResolver(graph)
