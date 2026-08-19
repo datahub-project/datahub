@@ -112,12 +112,20 @@ def docker_compose_runner(
             # run (nothing was leaked). Anything else means the removal itself
             # failed, so a genuinely stale container could still be sitting on
             # our port when `up` runs next -- surface that instead of masking
-            # it as a confusing name/port-in-use error from `up`.
-            if result.returncode != 0 and "No such container" not in result.stderr:
-                logger.warning(
-                    f"Failed to remove stale container(s) {stale_names}: "
-                    f"{result.stderr.strip()}"
-                )
+            # it as a confusing name/port-in-use error from `up`. Checked per
+            # line: with multiple stale_names, one absent (benign) container's
+            # message must not hide another's real removal failure.
+            if result.returncode != 0:
+                real_errors = [
+                    line
+                    for line in result.stderr.splitlines()
+                    if "No such container" not in line
+                ]
+                if real_errors:
+                    logger.warning(
+                        f"Failed to remove stale container(s) {stale_names}: "
+                        f"{' '.join(real_errors)}"
+                    )
 
         # We deliberately do NOT delegate to pytest_docker.get_docker_services: it
         # runs docker_setup *before* the try/finally that owns cleanup, so a setup
