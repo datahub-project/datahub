@@ -34,6 +34,23 @@ configurations {
 }
 
 sourceSets {
+  // The project's own production sources, compiled a SECOND time against a Scala 2.13 classpath
+  // (issue #19289).
+  //
+  // javac bakes the declared return type of a call into its invokevirtual descriptor, and JVM method
+  // resolution matches on the full descriptor -- return type included. Spark's API returns
+  // scala.collection.Seq on Scala 2.12 and scala.collection.immutable.Seq on Scala 2.13
+  // (FileScanRDD.filePartitions(), UnionRDD.rdds(), LogicalPlan.output(), TreeNode.children(), ...),
+  // so one compilation output cannot serve both artifacts. Packing the 2.12 classes into
+  // acryl-spark-lineage_2.13 threw NoSuchMethodError; on the RDD path that is an Error, which
+  // catch (Exception) does not stop and Spark's tryOrStopSparkContext turns into a dead SparkContext.
+  //
+  // `main` stays the Scala 2.12 compilation (it also feeds the unit tests, javadoc and sourcesJar);
+  // this source set is the 2.13 one, and shadowJar_2_13 packages its output instead of main's.
+  scala213 {
+    java.srcDirs = sourceSets.main.java.srcDirs
+    resources.srcDirs = sourceSets.main.resources.srcDirs
+  }
   sparkSmoke4 {
     java.srcDir 'src/sparkSmoke4/java'
   }
@@ -60,6 +77,16 @@ configurations.sparkSmoke4RuntimeClasspath {
 }
 configurations.sparkSmoke4CompileClasspath {
   resolutionStrategy.force sparkSmoke4KafkaClients
+  resolutionStrategy.deactivateDependencyLocking()
+}
+
+// The Scala 2.13 compile classpath is the 2.13 twin of `compileClasspath`, resolved separately so the
+// two Scala flavours never mix. Opt every scala213* configuration out of dependency locking for the
+// same reason the per-Scala shadow jars use detached configurations: the lockfile would otherwise
+// carry two full, conflicting Spark/Scala graphs for one module. Matched by prefix rather than named
+// one by one so a configuration the source set creates later (or a dependency added to it) cannot
+// quietly reintroduce a locked entry.
+configurations.matching { it.name.startsWith('scala213') }.configureEach {
   resolutionStrategy.deactivateDependencyLocking()
 }
 
@@ -118,6 +145,40 @@ dependencies {
     exclude group: 'org.eclipse.jetty', module: 'jetty-security'
   }
   compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
+
+  // --- Scala 2.13 compilation of the same sources (see the `scala213` source set above) ---------
+  // Mirrors the `main` declarations above with _2.13 coordinates. Spark 3.5.0 publishes both cross
+  // builds, so the two compilations target the same Spark API baseline and differ only in the Scala
+  // binary version whose descriptors they bind.
+  scala213CompileOnly externalDependency.lombok
+  scala213AnnotationProcessor externalDependency.lombok
+  scala213Implementation project(path: ':metadata-integration:java:openlineage-converter')
+  scala213Implementation project(path: ':metadata-integration:java:datahub-client')
+  scala213Implementation externalDependency.httpClient
+  scala213Implementation externalDependency.typesafeConfig
+  scala213Implementation externalDependency.slf4jApi
+  scala213Implementation externalDependency.json
+  scala213Implementation "io.openlineage:openlineage-spark_2.13:$openLineageVersion"
+  scala213CompileOnly("org.apache.spark:spark-sql_2.13:3.5.0") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
+  scala213CompileOnly("org.apache.spark:spark-hive_2.13:3.5.0") {
+    exclude group: 'org.apache.velocity', module: 'velocity'
+  }
+  // Delta and spark-redshift-community are reference points only: never bundled, always supplied by
+  // the user's cluster. The versions the 2.12 side pins have no Scala 2.13 release, so these use the
+  // nearest published 2.13 builds, non-transitively so their own (older/newer) Spark does not
+  // displace spark-sql_2.13:3.5.0 above. Only the signatures this module touches matter --
+  // MergeIntoCommand.target()/source() and Parameters/RedshiftRelation/TableName -- and none of them
+  // returns a Scala collection, so no descriptor depends on these exact versions.
+  scala213CompileOnly("io.delta:delta-core_2.13:2.4.0") { transitive = false }
+  scala213CompileOnly("io.github.spark-redshift-community:spark-redshift_2.13:6.6.1-spark_4.0") {
+    transitive = false
+  }
 
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
@@ -243,7 +304,9 @@ scalaVersions.each { sv ->
     archiveBaseName = "acryl-spark-lineage_${sv}"
     mergeServiceFiles()
 
-    from(sourceSets.main.output)
+    // Project classes must come from the compilation that matches this artifact's Scala binary
+    // version -- see the `scala213` source set for why one output cannot serve both (issue #19289).
+    from(sv == '2.13' ? sourceSets.scala213.output : sourceSets.main.output)
 
     // Add manifest with version information
     manifest {
@@ -516,6 +579,12 @@ compileTestJava {
   options.release = javaClassVersion(project)
 }
 compileSparkSmoke4Java {
+  options.release = javaClassVersion(project)
+}
+// The root build applies options.release to compileJava only, so the second (Scala 2.13) compilation
+// of the same sources has to be pinned to the same bytecode level explicitly -- otherwise the shipped
+// _2.13 jar would carry class files newer than the Java 17 baseline managed Spark runs on.
+compileScala213Java {
   options.release = javaClassVersion(project)
 }
 
