@@ -11,6 +11,7 @@
         ]
       },
       "privileges": [
+        "CREATE_LOGICAL_MODELS",
         "MANAGE_POLICIES",
         "MANAGE_INGESTION",
         "MANAGE_SECRETS",
@@ -253,6 +254,7 @@
         ]
       },
       "privileges": [
+        "CREATE_LOGICAL_MODELS",
         "MANAGE_POLICIES",
         "MANAGE_INGESTION",
         "MANAGE_SECRETS",

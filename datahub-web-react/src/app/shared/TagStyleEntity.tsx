@@ -17,6 +17,7 @@ import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwne
 import { GetSearchResultsParams, SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
@@ -343,6 +344,15 @@ export default function TagStyleEntity({
                         <TitleText>
                             {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
                         </TitleText>
+                        {data?.tag?.deprecation?.deprecated && (
+                            <DeprecationIcon
+                                urn={urn}
+                                deprecation={data.tag.deprecation}
+                                showUndeprecate
+                                refetch={refetch}
+                                showText={false}
+                            />
+                        )}
                     </TagName>
                 </div>
                 <ActionButtons>
@@ -352,7 +362,7 @@ export default function TagStyleEntity({
                             urn={urn}
                             entityType={EntityType.Tag}
                             entityData={data?.tag}
-                            menuItems={new Set([EntityMenuItems.DELETE])}
+                            menuItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.DELETE])}
                         />
                     )}
                 </ActionButtons>

@@ -52,15 +52,12 @@ public class BatchRemoveTermsResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_TERM_1_URN),
+        Urn.createFromString(TEST_TERM_2_URN));
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 
@@ -78,6 +75,8 @@ public class BatchRemoveTermsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     verifyIngestProposal(mockService, 1);
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -118,15 +117,12 @@ public class BatchRemoveTermsResolverTest {
                 eq(0L)))
         .thenReturn(oldTerms2);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_TERM_1_URN),
+        Urn.createFromString(TEST_TERM_2_URN));
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 
@@ -144,6 +140,8 @@ public class BatchRemoveTermsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     verifyIngestProposal(mockService, 1);
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -165,12 +163,11 @@ public class BatchRemoveTermsResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
+    // The first resource does not exist.
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_TERM_1_URN));
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 

@@ -230,7 +230,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.client.get_factories(resource_group=self.config.resource_group)
             )
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to List Data Factories",
                 message="Unable to retrieve Data Factories from Azure. Check permissions and subscription ID.",
                 context=f"subscription={self.config.subscription_id}",
@@ -279,11 +279,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     yield from self._process_execution_history(factory, resource_group)
 
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Process Data Factory",
                     message="Error processing Data Factory. Skipping to next.",
                     context=f"factory={factory_name}",
                     exc=e,
+                    log=False,
                 )
 
     def _extract_resource_group(self, resource_id: str) -> str:
@@ -419,11 +420,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 if pipeline.name:  # Skip pipelines with no name
                     self._pipelines_cache[factory_key][pipeline.name] = pipeline
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to List Pipelines",
                 message="Unable to retrieve pipelines from factory.",
                 context=f"factory={factory_name}",
                 exc=e,
+                log=False,
             )
             return  # Can't process pipelines if we can't list them
 
@@ -1244,11 +1246,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
             )
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Fetch Execution History",
                 message="Unable to retrieve pipeline runs.",
                 context=f"factory={factory_name}",
                 exc=e,
+                log=False,
             )
             return
 

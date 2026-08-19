@@ -66,7 +66,7 @@ authentication:
   # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
   # at user login time.
   systemClientId: ${DATAHUB_SYSTEM_CLIENT_ID:__datahub_system}
-  systemClientSecret: ${DATAHUB_SYSTEM_CLIENT_SECRET:JohnSnowKnowsNothing}
+  systemClientSecret: ${DATAHUB_SYSTEM_CLIENT_SECRET}
 
   # Configurations for DataHub token service
   tokenService:
@@ -81,6 +81,14 @@ authentication:
 
   # The max duration of a password reset token in milliseconds. Defaults to 1 day.
   passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
+
+  # Personal / service-account access token duration policy (create-time only).
+  accessTokens:
+    # When false, NO_EXPIRY tokens cannot be created. Existing tokens keep working.
+    allowNoExpiry: ${ACCESS_TOKEN_ALLOW_NO_EXPIRY:false}
+    # Comma-separated ISO-8601 durations shown in the UI and enforced on create.
+    # P1M = 30 days, P1Y = 365 days (fixed approximations). Must be non-empty.
+    allowedDurations: ${ACCESS_TOKEN_ALLOWED_DURATIONS:PT1H,P1D,P7D,P30D,P90D,P180D,P365D}
 
 # Authorization-related configurations.
 authorization:
@@ -97,6 +105,25 @@ authorization:
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
+    # Entity types that bypass view authorization when enabled. All other types are restricted by
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
+    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
+    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
+    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Document,
+    # schemaField, and container are intentionally absent from stock unrestricted overlays when
+    # view authorization is on (container is no longer viewUnrestricted in the registry). Re-add
+    # via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
+    #
+    # Registry baseline (entity-registry.yml viewUnrestricted: true):
+    #   identity: corpuser, corpGroup
+    #   platforms: dataPlatform, dataPlatformInstance
+    #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
+    #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
+    unrestrictedEntityTypes:
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
   # The value of cliVersion is substituted in by the processResources Gradle task.
@@ -105,23 +132,29 @@ ingestion:
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
   # Per-connector CLI version matrix. When configured, overrides defaultCliVersion on a per-connector
-  # basis. Update the matrix file externally (S3/CDN/gist) without redeploying GMS to change
-  # connector versions. Set source=none (or leave url empty) to disable.
+  # basis. Update the matrix document externally (S3/GCS/CDN/gist) without redeploying GMS to change
+  # connector versions.
   cliVersionMatrix:
-    # Source backend: "http" (default) or "none". Setting "none" is an explicit kill-switch even
-    # when an http.url is configured. With "http" but no url, the factory wires a no-op source.
-    source: "${INGESTION_VERSION_MATRIX_SOURCE:http}"
-    http:
-      url: "${INGESTION_VERSION_MATRIX_URL:}"
-      refreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}
-      # Optional. Sent verbatim as the `Authorization` header when fetching the matrix URL.
-      # Required when the URL is hosted behind authentication (e.g. a private GitHub gist).
-      # Format examples:
-      #   token ghp_xxxxxxxxxxxxxxxx           (GitHub PAT)
-      #   Bearer eyJ...                        (OAuth / OIDC bearer)
-      # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in
-      # system-info.
-      authToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
+    # Location of the matrix JSON. The scheme selects the backend:
+    #   s3://bucket/matrix.json    private S3 read reusing the credentials datahub.objectStorage
+    #                              resolves (SigV4-signed, so the bucket can stay private and be
+    #                              shared cross-account)
+    #   gs://bucket/matrix.json    private GCS read with Application Default Credentials
+    #                              (Workload Identity Federation on GKE — no static key file)
+    #   file:///path/matrix.json   local filesystem
+    #   https://host/path          HTTP fetch, optionally authenticated with authToken below
+    # Leave empty to disable: connectors then use defaultCliVersion. An unreadable or unsupported
+    # URI degrades to the same no-op rather than blocking GMS startup.
+    uri: "${INGESTION_VERSION_MATRIX_URL:}"
+    refreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}
+    # Optional, http(s) URIs only — s3/gs authenticate with ambient cloud credentials and file needs
+    # nothing. Sent verbatim as the `Authorization` header, so it is required when the URL is hosted
+    # behind authentication (e.g. a private GitHub gist). Format examples:
+    #   token ghp_xxxxxxxxxxxxxxxx           (GitHub PAT)
+    #   Bearer eyJ...                        (OAuth / OIDC bearer)
+    # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in
+    # system-info.
+    authToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
   # Identifier for this deployment, used for matching against `deployments` allowlists in the
   # version matrix. Sourced from DATAHUB_EXECUTOR_CUSTOMER_ID, which the Acryl Cloud Helm chart
   # injects from the K8s namespace. Empty in single-tenant / OSS deployments — cohort matching
@@ -178,22 +211,20 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
-    # GMS HTTP service rate limiting (disabled by default).
-    # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
-    # Guide: docs/deploy/gms-rate-limiting.md
-    #
-    # Hierarchy: capacity.enabled | endpoint.enabled (by type)
-    #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
-    #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
+    # GMS HTTP API rate limiting (disabled by default; not MCP ingestion or Kafka lag throttle).
+    # Bundled defaults (Tier 1), all env-overridable. Optional mounted RATE_LIMITS_CONFIG_FILE
+    # (Tier 2, see RateLimitEngineFactory) overrides keys per-source; rule lists are index-bound, but
+    # bundled lists are empty so a mounted file simply provides them. Guide: docs/deploy/gms-rate-limiting.md
     rateLimits:
+      enabled: ${RATE_LIMITS_ENABLED:false} # master kill switch
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
       minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
       retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      # Namespaces bucket keys ({tenantId}:actor:{urn}) so deployments sharing a store stay isolated; set to global.id.
+      tenantId: ${RATE_LIMITS_TENANT_ID:}
+      clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false} # select rules by browser/non-browser class
       excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
-      configFile:
-        enabled: ${RATE_LIMITS_CONFIG_FILE_ENABLED:false}
-        path: ${RATE_LIMITS_CONFIG_FILE:/etc/datahub/rate-limits.yaml}
-      # Adaptive in-flight limits (Netflix Gradient2) — per pod
+      # Adaptive in-flight limits (Netflix Gradient2), per pod.
       capacity:
         enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
         default:
@@ -208,12 +239,42 @@ datahub:
           initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
           minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
           maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        rules: []
-      # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
+        rules: [] # per-path rules via mounted override
+      # Cluster-wide token buckets (Bucket4j) via Hazelcast.
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
         hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
-        rules: []
+        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
+        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
+        rules: [] # per-path rules via mounted override
+      # Scoped chain: per-actor -> client-class (browser/sdk) -> fleet-global.
+      # heavyResolvers is a per-resolver map, populated via the mounted override.
+      scoped:
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+        refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
+        # refillTokens defaults to the bucket's capacity (nested placeholder) but can be set
+        # independently; refillPeriodSeconds defaults to 60.
+        actor:
+          capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS:${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_PERIOD_SECONDS:60}
+        browser:
+          # perActor=true keys this class bucket per actor ({tenantId}:browser:{urn}); false (default)
+          # is one shared browser ceiling per tenant. Set independently from sdk.
+          perActor: ${RATE_LIMITS_SCOPED_BROWSER_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_TOKENS:${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_PERIOD_SECONDS:60}
+        sdk:
+          perActor: ${RATE_LIMITS_SCOPED_SDK_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:1000}
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_REFILL_TOKENS:${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS:60}
+        global:
+          capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_TOKENS:${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_PERIOD_SECONDS:60}
+        heavyResolvers: {}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
 
@@ -265,16 +326,41 @@ datahub:
       percentiles: ${DATAHUB_METRICS_HOOK_LATENCY_PERCENTILES:0.5,0.95,0.99,0.999}
       slo: ${DATAHUB_METRICS_HOOK_LATENCY_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
       maxExpectedValue: ${DATAHUB_METRICS_HOOK_LATENCY_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
+    entityCounts:
+      enabled: ${ENTITY_COUNT_METRICS_ENABLED:true}
+      updateIntervalSeconds: ${ENTITY_COUNT_METRICS_UPDATE_INTERVAL_SECONDS:3600}
+      initialDelaySeconds: ${ENTITY_COUNT_METRICS_INITIAL_DELAY_SECONDS:60}
+      skipCache: ${ENTITY_COUNT_METRICS_SKIP_CACHE:false}
 
   policies:
     systemPolicyUrnList: ${DATAHUB_SYSTEM_POLICY_URN_LIST:} # Additional policy urns that should not allow deletion, comma separated list like urn:li:dataHubPolicy:my-policy
 
-  s3:
-    bucketName: ${DATAHUB_BUCKET_NAME:} # The S3 bucket name to use for storing data
-    roleArn: ${DATAHUB_ROLE_ARN:} # The AWS IAM role ARN to assume for S3 access
-    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
-    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
+  objectStorage:
+    uri: ${DATAHUB_OBJECT_STORAGE_URI:} # s3://bucket, s3://bucket/prefix, gs://bucket, or file:///local/root
+    bucket: ${DATAHUB_BUCKET_NAME:} # legacy fallback bucket when uri is unset
+    path: ${DATAHUB_OBJECT_STORAGE_PATH:} # legacy fallback prefix/root when uri is unset
+    provider: ${DATAHUB_OBJECT_STORAGE_PROVIDER:} # legacy fallback provider when uri is unset
+    roleArn: ${DATAHUB_ROLE_ARN:} # AWS IAM role ARN to assume for S3 access
+    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600}
+    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600}
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
+    multipartThresholdBytes: ${OBJECT_STORAGE_MULTIPART_THRESHOLD_BYTES:8388608}
+    multipartPartSizeBytes: ${OBJECT_STORAGE_MULTIPART_PART_SIZE_BYTES:8388608}
+
+  usage:
+    aggregation:
+      enabled: ${USAGE_AGGREGATION_ENABLED:false}
+      micrometerExport:
+        enabled: ${USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED:true}
+      flush:
+        maxWindowSeconds: ${USAGE_AGGREGATION_MAX_WINDOW_SECONDS:300}
+        maxCardinality: ${USAGE_AGGREGATION_MAX_CARDINALITY:10000}
+        scheduledIntervalSeconds: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:60}
+        retryAttempts: ${USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS:3}
+        retryInitialBackoffMillis: ${USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS:100}
+        alignmentPeriodSeconds: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:0}
+        # agent_name is client-controlled/unbounded; off by default to bound metric cardinality.
+        includeAgentNameDimension: ${USAGE_AGGREGATION_INCLUDE_AGENT_NAME:false}
 
   validation:
     aspectSize:
@@ -292,6 +378,21 @@ datahub:
         # Size bucket boundaries for distribution tracking (in bytes)
         # Default: 1MB, 5MB, 10MB, 15MB creates buckets: 0-1MB, 1-5MB, 5-10MB, 10-15MB, 15MB+
         sizeBuckets: ${DATAHUB_ASPECT_SIZE_METRICS_BUCKETS:1048576,5242880,10485760,15728640}
+
+  retention:
+    buffer:
+      # Tuning only. On/off gate is featureFlags.retentionBufferEnabled (RETENTION_BUFFER_ENABLED);
+      # also requires featureFlags.postCommitRetentionEnabled. Backed by the shared embedded
+      # Hazelcast instance (one map + a cluster-wide drain lock, one drainer per tick across all
+      # GMS/MCE pods). Enabling the flag boots that node via HazelcastInstanceBootstrapCondition.
+      mapName: ${RETENTION_BUFFER_MAP_NAME:retention-pending}
+      lockMapName: ${RETENTION_BUFFER_LOCK_MAP_NAME:retention-drain-lock}
+      maxPendingEntries: ${RETENTION_BUFFER_MAX_PENDING_ENTRIES:100000}
+      drainBatchSize: ${RETENTION_BUFFER_DRAIN_BATCH_SIZE:500}
+      # Read by RetentionDrainer @Scheduled placeholder (not RetentionBufferProperties Java readers).
+      drainIntervalMs: ${RETENTION_BUFFER_DRAIN_INTERVAL_MS:5000}
+      # Drain-lock lease; must exceed a drain's worst-case duration, else ticks double-drain (safe, wasteful).
+      drainLockLeaseMs: ${RETENTION_BUFFER_DRAIN_LOCK_LEASE_MS:60000}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -315,6 +416,8 @@ searchService:
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
   semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
+  lineage:
+    maxParentsToValidate: ${SEARCH_SERVICE_LINEAGE_MAX_PARENTS_TO_VALIDATE:1000}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -330,6 +433,10 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+    documentExpansion:
+      enabled: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_ENABLED:true}
+      pageSize: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_PAGE_SIZE:100}
+      limit: ${SEARCH_SERVICE_FILTER_DOCUMENT_EXPANSION_LIMIT:100}
   limit:
     results:
       max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -344,6 +451,7 @@ timeseriesAspectService:
   batchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # use top_hits agg batch path; shared env var with featureFlags.timeseriesAspectBatchLoadEnabled
   topHitsThreshold: ${TIMESERIES_ASPECT_SERVICE_TOP_HITS_THRESHOLD:500} # max docs per batch top_hits agg query (limit × URN batch size)
   topHitsPerBucketLimit: ${TIMESERIES_ASPECT_SERVICE_TOP_HITS_PER_BUCKET_LIMIT:100} # per-bucket top_hits size; matches index.max_inner_result_window default — raise both together if larger per-entity batch windows are needed
+  batchAggMaxUrnsPerBatch: ${TIMESERIES_ASPECT_SERVICE_BATCH_AGG_MAX_URNS_PER_BATCH:100} # max URNs per outer-terms-bucket sub-batch for batchGetAggregatedStats
   limit:
     results:
       max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -465,6 +573,22 @@ ebean:
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  transactionRetry:
+    # SQLStates / vendor codes that get exponential backoff between retries (all PersistenceExceptions still retry).
+    backoffSqlStates: ${EBEAN_RETRY_BACKOFF_SQL_STATES:40001,40P01}
+    backoffVendorCodes: ${EBEAN_RETRY_BACKOFF_VENDOR_CODES:1213}
+    initialBackoffMs: ${EBEAN_RETRY_INITIAL_BACKOFF_MS:50}
+    maxBackoffMs: ${EBEAN_RETRY_MAX_BACKOFF_MS:1000}
+    # Retry-After hint (seconds) returned on exhausted deadlock/serialization conflicts (OpenAPI/Rest.li).
+    retryAfterSeconds: ${EBEAN_RETRY_AFTER_SECONDS:1}
+  entityWriteAdvisoryLockEnabled: ${EBEAN_ENTITY_WRITE_ADVISORY_LOCK_ENABLED:false} # Opt-in: serialize concurrent writes/deletes per entity to prevent lock-order deadlocks (write vs hard-delete). Postgres-only, via a txn-scoped pg_advisory_xact_lock (auto-released on commit). BLOCKS until the lock is released — no Java-side timeout (ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS does NOT apply here); set a Postgres lock_timeout to bound the wait. For bounded, off-connection waits under a write herd, use ENTITY_WRITE_LOCK_BACKEND=hazelcast instead. No-op on other engines.
+  entityWriteLockBackend: ${ENTITY_WRITE_LOCK_BACKEND:none} # Write-gate backend: none | hazelcast. Default none (off). hazelcast serializes hot-key writers OFF the DB connection pool (the intended answer when connections are the bottleneck); requires OPTIMISTIC_LOCKING_ENABLED, bounded by ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS then proceeds lockless. Independent of entityWriteAdvisoryLockEnabled (the Postgres deadlock-ordering advisory lock); when the gate is engaged the advisory lock is skipped. CAS guards versioned rows; legacy null-version rows are last-writer-wins until a write stamps a version.
+  entityWriteLockAcquireTimeoutSeconds: ${ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS:10} # Hazelcast write-GATE only: max wait to acquire the off-connection gate before proceeding lockless (CAS still guards). Does NOT bound the Postgres advisory lock (entityWriteAdvisoryLockEnabled), which blocks until released — set a Postgres lock_timeout to bound that.
+  entityWriteLockLeaseSeconds: ${ENTITY_WRITE_LOCK_LEASE_SECONDS:300} # Hazelcast lock lease: auto-release a held lock after this many seconds so a dead/hung holder never wedges a URN.
+  optimisticLockingEnabled: ${OPTIMISTIC_LOCKING_ENABLED:false} # Opt-in, per-process: write aspects via compare-and-set on SystemMetadata.version instead of SELECT ... FOR UPDATE. Ignored on Cassandra. Default off (legacy path unchanged).
+  scopedRetryEnabled: ${SCOPED_RETRY_ENABLED:false} # Opt-in, requires optimisticLockingEnabled: on an optimistic-lock CONFLICT retry only the conflicted URN's branch within the transaction instead of re-running the whole batch. Default off (full-batch retry).
+  optimisticWriteBatchEnabled: ${OPTIMISTIC_WRITE_BATCH_ENABLED:false} # Opt-in: batch CAS updates via JDBC executeBatch. Requires optimisticLockingEnabled AND scopedRetryEnabled. Default off.
+  optimisticWriteBatchMinSize: ${OPTIMISTIC_WRITE_BATCH_MIN_SIZE:10} # Min batch size below which batching is skipped. (Max per executeBatch is a hardcoded constant, packet-limited.)
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
@@ -747,6 +871,12 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
+    # Bounded same-processor requeue of failed bulk items (version_conflict, 429/503, etc.).
+    itemRequeueEnabled: ${ES_BULK_ITEM_REQUEUE_ENABLED:true}
+    itemRequeueMaxAttempts: ${ES_BULK_ITEM_REQUEUE_MAX_ATTEMPTS:3}
+    # When true, MAE UpdateIndices awaits bulk transfer before Kafka/pgQueue ack.
+    ackAfterTransfer: ${ES_BULK_ACK_AFTER_TRANSFER:false}
+    ackAfterTransferTimeoutSeconds: ${ES_BULK_ACK_AFTER_TRANSFER_TIMEOUT_SECONDS:60}
     # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
     # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
     slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
@@ -814,7 +944,11 @@ elasticsearch:
     rethrottleExecutorPoolSize: ${ELASTICSEARCH_BUILD_INDICES_RETHROTTLE_EXECUTOR_POOL_SIZE:8} # Thread pool size for concurrent rethrottle operations
     minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
+    reconcileInPlaceMappingUpdates: ${ELASTICSEARCH_BUILD_INDICES_RECONCILE_IN_PLACE_MAPPING_UPDATES:false} # opt-in incremental rebuild when first applying live mapping parameter updates
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
+    catchUpSqlPageSize: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_SQL_PAGE_SIZE:50} # SQL page size for incremental reindex catch-up MCL emission
+    catchUpFlushInterval: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_INTERVAL:500} # rows between producer flush and checkpoint during catch-up
+    catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -863,6 +997,37 @@ elasticsearch:
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
       maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
+    # Default entity types when callers omit types. No code baseline — configure via YAML/env.
+    # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    defaultEntityTypes:
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document}
+      add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for autocomplete-across-entities when callers omit types.
+    autocompleteEntityTypes:
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty}
+      add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for browse V2 when callers omit types.
+    browseEntityTypes:
+      value: ${SEARCH_BROWSE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,notebook,document}
+      add: ${SEARCH_BROWSE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_BROWSE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for source-entity quick filters (first N with hits win).
+    prioritizedSourceEntityTypes:
+      value: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES:dataset,dashboard,dataFlow,dataJob,chart,container,mlModel,mlModelGroup,mlFeature,mlFeatureTable,mlPrimaryKey}
+      add: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for DataHub-entity quick filters (first N with hits win).
+    prioritizedDatahubEntityTypes:
+      value: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES:domain,glossaryTerm,corpGroup,corpuser}
+      add: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_REMOVE:}
+
 
 # TODO: Kafka topic convention
 kafka:
@@ -1176,6 +1341,10 @@ incidents:
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
+assertions:
+  hook:
+    enabled: ${ENABLE_ASSERTIONS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
   async:
@@ -1226,6 +1395,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
+  assertionInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_CLL_LIMIT:0}
   restoreColumnLineageIndices:
     enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:false}
   restoreFormInfoIndices:
@@ -1274,11 +1448,35 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_LIMIT:0}
+  datasetAliases:
+    enabled: ${SYSTEM_UPDATE_DATASET_ALIASES_ENABLED:true}
+    batchSize: ${SYSTEM_UPDATE_DATASET_ALIASES_BATCH_SIZE:1000}
+    delayMs: ${SYSTEM_UPDATE_DATASET_ALIASES_DELAY_MS:0}
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_DATASET_ALIASES_REPROCESS:false}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT:0}
+    reprocess:
+      # Force re-run for the current MCP domain/ownership fingerprint even if already SUCCEEDED
+      enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS:false}
+  assertionEntityField:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT:0}
+  assertionNote:
+    enabled: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_ENABLED:true}
+    batchSize: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_DELAY_MS:0}
+    limit: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_LIMIT:0}
+  assertionFieldPath:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_LIMIT:0}
   schemaFieldsDocIds:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE:500}
@@ -1307,20 +1505,49 @@ systemUpdate:
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
   entityConsistency:
     enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED:true}
-    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:true}  # Set to false to apply fixes
+    # Job-level safety ceiling. False so per-check mode controls writes (assertion checks default dry-run).
+    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:false}
     batchSize: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_BATCH_SIZE:100}
     delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
     gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
     limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
-    entityTypes: []  # Entity types to check. Empty = all types with registered checks.
+    entityTypes: []  # Job-level override of entity types for default checks. Empty = types with registered default checks.
     checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
     reprocess:
       enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_REPROCESS:false}
+    # Per-check mode/schedule for datahub-upgrade only. Modes: disabled | dry-run | active.
+    # Schedules: every-run | daily | weekly | monthly. Cadence advances on completed pass (active or dry-run).
+    checks:
+      orphan-index-document:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ORPHAN_MODE:active}
+        schedule: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ORPHAN_SCHEDULE:monthly}
+      assertion-invalid-type:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ASSERTION_INVALID_TYPE_MODE:dry-run}
+      assertion-type-mismatch:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ASSERTION_TYPE_MISMATCH_MODE:dry-run}
     systemMetadataFilterConfig:  # Optional filtering via system metadata index
       gePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GE_PIT_EPOCH_MS:}  # Only entities modified >= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+      # Scroll only key-aspect system-metadata docs (e.g. datasetKey). Cuts orphan / large-type scan volume.
+      keyAspectOnly: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_KEY_ASPECT_ONLY:true}
+      # Entity types to include in system-metadata discovery (orphan / SM-filtered scans). Empty = all registry types.
+      entityTypes:
+        - dataset
+        - dashboard
+        - chart
+        - dataFlow
+        - dataJob
+        - mlModel
+        - mlFeature
+        - mlFeatureTable
+        - notebook
+        - container
+        - dataProduct
+        - query
+        - schemaField
+        - dataProcessInstance
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
   restoreDbtSiblingsIndices:
@@ -1355,7 +1582,13 @@ structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+  # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
+  # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
+  typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
+  # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
+  # property keyword mappings and for rejecting oversized string-backed structured property values.
+  keywordMaxLength: ${STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH:32766}
 
 # Consistency check configuration (shared by upgrade job and API endpoints)
 consistencyChecks:
@@ -1375,13 +1608,14 @@ featureFlags:
   graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
   cdcModeChangeLog: ${CDC_MCL_PROCESSING_ENABLED:false} # Enables CDCs to be used to generate MCLs. When false, GMS generates MCLs based on MCPs
+  postCommitRetentionEnabled: ${POST_COMMIT_RETENTION_ENABLED:false} # Moves aspect retention out of the ingest retry loop to a best-effort post-commit path. When false, retention runs inside the retry loop (legacy behavior). When true, retention failures never trigger a retry or poison the batch. Default OFF.
+  retentionBufferEnabled: ${RETENTION_BUFFER_ENABLED:false} # When true (and postCommitRetentionEnabled), coalesce post-commit retention into a Hazelcast-backed CoalesceBuffer and drain off the ingest thread. When false, post-commit applies retention synchronously. Default OFF. Enabling this boots the shared embedded Hazelcast node; every ingesting pod (GMS or MCE consumer) runs the drainer and all pods share one map + a cluster-wide drain lock, so exactly one drains per tick.
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
   showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
-  lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
@@ -1401,6 +1635,7 @@ featureFlags:
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
   hideLineageInSearchCards: ${HIDE_LINEAGE_IN_SEARCH_CARDS:false} # If turned on, hides lineage information in search result cards
+  dataProductLineageEnabled: ${DATA_PRODUCT_LINEAGE_ENABLED:true} # If turned on, enables the Lineage tab on the Data Product entity page
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
@@ -1412,9 +1647,9 @@ featureFlags:
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:true} # If turned on, show the re-designed Ingestion page
   ingestionOnboardingRedesignV1: ${INGESTION_ONBOARDING_REDESIGN_V1:false} # If turned on, show the redesigned ingestion onboarding experience
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
+  showLineageFilterNodes: ${SHOW_LINEAGE_FILTER_NODES:false} # If turned on, render lineage filter nodes ("N shown of M" cards) in the lineage graph; if off, pagination and search live on the expand/contract buttons
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:true} # If turned on, show the re-designed home page
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:true} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
   # product updates for OSS (master):
   productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core/} # URL to fetch product updates JSON from remote source.
@@ -1422,7 +1657,7 @@ featureFlags:
   # product updates for Saas (acryl-main):
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
   #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:true} # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
@@ -1434,10 +1669,16 @@ featureFlags:
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
-  i18nEnabled: ${I18N_ENABLED:false} # If enabled, internationalization (i18n) features are active
+  i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
   timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
+  timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
+
+  entityHealthBatchLoadEnabled: ${ENTITY_HEALTH_BATCH_LOAD_ENABLED:true} # If enabled, the entity `health` field uses the batch DataLoader (batches incident, assertion-run and test-result fetches across a request); disable to revert to per-entity resolution
+  datasetStatsSummaryBatchLoadEnabled: ${DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.statsSummary uses the batch aggregation DataLoader (batches usage aggregations across a request); disable to revert to per-dataset queries
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
+  browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
+  browserWebVitalsEnabled: ${BROWSER_WEB_VITALS_ENABLED:false} # If enabled, the React app emits Core Web Vitals (LCP/CLS/FID/FCP/TTFB) as OTel spans. Requires browserTracingEnabled.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -1491,6 +1732,15 @@ cache:
   homepage:
     entityCounts:
       ttlSeconds: ${CACHE_ENTITY_COUNTS_TTL_SECONDS:600}
+  entityCounts:
+    keyAspect:
+      enabled: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_ENABLED:true}
+      ttlSeconds: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_TTL_SECONDS:3600}
+      maxEntityTypes: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_MAX_ENTITY_TYPES:200}
+      singleFlight:
+        staleBuildingMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_STALE_BUILDING_MS:120000}
+        waiterMaxMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_WAITER_MAX_MS:60000}
+        pollIntervalMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_POLL_INTERVAL_MS:100}
   search:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
@@ -1535,6 +1785,12 @@ cache:
           dashboardUsageStatistics: 21600 # 6hrs
         telemetry:
           telemetryClientId: 86400 # 1 day
+        dataHubRetention:
+          dataHubRetentionConfig: 21600 # 6hrs
+        dataPlatform:
+          dataPlatformInfo: 86400 # 1 day
+        dataPlatformInstance:
+          dataPlatformInstanceKey: 300 # 5 min
 
 graphQL:
   graphiql:
@@ -1666,17 +1922,29 @@ metadataChangeProposal:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
+    aspectAuthorization:
+      domainWrite:
+        enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:
       enabled: ${MCP_VALIDATION_URL_ENABLED:true}
       allowHttp: ${MCP_VALIDATION_URL_ALLOW_HTTP:false}
       extraDenyHosts: ${MCP_VALIDATION_URL_EXTRA_DENY_HOSTS:}
+    logicalParent:
+      platformValidation:
+        enabled: ${MCP_VALIDATION_LOGICAL_PARENT_PLATFORM:false}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
+      domain:
+        enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED:false}
+      ownership:
+        enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED:false}
     dataProductUnset:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
+    aliases:
+      enabled: ${MCP_SIDE_EFFECTS_ALIASES_ENABLED:true}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

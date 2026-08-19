@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.service.docimport.DocumentImportService;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.List;
@@ -34,6 +35,7 @@ public class DocumentResolversTest {
   private GraphClient mockGraphClient;
   private EntityRegistry mockEntityRegistry;
   private com.linkedin.metadata.timeline.TimelineService mockTimelineService;
+  private ViewService mockViewService;
   private DocumentResolvers resolvers;
 
   @BeforeMethod
@@ -47,6 +49,7 @@ public class DocumentResolversTest {
     mockGraphClient = mock(GraphClient.class);
     mockEntityRegistry = mock(EntityRegistry.class);
     mockTimelineService = mock(com.linkedin.metadata.timeline.TimelineService.class);
+    mockViewService = mock(ViewService.class);
 
     resolvers =
         new DocumentResolvers(
@@ -60,6 +63,7 @@ public class DocumentResolversTest {
             mockGraphClient,
             mockEntityRegistry,
             mockTimelineService,
+            mockViewService,
             mock(DocumentImportService.class));
   }
 
@@ -100,6 +104,7 @@ public class DocumentResolversTest {
             mockGraphClient,
             mockEntityRegistry,
             mockTimelineService,
+            mockViewService,
             null);
 
     RuntimeWiring.Builder mockBuilder = mock(RuntimeWiring.Builder.class);

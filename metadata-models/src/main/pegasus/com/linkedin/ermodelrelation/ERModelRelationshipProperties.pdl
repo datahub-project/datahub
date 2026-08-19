@@ -8,7 +8,8 @@ import com.linkedin.common.CustomProperties
  * Properties associated with a ERModelRelationship
  */
 @Aspect = {
-  "name": "erModelRelationshipProperties"
+  "name": "erModelRelationshipProperties",
+  "schemaVersion": 2
 }
 record ERModelRelationshipProperties includes CustomProperties {
 
@@ -81,10 +82,5 @@ record ERModelRelationshipProperties includes CustomProperties {
   /**
    * Cardinality of the relationship
    */
-  cardinality: enum ERModelRelationshipCardinality {
-   ONE_ONE
-   ONE_N
-   N_ONE
-   N_N
-  } = "N_N"
+  cardinality: ERModelRelationshipCardinality = "N_N"
 }

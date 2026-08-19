@@ -4,6 +4,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -507,14 +508,7 @@ public class EntityGraphSnapshotBuilder {
                 com.linkedin.metadata.query.filter.Condition.EQUAL,
                 new ArrayList<>(frontierUrns)));
 
-    SearchFlags flags =
-        new SearchFlags()
-            .setFulltext(false)
-            .setSkipCache(true)
-            .setSkipAggregates(true)
-            .setSkipHighlighting(true)
-            .setIncludeSoftDeleted(false)
-            .setIncludeRestricted(true);
+    SearchFlags flags = searchBuildFlags(definition.getResolvedEdges());
 
     SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
     Set<String> neighbors = new LinkedHashSet<>();
@@ -632,14 +626,7 @@ public class EntityGraphSnapshotBuilder {
           .add(edge);
     }
 
-    SearchFlags flags =
-        new SearchFlags()
-            .setFulltext(false)
-            .setSkipCache(true)
-            .setSkipAggregates(true)
-            .setSkipHighlighting(true)
-            .setIncludeSoftDeleted(false)
-            .setIncludeRestricted(true);
+    SearchFlags flags = searchBuildFlags(definition.getResolvedEdges());
 
     SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
     String scrollId = null;
@@ -780,6 +767,30 @@ public class EntityGraphSnapshotBuilder {
             m ->
                 m.incrementMicrometer(
                     metric, 1, "graphId", definition.getGraphId(), "reason", reason));
+  }
+
+  @Nonnull
+  private static SearchFlags searchBuildFlags(
+      @Nonnull Collection<ResolvedGraphEdge> resolvedEdges) {
+    SearchFlags flags =
+        new SearchFlags()
+            .setFulltext(false)
+            .setSkipCache(true)
+            .setSkipAggregates(true)
+            .setSkipHighlighting(true)
+            .setIncludeSoftDeleted(false)
+            .setIncludeRestricted(true);
+    List<String> extraFields =
+        resolvedEdges.stream()
+            .filter(ResolvedGraphEdge::isSearchable)
+            .map(ResolvedGraphEdge::getSearchField)
+            .filter(field -> field != null && !field.isBlank())
+            .distinct()
+            .collect(Collectors.toList());
+    if (!extraFields.isEmpty()) {
+      flags.setFetchExtraFields(new StringArray(extraFields));
+    }
+    return flags;
   }
 
   @Nullable

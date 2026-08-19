@@ -1,0 +1,14 @@
+services:
+  testmariadbusage:
+    image: mariadb:11.4
+    container_name: testmariadbusage
+    # Enable performance_schema (statements digest) and the general query log to a
+    # table so both usage_source modes have query history to read.
+    command: --performance-schema=ON --general-log=1 --log-output=TABLE
+    environment:
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_DATABASE: test_usage_db
+    ports:
+      - "53301:3306"
+    volumes:
+      - ./setup_usage:/docker-entrypoint-initdb.d

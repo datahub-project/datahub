@@ -42,12 +42,17 @@ import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatusSerializer;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -334,10 +339,28 @@ public class EntityGraphCacheHazelcastIntegrationTest {
             eq(systemOperationContext), eq(backgroundDefinition), eq(FULL_SOURCE), isNull()))
         .thenReturn(BuildResult.builder().status(CacheStatus.ACTIVE).snapshot(rebuilt).build());
 
+    DeferredExecutorService deferredExecutor = new DeferredExecutorService();
+    EntityGraphCacheService backgroundService =
+        new EntityGraphCacheService(
+            EntityGraphCacheProperties.builder().enabled(true).build(),
+            registry,
+            distributedStore,
+            localViews,
+            snapshotBuilder,
+            systemOperationContext,
+            deferredExecutor);
+
     Set<String> cold =
         expandCached(
-            service, FULL_GRAPH_ID, FULL_SOURCE, TraversalDirection.REVERSE, Set.of(ROOT), 10);
+            backgroundService,
+            FULL_GRAPH_ID,
+            FULL_SOURCE,
+            TraversalDirection.REVERSE,
+            Set.of(ROOT),
+            10);
     assertTrue(cold.isEmpty());
+
+    deferredExecutor.drain();
 
     for (int i = 0;
         i < 50 && distributedStore.getStatus(FULL_CACHE_KEY) != CacheStatus.ACTIVE;
@@ -347,7 +370,12 @@ public class EntityGraphCacheHazelcastIntegrationTest {
 
     Set<String> warm =
         expandCached(
-            service, FULL_GRAPH_ID, FULL_SOURCE, TraversalDirection.REVERSE, Set.of(ROOT), 10);
+            backgroundService,
+            FULL_GRAPH_ID,
+            FULL_SOURCE,
+            TraversalDirection.REVERSE,
+            Set.of(ROOT),
+            10);
     assertTrue(warm.contains(ROOT));
     assertTrue(warm.contains(CHILD));
     assertEquals(distributedStore.getStatus(FULL_CACHE_KEY), CacheStatus.ACTIVE);
@@ -470,5 +498,65 @@ public class EntityGraphCacheHazelcastIntegrationTest {
             LocalEvictionLimits.builder().enabled(true).maxViews(8).maxEstimatedBytes(1024).build())
         .enabled(true)
         .build();
+  }
+
+  /**
+   * Queues submitted tasks until {@link #drain()} so background rebuild timing is deterministic in
+   * tests.
+   */
+  private static final class DeferredExecutorService extends AbstractExecutorService {
+    private final Queue<Runnable> pending = new ArrayDeque<>();
+    private volatile boolean shutdown;
+
+    @Override
+    public void execute(Runnable command) {
+      if (shutdown) {
+        throw new RejectedExecutionException();
+      }
+      synchronized (pending) {
+        pending.add(command);
+      }
+    }
+
+    void drain() {
+      Runnable task;
+      while ((task = poll()) != null) {
+        task.run();
+      }
+    }
+
+    private Runnable poll() {
+      synchronized (pending) {
+        return pending.poll();
+      }
+    }
+
+    @Override
+    public void shutdown() {
+      shutdown = true;
+    }
+
+    @Override
+    public List<Runnable> shutdownNow() {
+      shutdown();
+      synchronized (pending) {
+        return List.copyOf(pending);
+      }
+    }
+
+    @Override
+    public boolean isShutdown() {
+      return shutdown;
+    }
+
+    @Override
+    public boolean isTerminated() {
+      return shutdown && pending.isEmpty();
+    }
+
+    @Override
+    public boolean awaitTermination(long timeout, TimeUnit unit) {
+      return pending.isEmpty();
+    }
   }
 }

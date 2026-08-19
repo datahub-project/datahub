@@ -21,6 +21,7 @@ import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.NearC
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
 import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
+import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotSerializer;
 import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatus;
@@ -63,6 +64,12 @@ public class CacheConfig {
 
   @Value("${datahub.gms.rateLimits.endpoint.hazelcastMapName:gmsRateLimitEndpointBuckets}")
   private String rateLimitEndpointHazelcastMapName;
+
+  @Value("${datahub.gms.rateLimits.endpoint.bucketMaxIdleSeconds:300}")
+  private int rateLimitEndpointBucketMaxIdleSeconds;
+
+  @Value("${datahub.gms.rateLimits.endpoint.bucketMaxSize:100000}")
+  private int rateLimitEndpointBucketMaxSize;
 
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
@@ -200,7 +207,35 @@ public class CacheConfig {
   public MapConfig rateLimitEndpointBucketsMapConfig() {
     MapConfig mapConfig = new MapConfig();
     mapConfig.setName(rateLimitEndpointHazelcastMapName).setBackupCount(1).setAsyncBackupCount(0);
+
+    // Idle eviction (not TTL): an idle actor's entry expires and its bucket re-initialises to full
+    // on the next consume, which is the correct behaviour for a token-bucket limiter.  TTL would
+    // reset buckets for actors that are actively sending requests.
+    mapConfig.setMaxIdleSeconds(rateLimitEndpointBucketMaxIdleSeconds);
+
+    // LRU eviction caps per-node memory when the actor population grows very large.  The limit is
+    // tuned via config; idle eviction above handles the common case of actors that stop sending
+    // requests.
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setEvictionPolicy(EvictionPolicy.LRU)
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(rateLimitEndpointBucketMaxSize);
+    mapConfig.setEvictionConfig(evictionConfig);
+
     return mapConfig;
+  }
+
+  @Bean
+  @Conditional(RateLimitEndpointEnabledCondition.class)
+  public MapConfig rateLimitGlobalBucketsMapConfig() {
+    // The fleet-wide ceiling lives under a single "global" key, so this map needs no eviction (it
+    // would only ever hold one entry, and evicting it would reset the cross-tenant ceiling under
+    // active load). Registered explicitly for an owner backup so the ceiling survives a node loss.
+    return new MapConfig()
+        .setName(RateLimitProperties.Endpoint.GLOBAL_HAZELCAST_MAP_NAME)
+        .setBackupCount(1)
+        .setAsyncBackupCount(0);
   }
 
   @Bean
@@ -328,5 +363,31 @@ public class CacheConfig {
       return MaxSizePolicy.ENTRY_COUNT;
     }
     return MaxSizePolicy.PER_NODE;
+  }
+
+  public static final String KEY_ASPECT_ENTITY_COUNTS_MAP = "keyAspectEntityCounts";
+  public static final String KEY_ASPECT_ENTITY_COUNTS_IN_FLIGHT_MAP =
+      "keyAspectEntityCountsInFlight";
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig keyAspectEntityCountsMapConfig(
+      @Value("${cache.entityCounts.keyAspect.ttlSeconds:3600}") int ttlSeconds,
+      @Value("${cache.primary.maxSize:10000}") int cacheMaxSize) {
+    MapConfig mapConfig = new MapConfig(KEY_ASPECT_ENTITY_COUNTS_MAP);
+    mapConfig.setTimeToLiveSeconds(ttlSeconds);
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(cacheMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
+    return mapConfig;
+  }
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig keyAspectEntityCountsInFlightMapConfig() {
+    return new MapConfig(KEY_ASPECT_ENTITY_COUNTS_IN_FLIGHT_MAP);
   }
 }

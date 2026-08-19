@@ -84,7 +84,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
           opContext
               .getSearchContext()
               .getIndexConvention()
-              .getIndexName(ElasticSearchGraphService.INDEX_NAME);
+              .getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
 
       return (context) -> {
         BoolQueryBuilder deleteQuery = QueryBuilders.boolQuery();

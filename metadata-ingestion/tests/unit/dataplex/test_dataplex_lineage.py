@@ -11,9 +11,17 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
 from datahub.ingestion.source.dataplex.dataplex_lineage import (
     DataplexLineageExtractor,
     LineageEdge,
+    build_lineage_parent,
 )
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.metadata.schema_classes import DatasetLineageTypeClass
+
+
+def test_build_lineage_parent() -> None:
+    assert (
+        build_lineage_parent(project_id="test-project", location="us-central1")
+        == "projects/test-project/locations/us-central1"
+    )
 
 
 @pytest.fixture

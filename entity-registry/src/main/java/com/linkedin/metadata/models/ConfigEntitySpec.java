@@ -31,9 +31,18 @@ public class ConfigEntitySpec implements EntitySpec {
       @Nonnull final String keyAspect,
       @Nonnull final Collection<AspectSpec> aspectSpecs,
       @Nonnull final String searchGroup) {
+    this(entityName, keyAspect, aspectSpecs, searchGroup, false);
+  }
+
+  public ConfigEntitySpec(
+      @Nonnull final String entityName,
+      @Nonnull final String keyAspect,
+      @Nonnull final Collection<AspectSpec> aspectSpecs,
+      @Nonnull final String searchGroup,
+      final boolean viewUnrestricted) {
     _aspectSpecs =
         aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
-    _entityAnnotation = new EntityAnnotation(entityName, keyAspect, searchGroup);
+    _entityAnnotation = new EntityAnnotation(entityName, keyAspect, searchGroup, viewUnrestricted);
   }
 
   @Override

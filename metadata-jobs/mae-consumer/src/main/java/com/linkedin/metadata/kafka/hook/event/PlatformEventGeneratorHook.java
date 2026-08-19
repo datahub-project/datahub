@@ -69,6 +69,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           Constants.DEPRECATION_ASPECT_NAME,
           Constants.DATASET_PROPERTIES_ASPECT_NAME,
           Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+          Constants.DOCUMENTATION_ASPECT_NAME,
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,

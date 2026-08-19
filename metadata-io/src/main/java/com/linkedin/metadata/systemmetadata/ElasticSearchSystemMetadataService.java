@@ -67,6 +67,7 @@ public class ElasticSearchSystemMetadataService
   public static final String INDEX_NAME = "system_metadata_service_v1";
   public static final String FIELD_URN = "urn";
   public static final String FIELD_ASPECT = "aspect";
+  public static final String FIELD_REMOVED = "removed";
   private static final String FIELD_RUNID = "runId";
   public static final String FIELD_LAST_UPDATED = "lastUpdated";
   private static final String FIELD_REGISTRY_NAME = "registryName";
@@ -297,7 +298,7 @@ public class ElasticSearchSystemMetadataService
     return List.of(
         _indexBuilder.buildReindexState(
             opContext,
-            _indexConvention.getIndexName(INDEX_NAME),
+            _indexConvention.getIndexName(opContext, INDEX_NAME),
             SystemMetadataMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
@@ -305,7 +306,7 @@ public class ElasticSearchSystemMetadataService
   @Override
   public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = _indexConvention.getIndexName(INDEX_NAME);
+    String indexName = _indexConvention.getIndexName(opContext, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
@@ -425,5 +426,19 @@ public class ElasticSearchSystemMetadataService
     } else {
       return Collections.emptyList();
     }
+  }
+
+  @Nonnull
+  @Override
+  public KeyAspectCount countByKeyAspect(
+      @Nonnull OperationContext opContext, @Nonnull String keyAspectName) {
+    return _esDAO.countByKeyAspect(opContext, keyAspectName);
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, KeyAspectCount> countByKeyAspects(
+      @Nonnull OperationContext opContext, @Nonnull List<String> keyAspectNames) {
+    return _esDAO.countByKeyAspects(opContext, keyAspectNames);
   }
 }

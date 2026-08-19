@@ -13,9 +13,8 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Set
 
-import setuptools
+import setuptools  # type: ignore[import-untyped]
 
 package_metadata: dict = {}
 with open("./src/datahub_agent_context/_version.py") as fp:
@@ -45,7 +44,7 @@ def get_long_description():
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
 }
 
@@ -78,6 +77,11 @@ langchain_requirements = {
 
 google_adk_requirements = {
     "google-adk>=1.0.0,<2.0.0",
+    # google-adk depends on opentelemetry-resourcedetector-gcp which only
+    # publishes pre-releases (the sole stable release 1.13.0 was yanked).
+    # Listing it as a direct dependency with the pre-release lower bound
+    # tells uv that pre-releases are acceptable for this package.
+    "opentelemetry-resourcedetector-gcp>=1.9.0a0,<2",
 }
 
 snowflake_requirements = {

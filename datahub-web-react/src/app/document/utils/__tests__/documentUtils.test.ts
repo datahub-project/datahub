@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    computeRelatedEntitiesForLinkChange,
     documentToTreeNode,
     extractDocumentCreator,
+    extractRelatedDocumentUrns,
     extractUrnsFromMarkdown,
     hasBalancedParens,
     isAllowedRelatedAssetUrn,
@@ -58,11 +60,13 @@ describe('documentUtils', () => {
                 title: 'Test Document',
                 parentUrn: 'urn:li:document:parent',
                 hasChildren: true,
+                childCount: undefined,
                 children: undefined,
                 isUnpublished: false, // No status state on the fixture → defaults to published
                 isExternal: false, // No info.source on the fixture → defaults to native
                 platform: null, // No platform on the fixture
                 creator: null, // No created actor on the fixture
+                lastModifiedAt: 1000, // from createTestDocument fixture lastModified.time
             });
         });
 
@@ -232,6 +236,9 @@ describe('documentUtils', () => {
             expect(resolveActorDisplayName({ username: 'jane' })).toBe('jane');
             expect(resolveActorDisplayName({ name: 'engineering' })).toBe('engineering');
             expect(resolveActorDisplayName({ urn: 'urn:li:corpuser:jane' })).toBe('urn:li:corpuser:jane');
+            expect(resolveActorDisplayName({ urn: 'urn:li:corpuser:__ingestion', username: '__ingestion' })).toBe(
+                'Ingestion',
+            );
         });
 
         it('should return an empty string for null/undefined actor', () => {
@@ -568,6 +575,92 @@ describe('documentUtils', () => {
             const content = 'Just some text without any links';
             const result = extractUrnsFromMarkdown(content);
             expect(result).toEqual([]);
+        });
+    });
+
+    describe('extractRelatedDocumentUrns', () => {
+        it('should extract related document URNs', () => {
+            const document = {
+                info: {
+                    relatedDocuments: [
+                        { document: { urn: 'urn:li:document:a' } },
+                        { document: { urn: 'urn:li:document:b' } },
+                    ],
+                },
+            };
+            expect(extractRelatedDocumentUrns(document)).toEqual(['urn:li:document:a', 'urn:li:document:b']);
+        });
+
+        it('should return empty array when there are no related documents', () => {
+            expect(extractRelatedDocumentUrns({ info: { relatedDocuments: [] } })).toEqual([]);
+            expect(extractRelatedDocumentUrns({ info: {} })).toEqual([]);
+            expect(extractRelatedDocumentUrns(null)).toEqual([]);
+        });
+
+        it('should skip entries with missing document or urn', () => {
+            const document = {
+                info: {
+                    relatedDocuments: [{ document: { urn: 'urn:li:document:a' } }, { document: null }],
+                },
+            };
+            expect(extractRelatedDocumentUrns(document)).toEqual(['urn:li:document:a']);
+        });
+    });
+
+    describe('computeRelatedEntitiesForLinkChange', () => {
+        const entityUrn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)';
+        const docUrn = 'urn:li:document:parent';
+
+        it('adds a normal entity to relatedAssets and leaves relatedDocuments untouched', () => {
+            expect(
+                computeRelatedEntitiesForLinkChange({
+                    entityUrn,
+                    existingAssetUrns: ['urn:li:dataset:other'],
+                    existingRelatedDocumentUrns: ['urn:li:document:keep'],
+                    shouldBeLinked: true,
+                }),
+            ).toEqual({
+                relatedAssets: ['urn:li:dataset:other', entityUrn],
+                relatedDocuments: ['urn:li:document:keep'],
+            });
+        });
+
+        it('removes a normal entity from relatedAssets only', () => {
+            expect(
+                computeRelatedEntitiesForLinkChange({
+                    entityUrn,
+                    existingAssetUrns: ['urn:li:dataset:other', entityUrn],
+                    existingRelatedDocumentUrns: ['urn:li:document:keep'],
+                    shouldBeLinked: false,
+                }),
+            ).toEqual({
+                relatedAssets: ['urn:li:dataset:other'],
+                relatedDocuments: ['urn:li:document:keep'],
+            });
+        });
+
+        it('routes a document URN to relatedDocuments and leaves relatedAssets untouched', () => {
+            expect(
+                computeRelatedEntitiesForLinkChange({
+                    entityUrn: docUrn,
+                    existingAssetUrns: ['urn:li:dataset:keep'],
+                    existingRelatedDocumentUrns: [],
+                    shouldBeLinked: true,
+                }),
+            ).toEqual({
+                relatedAssets: ['urn:li:dataset:keep'],
+                relatedDocuments: [docUrn],
+            });
+        });
+
+        it('does not duplicate an already-linked entity', () => {
+            const result = computeRelatedEntitiesForLinkChange({
+                entityUrn,
+                existingAssetUrns: [entityUrn],
+                existingRelatedDocumentUrns: [],
+                shouldBeLinked: true,
+            });
+            expect(result.relatedAssets).toEqual([entityUrn]);
         });
     });
 });

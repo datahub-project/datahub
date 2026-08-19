@@ -1,0 +1,14 @@
+services:
+  testmysqlusage:
+    image: mysql:8
+    container_name: testmysqlusage
+    # Enable the general query log to a table. performance_schema (and the
+    # statements digest) is on by default in MySQL 8.
+    command: --general-log=1 --log-output=TABLE
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: test_usage_db
+    ports:
+      - 53308:3306
+    volumes:
+      - ./setup_usage/setup.sql:/docker-entrypoint-initdb.d/setup.sql

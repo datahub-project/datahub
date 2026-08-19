@@ -1,4 +1,4 @@
-import { ErrorRounded } from '@mui/icons-material';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -8,11 +8,7 @@ import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile
 import UpstreamEntitiesList from '@app/entityV2/shared/embed/UpstreamHealth/UpstreamEntitiesList';
 import { DATASET_COUNT } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import {
-    HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    IS_DEPRECATED_FILTER_NAME,
-} from '@app/search/utils/constants';
+import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, IS_DEPRECATED_FILTER_NAME } from '@app/search/utils/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
@@ -95,20 +91,6 @@ export default function UpstreamHealth() {
                                 },
                                 {
                                     field: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-                                    condition: FilterOperator.Equal,
-                                    values: ['true'],
-                                },
-                            ],
-                        },
-                        {
-                            and: [
-                                {
-                                    field: 'degree',
-                                    condition: FilterOperator.Equal,
-                                    values: degree,
-                                },
-                                {
-                                    field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
                                     condition: FilterOperator.Equal,
                                     values: ['true'],
                                 },
@@ -236,7 +218,7 @@ export default function UpstreamHealth() {
             >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <ErrorRounded style={{ color: themeConfig.colors.textError, fontSize: '18' }} />
+                        <WarningCircle color={themeConfig.colors.textError} size={18} />
                         <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />

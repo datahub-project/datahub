@@ -13,6 +13,7 @@ final class RateLimitMetrics {
   private static final String ADAPTIVE_LIMIT = "gms.rate_limit.adaptive.limit";
   private static final String ADAPTIVE_INFLIGHT = "gms.rate_limit.adaptive.inflight";
   private static final String ENDPOINT_REMAINING = "gms.rate_limit.endpoint.remaining";
+  private static final String FAIL_OPEN = "gms.rate_limit.fail_open";
 
   private final MeterRegistry meterRegistry;
   private final boolean detailed;
@@ -44,6 +45,19 @@ final class RateLimitMetrics {
   }
 
   /**
+   * Records a fail-open event — rate-limit evaluation threw and the request was allowed through
+   * because {@code failOpen=true}. A spike here means limiting is effectively disabled (e.g. a
+   * Hazelcast disruption, possibly induced), so it is worth alerting on. {@code stage} tags which
+   * limiter failed (front gate vs heavy resolver).
+   */
+  void recordFailOpen(@Nonnull String stage) {
+    if (meterRegistry == null) {
+      return;
+    }
+    meterRegistry.counter(FAIL_OPEN, Tags.of("stage", stage)).increment();
+  }
+
+  /**
    * Limits {@code graphql_operation} metric cardinality to operations covered by an
    * operation-scoped rate limit rule.
    */
@@ -59,6 +73,17 @@ final class RateLimitMetrics {
       }
     }
     return "none";
+  }
+
+  /**
+   * Tag for heavy-resolver denials. The resolver name is a configured {@code heavyResolvers} key —
+   * a small bounded set, server-parsed from the query (not a spoofable client operation name) — so
+   * it is safe to emit directly for the {@code graphql_operation} dimension without exploding
+   * cardinality.
+   */
+  @Nonnull
+  static String graphqlOperationTagForResolver(@Nullable String resolverName) {
+    return StringUtils.hasText(resolverName) ? resolverName : "none";
   }
 
   void registerAdaptiveGauges(String ruleId, AdaptiveCapacityLimiter limiter) {

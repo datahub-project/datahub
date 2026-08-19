@@ -28,6 +28,7 @@ class DatasetSubTypes(StrEnum):
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
+    MICROSTRATEGY_DATASET = "MicroStrategy Dataset"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
@@ -46,8 +47,12 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
+    SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
+    SAP_ANALYTICAL_MODEL = "Analytic Model"
+    SAP_LOCAL_TABLE = "Local Table"
+    SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
@@ -68,6 +73,7 @@ class GenericContainerSubTypes(StrEnum):
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     INSTANCE = "Instance"
+    SERVICE = "Service"
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
@@ -85,6 +91,9 @@ class DatasetContainerSubTypes(StrEnum):
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
     DREMIO_FOLDER = "Dremio Folder"
+    # SAP Datasphere — value matches the freeform string previously emitted by the
+    # connector so existing golden files do not churn.
+    SAP_DATASPHERE_SPACE = "Space"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
@@ -120,6 +129,8 @@ class BIContainerSubTypes(StrEnum):
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
     THOUGHTSPOT_WORKSPACE = "Workspace"
+    MICROSTRATEGY_PROJECT = "Project"
+    MICROSTRATEGY_FOLDER = "Folder"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -156,6 +167,8 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_ANSWER = "Answer"
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
+    MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
@@ -204,11 +217,21 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # SAP Datasphere: each flow is its own DataFlow with one DataJob per target.
+    SAP_DATA_FLOW = "Data Flow"
+    SAP_REPLICATION_FLOW = "Replication Flow"
+    SAP_TRANSFORMATION_FLOW = "Transformation Flow"
+    SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
 
 
 class DataJobSubTypes(StrEnum):
+    # SAP Datasphere flow tasks (one task per target within a flow).
+    SAP_DATA_FLOW_TASK = "Data Flow Task"
+    SAP_REPLICATION_TASK = "Replication Task"
+    SAP_TRANSFORMATION_TASK = "Transformation Task"
+    SAP_TASK_CHAIN_STEP = "Task Chain Step"
     # Amazon Data Firehose — the single delivery step within a Firehose stream.
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # ADF Activity Types

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -27,6 +28,15 @@ const DomainWrapper = styled.span`
 
 const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
+`;
+
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 const StyledTag = styled.div<{ fontSize?: number }>`
@@ -66,6 +76,16 @@ function DomainContent({
         <StyledTag style={tagStyle} fontSize={fontSize} data-testid={`domain-${displayName}`}>
             <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={iconFontSize ?? 16} />
             {displayName}
+            {domain.deprecation && domain.deprecation.deprecated && (
+                <PillDeprecationSlot>
+                    <DeprecationIcon
+                        urn={domain.urn}
+                        deprecation={domain.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                    />
+                </PillDeprecationSlot>
+            )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );

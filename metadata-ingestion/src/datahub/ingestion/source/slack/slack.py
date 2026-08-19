@@ -336,8 +336,9 @@ class SlackSource(StatefulIngestionSourceBase):
                 yield mcp.as_workunit()
         else:
             logger.error("Failed to fetch team information")
-            self.report.report_failure(
-                "team_info", "Failed to fetch team information for users"
+            self.report.failure(
+                message="Failed to fetch team information for users",
+                context="team_info",
             )
 
         assert slack_instance
@@ -353,7 +354,7 @@ class SlackSource(StatefulIngestionSourceBase):
                 response = self.get_slack_client().users_list(cursor=cursor)
             assert isinstance(response.data, dict)
             if not response.data["ok"]:
-                self.report.report_failure("users", "Failed to fetch users")
+                self.report.failure(message="Failed to fetch users", context="users")
                 return
 
             assert self.ctx.graph is not None
@@ -421,8 +422,9 @@ class SlackSource(StatefulIngestionSourceBase):
             )
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
-            self.report.report_failure(
-                "public_channel", "Failed to fetch public channels"
+            self.report.failure(
+                message="Failed to fetch public channels",
+                context="public_channel",
             )
             return result_channels, None
         for channel in response.data["channels"]:
