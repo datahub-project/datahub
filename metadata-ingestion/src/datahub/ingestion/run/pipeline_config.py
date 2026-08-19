@@ -59,6 +59,11 @@ class UpstreamPlatformCasing(PlatformInstanceConfigMixin, EnvConfigMixin):
     Inherits ``platform_instance`` and ``env`` (with its FabricType validator) from the
     shared config mixins, so `env` is validated/normalized rather than under-resolving
     silently on a typo.
+
+    ``platform_instance`` narrows the catalog read through DataHub's search filter, which
+    matches the ``dataPlatformInstance`` aspect rather than the URN. A connector that puts
+    the instance in the URN without emitting that aspect therefore reads nothing; leave it
+    unset to read the whole platform / env. See docs/dev_guides/lineage_urn_casing.md.
     """
 
     platform: str = Field(

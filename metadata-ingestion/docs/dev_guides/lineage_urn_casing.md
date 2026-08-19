@@ -208,6 +208,13 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   in DataHub. It is left unchanged and unstamped — no `matchType` verdict, and counted under
   `num_refs_out_of_scope`. Either add it to `upstream_platforms` (also preloading it) or set
   `resolve_all_platforms: true` to reconcile whatever a reference points at.
+- **`platform_instance` narrows the catalog read via DataHub's search, which matches the entity's
+  `dataPlatformInstance` aspect — not the URN.** The instance is part of the dataset URN's name
+  regardless, but that is not what the filter reads, so a connector that emits the URN without the
+  aspect matches nothing: the read returns 0 datasets and every reference to that platform is reported
+  `UNRESOLVED`. Unity Catalog does not emit it by default (`ingest_data_platform_instance_aspect`), and
+  the instance name must also match the casing that was emitted. If the log shows `Bulk fetch returned
+0 datasets`, drop `platform_instance` and read the whole platform / env instead.
 - **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that
   doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage
