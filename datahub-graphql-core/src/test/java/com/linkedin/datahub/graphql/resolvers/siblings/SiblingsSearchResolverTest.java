@@ -3,10 +3,12 @@ package com.linkedin.datahub.graphql.resolvers.siblings;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.testng.Assert.assertEquals;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.loaders.SiblingsSearchBatchLoader;
 import com.linkedin.entity.client.EntityClient;
@@ -17,10 +19,12 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -145,5 +149,49 @@ public class SiblingsSearchResolverTest {
     new SiblingsSearchResolver(_entityClient, _viewService).get(env(input(null))).get();
 
     verifyTookDirectPath();
+  }
+
+  /**
+   * The siblings aspect exists only on dataset, so an unscoped search would query every default
+   * index for a field they cannot carry. No caller passes types, so the resolver supplies the
+   * scope.
+   */
+  @Test
+  public void testDefaultsToSiblingCapableEntityTypesWhenTypesOmitted() throws Exception {
+    assertEquals(searchedEntityNames(null), List.of("dataset"));
+  }
+
+  /** An explicit type wins over the default. Uses CHART so the two cannot coincide. */
+  @Test
+  public void testExplicitTypesAreRespected() throws Exception {
+    assertEquals(searchedEntityNames(List.of(EntityType.CHART)), List.of("chart"));
+  }
+
+  /** Runs the unbatched path and returns the entity names handed to the search client. */
+  @SuppressWarnings("unchecked")
+  private List<String> searchedEntityNames(final List<EntityType> inputTypes) throws Exception {
+    final Map<String, Object> in = input(null);
+    if (inputTypes != null) {
+      in.put(
+          "types",
+          inputTypes.stream().map(Enum::name).collect(java.util.stream.Collectors.toList()));
+    }
+
+    // No feature flags => unbatched path, so the names reach the client directly.
+    new SiblingsSearchResolver(_entityClient, _viewService).get(env(in)).get();
+
+    final ArgumentCaptor<List> names = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            names.capture(),
+            any(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            any(),
+            nullable(Integer.class),
+            any());
+    return names.getValue();
   }
 }

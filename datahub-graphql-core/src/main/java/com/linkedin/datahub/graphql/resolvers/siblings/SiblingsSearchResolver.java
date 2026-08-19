@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.loaders.SiblingsSearchBatchLoader;
@@ -39,6 +40,11 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
   // Mirrors SearchUtils#DEFAULT_SCROLL_COUNT, which the unbatched path applies.
   private static final int DEFAULT_COUNT = 10;
 
+  // Only dataset carries the siblings aspect (entity-registry.yml), so no other index can match
+  // SIBLINGS_FIELD_NAME. Callers omit types, which would otherwise widen to every default search
+  // index — one query per index, per entity this resolver runs on.
+  private static final List<EntityType> SIBLING_CAPABLE_ENTITY_TYPES = List.of(EntityType.DATASET);
+
   private final EntityClient _entityClient;
   private final ViewService _viewService;
 
@@ -66,10 +72,12 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
     final ScrollAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
 
+    final List<EntityType> entityTypes = resolveEntityTypes(input);
+
     if (canBatch(input)) {
       final DataLoader<SiblingsSearchBatchLoader.Key, ScrollResults> loader =
           environment.getDataLoaderRegistry().getDataLoader(SiblingsSearchBatchLoader.LOADER_NAME);
-      return loader.load(toKey(context, entity, input));
+      return loader.load(toKey(context, entity, input, entityTypes));
     }
 
     final Criterion siblingsFilter =
@@ -85,7 +93,7 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
         context,
         _entityClient,
         _viewService,
-        input.getTypes(),
+        entityTypes,
         input.getQuery(),
         SearchUtils.combineFilters(inputFilter, baseFilter),
         input.getViewUrn(),
@@ -96,6 +104,12 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
         List.of(),
         List.of(),
         this.getClass().getSimpleName());
+  }
+
+  /** Callers omit types; supply the scope rather than widening to every search index. */
+  private static List<EntityType> resolveEntityTypes(final ScrollAcrossEntitiesInput input) {
+    final List<EntityType> inputTypes = input.getTypes();
+    return inputTypes == null || inputTypes.isEmpty() ? SIBLING_CAPABLE_ENTITY_TYPES : inputTypes;
   }
 
   /**
@@ -109,7 +123,10 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
   }
 
   private static SiblingsSearchBatchLoader.Key toKey(
-      final QueryContext context, final Entity entity, final ScrollAcrossEntitiesInput input) {
+      final QueryContext context,
+      final Entity entity,
+      final ScrollAcrossEntitiesInput input,
+      final List<EntityType> entityTypes) {
     // Mirrors SearchUtils#scrollAcrossEntities so a batched request resolves the same query as the
     // unbatched one.
     final String query =
@@ -119,7 +136,7 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
 
     return new SiblingsSearchBatchLoader.Key(
         entity.getUrn(),
-        SearchUtils.getSearchEntityNames(context.getOperationContext(), input.getTypes()),
+        SearchUtils.getSearchEntityNames(context.getOperationContext(), entityTypes),
         query,
         ResolverUtils.buildFilter(null, input.getOrFilters()),
         input.getSearchFlags() == null
