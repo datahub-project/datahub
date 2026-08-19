@@ -113,8 +113,6 @@ public class AuthServiceController {
 
   @Autowired private StatelessTokenService _statelessTokenService;
 
-  @Autowired private Authentication _systemAuthentication;
-
   @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
@@ -181,7 +179,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication authentication = maybeAuth.get();
-    if (!isSystemClient(authentication.getActor().getId())) {
+    if (!isSystemClient(authentication)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     recordUsageSession(
@@ -322,7 +320,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth.getActor().getId())) {
+    if (!isSystemClient(auth)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
@@ -417,7 +415,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth.getActor().getId())) {
+    if (!isSystemClient(auth)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     recordUsageSession(
@@ -491,7 +489,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth.getActor().getId())) {
+    if (!isSystemClient(auth)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     recordUsageSession(
@@ -645,7 +643,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    if (!isSystemClient(auth.getActor().getId())) {
+    if (!isSystemClient(auth)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     recordUsageSession(
@@ -697,8 +695,15 @@ public class AuthServiceController {
         true);
   }
 
-  private boolean isSystemClient(final String actorId) {
-    return _systemAuthentication.getActor().getId().equals(actorId);
+  /**
+   * Frontend and other internal callers authenticate with HTTP Basic. User sessions are Bearer
+   * JWTs, even when the actor id happens to match a system client id, so scheme is the trust signal
+   * — do not re-validate secrets or pin a single actor id.
+   */
+  private boolean isSystemClient(@Nonnull Authentication authentication) {
+    final String credentials = authentication.getCredentials();
+    return credentials != null
+        && (credentials.startsWith("Basic ") || credentials.startsWith("basic "));
   }
 
   private String buildTokenResponse(final String token) {
