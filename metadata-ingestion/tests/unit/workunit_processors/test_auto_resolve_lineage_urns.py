@@ -26,8 +26,6 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
-    DataHubUpgradeResultClass,
-    DataHubUpgradeStateClass,
     DataJobInputOutputClass,
     DatasetSnapshotClass,
     EdgeClass,
@@ -48,8 +46,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.utilities.urn_alias.index import CatalogSlice
-from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
+from datahub.utilities.server_config_util import RestServiceConfig
+from datahub.utilities.urn_alias.index import (
+    CatalogSlice,
+    UrnAliasIndex,
+    covered_by,
+)
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
 UPPER = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE")
@@ -65,6 +67,27 @@ WH_UPPER = make_dataset_urn("snowflake", "db.schema.DATAHUB")
 # Deferred-imported inside the processor, so patch it at its source module.
 _PATCH_TARGET = "datahub.sql_parsing.schema_resolver_provider.provide_schema_resolver"
 
+# Imported at module scope by the processor, so patch it there.
+_LOAD_INDEX_TARGET = (
+    "datahub.ingestion.workunit_processors.auto_resolve_lineage_urns"
+    ".load_urn_alias_index"
+)
+
+
+class _patchers:
+    """Several patches behind the one start/stop handle the tests already pass around."""
+
+    def __init__(self, *patches: Any) -> None:
+        self._patches = patches
+
+    def start(self) -> None:
+        for patch in self._patches:
+            patch.start()
+
+    def stop(self) -> None:
+        for patch in self._patches:
+            patch.stop()
+
 
 def _resolver(
     schemas: Dict[str, Dict[str, str]], platform: str = "snowflake"
@@ -77,17 +100,9 @@ def _resolver(
 
 
 def _registers_aliases(graph: Any) -> Any:
-    """Pin `graph` as a server whose dataset aliases backfill completed, which is what
-    selects the alias search over the casing-probe fallback these tests do not exercise.
-
-    The marker read is answered here so a test can still stub `get_aspect` for schemas,
-    in whichever order it does so.
-    """
-    marker = DataHubUpgradeResultClass(
-        timestampMs=0, state=DataHubUpgradeStateClass.SUCCEEDED
-    )
-    graph.get_aspect.side_effect = lambda urn, aspect_type, **kwargs: (
-        marker if aspect_type is DataHubUpgradeResultClass else mock.DEFAULT
+    """Pin `graph` as a server new enough to maintain the dataset `aliases` aspect."""
+    graph.server_config = RestServiceConfig(
+        raw_config={"versions": {"acryldata/datahub": {"version": "v1.8.0"}}}
     )
     return graph
 
@@ -107,18 +122,36 @@ def _seed_index(
     slices: Sequence[CatalogSlice] = (
         CatalogSlice(platform="snowflake", platform_instance=None, env="PROD"),
     ),
-) -> None:
-    """Fill `graph`'s shared URN alias index, as a completed bulk scroll would.
+) -> Any:
+    """A `load_urn_alias_index` stand-in over completed scrolls of `slices`.
 
-    Identity lives in the index, not in any SchemaResolver, so this is what makes an
-    entity findable. Recording the slice is part of the imitation: a real scroll that
-    finished says so, which is what turns a miss inside it into an answer.
+    Identity lives in these indexes, not in any SchemaResolver, so this is what makes an
+    entity findable. One index per slice, holding only what that scroll would have reached.
     """
-    urn_aliases = get_urn_alias_resolver(_registers_aliases(graph))
-    for urn in urns:
-        urn_aliases.add(urn)
+    _registers_aliases(graph)
+    indexes: Dict[CatalogSlice, UrnAliasIndex] = {}
     for catalog_slice in slices:
-        urn_aliases.record_slice_loaded(catalog_slice)
+        index = UrnAliasIndex(catalog_slice)
+        for urn in urns:
+            if covered_by(urn, [catalog_slice]):
+                index.add(urn)
+        indexes[catalog_slice] = index
+
+    def _load(
+        *,
+        graph: Any,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        **kwargs: Any,
+    ) -> Optional[UrnAliasIndex]:
+        return indexes.get(
+            CatalogSlice(
+                platform=platform, platform_instance=platform_instance, env=env
+            )
+        )
+
+    return mock.MagicMock(side_effect=_load)
 
 
 def _make_processor(
@@ -141,13 +174,16 @@ def _make_processor(
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    _seed_index(pipeline_ctx.graph, [*schemas, *(urns or [])])
+    load_index = _seed_index(pipeline_ctx.graph, [*schemas, *(urns or [])])
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
     # The processor imports provide_schema_resolver once in __init__ (a single sqlglot
     # chokepoint) and caches it, so the patch must be active *before* construction.
-    patcher = mock.patch(_PATCH_TARGET, provide_mock)
+    patcher = _patchers(
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    )
     patcher.start()
     processor = AutoResolveLineageUrnsProcessor.create(ctx)
     return processor, provide_mock, patcher
@@ -419,7 +455,7 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    _seed_index(
+    load_index = _seed_index(
         pipeline_ctx.graph,
         [mssql_table],
         [CatalogSlice(platform="mssql", platform_instance=None, env="PROD")],
@@ -442,7 +478,10 @@ def test_fine_grained_heals_pascalcase_upstream_column_cross_platform():
         ),
     ).as_workunit()
 
-    with mock.patch(_PATCH_TARGET, provide_mock):
+    with (
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([wu])))
 
@@ -490,7 +529,7 @@ def test_multi_platform_upstreams_both_healed():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    _seed_index(
+    load_index = _seed_index(
         pipeline_ctx.graph,
         [sf_real, rs_real],
         [
@@ -518,7 +557,10 @@ def test_multi_platform_upstreams_both_healed():
         ),
     ).as_workunit()
 
-    with mock.patch(_PATCH_TARGET, side_effect=fake_provide):
+    with (
+        mock.patch(_PATCH_TARGET, side_effect=fake_provide),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([wu])))
 
@@ -541,11 +583,14 @@ def test_platform_urn_form_in_config_is_normalized():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    _seed_index(pipeline_ctx.graph, [LOWER])
+    load_index = _seed_index(pipeline_ctx.graph, [LOWER])
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    with mock.patch(_PATCH_TARGET, provide_mock):
+    with (
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
     assert _stored_upstream(out) == LOWER
@@ -575,7 +620,7 @@ def test_platform_instance_is_threaded_through_and_heals():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    _seed_index(
+    load_index = _seed_index(
         pipeline_ctx.graph,
         [stored],
         [
@@ -587,7 +632,10 @@ def test_platform_instance_is_threaded_through_and_heals():
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    with mock.patch(_PATCH_TARGET, provide_mock):
+    with (
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(referenced)])))
 
@@ -804,7 +852,15 @@ def test_configured_platform_matching_nothing_warns():
     ctx.pipeline_context = pipeline_ctx
 
     provide_mock = mock.MagicMock(return_value=_resolver({UPPER: {"amount": "int"}}))
-    with mock.patch(_PATCH_TARGET, provide_mock):
+    load_index = _seed_index(
+        pipeline_ctx.graph,
+        [UPPER],
+        [CatalogSlice(platform="Snowflake", platform_instance=None, env="PROD")],
+    )
+    with (
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(LOWER)])))
 
@@ -843,12 +899,23 @@ def test_catalog_load_failure_is_reported_and_passes_through():
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    with mock.patch(_PATCH_TARGET, provide_mock):
+    with (
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, mock.MagicMock(return_value=None)),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
     assert _stored_upstream(out) == UPPER  # unchanged (platform left unindexed)
-    cast(mock.MagicMock, ctx.source_report).warning.assert_called_once()
+    # Identity and columns are loaded separately, so each failure is reported on its own.
+    titles = {
+        c.kwargs["title"]
+        for c in cast(mock.MagicMock, ctx.source_report).warning.call_args_list
+    }
+    assert titles == {
+        "Lineage URN casing: upstream URN index not loaded",
+        "Lineage URN casing: upstream catalog not loaded",
+    }
 
 
 def test_unresolved_refs_surface_one_aggregated_warning():
@@ -1068,7 +1135,10 @@ def _ctx(
     resolve_all_platforms: bool = False,
 ) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
-    pipeline_ctx.graph = graph
+    # A server that maintains `aliases`; the gate on that is exercised on its own below.
+    pipeline_ctx.graph = (
+        _registers_aliases(graph) if isinstance(graph, mock.MagicMock) else graph
+    )
     pipeline_ctx.flags.auto_resolve_lineage_urns = AutoResolveLineageUrnsConfig(
         enabled=enabled,
         upstream_platforms=upstream_platforms
@@ -1120,6 +1190,21 @@ def test_enabled_when_flag_on_with_graph():
     assert (
         AutoResolveLineageUrnsProcessor.should_enable(_ctx(True, mock.MagicMock()))
         is True
+    )
+
+
+def test_disabled_where_the_server_does_not_maintain_aliases():
+    # Resolution reads the `aliases` aspect, so an older server cannot answer at all —
+    # and approximating would report healthy lineage as broken. Off, with a warning.
+    ctx = _ctx(True, mock.MagicMock())
+    ctx.pipeline_context.graph.server_config = RestServiceConfig(
+        raw_config={"versions": {"acryldata/datahub": {"version": "v1.7.0"}}}
+    )
+
+    assert AutoResolveLineageUrnsProcessor.should_enable(ctx) is False
+    assert (
+        cast(mock.MagicMock, ctx.source_report).warning.call_args.kwargs["title"]
+        == "Lineage URN casing resolution disabled"
     )
 
 
@@ -1177,12 +1262,15 @@ def _processor_for(
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
-    _seed_index(pipeline_ctx.graph, seed, slices)
+    load_index = _seed_index(pipeline_ctx.graph, seed, slices)
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
     provide_mock = provide or mock.MagicMock(return_value=resolver)
-    patcher = mock.patch(_PATCH_TARGET, provide_mock)
+    patcher = _patchers(
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    )
     patcher.start()
     return AutoResolveLineageUrnsProcessor.create(ctx), pipeline_ctx.graph, patcher
 
@@ -1406,12 +1494,17 @@ def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
     ctx.pipeline_context = pipeline_ctx
 
     provide_mock = mock.MagicMock()
-    with mock.patch(_PATCH_TARGET, provide_mock):
+    load_index = mock.MagicMock()
+    with (
+        mock.patch(_PATCH_TARGET, provide_mock),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
+    ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
     # No catalog is read; every reference is resolved by asking instead.
     provide_mock.assert_not_called()
+    load_index.assert_not_called()
     assert _stored_upstream(out) == LOWER
 
 

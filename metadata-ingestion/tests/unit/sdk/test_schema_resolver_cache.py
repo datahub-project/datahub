@@ -1,26 +1,16 @@
-import logging
 from unittest.mock import patch
 
 import pytest
 
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.metadata.schema_classes import (
     DataHubUpgradeResultClass,
     DataHubUpgradeStateClass,
 )
-from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata, SchemaResolver
+from datahub.sql_parsing.schema_resolver import GraphQLSchemaMetadata
 from datahub.sql_parsing.schema_resolver_provider import (
     SchemaResolverProvider,
     provide_schema_resolver,
-)
-from datahub.utilities.urn_alias.index import (
-    set_fill_urn_alias_index,
-    shared_index,
-)
-from datahub.utilities.urn_alias.resolver import (
-    get_urn_alias_resolver,
 )
 
 _PROVIDER_LOGGER = "datahub.sql_parsing.schema_resolver_provider"
@@ -33,21 +23,10 @@ _FAKE_SCHEMA: GraphQLSchemaMetadata = {
 
 
 @pytest.fixture(autouse=True)
-def fill_index_off():
-    """Each test declares its own: the fill flag is process-wide."""
-    set_fill_urn_alias_index(False)
-    yield
-    set_fill_urn_alias_index(False)
-
-
-@pytest.fixture(autouse=True)
 def server_registers_aliases():
-    """Pin the server as one whose dataset aliases backfill completed.
-
-    Filling the index reads that marker to pick a lookup, which these tests must not send to
-    the fake host; every other aspect read goes through untouched. The casing-probe fallback
-    is covered where it lives, in tests/unit/utilities/urn_alias.
-    """
+    """Pin the server as one whose dataset aliases backfill completed, so no test here
+    sends the marker read to the fake host; every other aspect read goes through
+    untouched."""
     marker = DataHubUpgradeResultClass(
         timestampMs=0, state=DataHubUpgradeStateClass.SUCCEEDED
     )
@@ -199,213 +178,3 @@ def test_bulk_fetch_yields_datasets_that_have_no_schema(mock_test_connection):
         )
 
     assert results == [(_FAKE_URN, _FAKE_SCHEMA), (_SCHEMALESS_URN, None)]
-
-
-def _would_ask_about(graph: DataHubGraph, urn: str) -> bool:
-    """Whether a consumer allowed to query would still have to ask DataHub about `urn`.
-
-    The observable difference coverage makes: inside a slice some scroll enumerated end to
-    end, a miss is already an answer, so no query is issued.
-    """
-    resolver = get_urn_alias_resolver(graph, query_on_demand=True)
-    with patch.object(graph, "get_urns_by_filter", return_value=iter([])) as search:
-        resolver.find_match(urn)
-    return search.called
-
-
-def _load(graph: DataHubGraph, fill_index: bool = True) -> SchemaResolver:
-    """Bulk-load a slice, declaring URN casing resolution first as a pipeline would."""
-    if fill_index:
-        set_fill_urn_alias_index(True)
-    with patch.object(
-        graph,
-        "_bulk_fetch_schema_info_by_filter",
-        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA), (_SCHEMALESS_URN, None)]),
-    ):
-        return SchemaResolverProvider(graph=graph).get(
-            platform="bigquery", platform_instance=None, env="PROD"
-        )
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_a_load_nobody_asked_about_builds_no_index(mock_test_connection):
-    # Most bulk loads want schemas for SQL parsing and never resolve casing, so they must
-    # not pay for the index.
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-
-    resolver = _load(graph, fill_index=False)
-
-    index = shared_index(graph)
-    assert len(index._urns_by_key) == 0
-    assert index.loaded_slices == []
-    # The schemas the caller actually asked for are unaffected.
-    assert resolver.schema_count() == 1
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_provider_indexes_every_urn_including_schemaless(mock_test_connection):
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-
-    resolver = _load(graph)
-
-    # Both URNs are resolvable by casing, whether or not DataHub knows their columns.
-    urn_aliases = get_urn_alias_resolver(graph)
-    assert urn_aliases.resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
-    assert urn_aliases.resolve(_SCHEMALESS_URN_UPPERCASED) == _SCHEMALESS_URN
-    # ...but only the one with a schema is in the schema cache.
-    assert resolver.schema_count() == 1
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_a_completed_scroll_makes_a_miss_inside_it_an_answer(mock_test_connection):
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-
-    _load(graph)
-
-    # Nothing in the slice went unseen, so a URN it does not hold is genuinely absent,
-    # which is what lets a consumer skip the server.
-    assert not _would_ask_about(graph, _MISSING_URN)
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_a_scroll_narrowed_by_a_name_prefix_claims_no_coverage(mock_test_connection):
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    set_fill_urn_alias_index(True)
-
-    with patch.object(
-        graph,
-        "_bulk_fetch_schema_info_by_filter",
-        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA)]),
-    ):
-        SchemaResolverProvider(graph=graph).get(
-            platform="bigquery",
-            platform_instance=None,
-            env="PROD",
-            name_starts_with="project.dataset",
-        )
-
-    # The prefix is case-sensitive on the stored name, so it cannot be re-expressed over the
-    # lowercased key a lookup uses: `PROJECT.` would not have loaded `project.absent`, yet
-    # both lowercase to `project.`. So a miss stays a question.
-    assert _would_ask_about(graph, _MISSING_URN)
-    # What the scroll did return is recorded either way.
-    assert get_urn_alias_resolver(graph).resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_a_scroll_that_fails_part_way_claims_no_coverage(mock_test_connection):
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    set_fill_urn_alias_index(True)
-
-    def _fails_after_one():
-        yield (_FAKE_URN, _FAKE_SCHEMA)
-        raise Exception("scroll died")
-
-    with patch.object(
-        graph, "_bulk_fetch_schema_info_by_filter", return_value=_fails_after_one()
-    ):
-        with pytest.raises(Exception, match="scroll died"):
-            SchemaResolverProvider(graph=graph).get(
-                platform="bigquery", platform_instance=None, env="PROD"
-            )
-
-    # What it did see is kept — those rows are facts.
-    assert get_urn_alias_resolver(graph).resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
-    # But it never reached the rest of the slice, so a miss is still a gap. Claiming
-    # coverage here would turn every URN the scroll missed into a false absence.
-    assert _would_ask_about(graph, _MISSING_URN)
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_one_index_is_shared_by_every_consumer_of_a_graph(mock_test_connection):
-    """A second platform's load answers lookups for the first, and vice versa."""
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-
-    _load(graph)
-    with patch.object(
-        graph,
-        "_bulk_fetch_schema_info_by_filter",
-        return_value=iter([(_OTHER_PLATFORM_URN, None)]),
-    ):
-        SchemaResolverProvider(graph=graph).get(
-            platform="snowflake", platform_instance=None, env="PROD"
-        )
-
-    urn_aliases = get_urn_alias_resolver(graph)
-    assert urn_aliases.resolve(_FAKE_URN_UPPERCASED) == _FAKE_URN
-    assert urn_aliases.resolve(_OTHER_PLATFORM_URN_UPPERCASED) == _OTHER_PLATFORM_URN
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_warns_when_datasets_are_found_but_none_have_schemas(
-    mock_test_connection, caplog
-):
-    """URNs without schemas resolve by name but cannot support column-level lineage."""
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    provider = SchemaResolverProvider(graph=graph)
-
-    with patch.object(
-        graph,
-        "_bulk_fetch_schema_info_by_filter",
-        return_value=iter([(_SCHEMALESS_URN, None)]),
-    ):
-        with caplog.at_level(logging.WARNING, logger=_PROVIDER_LOGGER):
-            provider.get(platform="bigquery", platform_instance=None, env="PROD")
-
-    assert [r for r in caplog.records if r.levelno == logging.WARNING]
-
-
-@patch("datahub.emitter.rest_emitter.DataHubRestEmitter.test_connection")
-def test_does_not_warn_when_schemas_were_loaded(mock_test_connection, caplog):
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    provider = SchemaResolverProvider(graph=graph)
-
-    with patch.object(
-        graph,
-        "_bulk_fetch_schema_info_by_filter",
-        return_value=iter([(_FAKE_URN, _FAKE_SCHEMA), (_SCHEMALESS_URN, None)]),
-    ):
-        with caplog.at_level(logging.WARNING, logger=_PROVIDER_LOGGER):
-            provider.get(platform="bigquery", platform_instance=None, env="PROD")
-
-    assert not [r for r in caplog.records if r.levelno == logging.WARNING]
-
-
-@patch("datahub.ingestion.graph.client.DataHubGraph.test_connection")
-def test_a_pipeline_with_the_feature_on_fills_the_index(mock_test_connection):
-    # The wiring, end to end. A recipe without `datahub_api` has no graph when
-    # PipelineContext is built and gets one from the sink afterwards, so a declaration tied
-    # to the graph rather than to the run leaves every load unindexed.
-    mock_test_connection.return_value = {}
-    graph = DataHubGraph(DatahubClientConfig(server="http://fake-domain.local"))
-    ctx = PipelineContext(
-        run_id="test",
-        graph=None,
-        pipeline_config=PipelineConfig.model_validate(
-            {
-                "source": {"type": "file", "config": {"path": "unused.json"}},
-                "sink": {"type": "console"},
-                "flags": {
-                    "auto_resolve_lineage_urns": {
-                        "enabled": True,
-                        "upstream_platforms": [{"platform": "bigquery", "env": "PROD"}],
-                    }
-                },
-            }
-        ),
-    )
-    ctx.graph = graph
-
-    _load(graph, fill_index=False)  # the pipeline declared it, not this test
-
-    index = shared_index(graph)
-    assert index.get(_FAKE_URN) == [_FAKE_URN]
-    assert index.loaded_slices

@@ -51,7 +51,13 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
 from datahub.utilities.lossy_collections import LossySet
-from datahub.utilities.urn_alias.index import CatalogSlice, covered_by
+from datahub.utilities.urn_alias.index import (
+    CatalogSlice,
+    UrnAliasIndex,
+    covered_by,
+)
+from datahub.utilities.urn_alias.loader import load_urn_alias_index
+from datahub.utilities.urn_alias.remote import gms_maintains_urn_aliases
 from datahub.utilities.urn_alias.resolver import get_urn_alias_resolver
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -198,22 +204,13 @@ class AutoResolveLineageUrnsProcessor(
         # resolver below needs a network fallback: inside a preloaded slice that load
         # already answers its own misses.
         self._resolve_all_platforms: bool = cfg.resolve_all_platforms
-        # One resolver over the index shared per DataHub instance, so identity is a
-        # single lookup rather than one per configured slice.
-        self._urn_aliases = get_urn_alias_resolver(
-            graph=self._graph,
-            query_on_demand=self._resolve_all_platforms,
-            platform_instances=[
-                entry.platform_instance
-                for entry in self._config
-                if entry.platform_instance
-            ],
-        )
         # The catalogs this processor actually read, and so the entities whose schemas it
         # holds locally. Filled by _load_catalogs per scroll that finished, never from
         # the config: a slice whose load failed holds nothing, and claiming it would
         # suppress the per-URN fallbacks that make up for it. See _schema_of.
         self._loaded_slices: List[CatalogSlice] = []
+        # One per region whose scroll finished; a region that failed is simply absent.
+        self._alias_indexes: List[UrnAliasIndex] = []
         # Resolve the sqlglot-backed schema_resolver callables once, here — a single
         # honest chokepoint rather than imports buried in two leaf methods. Deferred into
         # __init__ (not module level) so importing this module stays sqlglot-free
@@ -264,6 +261,12 @@ class AutoResolveLineageUrnsProcessor(
             aspect_cls.ASPECT_NAME for aspect_cls, _ in self._normalizers
         }
         self._load_catalogs()
+        # Built after the loads, so it resolves across every region that loaded.
+        self._urn_aliases = get_urn_alias_resolver(
+            graph=self._graph,
+            indexes=self._alias_indexes,
+            query_on_demand=self._resolve_all_platforms,
+        )
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
@@ -284,7 +287,20 @@ class AutoResolveLineageUrnsProcessor(
         # Use getattr for graph: it's a no-op without a backend, and `graph` is a
         # PipelineContext instance attribute (absent from MagicMock(spec=...) used by
         # some connector tests).
-        return getattr(ctx.pipeline_context, "graph", None) is not None
+        graph = getattr(ctx.pipeline_context, "graph", None)
+        if graph is None:
+            return False
+        # Resolution reads the `aliases` aspect GMS maintains, so a server too old to
+        # have it cannot answer at all.
+        if not gms_maintains_urn_aliases(graph):
+            ctx.source_report.warning(
+                title="Lineage URN casing resolution disabled",
+                message="This server does not maintain the dataset `aliases` aspect that "
+                "URN casing resolution reads, so lineage is emitted unchanged. Requires "
+                "DataHub Cloud 2.2.0 or DataHub 1.8.0 and later.",
+            )
+            return False
+        return True
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
@@ -450,6 +466,25 @@ class AutoResolveLineageUrnsProcessor(
             )
             resolvers: List[SchemaResolver] = []
             for entry in entries:
+                # Independent of the schema load below: identity comes from the alias
+                # index, columns from the schema cache, so one failing leaves the other.
+                alias_index = load_urn_alias_index(
+                    graph=self._graph,
+                    platform=entry.platform,
+                    platform_instance=entry.platform_instance,
+                    env=entry.env,
+                )
+                if alias_index is None:
+                    self.ctx.source_report.warning(
+                        title="Lineage URN casing: upstream URN index not loaded",
+                        message="Failed to index an upstream platform's URNs from "
+                        "DataHub; references to it are resolved one at a time where "
+                        "resolve_all_platforms allows, and left unchanged otherwise.",
+                        context=f"{entry.platform}, platform_instance="
+                        f"{entry.platform_instance}, env={entry.env}",
+                    )
+                else:
+                    self._alias_indexes.append(alias_index)
                 try:
                     resolver = self._provide_schema_resolver(
                         graph=self._graph,
@@ -539,10 +574,10 @@ class AutoResolveLineageUrnsProcessor(
             self.report.num_refs_out_of_scope += 1
             return _Resolution(urn, None, None)
 
-        # The index is shared per DataHub instance, so a match can come from a slice some
-        # other consumer loaded. Outside our own, nothing was looked up: no verdict, not
-        # UNRESOLVED.
-        if not self._resolve_all_platforms and not covered_by(urn, self._loaded_slices):
+        # The alias indexes, not the schema slices: identity is what is decided here, and
+        # the two loads fail independently. Outside them nothing was looked up, so no
+        # verdict — not UNRESOLVED.
+        if not self._resolve_all_platforms and not self._urn_aliases.covered(urn):
             self.report.num_refs_out_of_scope += 1
             return _Resolution(urn, None, None)
         # prefer_lowercased: when two stored casings of the same name collide, heal to
