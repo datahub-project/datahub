@@ -18,18 +18,16 @@ import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types
 const NOT_EQUAL_OPERATOR = 'not_equals';
 
 /**
- * Lookup for persisted `_entityType` values. Views written by the redesigned
- * builder before entity-type lifting stored the lowercase option id ("dataset");
- * the legacy builder and this one store the EntityType enum ("DATASET"). Both
- * are accepted so old views round-trip instead of pushing an invalid enum into
- * the mutation.
+ * Lookup for persisted `_entityType` values. Keyed on every EntityType — not just
+ * the subset the builder offers — so a view scoped elsewhere (API, or a newer
+ * builder) keeps that scope through an edit. Views written by the redesigned
+ * builder before entity-type lifting stored the lowercase option id ("dataset")
+ * instead of the enum ("DATASET"), so those ids are accepted as aliases.
  */
-const ENTITY_TYPE_BY_VALUE = new Map<string, EntityType>(
-    VIEW_ENTITY_TYPES.flatMap((e) => [
-        [e.id.toLowerCase(), e.type] as [string, EntityType],
-        [e.type.toLowerCase(), e.type] as [string, EntityType],
-    ]),
-);
+const ENTITY_TYPE_BY_VALUE = new Map<string, EntityType>([
+    ...Object.values(EntityType).map((type) => [type.toLowerCase(), type] as [string, EntityType]),
+    ...VIEW_ENTITY_TYPES.map((e) => [e.id.toLowerCase(), e.type] as [string, EntityType]),
+]);
 
 /** Normalizes persisted `_entityType` values to EntityType, dropping unknown ones. */
 function normalizeEntityTypes(values: string[]): EntityType[] {

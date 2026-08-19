@@ -8,6 +8,7 @@ import {
     BUILD_FILTERS_TAB_KEY,
     DEFAULT_DYNAMIC_FILTER,
     SELECT_ASSETS_TAB_KEY,
+    URN_FILTER_NAME,
 } from '@app/entityV2/view/builder/constants';
 import { ViewBuilderMode, ViewFilter } from '@app/entityV2/view/builder/types';
 import { useViewBuilderProperties } from '@app/entityV2/view/builder/useViewBuilderProperties';
@@ -53,11 +54,16 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // State for Select Assets tab
     const [selectedUrns, setSelectedUrns] = useState<string[]>(() => filtersToSelectedUrns(existingFilters));
 
-    // State for Build Filters tab. Seed from both the saved filters and the
-    // view's top-level entityTypes so the entity-type scope is visible/editable.
+    // State for Build Filters tab. Seed from both the saved filters and the view's
+    // top-level entityTypes so the entity-type scope is visible/editable. Seeded
+    // regardless of the active tab: a view can open on Select Assets and still
+    // carry scope, and switching tabs serializes this state — leaving it null
+    // there would clear the saved definition on a mere tab click. URN filters are
+    // excluded because they belong to the Select Assets tab, not this one.
     const [dynamicFilter, setDynamicFilter] = useState<LogicalPredicate | null>(() => {
-        if (activeTab === BUILD_FILTERS_TAB_KEY && (existingFilters.length > 0 || existingEntityTypes.length > 0)) {
-            return filtersToLogicalPredicate(existingOperator, existingFilters, existingEntityTypes);
+        const seedFilters = existingFilters.filter((filter) => filter.field !== URN_FILTER_NAME);
+        if (seedFilters.length > 0 || existingEntityTypes.length > 0) {
+            return filtersToLogicalPredicate(existingOperator, seedFilters, existingEntityTypes);
         }
         return null;
     });

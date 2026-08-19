@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
@@ -59,6 +59,19 @@ const EXISTING_VIEW: ViewBuilderState = {
     },
 };
 
+// A view that pins specific assets *and* carries an entity-type scope, so the
+// builder opens on Select Assets even though there is scope to preserve.
+const URN_SCOPED_VIEW: ViewBuilderState = {
+    name: 'Pinned Assets',
+    definition: {
+        entityTypes: [EntityType.Dataset],
+        filter: {
+            operator: LogicalOperator.Or,
+            filters: [{ field: 'urn', values: ['urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)'] }] as FacetFilter[],
+        },
+    },
+};
+
 describe('ViewDefinitionBuilder wiring', () => {
     it('seeds entity types and per-row negation when opening an existing view', () => {
         render(
@@ -101,5 +114,23 @@ describe('ViewDefinitionBuilder wiring', () => {
             condition: FilterOperator.Equal,
             negated: true,
         });
+    });
+
+    it('keeps the entity-type scope when switching from Select Assets to Build Filters', () => {
+        const updateState = vi.fn();
+        render(
+            <ThemeProvider theme={themeV2}>
+                <ViewDefinitionBuilder
+                    mode={ViewBuilderMode.EDITOR}
+                    state={URN_SCOPED_VIEW}
+                    updateState={updateState}
+                />
+            </ThemeProvider>,
+        );
+
+        fireEvent.click(screen.getByText('viewDefinition.tabBuildFilters'));
+
+        const emitted = updateState.mock.calls.at(-1)?.[0] as ViewBuilderState;
+        expect(emitted.definition?.entityTypes).toEqual([EntityType.Dataset]);
     });
 });

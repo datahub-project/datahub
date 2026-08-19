@@ -656,6 +656,39 @@ describe('View builder conversion utils', () => {
         });
     });
 
+    describe("entity types outside the builder's offered list", () => {
+        // The builder only offers a subset of EntityType. A view scoped via the
+        // API (or a newer builder) to a type it does not list must keep that
+        // scope through an edit instead of silently losing it.
+        it('should preserve a valid EntityType that VIEW_ENTITY_TYPES does not include', () => {
+            const predicate = filtersToLogicalPredicate(
+                LogicalOperator.And,
+                [],
+                [EntityType.Dataset, EntityType.Metric, EntityType.Incident],
+            );
+
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+
+            expect(buildViewDefinition(operator, filters).entityTypes).toEqual([
+                EntityType.Dataset,
+                EntityType.Metric,
+                EntityType.Incident,
+            ]);
+        });
+
+        it('should still drop a value that matches no entity type at all', () => {
+            const { operator, filters } = logicalPredicateToFilters(
+                filtersToLogicalPredicate(
+                    LogicalOperator.And,
+                    [{ field: ENTITY_FILTER_NAME, values: ['dataset', 'not_a_real_type'] }],
+                    [],
+                ),
+            );
+
+            expect(buildViewDefinition(operator, filters).entityTypes).toEqual([EntityType.Dataset]);
+        });
+    });
+
     describe('negation without a per-row operator', () => {
         // "does not equal" only covers negated EQUAL. Exists / Within / booleans
         // have no negated row operator, so their flag rides on a NOT group.
