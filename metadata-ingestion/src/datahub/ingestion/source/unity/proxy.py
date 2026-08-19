@@ -9,7 +9,18 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
@@ -691,7 +702,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     log=False,
                 )
 
-    def volume_files(self, volume: Volume, max_results: int) -> Iterable[VolumeFile]:
+    def volume_files(
+        self,
+        volume: Volume,
+        max_results: int,
+        allowed: Optional[Callable[[str], bool]] = None,
+    ) -> Iterable[VolumeFile]:
         if max_results <= 0:
             return
         root = volume_fs_root(volume)
@@ -704,6 +720,38 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     directory_path,
                     page_size=self.databricks_api_page_size or None,
                 )
+                for entry in entries:
+                    path = entry.path or ""
+                    is_directory = bool(entry.is_directory)
+                    if is_directory:
+                        if path:
+                            pending.append(path)
+                        continue
+                    relative = (
+                        path[len(root) :].lstrip("/")
+                        if path.startswith(root)
+                        else (entry.name or "")
+                    )
+                    if not relative:
+                        continue
+                    qualified_name = f"{volume.ref.qualified_name}/{relative}"
+                    if allowed is not None and not allowed(qualified_name):
+                        continue
+                    if yielded >= max_results:
+                        self.report.num_volume_files_truncated += 1
+                        return
+                    yielded += 1
+                    yield VolumeFile(
+                        volume=volume,
+                        relative_path=relative,
+                        dbfs_path=path or f"{root}/{relative}",
+                        file_size=entry.file_size,
+                        last_modified=(
+                            parse_ts_millis(entry.last_modified)
+                            if entry.last_modified
+                            else None
+                        ),
+                    )
             except Exception as e:
                 self.report.num_volume_files_list_failed += 1
                 self.report.warning(
@@ -717,35 +765,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     log=False,
                 )
                 continue
-            for entry in entries:
-                if yielded >= max_results:
-                    self.report.num_volume_files_truncated += 1
-                    return
-                path = entry.path or ""
-                is_directory = bool(entry.is_directory)
-                if is_directory:
-                    if path:
-                        pending.append(path)
-                    continue
-                relative = (
-                    path[len(root) :].lstrip("/")
-                    if path.startswith(root)
-                    else (entry.name or "")
-                )
-                if not relative:
-                    continue
-                yielded += 1
-                yield VolumeFile(
-                    volume=volume,
-                    relative_path=relative,
-                    dbfs_path=path or f"{root}/{relative}",
-                    file_size=entry.file_size,
-                    last_modified=(
-                        parse_ts_millis(entry.last_modified)
-                        if entry.last_modified
-                        else None
-                    ),
-                )
         if pending:
             self.report.num_volume_files_truncated += 1
 

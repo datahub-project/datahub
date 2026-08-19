@@ -3329,6 +3329,7 @@ class TestUnityCatalogVolumes:
         wus = list(source.process_volume_file(volume_file, schema))
         urns = {wu.get_urn() for wu in wus}
         assert any("c.s.landing/raw/events.parquet" in u for u in urns)
+        assert any("metastore.c.s.landing/raw/events.parquet" in u for u in urns)
 
         subtype: Optional[SubTypesClass] = None
         props: Optional[DatasetPropertiesClass] = None
@@ -3348,6 +3349,9 @@ class TestUnityCatalogVolumes:
         assert props is not None
         assert props.qualifiedName == "c.s.landing/raw/events.parquet"
         assert props.customProperties["path"] == "raw/events.parquet"
+        assert props.externalUrl and props.externalUrl.endswith(
+            "/c/s/landing/raw/events.parquet"
+        )
         assert containers
 
     def test_volume_file_pattern_drops(self) -> None:
@@ -3365,9 +3369,12 @@ class TestUnityCatalogVolumes:
             file_size=1,
             last_modified=None,
         )
-        source.unity_catalog_api_proxy.volume_files = (  # type: ignore[assignment]
-            lambda volume, max_results: iter([volume_file])
-        )
+
+        def _files(volume, max_results, allowed=None):
+            if allowed is None or allowed(volume_file.qualified_name):
+                yield volume_file
+
+        source.unity_catalog_api_proxy.volume_files = _files  # type: ignore[assignment]
         assert list(source.process_volume_files(volume, schema)) == []
         assert list(source.report.volume_files.dropped_entities) == [
             volume_file.qualified_name

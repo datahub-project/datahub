@@ -361,8 +361,9 @@ class UnityCatalogSourceConfig(
         ge=0,
         description=(
             "Maximum number of files to ingest per volume when "
-            "`include_volume_files` is True. Extra files are skipped and counted "
-            "in the report. Set to 0 to ingest none."
+            "`include_volume_files` is True, counted after `volume_file_pattern` "
+            "filtering. Extra files are skipped and counted in the report. "
+            "Set to 0 to ingest none."
         ),
     )
 

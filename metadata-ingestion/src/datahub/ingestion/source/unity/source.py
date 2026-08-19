@@ -932,7 +932,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if updated_ts is not None:
                 last_modified = TimeStampClass(
                     updated_ts,
-                    volume.updated_by and make_user_urn(volume.updated_by),
+                    make_user_urn(volume.updated_by) if volume.updated_by else None,
                 )
 
         owner_urn = self.get_owner_urn(volume.owner)
@@ -970,12 +970,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         if not self.config.include_volume_files:
             return
+
+        def _allowed(name: str) -> bool:
+            if self.config.volume_file_pattern.allowed(name):
+                return True
+            self.report.volume_files.dropped(name)
+            return False
+
         for volume_file in self.unity_catalog_api_proxy.volume_files(
-            volume, max_results=self.config.volume_file_max_results
+            volume,
+            max_results=self.config.volume_file_max_results,
+            allowed=_allowed,
         ):
-            if not self.config.volume_file_pattern.allowed(volume_file.qualified_name):
-                self.report.volume_files.dropped(volume_file.qualified_name)
-                continue
             yield from self.process_volume_file(volume_file, schema)
             self.report.volume_files.processed(volume_file.qualified_name)
 
@@ -1009,6 +1015,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=last_modified,
                     externalUrl=(
                         f"{self.external_url_base}/{volume_file.volume.ref.external_path}"
+                        f"/{volume_file.relative_path}"
                     ),
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME_FILE]),
@@ -1409,7 +1416,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             platform_instance=self.platform_instance_name,
-            name=volume_file.qualified_name,
+            name=f"{volume_file.volume.ref}/{volume_file.relative_path}",
             env=self.config.env,
         )
 
