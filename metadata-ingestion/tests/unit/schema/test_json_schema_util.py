@@ -522,7 +522,7 @@ def test_datahub_json_schemas_parses_okay(tmp_path):
     """This is more like an integration test that helps us exercise the complexity in parsing and catch unexpected regressions."""
 
     json_path: Path = Path(os.path.dirname(__file__)) / Path(
-        "../../../../metadata-models/src/generatedJsonSchema/json/"
+        "../../../../metadata-models/build/generatedJsonSchema/json/"
     )
     pipeline = Pipeline.create(
         config_dict={

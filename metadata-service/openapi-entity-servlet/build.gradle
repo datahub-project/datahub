@@ -56,13 +56,16 @@ sourceSets {
 }
 
 
+def metadataModelsJsonSchemaCombinedDir =
+    "${project(':metadata-models').layout.buildDirectory.get().asFile}/generatedJsonSchema/combined"
+
 task mergeApiComponents(dependsOn: ':metadata-models:generateJsonSchema') {
   doLast {
     mkdir("$buildDir/openapi")
     File combined = file("$buildDir/openapi/open-api.yaml")
-    def components = file("${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api-components.yaml").getText('UTF-8')
+    def components = file("${metadataModelsJsonSchemaCombinedDir}/open-api-components.yaml").getText('UTF-8')
     def api = file("$projectDir/src/main/resources/entity-v2.0.yml").getText('UTF-8')
-    def paths = file("${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api-paths.yaml").getText('UTF-8')
+    def paths = file("${metadataModelsJsonSchemaCombinedDir}/open-api-paths.yaml").getText('UTF-8')
     combined.text = (components + paths + api).replaceAll("---\n", "\n")
   }
   outputs.file(file("$buildDir/openapi/open-api.yaml"))
