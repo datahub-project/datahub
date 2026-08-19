@@ -37,14 +37,15 @@ final class OpenLineagePlatformResolver {
       Stream.of(new String[][] {{"awsathena", "athena"}, {"sqlserver", "mssql"}})
           .collect(Collectors.toMap(data -> data[0], data -> data[1]));
 
+  record ResolvedDatasetIdentity(DatasetUrn urn, String platformInstance) {}
+
   private OpenLineagePlatformResolver() {}
 
-  static Optional<DatasetUrn> convertOpenlineageDatasetToDatasetUrn(
+  static Optional<ResolvedDatasetIdentity> resolveDatasetIdentity(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
-
     String namespace = dataset.getNamespace();
     String datasetName = dataset.getName();
-    Optional<DatasetUrn> datahubUrn;
+    Optional<ResolvedDatasetIdentity> resolvedIdentity;
 
     if (dataset.getFacets() != null
         && dataset.getFacets().getSymlinks() != null
@@ -52,8 +53,8 @@ final class OpenLineagePlatformResolver {
         && !dataset.getFacets().getSymlinks().getIdentifiers().isEmpty()
         && !mappingConfig.isDisableSymlinkResolution()) {
       String connectionKey = null;
-      Optional<DatasetUrn> originalUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
+      Optional<ResolvedDatasetIdentity> originalIdentity =
+          resolveDatasetIdentityFromOlDataset(namespace, datasetName, null, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
         if ("TABLE".equals(symlink.getType())) {
@@ -70,44 +71,61 @@ final class OpenLineagePlatformResolver {
           } else {
             datasetName = symlink.getName();
           }
-          // Derive the connection-instance map key from the symlink's own namespace before it is
-          // flattened above (e.g. the Glue ARN, which "glue" alone can't recover). toConnectionKey
-          // dispatches on the namespace protocol — it is not Glue-specific.
+          // Derive the connection-instance map key from the symlink namespace before it is
+          // flattened (for example, a Glue ARN); the flattened namespace cannot recover it.
           connectionKey = toConnectionKey(symlink.getNamespace());
         }
       }
-      Optional<DatasetUrn> symlinkedUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
-      if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
+      Optional<ResolvedDatasetIdentity> symlinkedIdentity =
+          resolveDatasetIdentityFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
+      if (symlinkedIdentity.isPresent() && originalIdentity.isPresent()) {
         mappingConfig
             .getUrnAliases()
-            .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+            .put(originalIdentity.get().urn().toString(), symlinkedIdentity.get().urn().toString());
       }
-      datahubUrn = symlinkedUrn;
+      resolvedIdentity = symlinkedIdentity;
     } else {
-      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
+      resolvedIdentity =
+          resolveDatasetIdentityFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
 
-    log.debug("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
-    // If we have the urn in urn aliases then we should use the alias instead of the original urn
-    if (datahubUrn.isPresent()
-        && mappingConfig.getUrnAliases().containsKey(datahubUrn.get().toString())) {
+    log.debug(
+        "Dataset identity: {}, alias_list: {}", resolvedIdentity, mappingConfig.getUrnAliases());
+    if (resolvedIdentity.isPresent()
+        && mappingConfig.getUrnAliases().containsKey(resolvedIdentity.get().urn().toString())) {
       try {
-        datahubUrn =
-            Optional.of(
+        // An alias can target a different platform, so its source connection instance must not be
+        // stamped on the target Dataset's dataPlatformInstance aspect.
+        return Optional.of(
+            new ResolvedDatasetIdentity(
                 DatasetUrn.createFromString(
-                    mappingConfig.getUrnAliases().get(datahubUrn.get().toString())));
-        return datahubUrn;
+                    mappingConfig.getUrnAliases().get(resolvedIdentity.get().urn().toString())),
+                null));
       } catch (URISyntaxException e) {
         log.warn("Failed to create URN from alias: {}", e.getMessage());
         return Optional.empty();
       }
     }
 
-    return datahubUrn;
+    return resolvedIdentity;
+  }
+
+  static Optional<DatasetUrn> convertOpenlineageDatasetToDatasetUrn(
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
+    return resolveDatasetIdentity(dataset, mappingConfig).map(ResolvedDatasetIdentity::urn);
   }
 
   static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
+      String namespace,
+      String datasetName,
+      String connectionKeyOverride,
+      DatahubOpenlineageConfig mappingConfig) {
+    return resolveDatasetIdentityFromOlDataset(
+            namespace, datasetName, connectionKeyOverride, mappingConfig)
+        .map(ResolvedDatasetIdentity::urn);
+  }
+
+  private static Optional<ResolvedDatasetIdentity> resolveDatasetIdentityFromOlDataset(
       String namespace,
       String datasetName,
       String connectionKeyOverride,
@@ -140,7 +158,7 @@ final class OpenLineagePlatformResolver {
           try {
             HdfsPathDataset hdfsPathDataset = HdfsPathDataset.create(datasetUri, mappingConfig);
             DatasetUrn urn = hdfsPathDataset.urn();
-            return Optional.of(urn);
+            return Optional.of(new ResolvedDatasetIdentity(urn, null));
           } catch (InstantiationException e) {
             log.warn(
                 "Unable to create urn from namespace: {} and dataset {}.", namespace, datasetName);
@@ -194,7 +212,7 @@ final class OpenLineagePlatformResolver {
     String platformInstance = getPlatformInstance(mappingConfig, platform, connectionDetail);
     FabricType env = getEnv(mappingConfig, platform, connectionDetail);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
-    return Optional.of(urn);
+    return Optional.of(new ResolvedDatasetIdentity(urn, platformInstance));
   }
 
   static String toConnectionKey(String olNamespace) {
@@ -294,10 +312,7 @@ final class OpenLineagePlatformResolver {
         getOrchestrator(
             processingEngine, jobTypeIntegration, producerName, datahubOpenlineageConfig);
     String flowName = datahubOpenlineageConfig.getPipelineName();
-    if (datahubOpenlineageConfig.getPlatformInstance() != null) {
-      namespace = datahubOpenlineageConfig.getPlatformInstance();
-    }
-    return (new DataFlowUrn(orchestrator, getFlowName(jobName, flowName), namespace));
+    return new DataFlowUrn(orchestrator, getFlowName(jobName, flowName), namespace);
   }
 
   static DataFlowInfo convertRunEventToDataFlowInfo(OpenLineage.RunEvent event, String flowName) {

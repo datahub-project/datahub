@@ -23,6 +23,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.openlineage.client.OpenLineage;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,8 @@ import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -82,6 +85,105 @@ public class OpenLineageConformanceTest {
         .newDatasetEventBuilder()
         .eventTime(EVENT_TIME)
         .dataset(openLineage.newStaticDatasetBuilder().namespace("crm").name("customer").build());
+  }
+
+  @Test
+  public void testConfiguredPlatformInstanceDoesNotReplaceJobNamespace() throws Exception {
+    OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
+    OpenLineage.RunEvent event = runEventBuilder(openLineage).build();
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(false)
+            .platformInstance("configured")
+            .build();
+
+    assertEquals(
+        OpenLineageToDataHub.convertRunEventToJob(event, config).getFlowUrn().getClusterEntity(),
+        "crm");
+  }
+
+  @Test
+  public void testConnectionInstanceContributesDataPlatformInstance() throws Exception {
+    OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
+    OpenLineage.DatasetEvent event =
+        datasetEventBuilder(openLineage)
+            .dataset(
+                openLineage
+                    .newStaticDatasetBuilder()
+                    .namespace("snowflake://account-a")
+                    .name("db.schema.customer")
+                    .build())
+            .build();
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(false)
+            .connectionInstanceMap(
+                Map.of(
+                    "snowflake://account-a",
+                    ConnectionInstanceDetail.builder()
+                        .platformInstance(Optional.of("account-a"))
+                        .build()))
+            .build();
+
+    assertTrue(
+        aspectJson(
+                OpenLineageToDataHub.convertDatasetEventToMcps(event, config),
+                "dataPlatformInstance")
+            .contains("account-a"));
+  }
+
+  @Test
+  public void testAliasedDatasetDoesNotReuseSourceConnectionInstance() throws Exception {
+    OpenLineage openLineage = new OpenLineage(CUSTOM_PRODUCER);
+    OpenLineage.DatasetEvent event =
+        datasetEventBuilder(openLineage)
+            .dataset(
+                openLineage
+                    .newStaticDatasetBuilder()
+                    .namespace("snowflake://account-a")
+                    .name("db.schema.customer")
+                    .build())
+            .build();
+    Map<String, ConnectionInstanceDetail> connectionInstances =
+        Map.of(
+            "snowflake://account-a",
+            ConnectionInstanceDetail.builder().platformInstance(Optional.of("account-a")).build());
+    DatahubOpenlineageConfig sourceConfig =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(false)
+            .connectionInstanceMap(connectionInstances)
+            .build();
+    String sourceUrn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(event.getDataset(), sourceConfig)
+            .orElseThrow()
+            .toString();
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(false)
+            .connectionInstanceMap(connectionInstances)
+            .urnAliases(
+                Map.of(
+                    sourceUrn, "urn:li:dataset:(urn:li:dataPlatform:hive,db.schema.customer,PROD)"))
+            .build();
+
+    assertEquals(
+        countAspects(
+            OpenLineageToDataHub.convertDatasetEventToMcps(event, config),
+            "dataset",
+            "dataPlatformInstance"),
+        0L);
   }
 
   @Test
@@ -1266,8 +1368,16 @@ public class OpenLineageConformanceTest {
                     .build())
             .build();
 
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(false)
+            .platformInstance("configured")
+            .build();
     List<MetadataChangeProposal> mcps =
-        OpenLineageToDataHub.convertRunEventToJob(event, config()).toMcps(config());
+        OpenLineageToDataHub.convertRunEventToJob(event, config).toMcps(config);
 
     assertTrue(
         mcps.stream()

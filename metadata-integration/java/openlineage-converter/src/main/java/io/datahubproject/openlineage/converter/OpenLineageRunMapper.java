@@ -266,10 +266,7 @@ final class OpenLineageRunMapper {
       return Optional.empty();
     }
     String jobName = dependency.getJob().getName();
-    String namespace =
-        datahubConf.getPlatformInstance() != null
-            ? datahubConf.getPlatformInstance()
-            : dependency.getJob().getNamespace();
+    String namespace = dependency.getJob().getNamespace();
     DataFlowUrn flowUrn =
         new DataFlowUrn(
             orchestrator,
