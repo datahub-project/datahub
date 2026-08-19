@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -107,6 +108,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final AuthConfig authConfig = new AuthConfig();
     authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
+    final AccessTokenConfiguration accessTokenConfiguration =
+        _authenticationConfiguration.getAccessTokens() != null
+            ? _authenticationConfiguration.getAccessTokens()
+            : AccessTokenConfiguration.defaults();
+    authConfig.setAllowNoExpiry(accessTokenConfiguration.isAllowNoExpiry());
+    authConfig.setAllowedAccessTokenDurations(accessTokenConfiguration.getAllowedDurations());
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
     policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());

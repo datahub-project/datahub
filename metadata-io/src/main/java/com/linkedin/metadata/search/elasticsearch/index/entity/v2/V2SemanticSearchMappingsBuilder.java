@@ -179,14 +179,15 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
    * @param baseIndexMappings Base V2 index mappings to transform
    * @return Semantic search index mappings with embeddings field added
    */
-  private Collection<IndexMapping> addSemanticMappings(Collection<IndexMapping> baseIndexMappings) {
+  private Collection<IndexMapping> addSemanticMappings(
+      @Nonnull OperationContext opContext, Collection<IndexMapping> baseIndexMappings) {
     Set<String> enabledEntities = semanticConfig.getEnabledEntities();
     Map<String, Object> embeddingFieldConfig = buildEmbeddingFieldConfig();
     ArrayList<IndexMapping> semanticIndexMappings = new ArrayList<>();
 
     for (IndexMapping baseIndexMapping : baseIndexMappings) {
       String indexName = baseIndexMapping.getIndexName();
-      String entityName = indexConvention.getEntityName(indexName).orElse(null);
+      String entityName = indexConvention.getEntityName(opContext, indexName).orElse(null);
 
       // Only create semantic search index for enabled entities
       if (!enabledEntities.contains(entityName)) {
@@ -218,7 +219,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       // Construct new IndexMapping object for semantic search
       Map<String, Object> finalMappings = newMappings.buildKeepingLast();
 
-      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
       IndexMapping semanticIndexMapping =
           IndexMapping.builder().indexName(semanticIndexName).mappings(finalMappings).build();
 
@@ -239,7 +240,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     Collection<IndexMapping> baseIndexMappings =
         v2MappingsBuilder.getIndexMappings(opContext, structuredProperties);
-    return addSemanticMappings(baseIndexMappings);
+    return addSemanticMappings(opContext, baseIndexMappings);
   }
 
   @Override
@@ -249,7 +250,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       @Nonnull StructuredPropertyDefinition property) {
     Collection<IndexMapping> baseIndexMappings =
         v2MappingsBuilder.getIndexMappingsWithNewStructuredProperty(opContext, urn, property);
-    return addSemanticMappings(baseIndexMappings);
+    return addSemanticMappings(opContext, baseIndexMappings);
   }
 
   @Override

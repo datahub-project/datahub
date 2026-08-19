@@ -95,6 +95,17 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
+            return i18next.t('entity.profile.validations:assertionType.custom');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.custom');
+        },
+        icon: React.createElement(getStyledIconComponent(AssertionType.Custom)),
+        type: AssertionType.Custom,
+        entityTypes: [EntityType.Dataset],
+    },
+    {
+        get name() {
             return i18next.t('entity.profile.validations:assertionType.other');
         },
         get description() {
@@ -115,7 +126,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-const getAssertionGroupTypeIcon = (type: string) => {
+export const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
@@ -137,6 +148,8 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
         passing: 0,
         failing: 0,
         erroring: 0,
+        initializing: 0,
+        notRunning: 0,
         total: 0,
         totalAssertions: assertions.length,
     };
@@ -153,9 +166,14 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
             if (AssertionResultType.Error === resultType) {
                 summary.erroring++;
             }
+            if (AssertionResultType.Init === resultType) {
+                summary.initializing++;
+            }
             if (AssertionResultType.Init !== resultType) {
                 summary.total++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
             }
+        } else {
+            summary.notRunning++;
         }
     });
     return summary;

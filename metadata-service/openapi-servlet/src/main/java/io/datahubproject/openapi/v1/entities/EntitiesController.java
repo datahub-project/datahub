@@ -1,7 +1,5 @@
 package io.datahubproject.openapi.v1.entities;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
@@ -9,12 +7,12 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -135,7 +133,7 @@ public class EntitiesController {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, entityUrns)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, entityUrns)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
     }
 
@@ -229,7 +227,9 @@ public class EntitiesController {
      Ingest Authorization Checks
     */
     List<Pair<MetadataChangeProposal, Integer>> exceptions =
-        isAPIAuthorized(opContext, ENTITY, opContext.getEntityRegistry(), proposals).stream()
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+                opContext, opContext.getEntityRegistry(), proposals)
+            .stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {
@@ -320,7 +320,7 @@ public class EntitiesController {
       @Nullable Boolean async) {
     Throwable exceptionally = null;
     try {
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, entityUrns)) {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, entityUrns)) {
         throw new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
       }
 

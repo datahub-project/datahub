@@ -85,9 +85,10 @@ junit_suite_name = "smoke-test-pytest"
 markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
     "no_cypress_suite1: main smoke tests, suite 1",
-    "test_run_cypress: run cypress tests",
     "integration: marks tests as integration tests requiring a running DataHub stack",
     "global_policy_mutator: module mutates shared platform policy state (disables All Users defaults and/or heavy policy-cache tests); smoke.sh runs these serially in a second pytest invocation after non-mutators",
+    "p0: critical smoke test; runs on every pull request",
+    "domain(*names): product domain(s) owning this test, from the Domain enum in tests/utilities/domains.py; select with --domain",
 ]
 filterwarnings = [
     # Ignore some warnings that come from dependencies.

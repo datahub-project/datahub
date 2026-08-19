@@ -87,6 +87,7 @@ export class LineageV3Page extends LineageBasePage {
     await this.clickFilterByDescription();
     await this.typeFilterText(text);
     await this.confirmFilterText();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 

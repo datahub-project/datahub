@@ -39,7 +39,15 @@ base_requirements = {
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
     # setuptools 82.0.0 deprecated pkg_resource
+    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
+    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
+    # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
+    # Floor at 2.5.0 — the highest the airflow-plugin CI
+    # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
+    # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies, keeping this bound Airflow-satisfiable.
+    "urllib3>=2.5.0,<3.0",
 }
 
 gcp_sm_common = {
@@ -75,7 +83,9 @@ framework_common = {
     # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
-    "ijson<4.0.0",
+    # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
+    # schema inferrer relies on to keep numbers as native int/float.
+    "ijson>=3.2.0,<4.0.0",
     "click-spinner<0.2.0",
     "requests_file<4.0.0",
     "jsonref<2.0.0",
@@ -169,43 +179,6 @@ pyarrow_common = {
     "pyarrow>14.0.0,<24.0.0",
 }
 
-great_expectations_lib = {
-    # 1. Our original dep was this:
-    # "great-expectations>=0.15.12, <=0.15.50",
-    # 2. For hive, we had additional restrictions:
-    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
-    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-    #    https://github.com/great-expectations/great_expectations/pull/6149.
-    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
-    # 3. Since then, we've ended up forking great-expectations in order to
-    #    add pydantic 2.x support. The fork is pretty simple
-    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...acryldata:great_expectations:0.15.50-pydantic-2-patch?expand=1
-    #    This was derived from work done by @jskrzypek in
-    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
-    "acryl-great-expectations==0.15.50.1",
-    "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
-}
-
-profiling_ge = {
-    *great_expectations_lib,
-    # scipy version restricted to reduce backtracking, used by great-expectations.
-    "scipy>=1.7.2,<2.0.0",
-    # GE added handling for higher version of jinja2.
-    # https://github.com/great-expectations/great_expectations/pull/5382/files
-    # datahub does not depend on traitlets directly but great-expectations does.
-    # https://github.com/ipython/traitlets/issues/741
-    "traitlets!=5.2.2,<6.0.0",
-    # GE depends on IPython - we have no direct dependency on it.
-    # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
-    # version requirement of traitlets>5.
-    # See https://github.com/ipython/ipython/issues/14352.
-    # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
-    # which first appeared in IPython 8.22.1.
-    # As such, we just need to avoid that version in order to get the
-    # dependencies that we need. IPython probably should've yanked 8.22.0.
-    "IPython!=8.22.0,<9.0.0",
-}
-
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
@@ -230,10 +203,6 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # Known vulnerability: urllib3 has CVEs (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441)
-    # fixed in urllib3>=2.6.0
-    # We cannot require >=2.6.0 due to great expectations
-    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -328,7 +297,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=48.0.1,<49.0.0",  # >=48.0.1 for GHSA-537c-gmf6-5ccf; >=46.0.7 for CVE-2026-26007
+    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
+    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
+    "cryptography>=49.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -515,6 +486,16 @@ unstructured_lib = {
     "unstructured-ingest==0.7.2",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
+    # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
+    # import hook (nltk/inisec.py, NLTKSafeImportFinder) that blocks any
+    # nltk-initiated import resolving under the CWD, which includes site-packages
+    # whenever the venv lives in the project dir -- the standard
+    # `python -m venv .venv` / uv / Poetry in-project layout. That breaks text
+    # partitioning, so document chunking silently produces nothing (zero documents
+    # indexed, exit 0). See https://github.com/nltk/nltk/issues/3730.
+    # Upstream reverted the hook: inisec.py ships in 3.10.1 only and is absent from
+    # 3.10.2 onwards, so this excludes just that release rather than capping.
+    "nltk!=3.10.1",
     # Embedding support for semantic search
     *embedding_common,
 }
@@ -574,9 +555,6 @@ plugins: Dict[str, Set[str]] = {
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
-    # Opt-in extra for the legacy Great Expectations SQL profiler.
-    # Without this extra, SQL connectors fall back to the SQLAlchemy profiler.
-    "profiling-ge": profiling_ge,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -622,7 +600,7 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "dataplex": dataplex_common,
+    "dataplex": dataplex_common | cachetools_lib,
     "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
@@ -635,11 +613,9 @@ plugins: Dict[str, Set[str]] = {
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common,
-    # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
-    # UnsupportedProductError
-    # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
-    # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
+    # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -648,7 +624,12 @@ plugins: Dict[str, Set[str]] = {
         *cachetools_lib,
     },
     "cassandra": {
-        "cassandra-driver>=3.28.0,<4.0.0",
+        # 3.30.1 fixes "Prevent crash at exit" (PR 1287): before it, the libev reactor
+        # registered atexit.register(partial(_cleanup, _global_loop)) at import time,
+        # which binds None permanently and leaves the reactor thread running into
+        # interpreter shutdown -- intermittently segfaulting the process (exit 139)
+        # after ingestion had already succeeded.
+        "cassandra-driver>=3.30.1,<4.0.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
@@ -722,9 +703,6 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/mlflow/mlflow/pull/14795
         # Upper bound can be removed once the upstream issue is resolved,
         # or we have a reliable and backward-compatible way to handle prompt filtering.
-        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
-        # setuptools 82 removed pkg_resources, which mlflow uses at runtime.
-        "setuptools<82",
     },
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
@@ -781,6 +759,7 @@ plugins: Dict[str, Set[str]] = {
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
+    "sap-datasphere": rest_common | {"defusedxml>=0.7.1,<0.8.0"},
     "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
@@ -794,7 +773,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.34,<=0.40"} | sqlglot_lib,
     "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
@@ -960,6 +939,7 @@ base_dev_requirements = {
     "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
+    "pytest-httpserver>=1.0.0,<2.0.0",
     "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
@@ -1012,6 +992,7 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "s3",
+            "sap-datasphere",
             "snowflake",
             "snowplow",
             "snaplogic",
@@ -1184,6 +1165,7 @@ entry_points = {
         "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
@@ -1345,6 +1327,7 @@ setuptools.setup(
         "datahub.ingestion.autogenerated": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
+        "datahub.cli.datapack.resources": ["*.md", "*.json"],
     },
     # Install .pth files that run at interpreter startup:
     # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks

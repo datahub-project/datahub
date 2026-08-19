@@ -1,4 +1,10 @@
-import { CheckCircleOutlined, PlusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import {
+    ApartmentOutlined,
+    CheckCircleOutlined,
+    PlusCircleOutlined,
+    PlusOutlined,
+    StopOutlined,
+} from '@ant-design/icons';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -10,9 +16,17 @@ import {
     FrontendFilterOperator,
 } from '@app/searchV2/filters/types';
 import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@src/app/search/utils/constants';
+import {
+    CONTAINER_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+} from '@src/app/search/utils/constants';
 
 import { FilterOperator } from '@types';
+
+const HIERARCHICAL_FILTER_FIELDS = new Set([DOMAINS_FILTER_NAME, CONTAINER_FILTER_NAME, PARENT_DOCUMENT_FILTER_NAME]);
 
 /**
  * This is a flat version of the supported search filtering operations that can be applied
@@ -93,6 +107,18 @@ export const NOT_EXISTS_OPERATOR = {
     icon: <StopOutlined />,
 };
 
+export const WITHIN_OPERATOR = {
+    type: FilterOperatorType.WITHIN,
+    get text() {
+        return i18next.t('search:operator.within');
+    },
+    filter: {
+        operator: FilterOperator.DescendantsIncl,
+        negated: false,
+    },
+    icon: <ApartmentOutlined />,
+};
+
 const CONTAINS_OPERATOR = {
     type: FilterOperatorType.CONTAINS,
     get text() {
@@ -171,6 +197,7 @@ const SUPPORTED_OPERATORS: FilterOperatorInfo[] = [
     NOT_EQUALS_OPERATOR,
     EXISTS_OPERATOR,
     NOT_EXISTS_OPERATOR,
+    WITHIN_OPERATOR,
     CONTAINS_OPERATOR,
     NOT_CONTAINS_OPERATOR,
     GREATER_THAN_OPERATOR,
@@ -248,6 +275,9 @@ export const getOperatorOptionsForPredicate = (predicate: FilterPredicate, isPlu
             operatorOptions = BASE_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
             break;
         /* eslint-enable @typescript-eslint/no-non-null-assertion */
+    }
+    if (HIERARCHICAL_FILTER_FIELDS.has(predicate.field.field)) {
+        operatorOptions = [WITHIN_OPERATOR, ...operatorOptions];
     }
     return applyFiltersToOperatorOptions(predicate.field.field, operatorOptions, isPlural);
 };

@@ -129,7 +129,7 @@ describe('DatasetAssertionDescription', () => {
             parameters,
             nativeType: 'MY_NATIVE',
         } as any;
-        expect(renderText(<DatasetAssertionDescription assertionInfo={info} />)).toBe(expected);
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(expected);
     });
 
     // Each aggregation rendered against a fixed (greater than 5) operator suffix.
@@ -240,13 +240,26 @@ describe('DatasetAssertionDescription', () => {
             operator: AssertionStdOperator.GreaterThan,
             parameters: { value: numberParam(5) },
         } as any;
-        expect(renderText(<DatasetAssertionDescription assertionInfo={info} />)).toBe(expected);
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(expected);
     });
 
     it('renders an explicit description verbatim', () => {
-        expect(
-            renderText(<DatasetAssertionDescription description="My custom description" assertionInfo={{} as any} />),
-        ).toBe('My custom description');
+        expect(renderText(<DatasetAssertionDescription description="My custom description" />)).toBe(
+            'My custom description',
+        );
+    });
+
+    it('joins multiple columns for DatasetColumn scope', () => {
+        const info = {
+            scope: DatasetAssertionScope.DatasetColumn,
+            aggregation: AssertionStdAggregation.Identity,
+            fields: [{ path: 'profile_id' }, { path: 'email' }],
+            operator: AssertionStdOperator.EqualTo,
+            parameters: { value: numberParam(1) },
+        } as any;
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(
+            'Column profile_id, email values are equal to 1',
+        );
     });
 });
 
@@ -286,6 +299,17 @@ describe('VolumeAssertionDescription', () => {
             'Table has between 5 and 10 rows',
         ],
         [
+            'rowCountTotal + equalTo',
+            {
+                type: VolumeAssertionType.RowCountTotal,
+                rowCountTotal: {
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table has exactly 100 rows',
+        ],
+        [
             'rowCountChange absolute + atLeast',
             {
                 type: VolumeAssertionType.RowCountChange,
@@ -296,6 +320,18 @@ describe('VolumeAssertionDescription', () => {
                 },
             },
             'Table should grow by at least 100 rows',
+        ],
+        [
+            'rowCountChange absolute + equalTo',
+            {
+                type: VolumeAssertionType.RowCountChange,
+                rowCountChange: {
+                    type: AssertionValueChangeType.Absolute,
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table should grow by exactly 100 rows',
         ],
         [
             'rowCountChange percentage + atMost',
@@ -333,14 +369,11 @@ describe('VolumeAssertionDescription', () => {
             'Table should grow by between 5 and 10 %',
         ],
         [
-            // Volume assertions only ever use GreaterThanOrEqualTo/LessThanOrEqualTo/Between, but the
-            // operator type allows any AssertionStdOperator. An out-of-range operator must degrade to
-            // a generic description rather than throw and crash the Validation tab.
             'unexpected operator falls back',
             {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.EqualTo,
+                    operator: AssertionStdOperator.NotEqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
@@ -599,12 +632,12 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
             volumeAssertion: {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.GreaterThanOrEqualTo,
+                    operator: AssertionStdOperator.EqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has at least 100 rows');
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has exactly 100 rows');
     });
     it('schema', () => {
         const info = {
@@ -658,6 +691,33 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
             },
         } as any;
         expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table was updated in the past 5 hours');
+    });
+    it('structured custom matches dataset description quality', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'great_expectations',
+                entityUrn: 'urn:li:dataset:1',
+                scope: DatasetAssertionScope.DatasetColumn,
+                aggregation: AssertionStdAggregation.UniqueCount,
+                fields: [{ path: 'profileId' }],
+                operator: AssertionStdOperator.GreaterThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe(
+            'Unique value count for column profileId is greater than 5',
+        );
+    });
+    it('unstructured custom falls back to customType', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'dbt Freshness',
+                entityUrn: 'urn:li:dataset:1',
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('dbt Freshness');
     });
 });
 

@@ -16,15 +16,6 @@ repos:
         # first would require changing the generator's merge order (prepend
         # override hooks) — deferred as not worth it for now.
         stages: [pre-push]
-      - id: smoke-test-cypress-lint-fix
-        name: smoke-test cypress Lint Fix
-        entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
-        language: system
-        files: ^smoke-test/tests/cypress/.*\.tsx$
-        pass_filenames: false
-        # cypressLintFix is a self-correcting formatter (slow, module-wide Gradle
-        # invocation). Run it at pre-push instead of pre-commit; see PFP-5002.
-        stages: [pre-push]
       - id: update-lineage-file
         name: update-lineage-file
         entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
@@ -83,6 +74,12 @@ repos:
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py
         language: python
+        # Gate on staged PDL sources so the hook is skipped entirely on
+        # docs-/frontend-/Python-only commits. The script scans PDL_ROOTS
+        # (default metadata-models/src/main/pegasus) for changed .pdl aspects,
+        # so scope the regex to that root. If PDL_ROOTS is ever overridden to
+        # add roots, extend this pattern to cover them too.
+        files: ^metadata-models/src/main/pegasus/.*\.pdl$
         pass_filenames: false
         # Changes schema version numbers (semantic), not a formatter.
         stages: [pre-commit]

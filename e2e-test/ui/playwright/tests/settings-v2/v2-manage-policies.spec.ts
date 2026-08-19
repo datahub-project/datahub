@@ -6,6 +6,11 @@ import { test } from '../../fixtures/base-test';
 import { PoliciesPage } from '../../pages/settings/policies.page';
 import { withRandomSuffix } from '../../utils/random';
 
+// Both tests mutate the same global, un-namespaced system policy list with no
+// per-test isolation; running them concurrently on separate workers causes
+// collisions on shared backend state.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('create and manage platform and metadata policies', () => {
   let policiesPage: PoliciesPage;
 

@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.v2.controller;
 
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -16,6 +17,7 @@ import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.search.SearchEntity;
@@ -122,12 +124,18 @@ public class TimelineControllerV2 {
       throw new UnauthorizedException(
           actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
     }
-    if (!AuthUtil.canViewEntity(opContext, urn)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
     }
 
     if (includeVersionSet) {
       List<Urn> allUrns = resolveVersionSetUrns(urn, opContext);
+      // Authorize every version before merging histories. REST has no partial-result signal, so
+      // deny the whole request if any sibling is unauthorized under REST API authorization.
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, allUrns)) {
+        throw new UnauthorizedException(
+            actorUrnStr + " is unauthorized to view one or more versions for entity " + urn);
+      }
       // REST clients today only consume the merged transaction stream; skipped-URN count is
       // surfaced on the GraphQL surface (GetTimelineResult.skippedVersionCount). If REST
       // consumers later need the same signal, return a wrapper object here instead.

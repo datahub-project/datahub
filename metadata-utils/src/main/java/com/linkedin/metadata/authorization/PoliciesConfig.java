@@ -1,7 +1,5 @@
 package com.linkedin.metadata.authorization;
 
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.Disjunctive.DENY_ACCESS;
 
 import com.google.common.collect.ImmutableList;
@@ -224,6 +222,12 @@ public class PoliciesConfig {
           "Manage System Operations",
           "Allow access to all system operations/management APIs and controls.");
 
+  public static final Privilege VIEW_SYSTEM_STATUS_PRIVILEGE =
+      Privilege.of(
+          "VIEW_SYSTEM_STATUS",
+          "View System Status",
+          "View non-sensitive system status such as consumer lag, messaging transport, and registered consumers. Does not include system information, full system configuration, raw index access, or operational controls.");
+
   public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
       Privilege.of(
           "GET_PLATFORM_EVENTS",
@@ -289,6 +293,7 @@ public class PoliciesConfig {
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          VIEW_SYSTEM_STATUS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
@@ -841,6 +846,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
@@ -860,6 +866,7 @@ public class PoliciesConfig {
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
@@ -1268,6 +1275,40 @@ public class PoliciesConfig {
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
                       .build())
               .put(
+                  Constants.DOCUMENT_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      // Standard ENTITY create (CREATE_ENTITY | EDIT_ENTITY) plus MANAGE_DOCUMENTS.
+                      .put(
+                          ApiOperation.CREATE,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.CREATE)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_DOCUMENTS_PRIVILEGE)))
+                                  .collect(Collectors.toList())))
+                      .put(
+                          ApiOperation.READ,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_DOCUMENTS_PRIVILEGE)))
+                                  .collect(Collectors.toList())))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_DOCUMENTS_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE, MANAGE_DOCUMENTS_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
                   Constants.SECRETS_ENTITY_NAME,
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
@@ -1386,8 +1427,7 @@ public class PoliciesConfig {
                 .setDescription("View self entity page.")
                 .setActors(new DataHubActorFilter().setUsers(new UrnArray(actorUrn)))
                 .setPrivileges(
-                    PoliciesConfig.API_PRIVILEGE_MAP.get(ENTITY).get(READ).stream()
-                        .flatMap(Collection::stream)
+                    Stream.of(VIEW_ENTITY_PAGE_PRIVILEGE, GET_ENTITY_PRIVILEGE)
                         .map(PoliciesConfig.Privilege::getType)
                         .collect(Collectors.toCollection(StringArray::new)))
                 .setType(PoliciesConfig.METADATA_POLICY_TYPE)

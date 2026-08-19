@@ -2,6 +2,7 @@ import { User } from '@phosphor-icons/react/dist/csr/User';
 import i18next from 'i18next';
 import * as React from 'react';
 
+import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -59,6 +60,11 @@ export class UserEntity implements Entity<CorpUser> {
     };
 
     displayName = (data: CorpUser) => {
+        // SDK default writer (`CorpUserUrn("__ingestion")`) — raw username renders as
+        // "__ingestion" with a broken avatar glyph; show a human label instead.
+        if (data.urn === INGESTION_ACTOR_URN || data.username === '__ingestion') {
+            return i18next.t('entity.types:user.ingestionActor');
+        }
         return (
             data.editableProperties?.displayName ||
             data.properties?.displayName ||
