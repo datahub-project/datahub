@@ -10,6 +10,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewColumnMetadata,
     SnowflakeSemanticView,
+    SnowflakeSemanticViewRelationship,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
@@ -28,6 +29,7 @@ from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
     SchemaMetadataClass,
+    SemanticModelInfoClass,
     SemanticModelPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
@@ -644,6 +646,21 @@ def test_the_emitted_graph_has_no_dangling_references(
                 )
             ]
 
+        # A join between each consecutive pair of logical tables, so a table
+        # discarded for a URN collision still has a relationship naming it.
+        # Without these the alias assertion below cannot fail -- the generated
+        # views carried no relationships at all, which made it vacuous.
+        view.relationships = [
+            SnowflakeSemanticViewRelationship(
+                name=f"j_{first}_{second}",
+                from_table=first,
+                from_columns=[f"d_{first}"],
+                to_table=second,
+                to_columns=[f"d_{second}"],
+            )
+            for first, second in zip(logical_tables, logical_tables[1:], strict=False)
+        ]
+
         # One column-lineage edge per logical table, built the way the resolver
         # builds them. Passing [] -- as this property used to -- means the whole
         # fineGrainedLineages path is never exercised.
@@ -686,6 +703,28 @@ def test_the_emitted_graph_has_no_dangling_references(
         assert owned <= emitted, (
             f"preserve={preserve} convert={convert}: {logical_tables} -> "
             f"dangling entities {sorted(owned - emitted)}"
+        )
+
+        # Relationships name tables by stored alias, not by URN, so the reference
+        # walk above cannot see them: a join can point at a logical table that was
+        # discarded for a URN collision and the URN check stays green. That is how
+        # the class got through -- the walk is only mechanism-independent for
+        # references that happen to be URNs.
+        aliases = {
+            model_props.alias
+            for _urn, model_props in _aspects(workunits, SemanticModelPropertiesClass)
+            if model_props.alias
+        }
+        joined = {
+            table
+            for _urn, model_info in _aspects(workunits, SemanticModelInfoClass)
+            for relationship in (model_info.relationships or [])
+            for table in (relationship.from_, relationship.to)
+            if table
+        }
+        assert joined <= aliases, (
+            f"preserve={preserve} convert={convert}: {logical_tables} -> "
+            f"joins naming a table with no dataset {sorted(joined - aliases)}"
         )
 
         # Any field reference into a dataset we emitted has to name a field one of

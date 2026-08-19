@@ -14,6 +14,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
     SnowflakeDataDictionary,
     SnowflakeSemanticView,
+    SnowflakeSemanticViewRelationship,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
@@ -32,6 +33,7 @@ from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
     SchemaMetadataClass,
+    SemanticModelInfoClass,
     SemanticModelPropertiesClass,
     UpstreamLineageClass,
 )
@@ -1232,4 +1234,61 @@ class TestLogicalTableStoredCasing:
 
         assert routed == set(), (
             f"lineage emitted onto a dataset that declares no fields: {routed}"
+        )
+
+    def test_no_relationship_naming_a_table_that_got_no_dataset(self) -> None:
+        # Third consumer of the same collision. Metrics on a discarded logical
+        # table are skipped and its column lineage is filtered, but relationships
+        # name tables by their stored alias -- not by URN -- so a join can still
+        # point at a table absent from SemanticModelInfo.datasets and silently
+        # never resolve. Aliases are invisible to the URN-based dangling-reference
+        # property, which is why this needs its own test.
+        report = SnowflakeV2Report()
+        gen = _make_gen(report, convert_urns_to_lowercase=True)
+        mapper = SnowflakeSemanticModelMapper(
+            config=gen.config, report=report, identifiers=gen.identifiers
+        )
+        view = _semantic_view(["id"])
+        view.logical_to_physical_table = {
+            "orders": ("DB", "SCH", "LOW"),
+            "ORDERS": ("DB", "SCH", "UP"),
+        }
+        view.relationships = [
+            SnowflakeSemanticViewRelationship(
+                name="join_to_dropped",
+                from_table="orders",
+                from_columns=["id"],
+                to_table="ORDERS",
+                to_columns=["id"],
+            )
+        ]
+
+        workunits = list(
+            mapper.gen_workunits(
+                semantic_view=view,
+                schema_name="SCH",
+                db_name="DB",
+                fine_grained_lineages=[],
+            )
+        )
+
+        info = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SemanticModelInfoClass)
+        )
+        aliases = {
+            wu.metadata.aspect.alias
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SemanticModelPropertiesClass)
+            and wu.metadata.aspect.alias
+        }
+        named = {r.from_ for r in (info.relationships or [])} | {
+            r.to for r in (info.relationships or [])
+        }
+
+        assert named <= aliases, (
+            f"relationship names a table with no dataset: {sorted(named - aliases)}"
         )

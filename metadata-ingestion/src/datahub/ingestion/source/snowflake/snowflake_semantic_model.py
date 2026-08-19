@@ -232,7 +232,9 @@ class SnowflakeSemanticModelMapper:
                 else None
             ),
             datasets=list(logical_dataset_urns.values()),
-            relationships=self._build_relationships(semantic_view),
+            relationships=self._build_relationships(
+                semantic_view, logical_dataset_urns
+            ),
         )
 
     def _build_logical_dataset_urns(
@@ -311,13 +313,31 @@ class SnowflakeSemanticModelMapper:
             )
 
     def _build_relationships(
-        self, semantic_view: SnowflakeSemanticView
+        self,
+        semantic_view: SnowflakeSemanticView,
+        logical_dataset_urns: "Dict[str, str]",
     ) -> Optional[List[SemanticModelRelationshipClass]]:
         if not semantic_view.relationships:
             return None
         relationships: List[SemanticModelRelationshipClass] = []
+        # A join names its tables by stored alias, not by URN, so a relationship
+        # touching a logical table that was discarded for a URN collision points at
+        # an alias no logical dataset carries -- the join silently never resolves.
+        # Metrics and column lineage are already excluded for those tables; this is
+        # the third place the collision reaches.
+        dropped: List[str] = []
         for relationship in semantic_view.relationships:
             from_table = relationship.from_table
+            absent = [
+                table
+                for table in (from_table, relationship.to_table)
+                if table not in logical_dataset_urns
+            ]
+            if absent:
+                dropped.append(
+                    f"{relationship.name or 'unnamed'}: {', '.join(sorted(absent))}"
+                )
+                continue
             # Snowflake does not store cardinality; it infers one-to-one when the
             # from-side join columns uniquely identify a row - i.e. they are that
             # table's COMPLETE primary key or a COMPLETE declared unique key. A
@@ -367,6 +387,17 @@ class SnowflakeSemanticModelMapper:
                     ],
                     cardinality=cardinality,
                 )
+            )
+        if dropped:
+            self.report.warning(
+                title="Semantic view relationship dropped for an absent table",
+                message="A relationship referenced a logical table that has no "
+                "dataset, so it was dropped rather than emitted as a join that "
+                "cannot resolve. This happens when two logical tables differ only "
+                "by case and collapse onto one dataset: the discarded table keeps "
+                "its alias in the view's relationships, but nothing carries that "
+                "alias.",
+                context=f"{semantic_view.name}: {sorted(dropped)}",
             )
         self._warn_dangling_join_keys(semantic_view, relationships)
         return relationships
