@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import MagicMock, patch
@@ -146,19 +147,52 @@ def _rm_client_returning(
     return mock_client
 
 
-def _install_clients(
-    handler: BigQueryLinkedDatasetsHandler,
+@dataclass
+class _SeededHandler:
+    handler: BigQueryLinkedDatasetsHandler
+    ah: MagicMock
+    bq: MagicMock
+    rm: MagicMock
+
+
+def _seeded_handler(
     *,
+    subscriptions: Optional[Dict[str, List[Any]]] = None,
     ah: Optional[MagicMock] = None,
-    bq: Optional[MagicMock] = None,
-    rm: Optional[MagicMock] = None,
-) -> None:
-    if ah is not None:
-        handler._ah_client = ah
-    if bq is not None:
-        handler._bq_client = bq
-    if rm is not None:
-        handler._rm_client = rm
+    datasets: Optional[Dict[str, Any]] = None,
+    publisher_projects: Optional[Dict[str, Any]] = None,
+    config: Optional[BigQueryV2Config] = None,
+) -> _SeededHandler:
+    """Build a handler with all three Google clients replaced by mocks.
+
+    `publisher_projects` defaults to resolving the number
+    `make_dataset_with_linked_source` publishes from.
+    """
+    handler = _make_handler(config=config)
+    ah_client = ah if ah is not None else _ah_client_returning(subscriptions or {})
+    bq_client = _bq_client_returning(datasets or {})
+    rm_client = _rm_client_returning(
+        publisher_projects
+        if publisher_projects is not None
+        else {"111222333": "publisher-project"}
+    )
+    handler._ah_client = ah_client
+    handler._bq_client = bq_client
+    handler._rm_client = rm_client
+    return _SeededHandler(handler=handler, ah=ah_client, bq=bq_client, rm=rm_client)
+
+
+def _column(name: str) -> BigqueryColumn:
+    return BigqueryColumn(
+        name=name,
+        ordinal_position=1,
+        is_nullable=False,
+        field_path=name,
+        is_partition_column=False,
+        cluster_column_position=None,
+        data_type="INT64",
+        comment="",
+    )
 
 
 # --- Client wiring (credentials) -------------------------------------------
@@ -201,13 +235,11 @@ def test_get_rm_client_delegates_to_config_projects_client():
 def test_list_subscriptions_uses_transient_retry_and_deadline():
     # The Analytics Hub client neither auto-retries nor applies an RPC deadline,
     # so the call must pass both explicitly.
-    handler = _make_handler()
-    ah = _ah_client_returning({"us": []})
-    _install_clients(handler, ah=ah, bq=_bq_client_returning({}))
-    handler.populate_for_project(
+    seeded = _seeded_handler(subscriptions={"us": []})
+    seeded.handler.populate_for_project(
         "consumer-project", [BigqueryDataset(name="d", location="US")]
     )
-    kwargs = ah.list_subscriptions.call_args.kwargs
+    kwargs = seeded.ah.list_subscriptions.call_args.kwargs
     assert kwargs["retry"] is _LIST_SUBSCRIPTIONS_RETRY
     assert kwargs["timeout"] == _LIST_SUBSCRIPTIONS_TIMEOUT
 
@@ -279,23 +311,20 @@ def test_extra_properties_no_source_when_publisher_unresolved():
 
 
 def test_subscription_fields_mapped_onto_linked_dataset_info():
-    handler = _make_handler()
-    ah = _ah_client_returning({"us": [make_subscription(dataset_id="shared_a")]})
-    bq = _bq_client_returning(
-        {
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id="shared_a")]},
+        datasets={
             "consumer-project.shared_a": make_dataset_with_linked_source(
                 dataset_id="shared_a"
             )
-        }
+        },
     )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
-    handler.populate_for_project(
+    seeded.handler.populate_for_project(
         "consumer-project", [BigqueryDataset(name="shared_a", location="US")]
     )
 
-    info = handler.get_info("consumer-project", "shared_a")
+    info = seeded.handler.get_info("consumer-project", "shared_a")
     assert info is not None
     assert info.publisher == PublisherRef(
         dataset="publisher_dataset", project_id="publisher-project"
@@ -310,30 +339,23 @@ def test_subscription_fields_mapped_onto_linked_dataset_info():
 
 def test_only_bigquery_dataset_subscriptions_advance():
     """Non-BigQuery shared resources (e.g. Pub/Sub) are skipped."""
-    handler = _make_handler()
-    bq_dataset_sub = make_subscription(dataset_id="shared_a")
     pubsub_sub = make_subscription(
         dataset_id="shared_b",
         resource_type=bigquery_analyticshub_v1.SharedResourceType.PUBSUB_TOPIC,
     )
-
-    ah = _ah_client_returning({"us": [bq_dataset_sub, pubsub_sub]})
-    bq = _bq_client_returning(
-        {
-            "consumer-project.shared_a": make_dataset_with_linked_source(),
-        }
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id="shared_a"), pubsub_sub]},
+        datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
     )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    assert handler.get_info("consumer-project", "shared_a") is not None
-    assert handler.get_info("consumer-project", "shared_b") is None
-    assert handler.report.num_linked_datasets_scanned == 1
+    assert seeded.handler.get_info("consumer-project", "shared_a") is not None
+    assert seeded.handler.get_info("consumer-project", "shared_b") is None
+    assert seeded.handler.report.num_linked_datasets_scanned == 1
     # Publisher resolution should have happened only once for the BQ_DATASET sub.
-    bq.get_dataset.assert_called_once_with("consumer-project.shared_a")
+    seeded.bq.get_dataset.assert_called_once_with("consumer-project.shared_a")
 
 
 def test_dataset_pattern_filter_short_circuits():
@@ -341,46 +363,40 @@ def test_dataset_pattern_filter_short_circuits():
     config = _make_config(
         dataset_pattern=AllowDenyPattern(allow=[".*shared_a$"], deny=[])
     )
-    handler = _make_handler(config=config)
-    sub_a = make_subscription(dataset_id="shared_a")
-    sub_b = make_subscription(dataset_id="shared_b")
-
-    ah = _ah_client_returning({"us": [sub_a, sub_b]})
-    bq = _bq_client_returning(
-        {
-            "consumer-project.shared_a": make_dataset_with_linked_source(),
-        }
+    seeded = _seeded_handler(
+        config=config,
+        subscriptions={
+            "us": [
+                make_subscription(dataset_id="shared_a"),
+                make_subscription(dataset_id="shared_b"),
+            ]
+        },
+        datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
     )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
     datasets = [
         BigqueryDataset(name="shared_a", location="US"),
         BigqueryDataset(name="shared_b", location="US"),
     ]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    assert handler.get_info("consumer-project", "shared_a") is not None
-    assert handler.get_info("consumer-project", "shared_b") is None
-    bq.get_dataset.assert_called_once_with("consumer-project.shared_a")
+    assert seeded.handler.get_info("consumer-project", "shared_a") is not None
+    assert seeded.handler.get_info("consumer-project", "shared_b") is None
+    seeded.bq.get_dataset.assert_called_once_with("consumer-project.shared_a")
 
 
 def test_locations_lowercased_for_ah_call():
-    handler = _make_handler()
-    sub = make_subscription(dataset_id="shared_a")
-    ah = _ah_client_returning({"eu": [sub]})
-    bq = _bq_client_returning(
-        {"consumer-project.shared_a": make_dataset_with_linked_source()}
+    seeded = _seeded_handler(
+        subscriptions={"eu": [make_subscription(dataset_id="shared_a")]},
+        datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
     )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
     # Mixed-case location coming back from BigQuery's API is normalised.
     datasets = [BigqueryDataset(name="shared_a", location="EU")]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
     assert (
-        ah.list_subscriptions.call_args.kwargs["parent"]
+        seeded.ah.list_subscriptions.call_args.kwargs["parent"]
         == "projects/consumer-project/locations/eu"
     )
 
@@ -395,86 +411,64 @@ def test_locations_lowercased_for_ah_call():
     ],
 )
 def test_get_dataset_error_skips_dataset(error):
-    handler = _make_handler()
-    sub = make_subscription(dataset_id="shared_a")
-    ah = _ah_client_returning({"us": [sub]})
-    bq = _bq_client_returning({"consumer-project.shared_a": error})
-    _install_clients(handler, ah=ah, bq=bq)
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id="shared_a")]},
+        datasets={"consumer-project.shared_a": error},
+    )
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    assert handler.get_info("consumer-project", "shared_a") is None
-    assert handler.report.num_linked_dataset_get_dataset_errors == 1
+    assert seeded.handler.get_info("consumer-project", "shared_a") is None
+    assert seeded.handler.report.num_linked_dataset_get_dataset_errors == 1
 
 
 def test_linked_dataset_without_source_is_warned_and_kept():
-    handler = _make_handler()
-    sub = make_subscription(dataset_id="shared_a")
-    ah = _ah_client_returning({"us": [sub]})
-    bq = _bq_client_returning(
-        {
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id="shared_a")]},
+        datasets={
             "consumer-project.shared_a": make_dataset_without_linked_source(
                 dataset_id="shared_a"
             )
-        }
+        },
     )
-    _install_clients(handler, ah=ah, bq=bq)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    info = handler.get_info("consumer-project", "shared_a")
+    info = seeded.handler.get_info("consumer-project", "shared_a")
     assert info is not None
     assert info.has_resolved_publisher is False
-    assert handler.report.num_linked_dataset_source_unresolved == 1
-    assert len(handler.report.warnings) == 1
+    assert seeded.handler.report.num_linked_dataset_source_unresolved == 1
+    assert len(seeded.handler.report.warnings) == 1
 
 
 def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
-    handler = _make_handler()
-    sub = make_subscription(dataset_id="shared_a")
-    ah = _ah_client_returning({"us": [sub]})
-    bq = _bq_client_returning(
-        {
-            "consumer-project.shared_a": make_dataset_with_linked_source(
-                publisher_project_number="111222333",
-            )
-        }
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id="shared_a")]},
+        datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
+        publisher_projects={
+            "111222333": PermissionDenied("resourcemanager.projects.get denied")
+        },
     )
-    rm = _rm_client_returning(
-        {"111222333": PermissionDenied("resourcemanager.projects.get denied")}
-    )
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    info = handler.get_info("consumer-project", "shared_a")
+    info = seeded.handler.get_info("consumer-project", "shared_a")
     # Dataset is still recognised as linked (governance properties emit).
     assert info is not None
     # But publisher project ID was not resolved, so no lineage can be emitted.
     assert info.has_resolved_publisher is False
-    assert handler.report.num_linked_dataset_project_resolve_errors == 1
+    assert seeded.handler.report.num_linked_dataset_project_resolve_errors == 1
 
     # And lineage emission is a no-op on this dataset.
     wus = list(
-        handler.gen_lineage_workunits(
+        seeded.handler.gen_lineage_workunits(
             consumer_project_id="consumer-project",
             consumer_dataset="shared_a",
             entity_name="t1",
-            columns=[
-                BigqueryColumn(
-                    name="id",
-                    ordinal_position=1,
-                    is_nullable=False,
-                    field_path="id",
-                    is_partition_column=False,
-                    cluster_column_position=None,
-                    data_type="INT64",
-                    comment="",
-                )
-            ],
+            columns=[_column("id")],
         )
     )
     assert wus == []
@@ -496,37 +490,33 @@ def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
 )
 def test_resource_manager_result_is_cached_per_project_number(rm_result):
     """Publisher project resolution is cached per number, for success and denial."""
-    handler = _make_handler()
-    ah = _ah_client_returning(
-        {
+    # Both subscriptions point at the same publisher project number.
+    seeded = _seeded_handler(
+        subscriptions={
             "us": [
                 make_subscription(dataset_id="shared_a"),
                 make_subscription(dataset_id="shared_b"),
             ]
-        }
-    )
-    # Both subscriptions point at the same publisher project number.
-    bq = _bq_client_returning(
-        {
+        },
+        datasets={
             "consumer-project.shared_a": make_dataset_with_linked_source(
                 publisher_dataset="dataset_a"
             ),
             "consumer-project.shared_b": make_dataset_with_linked_source(
                 publisher_dataset="dataset_b"
             ),
-        }
+        },
+        publisher_projects={"111222333": rm_result},
     )
-    rm = _rm_client_returning({"111222333": rm_result})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
     datasets = [
         BigqueryDataset(name="shared_a", location="US"),
         BigqueryDataset(name="shared_b", location="US"),
     ]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
     # Both outcomes are cached, so the second subscription reuses the result.
-    rm.get_project.assert_called_once_with(name="projects/111222333")
+    seeded.rm.get_project.assert_called_once_with(name="projects/111222333")
 
 
 @pytest.mark.parametrize(
@@ -547,58 +537,51 @@ def test_resource_manager_result_is_cached_per_project_number(rm_result):
     ids=["iam_denied", "server_error"],
 )
 def test_publisher_resolve_failure_title_matches_the_cause(rm_error, expected_title):
-    handler = _make_handler()
-    ah = _ah_client_returning({"us": [make_subscription(dataset_id="shared_a")]})
-    bq = _bq_client_returning(
-        {"consumer-project.shared_a": make_dataset_with_linked_source()}
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id="shared_a")]},
+        datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
+        publisher_projects={"111222333": rm_error},
     )
-    rm = _rm_client_returning({"111222333": rm_error})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
-    handler.populate_for_project(
+    seeded.handler.populate_for_project(
         "consumer-project", [BigqueryDataset(name="shared_a", location="US")]
     )
 
-    assert [w.title for w in handler.report.warnings] == [expected_title]
+    assert [w.title for w in seeded.handler.report.warnings] == [expected_title]
 
 
 def test_unresolved_source_is_counted_per_dataset_not_per_publisher():
     """Every dataset behind an unreadable publisher is counted, not just the first."""
-    handler = _make_handler()
     names = ["shared_a", "shared_b", "shared_c"]
-    ah = _ah_client_returning(
-        {"us": [make_subscription(dataset_id=name) for name in names]}
-    )
-    bq = _bq_client_returning(
-        {
+    seeded = _seeded_handler(
+        subscriptions={"us": [make_subscription(dataset_id=name) for name in names]},
+        datasets={
             f"consumer-project.{name}": make_dataset_with_linked_source(
                 publisher_dataset=name
             )
             for name in names
-        }
+        },
+        publisher_projects={"111222333": PermissionDenied("403")},
     )
-    rm = _rm_client_returning({"111222333": PermissionDenied("403")})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
-    handler.populate_for_project(
+    seeded.handler.populate_for_project(
         "consumer-project",
         [BigqueryDataset(name=name, location="US") for name in names],
     )
 
-    assert handler.report.num_linked_dataset_source_unresolved == 3
+    assert seeded.handler.report.num_linked_dataset_source_unresolved == 3
     # The RM call and its warning still happen once, thanks to the negative cache.
-    assert handler.report.num_linked_dataset_project_resolve_errors == 1
-    rm.get_project.assert_called_once_with(name="projects/111222333")
+    assert seeded.handler.report.num_linked_dataset_project_resolve_errors == 1
+    seeded.rm.get_project.assert_called_once_with(name="projects/111222333")
 
 
 def test_list_subscriptions_api_disabled_is_warned_not_fatal():
-    handler = _make_handler()
     ah = MagicMock()
     ah.list_subscriptions.side_effect = PermissionDenied(
         "Analytics Hub API has not been used in project ... or it is disabled.",
         error_info=ErrorInfo(reason="SERVICE_DISABLED", domain="googleapis.com"),
     )
-    _install_clients(handler, ah=ah)
+    handler = _seeded_handler(ah=ah).handler
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
     handler.populate_for_project("consumer-project", datasets)
@@ -612,7 +595,6 @@ def test_list_subscriptions_api_disabled_is_warned_not_fatal():
 
 
 def test_list_subscriptions_iam_denied_is_reported_as_failure():
-    handler = _make_handler()
     ah = MagicMock()
     ah.list_subscriptions.side_effect = PermissionDenied(
         "Permission analyticshub.subscriptions.list denied.",
@@ -620,7 +602,7 @@ def test_list_subscriptions_iam_denied_is_reported_as_failure():
             reason="IAM_PERMISSION_DENIED", domain="analyticshub.googleapis.com"
         ),
     )
-    _install_clients(handler, ah=ah)
+    handler = _seeded_handler(ah=ah).handler
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
     # A missing grant on an explicitly-enabled feature is a failure, but must
@@ -636,11 +618,10 @@ def test_list_subscriptions_iam_denied_is_reported_as_failure():
 
 
 def test_list_subscriptions_unclassified_error_is_reported_as_failure():
-    handler = _make_handler()
     ah = MagicMock()
     # A PermissionDenied we cannot classify (no ErrorInfo reason).
     ah.list_subscriptions.side_effect = PermissionDenied("denied")
-    _install_clients(handler, ah=ah)
+    handler = _seeded_handler(ah=ah).handler
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
     handler.populate_for_project("consumer-project", datasets)
@@ -655,7 +636,6 @@ def test_list_subscriptions_unclassified_error_is_reported_as_failure():
 
 def test_one_failing_location_does_not_stop_the_others():
     """Each location is queried independently, so one failing does not stop the rest."""
-    handler = _make_handler()
     ah = MagicMock()
 
     def _list_subscriptions(parent: str, **kwargs: Any) -> List[Any]:
@@ -665,39 +645,35 @@ def test_one_failing_location_does_not_stop_the_others():
         return [make_subscription(dataset_id="shared_a")]
 
     ah.list_subscriptions.side_effect = _list_subscriptions
-    bq = _bq_client_returning(
-        {"consumer-project.shared_a": make_dataset_with_linked_source()}
+    seeded = _seeded_handler(
+        ah=ah,
+        datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
     )
-    rm = _rm_client_returning({"111222333": "publisher-project"})
-    _install_clients(handler, ah=ah, bq=bq, rm=rm)
 
     datasets = [
         BigqueryDataset(name="shared_a", location="EU"),
         BigqueryDataset(name="omni_ds", location="aws-us-east-1"),
     ]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    assert handler.get_info("consumer-project", "shared_a") is not None
-    assert handler.report.num_linked_dataset_location_errors == 1
-    assert ah.list_subscriptions.call_count == 2
+    assert seeded.handler.get_info("consumer-project", "shared_a") is not None
+    assert seeded.handler.report.num_linked_dataset_location_errors == 1
+    assert seeded.ah.list_subscriptions.call_count == 2
 
 
 def test_data_exchange_only_subscription_is_skipped():
     """Test only listing-level subscriptions are processed."""
-    handler = _make_handler()
     sub = make_subscription(
         dataset_id="shared_a",
         data_exchange="projects/123456789/locations/us/dataExchanges/exch_a",
     )
-    ah = _ah_client_returning({"us": [sub]})
-    bq = MagicMock()
-    _install_clients(handler, ah=ah, bq=bq)
+    seeded = _seeded_handler(subscriptions={"us": [sub]})
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
-    handler.populate_for_project("consumer-project", datasets)
+    seeded.handler.populate_for_project("consumer-project", datasets)
 
-    assert handler.get_info("consumer-project", "shared_a") is None
-    bq.get_dataset.assert_not_called()
+    assert seeded.handler.get_info("consumer-project", "shared_a") is None
+    seeded.bq.get_dataset.assert_not_called()
 
 
 # --- Lineage emission tests ------------------------------------------------
@@ -722,19 +698,6 @@ def _seed_with_linked_dataset(
     return handler
 
 
-def _column(name: str) -> BigqueryColumn:
-    return BigqueryColumn(
-        name=name,
-        ordinal_position=1,
-        is_nullable=False,
-        field_path=name,
-        is_partition_column=False,
-        cluster_column_position=None,
-        data_type="INT64",
-        comment="",
-    )
-
-
 def _aspect(wu: MetadataWorkUnit) -> Any:
     return getattr(wu.metadata, "aspect", None)
 
@@ -744,13 +707,7 @@ def _urn(wu: MetadataWorkUnit) -> Any:
 
 
 def _aspects(wus: Iterable[MetadataWorkUnit]) -> List[Any]:
-    out: List[Any] = []
-    for wu in wus:
-        mcp = wu.metadata
-        aspect = getattr(mcp, "aspect", None)
-        if aspect is not None:
-            out.append(aspect)
-    return out
+    return [aspect for aspect in map(_aspect, wus) if aspect is not None]
 
 
 def test_emits_siblings_and_upstream_lineage_with_per_column_finegrained():
@@ -974,10 +931,9 @@ def test_publisher_siblings_separate_per_publisher_entity():
 
 
 def test_list_subscriptions_generic_api_error_is_reported_as_failure():
-    handler = _make_handler()
     ah = MagicMock()
     ah.list_subscriptions.side_effect = GoogleAPIError("boom")
-    _install_clients(handler, ah=ah)
+    handler = _seeded_handler(ah=ah).handler
 
     datasets = [BigqueryDataset(name="shared_a", location="US")]
     handler.populate_for_project("consumer-project", datasets)
