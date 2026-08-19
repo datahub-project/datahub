@@ -1,4 +1,9 @@
-import { BUILD_FILTERS_TAB_KEY, SELECT_ASSETS_TAB_KEY, URN_FILTER_NAME } from '@app/entityV2/view/builder/constants';
+import {
+    BUILD_FILTERS_TAB_KEY,
+    SELECT_ASSETS_TAB_KEY,
+    URN_FILTER_NAME,
+    VIEW_ENTITY_TYPES,
+} from '@app/entityV2/view/builder/constants';
 import { ViewFilter } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
@@ -11,6 +16,30 @@ import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types
  * with negated=true (the backend has no dedicated NOT_EQUAL operator).
  */
 const NOT_EQUAL_OPERATOR = 'not_equals';
+
+/**
+ * Lookup for persisted `_entityType` values. Views written by the redesigned
+ * builder before entity-type lifting stored the lowercase option id ("dataset");
+ * the legacy builder and this one store the EntityType enum ("DATASET"). Both
+ * are accepted so old views round-trip instead of pushing an invalid enum into
+ * the mutation.
+ */
+const ENTITY_TYPE_BY_VALUE = new Map<string, EntityType>(
+    VIEW_ENTITY_TYPES.flatMap((e) => [
+        [e.id.toLowerCase(), e.type] as [string, EntityType],
+        [e.type.toLowerCase(), e.type] as [string, EntityType],
+    ]),
+);
+
+/** Normalizes persisted `_entityType` values to EntityType, dropping unknown ones. */
+function normalizeEntityTypes(values: string[]): EntityType[] {
+    const seen = new Set<EntityType>();
+    values.forEach((value) => {
+        const type = ENTITY_TYPE_BY_VALUE.get(value.toLowerCase());
+        if (type) seen.add(type);
+    });
+    return [...seen];
+}
 
 /** Non-nullable shorthand for the definition property of ViewBuilderState. */
 type ViewDefinition = NonNullable<ViewBuilderState['definition']>;
@@ -162,27 +191,53 @@ export function filtersToLogicalPredicate(
     filters: ViewFilter[],
     entityTypes?: EntityType[] | null,
 ): LogicalPredicate {
-    const operands: PropertyPredicate[] = [];
+    const operands: (LogicalPredicate | PropertyPredicate)[] = [];
 
-    if (entityTypes?.length) {
+    // Entity-type scope can arrive either as the view's top-level entityTypes or,
+    // for views written by the redesigned builder before lifting existed, as a
+    // plain `_entityType` filter. Merge and normalize both into one row.
+    const scopedTypes = normalizeEntityTypes([
+        ...(entityTypes ?? []),
+        ...filters.filter((f) => f.field === ENTITY_FILTER_NAME && !f.negated).flatMap((f) => f.values ?? []),
+    ]);
+    if (scopedTypes.length) {
         operands.push({
             type: 'property',
             property: ENTITY_FILTER_NAME,
             operator: 'equals',
-            values: entityTypes as unknown as string[],
+            values: scopedTypes,
         });
     }
 
-    filters.forEach((filter) => {
-        const uiOperator = mapConditionToUiOperator(filter.condition, filter.values, filter.negated);
-        const isBooleanOp = uiOperator === 'is_true' || uiOperator === 'is_false';
-        operands.push({
-            type: 'property',
-            property: filter.field,
-            operator: uiOperator,
-            values: isBooleanOp ? [] : filter.values || [],
+    // Rows whose negation has no per-row operator (exists / within / booleans /
+    // string matches) keep the group-level NOT so the flag survives the round-trip.
+    const negatedWithoutRowOperator: PropertyPredicate[] = [];
+
+    filters
+        .filter((f) => !(f.field === ENTITY_FILTER_NAME && !f.negated))
+        .forEach((filter) => {
+            const uiOperator = mapConditionToUiOperator(filter.condition, filter.values, filter.negated);
+            const isBooleanOp = uiOperator === 'is_true' || uiOperator === 'is_false';
+            const row: PropertyPredicate = {
+                type: 'property',
+                property: filter.field,
+                operator: uiOperator,
+                values: isBooleanOp ? [] : filter.values || [],
+            };
+            if (filter.negated && uiOperator !== NOT_EQUAL_OPERATOR) {
+                negatedWithoutRowOperator.push(row);
+            } else {
+                operands.push(row);
+            }
         });
-    });
+
+    if (negatedWithoutRowOperator.length) {
+        operands.push({
+            type: 'logical',
+            operator: LogicalOperatorType.NOT,
+            operands: negatedWithoutRowOperator,
+        });
+    }
 
     const logicalOperator = operator === LogicalOperator.Or ? LogicalOperatorType.OR : LogicalOperatorType.AND;
 
@@ -217,10 +272,12 @@ export function getInitialTabKey(filters: ViewFilter[]): string {
  * cast bridges the generated __typename field that ViewFilter intentionally omits.
  */
 export function buildViewDefinition(operator: LogicalOperator, filters: ViewFilter[]): ViewDefinition {
-    const entityTypes = filters
-        .filter((f) => f.field === ENTITY_FILTER_NAME)
-        .flatMap((f) => f.values ?? []) as EntityType[];
-    const realFilters = filters.filter((f) => f.field !== ENTITY_FILTER_NAME);
+    // Only a plain, non-negated entity-type row maps onto the top-level scope.
+    // A negated one ("None" over _entityType) stays a search filter so its
+    // meaning is not silently inverted.
+    const isScopeRow = (f: ViewFilter) => f.field === ENTITY_FILTER_NAME && !f.negated;
+    const entityTypes = normalizeEntityTypes(filters.filter(isScopeRow).flatMap((f) => f.values ?? []));
+    const realFilters = filters.filter((f) => !isScopeRow(f));
     return {
         entityTypes,
         filter: {

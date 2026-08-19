@@ -29,6 +29,7 @@ const HIERARCHY_OPERATORS = [OperatorId.WITHIN, OperatorId.EQUAL_TO, OperatorId.
 export const viewBuilderProperties: Property[] = [
     {
         id: '_entityType',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.type');
         },

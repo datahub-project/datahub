@@ -33,7 +33,7 @@ describe('viewBuilderProperties', () => {
         expect(optionIds).toContain(EntityType.Dashboard);
     });
 
-    it('should offer the not-equals operator on reference/enum filters but not on entity type', () => {
+    it('should offer the not-equals operator on reference/enum filters', () => {
         const tagsProp = viewBuilderProperties.find((p) => p.id === 'tags');
         expect(tagsProp?.operators).toContain(OperatorId.NOT_EQUAL);
 
@@ -41,9 +41,10 @@ describe('viewBuilderProperties', () => {
         expect(domainsProp?.operators).toContain(OperatorId.NOT_EQUAL);
         expect(domainsProp?.operators).toContain(OperatorId.WITHIN);
 
-        // Entity type is lifted to the top-level scope; it keeps the default operators.
+        // Entity type needs it too: only a non-negated row is lifted to the
+        // top-level scope, so a negated one must be expressible on the row.
         const entityTypeProp = viewBuilderProperties.find((p) => p.id === '_entityType');
-        expect(entityTypeProp?.operators).toBeUndefined();
+        expect(entityTypeProp?.operators).toContain(OperatorId.NOT_EQUAL);
     });
 
     it('should include typeNames property with correct display name and aggregation', () => {

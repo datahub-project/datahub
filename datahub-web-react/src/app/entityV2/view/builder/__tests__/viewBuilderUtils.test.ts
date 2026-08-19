@@ -10,6 +10,7 @@ import {
     mapUiOperatorToCondition,
     selectedUrnsToFilters,
 } from '@app/entityV2/view/builder/utils';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 import { EntityType, FilterOperator, LogicalOperator } from '@types';
@@ -609,6 +610,117 @@ describe('View builder conversion utils', () => {
             expect(op0.values).toEqual([]);
             expect(op1.operator).toBe('is_false');
             expect(op1.values).toEqual([]);
+        });
+    });
+
+    describe('legacy _entityType values', () => {
+        // Views saved by the redesigned builder before entity-type lifting existed
+        // stored the lowercase option id ("dataset") as an ordinary filter. Those
+        // values are not valid EntityType enum members, so lifting them verbatim
+        // would make the save mutation fail.
+        it('should normalize lowercase ids into the EntityType enum', () => {
+            const legacyFilters = [{ field: ENTITY_FILTER_NAME, values: ['dataset', 'dashboard'] }];
+
+            const predicate = filtersToLogicalPredicate(LogicalOperator.And, legacyFilters, []);
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.entityTypes).toEqual([EntityType.Dataset, EntityType.Dashboard]);
+            expect(definition.filter?.filters).toEqual([]);
+        });
+
+        it('should normalize multi-word types in either casing', () => {
+            const legacyFilters = [{ field: ENTITY_FILTER_NAME, values: ['dataFlow', 'DATA_JOB'] }];
+
+            const { operator, filters } = logicalPredicateToFilters(
+                filtersToLogicalPredicate(LogicalOperator.And, legacyFilters, []),
+            );
+
+            expect(buildViewDefinition(operator, filters).entityTypes).toEqual([
+                EntityType.DataFlow,
+                EntityType.DataJob,
+            ]);
+        });
+
+        it('should merge a legacy filter with top-level entityTypes into one row', () => {
+            const predicate = filtersToLogicalPredicate(
+                LogicalOperator.And,
+                [{ field: ENTITY_FILTER_NAME, values: ['dataset'] }],
+                [EntityType.Dataset],
+            );
+
+            expect(predicate.operands).toHaveLength(1);
+            const row = predicate.operands[0] as { property?: string; values?: string[] };
+            expect(row.property).toBe(ENTITY_FILTER_NAME);
+            expect(row.values).toEqual([EntityType.Dataset]);
+        });
+    });
+
+    describe('negation without a per-row operator', () => {
+        // "does not equal" only covers negated EQUAL. Exists / Within / booleans
+        // have no negated row operator, so their flag rides on a NOT group.
+        it.each([
+            ['exists', { field: 'tags', values: [], condition: FilterOperator.Exists, negated: true }],
+            [
+                'within',
+                {
+                    field: 'domains',
+                    values: ['urn:li:domain:finance'],
+                    condition: FilterOperator.DescendantsIncl,
+                    negated: true,
+                },
+            ],
+            ['boolean', { field: 'removed', values: ['true'], condition: FilterOperator.Equal, negated: true }],
+        ])('should preserve negated through a %s round-trip', (_label, saved) => {
+            const { operator, filters } = logicalPredicateToFilters(
+                filtersToLogicalPredicate(LogicalOperator.And, [saved], []),
+            );
+
+            expect(buildViewDefinition(operator, filters).filter?.filters).toEqual([saved]);
+        });
+
+        it('should keep per-row and group-level negation side by side', () => {
+            const saved = [
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: true },
+                { field: 'owners', values: ['urn:li:corpuser:jdoe'], condition: FilterOperator.Equal },
+                { field: 'glossaryTerms', values: [], condition: FilterOperator.Exists, negated: true },
+            ];
+
+            const { operator, filters } = logicalPredicateToFilters(
+                filtersToLogicalPredicate(LogicalOperator.And, saved, []),
+            );
+            const result = buildViewDefinition(operator, filters).filter?.filters;
+
+            expect(result).toHaveLength(3);
+            expect(result).toEqual(expect.arrayContaining(saved));
+        });
+
+        it('should keep a negated _entityType row as a filter rather than inverting the scope', () => {
+            const predicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.NOT,
+                operands: [
+                    {
+                        type: 'property',
+                        property: ENTITY_FILTER_NAME,
+                        operator: 'equals',
+                        values: [EntityType.Dataset],
+                    },
+                ],
+            };
+
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.entityTypes).toEqual([]);
+            expect(definition.filter?.filters).toEqual([
+                {
+                    field: ENTITY_FILTER_NAME,
+                    values: [EntityType.Dataset],
+                    condition: FilterOperator.Equal,
+                    negated: true,
+                },
+            ]);
         });
     });
 
