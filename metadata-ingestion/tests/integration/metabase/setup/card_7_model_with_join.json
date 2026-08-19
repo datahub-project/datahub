@@ -6,8 +6,8 @@
   "type": "model",
   "result_metadata": [
     {
-      "name": "film_id",
-      "display_name": "Film ID",
+      "name": "rating",
+      "display_name": "Rating",
       "base_type": "type/Integer",
       "field_ref": ["field", 131, null]
     },

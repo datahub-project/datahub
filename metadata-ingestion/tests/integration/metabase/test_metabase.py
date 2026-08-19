@@ -35,6 +35,29 @@ RESPONSE_ERROR_LIST = ["http://localhost:3000/api/dashboard/public"]
 
 test_resources_dir = pathlib.Path(__file__).parent
 
+_METABASE_API = "http://localhost:3000"
+
+
+def _base_response_map():
+    return {
+        f"{_METABASE_API}/api/session": "session.json",
+        f"{_METABASE_API}/api/user/current": "user.json",
+        f"{_METABASE_API}/api/user/1": "user.json",
+        f"{_METABASE_API}/api/collection/?exclude-other-user-collections=false": "collections.json",
+        f"{_METABASE_API}/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
+        f"{_METABASE_API}/api/collection/150/items?models=dashboard": "collection_dashboards.json",
+    }
+
+
+def _tagged_collection_item_map(root_dashboards="empty_collection_dashboards.json"):
+    return {
+        f"{_METABASE_API}/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
+        f"{_METABASE_API}/api/collection/root/items?models=dashboard": root_dashboards,
+        f"{_METABASE_API}/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
+        f"{_METABASE_API}/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
+        f"{_METABASE_API}/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
+    }
+
 
 class MockResponse:
     def __init__(
@@ -122,24 +145,18 @@ class MockResponse:
 @pytest.fixture
 def default_json_response_map():
     return {
-        "http://localhost:3000/api/session": "session.json",
-        "http://localhost:3000/api/user/current": "user.json",
-        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections.json",
-        "http://localhost:3000/api/collection/root/items?models=dashboard": "collection_dashboards.json",
-        "http://localhost:3000/api/collection/150/items?models=dashboard": "collection_dashboards.json",
-        "http://localhost:3000/api/dashboard/10": "dashboard_1.json",
-        "http://localhost:3000/api/dashboard/20": "dashboard_2.json",
-        "http://localhost:3000/api/user/1": "user.json",
-        "http://localhost:3000/api/card": "card.json",
-        "http://localhost:3000/api/database/1": "bigquery_database.json",
-        "http://localhost:3000/api/database/2": "postgres_database.json",
-        "http://localhost:3000/api/card/1": "card_1.json",
-        "http://localhost:3000/api/card/2": "card_2.json",
-        "http://localhost:3000/api/table/21": "table_21.json",
-        "http://localhost:3000/api/card/3": "card_3.json",
-        # Field endpoints for resolving MBQL field references in charts
-        "http://localhost:3000/api/field/131": "field_131.json",
-        "http://localhost:3000/api/field/136": "field_136.json",
+        **_base_response_map(),
+        f"{_METABASE_API}/api/dashboard/10": "dashboard_1.json",
+        f"{_METABASE_API}/api/dashboard/20": "dashboard_2.json",
+        f"{_METABASE_API}/api/card": "card.json",
+        f"{_METABASE_API}/api/database/1": "bigquery_database.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/1": "card_1.json",
+        f"{_METABASE_API}/api/card/2": "card_2.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/card/3": "card_3.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/136": "field_136.json",
     }
 
 
@@ -364,32 +381,25 @@ def test_strip_template_expressions():
 @pytest.fixture
 def extended_json_response_map():
     return {
-        "http://localhost:3000/api/session": "session.json",
-        "http://localhost:3000/api/user/current": "user.json",
-        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
-        "http://localhost:3000/api/collection/root/items?models=dashboard": "collection_dashboards.json",
-        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/dashboard/10": "dashboard_1.json",
-        "http://localhost:3000/api/dashboard/20": "dashboard_2.json",
-        "http://localhost:3000/api/user/1": "user.json",
-        "http://localhost:3000/api/card": "card_with_models.json",
-        "http://localhost:3000/api/database/1": "bigquery_database.json",
-        "http://localhost:3000/api/database/2": "postgres_database.json",
-        "http://localhost:3000/api/card/1": "card_1.json",
-        "http://localhost:3000/api/card/2": "card_2.json",
-        "http://localhost:3000/api/card/3": "card_3.json",
-        "http://localhost:3000/api/card/4": "card_4_model.json",
-        "http://localhost:3000/api/card/5": "card_5_nested.json",
-        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
-        "http://localhost:3000/api/card/7": "card_7_model_with_join.json",
-        "http://localhost:3000/api/table/21": "table_21.json",
-        "http://localhost:3000/api/table/22": "table_22.json",
-        # Field endpoints needed by MBQL CLL/lineage extraction for card_6 and card_7
-        "http://localhost:3000/api/field/131": "field_131.json",
-        "http://localhost:3000/api/field/132": "field_132.json",
-        "http://localhost:3000/api/field/141": "field_141.json",
+        **_base_response_map(),
+        **_tagged_collection_item_map(root_dashboards="collection_dashboards.json"),
+        f"{_METABASE_API}/api/dashboard/10": "dashboard_1.json",
+        f"{_METABASE_API}/api/dashboard/20": "dashboard_2.json",
+        f"{_METABASE_API}/api/card": "card_with_models.json",
+        f"{_METABASE_API}/api/database/1": "bigquery_database.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/1": "card_1.json",
+        f"{_METABASE_API}/api/card/2": "card_2.json",
+        f"{_METABASE_API}/api/card/3": "card_3.json",
+        f"{_METABASE_API}/api/card/4": "card_4_model.json",
+        f"{_METABASE_API}/api/card/5": "card_5_nested.json",
+        f"{_METABASE_API}/api/card/6": "card_6_model_query_builder.json",
+        f"{_METABASE_API}/api/card/7": "card_7_model_with_join.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/table/22": "table_22.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/132": "field_132.json",
+        f"{_METABASE_API}/api/field/141": "field_141.json",
     }
 
 
@@ -454,15 +464,7 @@ def test_metabase_ingest_with_models_and_collections(
 
         pipeline = Pipeline.create(pipeline_config)
         pipeline.run()
-
-        report = pipeline.source.get_report()
-
-        non_schema_failures = [
-            f for f in report.failures if "Source produced bad metadata" not in str(f)
-        ]
-        assert len(non_schema_failures) == 0, (
-            f"Unexpected failures (excluding known schema validation issue): {non_schema_failures}"
-        )
+        pipeline.raise_from_status()
 
         # Read output file and check for key entities
         with open(f"{tmp_path}/metabase_new_features_mces.json", "r") as f:
@@ -493,20 +495,14 @@ def mbql_cll_response_map():
     for card 6 and its dependencies rather than the full card list.
     """
     return {
-        "http://localhost:3000/api/session": "session.json",
-        "http://localhost:3000/api/user/current": "user.json",
-        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
-        "http://localhost:3000/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/card": "card_model_6_only.json",
-        "http://localhost:3000/api/database/2": "postgres_database.json",
-        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
-        "http://localhost:3000/api/table/21": "table_21.json",
-        "http://localhost:3000/api/field/131": "field_131.json",
-        "http://localhost:3000/api/field/132": "field_132.json",
-        "http://localhost:3000/api/user/1": "user.json",
+        **_base_response_map(),
+        **_tagged_collection_item_map(),
+        f"{_METABASE_API}/api/card": "card_model_6_only.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/6": "card_6_model_query_builder.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/132": "field_132.json",
     }
 
 
@@ -637,7 +633,7 @@ def test_mbql_cll_model(
         }
         # Both resolved upstream fields (rating=131, rental_rate=132) should be upstream inputs
         assert (
-            "rating" in count_upstream_cols or "rental_rate" in count_upstream_cols
+            "rating" in count_upstream_cols and "rental_rate" in count_upstream_cols
         ), f"COUNT(*) should fan in upstream columns, got: {count_upstream_cols}"
 
 
@@ -648,23 +644,17 @@ def test_mbql_join_lineage(pytestconfig, tmp_path, mock_datahub_graph):
     lineage to BOTH the primary source table AND the joined table.
     """
     join_response_map = {
-        "http://localhost:3000/api/session": "session.json",
-        "http://localhost:3000/api/user/current": "user.json",
-        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
-        "http://localhost:3000/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
-        "http://localhost:3000/api/card": "card_models_6_and_7.json",
-        "http://localhost:3000/api/database/2": "postgres_database.json",
-        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
-        "http://localhost:3000/api/card/7": "card_7_model_with_join.json",
-        "http://localhost:3000/api/table/21": "table_21.json",
-        "http://localhost:3000/api/table/22": "table_22.json",
-        "http://localhost:3000/api/field/131": "field_131.json",
-        "http://localhost:3000/api/field/132": "field_132.json",
-        "http://localhost:3000/api/field/141": "field_141.json",
-        "http://localhost:3000/api/user/1": "user.json",
+        **_base_response_map(),
+        **_tagged_collection_item_map(),
+        f"{_METABASE_API}/api/card": "card_models_6_and_7.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/6": "card_6_model_query_builder.json",
+        f"{_METABASE_API}/api/card/7": "card_7_model_with_join.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/table/22": "table_22.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/132": "field_132.json",
+        f"{_METABASE_API}/api/field/141": "field_141.json",
     }
 
     with (

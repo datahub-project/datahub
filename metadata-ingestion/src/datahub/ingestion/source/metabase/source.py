@@ -115,6 +115,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
@@ -342,12 +343,16 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 timeout=self.config.request_timeout_sec,
             )
             test_response.raise_for_status()
-        except requests.exceptions.RequestException as e:
+            # SSO/proxy HTML login pages often return 200; require JSON so we
+            # do not treat that as a successful session.
+            test_response.json()
+        except (requests.exceptions.RequestException, ValueError) as e:
             self.report.failure(
                 title="Unable to Retrieve Current User",
                 message="Unable to retrieve current user information from Metabase.",
                 context=str(e),
             )
+            return
 
     def close(self) -> None:
         # A teardown network failure must not mask the run's real outcome, so the
@@ -377,8 +382,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             super().close()
 
     def emit_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # Reuse the cached (non-root) collections rather than re-fetching and
-        # re-validating /api/collection here.
+        # Root is kept in the collections map so dashboards living there are
+        # discovered; it is excluded only when emitting collection containers.
         for collection in self._get_collections_map().values():
             # Isolate per-collection item failures so one bad collection (e.g. a
             # 403/500) does not abort emitting every later collection.
@@ -1018,8 +1023,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     log=False,
                 )
                 continue
-            if coll.is_root:
-                continue
             collections_dict[str(coll.id)] = coll
         return collections_dict
 
@@ -1032,13 +1035,24 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
 
     def emit_collection_containers(self) -> Iterable[MetadataWorkUnit]:
-        for collection in self._get_collections_map().values():
-            assert isinstance(collection.id, int)
+        collections_map = self._get_collections_map()
+        for collection in collections_map.values():
+            if collection.is_root or not isinstance(collection.id, int):
+                continue
+
+            parent_container_key = None
+            parent_id = collection.parent_collection_id
+            if parent_id is not None:
+                parent = collections_map.get(str(parent_id))
+                if parent is not None and isinstance(parent.id, int):
+                    parent_container_key = self._gen_collection_key(parent.id)
+
             yield from gen_containers(
                 container_key=self._gen_collection_key(collection.id),
                 name=collection.name,
                 description=collection.description,
                 sub_types=[BIContainerSubTypes.METABASE_COLLECTION],
+                parent_container_key=parent_container_key,
             )
 
     def _get_tags_from_collection(
@@ -1129,10 +1143,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _create_input_field(
         self, upstream_urn: str, meta: MetabaseResultMetadata
     ) -> InputFieldClass:
+        field_path = (
+            SchemaFieldUrn.from_string(upstream_urn).field_path or meta.name or ""
+        )
         return InputFieldClass(
             schemaFieldUrn=upstream_urn,
             schemaField=SchemaFieldClass(
-                fieldPath=meta.name or "",
+                fieldPath=field_path,
                 type=SchemaFieldDataTypeClass(
                     type=self._map_metabase_type_to_datahub_type(meta.base_type or "")
                 ),
@@ -1141,6 +1158,46 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 nullable=True,
             ),
         )
+
+    def _get_input_fields_from_native_sql(
+        self, card: MetabaseCard
+    ) -> List[InputFieldClass]:
+        parsed = self._parse_native_sql(card)
+        if not parsed:
+            return []
+
+        result, _ = parsed
+        if result.debug_info.table_error:
+            self._warn_native_sql_parse_failure(
+                card.id, str(result.debug_info.table_error)
+            )
+            return []
+
+        by_output: Dict[str, List[str]] = {}
+        if result.column_lineage:
+            for col_lineage in result.column_lineage:
+                if not col_lineage.downstream.column:
+                    continue
+                upstream_urns = col_lineage.upstream_schema_field_urns()
+                if upstream_urns:
+                    by_output[col_lineage.downstream.column.lower()] = upstream_urns
+
+        input_fields: List[InputFieldClass] = []
+        for meta in card.result_metadata:
+            if not meta.name:
+                continue
+            upstream_urns = by_output.get(meta.name.lower())
+            if not upstream_urns:
+                self.report.warning(
+                    title="Native SQL Input Field Unresolved",
+                    message="Could not resolve an output column to an upstream schema field via SQL lineage.",
+                    context=f"Card ID: {card.id}, Column: {meta.name}",
+                    log=False,
+                )
+                continue
+            for upstream_urn in upstream_urns:
+                input_fields.append(self._create_input_field(upstream_urn, meta))
+        return input_fields
 
     def _get_input_fields_from_card(self, card: MetabaseCard) -> List[InputFieldClass]:
         input_fields: List[InputFieldClass] = []
@@ -1178,6 +1235,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
                             )
                         )
             return input_fields
+
+        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
+            return self._get_input_fields_from_native_sql(card)
 
         datasource_urns = self.get_datasource_urn(card)
         if not datasource_urns:

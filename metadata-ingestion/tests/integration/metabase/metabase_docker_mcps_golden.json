@@ -62,7 +62,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Collection"
+                "Metabase Collection"
             ]
         }
     },
@@ -310,7 +310,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Collection"
+                "Metabase Collection"
             ]
         }
     },
@@ -485,7 +485,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Collection"
+                "Metabase Collection"
             ]
         }
     },

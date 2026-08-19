@@ -64,7 +64,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Collection"
+                "Metabase Collection"
             ]
         }
     },
@@ -198,91 +198,11 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),amount)",
-                    "schemaField": {
-                        "fieldPath": "amount",
-                        "nullable": true,
-                        "description": "amount",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Decimal",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),customer_id)",
                     "schemaField": {
                         "fieldPath": "customer_id",
                         "nullable": true,
                         "description": "customer_id",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Integer",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),first_name)",
-                    "schemaField": {
-                        "fieldPath": "first_name",
-                        "nullable": true,
-                        "description": "first_name",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),last_name)",
-                    "schemaField": {
-                        "fieldPath": "last_name",
-                        "nullable": true,
-                        "description": "last_name",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),payment_date)",
-                    "schemaField": {
-                        "fieldPath": "payment_date",
-                        "nullable": true,
-                        "description": "payment_date",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.DateType": {}
-                            }
-                        },
-                        "nativeDataType": "type/DateTime",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD),rental_id)",
-                    "schemaField": {
-                        "fieldPath": "rental_id",
-                        "nullable": true,
-                        "description": "rental_id",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -454,7 +374,7 @@
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD),rating)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "rating",
                         "nullable": true,
                         "description": "Count",
                         "type": {

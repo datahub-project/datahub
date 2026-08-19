@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -14,6 +14,18 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.utilities import config_clean
 
+_DEFAULT_CONNECT_URI = "http://localhost:3000"
+_URI_SCHEME_SEPARATOR = "://"
+_HTTP_SCHEME_PREFIX = "http://"
+
+
+def _credential_is_set(value: Optional[Union[str, SecretStr]]) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, SecretStr):
+        return bool(value.get_secret_value().strip())
+    return bool(value.strip())
+
 
 class MetabaseConfig(
     DatasetLineageProviderConfigBase,
@@ -22,7 +34,9 @@ class MetabaseConfig(
 ):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
-    connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
+    connect_uri: str = Field(
+        default=_DEFAULT_CONNECT_URI, description="Metabase host URL."
+    )
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
@@ -43,6 +57,7 @@ class MetabaseConfig(
     )
     request_timeout_sec: float = Field(
         default=30.0,
+        gt=0,
         description="Timeout in seconds for each HTTP request to the Metabase API. "
         "Prevents ingestion from hanging indefinitely on an unresponsive server.",
     )
@@ -88,7 +103,10 @@ class MetabaseConfig(
     def remove_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
-        return config_clean.remove_trailing_slashes(v)
+        v = config_clean.remove_trailing_slashes(v)
+        if v and _URI_SCHEME_SEPARATOR not in v:
+            v = f"{_HTTP_SCHEME_PREFIX}{v}"
+        return v
 
     @model_validator(mode="after")
     def default_display_uri_to_connect_uri(self) -> "MetabaseConfig":
@@ -98,8 +116,10 @@ class MetabaseConfig(
 
     @model_validator(mode="after")
     def require_credentials(self) -> "MetabaseConfig":
-        has_api_key = self.api_key is not None
-        has_user_pass = self.username is not None and self.password is not None
+        has_api_key = _credential_is_set(self.api_key)
+        has_user_pass = _credential_is_set(self.username) and _credential_is_set(
+            self.password
+        )
         if not has_api_key and not has_user_pass:
             raise ValueError(
                 "Metabase authentication is required: provide either `api_key`, "

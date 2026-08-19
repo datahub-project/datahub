@@ -6,12 +6,12 @@ The DataHub integration for Metabase covers BI entities such as dashboards, char
 
 ## Concept Mapping
 
-| Source Concept | DataHub Concept                                               | Notes                        |
-| -------------- | ------------------------------------------------------------- | ---------------------------- |
-| `"Metabase"`   | [Data Platform](../../metamodel/entities/dataPlatform.md)     |                              |
-| Dashboard      | [Dashboard](../../metamodel/entities/dashboard.md)            |                              |
-| Card/Question  | [Chart](../../metamodel/entities/chart.md)                    |                              |
-| Model          | [Dataset](../../metamodel/entities/dataset.md)                | SubTypes `["Model", "View"]` |
-| Collection     | [Tag](../../metamodel/entities/tag.md)                        | Optionally extracted         |
-| Database Table | [Dataset](../../metamodel/entities/dataset.md)                | From connected database      |
-| User           | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Ownership information        |
+| Source Concept | DataHub Concept                                                                               | Notes                                                                |
+| -------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `"Metabase"`   | [Data Platform](../../metamodel/entities/dataPlatform.md)                                     |                                                                      |
+| Dashboard      | [Dashboard](../../metamodel/entities/dashboard.md)                                            |                                                                      |
+| Card/Question  | [Chart](../../metamodel/entities/chart.md)                                                    |                                                                      |
+| Model          | [Dataset](../../metamodel/entities/dataset.md)                                                | SubTypes `["Metabase Model"]`; transforming models also get `"View"` |
+| Collection     | [Tag](../../metamodel/entities/tag.md) and [Container](../../metamodel/entities/container.md) | Tags optional; nested collections keep parent containers             |
+| Database Table | [Dataset](../../metamodel/entities/dataset.md)                                                | From connected database                                              |
+| User           | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md)                                 | Ownership information                                                |

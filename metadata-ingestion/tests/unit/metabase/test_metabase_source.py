@@ -1,9 +1,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from requests.exceptions import HTTPError
 
+import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.metabase.config import MetabaseConfig
@@ -18,10 +20,12 @@ from datahub.ingestion.source.metabase.models import (
     MetabaseDatabaseDetails,
     MetabaseDatasetQuery,
     MetabaseField,
+    MetabaseResultMetadata,
 )
 from datahub.ingestion.source.metabase.report import MetabaseReport
 from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.metadata.schema_classes import (
+    ContainerClass,
     DatasetLineageTypeClass,
     GlobalTagsClass,
     SchemaMetadataClass,
@@ -35,12 +39,42 @@ class FakeMetabaseSource(MetabaseSource):
         self.report = MetabaseReport()
 
 
+def test_connect_uri_default_includes_scheme():
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    assert config.connect_uri == "http://localhost:3000"
+
+
+def test_connect_uri_adds_scheme_when_missing():
+    config = MetabaseConfig(
+        connect_uri="localhost:3000", username="un", password=SecretStr("pwd")
+    )
+    assert config.connect_uri == "http://localhost:3000"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"api_key": SecretStr("  ")},
+        {"username": "  ", "password": SecretStr("pwd")},
+        {"username": "un", "password": SecretStr("  ")},
+    ],
+)
+def test_blank_credentials_rejected(kwargs):
+    with pytest.raises(ValidationError):
+        MetabaseConfig(**kwargs)
+
+
+def test_request_timeout_must_be_positive():
+    with pytest.raises(ValidationError):
+        MetabaseConfig(username="un", password=SecretStr("pwd"), request_timeout_sec=0)
+    with pytest.raises(ValidationError):
+        MetabaseConfig(username="un", password=SecretStr("pwd"), request_timeout_sec=-1)
+
+
 def test_get_platform_instance():
     ctx = PipelineContext(run_id="test-metabase")
     config = MetabaseConfig(username="un", password=SecretStr("pwd"))
     config.connect_uri = "http://localhost:3000"
-    # config.database_id_to_instance_map = {"42": "my_main_clickhouse"}
-    # config.platform_instance_map = {"clickhouse": "my_only_clickhouse"}
     metabase = FakeMetabaseSource(ctx, config)
 
     # no mappings defined
@@ -48,23 +82,29 @@ def test_get_platform_instance():
 
     # database_id_to_instance_map is defined, key is present
     metabase.config.database_id_to_instance_map = {"42": "my_main_clickhouse"}
+    metabase.get_platform_instance.cache_clear()
     assert metabase.get_platform_instance(None, 42) == "my_main_clickhouse"
 
     # database_id_to_instance_map is defined, key is missing
+    metabase.get_platform_instance.cache_clear()
     assert metabase.get_platform_instance(None, 999) is None
 
     # database_id_to_instance_map is defined, key is missing, platform_instance_map is defined and key present
     metabase.config.platform_instance_map = {"clickhouse": "my_only_clickhouse"}
+    metabase.get_platform_instance.cache_clear()
     assert metabase.get_platform_instance("clickhouse", 999) == "my_only_clickhouse"
 
     # database_id_to_instance_map is defined, key is missing, platform_instance_map is defined and key missing
+    metabase.get_platform_instance.cache_clear()
     assert metabase.get_platform_instance("missing-platform", 999) is None
 
     # database_id_to_instance_map is missing, platform_instance_map is defined and key present
     metabase.config.database_id_to_instance_map = None
+    metabase.get_platform_instance.cache_clear()
     assert metabase.get_platform_instance("clickhouse", 999) == "my_only_clickhouse"
 
     # database_id_to_instance_map is missing, platform_instance_map is defined and key missing
+    metabase.get_platform_instance.cache_clear()
     assert metabase.get_platform_instance("missing-platform", 999) is None
 
 
@@ -87,7 +127,8 @@ def test_connection_uses_api_key_if_in_config(mock_session):
     metabase_source.close()
 
     mock_session_instance.get.assert_called_once_with(
-        "localhost:3000/api/user/current", timeout=metabase_config.request_timeout_sec
+        "http://localhost:3000/api/user/current",
+        timeout=metabase_config.request_timeout_sec,
     )
     request_headers = mock_session_instance.headers
     assert request_headers["x-api-key"] == "key"
@@ -113,12 +154,12 @@ def test_create_session_from_config_username_password(mock_post, mock_get, mock_
     metabase_source.close()
 
     kwargs_post = mock_post.call_args
-    assert kwargs_post[0][0] == "localhost:3000/api/session"
+    assert kwargs_post[0][0] == "http://localhost:3000/api/session"
     assert kwargs_post[0][2]["password"] == "pwd"
     assert kwargs_post[0][2]["username"] == "un"
 
     kwargs_get = mock_get.call_args
-    assert kwargs_get[0][0] == "localhost:3000/api/user/current"
+    assert kwargs_get[0][0] == "http://localhost:3000/api/user/current"
 
     mock_delete.assert_called_once()
 
@@ -1176,8 +1217,8 @@ def test_empty_query_returns_empty_list(mock_post, mock_get, mock_delete):
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
-def test_root_collection_is_skipped(mock_post, mock_get, mock_delete):
-    """The Metabase root collection (id='root') must be silently skipped."""
+def test_root_collection_kept_for_dashboard_discovery(mock_post, mock_get, mock_delete):
+    """Root stays in the collections map for dashboard discovery, but is not a container."""
     metabase_config = MetabaseConfig(
         connect_uri="http://localhost:3000",
         username="test",
@@ -1211,9 +1252,18 @@ def test_root_collection_is_skipped(mock_post, mock_get, mock_delete):
     metabase_source.session.get = MagicMock(return_value=collections_response)  # type: ignore[method-assign]
     collections = metabase_source._get_collections_map()
 
-    assert "root" not in collections
+    assert "root" in collections
+    assert collections["root"].is_root
     assert "1" in collections
     assert len(metabase_source.report.warnings) == 0
+
+    container_urns = {
+        wu.metadata.entityUrn
+        for wu in metabase_source.emit_collection_containers()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    }
+    assert metabase_source._gen_collection_key(1).as_urn() in container_urns
+    assert all("root" not in (urn or "") for urn in container_urns)
 
     metabase_source.close()
 
@@ -1359,3 +1409,149 @@ def test_query_builder_cll_drops_named_refs():
 
     assert metabase.report.mbql_field_refs_by_name_dropped == 1
     assert metabase.report.query_builder_cll_dropped == 0
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_nested_collection_sets_parent_container(mock_post, mock_get, mock_delete):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    collections_response = MagicMock()
+    collections_response.status_code = 200
+    collections_response.json.return_value = [
+        {"id": "root", "name": "Our analytics"},
+        {"id": 200, "name": "Engineering", "parent_id": None, "location": "/"},
+        {"id": 201, "name": "Product", "parent_id": 200, "location": "/200/"},
+    ]
+    metabase_source.session.get = MagicMock(return_value=collections_response)  # type: ignore[method-assign]
+
+    parent_aspects = [
+        wu.metadata
+        for wu in metabase_source.emit_collection_containers()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, ContainerClass)
+    ]
+    assert len(parent_aspects) == 1
+    assert (
+        parent_aspects[0].entityUrn == metabase_source._gen_collection_key(201).as_urn()
+    )
+    assert (
+        parent_aspects[0].aspect.container
+        == metabase_source._gen_collection_key(200).as_urn()
+    )
+
+    metabase_source.close()
+
+
+@patch("requests.session")
+def test_setup_session_rejects_html_current_user(mock_session):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000", api_key=SecretStr("key")
+    )
+    ctx = PipelineContext(run_id="metabase-test-sso-html")
+
+    mock_session_instance = MagicMock()
+    mock_session_instance.headers = {}
+    mock_session.return_value = mock_session_instance
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.side_effect = ValueError("Expecting value")
+    mock_session_instance.get.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    assert len(metabase_source.report.failures) == 1
+    metabase_source.close()
+
+
+def test_create_input_field_uses_upstream_column_path():
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = FakeMetabaseSource(ctx, config)
+    upstream = builder.make_schema_field_urn(
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.film,PROD)",
+        "rating",
+    )
+    meta = MetabaseResultMetadata(
+        name="count", display_name="Count", base_type="type/Integer"
+    )
+    field = metabase._create_input_field(upstream, meta)
+    assert field.schemaFieldUrn == upstream
+    assert field.schemaField is not None
+    assert field.schemaField.fieldPath == "rating"
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_native_sql_input_fields_resolve_per_table(mock_post, mock_get, mock_delete):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    users_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)"
+    orders_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    users_id_urn = builder.make_schema_field_urn(users_urn, "id")
+    orders_amount_urn = builder.make_schema_field_urn(orders_urn, "amount")
+
+    user_col = MagicMock()
+    user_col.downstream.column = "user_id"
+    user_col.upstream_schema_field_urns.return_value = [users_id_urn]
+    order_col = MagicMock()
+    order_col.downstream.column = "amount"
+    order_col.upstream_schema_field_urns.return_value = [orders_amount_urn]
+
+    parsed = MagicMock()
+    parsed.debug_info.table_error = None
+    parsed.column_lineage = [user_col, order_col]
+    metabase_source._parse_native_sql = MagicMock(  # type: ignore[method-assign]
+        return_value=(parsed, DatasourceInfo(platform="postgres"))
+    )
+
+    card = MetabaseCard(
+        id=9,
+        name="Join SQL",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native",
+            native={
+                "query": "SELECT users.id AS user_id, orders.amount FROM users JOIN orders ON users.id = orders.user_id"
+            },
+        ),
+        result_metadata=[
+            {"name": "user_id", "base_type": "type/Integer"},
+            {"name": "amount", "base_type": "type/Decimal"},
+        ],
+    )
+
+    fields = metabase_source._get_input_fields_from_card(card)
+    assert {f.schemaFieldUrn for f in fields} == {users_id_urn, orders_amount_urn}
+    assert {f.schemaField.fieldPath for f in fields if f.schemaField} == {
+        "id",
+        "amount",
+    }
+    metabase_source.close()

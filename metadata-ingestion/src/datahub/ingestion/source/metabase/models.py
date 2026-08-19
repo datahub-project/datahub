@@ -236,10 +236,26 @@ class MetabaseCollection(MetabaseBaseModel):
     slug: Optional[str] = None
     description: Optional[str] = None
     archived: Optional[bool] = None
+    parent_id: Optional[Union[int, Literal["root"]]] = None
+    location: Optional[str] = None
 
     @property
     def is_root(self) -> bool:
         return self.id == "root"
+
+    @property
+    def parent_collection_id(self) -> Optional[int]:
+        if isinstance(self.parent_id, int):
+            return self.parent_id
+        if not self.location:
+            return None
+        parts = [p for p in self.location.split("/") if p]
+        if not parts:
+            return None
+        last = parts[-1]
+        if last.isdigit():
+            return int(last)
+        return None
 
     @property
     def tag_slug(self) -> str:

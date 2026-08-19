@@ -903,7 +903,7 @@ Patch release focused on security and dependency updates (Play frontend and Java
   - Improved error reporting to differentiate expected 404 errors from authentication/permission issues
   - Consolidated duplicate lineage extraction logic for better maintainability
   - Optimized model extraction to reduce duplicate API calls
-  - These changes are **fully backward compatible** and require no configuration changes
+  - Recipes must provide `api_key`, or both `username` and `password`; blank values are rejected. `connect_uri` should include a scheme (`http://` or `https://`); a host-only value is treated as `http://`.
 - (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.

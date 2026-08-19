@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pydantic
 
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.metabase.config import MetabaseConfig
@@ -38,6 +39,12 @@ FILM_TABLE_URN = (
 ACTOR_TABLE_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.default.actor,PROD)"
 )
+MODEL_6_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
+MODEL_55_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.55,PROD)"
+
+
+def _sf(dataset_urn: str, column: str) -> str:
+    return builder.make_schema_field_urn(dataset_urn, column)
 
 
 # ---------------------------------------------------------------------------
@@ -324,8 +331,8 @@ def test_cll_direct_field_ref(mock_post, mock_get, mock_delete):
     assert isinstance(fg, FineGrainedLineageClass)
     assert fg.upstreams is not None
     assert fg.downstreams is not None
-    assert any("rating" in u for u in fg.upstreams)
-    assert any("rating" in d for d in fg.downstreams)
+    assert fg.upstreams == [_sf(FILM_TABLE_URN, "rating")]
+    assert fg.downstreams == [_sf(MODEL_6_URN, "rating")]
     src.close()
 
 
@@ -363,8 +370,8 @@ def test_cll_aggregation_with_explicit_field(mock_post, mock_get, mock_delete):
     fg = result.fineGrainedLineages[0]
     assert fg.upstreams is not None
     assert fg.downstreams is not None
-    assert any("rental_rate" in u for u in fg.upstreams)
-    assert any("avg_rental_rate" in d for d in fg.downstreams)
+    assert fg.upstreams == [_sf(FILM_TABLE_URN, "rental_rate")]
+    assert fg.downstreams == [_sf(MODEL_6_URN, "avg_rental_rate")]
     src.close()
 
 
@@ -408,12 +415,13 @@ def test_cll_count_star_fans_in_all_upstream_columns(mock_post, mock_get, mock_d
     count_fg = next(
         fg
         for fg in result.fineGrainedLineages
-        if fg.downstreams and any("film_count" in d for d in fg.downstreams)
+        if fg.downstreams == [_sf(MODEL_6_URN, "film_count")]
     )
     assert count_fg.upstreams is not None
-    upstream_cols = {u.split(",")[-1].rstrip(")") for u in count_fg.upstreams}
-    assert "rating" in upstream_cols
-    assert "rental_rate" in upstream_cols
+    assert set(count_fg.upstreams) == {
+        _sf(FILM_TABLE_URN, "rating"),
+        _sf(FILM_TABLE_URN, "rental_rate"),
+    }
     src.close()
 
 
@@ -455,10 +463,11 @@ def test_cll_expression_ref_resolves_constituent_fields(
     fg = result.fineGrainedLineages[0]
     assert fg.upstreams is not None
     assert fg.downstreams is not None
-    upstream_cols = {u.split(",")[-1].rstrip(")") for u in fg.upstreams}
-    assert "revenue" in upstream_cols
-    assert "cost" in upstream_cols
-    assert any("profit" in d for d in fg.downstreams)
+    assert set(fg.upstreams) == {
+        _sf(FILM_TABLE_URN, "revenue"),
+        _sf(FILM_TABLE_URN, "cost"),
+    }
+    assert fg.downstreams == [_sf(MODEL_6_URN, "profit")]
     src.close()
 
 
@@ -614,7 +623,7 @@ def test_cll_skips_metadata_with_missing_name_or_field_ref(
     assert len(result.fineGrainedLineages) == 1
     fg = result.fineGrainedLineages[0]
     assert fg.downstreams is not None
-    assert any("rating" in d for d in fg.downstreams)
+    assert fg.downstreams == [_sf(MODEL_6_URN, "rating")]
     src.close()
 
 
@@ -698,13 +707,12 @@ def test_emit_model_uses_cll_for_query_builder(mock_post, mock_get, mock_delete)
         (
             fg
             for fg in upstream_lineage.fineGrainedLineages
-            if fg.downstreams and any("rating" in d for d in fg.downstreams)
+            if fg.downstreams == [_sf(MODEL_6_URN, "rating")]
         ),
         None,
     )
     assert rating_fgl is not None
-    assert rating_fgl.upstreams is not None
-    assert any("rating" in u for u in rating_fgl.upstreams)
+    assert rating_fgl.upstreams == [_sf(FILM_TABLE_URN, "rating")]
     src.close()
 
 
@@ -759,11 +767,10 @@ def test_emit_model_uses_plain_lineage_for_native_sql(mock_post, mock_get, mock_
         (
             fg
             for fg in lineage.fineGrainedLineages
-            if fg.downstreams and any("rating" in d for d in fg.downstreams)
+            if fg.downstreams == [_sf(MODEL_55_URN, "rating")]
         ),
         None,
     )
     assert rating_fgl is not None
-    assert rating_fgl.upstreams is not None
-    assert any("rating" in u for u in rating_fgl.upstreams)
+    assert rating_fgl.upstreams == [_sf(FILM_TABLE_URN, "rating")]
     src.close()

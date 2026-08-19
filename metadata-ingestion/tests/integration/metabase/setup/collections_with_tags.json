@@ -52,6 +52,7 @@
     "type": null,
     "id": 201,
     "entity_id": "xyz789-product",
+    "parent_id": 200,
     "location": "/200/",
     "namespace": null,
     "is_personal": false,

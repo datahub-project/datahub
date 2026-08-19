@@ -27,7 +27,10 @@
     "query": {
       "source-table": 21,
       "breakout": [["field", 131, null]],
-      "aggregation": [["count"]]
+      "aggregation": [
+        ["count"],
+        ["avg", ["field", 132, null]]
+      ]
     },
     "database": 2,
     "type": "query"
@@ -58,7 +61,19 @@
   "updated_at": "2021-12-14T12:00:00.000",
   "dataset_query": {
     "query": {
-      "source-table": 21
+      "source-table": 21,
+      "joins": [
+        {
+          "source-table": 22,
+          "alias": "Actor",
+          "condition": [
+            "=",
+            ["field", 131, null],
+            ["field", 141, {"join-alias": "Actor"}]
+          ],
+          "fields": "all"
+        }
+      ]
     },
     "database": 2,
     "type": "query"
