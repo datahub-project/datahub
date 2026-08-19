@@ -3,12 +3,16 @@ from unittest import mock
 
 import pytest
 
-from datahub.utilities.urn_alias.resolver import (
-    UrnAliasResolver,
+from datahub.utilities.dataset_aliases.provider import (
     graph_urn_alias_resolver,
-    lowercased_urn,
     provide_urn_alias_resolver,
 )
+from datahub.utilities.dataset_aliases.resolver import (
+    UrnAliasResolver,
+    lowercased_urn,
+    maintains_dataset_aliases,
+)
+from datahub.utilities.server_config_util import RestServiceConfig
 
 _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
@@ -25,7 +29,7 @@ def _loaded(*urns: str) -> UrnAliasResolver:
 
 
 def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
-    """A graph holding `stored`, whose scroll optionally dies part way through."""
+    """A graph holding `stored`, whose bulk scroll optionally dies part way through."""
     graph = mock.MagicMock()
 
     def scroll(**kwargs: object) -> object:
@@ -34,14 +38,16 @@ def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
             raise RuntimeError("boom")
 
     graph.get_urns_by_filter.side_effect = scroll
+    graph.get_dataset_urns_by_lowercased_urn.side_effect = lambda key: [
+        urn for urn in stored if lowercased_urn(urn) == key
+    ]
     return graph
 
 
 def _asked(graph: mock.MagicMock) -> List[str]:
-    """The key each search asked about, in order."""
+    """The key each per-URN search asked about, in order."""
     return [
-        call.kwargs["extra_or_filters"][0]["and"][0]["values"][0]
-        for call in graph.get_urns_by_filter.call_args_list
+        call.args[0] for call in graph.get_dataset_urns_by_lowercased_urn.call_args_list
     ]
 
 
@@ -126,7 +132,7 @@ def test_a_bulk_loaded_resolver_never_asks() -> None:
 
     assert resolver.resolve(_UPPER) == _LOWER
     assert resolver.resolve(_OTHER) is None
-    graph.get_urns_by_filter.assert_not_called()
+    graph.get_dataset_urns_by_lowercased_urn.assert_not_called()
 
 
 def test_a_graph_backed_resolver_asks_under_the_key() -> None:
@@ -161,14 +167,14 @@ def test_a_failed_search_records_nothing() -> None:
     # A transient failure recorded as "known absent" would decline every later reference
     # to a real entity for the rest of the run.
     graph = mock.MagicMock()
-    graph.get_urns_by_filter.side_effect = Exception("search failed")
+    graph.get_dataset_urns_by_lowercased_urn.side_effect = Exception("search failed")
     resolver = UrnAliasResolver(graph)
 
     with pytest.raises(Exception, match="search failed"):
         resolver.resolve(_UPPER)
 
-    graph.get_urns_by_filter.side_effect = None
-    graph.get_urns_by_filter.return_value = [_LOWER]
+    graph.get_dataset_urns_by_lowercased_urn.side_effect = None
+    graph.get_dataset_urns_by_lowercased_urn.return_value = [_LOWER]
     assert resolver.resolve(_UPPER) == _LOWER
 
 
@@ -203,3 +209,41 @@ def test_an_empty_region_still_loads_and_says_so(
 
     assert resolver is not None
     assert any("Loaded 0 URNs" in r.message for r in caplog.records)
+
+
+# --- the gate on the whole feature -----------------------------------------------------
+
+
+def _versioned_server(version: str, cloud: bool = False) -> mock.MagicMock:
+    """A graph reporting itself as DataHub `version`."""
+    graph = mock.MagicMock()
+    graph.server_config = RestServiceConfig(
+        raw_config={
+            "versions": {"acryldata/datahub": {"version": version}},
+            "datahub": {"serverEnv": "prod" if cloud else ""},
+        }
+    )
+    return graph
+
+
+@pytest.mark.parametrize(
+    ("version", "cloud", "supported"),
+    [
+        ("v1.8.0", False, True),
+        ("v1.9.2", False, True),
+        ("v1.7.0", False, False),
+        ("v2.2.0", True, True),
+        ("v2.1.0", True, False),
+    ],
+)
+def test_the_feature_needs_a_server_that_maintains_aliases(
+    version: str, cloud: bool, supported: bool
+) -> None:
+    # Cloud and OSS number separately, so each has its own floor.
+    assert maintains_dataset_aliases(_versioned_server(version, cloud)) is supported
+
+
+def test_a_server_that_reports_no_version_is_not_assumed_new() -> None:
+    graph = mock.MagicMock()
+    graph.server_config = RestServiceConfig(raw_config={})
+    assert maintains_dataset_aliases(graph) is False
