@@ -43,7 +43,6 @@ import io.opentelemetry.api.trace.SpanContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -267,22 +266,19 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     verifyLoginMetric("success", "unknown", "none");
   }
 
-  @Test(expectedExceptions = CompletionException.class)
+  @Test
   public void testGenerateSessionTokenForUserUnauthorized() throws Exception {
-    // Setup with non-system user
-    Authentication nonSystemAuth = mock(Authentication.class);
-    Actor regularActor = new Actor(ActorType.USER, "regularActor");
-    when(nonSystemAuth.getActor()).thenReturn(regularActor);
-    AuthenticationContext.setAuthentication(nonSystemAuth);
-
-    // Create request body
+    setNonSystemAuthentication();
     ObjectNode requestBody = objectMapper.createObjectNode();
     requestBody.put("userId", "testUser");
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
-    // Execute
     ResponseEntity<String> response =
         authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockTokenService, never())
+        .generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong());
   }
 
   @Test
@@ -871,6 +867,74 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     ResponseEntity<String> response = authServiceController.getSsoSettings(request, null).join();
 
     assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
+  @Test
+  public void testSignUpNonSystemClientReturnsUnauthorized() throws Exception {
+    setNonSystemAuthentication();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", "urn:li:corpuser:testUser");
+    requestBody.put("fullName", "Test User");
+    requestBody.put("email", "test@example.com");
+    requestBody.put("title", "Engineer");
+    requestBody.put("password", "password");
+    requestBody.put("inviteToken", "token");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response = authServiceController.signUp(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockNativeUserService, never())
+        .createNativeUser(any(), anyString(), anyString(), anyString(), any(), anyString());
+    verify(mockInviteTokenService, never()).isInviteTokenValid(any(), any());
+  }
+
+  @Test
+  public void testResetNativeUserCredentialsNonSystemClientReturnsUnauthorized() throws Exception {
+    setNonSystemAuthentication();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", "urn:li:corpuser:testUser");
+    requestBody.put("password", "password");
+    requestBody.put("resetToken", "token");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.resetNativeUserCredentials(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockNativeUserService, never())
+        .resetCorpUserCredentials(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsNonSystemClientReturnsUnauthorized() throws Exception {
+    setNonSystemAuthentication();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", "urn:li:corpuser:testUser");
+    requestBody.put("password", "password");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockNativeUserService, never()).doesPasswordMatch(any(), anyString(), anyString());
+  }
+
+  @Test
+  public void testGetSsoSettingsNonSystemClientReturnsUnauthorized() {
+    setNonSystemAuthentication();
+
+    ResponseEntity<String> response = authServiceController.getSsoSettings(request, null).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockEntityService, never()).getLatestAspect(any(), any(), anyString());
+  }
+
+  private void setNonSystemAuthentication() {
+    reset(mockTokenService, mockNativeUserService, mockInviteTokenService, mockEntityService);
+    AuthenticationContext.setAuthentication(
+        new Authentication(new Actor(ActorType.USER, "regularActor"), "Bearer user-token"));
   }
 
   private void verifyLoginMetric(String outcome, String loginSource, String denialReason) {

@@ -61,7 +61,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.HttpClientErrorException;
 
 @Slf4j
 @RestController
@@ -181,10 +180,12 @@ public class AuthServiceController {
     if (maybeAuth.isEmpty()) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
+    final Authentication authentication = maybeAuth.get();
+    if (!isSystemClient(authentication.getActor().getId())) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
-    final Authentication authentication = maybeAuth.get();
-    final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
     final OperationContext opContext =
         OperationContext.asSession(
@@ -200,81 +201,71 @@ public class AuthServiceController {
             true);
     return CompletableFuture.supplyAsync(
         () -> {
-          // 1. Verify that only those authorized to generate a token (datahub system) are able to.
-          if (isAuthorizedToGenerateSessionToken(actorId)) {
-            try {
-              final boolean verboseAuthFailureLogging =
-                  _configProvider.getAuthentication().isVerboseAuthFailureLogging();
-              final boolean enforceExistence =
-                  _configProvider.getAuthentication().isEnforceExistenceEnabled();
-              final String loginSource =
-                  resolveLoginSource(httpEntity.getHeaders(), LOGIN_SOURCE_UNKNOWN);
-              final Optional<LoginDenialReason> eligibilityDenial =
-                  _userSessionEligibilityChecker.checkEligibility(
-                      opContext, userId.asText(), enforceExistence);
-              if (eligibilityDenial.isPresent()) {
-                final LoginDenialReason denialReason = eligibilityDenial.get();
-                recordFailedLoginUsageEvent(
-                    httpEntity,
-                    new CorpuserUrn(userId.asText()).toString(),
-                    denialReason,
-                    "failedLoginSessionEligibility",
-                    loginSource);
-                emitLoginDenialLog(
-                    verboseAuthFailureLogging,
-                    userId.asText(),
-                    denialReason,
-                    "generateSessionTokenForUser");
-                return new ResponseEntity<>(
-                    buildLoginDenialJsonBody(denialReason), HttpStatus.FORBIDDEN);
-              }
-
-              // 2. Generate a new DataHub JWT
-              final long sessionTokenDurationMs =
-                  _configProvider.getAuthentication().getSessionTokenDurationMs();
-              final String token =
-                  _statelessTokenService.generateAccessToken(
-                      TokenType.SESSION,
-                      new Actor(ActorType.USER, userId.asText()),
-                      sessionTokenDurationMs);
-              log.info(
-                  "Successfully generated session token for userRef: {}, duration: {} ms",
-                  LoginIdentityMask.mask(userId.asText()),
-                  sessionTokenDurationMs);
-              return opContext.withSpan(
-                  "loginSuccess",
-                  () -> {
-                    AttributesBuilder loginEventAttributes = Attributes.builder();
-                    loginEventAttributes.put(
-                        USER_ID_ATTR, new CorpuserUrn(userId.asText()).toString());
-                    loginEventAttributes.put(
-                        EVENT_TYPE_ATTR, DataHubUsageEventType.LOG_IN_EVENT.getType());
-                    if (!LOGIN_SOURCE_UNKNOWN.equals(loginSource)) {
-                      loginEventAttributes.put(LOGIN_SOURCE_ATTR, loginSource);
-                    }
-                    List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
-                    if (!sourceIP.isEmpty()) {
-                      loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
-                    }
-                    Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
-                    incrementLoginMetric(
-                        LOGIN_OUTCOME_SUCCESS, loginSource, LOGIN_DENIAL_REASON_NONE);
-                    return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
-                  });
-            } catch (Exception e) {
-              log.error(
-                  "Failed to generate session token for userRef: {}",
-                  LoginIdentityMask.mask(userId.asText()),
-                  e);
-              return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+          try {
+            final boolean verboseAuthFailureLogging =
+                _configProvider.getAuthentication().isVerboseAuthFailureLogging();
+            final boolean enforceExistence =
+                _configProvider.getAuthentication().isEnforceExistenceEnabled();
+            final String loginSource =
+                resolveLoginSource(httpEntity.getHeaders(), LOGIN_SOURCE_UNKNOWN);
+            final Optional<LoginDenialReason> eligibilityDenial =
+                _userSessionEligibilityChecker.checkEligibility(
+                    opContext, userId.asText(), enforceExistence);
+            if (eligibilityDenial.isPresent()) {
+              final LoginDenialReason denialReason = eligibilityDenial.get();
+              recordFailedLoginUsageEvent(
+                  httpEntity,
+                  new CorpuserUrn(userId.asText()).toString(),
+                  denialReason,
+                  "failedLoginSessionEligibility",
+                  loginSource);
+              emitLoginDenialLog(
+                  verboseAuthFailureLogging,
+                  userId.asText(),
+                  denialReason,
+                  "generateSessionTokenForUser");
+              return new ResponseEntity<>(
+                  buildLoginDenialJsonBody(denialReason), HttpStatus.FORBIDDEN);
             }
+
+            final long sessionTokenDurationMs =
+                _configProvider.getAuthentication().getSessionTokenDurationMs();
+            final String token =
+                _statelessTokenService.generateAccessToken(
+                    TokenType.SESSION,
+                    new Actor(ActorType.USER, userId.asText()),
+                    sessionTokenDurationMs);
+            log.info(
+                "Successfully generated session token for userRef: {}, duration: {} ms",
+                LoginIdentityMask.mask(userId.asText()),
+                sessionTokenDurationMs);
+            return opContext.withSpan(
+                "loginSuccess",
+                () -> {
+                  AttributesBuilder loginEventAttributes = Attributes.builder();
+                  loginEventAttributes.put(
+                      USER_ID_ATTR, new CorpuserUrn(userId.asText()).toString());
+                  loginEventAttributes.put(
+                      EVENT_TYPE_ATTR, DataHubUsageEventType.LOG_IN_EVENT.getType());
+                  if (!LOGIN_SOURCE_UNKNOWN.equals(loginSource)) {
+                    loginEventAttributes.put(LOGIN_SOURCE_ATTR, loginSource);
+                  }
+                  List<String> sourceIP = httpEntity.getHeaders().getOrEmpty(X_FORWARDED_FOR);
+                  if (!sourceIP.isEmpty()) {
+                    loginEventAttributes.put(SOURCE_IP, sourceIP.get(0));
+                  }
+                  Span.current().addEvent(LOGIN_EVENT, loginEventAttributes.build());
+                  incrementLoginMetric(
+                      LOGIN_OUTCOME_SUCCESS, loginSource, LOGIN_DENIAL_REASON_NONE);
+                  return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
+                });
+          } catch (Exception e) {
+            log.error(
+                "Failed to generate session token for userRef: {}",
+                LoginIdentityMask.mask(userId.asText()),
+                e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
-          throw HttpClientErrorException.create(
-              HttpStatus.UNAUTHORIZED,
-              actorUrn + " unauthorized to perform this action.",
-              new HttpHeaders(),
-              null,
-              null);
         });
   }
 
@@ -330,8 +321,11 @@ public class AuthServiceController {
     if (maybeAuth.isEmpty()) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
-    recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
     final Authentication auth = maybeAuth.get();
+    if (!isSystemClient(auth.getActor().getId())) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
+    recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
 
     String userUrnString = userUrn.asText();
     String systemClientUser =
@@ -422,9 +416,12 @@ public class AuthServiceController {
     if (maybeAuth.isEmpty()) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
+    final Authentication auth = maybeAuth.get();
+    if (!isSystemClient(auth.getActor().getId())) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
-    final Authentication auth = maybeAuth.get();
     log.info("Attempting to reset credentials for native user {}", userUrnString);
     final OperationContext opContext =
         OperationContext.asSession(
@@ -493,9 +490,12 @@ public class AuthServiceController {
     if (maybeAuth.isEmpty()) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
+    final Authentication auth = maybeAuth.get();
+    if (!isSystemClient(auth.getActor().getId())) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
-    final Authentication auth = maybeAuth.get();
     log.info(
         "Attempting to verify credentials for native userRef={}",
         LoginIdentityMask.mask(userUrnString));
@@ -644,11 +644,14 @@ public class AuthServiceController {
     if (maybeAuth.isEmpty()) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
+    final Authentication auth = maybeAuth.get();
+    if (!isSystemClient(auth.getActor().getId())) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
         UsageOperation.OTHER_READ);
-    final Authentication auth = maybeAuth.get();
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -678,7 +681,6 @@ public class AuthServiceController {
         });
   }
 
-  // Currently, only internal system is authorized to generate a token on behalf of a user!
   private void recordUsageSession(
       HttpHeaders headers, String operation, UsageOperation usageOperation) {
     final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
@@ -695,10 +697,8 @@ public class AuthServiceController {
         true);
   }
 
-  private boolean isAuthorizedToGenerateSessionToken(final String actorId) {
-    // Verify that the actor is an internal system caller.
-    final String systemClientId = _systemAuthentication.getActor().getId();
-    return systemClientId.equals(actorId);
+  private boolean isSystemClient(final String actorId) {
+    return _systemAuthentication.getActor().getId().equals(actorId);
   }
 
   private String buildTokenResponse(final String token) {
