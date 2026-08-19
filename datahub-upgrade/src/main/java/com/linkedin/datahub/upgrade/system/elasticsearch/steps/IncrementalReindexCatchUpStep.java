@@ -13,7 +13,6 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -231,7 +230,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     String nextIndexName = indexState.get(IncrementalReindexState.NEXT_INDEX_NAME);
-    Optional<String> entityNameOpt = indexConvention.getEntityName(indexName);
+    Optional<String> entityNameOpt = indexConvention.getEntityName(opContext, indexName);
 
     if (entityNameOpt.isPresent()) {
       String entityName = entityNameOpt.get();
@@ -246,7 +245,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       return CatchUpStatus.COMPLETED;
     }
 
-    if (indexConvention.getEntityAndAspectName(indexName).isPresent() && nextIndexName != null) {
+    if (indexConvention.getEntityAndAspectName(opContext, indexName).isPresent()
+        && nextIndexName != null) {
       String oldBackingIndexName = indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
       if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
         log.warn("Timeseries index {} has no oldBackingIndexName, skipping catch-up", indexName);
@@ -334,54 +334,58 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     FlushTracker tracker = new FlushTracker();
 
-    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(opContext, args)) {
-      stream
-          .partition(sqlPageSize)
-          .forEach(
-              page -> {
-                List<EbeanAspectV2> pageAspects = page.collect(Collectors.toList());
+    aspectDao.streamAspectBatches(
+        opContext,
+        args,
+        stream -> {
+          stream
+              .partition(sqlPageSize)
+              .forEach(
+                  page -> {
+                    List<EbeanAspectV2> pageAspects = page.collect(Collectors.toList());
 
-                List<SystemAspect> systemAspects =
-                    EntityUtils.toSystemAspectFromEbeanAspects(
-                        opContext, opContext.getRetrieverContext(), pageAspects);
+                    List<SystemAspect> systemAspects =
+                        EntityUtils.toSystemAspectFromEbeanAspects(
+                            opContext, opContext.getRetrieverContext(), pageAspects);
 
-                for (int i = 0; i < systemAspects.size(); i++) {
-                  SystemAspect systemAspect = systemAspects.get(i);
-                  if (flushBytesThreshold > 0) {
-                    tracker.bytesSinceLastFlush +=
-                        metadataColumnCharLength(pageAspects.get(i).getMetadata());
-                  }
+                    for (int i = 0; i < systemAspects.size(); i++) {
+                      SystemAspect systemAspect = systemAspects.get(i);
+                      if (flushBytesThreshold > 0) {
+                        tracker.bytesSinceLastFlush +=
+                            metadataColumnCharLength(pageAspects.get(i).getMetadata());
+                      }
 
-                  Pair<Future<?>, Boolean> future =
-                      entityService.alwaysProduceMCLAsync(
-                          opContext,
-                          systemAspect.getUrn(),
-                          systemAspect.getUrn().getEntityType(),
-                          systemAspect.getAspectSpec().getName(),
-                          systemAspect.getAspectSpec(),
-                          null,
-                          systemAspect.getRecordTemplate(),
-                          null,
-                          systemAspect
-                              .getSystemMetadata()
-                              .setRunId(id())
-                              .setLastObserved(System.currentTimeMillis()),
-                          AuditStampUtils.createDefaultAuditStamp(),
-                          ChangeType.RESTATE);
-                  tracker.pendingFutures.add(future.getFirst());
-                  tracker.lastProcessedAspect = systemAspect;
-                  tracker.rowsSinceLastFlush++;
+                      Pair<Future<?>, Boolean> future =
+                          entityService.alwaysProduceMCLAsync(
+                              opContext,
+                              systemAspect.getUrn(),
+                              systemAspect.getUrn().getEntityType(),
+                              systemAspect.getAspectSpec().getName(),
+                              systemAspect.getAspectSpec(),
+                              null,
+                              systemAspect.getRecordTemplate(),
+                              null,
+                              systemAspect
+                                  .getSystemMetadata()
+                                  .setRunId(id())
+                                  .setLastObserved(System.currentTimeMillis()),
+                              AuditStampUtils.createDefaultAuditStamp(),
+                              ChangeType.RESTATE);
+                      tracker.pendingFutures.add(future.getFirst());
+                      tracker.lastProcessedAspect = systemAspect;
+                      tracker.rowsSinceLastFlush++;
 
-                  if (shouldFlush(
-                      tracker.rowsSinceLastFlush,
-                      tracker.bytesSinceLastFlush,
-                      flushInterval,
-                      flushBytesThreshold)) {
-                    awaitPendingAndFlush(context, indexName, lastUrnKey, tracker);
-                  }
-                }
-              });
-    }
+                      if (shouldFlush(
+                          tracker.rowsSinceLastFlush,
+                          tracker.bytesSinceLastFlush,
+                          flushInterval,
+                          flushBytesThreshold)) {
+                        awaitPendingAndFlush(context, indexName, lastUrnKey, tracker);
+                      }
+                    }
+                  });
+          return null;
+        });
 
     if (tracker.rowsSinceLastFlush > 0 || !tracker.pendingFutures.isEmpty()) {
       awaitPendingAndFlush(context, indexName, lastUrnKey, tracker);
@@ -535,9 +539,10 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    */
   private boolean isGlobalIndex(String indexName) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
     String systemMetadataIndexName =
-        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
     return indexName.equals(graphIndexName) || indexName.equals(systemMetadataIndexName);
   }
 

@@ -1,10 +1,12 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { isPropagated } from '@app/entity/shared/propagation/utils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+import { dedupeByUrn } from '@src/utils/dedupeByUrn';
 
 import { PropertyValue, StructuredPropertiesEntry } from '@types';
 
@@ -12,6 +14,10 @@ const typeNameToType = {
     StringValue: { type: 'string', nativeDataType: 'text' },
     NumberValue: { type: 'number', nativeDataType: 'float' },
 };
+
+function structuredPropertyIsPropagated(structuredPropertiesEntry: StructuredPropertiesEntry) {
+    return isPropagated(structuredPropertiesEntry.attribution?.sourceDetail);
+}
 
 function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
     return structuredPropertiesEntry.values
@@ -46,14 +52,17 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
 }
 
 // map the properties map into a list of PropertyRow objects to render in a table
-function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
+export function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
-    entityData?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
+    const dedupedProperties = dedupeByUrn(
+        entityData?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
+        (prop) => prop.structuredProperty.urn,
+        structuredPropertyIsPropagated,
+    );
+    dedupedProperties.forEach((structuredPropertiesEntry) => {
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+    });
 
     return structuredPropertyRows;
 }
@@ -65,11 +74,14 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
         (f) => f.fieldPath === fieldPath,
     )?.schemaFieldEntity;
 
-    schemaFieldEntity?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
+    const dedupedProperties = dedupeByUrn(
+        schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
+        (prop) => prop.structuredProperty.urn,
+        structuredPropertyIsPropagated,
+    );
+    dedupedProperties.forEach((structuredPropertiesEntry) => {
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+    });
 
     return structuredPropertyRows;
 }

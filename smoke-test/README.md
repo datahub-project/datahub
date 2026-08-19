@@ -31,7 +31,7 @@ This directory contains end-to-end smoke tests for DataHub functionality. These 
 
 ```bash
 export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT  # or current version
-export TEST_STRATEGY=no_cypress_suite0     # for non-Cypress tests
+export TEST_STRATEGY=pytests
 ```
 
 ### Running Tests
@@ -42,7 +42,7 @@ source venv/bin/activate
 
 # Set environment variables
 export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT
-export TEST_STRATEGY=no_cypress_suite0
+export TEST_STRATEGY=pytests
 
 # Run all tests (WARNING: Takes a long time, requires full setup)
 pytest -vv
@@ -56,6 +56,26 @@ pytest test_system_info.py::test_system_info_main_endpoint -vv
 # Run multiple specific tests
 pytest test_e2e.py::test_healthchecks test_e2e.py::test_gms_usage_fetch -v
 ```
+
+#### Selecting tests by domain
+
+Tests can declare the product domain that owns them with
+`@pytest.mark.domain(...)`, using the `Domain` enum in
+`tests/utilities/domains.py` (`platform`, `observe`, `ingestion`, `ai`,
+`catalog`). The `--domain` option then runs only the tests those domains own:
+
+```bash
+# One domain
+pytest --domain catalog -vv
+
+# Several — a test owned by any of them runs
+pytest --domain catalog --domain ingestion -vv
+```
+
+A test that spans domains declares all of them, e.g.
+`@pytest.mark.domain(Domain.CATALOG, Domain.INGESTION)`, and is selected by
+either. Tests marked `p0` are the ones critical enough to run on every pull
+request; combine the two with `pytest -m p0 --domain catalog`.
 
 ## Test Categories
 
@@ -113,7 +133,7 @@ After making changes to system info APIs:
    cd smoke-test
    source venv/bin/activate
    export DATAHUB_VERSION=v1.0.0rc3-SNAPSHOT
-   export TEST_STRATEGY=no_cypress_suite0
+   export TEST_STRATEGY=pytests
 
    pytest test_system_info.py -vv
    ```

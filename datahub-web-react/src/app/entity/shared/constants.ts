@@ -170,6 +170,13 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
 
 export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];
 
-export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
+/** Default actor URN used by the Python ingestion SDK when writing metadata. */
+export const INGESTION_ACTOR_URN = 'urn:li:corpuser:__ingestion';
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = [
+    'urn:li:corpuser:__datahub_system',
+    'urn:li:corpuser:unknown',
+    INGESTION_ACTOR_URN,
+];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';

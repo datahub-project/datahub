@@ -225,7 +225,8 @@ class AirbyteConfigStreamRef(BaseModel):
 
 
 class AirbyteStreamsApiRow(BaseModel):
-    """One row from Airbyte `/streams` (1.8+). Field names vary by version."""
+    """One row from Airbyte `/streams`. Field names vary by version, and the
+    namespace only appears from 1.7.0 onwards."""
 
     stream_name: Optional[str] = None
     namespace: str = ""
@@ -364,11 +365,22 @@ class NamespaceQueueResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class ResolvedSchema(BaseModel):
+    """A stream's schema tier. `guessed` marks a name resolution had to pick
+    rather than read."""
+
+    name: str = ""
+    guessed: bool = False
+
+    model_config = ConfigDict(frozen=True)
+
+
 class SyncCatalogBuildResult(BaseModel):
     catalog: AirbyteSyncCatalog
     ambiguous: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
+    streams_api_namespaces_absent: bool = False
 
     model_config = ConfigDict(frozen=True)
 
@@ -424,23 +436,44 @@ class AirbyteSourcePartial(BaseModel):
         return None
 
     @property
-    def get_schema(self) -> Optional[str]:
-        schema = _lookup_config_field(self.configuration, SCHEMA_CONFIG_FIELDS)
-        if schema:
-            return schema
+    def declared_schema(self) -> Optional[str]:
+        return _lookup_config_field(self.configuration, SCHEMA_CONFIG_FIELDS)
 
-        # Snowflake / BigQuery expose schemas as a list; take the first entry.
-        if self.configuration:
-            schemas = self.configuration.get(API_FIELD_SCHEMAS)
-            if schemas and isinstance(schemas, list) and len(schemas) > 0:
-                first_schema = schemas[0]
-                if isinstance(first_schema, str):
-                    return first_schema
-                if isinstance(first_schema, dict):
-                    return first_schema.get("name") or first_schema.get(
-                        API_FIELD_SCHEMA
-                    )
-        return None
+    @property
+    def configured_schemas(self) -> List[str]:
+        # Postgres / Snowflake / BigQuery list the schemas they replicate instead
+        # of naming one.
+        if not self.configuration:
+            return []
+        schemas = self.configuration.get(API_FIELD_SCHEMAS)
+        if not isinstance(schemas, list):
+            return []
+
+        names: List[str] = []
+        for schema in schemas:
+            if isinstance(schema, str):
+                name: Optional[str] = schema
+            elif isinstance(schema, dict):
+                name = schema.get(API_FIELD_NAME) or schema.get(API_FIELD_SCHEMA)
+            else:
+                name = None
+            if name:
+                names.append(name)
+        return names
+
+    @property
+    def schema_is_guess(self) -> bool:
+        """True when the configuration only offers a list of several schemas.
+        Nothing says which stream belongs to which, so picking one is a guess
+        that is wrong for the rest."""
+        return self.declared_schema is None and len(self.configured_schemas) > 1
+
+    @property
+    def get_schema(self) -> Optional[str]:
+        if self.declared_schema:
+            return self.declared_schema
+        schemas = self.configured_schemas
+        return schemas[0] if schemas else None
 
     @property
     def get_database(self) -> Optional[str]:
@@ -486,6 +519,7 @@ class AirbyteConnectionPartial(BaseModel):
     ambiguous_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
+    streams_api_namespaces_absent: bool = False
     configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
@@ -541,6 +575,7 @@ class AirbytePipelineInfo(BaseModel):
 
 class AirbyteStreamDetails(BaseModel):
     stream_name: str = Field(alias=API_FIELD_STREAM_NAME)
+    # Holds the resolved schema tier, not just Airbyte's namespace.
     namespace: str = Field(
         default="",
         validation_alias=AliasChoices(
@@ -586,6 +621,9 @@ class AirbyteStreamApiMetadata(BaseModel):
     )
     namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
     unavailable: bool = False
+    # `/streams` answered but no row carried a namespace, so there is nothing to
+    # back-fill from.
+    namespaces_absent: bool = False
     skipped_rows: List[str] = Field(default_factory=list)
 
 

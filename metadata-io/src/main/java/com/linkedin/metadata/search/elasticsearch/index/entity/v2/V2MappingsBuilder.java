@@ -105,7 +105,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   getIndexMappings(opContext.getEntityRegistry(), entitySpec, structuredProperties);
               return IndexMapping.builder()
                   .indexName(
-                      opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                      opContext
+                          .getSearchContext()
+                          .getIndexConvention()
+                          .getIndexName(opContext, entitySpec))
                   .mappings(mappings)
                   .build();
             })
@@ -128,7 +131,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
         result.add(
             IndexMapping.builder()
                 .indexName(
-                    opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getIndexName(opContext, entitySpec))
                 .mappings(mappings)
                 .build());
       } else {

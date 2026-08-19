@@ -327,5 +327,6 @@
     "user.tab.ownerOf": "Tulajdonosa ennek",
     "user.teamLabel": "Csapat",
     "user.teamsHeading": "Csapatok",
-    "user.titleRoleLabel": "Beosztás/Szerepkör"
+    "user.titleRoleLabel": "Beosztás/Szerepkör",
+    "dataProduct.parentLabel": "Szülő Data Product"
 }
