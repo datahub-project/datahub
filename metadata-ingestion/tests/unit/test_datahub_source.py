@@ -12,6 +12,7 @@ from datahub.ingestion.source.datahub.datahub_database_reader import (
     VersionOrderer,
 )
 from datahub.ingestion.source.datahub.datahub_source import DataHubSource
+from datahub.ingestion.source.datahub.report import DataHubSourceReport
 
 
 @pytest.fixture
@@ -365,3 +366,78 @@ def test_soft_deleted_urns_query_uses_dialect_aware_json_extraction(mock_reader)
     query = mock_reader.soft_deleted_urns_query
     assert "JSON_EXTRACT(metadata, '$.removed')" in query
     assert "aspect = 'status'" in query
+
+
+def test_parse_row_quarantines_unparseable_rows(tmp_path):
+    """A row that cannot be parsed must be recorded, not just counted."""
+    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
+
+    path = tmp_path / "parse-errors.jsonl"
+    quarantine = QuarantineWriter(str(path))
+
+    config = DataHubSourceConfig.model_validate({"pull_from_datahub_api": True})
+    reader = DataHubDatabaseReader.__new__(DataHubDatabaseReader)
+    reader.config = config
+    reader.report = DataHubSourceReport()
+    reader.quarantine = quarantine
+
+    row = {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+        "aspect": "anAspectThisCliDoesNotKnow",
+        "version": 0,
+        "createdon": datetime(2026, 1, 1),
+        "metadata": "{}",
+        "systemmetadata": "{}",
+    }
+
+    assert reader._parse_row(row) is None
+    assert reader.report.num_database_parse_errors == 1
+
+    quarantine.close()
+    lines = path.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 1
+    assert "anAspectThisCliDoesNotKnow" in lines[0]
+
+
+def test_parse_row_without_quarantine_still_counts_the_error():
+    """The quarantine is optional; disabling it must not change parsing behaviour."""
+    config = DataHubSourceConfig.model_validate({"pull_from_datahub_api": True})
+    reader = DataHubDatabaseReader.__new__(DataHubDatabaseReader)
+    reader.config = config
+    reader.report = DataHubSourceReport()
+    reader.quarantine = None
+
+    row = {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+        "aspect": "anAspectThisCliDoesNotKnow",
+        "version": 0,
+        "createdon": datetime(2026, 1, 1),
+        "metadata": "{}",
+        "systemmetadata": "{}",
+    }
+
+    assert reader._parse_row(row) is None
+    assert reader.report.num_database_parse_errors == 1
+
+
+def test_parse_error_log_can_be_disabled():
+    config = DataHubSourceConfig.model_validate(
+        {"pull_from_datahub_api": True, "parse_error_log": {"enabled": False}}
+    )
+    ctx = PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+    ctx.graph = MagicMock()
+
+    source = DataHubSource(config, ctx)
+    assert source.quarantine is None
+    source.close()
+
+
+def test_parse_error_log_default_filename_includes_run_id():
+    config = DataHubSourceConfig.model_validate({"pull_from_datahub_api": True})
+    ctx = PipelineContext(run_id="my-run-id", pipeline_name="test-pipeline")
+    ctx.graph = MagicMock()
+
+    source = DataHubSource(config, ctx)
+    assert source.quarantine is not None
+    assert "my-run-id" in source.quarantine.filename
+    source.close()

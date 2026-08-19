@@ -4,7 +4,7 @@ from typing import Optional, Set
 import pydantic
 from pydantic import Field, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -28,6 +28,21 @@ DEFAULT_EXCLUDE_ASPECTS = {
     "datahubIngestionCheckpoint",
     "testResults",
 }
+
+
+class ParseErrorLogConfig(ConfigModel):
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Write rows that cannot be parsed to an NDJSON file so they are enumerable. "
+            "These rows never become work units, so the pipeline's failure_log never sees "
+            "them. The file is only created if at least one row is dropped."
+        ),
+    )
+    filename: Optional[str] = Field(
+        default=None,
+        description="Defaults to parse-errors-{run_id}.jsonl in the working directory.",
+    )
 
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
@@ -99,6 +114,11 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
             "Whether to update createdon timestamp and kafka offset despite parse errors. "
             "Enable if you want to ignore the errors."
         ),
+    )
+
+    parse_error_log: ParseErrorLogConfig = Field(
+        default_factory=ParseErrorLogConfig,
+        description="Where to record rows that could not be parsed",
     )
 
     pull_from_datahub_api: HiddenFromDocs[bool] = Field(

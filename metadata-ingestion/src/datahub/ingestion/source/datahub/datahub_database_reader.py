@@ -12,6 +12,7 @@ from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.metadata.schema_classes import SystemMetadataClass
@@ -80,9 +81,11 @@ class DataHubDatabaseReader:
         config: DataHubSourceConfig,
         connection_config: SQLAlchemyConnectionConfig,
         report: DataHubSourceReport,
+        quarantine: Optional[QuarantineWriter] = None,
     ):
         self.config = config
         self.report = report
+        self.quarantine = quarantine
         self.engine = create_engine(
             url=connection_config.get_sql_alchemy_url(),
             **connection_config.options,
@@ -414,4 +417,6 @@ class DataHubDatabaseReader:
             ).setdefault(row["aspect"], LossyList(max_elements=failure_size)).append(
                 row["urn"]
             )
+            if self.quarantine is not None:
+                self.quarantine.write(row, str(e))
             return None
