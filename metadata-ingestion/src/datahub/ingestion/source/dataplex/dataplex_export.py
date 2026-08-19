@@ -15,6 +15,10 @@ surface tenant assets in a catalog project via Dataplex catalog linking; those
 linked entries are invisible to ``list_entries`` but ARE included in a
 metadata export scoped to the catalog project.
 
+When ``export_config.existing_export_paths`` is set (read-only mode), job
+submission is skipped entirely: the connector reads already-completed export
+output from the configured ``gs://`` paths, needing only storage read access.
+
 Reference: https://docs.cloud.google.com/dataplex/docs/export-metadata
 """
 
@@ -22,10 +26,12 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import google.auth
 import google.auth.transport.requests
@@ -36,6 +42,7 @@ from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
     DataplexExportConfig,
 )
+from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
 from datahub.ingestion.source.dataplex.dataplex_mappers import ENTRY_MAPPERS
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 
@@ -51,6 +58,16 @@ DATAPLEX_TYPES_PREFIX = "projects/dataplex-types/locations/global/entryTypes"
 
 TERMINAL_STATES = ("SUCCEEDED", "FAILED", "CANCELED")
 
+JSONL_SUFFIX = ".jsonl"
+
+# Export output object names embed the metadata-job id as a ``job=<id>/`` path
+# segment, e.g. ``metadata/job=my-job/entry_group=@bigquery/part-0.jsonl``.
+JOB_PARTITION_RE = re.compile(r"(?:^|/)(job=[^/]+)/")
+
+# Recency fallback for partitions whose blobs carry no usable creation time
+# (GCS timestamps are always timezone-aware, so compare against an aware epoch).
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+
 
 def export_scope_entry_types() -> List[str]:
     """Entry-type resource names for the export scope, one per supported mapper."""
@@ -61,11 +78,17 @@ def export_scope_entry_types() -> List[str]:
 
 @dataclass(frozen=True)
 class ExportTarget:
-    """A successfully finished export job for a single location."""
+    """One location's export output to read.
+
+    ``job_id`` is set when this run submitted the export job itself, and the
+    read is scoped to that job's output. It is None for read-only targets
+    built from ``existing_export_paths``, where the freshest ``job=<id>``
+    partition under ``output_path`` is read instead.
+    """
 
     location: str
     bucket: str
-    job_id: str
+    job_id: Optional[str]
     output_path: str
 
 
@@ -83,6 +106,42 @@ def build_authed_session(
     if credentials.requires_scopes:
         credentials = credentials.with_scopes(GCP_SCOPES)
     return google.auth.transport.requests.AuthorizedSession(credentials)
+
+
+def build_storage_client(
+    export_config: DataplexExportConfig,
+    credentials: Optional[service_account.Credentials],
+) -> storage.Client:
+    """Storage client for the export buckets, bound to the job runner project.
+
+    In read-only mode there is no runner project; the client project is then
+    inferred from the credentials / environment, which is sufficient for reads.
+    """
+    return storage.Client(
+        project=export_config.export_job_runner_project,
+        credentials=credentials,
+    )
+
+
+def existing_export_targets(export_config: DataplexExportConfig) -> List[ExportTarget]:
+    """Build read-only targets from ``existing_export_paths`` (no job submission)."""
+    targets: List[ExportTarget] = []
+    for location, path in sorted(export_config.existing_export_paths.items()):
+        gcs = parse_gcs_path(path)  # validated at config time
+        targets.append(
+            ExportTarget(
+                location=location,
+                bucket=gcs.bucket,
+                job_id=None,
+                output_path=gcs.uri,
+            )
+        )
+    logger.info(
+        "Read-only export mode: reading pre-existing export output for %d "
+        "location(s); no export jobs will be submitted.",
+        len(targets),
+    )
+    return targets
 
 
 def _output_path(bucket: str, prefix: Optional[str]) -> str:
@@ -191,6 +250,8 @@ def run_exports(
     """
     export_config = config.export_config
     assert export_config is not None  # enforced by config validation
+    runner_project = export_config.export_job_runner_project
+    assert runner_project is not None  # enforced by config validation (submit mode)
     entry_types = export_scope_entry_types()
 
     # Phase 1: submit all jobs.
@@ -202,7 +263,7 @@ def run_exports(
         try:
             _submit_export_job(
                 session=session,
-                job_project=export_config.export_job_runner_project,
+                job_project=runner_project,
                 location=location,
                 job_id=job_id,
                 output_path=output_path,
@@ -247,7 +308,7 @@ def run_exports(
             try:
                 job = _get_job(
                     session,
-                    export_config.export_job_runner_project,
+                    runner_project,
                     pj.location,
                     pj.job_id,
                 )
@@ -339,17 +400,78 @@ def run_exports(
     return targets
 
 
+def _partition_recency(blobs: List[storage.Blob]) -> datetime:
+    """Newest blob creation time in a partition (epoch when unavailable)."""
+    times = [b.time_created for b in blobs if isinstance(b.time_created, datetime)]
+    return max(times) if times else _EPOCH
+
+
+def _select_latest_partition(
+    jsonl_blobs: List[storage.Blob],
+    target: ExportTarget,
+    report: DataplexReport,
+) -> List[storage.Blob]:
+    """Pick the blobs to read from a pre-existing export path (read-only mode).
+
+    Without a job id of our own, the freshest ``job=<id>`` partition under the
+    path is read (by newest blob creation time, job segment as tie-breaker).
+    Output without any ``job=`` segment means the path points directly at a
+    single export's files, so everything is read.
+    """
+    if not jsonl_blobs:
+        report.export_locations_with_no_output += 1
+        # An explicitly configured path with no output is a misconfiguration
+        # (the export it points at should already exist), so this is a failure
+        # and stale-entity removal is suppressed.
+        report.failure(
+            title="No Dataplex export output at configured path",
+            message=(
+                "No .jsonl objects found under the configured "
+                "existing_export_paths entry. Check that the path points at a "
+                "completed metadata export's output."
+            ),
+            context=f"location={target.location}, path={target.output_path}",
+        )
+        return []
+
+    partitions: Dict[str, List[storage.Blob]] = {}
+    unpartitioned: List[storage.Blob] = []
+    for blob in jsonl_blobs:
+        match = JOB_PARTITION_RE.search(blob.name)
+        if match:
+            partitions.setdefault(match.group(1), []).append(blob)
+        else:
+            unpartitioned.append(blob)
+
+    if not partitions:
+        return jsonl_blobs
+
+    selected = max(
+        partitions,
+        key=lambda segment: (_partition_recency(partitions[segment]), segment),
+    )
+    skipped = len(jsonl_blobs) - len(partitions[selected])
+    logger.info(
+        "Path %s holds %d export job partition(s); reading the most recent "
+        "('%s', %d object(s), %d other object(s) skipped).",
+        target.output_path,
+        len(partitions),
+        selected,
+        len(partitions[selected]),
+        skipped,
+    )
+    return partitions[selected]
+
+
 def _list_matching_blobs(
     storage_client: storage.Client,
     target: ExportTarget,
-    export_config: DataplexExportConfig,
     report: DataplexReport,
 ) -> List[storage.Blob]:
-    """List this export job's ``.jsonl`` blobs under the configured prefix."""
-    prefix = (export_config.prefix or "").strip().strip("/")
-    list_prefix = f"{prefix}/" if prefix else None
+    """List the ``.jsonl`` blobs to read for one export target."""
+    gcs = parse_gcs_path(target.output_path)
     try:
-        blobs = list(storage_client.list_blobs(target.bucket, prefix=list_prefix))
+        blobs = list(storage_client.list_blobs(gcs.bucket, prefix=gcs.list_prefix))
     except Exception as exc:
         # Reported as a failure so stale-entity removal is suppressed: this
         # location's entities are missing from the stream, not deleted.
@@ -357,42 +479,65 @@ def _list_matching_blobs(
         report.failure(
             title="Failed to list Dataplex export bucket",
             message="Could not list export objects. Skipping this location.",
-            context=f"bucket={target.bucket}, prefix={list_prefix}",
+            context=f"bucket={target.bucket}, prefix={gcs.list_prefix}",
             exc=exc,
         )
         return []
 
+    jsonl_blobs = [b for b in blobs if b.name.endswith(JSONL_SUFFIX)]
+
+    if target.job_id is None:
+        return _select_latest_partition(jsonl_blobs, target, report)
+
     # Export output object names embed the metadata-job id, which scopes the
     # read to exactly this run's output even when the bucket holds older runs.
     job_marker = f"job={target.job_id}"
-    matching = [b for b in blobs if b.name.endswith(".jsonl") and job_marker in b.name]
+    matching = [b for b in jsonl_blobs if job_marker in b.name]
     logger.info(
         "Found %d object(s) under gs://%s/%s; %d belong to export job '%s'.",
         len(blobs),
         target.bucket,
-        list_prefix or "",
+        gcs.list_prefix or "",
         len(matching),
         target.job_id,
     )
     if not matching:
         report.export_locations_with_no_output += 1
-        report.warning(
-            title="No Dataplex export objects found",
-            message=(
-                "A SUCCEEDED export job produced no matching .jsonl objects "
-                "under the configured bucket/prefix. The export scope may "
-                "contain no supported entries for this location, or the "
-                "bucket/prefix may be misconfigured."
-            ),
-            context=f"bucket={target.bucket}, job_id={target.job_id}",
-        )
+        if blobs:
+            # Objects exist under the prefix but none belong to this run's job:
+            # almost certainly a bucket/prefix/job-id mismatch rather than a
+            # legitimately empty location. Reported as a failure so stale-entity
+            # removal is suppressed instead of tombstoning the whole location.
+            report.failure(
+                title="Dataplex export output missing for this run",
+                message=(
+                    "A SUCCEEDED export job produced no .jsonl objects carrying "
+                    "this run's job id, although the bucket/prefix does contain "
+                    "other objects. The configured bucket/prefix likely does not "
+                    "match where the job wrote its output."
+                ),
+                context=(
+                    f"bucket={target.bucket}, job_id={target.job_id}, "
+                    f"objects_under_prefix={len(blobs)}"
+                ),
+            )
+        else:
+            report.warning(
+                title="No Dataplex export objects found",
+                message=(
+                    "A SUCCEEDED export job produced no objects under the "
+                    "configured bucket/prefix. The export scope may contain no "
+                    "supported entries for this location, or the bucket/prefix "
+                    "may be misconfigured."
+                ),
+                context=f"bucket={target.bucket}, job_id={target.job_id}",
+            )
     return matching
 
 
 def iter_exported_entries(
     storage_client: storage.Client,
     target: ExportTarget,
-    config: DataplexConfig,
     report: DataplexReport,
 ) -> Iterable[Tuple[dataplex_v1.Entry, str]]:
     """Stream ``(entry, location)`` pairs from one export target's GCS output.
@@ -407,9 +552,7 @@ def iter_exported_entries(
     only yields complete lines, so a truncated tail raises ``JSONDecodeError``
     and is skipped rather than silently ingested.
     """
-    export_config = config.export_config
-    assert export_config is not None  # enforced by config validation
-    matching = _list_matching_blobs(storage_client, target, export_config, report)
+    matching = _list_matching_blobs(storage_client, target, report)
 
     for blob in matching:
         report.export_blobs_read += 1

@@ -1,7 +1,9 @@
 """Unit tests for the Dataplex export extraction method."""
 
 import json
-from typing import Any, Dict
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -14,6 +16,7 @@ from datahub.ingestion.source.dataplex.dataplex_config import (
 from datahub.ingestion.source.dataplex.dataplex_export import (
     ExportTarget,
     _output_path,
+    existing_export_targets,
     export_scope_entry_types,
     iter_exported_entries,
     run_exports,
@@ -87,6 +90,84 @@ class TestExportConfig:
         assert config.extraction_method == "export"
         assert config.export_config is not None
         assert config.export_config.bucket_for_location("us") == "my-export-us"
+
+    def test_prefix_over_api_limit_rejected(self):
+        # The Dataplex Metadata Export API caps the custom prefix at 128 chars.
+        with pytest.raises(ValidationError, match="128"):
+            make_export_config(
+                export_config={
+                    "export_job_runner_project": "runner-project",
+                    "bucket_base_name": "my-export",
+                    "prefix": "p" * 129,
+                }
+            )
+
+    def test_submit_mode_requires_runner_project(self):
+        with pytest.raises(ValidationError, match="export_job_runner_project"):
+            make_export_config(
+                export_config={"bucket_base_name": "my-export"},
+            )
+
+    def test_export_config_ignored_under_api_mode_warns(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            config = make_export_config(extraction_method="api")
+        assert config.extraction_method == "api"
+        assert any("will be ignored" in r.message for r in caplog.records)
+
+
+def make_readonly_config(**path_overrides: str) -> DataplexConfig:
+    """Build a read-only export-mode DataplexConfig (existing_export_paths)."""
+    paths = path_overrides or {"us": "gs://my-export-us/exports"}
+    return DataplexConfig.model_validate(
+        {
+            "project_ids": ["test-project"],
+            "entries_locations": ["us"],
+            "extraction_method": "export",
+            "export_config": {"existing_export_paths": paths},
+        }
+    )
+
+
+class TestReadOnlyExportConfig:
+    """Read-only mode configuration (existing_export_paths)."""
+
+    def test_runner_project_and_buckets_not_required(self):
+        config = make_readonly_config()
+        assert config.export_config is not None
+        assert config.export_config.is_read_only
+        assert config.export_config.export_job_runner_project is None
+
+    def test_invalid_gcs_path_rejected(self):
+        with pytest.raises(ValidationError, match="location 'us'"):
+            make_readonly_config(us="s3://wrong-scheme/exports")
+
+    def test_submission_settings_alongside_paths_warn(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            config = DataplexConfig.model_validate(
+                {
+                    "project_ids": ["test-project"],
+                    "entries_locations": ["us"],
+                    "extraction_method": "export",
+                    "export_config": {
+                        "existing_export_paths": {"us": "gs://my-export-us/exports"},
+                        "bucket_base_name": "my-export",
+                    },
+                }
+            )
+        assert config.export_config is not None
+        assert config.export_config.is_read_only
+        assert any("read-only mode" in r.message for r in caplog.records)
+
+    def test_targets_built_from_paths(self):
+        config = make_readonly_config(
+            eu="gs://my-export-eu/", us="gs://my-export-us/exports/"
+        )
+        assert config.export_config is not None
+        targets = existing_export_targets(config.export_config)
+        assert [(t.location, t.bucket, t.job_id, t.output_path) for t in targets] == [
+            ("eu", "my-export-eu", None, "gs://my-export-eu/"),
+            ("us", "my-export-us", None, "gs://my-export-us/exports/"),
+        ]
 
 
 class TestExportScope:
@@ -201,10 +282,13 @@ class TestRunExports:
         assert report.is_export_partial()
 
 
-def make_blob(name: str, lines: list) -> Mock:
+def make_blob(
+    name: str, lines: List[str], time_created: Optional[datetime] = None
+) -> Mock:
     """Mock a GCS blob whose open() streams the given JSONL lines."""
     blob = Mock()
     blob.name = name
+    blob.time_created = time_created
     text = "\n".join(lines) + "\n"
     handle = MagicMock()
     handle.__enter__.return_value = iter(text.splitlines(keepends=True))
@@ -242,7 +326,6 @@ class TestIterExportedEntries:
         )
 
     def test_parses_entries_and_filters_blobs_by_job_marker(self):
-        config = make_export_config()
         report = DataplexReport()
         target = self.make_target()
 
@@ -273,7 +356,6 @@ class TestIterExportedEntries:
             iter_exported_entries(
                 storage_client=storage_client,
                 target=target,
-                config=config,
                 report=report,
             )
         )
@@ -291,7 +373,6 @@ class TestIterExportedEntries:
         assert report.export_entries_read == 2
 
     def test_malformed_line_is_skipped_and_counted(self):
-        config = make_export_config()
         report = DataplexReport()
         target = self.make_target()
 
@@ -309,7 +390,6 @@ class TestIterExportedEntries:
             iter_exported_entries(
                 storage_client=storage_client,
                 target=target,
-                config=config,
                 report=report,
             )
         )
@@ -319,7 +399,6 @@ class TestIterExportedEntries:
         assert not report.is_export_partial()
 
     def test_bucket_listing_failure_reports_failure(self):
-        config = make_export_config()
         report = DataplexReport()
         target = self.make_target()
 
@@ -330,7 +409,6 @@ class TestIterExportedEntries:
             iter_exported_entries(
                 storage_client=storage_client,
                 target=target,
-                config=config,
                 report=report,
             )
         )
@@ -340,8 +418,7 @@ class TestIterExportedEntries:
         assert report.is_export_partial()
         assert len(report.failures) == 1
 
-    def test_no_matching_blobs_warns(self):
-        config = make_export_config()
+    def test_empty_bucket_warns(self):
         report = DataplexReport()
         target = self.make_target()
 
@@ -352,7 +429,6 @@ class TestIterExportedEntries:
             iter_exported_entries(
                 storage_client=storage_client,
                 target=target,
-                config=config,
                 report=report,
             )
         )
@@ -360,3 +436,117 @@ class TestIterExportedEntries:
         assert results == []
         assert report.export_locations_with_no_output == 1
         assert len(report.warnings) == 1
+        assert report.failures == []
+        assert report.is_export_partial()
+
+    def test_unmatched_output_reports_failure(self):
+        # Objects exist under the prefix but none carry this run's job id:
+        # a structural mismatch that must suppress stale-entity removal,
+        # not a warning that lets the whole location get tombstoned.
+        report = DataplexReport()
+        target = self.make_target()
+
+        stale_blob = make_blob(
+            "metadata/job=datahub-export-us-zzz99999/part-0.jsonl",
+            [make_entry_line("bigquery:test-project.ds.stale", "stale")],
+        )
+        storage_client = Mock()
+        storage_client.list_blobs.return_value = [stale_blob]
+
+        results = list(
+            iter_exported_entries(
+                storage_client=storage_client,
+                target=target,
+                report=report,
+            )
+        )
+
+        assert results == []
+        assert report.export_locations_with_no_output == 1
+        assert len(report.failures) == 1
+        assert report.is_export_partial()
+
+
+class TestReadOnlyIteration:
+    """Reading pre-existing export output (targets with job_id=None)."""
+
+    def make_target(self) -> ExportTarget:
+        return ExportTarget(
+            location="us",
+            bucket="my-export-us",
+            job_id=None,
+            output_path="gs://my-export-us/exports/",
+        )
+
+    def test_reads_latest_job_partition(self):
+        report = DataplexReport()
+        target = self.make_target()
+
+        older = make_blob(
+            "exports/job=nightly-01/part-0.jsonl",
+            [make_entry_line("bigquery:test-project.ds.old", "old")],
+            time_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+        newer = make_blob(
+            "exports/job=nightly-02/part-0.jsonl",
+            [
+                make_entry_line("bigquery:test-project.ds.t1", "t1"),
+                make_entry_line("bigquery:test-project.ds.t2", "t2"),
+            ],
+            time_created=datetime(2024, 2, 1, tzinfo=timezone.utc),
+        )
+        storage_client = Mock()
+        storage_client.list_blobs.return_value = [older, newer]
+
+        results = list(
+            iter_exported_entries(
+                storage_client=storage_client, target=target, report=report
+            )
+        )
+
+        storage_client.list_blobs.assert_called_once_with(
+            "my-export-us", prefix="exports/"
+        )
+        assert [entry.entry_source.display_name for entry, _ in results] == ["t1", "t2"]
+        assert report.failures == []
+        assert not report.is_export_partial()
+
+    def test_unpartitioned_output_reads_everything(self):
+        report = DataplexReport()
+        target = self.make_target()
+
+        blob = make_blob(
+            "exports/part-0.jsonl",
+            [make_entry_line("bigquery:test-project.ds.t1", "t1")],
+        )
+        storage_client = Mock()
+        storage_client.list_blobs.return_value = [blob]
+
+        results = list(
+            iter_exported_entries(
+                storage_client=storage_client, target=target, report=report
+            )
+        )
+
+        assert len(results) == 1
+        assert results[0][1] == "us"
+
+    def test_empty_path_reports_failure(self):
+        # A configured pre-existing path with nothing under it is a
+        # misconfiguration: fail so stale-entity removal is suppressed.
+        report = DataplexReport()
+        target = self.make_target()
+
+        storage_client = Mock()
+        storage_client.list_blobs.return_value = []
+
+        results = list(
+            iter_exported_entries(
+                storage_client=storage_client, target=target, report=report
+            )
+        )
+
+        assert results == []
+        assert len(report.failures) == 1
+        assert report.export_locations_with_no_output == 1
+        assert report.is_export_partial()

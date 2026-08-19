@@ -280,8 +280,8 @@
                 "dataplex_fully_qualified_name": "bigquery:test-project.analytics.customers",
                 "dataplex_entry_type": "projects/655216118709/locations/global/entryTypes/bigquery-table",
                 "dataplex_parent_entry": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics",
-                "dataplex_aspect_655216118709.global.schema": "655216118709.global.schema",
-                "dataplex_655216118709.global.schema_columns": "[{\"description\": \"Customer ID\", \"column\": \"id\", \"dataType\": \"INT64\"}, {\"description\": \"Customer name\", \"column\": \"name\", \"dataType\": \"STRING\"}, {\"description\": \"Customer email address\", \"column\": \"email\", \"dataType\": \"STRING\"}]"
+                "dataplex_aspect_schema": "schema",
+                "dataplex_schema_columns": "[{\"description\": \"Customer ID\", \"column\": \"id\", \"dataType\": \"INT64\"}, {\"description\": \"Customer name\", \"column\": \"name\", \"dataType\": \"STRING\"}, {\"description\": \"Customer email address\", \"column\": \"email\", \"dataType\": \"STRING\"}]"
             },
             "name": "customers",
             "description": "Customer master data table",
@@ -296,7 +296,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705341600000,
-        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "runId": "dataplex-2024_01_15-12_00_00-1hph0q",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -449,8 +449,8 @@
                 "dataplex_fully_qualified_name": "bigquery:test-project.analytics.orders",
                 "dataplex_entry_type": "projects/655216118709/locations/global/entryTypes/bigquery-table",
                 "dataplex_parent_entry": "projects/test-project/locations/us/entryGroups/@bigquery/entries/bigquery.googleapis.com/projects/test-project/datasets/analytics",
-                "dataplex_aspect_655216118709.global.schema": "655216118709.global.schema",
-                "dataplex_655216118709.global.schema_columns": "[{\"description\": \"Order ID\", \"column\": \"order_id\", \"dataType\": \"INT64\"}, {\"description\": \"Order total amount\", \"column\": \"total_amount\", \"dataType\": \"FLOAT64\"}]"
+                "dataplex_aspect_schema": "schema",
+                "dataplex_schema_columns": "[{\"description\": \"Order ID\", \"column\": \"order_id\", \"dataType\": \"INT64\"}, {\"description\": \"Order total amount\", \"column\": \"total_amount\", \"dataType\": \"FLOAT64\"}]"
             },
             "name": "orders",
             "description": "Orders transaction table",
@@ -465,7 +465,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705341600000,
-        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "runId": "dataplex-2024_01_15-12_00_00-1hph0q",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -176,6 +176,43 @@ def test_test_connection_success() -> None:
     assert report.basic_connectivity.capable
 
 
+def _readonly_export_config_dict() -> dict:
+    return {
+        "project_ids": ["project-1"],
+        "extraction_method": "export",
+        "export_config": {
+            "existing_export_paths": {"us": "gs://export-bucket-us/metadata"}
+        },
+    }
+
+
+def test_test_connection_readonly_export_probes_paths() -> None:
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+    ) as build_client:
+        storage_client = build_client.return_value
+        storage_client.list_blobs.return_value = iter([Mock()])
+        report = DataplexSource.test_connection(_readonly_export_config_dict())
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    storage_client.list_blobs.assert_called_once_with(
+        "export-bucket-us", prefix="metadata/", max_results=1
+    )
+
+
+def test_test_connection_readonly_export_empty_path_fails() -> None:
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+    ) as build_client:
+        storage_client = build_client.return_value
+        storage_client.list_blobs.return_value = iter([])
+        report = DataplexSource.test_connection(_readonly_export_config_dict())
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is not None
+    assert "No objects found" in report.basic_connectivity.failure_reason
+
+
 def test_test_connection_handles_google_api_error() -> None:
     with patch(
         "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient",

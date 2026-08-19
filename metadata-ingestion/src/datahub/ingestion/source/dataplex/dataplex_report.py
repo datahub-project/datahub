@@ -33,8 +33,17 @@ class DataplexReport(StaleEntityRemovalSourceReport):
     export_locations_with_no_output: int = 0
 
     def is_export_partial(self) -> bool:
-        """True when any entity may be missing from this run's export stream."""
-        return self.export_jobs_failed > 0 or self.export_blobs_read_failed > 0
+        """True when any entity may be missing from this run's export stream.
+
+        Locations with no output count as potentially partial: even when the
+        location is legitimately empty (reported as a warning, not a failure),
+        this run's stream cannot prove its previous entities still exist.
+        """
+        return (
+            self.export_jobs_failed > 0
+            or self.export_blobs_read_failed > 0
+            or self.export_locations_with_no_output > 0
+        )
 
 
 # Alias for consistency with other sources

@@ -25,6 +25,40 @@ class EntryDataTuple:
     datahub_dataset_urn: str
 
 
+@dataclass(frozen=True)
+class GcsPath:
+    """A parsed ``gs://bucket[/prefix]`` URI."""
+
+    bucket: str
+    prefix: Optional[str]
+
+    @property
+    def list_prefix(self) -> Optional[str]:
+        """Prefix argument for ``list_blobs`` (trailing slash, or None for bucket root)."""
+        return f"{self.prefix}/" if self.prefix else None
+
+    @property
+    def uri(self) -> str:
+        """Normalized ``gs://bucket/prefix/`` form."""
+        if self.prefix:
+            return f"gs://{self.bucket}/{self.prefix}/"
+        return f"gs://{self.bucket}/"
+
+
+GCS_URI_SCHEME = "gs://"
+
+
+def parse_gcs_path(path: str) -> GcsPath:
+    """Parse a ``gs://bucket[/prefix]`` URI, raising ValueError when malformed."""
+    if not path.startswith(GCS_URI_SCHEME):
+        raise ValueError(f"GCS path must start with '{GCS_URI_SCHEME}': '{path}'")
+    remainder = path[len(GCS_URI_SCHEME) :].strip("/")
+    if not remainder:
+        raise ValueError(f"GCS path has no bucket name: '{path}'")
+    bucket, _, prefix = remainder.partition("/")
+    return GcsPath(bucket=bucket, prefix=prefix.strip("/") or None)
+
+
 def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:
     """Create audit stamp from GCP timestamp."""
     if timestamp:

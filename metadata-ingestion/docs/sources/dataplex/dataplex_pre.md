@@ -9,16 +9,24 @@ The connector extracts metadata from Google Cloud Knowledge Catalog (Dataplex) u
 The connector supports two ways of fetching entries, controlled by `extraction_method`:
 
 - **`api`** (default) — iterates the configured projects and lists entries via the Catalog `list_entry_groups` / `list_entries` / `get_entry` APIs. This only returns entries **physically created** in each project's entry groups.
-- **`export`** — submits one Dataplex [metadata export job](https://docs.cloud.google.com/dataplex/docs/export-metadata) per configured entries location (scoped to the configured projects and the entry types the connector supports), waits for the jobs to finish, and then reads the exported JSONL from a Cloud Storage bucket. Requires the `export_config` section.
+- **`export`** — submits one Dataplex [metadata export job](https://docs.cloud.google.com/dataplex/docs/export-metadata) per configured entries location (scoped to the configured projects and the entry types the connector supports), waits for the jobs to finish, and then reads the exported JSONL from a Cloud Storage bucket. Requires the `export_config` section. Alternatively, `export_config.existing_export_paths` switches to **read-only export mode**: the connector submits no jobs and instead ingests the output of exports you run yourself (see below).
 
 Use `export` when your organization runs a **central catalog** architecture: tenant projects grant a central Dataplex project permission to read their metadata, and assets surface in the central project via Dataplex catalog linking/federation without being physically created there. Those linked entries are invisible to `list_entries` (the `api` method returns nothing), but a metadata export scoped to the central project includes them.
 
 Notes on `export` mode:
 
-- One export job runs per entry in `entries_locations`, and each location must resolve to a GCS bucket via `export_config.export_bucket_config` or `export_config.bucket_base_name` (bucket name `{bucket_base_name}-{location}`). The bucket for a `global`-location job must be in a compatible (multi-)region.
+- One export job runs per entries location in `entries_locations`, and each location must resolve to a GCS bucket via `export_config.export_bucket_config` or `export_config.bucket_base_name` (bucket name `{bucket_base_name}-{location}`). Note the default `entries_locations` is `['us', 'eu', 'asia', 'global']`, so by default four export jobs run per ingestion. The bucket for a `global`-location job must be in a compatible (multi-)region.
 - `filter_config.entry_groups.pattern` does not apply (the export is scoped by entry type, not entry group); use the entry-level `filter_config.entries.pattern` / `fqn_pattern` filters instead.
 - Lineage and Business Glossary extraction work identically in both methods — they use the live Data Lineage and Business Glossary APIs.
 - If an export job fails or times out, or the exported output cannot be read completely, the run is reported as failed and stale-entity soft-deletion is skipped for that run, so temporarily missing entities are not tombstoned.
+- The connection test verifies metadata-job **read** access and bucket access; it cannot verify permission to **create** metadata jobs (`roles/dataplex.metadataJobOwner`), so a passing test does not guarantee job submission will succeed.
+
+Read-only export mode (`export_config.existing_export_paths`):
+
+- Map each location to the `gs://bucket[/prefix]` output path of a metadata export you orchestrate yourself (Cloud Scheduler, Workflows, a separate pipeline, etc.). The connector submits no jobs and only reads those paths, so the service account needs just `roles/storage.objectViewer` on the buckets — no Dataplex job-submission roles.
+- When a path holds output from several export runs (multiple `job=<id>` partitions), the most recently written partition is read. Point the path at a specific `.../job=<id>` folder to pin an exact run.
+- The entries stage reads exactly the locations in this mapping; `entries_locations` still applies to the other stages (lineage, glossaries).
+- Keep the pointed-to exports fresh: entries missing from the read output are subject to normal stale-entity handling on later runs, and an empty path is reported as a failure (which skips soft-deletion for the run).
 
 #### Spanner entry collection behavior
 
@@ -134,11 +142,13 @@ Grant the following roles to the service account on all target projects.
 
 For `extraction_method: export`, the following additional grants are required (see [Export metadata](https://docs.cloud.google.com/dataplex/docs/export-metadata#required-roles)):
 
-| Feature                                             | Required Role                                                                                                                                      |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Running metadata export jobs                        | [`roles/dataplex.metadataJobOwner`](https://cloud.google.com/dataplex/docs/iam-roles) on `export_config.export_job_runner_project`                 |
-| Export scope access                                 | [`roles/dataplex.catalogEditor`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogEditor) on each project in the export scope      |
-| Writing/reading export output in the GCS bucket(s)  | [`roles/storage.objectUser`](https://cloud.google.com/storage/docs/access-control/iam-roles) on each configured export bucket                      |
+| Feature                                            | Required Role                                                                                                                                 |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Running metadata export jobs                       | [`roles/dataplex.metadataJobOwner`](https://cloud.google.com/dataplex/docs/iam-roles) on `export_config.export_job_runner_project`            |
+| Export scope access                                | [`roles/dataplex.catalogEditor`](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogEditor) on each project in the export scope |
+| Writing/reading export output in the GCS bucket(s) | [`roles/storage.objectUser`](https://cloud.google.com/storage/docs/access-control/iam-roles) on each configured export bucket                 |
+
+In read-only export mode (`export_config.existing_export_paths`), none of the grants above are needed — the connector only requires [`roles/storage.objectViewer`](https://cloud.google.com/storage/docs/access-control/iam-roles) on the bucket(s) holding the pre-existing export output.
 
 :::tip "Lineage requires the role on multiple projects"
 

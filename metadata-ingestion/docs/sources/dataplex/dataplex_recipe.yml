@@ -54,9 +54,14 @@ source:
     #   bucket_base_name: "my-export-bucket" # bucket per location: {base}-{location}
     #   # export_bucket_config: # explicit per-location buckets (take priority)
     #   #   us: "my-export-bucket-us"
-    #   # prefix: "dataplex-exports" # optional folder prefix inside each bucket
+    #   # prefix: "dataplex-exports" # optional folder prefix inside each bucket (max 128 chars)
     #   # export_poll_seconds: 15
     #   # export_timeout_seconds: 3600
+    #   # Read-only mode: ingest exports you orchestrate yourself instead of
+    #   # submitting jobs (only needs roles/storage.objectViewer on the buckets).
+    #   # When set, the job-submission settings above are not needed.
+    #   # existing_export_paths:
+    #   #   us: "gs://my-export-bucket-us/dataplex-exports"
 
     # Optional: Lineage retry settings
     # lineage_max_retries: 3                    # Max retry attempts (range: 1-10, default: 3)

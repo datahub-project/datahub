@@ -18,7 +18,7 @@ from typing import Dict, Iterable, List, Optional
 import google.auth
 import google.auth.transport.requests
 from google.api_core import exceptions
-from google.cloud import dataplex_v1, resourcemanager_v3, storage
+from google.cloud import dataplex_v1, resourcemanager_v3
 from google.cloud.datacatalog_lineage import LineageClient
 from google.oauth2 import service_account
 
@@ -46,13 +46,17 @@ from datahub.ingestion.source.dataplex.dataplex_entries import (
 )
 from datahub.ingestion.source.dataplex.dataplex_export import (
     DATAPLEX_API_ROOT,
+    GCP_SCOPES,
     build_authed_session,
+    build_storage_client,
+    existing_export_targets,
     iter_exported_entries,
     run_exports,
 )
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
 )
+from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
     DataplexPlatformResourceRepository,
@@ -66,10 +70,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
-
-# OAuth2 scope required for the lookupEntryLinks REST session; service-account
-# credentials must be scoped explicitly or AuthorizedSession token refresh fails.
-_DATAPLEX_OAUTH_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
 
 def _resolve_project_numbers(
@@ -243,7 +243,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         creds = self.config.get_credentials()
         credentials = (
             service_account.Credentials.from_service_account_info(
-                creds, scopes=_DATAPLEX_OAUTH_SCOPES
+                creds, scopes=GCP_SCOPES
             )
             if creds
             else None
@@ -358,9 +358,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 raw_creds = (
                     credentials
                     if credentials is not None
-                    else google.auth.default(
-                        scopes=["https://www.googleapis.com/auth/cloud-platform"]
-                    )[0]
+                    else google.auth.default(scopes=GCP_SCOPES)[0]
                 )
                 self.ctx_data.authed_session = (
                     google.auth.transport.requests.AuthorizedSession(raw_creds)
@@ -383,6 +381,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         `project_labels`, we first resolve at least one project via the Cloud
         Resource Manager API (which validates those credentials/permissions)
         and then list entry groups on the first resolved project.
+
+        In export mode, the probe verifies metadataJobs READ access (listing)
+        on the runner project and that the export bucket is accessible. It does
+        NOT verify permission to create metadata jobs
+        (roles/dataplex.metadataJobOwner), so a successful test does not
+        guarantee job submission will succeed at ingestion time. In read-only
+        export mode (existing_export_paths), only storage read access is
+        probed: each configured path must be listable and non-empty.
         """
         test_report = TestConnectionReport()
         try:
@@ -390,16 +396,42 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             creds = config.get_credentials()
             credentials = (
                 service_account.Credentials.from_service_account_info(
-                    creds, scopes=_DATAPLEX_OAUTH_SCOPES
+                    creds, scopes=GCP_SCOPES
                 )
                 if creds
                 else None
             )
 
             if config.extraction_method == "export":
-                # Export mode exercises the metadataJobs API on the job runner
-                # project and the export bucket instead of Catalog listing.
                 assert config.export_config is not None
+                storage_client = build_storage_client(config.export_config, credentials)
+
+                if config.export_config.is_read_only:
+                    for target in existing_export_targets(config.export_config):
+                        gcs = parse_gcs_path(target.output_path)
+                        probe = list(
+                            storage_client.list_blobs(
+                                gcs.bucket, prefix=gcs.list_prefix, max_results=1
+                            )
+                        )
+                        if not probe:
+                            test_report.basic_connectivity = CapabilityReport(
+                                capable=False,
+                                failure_reason=(
+                                    f"No objects found under existing export "
+                                    f"path '{target.output_path}' for location "
+                                    f"'{target.location}'."
+                                ),
+                            )
+                            return test_report
+                    test_report.basic_connectivity = CapabilityReport(capable=True)
+                    return test_report
+
+                # Submit mode exercises the metadataJobs API on the job runner
+                # project and the export bucket instead of Catalog listing. The
+                # listing probe only proves read access — create permission
+                # (roles/dataplex.metadataJobOwner) cannot be verified without
+                # actually submitting a job.
                 session = build_authed_session(credentials)
                 location = config.entries_locations[0]
                 runner_project = config.export_config.export_job_runner_project
@@ -410,9 +442,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 resp.raise_for_status()
 
                 bucket_name = config.export_config.bucket_for_location(location)
-                storage_client = storage.Client(
-                    project=runner_project, credentials=credentials
-                )
                 if not storage_client.bucket(bucket_name).exists():
                     test_report.basic_connectivity = CapabilityReport(
                         capable=False,
@@ -479,28 +508,32 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         Submits one metadata EXPORT job per entries location, waits for them to
         finish, then streams the exported JSONL from GCS through the same
         filter + mapper pipeline as the API path (populating the lineage
-        side-channel identically).
+        side-channel identically). In read-only mode
+        (``export_config.existing_export_paths``) no jobs are submitted: the
+        configured pre-existing output paths are read directly instead.
         """
-        assert self.config.export_config is not None  # enforced by config validation
-        with self.report.new_stage("Submitting Dataplex metadata export jobs"):
-            session = build_authed_session(self._credentials)
-            targets = run_exports(
-                config=self.config,
-                project_ids=self._project_ids,
-                session=session,
-                report=self.report,
-            )
+        export_config = self.config.export_config
+        assert export_config is not None  # enforced by config validation
+
+        if export_config.is_read_only:
+            with self.report.new_stage("Resolving pre-existing Dataplex export output"):
+                targets = existing_export_targets(export_config)
+        else:
+            with self.report.new_stage("Submitting Dataplex metadata export jobs"):
+                session = build_authed_session(self._credentials)
+                targets = run_exports(
+                    config=self.config,
+                    project_ids=self._project_ids,
+                    session=session,
+                    report=self.report,
+                )
 
         with self.report.new_stage("Reading Dataplex export output from GCS"):
-            storage_client = storage.Client(
-                project=self.config.export_config.export_job_runner_project,
-                credentials=self._credentials,
-            )
+            storage_client = build_storage_client(export_config, self._credentials)
             for target in targets:
                 entries = iter_exported_entries(
                     storage_client=storage_client,
                     target=target,
-                    config=self.config,
                     report=self.report,
                 )
                 yield from auto_workunit(
