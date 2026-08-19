@@ -5,7 +5,7 @@
 """
 
 import json
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,15 +31,6 @@ from tests.integration.bigquery_v2.common import (
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
-
-
-@pytest.fixture(autouse=True)
-def mock_service_account_credentials() -> Iterator[None]:
-    """Stop the BigQuery connection from validating the dummy private key."""
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
-    ):
-        yield
 
 
 def _recipe(
