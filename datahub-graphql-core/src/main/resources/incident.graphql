@@ -691,3 +691,67 @@ extend type Chart {
     count: Int
   ): EntityIncidentsResult
 }
+
+extend type MLModel {
+  """
+  Incidents associated with the MLModel
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
+}
+
+extend type MLFeature {
+  """
+  Incidents associated with the MLFeature
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
+}
