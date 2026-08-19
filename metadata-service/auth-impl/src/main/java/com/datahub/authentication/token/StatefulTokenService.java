@@ -33,6 +33,7 @@ import org.apache.commons.lang3.ArrayUtils;
  */
 @Slf4j
 public class StatefulTokenService extends StatelessTokenService {
+  private static final String UI_SESSION_TOKEN_NAME = "DataHub UI session";
 
   private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
@@ -131,6 +132,7 @@ public class StatefulTokenService extends StatelessTokenService {
     }
     value.setActorUrn(UrnUtils.getUrn(actor.toUrnStr()));
     value.setOwnerUrn(UrnUtils.getUrn(actorUrn));
+    value.setTokenType(type.toString());
     value.setCreatedAt(createdAtInMs);
     if (expiresInMs != null) {
       value.setExpiresAt(createdAtInMs + expiresInMs);
@@ -152,6 +154,23 @@ public class StatefulTokenService extends StatelessTokenService {
         false);
 
     return accessToken;
+  }
+
+  @Nonnull
+  public String generateSessionAccessToken(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Actor actor,
+      @Nullable final Long expiresInMs,
+      @Nonnull final String actorUrn) {
+    return generateAccessToken(
+        opContext,
+        TokenType.SESSION,
+        actor,
+        expiresInMs,
+        System.currentTimeMillis(),
+        UI_SESSION_TOKEN_NAME,
+        null,
+        actorUrn);
   }
 
   @Nonnull

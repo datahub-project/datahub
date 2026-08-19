@@ -79,6 +79,10 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+  # When enabled, UI session tokens are stored in the existing access token model and can be
+  # explicitly revoked on logout. Disabled by default to preserve stateless sessions.
+  statefulSessionTokensEnabled: ${STATEFUL_SESSION_TOKENS_ENABLED:false}
+
   # The max duration of a password reset token in milliseconds. Defaults to 1 day.
   passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
 

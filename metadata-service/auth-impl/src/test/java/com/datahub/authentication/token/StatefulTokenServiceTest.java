@@ -12,6 +12,7 @@ import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -20,6 +21,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Date;
 import java.util.Map;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -36,6 +38,17 @@ public class StatefulTokenServiceTest {
     PathSpecBasedSchemaAnnotationVisitor.class
         .getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
+
+  @BeforeMethod
+  public void resetMockService() {
+    Mockito.reset(mockService);
+    Mockito.when(mockService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              final Urn urn = invocation.getArgument(1);
+              return Constants.ACCESS_TOKEN_ENTITY_NAME.equals(urn.getEntityType());
+            });
   }
 
   @Test
@@ -156,6 +169,30 @@ public class StatefulTokenServiceTest {
   }
 
   @Test
+  public void testGenerateSessionAccessTokenHelper() throws Exception {
+    StatefulTokenService tokenService =
+        new StatefulTokenService(
+            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token =
+        tokenService.generateSessionAccessToken(
+            opContext,
+            datahub,
+            StatelessTokenService.DEFAULT_EXPIRES_IN_MS,
+            "urn:li:corpuser:__datahub_system");
+
+    assertNotNull(token);
+
+    TokenClaims claims = tokenService.validateAccessToken(token);
+
+    assertEquals(claims.getTokenVersion(), TokenVersion.TWO);
+    assertEquals(claims.getTokenType(), TokenType.SESSION);
+    assertEquals(claims.getActorType(), ActorType.USER);
+    assertEquals(claims.getActorId(), "datahub");
+    assertTrue(claims.getExpirationInMs() > System.currentTimeMillis());
+  }
+
+  @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
     StatefulTokenService tokenService =
         new StatefulTokenService(
@@ -242,6 +279,29 @@ public class StatefulTokenServiceTest {
     tokenService.revokeAccessToken(opContext, tokenService.hash(token));
 
     // Validation should fail.
+    assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
+  }
+
+  @Test
+  public void generateRevokeSessionToken() throws TokenException {
+    final RollbackRunResult result =
+        new RollbackRunResult(ImmutableList.of(), 0, ImmutableList.of());
+    Mockito.when(mockService.deleteUrn(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(result);
+
+    StatefulTokenService tokenService =
+        new StatefulTokenService(
+            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token =
+        tokenService.generateSessionAccessToken(
+            opContext,
+            datahub,
+            StatelessTokenService.DEFAULT_EXPIRES_IN_MS,
+            "urn:li:corpuser:__datahub_system");
+
+    tokenService.revokeAccessToken(opContext, tokenService.hash(token));
+
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
   }
 

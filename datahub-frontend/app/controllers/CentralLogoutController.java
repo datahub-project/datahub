@@ -1,6 +1,9 @@
 package controllers;
 
+import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
+
 import auth.sso.SsoManager;
+import client.AuthServiceClient;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URLEncoder;
@@ -18,8 +21,11 @@ import play.mvc.Results;
 public class CentralLogoutController extends LogoutController {
   private static final String AUTH_URL_CONFIG_PATH = "/login";
   private static final String DEFAULT_BASE_URL_PATH = "/";
+  private static final String LOGOUT_FAILURE_MESSAGE =
+      "Failed to revoke the current session token. Please retry sign out.";
 
   @Inject private SsoManager ssoManager;
+  @Inject private AuthServiceClient authServiceClient;
   @Inject private Config config;
 
   private String loginUrl;
@@ -51,6 +57,10 @@ public class CentralLogoutController extends LogoutController {
     setDefaultUrl(loginUrl);
     setLogoutUrlPattern(logoutPattern);
 
+    if (!revokeCurrentSessionToken(request)) {
+      return Results.internalServerError(LOGOUT_FAILURE_MESSAGE);
+    }
+
     if (ssoManager.isSsoEnabled()) {
       try {
         return logout(request).toCompletableFuture().get().withNewSession();
@@ -72,5 +82,20 @@ public class CentralLogoutController extends LogoutController {
       }
     }
     return Results.redirect(loginUrl).withNewSession();
+  }
+
+  private boolean revokeCurrentSessionToken(Http.Request request) {
+    final String accessToken = request.session().data().get(SESSION_COOKIE_GMS_TOKEN_NAME);
+    if (accessToken == null || accessToken.isBlank()) {
+      return true;
+    }
+
+    try {
+      authServiceClient.revokeSessionToken(accessToken);
+      return true;
+    } catch (Exception e) {
+      log.error("Failed to revoke current session token during logout.", e);
+      return false;
+    }
   }
 }

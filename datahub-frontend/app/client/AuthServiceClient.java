@@ -27,6 +27,7 @@ import play.mvc.Http;
 public class AuthServiceClient {
 
   private static final String GENERATE_SESSION_TOKEN_ENDPOINT = "auth/generateSessionTokenForUser";
+  private static final String REVOKE_SESSION_TOKEN_ENDPOINT = "auth/revokeSessionToken";
   private static final String SIGN_UP_ENDPOINT = "auth/signUp";
   private static final String RESET_NATIVE_USER_CREDENTIALS_ENDPOINT =
       "auth/resetNativeUserCredentials";
@@ -138,6 +139,55 @@ public class AuthServiceClient {
       log.error(
           "Failed to generate session token for userRef: {}", LoginIdentityMask.mask(userId), e);
       throw new RuntimeException("Failed to generate session token for user", e);
+    } finally {
+      try {
+        if (response != null) {
+          response.close();
+        }
+      } catch (Exception e) {
+        log.error("Failed to close http response", e);
+      }
+    }
+  }
+
+  /**
+   * Revokes the current UI session token when it is statefully tracked.
+   *
+   * @return true when logout revocation completed or was unnecessary, false when the token was
+   *     already invalid.
+   */
+  public boolean revokeSessionToken(@Nonnull final String accessToken) {
+    Objects.requireNonNull(accessToken, "accessToken must not be null");
+    CloseableHttpResponse response = null;
+
+    try {
+      final String protocol = this.metadataServiceUseSsl ? "https" : "http";
+      final HttpPost request =
+          new HttpPost(
+              String.format(
+                  "%s://%s:%s%s/%s",
+                  protocol,
+                  this.metadataServiceHost,
+                  this.metadataServicePort,
+                  this.metadataServiceBasePath,
+                  REVOKE_SESSION_TOKEN_ENDPOINT));
+
+      request.addHeader(Http.HeaderNames.AUTHORIZATION, "Bearer " + accessToken);
+
+      response = httpClient.execute(request);
+      final int code = response.getStatusLine().getStatusCode();
+      if (code == HttpStatus.SC_OK) {
+        return true;
+      }
+      if (code == HttpStatus.SC_UNAUTHORIZED) {
+        return false;
+      }
+      throw new RuntimeException(
+          String.format(
+              "Bad response from the Metadata Service: %s %s",
+              response.getStatusLine().toString(), response.getEntity()));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to revoke session token", e);
     } finally {
       try {
         if (response != null) {

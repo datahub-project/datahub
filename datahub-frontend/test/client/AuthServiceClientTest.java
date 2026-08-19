@@ -232,6 +232,34 @@ public class AuthServiceClientTest {
   }
 
   @Test
+  public void testRevokeSessionTokenSuccess() throws Exception {
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    assertTrue(authServiceClient.revokeSessionToken("session-token"));
+
+    verify(mockHttpClient)
+        .execute(
+            argThat(
+                request ->
+                    request instanceof HttpPost
+                        && ((HttpPost) request)
+                            .getURI()
+                            .toString()
+                            .contains("/auth/revokeSessionToken")));
+  }
+
+  @Test
+  public void testRevokeSessionTokenAlreadyInvalid() throws Exception {
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_UNAUTHORIZED);
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    assertFalse(authServiceClient.revokeSessionToken("session-token"));
+  }
+
+  @Test
   public void testGenerateSessionTokenForUserWithNullUserId() {
     // Test generateSessionTokenForUser with null userId
     assertThrows(

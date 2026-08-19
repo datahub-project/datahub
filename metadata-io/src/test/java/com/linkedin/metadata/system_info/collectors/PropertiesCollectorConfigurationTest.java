@@ -217,6 +217,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.logAuthenticatorExceptions",
           "authentication.passwordResetTokenExpirationMs",
           "authentication.sessionTokenDurationMs",
+          "authentication.statefulSessionTokensEnabled",
           "authentication.verboseAuthFailureLogging",
           "authentication.accessTokens.allowNoExpiry",
           "authentication.accessTokens.allowedDurations",
@@ -292,6 +293,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgresUseIamAuth",
           // Time durations and settings
           "sessionTokenDurationMs",
+          "statefulSessionTokensEnabled",
           // Kafka serializer/deserializer class names
           "kafka.serde.event.key.serializer",
           "kafka.serde.event.key.deserializer",
