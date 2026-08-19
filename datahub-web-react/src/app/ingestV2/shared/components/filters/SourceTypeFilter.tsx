@@ -1,4 +1,4 @@
-import { Select } from '@components';
+import { Select, Text } from '@components';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -17,6 +17,7 @@ interface Props {
 
 export default function SourceTypeFilter({ values, onUpdate, hideSystemSources }: Props) {
     const { t } = useTranslation('ingestion');
+    const { t: tf } = useTranslation('common.feedback');
     const { ingestionSources } = useIngestionSources();
 
     const displayNameByType = useMemo(
@@ -35,6 +36,7 @@ export default function SourceTypeFilter({ values, onUpdate, hideSystemSources }
         fetchPolicy: 'cache-and-network',
     });
 
+    const isInitialLoading = loading && !data;
     const typeFacet = data?.listIngestionSources?.facets?.find((facet) => facet.field === 'type');
 
     const options = useMemo(
@@ -57,7 +59,7 @@ export default function SourceTypeFilter({ values, onUpdate, hideSystemSources }
             onUpdate={onUpdate}
             options={options}
             isMultiSelect
-            isLoading={loading && !data}
+            emptyState={isInitialLoading ? <Text color="gray">{tf('loading')}</Text> : undefined}
             selectLabelProps={{ variant: 'labeled', label: t('filters.sourceType') }}
             renderCustomOptionText={(option) => <NameColumn type={option.value} record={{ name: option.label }} />}
             showSearch

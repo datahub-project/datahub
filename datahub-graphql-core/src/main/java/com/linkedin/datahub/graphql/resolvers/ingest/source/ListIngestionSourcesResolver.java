@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
+import com.linkedin.datahub.graphql.util.SelectionSetUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -36,6 +37,7 @@ public class ListIngestionSourcesResolver
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
+  private static final String FACETS_FIELD_NAME = "facets";
   private static final List<String> FACET_FIELDS = List.of("type");
 
   private final EntityClient _entityClient;
@@ -65,6 +67,13 @@ public class ListIngestionSourcesResolver
     // construct sort criteria, defaulting to systemCreated
     List<SortCriterion> sortCriteria = buildSortCriteria(input.getSort());
 
+    // Only compute the facet aggregation when the caller actually selects it, to avoid an
+    // unnecessary terms aggregation on every list/count call (e.g. getNoOfIngestionSources).
+    final List<String> facetFields =
+        SelectionSetUtils.selectedSubFieldNames(environment).contains(FACETS_FIELD_NAME)
+            ? FACET_FIELDS
+            : Collections.emptyList();
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
@@ -78,7 +87,7 @@ public class ListIngestionSourcesResolver
                     start,
                     count,
                     sortCriteria,
-                    FACET_FIELDS);
+                    facetFields);
 
             // Now that we have entities we can bind this to a result.
             final ListIngestionSourcesResult result = new ListIngestionSourcesResult();

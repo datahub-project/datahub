@@ -20,6 +20,9 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.execution.MergedField;
+import graphql.language.Field;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import org.mockito.Mockito;
@@ -73,6 +76,10 @@ public class ListIngestionSourceResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(
+            mergedListIngestionSourcesField(
+                "start", "count", "total", "ingestionSources", "facets"));
     var result = resolver.get(mockEnv).get();
 
     // Data Assertions
@@ -90,6 +97,48 @@ public class ListIngestionSourceResolverTest {
     assertEquals(result.getFacets().get(0).getAggregations().size(), 1);
     assertEquals(result.getFacets().get(0).getAggregations().get(0).getValue(), "snowflake");
     assertEquals(result.getFacets().get(0).getAggregations().get(0).getCount(), Long.valueOf(1));
+  }
+
+  @Test
+  public void testGetSuccessSkipsFacetsWhenNotSelected() throws Exception {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.eq(List.of(Constants.INGESTION_SOURCE_ENTITY_NAME)),
+                Mockito.eq(""),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.any(),
+                Mockito.eq(List.of())))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_INGESTION_SOURCE_URN))))
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
+
+    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(mergedListIngestionSourcesField("start", "count", "total"));
+    var result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getIngestionSources().size(), 1);
+    assertEquals(result.getFacets().size(), 0);
   }
 
   @Test
@@ -133,8 +182,24 @@ public class ListIngestionSourceResolverTest {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(mergedListIngestionSourcesField("start", "count", "total"));
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  /**
+   * Builds a real query AST for {@code listIngestionSources { <selectedFields> }} so the resolver
+   * reads the selection the same way it does at runtime.
+   */
+  private static MergedField mergedListIngestionSourcesField(final String... selectedFields) {
+    final SelectionSet.Builder selectionSet = SelectionSet.newSelectionSet();
+    for (String name : selectedFields) {
+      selectionSet.selection(Field.newField(name).build());
+    }
+    return MergedField.newMergedField(
+            Field.newField("listIngestionSources").selectionSet(selectionSet.build()).build())
+        .build();
   }
 
   @Test
