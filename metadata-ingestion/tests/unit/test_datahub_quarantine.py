@@ -83,7 +83,8 @@ def test_handles_close_failure_gracefully(tmp_path):
     writer.write(_row(), "some error")
 
     # Simulate a close failure
-    writer._file.close = MagicMock(side_effect=OSError("Simulated close failure"))
+    assert writer._file is not None
+    writer._file.close = MagicMock(side_effect=OSError("Simulated close failure"))  # type: ignore[method-assign]
 
     writer.close()  # must not raise
 

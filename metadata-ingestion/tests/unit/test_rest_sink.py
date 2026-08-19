@@ -497,7 +497,7 @@ def test_rest_sink_config_accepts_client_config_dump():
     assert cfg.server == "http://localhost:8080"
 
 
-def _make_sink(mock_emitter) -> DatahubRestSink:
+def _make_sink(mock_emitter: MagicMock) -> DatahubRestSink:
     sink = DatahubRestSink.__new__(DatahubRestSink)
     sink._emitter_thread_local = threading.local()
     sink._emitter_thread_local.emitter = mock_emitter
