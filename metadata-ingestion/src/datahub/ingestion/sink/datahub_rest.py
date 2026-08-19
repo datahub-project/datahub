@@ -52,6 +52,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.utilities.partition_executor import (
+    BatchItemFailures,
     BatchPartitionExecutor,
     PartitionExecutor,
 )
@@ -114,6 +115,13 @@ class DataHubRestSinkReport(SinkReport):
 
     async_batches_prepared: int = 0
     async_batches_split: int = 0
+
+    # Batch rejection is all-or-nothing server-side, so a rejected batch is re-emitted
+    # one record at a time to find the records that actually caused it. "recovered"
+    # counts records that would have been silently lost before this behaviour existed.
+    batches_rejected: int = 0
+    records_isolated_after_batch_rejection: int = 0
+    records_recovered_after_batch_rejection: int = 0
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
@@ -411,19 +419,31 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ]
         ],
     ) -> None:
-        events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
+        # Grouped per record, not flattened, so a rejected batch can be attributed to the
+        # record that caused it. The expansion is 1:N because an MCE unpacks into several MCPs.
+        events_by_record: List[
+            List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+        ] = []
 
         for record in records:
             event = record[0]
 
             if isinstance(event, MetadataChangeEvent):
                 # Unpack MCEs into MCPs.
-                mcps = mcps_from_mce(event)
-                events.extend(mcps)
+                events_by_record.append(list(mcps_from_mce(event)))
             else:
-                events.append(event)
+                events_by_record.append([event])
 
-        trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        events = [event for group in events_by_record for event in group]
+
+        try:
+            trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        except Exception as batch_error:
+            if len(events_by_record) <= 1:
+                # Nothing to isolate: the single record's error is already precise.
+                raise
+            raise self._isolate_batch_failures(events_by_record) from batch_error
+
         num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
         if num_chunks > 1:
@@ -432,6 +452,38 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
+
+    def _isolate_batch_failures(
+        self,
+        events_by_record: List[
+            List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+        ],
+    ) -> BatchItemFailures:
+        # The server rejects a batch as a unit, so a single invalid record fails every
+        # record batched with it. Re-emitting one record at a time attributes the failure
+        # to the record that caused it and lets the rest through.
+        self.report.batches_rejected += 1
+        self.report.records_isolated_after_batch_rejection += len(events_by_record)
+
+        outcomes: List[Optional[BaseException]] = []
+        for events in events_by_record:
+            try:
+                self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+            except Exception as e:
+                outcomes.append(e)
+            else:
+                outcomes.append(None)
+                self.report.records_recovered_after_batch_rejection += 1
+
+        recovered = sum(1 for outcome in outcomes if outcome is None)
+        logger.info(
+            "Batch of %d rejected; isolation recovered %d record(s) and identified "
+            "%d genuine failure(s)",
+            len(events_by_record),
+            recovered,
+            len(outcomes) - recovered,
+        )
+        return BatchItemFailures(outcomes)
 
     def write_record_async(
         self,
