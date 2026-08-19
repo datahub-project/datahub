@@ -28,6 +28,17 @@ public class DataHubAppConfigurationTest extends AbstractTestNGSpringContextTest
   }
 
   @Test
+  public void testPreProcessHooksDefaults() {
+    PreProcessHooks hooks =
+        testApplication.getDataHubAppConfig().getFeatureFlags().getPreProcessHooks();
+    assertNotNull(hooks);
+    assertTrue(hooks.isUiEnabled(), "PRE_PROCESS_HOOKS_UI_ENABLED defaults to true");
+    assertFalse(
+        hooks.isReprocessEnabled(),
+        "PRE_PROCESS_HOOKS_REPROCESS_ENABLED defaults to false when unset");
+  }
+
+  @Test
   public void testCustomSearchConfiguration() throws IOException {
     assertNotNull(testApplication.getDataHubAppConfig());
     assertNotNull(testApplication.getDataHubAppConfig().getElasticSearch());

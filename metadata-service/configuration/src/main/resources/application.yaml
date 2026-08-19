@@ -1568,7 +1568,11 @@ systemUpdate:
     # JSON array: [{"labelSelector":"...","env":{"KEY":"value",...}}]. Deployments matched by each
     # label selector get env set when scaling down; state stores previous env per deployment for restore.
     # Override via DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES (e.g. from Helm).
-    deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
+    # PRE_PROCESS_HOOKS_UI_ENABLED=false must stay paired with MAE_CONSUMER_ENABLED=false in this
+    # same JSON object (one Deployment patch). That keeps GMS from consuming MCLs while preprocess
+    # is off, so scale-down cannot recreate issue 19119. KubernetesScaleDownStep rejects a custom
+    # map that flips preprocess off without disabling the MCL consumer.
+    deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","MCL_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
     kedaGroup: ${DATAHUB_UPGRADE_K8_KEDA_GROUP:keda.sh}
     kedaVersion: ${DATAHUB_UPGRADE_K8_KEDA_VERSION:v1alpha1}
     kedaScaledObjectsPlural: ${DATAHUB_UPGRADE_K8_KEDA_SCALED_OBJECTS_PLURAL:scaledobjects}
@@ -1618,7 +1622,11 @@ featureFlags:
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
-    reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
+    # Independent of uiEnabled. Falls back to PRE_PROCESS_HOOKS_UI_ENABLED so existing helm MAE
+    # templates that only set that env var keep controlling UpdateIndicesHook's UI-event skip.
+    # Any process that consumes MCLs (embedded GMS or standalone MAE) refuses to start if both
+    # paths are false (issue 19119). Set the same PRE_PROCESS_HOOKS_* pair on GMS and MAE.
+    reprocessEnabled: ${PRE_PROCESS_HOOKS_REPROCESS_ENABLED:${PRE_PROCESS_HOOKS_UI_ENABLED:false}}
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
   erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
