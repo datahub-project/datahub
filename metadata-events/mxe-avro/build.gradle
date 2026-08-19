@@ -21,25 +21,34 @@ dependencies {
   avsc project(':metadata-events:mxe-schemas')
 }
 
-def genDir = file("src/generated/java")
+def genDir = layout.buildDirectory.dir("generated/java")
+
+sourceSets {
+  main {
+    java {
+      srcDir(genDir)
+    }
+  }
+}
 
 task avroCodeGen(type: com.github.davidmc24.gradle.plugin.avro.GenerateAvroJavaTask, dependsOn: configurations.avsc) {
   source("$rootDir/metadata-events/mxe-schemas/src/renamed/avro")
-  outputDir = genDir
+  outputDir = genDir.get().asFile
   dependsOn(':metadata-events:mxe-schemas:syncRenamedAvroToSrc')
+  outputs.cacheIf { true }
 }
 
-compileJava.source(avroCodeGen.outputs)
+compileJava.dependsOn(avroCodeGen)
 
 idea {
   module {
-    sourceDirs += genDir
-    generatedSourceDirs += genDir
+    sourceDirs += genDir.get().asFile
+    generatedSourceDirs += genDir.get().asFile
   }
 }
 
 project.rootProject.tasks.idea.dependsOn(avroCodeGen)
 
 clean {
-    delete 'src'
+  delete genDir
 }
