@@ -16,11 +16,6 @@ _TABLE = "urn_aliases"
 _MIN_CLOUD_VERSION = (2, 2, 0)
 _MIN_OSS_VERSION = (1, 8, 0)
 
-# Sized to the distinct upstreams a source references rather than to the catalog: a BI
-# tool names the same warehouse table across many charts, so the repeats answer from
-# memory.
-_CACHE_MAX_SIZE = 10_000
-
 
 def lowercased_urn(urn: str) -> Optional[str]:
     """`urn` with the dataset name lowercased, or None for a non-dataset URN."""
@@ -29,21 +24,14 @@ def lowercased_urn(urn: str) -> Optional[str]:
         dataset = DatasetUrn.from_string(urn)
     except InvalidUrnError:
         return None
-    return str(
-        DatasetUrn(
-            platform=dataset.platform, name=dataset.name.lower(), env=dataset.env
-        )
-    )
+    lowercased = dataset.name.lower()
+    if lowercased == dataset.name:
+        return urn
+    return str(DatasetUrn(platform=dataset.platform, name=lowercased, env=dataset.env))
 
 
 def _has_lowercased_name(urn: str) -> bool:
-    """Whether `urn`'s dataset name is already all lowercase."""
-    # The name only: a URN's scaffolding is mixed case whatever the entity is called.
-    try:
-        name = DatasetUrn.from_string(urn).name
-    except InvalidUrnError:
-        return False
-    return name == name.lower()
+    return lowercased_urn(urn) == urn
 
 
 class UrnAliasResolver:
@@ -61,9 +49,7 @@ class UrnAliasResolver:
         # Backed by sqlite: a bulk load holds a whole platform's URNs for the pipeline's
         # lifetime, roughly 500 bytes per dataset on disk.
         self._graph = graph
-        self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(
-            tablename=_TABLE, cache_max_size=_CACHE_MAX_SIZE
-        )
+        self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(tablename=_TABLE)
 
     def add(self, urn: str) -> None:
         """Record `urn` as stored, from a scroll that enumerated it."""
