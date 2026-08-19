@@ -1051,7 +1051,7 @@ class TestUnityCatalogProxy:
             for name in ("skip.tmp", "keep.parquet", "extra.parquet")
         ]
 
-        def _list(_directory_path, _page_size=None):
+        def _list(_directory_path, page_size=None):
             return entries
 
         proxy._files_api.list_directory_contents = _list  # type: ignore[assignment]

@@ -3354,6 +3354,40 @@ class TestUnityCatalogVolumes:
         )
         assert containers
 
+    def test_volume_file_urn_bounded_to_dataset_name_limit(self) -> None:
+        from datahub.ingestion.source.unity.proxy_types import VolumeFile
+        from datahub.ingestion.source.unity.source import (
+            _DATASET_URN_NAME_MAX_LENGTH,
+            _bounded_dataset_name,
+        )
+        from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+        source = self._build_source(include_volume_files=True)
+        volume, schema = self._build_volume()
+        relative_path = "dir/" + ("x" * 250) + "/file.parquet"
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path=relative_path,
+            dbfs_path=f"/Volumes/c/s/landing/{relative_path}",
+            file_size=1,
+            last_modified=None,
+        )
+        full_name = f"{volume.ref}/{relative_path}"
+        assert len(full_name) > _DATASET_URN_NAME_MAX_LENGTH
+        bounded = _bounded_dataset_name(full_name)
+        assert len(bounded) == _DATASET_URN_NAME_MAX_LENGTH
+        other = _bounded_dataset_name(f"{volume.ref}/dir/{'y' * 250}/file.parquet")
+        assert bounded != other
+        assert bounded in source.gen_volume_file_urn(volume_file)
+        props = None
+        for wu in source.process_volume_file(volume_file, schema):
+            found = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if found is not None:
+                props = found
+                break
+        assert props is not None
+        assert props.qualifiedName == volume_file.qualified_name
+
     def test_volume_file_pattern_drops(self) -> None:
         from datahub.ingestion.source.unity.proxy_types import VolumeFile
 

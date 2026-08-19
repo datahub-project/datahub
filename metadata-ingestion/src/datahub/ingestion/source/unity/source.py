@@ -1,4 +1,5 @@
 import dataclasses
+import hashlib
 import itertools
 import json
 import logging
@@ -184,6 +185,16 @@ _MEASURE_REF_RE = re.compile(
 _DISPLAY_NAME_MAX_LEN = 255
 _SYNONYMS_MAX_COUNT = 10
 _SYNONYM_MAX_LEN = 255
+_DATASET_URN_NAME_MAX_LENGTH = 210
+
+
+def _bounded_dataset_name(name: str) -> str:
+    if len(name) <= _DATASET_URN_NAME_MAX_LENGTH:
+        return name
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
+    prefix_len = _DATASET_URN_NAME_MAX_LENGTH - len(digest) - 1
+    return f"{name[:prefix_len]}.{digest}"
+
 
 # Databricks external lineage can return object-storage paths with a trailing
 # partition-set component in brace-list syntax, e.g.
@@ -1416,7 +1427,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             platform_instance=self.platform_instance_name,
-            name=f"{volume_file.volume.ref}/{volume_file.relative_path}",
+            name=_bounded_dataset_name(
+                f"{volume_file.volume.ref}/{volume_file.relative_path}"
+            ),
             env=self.config.env,
         )
 
