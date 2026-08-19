@@ -3,6 +3,14 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionTypeClass,
+    DataContractPropertiesClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
+from datahub.metadata.urns import DatasetUrn
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -26,14 +34,6 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchSourceConnection,
     HightouchSync,
 )
-from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionTypeClass,
-    DataContractPropertiesClass,
-    SubTypesClass,
-    UpstreamLineageClass,
-)
-from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.dataset import Dataset
 
 

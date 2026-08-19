@@ -2,6 +2,16 @@ from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SiblingsClass,
+    StringTypeClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+    ViewPropertiesClass,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -18,16 +28,6 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
-)
-from datahub.metadata.schema_classes import (
-    GlobalTagsClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SiblingsClass,
-    StringTypeClass,
-    SubTypesClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
 )
 
 
