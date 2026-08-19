@@ -106,7 +106,7 @@ function BoundingBoxMemberCountView({ urn, memberCount, total }: Props & { total
                             node.boundingBoxLimit = limit + CONTAINER_MEMBER_PAGE_SIZE;
                             setDisplayVersion(([version, urns]) => [version + 1, urns]);
                         }}
-                        data-testid="data-product-show-more"
+                        data-testid="container-show-more"
                     >
                         {t('dataProduct.showMore', { count: CONTAINER_MEMBER_PAGE_SIZE })}
                     </ShowMoreButton>

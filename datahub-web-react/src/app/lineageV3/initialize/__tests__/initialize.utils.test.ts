@@ -1,0 +1,113 @@
+import { act, renderHook } from '@testing-library/react-hooks';
+import { describe, expect, it } from 'vitest';
+
+import { CONTAINER_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
+import { createContainerMemberNode, useContainerMemberPagination } from '@app/lineageV3/initialize/initialize.utils';
+
+import { EntityType, LineageDirection } from '@types';
+
+const ROOT_URN = 'urn:li:semanticModel:(urn:li:dataPlatform:snowflake,model,PROD)';
+const OTHER_URN = 'urn:li:semanticModel:(urn:li:dataPlatform:snowflake,other,PROD)';
+const MEMBER_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)';
+
+function makeNodes(rootUrn: string, boundingBoxLimit?: number): NodeContext['nodes'] {
+    const nodes = new Map<string, LineageEntity>();
+    nodes.set(rootUrn, {
+        id: rootUrn,
+        urn: rootUrn,
+        type: EntityType.SemanticModel,
+        boundingBoxLimit,
+    } as LineageEntity);
+    return nodes;
+}
+
+describe('useContainerMemberPagination', () => {
+    it('starts at zero and is not initialized', () => {
+        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, makeNodes(ROOT_URN)));
+
+        expect(result.current.start).toBe(0);
+        expect(result.current.initialized).toBe(false);
+    });
+
+    it('advances start by page size until target is reached', () => {
+        const nodes = makeNodes(ROOT_URN, CONTAINER_MEMBER_PAGE_SIZE * 3);
+        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, nodes));
+
+        act(() => {
+            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE * 3);
+        });
+
+        expect(result.current.start).toBe(CONTAINER_MEMBER_PAGE_SIZE * 2);
+    });
+
+    it('does not advance start when total fits in one page', () => {
+        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, makeNodes(ROOT_URN)));
+
+        act(() => {
+            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE - 10);
+        });
+
+        expect(result.current.start).toBe(0);
+    });
+
+    it('caps paging at boundingBoxLimit when total is larger', () => {
+        const limit = CONTAINER_MEMBER_PAGE_SIZE + 25;
+        const nodes = makeNodes(ROOT_URN, limit);
+        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, nodes));
+
+        act(() => {
+            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE * 5);
+        });
+
+        expect(result.current.start).toBe(CONTAINER_MEMBER_PAGE_SIZE);
+    });
+
+    it('resets start and initialized when rootUrn changes', () => {
+        const { result, rerender } = renderHook(
+            ({ rootUrn }) => useContainerMemberPagination(rootUrn, makeNodes(rootUrn)),
+            { initialProps: { rootUrn: ROOT_URN } },
+        );
+
+        act(() => {
+            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE * 3);
+            result.current.setInitialized(true);
+        });
+
+        rerender({ rootUrn: OTHER_URN });
+
+        expect(result.current.start).toBe(0);
+        expect(result.current.initialized).toBe(false);
+    });
+});
+
+describe('createContainerMemberNode', () => {
+    const entity = { urn: MEMBER_URN, type: EntityType.Dataset };
+
+    it('attaches root container membership when rootContainerUrn is provided', () => {
+        const node = createContainerMemberNode(entity, ROOT_URN);
+
+        expect(node.containers).toEqual([{ urn: ROOT_URN, isOutputPort: false }]);
+    });
+
+    it('leaves containers undefined without a root container urn', () => {
+        const node = createContainerMemberNode(entity);
+
+        expect(node.containers).toBeUndefined();
+    });
+
+    it('marks member nodes as fully expanded with complete fetch status and empty filters', () => {
+        const node = createContainerMemberNode(entity, ROOT_URN);
+
+        expect(node.id).toBe(MEMBER_URN);
+        expect(node.urn).toBe(MEMBER_URN);
+        expect(node.type).toBe(EntityType.Dataset);
+        expect(node.isExpanded?.[LineageDirection.Upstream]).toBe(true);
+        expect(node.isExpanded?.[LineageDirection.Downstream]).toBe(true);
+        expect(node.fetchStatus?.[LineageDirection.Upstream]).toBe(FetchStatus.COMPLETE);
+        expect(node.fetchStatus?.[LineageDirection.Downstream]).toBe(FetchStatus.COMPLETE);
+        expect(node.filters?.[LineageDirection.Upstream]?.limit).toBeUndefined();
+        expect(node.filters?.[LineageDirection.Downstream]?.limit).toBeUndefined();
+        expect(node.filters?.[LineageDirection.Upstream]?.facetFilters.size).toBe(0);
+        expect(node.filters?.[LineageDirection.Downstream]?.facetFilters.size).toBe(0);
+    });
+});
