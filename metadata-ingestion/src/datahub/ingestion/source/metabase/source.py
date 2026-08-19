@@ -1186,8 +1186,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         for meta in card.result_metadata:
             if not meta.name:
                 continue
-            upstream_urns = by_output.get(meta.name.lower())
-            if not upstream_urns:
+            resolved_urns = by_output.get(meta.name.lower())
+            if not resolved_urns:
                 self.report.warning(
                     title="Native SQL Input Field Unresolved",
                     message="Could not resolve an output column to an upstream schema field via SQL lineage.",
@@ -1195,7 +1195,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     log=False,
                 )
                 continue
-            for upstream_urn in upstream_urns:
+            for upstream_urn in resolved_urns:
                 input_fields.append(self._create_input_field(upstream_urn, meta))
         return input_fields
 

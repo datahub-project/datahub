@@ -1449,10 +1449,9 @@ def test_nested_collection_sets_parent_container(mock_post, mock_get, mock_delet
     assert (
         parent_aspects[0].entityUrn == metabase_source._gen_collection_key(201).as_urn()
     )
-    assert (
-        parent_aspects[0].aspect.container
-        == metabase_source._gen_collection_key(200).as_urn()
-    )
+    parent_container = parent_aspects[0].aspect
+    assert isinstance(parent_container, ContainerClass)
+    assert parent_container.container == metabase_source._gen_collection_key(200).as_urn()
 
     metabase_source.close()
 

@@ -55,7 +55,7 @@ def _base_response_map():
 @contextmanager
 def _mocked_metabase(
     json_response_map: Dict[str, str],
-    mock_datahub_graph=None,
+    mock_datahub_graph: Optional[object] = None,
     failure: bool = False,
 ) -> Iterator[None]:
     session_builder = (
@@ -98,7 +98,7 @@ def _mocked_metabase(
 
 
 def _file_pipeline_config(
-    tmp_path,
+    tmp_path: pathlib.Path,
     filename: str,
     run_id: str,
     pipeline_name: str,
