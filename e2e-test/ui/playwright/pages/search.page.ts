@@ -44,7 +44,6 @@ export class SearchPage extends BasePage {
       localStorage.setItem('skipOnboardingTour', 'true');
     });
     await this.navigate('/');
-    await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
     // Dismiss any remaining dialog (e.g. "Narrow your search" welcome modal).
     await this.dismissOnboardingOverlays();
