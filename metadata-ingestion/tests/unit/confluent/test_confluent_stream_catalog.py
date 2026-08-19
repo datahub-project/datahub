@@ -283,10 +283,13 @@ class TestConfluentStreamCatalogClient:
             [make_response([{"qualifiedName": "no-name"}, {"name": "orders"}])]
         )
 
-        entities = fetch(client)
+        result = client.fetch_entities(QUERY, ROOT_KEY, SampleEntity)
 
-        assert [entity.name for entity in entities] == ["orders"]
+        assert [entity.name for entity in result.entities] == ["orders"]
         assert len(client.report.warnings) == 1
+        # A dropped entity leaves a gap, so the result must not look authoritative
+        # or a caller could delete metadata for the missing entity.
+        assert result.complete is False
 
     def test_missing_data_key_is_a_warning(self) -> None:
         response = Mock()

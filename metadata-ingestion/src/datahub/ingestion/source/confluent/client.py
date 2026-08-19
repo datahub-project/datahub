@@ -101,6 +101,9 @@ class ConfluentStreamCatalogClient:
                 break
 
             if page.raw_count > len(page.items):
+                # Dropped entries mean the result no longer mirrors the full catalog,
+                # so callers must not treat a now-missing entity as authoritative.
+                complete = False
                 self.report.warning(
                     message="Skipped non-object entries in a Confluent Stream Catalog page",
                     context=f"entity={root_key}, offset={offset}, "
@@ -109,8 +112,10 @@ class ConfluentStreamCatalogClient:
 
             for payload in page.items:
                 entity = self._parse_entity(payload, root_key, model)
-                if entity is not None:
-                    entities.append(entity)
+                if entity is None:
+                    complete = False
+                    continue
+                entities.append(entity)
 
             # raw_count, not filtered len(items): a non-object entry must not look like EOF.
             if page.raw_count < self.config.page_size:

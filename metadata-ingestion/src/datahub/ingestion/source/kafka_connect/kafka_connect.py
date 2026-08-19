@@ -35,6 +35,7 @@ from datahub.ingestion.source.confluent.constants import (
     KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG,
     KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES,
     MAX_KAFKA_TOPIC_FETCH_ATTEMPTS,
+    MAX_KAFKA_TOPIC_PAGES,
 )
 from datahub.ingestion.source.confluent.models import (
     BM_COLLISION_WITH_CONNECTOR_CONFIG,
@@ -635,33 +636,53 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
                 return None
 
-            response = self.kafka_session.get(topics_url, headers=auth_headers)
-            response.raise_for_status()
-            topics_data = response.json()
+            # v3 list endpoints page via `metadata.next` (an absolute URL, null on the
+            # last page). Follow it so a large cluster isn't silently truncated to the
+            # first page. The None (list unavailable) vs [] (authoritative empty cluster)
+            # distinction the catalog cross-check relies on is preserved: any read or
+            # shape failure returns None, a fully-read empty cluster returns [].
+            all_topics: List[str] = []
+            next_url: Optional[str] = topics_url
+            pages = 0
+            while next_url is not None:
+                if pages >= MAX_KAFKA_TOPIC_PAGES:
+                    self._warn_kafka_topics_unavailable(
+                        KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG
+                        if self._catalog is not None
+                        else KAFKA_REST_UNEXPECTED_RESPONSE,
+                        context=f"topics_url={topics_url}, pages={pages}",
+                    )
+                    return None
 
-            # The Kafka V3 topic-list endpoint does not paginate (`metadata.next` is
-            # always null), so this single read is the whole cluster. The None
-            # (unavailable) vs [] (empty cluster) distinction below is load-bearing for
-            # the catalog cross-check; don't collapse it into topic_cache.py's shape.
-            if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
-                all_topics = [
+                response = self.kafka_session.get(next_url, headers=auth_headers)
+                response.raise_for_status()
+                topics_data = response.json()
+                pages += 1
+
+                if (
+                    topics_data.get("kind") != "KafkaTopicList"
+                    or "data" not in topics_data
+                ):
+                    self._warn_kafka_topics_unavailable(
+                        KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG
+                        if self._catalog is not None
+                        else KAFKA_REST_UNEXPECTED_RESPONSE,
+                        context=f"topics_url={topics_url}",
+                    )
+                    return None
+
+                all_topics.extend(
                     topic["topic_name"]
                     for topic in topics_data["data"]
                     if not topic.get("is_internal", False)
-                ]
-                logger.info(
-                    f"Retrieved {len(all_topics)} topics from Confluent Cloud "
-                    "Kafka REST API v3"
                 )
-                return all_topics
+                next_url = (topics_data.get("metadata") or {}).get("next")
 
-            self._warn_kafka_topics_unavailable(
-                KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG
-                if self._catalog is not None
-                else KAFKA_REST_UNEXPECTED_RESPONSE,
-                context=f"topics_url={topics_url}",
+            logger.info(
+                f"Retrieved {len(all_topics)} topics from Confluent Cloud "
+                "Kafka REST API v3"
             )
-            return None
+            return all_topics
 
         except Exception as e:
             self._warn_kafka_topics_unavailable(
@@ -1100,7 +1121,23 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         ).as_workunit()
         self.report.catalog_tagged_flows += 1
 
+    def _warn_if_catalog_partial(self) -> None:
+        # Mirror the kafka source: a partial catalog read means some connectors may
+        # silently miss their catalog tags this run. Only relevant when tags are applied.
+        if (
+            self.config.confluent_catalog.include_tags
+            and self._catalog is not None
+            and not self._catalog.is_complete()
+        ):
+            self.report.warning(
+                message="The Confluent Stream Catalog was only partially read, so some "
+                "connectors may be missing their catalog tags this run. Re-run once the "
+                "catalog is fully readable.",
+                context="confluent_catalog",
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._warn_if_catalog_partial()
         for connector in self.get_connectors_manifest():
             # Always emit flow workunit (connector metadata) for all connectors
             yield self.construct_flow_workunit(connector)

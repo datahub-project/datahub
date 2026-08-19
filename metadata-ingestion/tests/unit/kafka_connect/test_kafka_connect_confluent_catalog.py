@@ -1043,6 +1043,28 @@ class TestSinkAvailableTopicsMigration:
             == []
         )
 
+    def test_authoritative_empty_cluster_resolves_to_no_topics(self) -> None:
+        manifest = make_manifest(
+            name="s3-sink",
+            connector_type="sink",
+            config={
+                "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+                "s3.bucket.name": "my-bucket",
+                "topics": "orders,payments",
+            },
+        )
+        manifest.topic_names = []
+        connector = ConfluentS3SinkConnector(
+            manifest, make_cloud_source().config, KafkaConnectSourceReport()
+        )
+        # [] (not None) is an authoritative empty cluster: the subscribed topics no
+        # longer exist, so they must not fall through to the configured subscription.
+        connector.all_cluster_topics = []
+
+        assert (
+            connector._resolve_subscribed_topics(manifest, ["orders", "payments"]) == []
+        )
+
     def test_bigquery_lineage_uses_available_topics_not_empty_topic_names(
         self,
     ) -> None:

@@ -1319,12 +1319,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if self.topic_catalog is None:
             return
 
-        if not self.topic_catalog.is_complete() and not self._warned_partial_catalog:
+        config = self.source_config.confluent_catalog
+        # Only a partial read that actually applies replacement metadata can drop a
+        # topic's tags/business metadata; stay quiet when neither is enabled.
+        if (
+            (config.include_tags or config.include_business_metadata)
+            and not self.topic_catalog.is_complete()
+            and not self._warned_partial_catalog
+        ):
             self._warned_partial_catalog = True
             self.report.warning(
                 message="The Confluent Stream Catalog was only partially read, so a topic that "
-                "dropped out of the partial result may have its catalog tags removed. Re-run once "
-                "the catalog is fully readable to restore them.",
+                "dropped out of the partial result may have its catalog tags and business metadata "
+                "removed. Re-run once the catalog is fully readable to restore them.",
                 context="confluent_catalog",
             )
 
@@ -1332,7 +1339,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if catalog_topic is None:
             return
 
-        config = self.source_config.confluent_catalog
         if config.include_tags and catalog_topic.tags:
             all_tags.extend(
                 self.source_config.tag_prefix + tag for tag in catalog_topic.tags

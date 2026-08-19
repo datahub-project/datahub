@@ -29,6 +29,10 @@ MAX_ERROR_BODY_CHARS: Final[int] = 500
 # Transient Kafka REST failures while listing topics for Confluent Cloud lineage.
 # urllib3 Retry.total is additional retries after the first attempt.
 MAX_KAFKA_TOPIC_FETCH_ATTEMPTS: Final[int] = 3
+
+# Safety valve for the v3 topic-list pagination loop, in case a server keeps
+# returning a `metadata.next` link.
+MAX_KAFKA_TOPIC_PAGES: Final[int] = 10_000
 KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES: Final[Tuple[int, ...]] = (
     429,
     500,
