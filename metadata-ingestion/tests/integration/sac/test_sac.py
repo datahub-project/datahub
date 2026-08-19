@@ -7,9 +7,20 @@ from requests.exceptions import RetryError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.sac.sac import SACSource, SACSourceConfig
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sac.sac import (
+    ConnectionMappingConfig,
+    SACSource,
+    SACSourceConfig,
+)
 from datahub.ingestion.source.sac.sac_common import ResourceModel
+from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
 from datahub.testing import mce_helpers
+
+DWC_MODEL_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sac,"
+    "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000,PROD)"
+)
 
 MOCK_TENANT_URL = "http://tenant"
 MOCK_TOKEN_URL = "http://tenant.authentication/oauth/token"
@@ -152,6 +163,153 @@ def test_acquired_model_schema_transport_error_degrades_gracefully(requests_mock
 
     assert source._get_data_export_schema(model) is None
     assert source.report.acquired_model_schema_failed == 1
+
+
+def _dwc_source(
+    requests_mock: Any,
+    connection_mapping: Dict[str, ConnectionMappingConfig],
+    resolve_datasphere_lineage: bool = True,
+) -> SACSource:
+    # SACSource.__init__ eagerly fetches an OAuth token, so the token endpoint is mocked.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        connection_mapping=connection_mapping,
+        resolve_datasphere_lineage=resolve_datasphere_lineage,
+    )
+    return SACSource(config, PipelineContext(run_id="sac-dwc-test"))
+
+
+def _dwc_model(name: str) -> ResourceModel:
+    # DWC live models carry an empty externalId; only the name links to the Datasphere object.
+    return ResourceModel(
+        namespace="t.3.C1ekdhlvx11ts0000000000000",
+        model_id="C1ekdhlvx11ts0000000000000",
+        name=name,
+        description=name,
+        system_type="DWC",
+        connection_id="DWCPROD",
+        external_id="",
+        is_import=False,
+    )
+
+
+def test_resolve_datasphere_upstream_builds_urn_from_configured_space(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_honors_platform_instance_and_env(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="bdap_sac",
+                platform_instance="prod_ds",
+                env="DEV",
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Analytics_3658_Results"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,prod_ds.bdap_sac.analytics_3658_results,DEV)"
+    )
+
+
+def test_resolve_datasphere_upstream_preserves_case_when_lowercase_disabled(
+    requests_mock,
+):
+    # Mirrors the airbyte/sigma per-connection convert_urns_to_lowercase override:
+    # when the upstream connector was run without lower-casing, casing is preserved.
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="BDAP_SAC",
+                convert_urns_to_lowercase=False,
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,BDAP_SAC.Fax_Mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_no_space_is_skipped(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(platform_instance="prod_ds")},
+    )
+
+    assert source._resolve_datasphere_upstream(_dwc_model("Fax_Mart")) is None
+    assert source.report.dwc_lineage_skipped_no_space == 1
+
+
+def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
+    # Drives a DWC model through the full workunit emission (not just the resolver) so the
+    # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert [u.dataset for u in upstream.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    ]
+
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert source.report.dwc_lineage_resolved == 1
+
+
+def test_get_model_workunits_skips_dwc_lineage_when_disabled(requests_mock):
+    # With the flag off a DWC model must not emit upstream lineage and, crucially, must not
+    # fall through to the generic "Unknown system type" warning (DWC is a known type).
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        resolve_datasphere_lineage=False,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    assert _first_aspect(workunits, UpstreamLineageClass) is None
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert list(source.report.warnings) == []
+
+
+def _first_aspect(workunits: List[Any], aspect_type: Any) -> Any:
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(aspect_type)
+        if aspect is not None:
+            return aspect
+    return None
 
 
 def match_token_url(request, context):
