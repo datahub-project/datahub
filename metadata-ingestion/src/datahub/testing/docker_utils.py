@@ -11,11 +11,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-def _fixed_container_names(
-    compose_file_path: Union[
-        str, "os.PathLike[str]", List[Union[str, "os.PathLike[str]"]]
-    ],
-) -> List[str]:
+def _fixed_container_names(compose_file_path: Union[str, List[str]]) -> List[str]:
     """Container names hardcoded via `container_name:` in the given compose file(s).
 
     Docker container names are unique host-wide, independent of the compose

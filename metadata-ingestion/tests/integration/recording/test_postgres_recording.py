@@ -55,7 +55,7 @@ def postgres_runner(docker_compose_runner, pytestconfig):
 class TestPostgreSQLRecording:
     """Integration test for PostgreSQL recording and replay."""
 
-    def test_postgres_record_replay_validation(self, postgres_runner: int):
+    def test_postgres_record_replay_validation(self, postgres_runner: int) -> None:
         """Test complete PostgreSQL record/replay cycle with MCP validation.
 
         This test:

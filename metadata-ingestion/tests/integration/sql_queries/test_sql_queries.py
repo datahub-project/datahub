@@ -20,7 +20,7 @@ IGNORE_PATHS = [
 ]
 
 
-def check_mockserver_health(port: int):
+def check_mockserver_health(port: int) -> bool:
     """Custom health check for MockServer using /health endpoint."""
     try:
         response = requests.get(f"http://localhost:{port}/health", timeout=2)
