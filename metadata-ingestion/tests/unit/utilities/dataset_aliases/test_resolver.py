@@ -18,22 +18,30 @@ _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,P
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
 _MIXED = "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Db.My_Schema.Events,PROD)"
 _OTHER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
-
-
-def _loaded(*urns: str) -> UrnAliasResolver:
-    """A resolver over a completed bulk load, which answers its own misses."""
-    resolver = UrnAliasResolver()
-    for urn in urns:
-        resolver.add(urn)
-    return resolver
+_DEV = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,DEV)"
+_BIGQUERY = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_db.my_schema.events,PROD)"
+# The same table under two platform instances. The instance is a prefix of the dataset
+# name, so it is part of the URN and of every comparison made on one.
+_IN_A = "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst_a.my_db.events,PROD)"
+_IN_B = "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst_b.my_db.events,PROD)"
+_IN_A_UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst_a.MY_DB.EVENTS,PROD)"
+_IN_B_UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst_b.MY_DB.EVENTS,PROD)"
 
 
 def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
-    """A graph holding `stored`, whose bulk scroll optionally dies part way through."""
+    """A graph holding `stored`, whose bulk scroll optionally dies part way through.
+
+    The scroll honours the `platform_instance` filter, as DataHub's search does, so a
+    narrowed read yields only its own slice rather than the whole store.
+    """
     graph = mock.MagicMock()
 
     def scroll(**kwargs: object) -> object:
-        yield from stored
+        instance = kwargs.get("platform_instance")
+        for urn in stored:
+            if instance and f",{instance}.".lower() not in urn.lower():
+                continue
+            yield urn
         if fails:
             raise RuntimeError("boom")
 
@@ -44,6 +52,14 @@ def _server(*stored: str, fails: bool = False) -> mock.MagicMock:
     return graph
 
 
+def _loaded(*urns: str) -> UrnAliasResolver:
+    """A graph-less resolver holding `urns`, as a completed bulk load would."""
+    resolver = UrnAliasResolver()
+    for urn in urns:
+        resolver.add(urn)
+    return resolver
+
+
 def _asked(graph: mock.MagicMock) -> List[str]:
     """The key each per-URN search asked about, in order."""
     return [
@@ -52,6 +68,7 @@ def _asked(graph: mock.MagicMock) -> List[str]:
 
 
 def _load(graph: mock.MagicMock, instance: str = "") -> Optional[UrnAliasResolver]:
+    """One bulk-loaded region, or None when its scroll did not finish."""
     return provide_urn_alias_resolver(
         graph=graph,
         platform="snowflake",
@@ -120,18 +137,15 @@ def test_resolve_prefers_lowercased_does_not_override_an_exact_match() -> None:
     assert _loaded(_LOWER, _UPPER).resolve(_UPPER, prefer_lowercased=True) == _UPPER
 
 
-# --- bulk-loaded answers its own misses; graph-backed asks -----------------------------
+# --- a bulk load caches; the graph answers ---------------------------------------------
 
 
-def test_a_bulk_loaded_resolver_never_asks() -> None:
-    # Its load ran to completion, so a miss is a fact rather than a gap.
+def test_a_bulk_loaded_hit_needs_no_question() -> None:
     graph = _server(_LOWER)
     resolver = _load(graph)
     assert resolver is not None
-    graph.get_urns_by_filter.reset_mock()
 
     assert resolver.resolve(_UPPER) == _LOWER
-    assert resolver.resolve(_OTHER) is None
     graph.get_dataset_urns_ignoring_case.assert_not_called()
 
 
@@ -178,6 +192,11 @@ def test_a_failed_search_records_nothing() -> None:
     assert resolver.resolve(_UPPER) == _LOWER
 
 
+def test_a_graph_less_resolver_answers_a_miss_with_nothing() -> None:
+    # A bulk load covers one region, so its miss is not the last word — the caller asks.
+    assert _loaded(_LOWER).find_match(_OTHER) == []
+
+
 def test_the_graph_backed_resolver_is_shared_per_server() -> None:
     graph = mock.MagicMock()
 
@@ -188,9 +207,21 @@ def test_the_graph_backed_resolver_is_shared_per_server() -> None:
 
 
 def test_a_load_that_fails_part_way_yields_no_resolver() -> None:
-    # Its rows are real, but their keys would claim to hold every casing of the name, and
-    # a partial answer resolves a later reference to the wrong entity.
+    # A partial row is a hit with an incomplete list of casings, which heals a reference to
+    # the wrong entity.
     assert _load(_server(_LOWER, fails=True)) is None
+
+
+def test_a_partial_load_cannot_answer_a_collision_wrongly() -> None:
+    # Both casings exist but the scroll reached only the uppercase one. Kept, that row
+    # heals a mixed-case reference to the uppercase entity and rewrites an exact uppercase
+    # one — wrong table either way.
+    graph = _server(_UPPER, _LOWER, fails=True)
+
+    assert _load(graph) is None
+    fetching = UrnAliasResolver(graph)
+    assert fetching.resolve(_MIXED, prefer_lowercased=True) == _LOWER
+    assert fetching.resolve(_UPPER, prefer_lowercased=True) == _UPPER
 
 
 def test_one_resolver_is_shared_by_every_consumer_of_a_region() -> None:
@@ -200,12 +231,28 @@ def test_one_resolver_is_shared_by_every_consumer_of_a_region() -> None:
     assert graph.get_urns_by_filter.call_count == 1
 
 
-def test_an_empty_region_still_loads_and_says_so(
+def test_a_load_narrowed_to_an_instance_holds_that_instance_alone() -> None:
+    # So its miss is not an absence: inst_b exists and this resolver never saw it.
+    resolver = _load(_server(_IN_A, _IN_B), instance="inst_a")
+
+    assert resolver is not None
+    assert resolver.resolve(_IN_A_UPPER, prefer_lowercased=True) == _IN_A
+    assert resolver.find_match(_IN_B_UPPER) == []
+
+
+def test_an_unfiltered_load_holds_every_instance() -> None:
+    resolver = _load(_server(_IN_A, _IN_B))
+
+    assert resolver is not None
+    assert resolver.resolve(_IN_B_UPPER, prefer_lowercased=True) == _IN_B
+
+
+def test_an_empty_instance_filtered_load_still_loads_and_says_so(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # The known hole while platform_instance is still a scroll filter — see
-    # docs/dev_guides/lineage_urn_casing.md.
-    resolver = _load(_server(), instance="prod_wh")
+    # The instance filter matches the dataPlatformInstance aspect a connector may never
+    # emit. Every reference then misses and is asked, which is correct but worth a log.
+    resolver = _load(_server(), instance="inst_a")
 
     assert resolver is not None
     assert any("Loaded 0 URNs" in r.message for r in caplog.records)

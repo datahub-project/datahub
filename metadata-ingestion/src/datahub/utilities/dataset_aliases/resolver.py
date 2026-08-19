@@ -37,27 +37,22 @@ def _has_lowercased_name(urn: str) -> bool:
 class UrnAliasResolver:
     """Resolves a dataset URN to the URN DataHub stores for it, ignoring case.
 
-    Keyed by the lowercased URN, the value GMS indexes as a dataset's alias, so one row
-    answers for every casing of a name.
+    Rows are keyed by the lowercased URN, the value GMS indexes as a dataset's alias, so one
+    row answers for every casing of a name.
 
-    With `graph`, an unknown name is fetched. Without it the resolver answers from what it
-    holds alone, so a miss is an absence — which is only true of one filled by a bulk load
-    that ran to completion, and is why `provide_urn_alias_resolver` returns None otherwise.
+    With `graph`, a row comes from an exhaustive search for that key, so a miss is an
+    absence. Without one the rows come from a bulk load, whose miss means only that the load
+    did not hold it — the caller asks a graph-backed resolver instead.
     """
 
     def __init__(self, graph: "Optional[DataHubGraph]" = None) -> None:
-        # Backed by sqlite: a bulk load holds a whole platform's URNs for the pipeline's
-        # lifetime, roughly 500 bytes per dataset on disk.
+        # Backed by sqlite: a bulk load holds a whole platform for the pipeline's
+        # lifetime, roughly 500 bytes per dataset.
         self._graph = graph
         self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(tablename=_TABLE)
 
     def add(self, urn: str) -> None:
-        """Record `urn` as stored, from a scroll that enumerated it.
-
-        For the bulk load in `provide_urn_alias_resolver` only. A key written without an
-        exhaustive search behind it looks settled to `find_match`, which then answers from
-        it rather than fetching.
-        """
+        """Record `urn` as stored in DataHub. For the bulk load only."""
         key = lowercased_urn(urn)
         if key is None:
             return
@@ -75,13 +70,13 @@ class UrnAliasResolver:
             # Not a dataset, so it has no casing to reconcile.
             return []
         entry = self._urns_by_key.get(key)
-        if entry is None:
-            if self._graph is None:
-                return []
-            # The search is exhaustive, so `[]` is a genuine absence and is recorded as
-            # one — the same name is not asked about twice.
-            entry = self._graph.get_dataset_urns_ignoring_case(key)
-            self._urns_by_key[key] = entry
+        if entry is not None:
+            return entry
+        if self._graph is None:
+            return []
+        # Exhaustive, so `[]` is a real absence and is cached as one.
+        entry = self._graph.get_dataset_urns_ignoring_case(key)
+        self._urns_by_key[key] = entry
         return entry
 
     def resolve(self, urn: str, prefer_lowercased: bool = False) -> Optional[str]:
@@ -95,7 +90,9 @@ class UrnAliasResolver:
         if urn in matches:
             return urn
         if prefer_lowercased:
-            return next((m for m in matches if _has_lowercased_name(m)), None)
+            for match in matches:
+                if _has_lowercased_name(match):
+                    return match
         return None
 
     def close(self) -> None:
@@ -105,8 +102,7 @@ class UrnAliasResolver:
 def maintains_dataset_aliases(graph: "DataHubGraph") -> bool:
     """Whether the server maintains the dataset `aliases` aspect resolution reads.
 
-    The gate on the whole feature: without aliases there is no way to reach a stored
-    casing, and approximating one would report healthy lineage as broken.
+    Gates the whole feature: without aliases a stored casing is unreachable.
     """
     config = graph.server_config
     minimum = _MIN_CLOUD_VERSION if config.is_datahub_cloud else _MIN_OSS_VERSION

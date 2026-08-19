@@ -143,13 +143,22 @@ whole catalog read. With no `upstream_platforms` at all, nothing is read up fron
 is answered individually — right for a source that touches only a handful of warehouse tables, or
 whose warehouse is too large to read.
 
-Preloading and querying divide the work rather than stacking on it. A catalog read that finishes
-answers its own misses, so a reference it does not find is already known to be absent and is never
-re-asked; queries are spent only on references outside everything that was read. A read that fails
-part way is discarded — its references fall back to queries rather than being told, wrongly, that
-DataHub holds no such entity. Column casing works
-the same way in both cases — a preloaded catalog carries its schemas, and an unlisted table's columns
-are fetched with it.
+Preloading and querying divide the work rather than stacking on it. A preloaded catalog is a **cache,
+not an authority**: a reference it holds is answered locally, and a reference it does not hold is asked
+of DataHub. Nothing is ever concluded from a preload's silence, because a preload covers one
+`platform` / `platform_instance` / `env` and a reference may legitimately live outside it — in a
+sibling instance, say. So every `UNRESOLVED` is backed by an actual search, and a preload only ever
+saves a query.
+
+That makes a failed or empty read cost speed rather than correctness. The one exception is a read that
+dies **part way**: its rows are real, but its list of casings for a given name may be incomplete, and
+an incomplete list is a _hit_ that heals a reference to the wrong table. Such a load is therefore
+discarded whole and its references are asked instead.
+
+Column casing works the same way, and is loaded separately: a preloaded catalog answers from its
+schemas, and anything it does not hold — including everything in a slice whose schema read failed —
+has its columns fetched. Such a reference still heals at table level; only its columns cost a round
+trip.
 
 ### Where to enable it
 
@@ -200,19 +209,22 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   only by case, ambiguous references are left unchanged rather than risk merging distinct entities.
 - **Column casing needs the table's schema.** A referenced table that exists without a `schemaMetadata`
   aspect is still healed at table level; only its column casing is left as the source reported it.
-- **Scope is what you asked for.** By default a reference is resolved only to an entity inside the
-  `platform` / `platform_instance` / `env` combinations listed in `upstream_platforms`, so a reference
-  to a `platform_instance` you did not list is never looked up at all, even though that entity exists
-  in DataHub. It is left unchanged and unstamped — no `matchType` verdict, and counted under
-  `num_refs_out_of_scope`. Either add it to `upstream_platforms` (also preloading it) or set
-  `resolve_all_platforms: true` to reconcile whatever a reference points at.
+- **Scope is by platform.** By default a reference is reconciled only if its platform is named in
+  `upstream_platforms`; a reference to any other platform is never looked up, and is left unchanged and
+  unstamped — no `matchType` verdict, counted under `num_refs_out_of_scope` and never `UNRESOLVED`,
+  since nothing was checked. The `platform_instance` and `env` on an entry say what to _preload_, not
+  what is in scope, so a reference into an instance or env you did not list is still reconciled — by
+  asking — as long as its platform is listed. Set `resolve_all_platforms: true` to reconcile every
+  platform a reference points at.
 - **`platform_instance` narrows the catalog read via DataHub's search, which matches the entity's
   `dataPlatformInstance` aspect — not the URN.** The instance is part of the dataset URN's name
   regardless, but that is not what the filter reads, so a connector that emits the URN without the
-  aspect matches nothing: the read returns 0 datasets and every reference to that platform is reported
-  `UNRESOLVED`. Unity Catalog does not emit it by default (`ingest_data_platform_instance_aspect`), and
-  the instance name must also match the casing that was emitted. If the log shows `Bulk fetch returned
-0 datasets`, drop `platform_instance` and read the whole platform / env instead.
+  aspect matches nothing and the read returns 0 datasets. That is harmless — the preload simply holds
+  nothing and every reference is asked instead — but it costs a query per reference a working filter
+  would have answered locally. Unity Catalog does not emit the aspect by default
+  (`ingest_data_platform_instance_aspect`), and the instance name must also match the casing that was
+  emitted. If the log shows `Loaded 0 URNs`, drop `platform_instance` and read the whole platform / env
+  instead.
 - **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that
   doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage

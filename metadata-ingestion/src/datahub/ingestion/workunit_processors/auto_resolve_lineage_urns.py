@@ -95,7 +95,7 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_dataset_urns_normalized: int = 0  # Upstream dataset URNs rewritten
     num_column_urns_normalized: int = 0  # Fine-grained field URNs rewritten
     num_refs_verified_exact: int = 0  # Checked; the exact URN exists in DataHub
-    num_refs_out_of_scope: int = 0  # Never attempted (platform or slice not in scope)
+    num_refs_out_of_scope: int = 0  # Never attempted (platform not in scope)
     num_refs_skipped_malformed: int = 0  # Not a well-formed dataset / schemaField URN
     num_refs_unresolved: int = 0  # In scope, no unique match (flagged)
     # In scope, but the lookup failed, so there is no verdict (not UNRESOLVED).
@@ -173,16 +173,16 @@ class AutoResolveLineageUrnsProcessor(
 
     Heals casing mismatches between sources (e.g. a lowercase-stored Snowflake table
     referenced in a different casing by a BI tool) that would otherwise create two
-    disconnected lineage nodes. Identity comes from ``UrnAliasResolver`` over the URN
-    alias index shared per DataHub instance — one lookup per reference, whatever the
-    configured platforms — and columns from a ``SchemaResolver``. Both table-level
-    (``UpstreamLineage``, ``DashboardInfo``) and column-level (``FineGrainedLineage``
-    field paths) references are reconciled. Any stored casing is reachable, and a
-    reference whose name matches two entities differing only by case resolves to the
+    disconnected lineage nodes. Identity comes from a ``UrnAliasResolver`` and columns from a
+    ``SchemaResolver``, each preloaded per configured platform and asked per reference
+    otherwise. Both table-level (``UpstreamLineage``, ``DashboardInfo``) and column-level
+    (``FineGrainedLineage`` field paths) references are reconciled. Any stored casing is
+    reachable, and a reference matching two entities that differ only by case resolves to the
     lowercase-named one, or is left alone if neither is lowercase.
 
-    Two settings doing different jobs: ``upstream_platforms`` is what to read up front,
-    ``resolve_all_platforms`` is what may be reconciled at all.
+    Scope is the platform names in ``upstream_platforms``; their ``platform_instance`` and
+    ``env`` say only what to preload. ``resolve_all_platforms`` widens scope to every
+    platform a reference points at.
 
     Only references *to* warehouse assets found in this source's metadata are fixed;
     the entity the aspect is attached to and downstream fields are never touched. It
@@ -200,15 +200,12 @@ class AutoResolveLineageUrnsProcessor(
         self._graph: DataHubGraph = graph
         cfg = ctx.pipeline_context.flags.auto_resolve_lineage_urns
         self._config: List[UpstreamPlatformCasing] = cfg.upstream_platforms
-        # Whether scope reaches past the catalogs we preload, and so the only reason the
-        # resolver below needs a network fallback: inside a preloaded slice that load
-        # already answers its own misses.
         self._resolve_all_platforms: bool = cfg.resolve_all_platforms
-        # Bulk-loaded UrnAliasResolvers, alongside the SchemaResolvers below: identity
-        # from one, columns from the other, loaded and failing apart. Keyed by
-        # (platform, env) — both are URN components, so a reference selects its own
-        # resolvers. platform_instance is not, which is why it is not part of the key.
-        self._alias_resolvers: Dict[Tuple[str, str], List[UrnAliasResolver]] = {}
+        # The platforms in scope, independent of what loaded.
+        self._platforms: Set[str] = {entry.platform for entry in self._config}
+        # Preloaded URN indexes per platform, one per configured entry that loaded. A cache
+        # only: a miss is asked of DataHub.
+        self._alias_resolvers: Dict[str, List[UrnAliasResolver]] = {}
         # Resolve the sqlglot-backed schema_resolver callables once, here — a single
         # honest chokepoint rather than imports buried in two leaf methods. Deferred into
         # __init__ (not module level) so importing this module stays sqlglot-free
@@ -229,11 +226,9 @@ class AutoResolveLineageUrnsProcessor(
         self._match_columns_to_schema: Callable[[SchemaInfo, List[str]], List[str]] = (
             match_columns_to_schema
         )
-        # Per-platform SchemaResolvers, bulk-initialized up front by _load_catalogs().
-        # Casing matching is delegated to each resolver's UrnAliasResolver, so the
-        # processor keeps no casing index of its own.
-        self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
-        # Lazily built for entities outside those catalogs. See _graph_resolver_for.
+        # Preloaded schemas per platform, also a cache: a miss is fetched per URN.
+        self._schema_resolvers: Dict[str, List["SchemaResolver"]] = {}
+        # Lazily built for the per-URN fetches. See _graph_resolver_for.
         self._graph_resolvers_by_platform: Dict[str, "SchemaResolver"] = {}
         # Platforms actually referenced by this source's lineage, so
         # _warn_unmatched_platforms can flag configured platforms that no reference used
@@ -431,89 +426,56 @@ class AutoResolveLineageUrnsProcessor(
     # --- resolution -------------------------------------------------------------
 
     def _load_catalogs(self) -> None:
-        """Read each configured platform's catalog up front, for column casing.
+        """Read each configured entry's URNs and schemas up front, as a cache.
 
-        ``provide_schema_resolver`` does a single bulk scroll per (platform, instance,
-        env) and is globally cached, warming each resolver's schema cache so the
-        ``resolve_urn`` calls in _resolve_dataset stay local. It also fills the shared
-        URN alias index, which is what makes identity answerable without a round trip.
-
-        One scroll per configured entry, each standing or falling on its own: a platform
-        configured for several instances keeps the ones that loaded, and only the slices
-        that scrolled to completion are recorded as held locally.
-
-        Driven by ``upstream_platforms`` alone, so widening scope adds references
-        answered per URN rather than changing what is read here.
+        Best-effort: whatever fails to load is asked of DataHub per reference instead, so a
+        failure here costs speed rather than correctness.
         """
-        entries_by_platform: Dict[str, List["UpstreamPlatformCasing"]] = {}
         for entry in self._config:
-            entries_by_platform.setdefault(entry.platform, []).append(entry)
-
-        for platform, entries in entries_by_platform.items():
-            # Emitted before the (potentially long, paginated) fetch so operators see a
-            # signal during the stall, not only after.
-            logger.info(
-                f"Loading '{platform}' catalog from DataHub for lineage casing "
-                f"reconciliation; this may take a while on large warehouses..."
+            scope = (
+                f"{entry.platform}, platform_instance={entry.platform_instance}, "
+                f"env={entry.env}"
             )
-            resolvers: List[SchemaResolver] = []
-            for entry in entries:
-                region = (entry.platform, entry.env)
-                # Independent of the schema load below: identity comes from the alias
-                # resolver, columns from the schema cache, so one failing leaves the other.
-                alias_resolver = provide_urn_alias_resolver(
+            alias_resolver = provide_urn_alias_resolver(
+                graph=self._graph,
+                platform=entry.platform,
+                platform_instance=entry.platform_instance,
+                env=entry.env,
+            )
+            if alias_resolver is None:
+                self.ctx.source_report.warning(
+                    title="Lineage URN casing: upstream URNs not loaded",
+                    message="Failed to load an upstream platform's URNs from DataHub; "
+                    "its references are resolved one at a time instead.",
+                    context=scope,
+                )
+            else:
+                self._alias_resolvers.setdefault(entry.platform, []).append(
+                    alias_resolver
+                )
+
+            try:
+                schema_resolver = self._provide_schema_resolver(
                     graph=self._graph,
                     platform=entry.platform,
                     platform_instance=entry.platform_instance,
                     env=entry.env,
                 )
-                if alias_resolver is None:
-                    self.ctx.source_report.warning(
-                        title="Lineage URN casing: upstream URNs not loaded",
-                        message="Failed to load an upstream platform's URNs from "
-                        "DataHub; references to it are resolved one at a time where "
-                        "resolve_all_platforms allows, and left unchanged otherwise.",
-                        context=f"{entry.platform}, platform_instance="
-                        f"{entry.platform_instance}, env={entry.env}",
-                    )
-                else:
-                    self._alias_resolvers.setdefault(region, []).append(alias_resolver)
-                try:
-                    resolver = self._provide_schema_resolver(
-                        graph=self._graph,
-                        platform=entry.platform,
-                        platform_instance=entry.platform_instance,
-                        env=entry.env,
-                    )
-                except Exception as e:
-                    # A catalog-load failure must not crash the pipeline: report it and
-                    # leave the region unloaded, so its references are emitted unchanged.
-                    # Scoped to the entry that failed, so a sibling instance or env that
-                    # loaded stays usable.
-                    self.ctx.source_report.warning(
-                        title="Lineage URN casing: upstream catalog not loaded",
-                        message="Failed to bulk-load an upstream platform's catalog "
-                        "from DataHub; references to it are emitted unchanged.",
-                        context=f"{entry.platform}, platform_instance="
-                        f"{entry.platform_instance}, env={entry.env}",
-                        exc=e,
-                    )
-                    continue
-                resolvers.append(resolver)
-            if not resolvers:
-                # Nothing loaded for this platform, so it stays absent from
-                # _resolvers_by_platform and out of scope. The warnings above already
-                # said why; a "loaded 0 URNs" line on top would only be noise.
+            except Exception as e:
+                self.ctx.source_report.warning(
+                    title="Lineage URN casing: upstream catalog not loaded",
+                    message="Failed to bulk-load an upstream platform's catalog from "
+                    "DataHub; its columns are fetched one at a time instead.",
+                    context=scope,
+                    exc=e,
+                )
                 continue
-            # The schema caches are held for the pipeline's lifetime; log their size,
-            # escalating to WARNING once large enough to matter. Summed across the
-            # platform's regions, since their combined disk use is what matters.
-            cache_count = sum(r.schema_count() for r in resolvers)
-            message = (
-                f"Loaded {cache_count} '{platform}' dataset schemas for lineage casing "
-                f"reconciliation."
+            self._schema_resolvers.setdefault(entry.platform, []).append(
+                schema_resolver
             )
-            if cache_count > _CATALOG_SIZE_WARN_THRESHOLD:
+            count = schema_resolver.schema_count()
+            message = f"Loaded {count} dataset schemas for {scope}."
+            if count > _CATALOG_SIZE_WARN_THRESHOLD:
                 logger.warning(
                     f"{message} Its cache uses significant disk; consider narrowing "
                     f"upstream_platforms (platform_instance / env) to the assets this "
@@ -521,7 +483,6 @@ class AutoResolveLineageUrnsProcessor(
                 )
             else:
                 logger.info(message)
-            self._resolvers_by_platform[platform] = resolvers
 
     def _resolve_dataset(self, urn: str) -> _Resolution:
         """Resolve `urn` to the casing DataHub already stores, via the URN alias index.
@@ -533,8 +494,8 @@ class AutoResolveLineageUrnsProcessor(
         outside scope is never looked up at all, so it abstains rather than reporting an
         absence.
 
-        Matching whole URNs means platform_instance and env are part of the comparison,
-        so a reference is never healed across either.
+        Matching whole URNs means platform_instance and env are part of the comparison, so a
+        reference is never healed across either.
 
         The resolved entity's schema is returned too, for column-casing correction — see
         _schema_of, which is where identity and columns are paired back up.
@@ -542,22 +503,19 @@ class AutoResolveLineageUrnsProcessor(
         try:
             dataset = DatasetUrn.from_string(urn)
             platform = DataPlatformUrn.from_string(dataset.platform).platform_name
-            region = (platform, dataset.env)
         except Exception:
             return _Resolution(urn, None, None)
         # Track referenced platforms so _warn_unmatched_platforms can flag configured
         # platforms that no reference used (usually a case/spelling typo in the config).
         self._seen_reference_platforms.add(platform)
-        resolvers = self._resolvers_by_platform.get(platform) or []
-        alias_resolvers = self._alias_resolvers.get(region) or []
-        if not alias_resolvers and not self._resolve_all_platforms:
+        if platform not in self._platforms and not self._resolve_all_platforms:
             # Out of scope: left untouched, and unstamped (no verdict == not processed).
             self.report.num_refs_out_of_scope += 1
             return _Resolution(urn, None, None)
         # prefer_lowercased: when two stored casings of the same name collide, heal to
         # the lowercase-named entity rather than leaving the lineage broken.
         try:
-            resolved = self._resolve_alias(urn, alias_resolvers)
+            resolved = self._resolve_alias(urn, platform)
         except Exception as e:
             # Nothing was answered, so nothing is stamped: UNRESOLVED would claim DataHub
             # holds no such entity, on the strength of a query that failed.
@@ -578,50 +536,34 @@ class AutoResolveLineageUrnsProcessor(
             self.report.unresolved_refs_sample.add(urn)
             return _Resolution(urn, None, _UNRESOLVED)
         match_type = _EXACT if resolved == urn else _NORMALIZED
-        return _Resolution(
-            resolved, self._schema_of(resolved, platform, resolvers), match_type
-        )
+        return _Resolution(resolved, self._schema_of(resolved, platform), match_type)
 
-    def _resolve_alias(
-        self, urn: str, alias_resolvers: List[UrnAliasResolver]
-    ) -> Optional[str]:
-        """The stored casing of `urn`, from a bulk-loaded region or by asking DataHub.
+    def _resolve_alias(self, urn: str, platform: str) -> Optional[str]:
+        """The stored casing of `urn`, from a preloaded catalog or by asking DataHub.
 
-        A bulk-loaded resolver answers its own misses, so the fetch is spent only where
-        nothing was loaded for the region at all.
+        A preload covers one platform_instance / env, so a miss in it is not an absence and
+        has to be asked about.
         """
-        for resolver in alias_resolvers:
+        for resolver in self._alias_resolvers.get(platform) or []:
             resolved = resolver.resolve(urn, prefer_lowercased=True)
             if resolved is not None:
                 return resolved
-        if alias_resolvers:
-            return None
         return graph_urn_alias_resolver(self._graph).resolve(
             urn, prefer_lowercased=True
         )
 
-    def _schema_of(
-        self, urn: str, platform: str, resolvers: List["SchemaResolver"]
-    ) -> Optional[SchemaInfo]:
+    def _schema_of(self, urn: str, platform: str) -> Optional[SchemaInfo]:
         """The columns DataHub stores for `urn`, or None for an entity that has none.
 
-        A platform can be configured several times (one entry per platform_instance /
-        env), so its resolvers are tried in turn; only the one whose region holds `urn`
-        can answer, so the first hit is the only hit.
+        Preloaded catalogs first, then a fetch — the same miss-means-ask as _resolve_alias.
 
-        A bulk load fetched every schema it holds, so a miss among them is the answer and
-        asking the server would spend a round trip on something we know. Where nothing was
-        loaded for the platform, the columns are fetched instead.
-
-        A failed fetch answers None: columns are an enrichment on top of an identity that
-        is already resolved, so losing them must not unwind the reference itself.
+        A failed fetch answers None too: columns enrich an identity that is already
+        resolved, so losing them must not unwind the reference.
         """
-        for resolver in resolvers:
+        for resolver in self._schema_resolvers.get(platform) or []:
             schema = resolver.resolve_urn(urn)[1]
             if schema is not None:
                 return schema
-        if resolvers:
-            return None
         try:
             return self._graph_resolver_for(platform).resolve_urn(urn)[1]
         except Exception as e:
