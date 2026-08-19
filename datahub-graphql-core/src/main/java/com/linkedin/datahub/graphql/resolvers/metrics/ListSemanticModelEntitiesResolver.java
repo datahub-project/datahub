@@ -34,8 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Resolver for {@code SemanticModel.entities}: searches metrics and datasets whose member-side
  * {@code semanticModel} field equals this SemanticModel URN. Membership is stored on {@code
- * metricInfo.semanticModel} / {@code semanticModelProperties.semanticModel} (same pattern as
- * Domains).
+ * metricInfo.semanticModel} / {@code semanticModelProperties.semanticModel}.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -58,8 +57,10 @@ public class ListSemanticModelEntitiesResolver
         environment.getArgument("urn") != null
             ? environment.getArgument("urn")
             : ((SemanticModel) environment.getSource()).getUrn();
-    final SearchAcrossEntitiesInput input =
+    final SearchAcrossEntitiesInput boundInput =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
+    final SearchAcrossEntitiesInput input =
+        boundInput != null ? boundInput : new SearchAcrossEntitiesInput();
 
     final List<EntityType> inputEntityTypes =
         (input.getTypes() == null || input.getTypes().isEmpty())
@@ -73,7 +74,8 @@ public class ListSemanticModelEntitiesResolver
                 .collect(Collectors.toList())
             : DEFAULT_ENTITY_NAMES;
 
-    final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
+    final String query = input.getQuery();
+    final String sanitizedQuery = query != null ? ResolverUtils.escapeForwardSlash(query) : null;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
@@ -87,8 +89,7 @@ public class ListSemanticModelEntitiesResolver
                       new ConjunctiveCriterionArray(
                           new ConjunctiveCriterion()
                               .setAnd(new CriterionArray(membershipCriterion))));
-          final Filter inputFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+          final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
           final Filter finalFilter =
               inputFilter == null
                   ? membershipFilter
@@ -122,7 +123,8 @@ public class ListSemanticModelEntitiesResolver
                 finalEntityNames,
                 input.getQuery(),
                 start,
-                count);
+                count,
+                e);
             throw new RuntimeException(
                 "Failed to execute search for semantic model entities: "
                     + String.format(

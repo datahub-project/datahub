@@ -24,7 +24,7 @@ export function collectLineageContainerGroups(
 ): Map<Urn, LineageContainerGroup> {
     const groups = new Map<Urn, LineageContainerGroup>();
 
-    const rootEntity = allNodes.get(rootUrn)?.entity;
+    const rootEntity = allNodes.get(rootUrn)?.entity ?? containerEntities.get(rootUrn);
     groups.set(rootUrn, {
         urn: rootUrn,
         type: rootType,
@@ -37,7 +37,7 @@ export function collectLineageContainerGroups(
         node.containers?.forEach(({ urn }) => {
             const group = setDefault(groups, urn, {
                 urn,
-                type: urn === rootUrn ? rootType : EntityType.DataProduct,
+                type: urn === rootUrn ? rootType : (containerEntities.get(urn)?.type ?? EntityType.DataProduct),
                 memberUrns: new Set<Urn>(),
             });
             group.memberUrns.add(node.urn);

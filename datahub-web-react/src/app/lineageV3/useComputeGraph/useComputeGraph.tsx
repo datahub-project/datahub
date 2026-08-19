@@ -6,9 +6,9 @@ import { LineageFilter, LineageNodesContext, NodeContext, useIgnoreSchemaFieldSt
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
-import computeLineageContainerGraph from '@app/lineageV3/useComputeGraph/lineageContainer/computeLineageContainerGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
+import computeLineageContainerGraph from '@app/lineageV3/useComputeGraph/lineageContainer/computeLineageContainerGraph';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { EntityType } from '@types';
@@ -125,7 +125,8 @@ export default function useComputeGraph(): ProcessedData {
                 isModuleView,
                 showLineageFilterNodes,
             );
-        }, // eslint-disable-next-line react-hooks/exhaustive-deps
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             rootUrn,
             rootType,

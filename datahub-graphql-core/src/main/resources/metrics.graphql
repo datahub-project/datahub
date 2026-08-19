@@ -265,8 +265,8 @@ type SemanticModel implements EntityWithRelationships & Entity {
 
   """
   Contained entities (logical datasets and metrics) of this SemanticModel.
-  Search-backed filter on member-side `semanticModel` / `hasSemanticModel`
-  (same pattern as Domain.entities). Used by the lineage explorer.
+  Search-backed filter on member-side `semanticModel` / `hasSemanticModel`.
+  Used by the lineage explorer.
   """
   entities(input: SearchAcrossEntitiesInput): SearchResults
 

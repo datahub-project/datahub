@@ -39,25 +39,6 @@ const ShowMoreButton = styled.button`
     }
 `;
 
-/** Fetches a container's total member count. Cache-first so it hits the network once per container. */
-function useContainerMemberTotal(urn: string, rootType: EntityType): number | undefined {
-    const isSemanticModel = rootType === EntityType.SemanticModel;
-    const { data: dataProductData } = useGetDataProductEntitiesForLineageQuery({
-        variables: { urn, start: 0, count: 0 },
-        fetchPolicy: 'cache-first',
-        skip: isSemanticModel,
-    });
-    const { data: semanticModelData } = useGetSemanticModelEntitiesForLineageQuery({
-        variables: { urn, start: 0, count: 0 },
-        fetchPolicy: 'cache-first',
-        skip: !isSemanticModel,
-    });
-    if (isSemanticModel) {
-        return semanticModelData?.semanticModel?.entities?.total ?? undefined;
-    }
-    return dataProductData?.dataProduct?.entities?.total ?? undefined;
-}
-
 interface Props {
     urn: string;
     /** Number of this container's members currently shown in the box. */
@@ -70,10 +51,40 @@ interface Props {
  * that pages in more members; other containers show how many of their assets are connected to
  * the home container, and are not paginated.
  */
-export default function BoundingBoxMemberCount({ urn, memberCount }: Props) {
+export default function BoundingBoxMemberCount(props: Props) {
+    const { rootType } = useContext(LineageNodesContext);
+    switch (rootType) {
+        case EntityType.SemanticModel:
+            return <SemanticModelBoundingBoxMemberCount {...props} />;
+        case EntityType.DataProduct:
+        default:
+            return <DataProductBoundingBoxMemberCount {...props} />;
+    }
+}
+
+function DataProductBoundingBoxMemberCount({ urn, memberCount }: Props) {
+    const { data } = useGetDataProductEntitiesForLineageQuery({
+        variables: { urn, start: 0, count: 0 },
+        fetchPolicy: 'cache-first',
+    });
+    return (
+        <BoundingBoxMemberCountView urn={urn} memberCount={memberCount} total={data?.dataProduct?.entities?.total} />
+    );
+}
+
+function SemanticModelBoundingBoxMemberCount({ urn, memberCount }: Props) {
+    const { data } = useGetSemanticModelEntitiesForLineageQuery({
+        variables: { urn, start: 0, count: 0 },
+        fetchPolicy: 'cache-first',
+    });
+    return (
+        <BoundingBoxMemberCountView urn={urn} memberCount={memberCount} total={data?.semanticModel?.entities?.total} />
+    );
+}
+
+function BoundingBoxMemberCountView({ urn, memberCount, total }: Props & { total: number | undefined }) {
     const { t } = useTranslation('lineage');
-    const { rootUrn, rootType, nodes, containerEntities, setDisplayVersion } = useContext(LineageNodesContext);
-    const total = useContainerMemberTotal(urn, rootType);
+    const { rootUrn, nodes, containerEntities, setDisplayVersion } = useContext(LineageNodesContext);
 
     if (total === undefined) return null;
 

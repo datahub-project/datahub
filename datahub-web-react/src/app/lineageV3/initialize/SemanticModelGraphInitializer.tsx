@@ -17,7 +17,7 @@ interface Props {
  * Initializes the lineage graph for a SemanticModel by fetching its member entities
  * (Semantic Model Datasets and Metrics) and registering them as nodes. Each member's own
  * upstream/downstream lineage is then fetched on demand, giving a container / bounding-box
- * view mirroring DataProduct lineage. The SemanticModel itself is not a lineage hop.
+ * view. The SemanticModel itself is not a lineage hop.
  */
 export default function SemanticModelGraphInitializer({ urn, type }: Props) {
     const initialized = useInitializeNodes(urn, type);

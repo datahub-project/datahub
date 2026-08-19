@@ -70,9 +70,9 @@ export default function LineageExplorer(props: Props) {
             {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
             {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
             {type === EntityType.SemanticModel && <SemanticModelGraphInitializer urn={urn} type={type} />}
-            {type !== EntityType.DataFlow &&
-                type !== EntityType.DataProduct &&
-                type !== EntityType.SemanticModel && <ImpactAnalysisNodeInitializer urn={urn} type={type} />}
+            {type !== EntityType.DataFlow && type !== EntityType.DataProduct && type !== EntityType.SemanticModel && (
+                <ImpactAnalysisNodeInitializer urn={urn} type={type} />
+            )}
         </LineageNodesContext.Provider>
     );
 }

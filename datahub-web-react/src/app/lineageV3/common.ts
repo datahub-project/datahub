@@ -310,7 +310,7 @@ export interface NodeContext {
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
     /** Lineage Container display entities (DataProduct or SemanticModel) keyed by urn, for
-     * rendering bounding boxes.*/
+     * rendering bounding boxes. */
     containerEntities: Map<Urn, FetchedEntityV2>;
     outputPortsOnly: boolean; // Restrict the graph to the home product's output ports and their adjacent nodes
     setOutputPortsOnly: (only: boolean) => void;

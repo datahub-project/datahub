@@ -16,13 +16,13 @@ import {
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
+import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import {
     BoxLayout,
     GraphStore,
     LineageContainerGroup,
 } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
 import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.utils';
-import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 
 import { LineageDirection } from '@types';
 

@@ -11,6 +11,7 @@ import {
 } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
+import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import buildFlowEdges from '@app/lineageV3/useComputeGraph/lineageContainer/buildFlowEdges';
 import layoutLineageContainerInterior, {
     createBoundingBoxNode,
@@ -22,7 +23,6 @@ import {
 } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainerGroups';
 import positionTopLevelNodes from '@app/lineageV3/useComputeGraph/lineageContainer/positionTopLevelNodes';
 import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/lineageContainer/revealedEdges';
-import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import { generateCompareNodesFunction } from '@app/lineageV3/useComputeGraph/orderNodes';
 
 import { EntityType, LineageDirection } from '@types';

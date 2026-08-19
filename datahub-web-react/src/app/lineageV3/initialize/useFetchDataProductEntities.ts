@@ -1,15 +1,9 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext } from 'react';
 
-import {
-    CONTAINER_MEMBER_PAGE_SIZE,
-    FetchStatus,
-    LineageEntity,
-    LineageNodesContext,
-    setDefault,
-} from '@app/lineageV3/common';
+import { CONTAINER_MEMBER_PAGE_SIZE, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import { createContainerMemberNode, useContainerMemberPagination } from '@app/lineageV3/initialize/initialize.utils';
 
 import { useGetDataProductEntitiesForLineageQuery } from '@graphql/dataProduct.generated';
-import { Entity, LineageDirection } from '@types';
 
 /**
  * Fetches the entities belonging to a DataProduct and registers them as lineage nodes, in pages of
@@ -21,10 +15,7 @@ import { Entity, LineageDirection } from '@types';
  */
 export default function useFetchDataProductEntities(): boolean {
     const { rootUrn, nodes, setNodeVersion } = useContext(LineageNodesContext);
-    const [start, setStart] = useState(0);
-    const [total, setTotal] = useState<number | undefined>(undefined);
-    const [initialized, setInitialized] = useState(false);
-    const limit = nodes.get(rootUrn)?.boundingBoxLimit ?? CONTAINER_MEMBER_PAGE_SIZE;
+    const { start, setTotal, initialized, setInitialized } = useContainerMemberPagination(rootUrn, nodes);
 
     useGetDataProductEntitiesForLineageQuery({
         variables: {
@@ -40,7 +31,7 @@ export default function useFetchDataProductEntities(): boolean {
                 if (!result?.entity) return;
                 addedNode = addedNode || !nodes.has(result.entity.urn);
                 // Membership (including the home product) is resolved by useBulkDataProductMemberships
-                setDefault(nodes, result.entity.urn, makeEntityNode(result.entity));
+                setDefault(nodes, result.entity.urn, createContainerMemberNode(result.entity));
             });
 
             if (entities?.total !== undefined) setTotal(entities.total);
@@ -50,40 +41,5 @@ export default function useFetchDataProductEntities(): boolean {
         },
     });
 
-    // Advance one page at a time until we've fetched up to the current limit (or run out of members).
-    // Runs on limit increases too, so clicking "Show more" pulls in the next page.
-    const target = Math.min(limit, total ?? limit);
-    useEffect(() => {
-        if (start + CONTAINER_MEMBER_PAGE_SIZE < target) {
-            setStart((prev) => prev + CONTAINER_MEMBER_PAGE_SIZE);
-        }
-    }, [start, target]);
-
     return initialized;
-}
-
-function makeEntityNode({ urn, type }: Entity): LineageEntity {
-    return {
-        id: urn,
-        urn,
-        type,
-        // Auto-expand so that `computeLineageContainerGraph` shows 1-hop external nodes and
-        // neighboring DataProduct bounding boxes without requiring manual user expansion.
-        // The lineage data for these first-hop nodes is already populated by `processEdge`
-        // in `useBulkEntityLineage` (via the upstream/downstream fields in entityLineageV2), so
-        // no additional queries are triggered here and fetch status starts COMPLETE, making
-        // these nodes present as expanded.
-        isExpanded: {
-            [LineageDirection.Upstream]: true,
-            [LineageDirection.Downstream]: true,
-        },
-        fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.COMPLETE,
-            [LineageDirection.Downstream]: FetchStatus.COMPLETE,
-        },
-        filters: {
-            [LineageDirection.Upstream]: { limit: undefined, facetFilters: new Map() },
-            [LineageDirection.Downstream]: { limit: undefined, facetFilters: new Map() },
-        },
-    };
 }
