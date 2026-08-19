@@ -29,11 +29,10 @@ class QuarantineWriter:
         if self._disabled:
             return
 
-        # default=str because createdon is a datetime.
-        line = json.dumps({"error": error, "row": row}, default=str)
-
         with self._lock:
             try:
+                # default=str because createdon is a datetime.
+                line = json.dumps({"error": error, "row": row}, default=str)
                 if self._file is None:
                     self._file = open(self.filename, "a", encoding="utf-8")
                     logger.info(f"Writing unparseable rows to {self.filename}")
@@ -47,9 +46,22 @@ class QuarantineWriter:
                 )
                 self._disabled = True
                 self._file = None
+            except Exception as e:
+                # Catch any serialization or value conversion error (e.g., custom __str__ that raises).
+                logger.warning(
+                    f"Disabling the parse-error quarantine, could not serialize row: {e}"
+                )
+                self._disabled = True
+                self._file = None
 
     def close(self) -> None:
         with self._lock:
             if self._file is not None:
-                self._file.close()
-                self._file = None
+                try:
+                    self._file.close()
+                except OSError as e:
+                    logger.warning(
+                        f"Failed to close quarantine file {self.filename}: {e}"
+                    )
+                finally:
+                    self._file = None
