@@ -2,11 +2,26 @@ import dataclasses
 import logging
 import pathlib
 import zipfile
-from typing import IO, Iterable, Optional
-
-from datahub.ingestion.api.source import SourceReport
+from typing import IO, Iterable, Optional, Protocol
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class ZipWarningReporter(Protocol):
+    """The single report method this module needs.
+
+    Declared structurally so zip handling doesn't depend on the full
+    ``SourceReport``; both the connectors' ``DataLakeSourceReport`` and the
+    profiler's report Protocol satisfy it.
+    """
+
+    def warning(
+        self,
+        message: str,
+        context: Optional[str] = ...,
+        title: Optional[str] = ...,
+    ) -> None: ...
+
 
 # Guard against zip bombs: a small compressed archive can expand to many GB and
 # OOM the worker. Refuse to extract any single entry whose *uncompressed* size
@@ -26,7 +41,7 @@ class ZipEntry:
 def read_first_supported_zip_entry(
     zip_file: IO[bytes],
     context: str,
-    report: SourceReport,
+    report: ZipWarningReporter,
     supported_suffixes: Iterable[str],
     max_entry_size: int = DEFAULT_MAX_ZIP_ENTRY_SIZE,
 ) -> Optional[ZipEntry]:
@@ -50,7 +65,7 @@ def read_first_supported_zip_entry(
     try:
         zf = zipfile.ZipFile(zip_file)
     except zipfile.BadZipFile as e:
-        report.report_warning(
+        report.warning(
             title="Unreadable zip archive",
             message="Could not open zip archive for metadata extraction",
             context=f"{context}: {e}",
@@ -65,7 +80,7 @@ def read_first_supported_zip_entry(
         ]
 
         if not supported:
-            report.report_warning(
+            report.warning(
                 title="Zip archive has no supported files",
                 message="Zip archive contains no files with a supported extension",
                 context=f"{context}: expected one of {sorted(suffixes)}, "
@@ -81,7 +96,7 @@ def read_first_supported_zip_entry(
 
         entry = supported[0]
         if entry.file_size > max_entry_size:
-            report.report_warning(
+            report.warning(
                 title="Zip entry too large",
                 message="Skipping zip entry whose uncompressed size exceeds the "
                 "configured limit; increase max_zip_entry_size to allow it",
