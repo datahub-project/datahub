@@ -319,7 +319,8 @@ class UnityCatalogSourceConfig(
         description=(
             "Ingest Unity Catalog Volumes as DataHub datasets with subtype Volume. "
             "Volumes are named storage locations (managed or external) under a schema; "
-            "files inside a volume are not ingested. Requires READ VOLUME on each volume "
+            "files inside a volume are not ingested unless `include_volume_files` "
+            "is enabled. Requires READ VOLUME on each volume "
             "(plus USE CATALOG / USE SCHEMA on the parent). Set to false to skip the "
             "volumes.list API call per schema."
         ),
@@ -331,6 +332,37 @@ class UnityCatalogSourceConfig(
             "Regex patterns for Unity Catalog Volumes to filter in ingestion. "
             "Specify regex to match the full `catalog.schema.volume` name. "
             "Only applies when `include_volumes` is True."
+        ),
+    )
+
+    include_volume_files: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Ingest files inside Unity Catalog Volumes as DataHub datasets with "
+            "subtype Volume File. Files are nested under the parent schema "
+            "(same browse path as tables and views). Off by default because a "
+            "volume can contain a large number of objects. Requires "
+            "`include_volumes: true`. Listing uses the Databricks Files API "
+            "(`READ VOLUME`)."
+        ),
+    )
+
+    volume_file_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for volume files to filter in ingestion. Match the "
+            "full `catalog.schema.volume/relative/path` name. Only applies when "
+            "`include_volume_files` is True."
+        ),
+    )
+
+    volume_file_max_results: int = pydantic.Field(
+        default=1000,
+        ge=0,
+        description=(
+            "Maximum number of files to ingest per volume when "
+            "`include_volume_files` is True. Extra files are skipped and counted "
+            "in the report. Set to 0 to ingest none."
         ),
     )
 
@@ -696,6 +728,12 @@ class UnityCatalogSourceConfig(
             logger.warning(msg)
             add_global_warning(msg)
         return v
+
+    @model_validator(mode="after")
+    def volume_files_require_volumes(self) -> "UnityCatalogSourceConfig":
+        if self.include_volume_files and not self.include_volumes:
+            raise ValueError("include_volume_files requires include_volumes to be true")
+        return self
 
     @model_validator(mode="after")
     def set_warehouse_id_from_profiling(self):

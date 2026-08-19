@@ -3298,3 +3298,77 @@ class TestUnityCatalogVolumes:
         assert props.customProperties["volume_type"] == "MANAGED"
         assert props.customProperties["storage_location"] == "s3://bucket/vols/landing"
         assert props.description == "landing files"
+
+    def test_include_volume_files_false_skips_api(self) -> None:
+        source = self._build_source(include_volume_files=False)
+        volume, schema = self._build_volume()
+        with patch.object(source.unity_catalog_api_proxy, "volume_files") as mock_files:
+            assert list(source.process_volume_files(volume, schema)) == []
+        mock_files.assert_not_called()
+
+    def test_process_volume_file_emits_dataset_under_schema(self) -> None:
+        from typing import Optional
+
+        from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+        from datahub.ingestion.source.unity.proxy_types import VolumeFile
+        from datahub.metadata.schema_classes import (
+            ContainerClass,
+            DatasetPropertiesClass,
+            SubTypesClass,
+        )
+
+        source = self._build_source(include_volume_files=True)
+        volume, schema = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/events.parquet",
+            file_size=128,
+            last_modified=None,
+        )
+        wus = list(source.process_volume_file(volume_file, schema))
+        urns = {wu.get_urn() for wu in wus}
+        assert any("c.s.landing/raw/events.parquet" in u for u in urns)
+
+        subtype: Optional[SubTypesClass] = None
+        props: Optional[DatasetPropertiesClass] = None
+        containers: list = []
+        for wu in wus:
+            found_subtype = wu.get_aspect_of_type(SubTypesClass)
+            if found_subtype is not None:
+                subtype = found_subtype
+            found_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if found_props is not None:
+                props = found_props
+            found_container = wu.get_aspect_of_type(ContainerClass)
+            if found_container is not None:
+                containers.append(found_container)
+        assert subtype is not None
+        assert subtype.typeNames == [DatasetSubTypes.DATABRICKS_VOLUME_FILE]
+        assert props is not None
+        assert props.qualifiedName == "c.s.landing/raw/events.parquet"
+        assert props.customProperties["path"] == "raw/events.parquet"
+        assert containers
+
+    def test_volume_file_pattern_drops(self) -> None:
+        from datahub.ingestion.source.unity.proxy_types import VolumeFile
+
+        source = self._build_source(
+            include_volume_files=True,
+            volume_file_pattern={"deny": [r".*\.tmp"]},
+        )
+        volume, schema = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="scratch.tmp",
+            dbfs_path="/Volumes/c/s/landing/scratch.tmp",
+            file_size=1,
+            last_modified=None,
+        )
+        source.unity_catalog_api_proxy.volume_files = (  # type: ignore[assignment]
+            lambda volume, max_results: iter([volume_file])
+        )
+        assert list(source.process_volume_files(volume, schema)) == []
+        assert list(source.report.volume_files.dropped_entities) == [
+            volume_file.qualified_name
+        ]

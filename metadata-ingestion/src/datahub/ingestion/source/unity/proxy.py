@@ -76,7 +76,9 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableReference,
     Volume,
+    VolumeFile,
     usage_statement_types,
+    volume_fs_root,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -688,6 +690,64 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     exc=e,
                     log=False,
                 )
+
+    def volume_files(self, volume: Volume, max_results: int) -> Iterable[VolumeFile]:
+        if max_results <= 0:
+            return
+        root = volume_fs_root(volume)
+        pending: List[str] = [root]
+        yielded = 0
+        while pending and yielded < max_results:
+            directory_path = pending.pop()
+            try:
+                entries = self._files_api.list_directory_contents(
+                    directory_path,
+                    page_size=self.databricks_api_page_size or None,
+                )
+            except Exception as e:
+                self.report.num_volume_files_list_failed += 1
+                self.report.warning(
+                    title="Failed to list files in Unity Catalog volume",
+                    message=(
+                        "Files under this path were skipped. Grant READ VOLUME "
+                        "or set include_volume_files: false."
+                    ),
+                    context=directory_path,
+                    exc=e,
+                    log=False,
+                )
+                continue
+            for entry in entries:
+                if yielded >= max_results:
+                    self.report.num_volume_files_truncated += 1
+                    return
+                path = entry.path or ""
+                is_directory = bool(entry.is_directory)
+                if is_directory:
+                    if path:
+                        pending.append(path)
+                    continue
+                relative = (
+                    path[len(root) :].lstrip("/")
+                    if path.startswith(root)
+                    else (entry.name or "")
+                )
+                if not relative:
+                    continue
+                yielded += 1
+                yield VolumeFile(
+                    volume=volume,
+                    relative_path=relative,
+                    dbfs_path=path or f"{root}/{relative}",
+                    file_size=entry.file_size,
+                    last_modified=(
+                        parse_ts_millis(entry.last_modified)
+                        if entry.last_modified
+                        else None
+                    ),
+                )
+        if pending:
+            self.report.num_volume_files_truncated += 1
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None

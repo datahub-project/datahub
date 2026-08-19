@@ -320,6 +320,27 @@ class Volume(CommonProperty):
 
 
 @dataclass
+class VolumeFile:
+    volume: Volume
+    relative_path: str
+    dbfs_path: str
+    file_size: Optional[int]
+    last_modified: Optional[datetime]
+
+    @property
+    def name(self) -> str:
+        return self.relative_path.rsplit("/", 1)[-1]
+
+    @property
+    def qualified_name(self) -> str:
+        return f"{self.volume.ref.qualified_name}/{self.relative_path}"
+
+
+def volume_fs_root(volume: Volume) -> str:
+    return f"/Volumes/{volume.schema.catalog.name}/{volume.schema.name}/{volume.name}"
+
+
+@dataclass
 class Table(CommonProperty):
     schema: Schema
     columns: List[Column]

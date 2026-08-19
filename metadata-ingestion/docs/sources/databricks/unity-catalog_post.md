@@ -66,9 +66,23 @@ Each volume emits:
 
 - A `Volume` subtype so it is distinguishable from tables and views.
 - Dataset properties: comment, owner, `volume_type` (`MANAGED` or `EXTERNAL`), `storage_location`, and volume id.
-- Nesting under the parent schema container.
+- Nesting under the parent schema container (the same browse path as tables and views).
 
-Files and directories inside a volume are **not** ingested. Hive Metastore catalogs have no volumes and are skipped. Listing requires `READ VOLUME` on the volume plus `USE CATALOG` / `USE SCHEMA` on the parent; a list failure is reported and that schema's volumes are skipped without failing the rest of ingestion. Set `include_volumes: false` to skip the extra `volumes.list` call per schema.
+Files and directories inside a volume are **not** ingested unless you set `include_volume_files: true`. Hive Metastore catalogs have no volumes and are skipped. Listing requires `READ VOLUME` on the volume plus `USE CATALOG` / `USE SCHEMA` on the parent; a list failure is reported and that schema's volumes are skipped without failing the rest of ingestion. Set `include_volumes: false` to skip the extra `volumes.list` call per schema.
+
+When `include_volume_files` is enabled, each file is emitted as a dataset with subtype `Volume File`, parented to the same schema container, with `catalog.schema.volume/relative/path` as the qualified name. Directories are walked but not emitted as entities. Cap listing with `volume_file_max_results` (default 1000 per volume) and filter with `volume_file_pattern`. Schema inference (parquet/csv) is not performed.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_volumes: true
+    include_volume_files: true
+    volume_file_max_results: 500
+    volume_file_pattern:
+      allow:
+        - my_catalog\.analytics\.landing/.*\.parquet
+```
 
 #### Usage statistics
 
@@ -151,7 +165,7 @@ To ingest Unity Catalog information schema
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
-- Unity Catalog Volumes are ingested as datasets; files stored inside a volume are not listed or ingested.
+- Unity Catalog Volumes are ingested as datasets under the parent schema, same browse path as tables and views. Files stored inside a volume are listed only when `include_volume_files` is enabled; directories are not emitted as entities, and file schemas are not inferred.
 - Volume tags and volume-to-table lineage are not extracted.
 
 ### Troubleshooting

@@ -56,6 +56,7 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     DATABRICKS_VOLUME = "Volume"
+    DATABRICKS_VOLUME_FILE = "Volume File"
     CUBE = "Cube"
 
     # TODO: Create separate entity...

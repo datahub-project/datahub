@@ -910,6 +910,89 @@ class TestUnityCatalogProxy:
         assert proxy.report.num_volumes_list_failed == 1
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volume_files_walks_directories(self, mock_workspace_client):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+            Volume,
+        )
+
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        root_dir = MagicMock(
+            path="/Volumes/c/s/landing/raw",
+            is_directory=True,
+            name="raw",
+            file_size=None,
+            last_modified=None,
+        )
+        file_entry = MagicMock(
+            path="/Volumes/c/s/landing/raw/events.parquet",
+            is_directory=False,
+            name="events.parquet",
+            file_size=32,
+            last_modified=None,
+        )
+
+        def _list(directory_path, page_size=None):
+            if directory_path == "/Volumes/c/s/landing":
+                return [root_dir]
+            if directory_path == "/Volumes/c/s/landing/raw":
+                return [file_entry]
+            return []
+
+        proxy._files_api.list_directory_contents = _list  # type: ignore[assignment]
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        volume = Volume(
+            id="c.s.landing",
+            name="landing",
+            comment=None,
+            schema=schema,
+            owner=None,
+            volume_type=None,
+            storage_location=None,
+            volume_id=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+        )
+        files = list(proxy.volume_files(volume, max_results=10))
+        assert len(files) == 1
+        assert files[0].relative_path == "raw/events.parquet"
+        assert files[0].qualified_name == "c.s.landing/raw/events.parquet"
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_workspace_notebooks_with_page_size(self, mock_workspace_client):
         """Test workspace_notebooks() method passes page size to workspace.list()."""
         # Setup mock

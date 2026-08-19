@@ -114,6 +114,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableReference,
     Volume,
+    VolumeFile,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -389,7 +390,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - metastores
     - schemas
     - tables and column lineage
-    - Unity Catalog volumes (named storage locations)
+    - Unity Catalog volumes (named storage locations), and optionally files inside them
     - model and model versions
     """
 
@@ -890,6 +891,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.volumes.dropped(volume.id)
                 continue
             yield from self.process_volume(volume, schema)
+            yield from self.process_volume_files(volume, schema)
             self.report.volumes.processed(volume.id)
 
     def process_volume(
@@ -958,6 +960,60 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self._create_data_platform_instance_aspect(),
                 self._get_domain_aspect(dataset_name=volume.ref.qualified_name),
                 ownership,
+            ],
+        )
+        for mcp in mcps:
+            yield mcp.as_workunit()
+
+    def process_volume_files(
+        self, volume: Volume, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_volume_files:
+            return
+        for volume_file in self.unity_catalog_api_proxy.volume_files(
+            volume, max_results=self.config.volume_file_max_results
+        ):
+            if not self.config.volume_file_pattern.allowed(volume_file.qualified_name):
+                self.report.volume_files.dropped(volume_file.qualified_name)
+                continue
+            yield from self.process_volume_file(volume_file, schema)
+            self.report.volume_files.processed(volume_file.qualified_name)
+
+    def process_volume_file(
+        self, volume_file: VolumeFile, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_urn = self.gen_volume_file_urn(volume_file)
+        yield from self.add_table_to_dataset_container(dataset_urn, schema)
+
+        custom_properties: Dict[str, str] = {
+            "volume": volume_file.volume.ref.qualified_name,
+            "path": volume_file.relative_path,
+            "dbfs_path": volume_file.dbfs_path,
+        }
+        if volume_file.file_size is not None:
+            custom_properties["file_size"] = str(volume_file.file_size)
+
+        last_modified: Optional[TimeStampClass] = None
+        if volume_file.last_modified:
+            updated_ts = make_ts_millis(volume_file.last_modified)
+            if updated_ts is not None:
+                last_modified = TimeStampClass(updated_ts)
+
+        mcps = MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn,
+            aspects=[
+                DatasetPropertiesClass(
+                    name=volume_file.name,
+                    qualifiedName=volume_file.qualified_name,
+                    customProperties=custom_properties,
+                    lastModified=last_modified,
+                    externalUrl=(
+                        f"{self.external_url_base}/{volume_file.volume.ref.external_path}"
+                    ),
+                ),
+                SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME_FILE]),
+                self._create_data_platform_instance_aspect(),
+                self._get_domain_aspect(dataset_name=volume_file.qualified_name),
             ],
         )
         for mcp in mcps:
@@ -1346,6 +1402,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=str(volume_ref),
+            env=self.config.env,
+        )
+
+    def gen_volume_file_urn(self, volume_file: VolumeFile) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.platform_instance_name,
+            name=volume_file.qualified_name,
             env=self.config.env,
         )
 
