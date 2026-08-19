@@ -1,12 +1,7 @@
 from typing import List
 from unittest import mock
 
-from datahub.utilities.urn_alias.index import (
-    CatalogSlice,
-    UrnAliasIndex,
-    lowercased_urn,
-)
-from datahub.utilities.urn_alias.remote import AliasIndexLookup
+from datahub.utilities.urn_alias.index import CatalogSlice, UrnAliasIndex
 from datahub.utilities.urn_alias.resolver import UrnAliasResolver
 
 _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
@@ -19,44 +14,31 @@ _SNOWFLAKE_PROD = CatalogSlice(platform="snowflake", platform_instance=None, env
 
 
 def _loaded(*urns: str) -> UrnAliasResolver:
-    """A resolver over a bulk load of `urns`, not allowed to ask the server."""
-    index = UrnAliasIndex()
-    resolver = UrnAliasResolver(index, AliasIndexLookup(index, mock.MagicMock()))
+    """A resolver over a completed load of `urns`, not allowed to ask the server."""
+    index = UrnAliasIndex(_SNOWFLAKE_PROD)
     for urn in urns:
-        resolver.add(urn)
-    return resolver
+        index.add(urn)
+    return UrnAliasResolver(mock.MagicMock(), [index])
 
 
-class _RecordingLookup:
-    """A lookup that records what it was asked, and answers from a fixed catalog."""
+def _server(*stored: str) -> mock.MagicMock:
+    """A graph answering every search with `stored`, recording what it was asked."""
+    graph = mock.MagicMock()
+    graph.get_urns_by_filter.return_value = list(stored)
+    return graph
 
-    def __init__(self, index: UrnAliasIndex, *stored: str) -> None:
-        self._index = index
-        self._stored = stored
-        self.asked: List[List[str]] = []
 
-    def add(self, urn: str) -> None:
-        key = lowercased_urn(urn)
-        if key is not None:
-            self._index.add(key, urn)
-
-    def prefetch(self, urns: List[str]) -> None:
-        self.asked.append(list(urns))
-        for urn in self._stored:
-            self.add(urn)
-
-    def matches(self, urn: str) -> List[str]:
-        key = lowercased_urn(urn)
-        if key is None:
-            return []
-        return self._index.get(key) or []
+def _asked(graph: mock.MagicMock) -> List[List[str]]:
+    """The keys each search asked about, in order."""
+    return [
+        call.kwargs["extra_or_filters"][0]["and"][0]["values"]
+        for call in graph.get_urns_by_filter.call_args_list
+    ]
 
 
 def _asking(*stored: str) -> UrnAliasResolver:
-    index = UrnAliasIndex()
-    return UrnAliasResolver(
-        index, _RecordingLookup(index, *stored), query_on_demand=True
-    )
+    """A resolver with nothing loaded, allowed to ask the server."""
+    return UrnAliasResolver(_server(*stored), query_on_demand=True)
 
 
 # --- choosing a URN out of the matches ---------------------------------------------
@@ -105,42 +87,76 @@ def test_with_nothing_loaded_and_nothing_to_ask_a_urn_is_unresolved() -> None:
 
 
 def test_a_miss_inside_a_loaded_slice_is_answered_without_asking() -> None:
-    # The point of recording coverage: a miss here is a fact, not a gap, so it must not
-    # cost a round trip.
-    index = UrnAliasIndex()
-    lookup = _RecordingLookup(index)
-    resolver = UrnAliasResolver(index, lookup, query_on_demand=True)
-    resolver.record_slice_loaded(_SNOWFLAKE_PROD)
+    # A miss here is a fact, not a gap, so it must not cost a round trip.
+    graph = _server()
+    resolver = UrnAliasResolver(
+        graph, [UrnAliasIndex(_SNOWFLAKE_PROD)], query_on_demand=True
+    )
 
     assert resolver.resolve(_OTHER) is None
-    assert lookup.asked == []
+    assert _asked(graph) == []
 
 
 def test_a_miss_outside_every_loaded_slice_is_asked_about() -> None:
-    index = UrnAliasIndex()
-    lookup = _RecordingLookup(index, _LOWER)
-    resolver = UrnAliasResolver(index, lookup, query_on_demand=True)
+    graph = _server(_LOWER)
+    resolver = UrnAliasResolver(graph, query_on_demand=True)
 
     assert resolver.resolve(_UPPER) == _LOWER
-    assert lookup.asked == [[_UPPER]]
+    # Asked under the key, not the reference's own casing — one key covers every casing.
+    assert _asked(graph) == [[_LOWER]]
 
 
 def test_prefetch_asks_only_about_references_no_loaded_slice_answers() -> None:
-    index = UrnAliasIndex()
-    lookup = _RecordingLookup(index)
-    resolver = UrnAliasResolver(index, lookup, query_on_demand=True)
-    resolver.record_slice_loaded(_SNOWFLAKE_PROD)
+    graph = _server()
+    resolver = UrnAliasResolver(
+        graph, [UrnAliasIndex(_SNOWFLAKE_PROD)], query_on_demand=True
+    )
 
     resolver.prefetch([_UPPER, _REDSHIFT])
 
     # Nothing here has ever looked at redshift, so that one is still a question.
-    assert lookup.asked == [[_REDSHIFT]]
+    assert _asked(graph) == [[_REDSHIFT]]
 
 
-def test_coverage_is_recorded_once_per_slice() -> None:
-    resolver = _asking()
+def test_references_sharing_a_key_are_one_question() -> None:
+    graph = _server(_LOWER)
+    resolver = UrnAliasResolver(graph, query_on_demand=True)
 
-    resolver.record_slice_loaded(_SNOWFLAKE_PROD)
-    resolver.record_slice_loaded(_SNOWFLAKE_PROD)
+    resolver.prefetch([_UPPER, _MIXED, _LOWER])
 
-    assert resolver._index.loaded_slices == [_SNOWFLAKE_PROD]
+    assert _asked(graph) == [[_LOWER]]
+
+
+def test_an_answer_from_a_query_does_not_make_the_next_miss_look_settled() -> None:
+    # Per-URN answers land in the scratch index, which covers nothing.
+    graph = _server(_LOWER)
+    resolver = UrnAliasResolver(graph, query_on_demand=True)
+
+    assert resolver.resolve(_UPPER) == _LOWER
+    assert resolver.covered(_OTHER) is False
+
+    resolver.resolve(_OTHER)
+    assert _asked(graph) == [[_LOWER], [_OTHER]]
+
+
+def test_a_recorded_absence_is_not_asked_about_twice() -> None:
+    graph = _server()
+    resolver = UrnAliasResolver(graph, query_on_demand=True)
+
+    assert resolver.resolve(_UPPER) is None
+    assert resolver.resolve(_MIXED) is None
+
+    assert _asked(graph) == [[_LOWER]]
+
+
+def test_matches_are_read_across_every_loaded_index() -> None:
+    snowflake = UrnAliasIndex(_SNOWFLAKE_PROD)
+    snowflake.add(_LOWER)
+    redshift = UrnAliasIndex(
+        CatalogSlice(platform="redshift", platform_instance=None, env="PROD")
+    )
+    redshift.add(_REDSHIFT)
+    resolver = UrnAliasResolver(mock.MagicMock(), [snowflake, redshift])
+
+    assert resolver.resolve(_UPPER) == _LOWER
+    assert resolver.find_match(_REDSHIFT) == [_REDSHIFT]

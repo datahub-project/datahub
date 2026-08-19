@@ -44,50 +44,58 @@ def test_a_key_keeps_every_urn_added_under_it() -> None:
     # ambiguity rather than be handed an arbitrary winner.
     store = _store()
 
-    store.add("key", _LOWER)
-    store.add("key", _UPPER)
+    store.add(_LOWER)
+    store.add(_UPPER)
 
-    assert store.get("key") == [_LOWER, _UPPER]
+    assert store.matches(_MIXED) == [_LOWER, _UPPER]
 
 
 def test_the_same_urn_is_stored_once() -> None:
     store = _store()
 
-    store.add("key", _LOWER)
-    store.add("key", _LOWER)
+    store.add(_LOWER)
+    store.add(_LOWER)
 
-    assert store.get("key") == [_LOWER]
+    assert store.matches(_UPPER) == [_LOWER]
 
 
-def test_an_unwritten_key_is_unknown_rather_than_absent() -> None:
+def test_an_unrecorded_name_is_unknown_rather_than_absent() -> None:
     # The distinction the whole design rests on: unknown has to be asked about, and a
     # recorded absence must not be.
     store = _store()
 
-    store.replace("absent", [])
+    store.record(lowercased_urn(_LOWER) or "", [])
 
-    assert store.get("unwritten") is None
-    assert store.get("absent") == []
+    assert store.knows(_OTHER) is False
+    assert store.knows(_UPPER) is True
+    assert store.matches(_UPPER) == []
 
 
-def test_replace_makes_the_given_urns_the_whole_answer() -> None:
+def test_record_makes_the_given_urns_the_whole_answer() -> None:
     store = _store()
-    store.add("key", _LOWER)
+    store.add(_LOWER)
 
-    store.replace("key", [_UPPER])
+    store.record(lowercased_urn(_LOWER) or "", [_UPPER])
 
-    assert store.get("key") == [_UPPER]
+    assert store.matches(_LOWER) == [_UPPER]
+
+
+def test_a_non_dataset_urn_is_neither_stored_nor_known() -> None:
+    store = _store()
+
+    store.add("urn:li:corpuser:alice")
+
+    assert store.knows("urn:li:corpuser:alice") is False
+    assert store.matches("urn:li:corpuser:alice") == []
 
 
 def test_the_stored_list_is_not_handed_out() -> None:
     store = _store()
-    store.add("key", _LOWER)
+    store.add(_LOWER)
 
-    entry = store.get("key")
-    assert entry is not None
-    entry.append(_OTHER)
+    store.matches(_LOWER).append(_OTHER)
 
-    assert store.get("key") == [_LOWER]
+    assert store.matches(_LOWER) == [_LOWER]
 
 
 # --- coverage ------------------------------------------------------------------------

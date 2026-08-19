@@ -143,9 +143,11 @@ whole catalog read. With no `upstream_platforms` at all, nothing is read up fron
 is answered individually — right for a source that touches only a handful of warehouse tables, or
 whose warehouse is too large to read.
 
-Preloading and querying divide the work rather than stacking on it. A catalog read records which
-slices it covered, so a reference it does not find is already known to be absent and is never
-re-asked; queries are spent only on references outside everything that was read. Column casing works
+Preloading and querying divide the work rather than stacking on it. A catalog read that finishes
+covers its region, so a reference it does not find is already known to be absent and is never
+re-asked; queries are spent only on references outside everything that was read. A read that fails
+part way covers nothing — its references fall back to queries rather than being told, wrongly, that
+DataHub holds no such entity. Column casing works
 the same way in both cases — a preloaded catalog carries its schemas, and an unlisted table's columns
 are fetched with it.
 
@@ -181,14 +183,10 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
 
 - **Requires a DataHub backend connection.** Resolution looks up existing entities, so it is a no-op for
   offline / file-only ingestion.
-- **Reaching any stored casing needs the server's dataset `aliases` backfill to have completed.** The
-  alias is what lets one lookup cover every casing of a name, and a dataset the backfill has not reached
-  carries none. Ingestion reads that job's completion marker (`dataset-aliases-v1`, on by default), so an
-  older server and one still scanning are treated alike: resolution falls back to probing the casings the
-  client can construct — the reference as written, its lowercased form, and that form with the
-  `platform_instance` left as-is — so only those are found, preloaded or queried alike, and anything else
-  is reported `UNRESOLVED`. Let the backfill finish before reading a run's `UNRESOLVED` count as broken
-  lineage.
+- **Requires DataHub Cloud 2.2.0, or DataHub 1.8.0, and later.** The dataset `aliases` aspect those
+  versions maintain is what lets one lookup cover every casing of a name. On an older server the feature
+  turns itself off with a warning and lineage is emitted unchanged; it is not approximated, since a
+  partial answer would report healthy lineage as broken.
 - **The marker means the aliases were emitted, not yet written.** GMS writes them asynchronously, so for
   a short window after the backfill completes a reference can still miss and be reported `UNRESOLVED`. It
   heals on the source's next run.
