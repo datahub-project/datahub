@@ -29,23 +29,45 @@ dependencies {
     testImplementation externalDependency.assertJ
 }
 
+def openApiInputFile = file("$projectDir/src/main/resources/schema-registry-open-api-v7.9.1.yaml")
+def openApiTemplateDir = file("$projectDir/src/main/resources/JavaSpring")
+def generatedOpenApiDir = layout.buildDirectory.dir("openapi/generated")
+def committedGeneratedOpenApiDir = file("$projectDir/generated")
+
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
-    it.setInputFile(
-        file(
-            "$projectDir/src/main/resources/schema-registry-open-api-v7.9.1.yaml"
-        )
-    )
-    it.setOutputDir(file("$projectDir/generated"))
-    it.setLanguage("spring")
-    it.setComponents([models: true, apis: true, apiTests: false])
-    it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
-    it.setAdditionalProperties([
-        "group-id" : "io.datahubproject",
-        "dateLibrary" : "java8",
-        "java11" : "true",
-        "modelPropertyNaming" : "original",
-        "modelPackage" : "io.datahubproject.schema-registry.openapi.generated"] as Map<String, String>)
+    onlyIf { openApiInputFile.text.trim() }
+    inputFile = openApiInputFile
+    outputDir = generatedOpenApiDir.get().asFile
+    language = "spring"
+    components = [models: true, apis: true, apiTests: false]
+    templateDir = openApiTemplateDir
+    additionalProperties = [
+        "group-id"           : "io.datahubproject",
+        "dateLibrary"        : "java8",
+        "java11"             : "true",
+        "modelPropertyNaming": "original",
+        "modelPackage"       : "io.datahubproject.schema-registry.openapi.generated",
+    ]
+    outputs.cacheIf { true }
 }
 
-sourceSets.main.java.srcDirs "${generateOpenApiPojos.outputDir}/src/main/java"
-sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
+tasks.register('stageCommittedOpenApiPojos', Sync) {
+    onlyIf { !openApiInputFile.text.trim() }
+    from(committedGeneratedOpenApiDir)
+    into(generatedOpenApiDir)
+    outputs.dir(generatedOpenApiDir)
+}
+
+tasks.register('prepareOpenApiPojos') {
+    dependsOn tasks.named('generateOpenApiPojos')
+    dependsOn tasks.named('stageCommittedOpenApiPojos')
+}
+
+sourceSets.main.java.srcDir("$buildDir/openapi/generated/src/main/java")
+sourceSets.main.resources.srcDir("$buildDir/openapi/generated/src/main/resources")
+
+compileJava.dependsOn('prepareOpenApiPojos')
+
+clean {
+    delete generatedOpenApiDir
+}

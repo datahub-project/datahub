@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-OUTDIR=./custom-package
+OUTDIR="${OUTDIR:-./custom-package}"
 PACKAGE_NAME="${1:?package name is required}"
 PACKAGE_VERSION="${2:?package version is required}"
 

@@ -100,5 +100,6 @@ task openApiGenerate(type: GenerateSwaggerCode) {
           'apiPackage'         : "io.datahubproject.openlineage.generated.controller",
           'delegatePattern'    : "true"
   ]
+  outputs.cacheIf { true }
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)

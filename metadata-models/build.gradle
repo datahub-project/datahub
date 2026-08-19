@@ -57,16 +57,17 @@ mainAvroSchemaJar.dependsOn generateAvroSchema
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
+def generatedJsonSchemaDir = layout.buildDirectory.dir("generatedJsonSchema")
 
 task generateJsonSchema(type: GenerateJsonSchemaTask, dependsOn: 'generateAvroSchema') {
   it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
-  it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
+  it.setOutputDirectory(generatedJsonSchemaDir.get().asFile.absolutePath)
   it.setEntityRegistryYaml("${project(':metadata-models').projectDir}/src/main/resources/entity-registry.yml")
 }
 
 // https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
 task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema') {
-  inputFile = file("$projectDir/src/generatedJsonSchema/combined/open-api.yaml")
+  inputFile = file("$buildDir/generatedJsonSchema/combined/open-api.yaml")
   outputDir = file("$buildDir/openapi/generated")
   language = "spring"
   components = ["models"]
@@ -78,9 +79,10 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema')
           'modelPropertyNaming': "original",
           'modelPackage'       : "io.datahubproject.openapi.generated"
   ]
+  outputs.cacheIf { true }
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
 
 clean {
-  delete "$projectDir/src/generatedJsonSchema"
+  delete generatedJsonSchemaDir
 }

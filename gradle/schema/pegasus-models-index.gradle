@@ -54,7 +54,11 @@ tasks.register("generatePegasusIndexesFromPdsc") {
     dependsOn(tasks.named("mainTranslateSchemas"))
 
     inputs.dir(translatedPdscDir)
+        .withPropertyName("translatedPdscDir")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     outputs.file(modelIndexFile)
+        .withPropertyName("modelIndexFile")
+    outputs.cacheIf { true }
 
     doLast {
         File pdscRoot = translatedPdscDir.get().asFile
