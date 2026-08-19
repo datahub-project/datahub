@@ -1,7 +1,5 @@
 package com.linkedin.metadata.authorization;
 
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.Disjunctive.DENY_ACCESS;
 
 import com.google.common.collect.ImmutableList;
@@ -1416,8 +1414,7 @@ public class PoliciesConfig {
                 .setDescription("View self entity page.")
                 .setActors(new DataHubActorFilter().setUsers(new UrnArray(actorUrn)))
                 .setPrivileges(
-                    PoliciesConfig.API_PRIVILEGE_MAP.get(ENTITY).get(READ).stream()
-                        .flatMap(Collection::stream)
+                    Stream.of(VIEW_ENTITY_PAGE_PRIVILEGE, GET_ENTITY_PRIVILEGE)
                         .map(PoliciesConfig.Privilege::getType)
                         .collect(Collectors.toCollection(StringArray::new)))
                 .setType(PoliciesConfig.METADATA_POLICY_TYPE)
