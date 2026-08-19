@@ -6,18 +6,6 @@ from typing import TYPE_CHECKING, Optional
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
-from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
-    BedrockEmbeddingProvider,
-)
-from datahub.ingestion.source.unstructured.embedding_providers.cohere import (
-    CohereEmbeddingProvider,
-)
-from datahub.ingestion.source.unstructured.embedding_providers.openai import (
-    OpenAIEmbeddingProvider,
-)
-from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
-    VertexAIEmbeddingProvider,
-)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
@@ -79,12 +67,24 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         raise ValueError("EmbeddingConfig.provider and .model must be set")
 
     if provider == "bedrock":
+        from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
+            BedrockEmbeddingProvider,
+        )
+
         return BedrockEmbeddingProvider(model=model, aws_region=config.aws_region)
 
     if provider == "cohere":
+        from datahub.ingestion.source.unstructured.embedding_providers.cohere import (
+            CohereEmbeddingProvider,
+        )
+
         return CohereEmbeddingProvider(model=model, api_key=api_key, timeout=timeout)
 
     if provider == "openai":
+        from datahub.ingestion.source.unstructured.embedding_providers.openai import (
+            OpenAIEmbeddingProvider,
+        )
+
         # Mirror the Vertex/Cohere pattern: resolve env var here so the constructor's
         # "no key" guard sees the same value the recipe-level validator did.
         return OpenAIEmbeddingProvider(
@@ -94,6 +94,10 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         )
 
     if provider == "local":
+        from datahub.ingestion.source.unstructured.embedding_providers.openai import (
+            OpenAIEmbeddingProvider,
+        )
+
         # Local OpenAI-compatible servers (Ollama, etc.) accept any token; the
         # placeholder key is plumbed through so the constructor's "no key"
         # guard only fires when targeting api.openai.com.
@@ -105,6 +109,10 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
         )
 
     if provider == "vertex_ai":
+        from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
+            VertexAIEmbeddingProvider,
+        )
+
         # If neither config nor env var is set, the provider falls back to the
         # project on Application Default Credentials.
         project_id = config.vertex_project_id or os.environ.get("VERTEX_AI_PROJECT_ID")

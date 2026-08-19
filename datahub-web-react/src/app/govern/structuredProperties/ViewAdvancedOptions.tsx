@@ -2,6 +2,7 @@ import { Icon, Text } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Collapse } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     CollapseHeader,
@@ -16,6 +17,7 @@ interface Props {
 }
 
 const ViewAdvancedOptions = ({ propEntity }: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
     return (
         <StyledCollapse
             ghost
@@ -30,7 +32,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
                 header={
                     <CollapseHeader>
                         <Text weight="bold" color="gray" size="lg">
-                            Advanced Options
+                            {t('advancedOptions.title')}
                         </Text>
                     </CollapseHeader>
                 }
@@ -38,7 +40,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
             >
                 {propEntity && (
                     <RowContainer>
-                        <StyledLabel>Qualified Name</StyledLabel>
+                        <StyledLabel>{t('advancedOptions.qualifiedName')}</StyledLabel>
                         <Text color="gray"> {propEntity?.definition?.qualifiedName}</Text>
                     </RowContainer>
                 )}

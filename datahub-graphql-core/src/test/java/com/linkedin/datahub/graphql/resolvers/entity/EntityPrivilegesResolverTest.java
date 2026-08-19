@@ -259,6 +259,7 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditTags());
     assertTrue(result.getCanEditGlossaryTerms());
     assertTrue(result.getCanEditOwners());
+    assertTrue(result.getCanEditAssertionOwners());
     assertTrue(result.getCanEditDescription());
     assertTrue(result.getCanEditLinks());
   }
@@ -281,6 +282,7 @@ public class EntityPrivilegesResolverTest {
     assertFalse(result.getCanEditTags());
     assertFalse(result.getCanEditGlossaryTerms());
     assertFalse(result.getCanEditOwners());
+    assertFalse(result.getCanEditAssertionOwners());
     assertFalse(result.getCanEditDescription());
     assertFalse(result.getCanEditLinks());
   }
@@ -302,6 +304,7 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditLineage());
     assertTrue(result.getCanEditProperties());
     assertTrue(result.getCanEditAssertions());
+    assertTrue(result.getCanEditAssertionOwners());
     assertTrue(result.getCanEditIncidents());
     assertTrue(result.getCanEditDomains());
     assertTrue(result.getCanEditDataProducts());

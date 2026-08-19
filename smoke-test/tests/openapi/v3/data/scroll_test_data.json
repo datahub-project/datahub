@@ -98,5 +98,15 @@
       "value": "{\"description\": \"Scroll test ML model 2\", \"customProperties\": {}}",
       "contentType": "application/json"
     }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(scrolltest,flow1,PROD),job1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "value": "{\"inputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)\"], \"outputDatasets\": [\"urn:li:dataset:(urn:li:dataPlatform:scrolltest,gamma,PROD)\"]}",
+      "contentType": "application/json"
+    }
   }
 ]

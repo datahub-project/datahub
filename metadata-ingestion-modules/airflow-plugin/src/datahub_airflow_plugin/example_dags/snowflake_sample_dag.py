@@ -8,8 +8,12 @@ pulls the DB connection configuration from Airflow's connection store.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.hooks.base import BaseHook
 from airflow.operators.python import PythonVirtualenvOperator
+
+try:
+    from airflow.sdk import BaseHook  # Airflow 3.1+
+except ImportError:
+    from airflow.hooks.base import BaseHook  # Airflow 3.0.x
 
 
 def ingest_from_snowflake(snowflake_credentials, datahub_gms_server):
@@ -55,7 +59,7 @@ with DAG(
     },
     description="An example DAG which ingests metadata from Snowflake to DataHub",
     start_date=datetime(2022, 1, 1),
-    schedule_interval=timedelta(days=1),
+    schedule=timedelta(days=1),
     catchup=False,
 ) as dag:
     # This example pulls credentials from Airflow's connection store.

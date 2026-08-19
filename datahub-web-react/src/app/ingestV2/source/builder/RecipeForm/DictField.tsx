@@ -31,7 +31,7 @@ const SectionWrapper = styled.div`
     display: flex;
     padding: 8px 0 0 30px;
     &:hover {
-        background-color: ${(props) => props.theme.colors.bgSurface};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

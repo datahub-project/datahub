@@ -1,0 +1,1329 @@
+[
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.catalog_type",
+    "changeType": "CREATE",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "databricks.federation.catalog_type",
+            "displayName": "Catalog Type",
+            "valueType": "urn:li:dataType:datahub.string",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.container"
+            ],
+            "description": "Unity Catalog catalog type (FOREIGN_CATALOG for Lakehouse Federation).",
+            "immutable": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    },
+    "headers": {
+        "If-None-Match": "*"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.platform",
+    "changeType": "CREATE",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "databricks.federation.platform",
+            "displayName": "Federation Platform",
+            "valueType": "urn:li:dataType:datahub.string",
+            "allowedValues": [
+                {
+                    "value": {
+                        "string": "bigquery"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "databricks"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "glue"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "hive"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "mssql"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "mysql"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "oracle"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "postgres"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "redshift"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "salesforce"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "snowflake"
+                    }
+                },
+                {
+                    "value": {
+                        "string": "teradata"
+                    }
+                }
+            ],
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.container"
+            ],
+            "description": "DataHub platform of the external system this foreign catalog mirrors.",
+            "immutable": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    },
+    "headers": {
+        "If-None-Match": "*"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.connection",
+    "changeType": "CREATE",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "databricks.federation.connection",
+            "displayName": "Federation Connection",
+            "valueType": "urn:li:dataType:datahub.string",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.container"
+            ],
+            "description": "Unity Catalog connection backing this foreign catalog.",
+            "immutable": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    },
+    "headers": {
+        "If-None-Match": "*"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.remote_database",
+    "changeType": "CREATE",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "databricks.federation.remote_database",
+            "displayName": "Federation Remote Database",
+            "valueType": "urn:li:dataType:datahub.string",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.container"
+            ],
+            "description": "Name of the external database/project/catalog mirrored by this catalog.",
+            "immutable": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    },
+    "headers": {
+        "If-None-Match": "*"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "quickstart_catalog"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
+            "name": "quickstart_catalog",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "quickstart_catalog",
+                "unity_schema": "quickstart_schema"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
+            "name": "quickstart_schema",
+            "description": "A new Unity Catalog schema called quickstart_schema",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table",
+            "name": "quickstart_table",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "federated_catalog"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/federated_catalog",
+            "name": "federated_catalog",
+            "description": "Foreign catalog over Postgres",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.quickstart_schema.quickstart_table",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+                    "urn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:databricks.federation.catalog_type",
+                    "values": [
+                        {
+                            "string": "FOREIGN_CATALOG"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:databricks.federation.connection",
+                    "values": [
+                        {
+                            "string": "pg_conn"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:databricks.federation.platform",
+                    "values": [
+                        {
+                            "string": "postgres"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:databricks.federation.remote_database",
+                    "values": [
+                        {
+                            "string": "my_db"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+                    "urn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "EXTERNAL",
+                "created_by": "abc@acryl.io",
+                "delta.lastCommitTimestamp": "1666185711000",
+                "delta.lastUpdateVersion": "1",
+                "delta.minReaderVersion": "1",
+                "delta.minWriterVersion": "2",
+                "spark.sql.statistics.numRows": "10",
+                "spark.sql.statistics.totalSize": "512",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/quickstart_table_external",
+            "name": "quickstart_table_external",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "federated_catalog",
+                "unity_schema": "my_schema"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/federated_catalog/my_schema",
+            "name": "my_schema",
+            "description": "Foreign schema mirroring Postgres my_schema",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+                    "urn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "table_type": "FOREIGN"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/federated_catalog/my_schema/t",
+            "name": "t",
+            "qualifiedName": "federated_catalog.my_schema.t",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "federated_catalog.my_schema.t",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67",
+                    "urn": "urn:li:container:0aea3c512d1ccbeec04b7adf752ece67"
+                },
+                {
+                    "id": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834",
+                    "urn": "urn:li:container:4e122ab72de3cfbcc3f5cb1309b2c834"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,federated_catalog.my_schema.t,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.catalog_type",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.connection",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.platform",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:databricks.federation.remote_database",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-federation-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-federation-test-pipeline"
+    }
+}
+]

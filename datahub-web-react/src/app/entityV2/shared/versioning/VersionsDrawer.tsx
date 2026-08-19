@@ -5,6 +5,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass'
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled, { useTheme } from 'styled-components';
@@ -23,30 +24,7 @@ import { FilterOperator } from '@types';
 import LinkOut from '@images/link-out.svg?react';
 
 const PAGE_SIZE = 10;
-
-const COLUMNS = [
-    {
-        title: 'Name',
-        dataIndex: 'label',
-        key: 'name',
-    },
-    {
-        title: 'Note',
-        dataIndex: 'comment',
-        key: 'notes',
-        width: '200px',
-    },
-    {
-        title: 'Created',
-        dataIndex: 'createdAt',
-        key: 'created',
-    },
-    {
-        title: '',
-        dataIndex: 'menu',
-        key: 'menu',
-    },
-];
+const TIMESTAMP_FORMAT = 'MMMM D, YYYY h:mm A';
 
 const LinkOutIcon = styled(LinkOut)`
     width: 14px;
@@ -102,9 +80,36 @@ interface Props {
 }
 
 export default function VersionsDrawer({ versionSetUrn, open }: Props) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const { setDrawer } = useEntityContext();
+
+    const columns = [
+        {
+            title: tcl('name'),
+            dataIndex: 'label',
+            key: 'name',
+        },
+        {
+            title: t('noteColumn'),
+            dataIndex: 'comment',
+            key: 'notes',
+            width: '200px',
+        },
+        {
+            title: tcl('created'),
+            dataIndex: 'createdAt',
+            key: 'created',
+        },
+        {
+            title: '',
+            dataIndex: 'menu',
+            key: 'menu',
+        },
+    ];
 
     const [searchInput, setSearchInput] = useState<string>('');
     const [query, setQuery] = useState<string>('');
@@ -141,7 +146,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
         const items: ItemType[] = [
             {
                 key: 'COPY',
-                label: <SimpleCopyLinkMenuItem urn={urn} entityType={type} text="Copy Version Link" />,
+                label: <SimpleCopyLinkMenuItem urn={urn} entityType={type} text={t('copyVersionLink')} />,
             },
             {
                 key: 'OPEN',
@@ -149,7 +154,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     <Link to={entityRegistry.getEntityUrl(type, urn)} onClick={() => setDrawer?.(undefined)}>
                         <MenuItemText>
                             <LinkOutIcon />
-                            Open
+                            {tc('open')}
                         </MenuItemText>
                     </Link>
                 ),
@@ -159,10 +164,12 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
         return {
             urn,
             label: (
+                /* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */
                 <VersionPill
                     label={versionProperties?.version?.versionTag || '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
+                /* eslint-enable i18next/no-literal-string */
             ),
             comment: <Typography.Text ellipsis={{ tooltip: true }}>{versionProperties?.comment}</Typography.Text>,
             createdAt: (
@@ -171,12 +178,12 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     placement="topRight"
                     sections={[
                         {
-                            title: 'Created in Source',
-                            content: dayjs(versionProperties?.createdInSource?.time).format('MMMM D, YYYY h:mm A'),
+                            title: t('createdInSource'),
+                            content: dayjs(versionProperties?.createdInSource?.time).format(TIMESTAMP_FORMAT),
                         },
                         {
-                            title: 'Synced to DataHub',
-                            content: dayjs(versionProperties?.created?.time).format('MMMM D, YYYY h:mm A'),
+                            title: t('syncedToDataHub'),
+                            content: dayjs(versionProperties?.created?.time).format(TIMESTAMP_FORMAT),
                         },
                     ]}
                 >
@@ -199,7 +206,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
         <Drawer
             title={
                 <Title size="xl" color="gray" colorLevel={600} weight="semiBold">
-                    Versions
+                    {t('versionsTitle')}
                     <CloseIcon onClick={() => setDrawer?.(undefined)}>
                         <CloseOutlined />
                     </CloseIcon>
@@ -213,12 +220,12 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
             <Contents>
                 <Input
                     label=""
-                    placeholder="Search versions by name..."
+                    placeholder={t('searchPlaceholder')}
                     icon={{ icon: MagnifyingGlass }}
                     value={searchInput}
                     setValue={setSearchInput}
                 />
-                <Table data={tableData || []} columns={COLUMNS} />
+                <Table data={tableData || []} columns={columns} />
                 <Pagination
                     pageSize={PAGE_SIZE}
                     current={page}

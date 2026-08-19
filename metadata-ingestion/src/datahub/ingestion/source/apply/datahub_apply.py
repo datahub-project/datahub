@@ -1,5 +1,4 @@
 import logging
-from functools import partial
 from typing import Any, Iterable, List, Optional, Union
 
 import progressbar
@@ -14,11 +13,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.metadata.schema_classes import (
     DomainsClass,
     GlossaryTermAssociationClass,
@@ -217,8 +218,8 @@ class DataHubApplySource(Source):
         yield from self._yield_term()
         yield from self._yield_owner()
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [partial(auto_workunit_reporter, self.get_report())]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def get_report(self) -> SourceReport:
         return self.report

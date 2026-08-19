@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Text = styled.div`
@@ -7,5 +8,6 @@ const Text = styled.div`
 `;
 
 export const DefaultEmptyEntityList = () => {
-    return <Text>None found 😞</Text>;
+    const { t } = useTranslation('home.v2');
+    return <Text>{t('entityList.noneFound')}</Text>;
 };

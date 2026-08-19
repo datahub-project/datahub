@@ -2,16 +2,27 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.aliases.BackfillDatasetAliases;
+import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
+import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionFieldPath;
+import com.linkedin.datahub.upgrade.system.assertions.MigrateAssertionNoteToAspect;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
+import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
+import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
+import com.linkedin.datahub.upgrade.system.restoreindices.columnlineage.RestoreColumnLineageIndices;
+import com.linkedin.datahub.upgrade.system.restoreindices.forminfo.RestoreFormInfoIndices;
+import com.linkedin.datahub.upgrade.system.restoreindices.glossary.RestoreGlossaryIndices;
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
@@ -19,10 +30,13 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -131,10 +145,25 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade backfillDatasetAliases(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final SearchService searchService,
+      @Value("${systemUpdate.datasetAliases.enabled}") final boolean enabled,
+      @Value("${systemUpdate.datasetAliases.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.datasetAliases.delayMs}") final Integer delayMs,
+      // SYSTEM_UPDATE_DATASET_ALIASES_REPROCESS (not ..._REPROCESS_ENABLED)
+      @Value("${systemUpdate.datasetAliases.reprocess.enabled}") final boolean reprocessEnabled) {
+    return new BackfillDatasetAliases(
+        opContext, entityService, searchService, enabled, batchSize, delayMs, reprocessEnabled);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade schemaFieldsFromSchemaMetadata(
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final AspectDao aspectDao,
+      final ConfigurationProvider configurationProvider,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE
@@ -142,8 +171,65 @@ public class NonBlockingConfigs {
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs}") final Integer delayMs,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit,
+      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.reprocess.enabled}")
+          final boolean reprocessEnabled) {
+    var schemaFieldSideEffects =
+        configurationProvider.getMetadataChangeProposal().getSideEffects().getSchemaField();
+    boolean domainEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isDomainEnabled();
+    boolean ownershipEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isOwnershipEnabled();
     return new GenerateSchemaFieldsFromSchemaMetadata(
+        opContext,
+        entityService,
+        aspectDao,
+        enabled,
+        batchSize,
+        delayMs,
+        limit,
+        reprocessEnabled,
+        domainEnabled,
+        ownershipEnabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade generateAssertionEntityField(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      @Value("${systemUpdate.assertionEntityField.enabled}") final boolean enabled,
+      @Value("${systemUpdate.assertionEntityField.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.assertionEntityField.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.assertionEntityField.limit}") final Integer limit) {
+    return new GenerateAssertionEntityField(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade migrateAssertionNoteToAspect(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      @Value("${systemUpdate.assertionNote.enabled}") final boolean enabled,
+      @Value("${systemUpdate.assertionNote.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.assertionNote.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.assertionNote.limit}") final Integer limit) {
+    return new MigrateAssertionNoteToAspect(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade generateAssertionFieldPath(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      @Value("${systemUpdate.assertionFieldPath.enabled}") final boolean enabled,
+      @Value("${systemUpdate.assertionFieldPath.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.assertionFieldPath.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.assertionFieldPath.limit}") final Integer limit) {
+    return new GenerateAssertionFieldPath(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 
@@ -170,6 +256,7 @@ public class NonBlockingConfigs {
   @Autowired private OperationContext opContext;
 
   @Bean
+  @Conditional(KafkaMessagingEnabledCondition.class)
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
@@ -194,9 +281,18 @@ public class NonBlockingConfigs {
       @Qualifier("entityService") final EntityService<?> entityService,
       @Value("${entityService.retention.enabled}") final boolean enabled,
       @Value("${entityService.retention.applyOnBootstrap}") final boolean applyAfterIngest,
+      @Value("${entityService.retention.applyOnPolicyChange}") final boolean applyOnPolicyChange,
+      @Value("${entityService.retention.overwriteNonSystemPolicies}")
+          final boolean overwriteNonSystemPolicies,
       @Value("${datahub.plugin.retention.path}") final String pluginPath) {
     return new IngestRetentionPolicies(
-        retentionService, entityService, enabled, applyAfterIngest, pluginPath);
+        retentionService,
+        entityService,
+        enabled,
+        applyAfterIngest,
+        applyOnPolicyChange,
+        overwriteNonSystemPolicies,
+        pluginPath);
   }
 
   @Bean
@@ -205,6 +301,57 @@ public class NonBlockingConfigs {
       final EntityService<?> entityService,
       @Value("${systemUpdate.ingestEntityTypes.enabled}") final boolean enabled) {
     return new IngestEntityTypes(opContext, entityService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreColumnLineageIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.restoreColumnLineageIndices.enabled}") final boolean enabled) {
+    return new RestoreColumnLineageIndices(entityService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreFormInfoIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.restoreFormInfoIndices.enabled}") final boolean enabled) {
+    return new RestoreFormInfoIndices(entityService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreGlossaryIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      @Value("${systemUpdate.restoreGlossaryIndices.enabled}") final boolean enabled) {
+    return new RestoreGlossaryIndices(entityService, entitySearchService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestDataPlatformInstances(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entityAspectDao") final AspectMigrationsDao migrationsDao,
+      @Value("${systemUpdate.ingestDataPlatformInstances.enabled}") final boolean enabled) {
+    return new IngestDataPlatformInstances(entityService, migrationsDao, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade indexDataPlatforms(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      @Value("${systemUpdate.indexDataPlatforms.enabled}") final boolean enabled) {
+    return new IndexDataPlatforms(entityService, entitySearchService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade migrateHomePageLinks(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      final ConfigurationProvider configurationProvider,
+      @Value("${systemUpdate.migrateHomePageLinks.enabled}") final boolean enabled) {
+    return new MigrateHomePageLinks(
+        entityService,
+        entitySearchService,
+        enabled,
+        configurationProvider.getFeatureFlags().isShowHomePageRedesign());
   }
 
   @Bean
@@ -230,5 +377,12 @@ public class NonBlockingConfigs {
         batchSize,
         delayMs,
         limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
+    return new RestoreDbtSiblingsIndices(entityService, enabled);
   }
 }

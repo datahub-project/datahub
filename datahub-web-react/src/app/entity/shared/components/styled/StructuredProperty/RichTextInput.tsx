@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY_V2[6]};

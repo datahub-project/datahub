@@ -20,7 +20,9 @@ from typing import Dict
 import click
 
 from datahub_actions.action.action_stats import ActionStats
-from datahub_actions.pipeline.pipeline_util import get_transformer_name
+from datahub_actions.filter.filter import Filter
+from datahub_actions.filter.filter_stats import FilterStats
+from datahub_actions.pipeline.pipeline_util import get_filter_name, get_transformer_name
 from datahub_actions.transform.transformer import Transformer
 from datahub_actions.transform.transformer_stats import TransformerStats
 
@@ -31,19 +33,30 @@ class PipelineStats:
     started_at: int
 
     # Number of events that failed processing even after retry.
-    failed_event_count: int = 0
+    failed_event_count: int
 
     # Number of events that failed when "ack" was invoked.
-    failed_ack_count: int = 0
+    failed_ack_count: int
 
     # Top-level number of succeeded processing executions.
-    success_count: int = 0
+    success_count: int
+
+    # Filter Stats
+    filter_stats: Dict[str, FilterStats]
 
     # Transformer Stats
-    transformer_stats: Dict[str, TransformerStats] = {}
+    transformer_stats: Dict[str, TransformerStats]
 
     # Action Stats
-    action_stats: ActionStats = ActionStats()
+    action_stats: ActionStats
+
+    def __init__(self) -> None:
+        self.failed_event_count = 0
+        self.failed_ack_count = 0
+        self.success_count = 0
+        self.filter_stats = {}
+        self.transformer_stats = {}
+        self.action_stats = ActionStats()
 
     def mark_start(self) -> None:
         self.started_at = int(time() * 1000)
@@ -56,6 +69,30 @@ class PipelineStats:
 
     def increment_success_count(self) -> None:
         self.success_count = self.success_count + 1
+
+    def increment_filter_exception_count(self, f: Filter) -> None:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        self.filter_stats[name].increment_exception_count()
+
+    def increment_filter_processed_count(self, f: Filter) -> None:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        self.filter_stats[name].increment_processed_count()
+
+    def increment_filter_filtered_count(self, f: Filter) -> None:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        self.filter_stats[name].increment_filtered_count()
+
+    def get_filter_stats(self, f: Filter) -> FilterStats:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        return self.filter_stats[name]
 
     def increment_transformer_exception_count(self, transformer: Transformer) -> None:
         transformer_name = get_transformer_name(transformer)
@@ -103,7 +140,24 @@ class PipelineStats:
         return self.action_stats
 
     def as_string(self) -> str:
-        return json.dumps(self.__dict__, indent=4, sort_keys=True)
+        return json.dumps(
+            {
+                "started_at": getattr(self, "started_at", None),
+                "failed_event_count": self.failed_event_count,
+                "failed_ack_count": self.failed_ack_count,
+                "success_count": self.success_count,
+                "filter_stats": {
+                    k: json.loads(v.as_string()) for k, v in self.filter_stats.items()
+                },
+                "transformer_stats": {
+                    k: json.loads(v.as_string())
+                    for k, v in self.transformer_stats.items()
+                },
+                "action_stats": json.loads(self.action_stats.as_string()),
+            },
+            indent=4,
+            sort_keys=True,
+        )
 
     def pretty_print_summary(self, name: str) -> None:
         curr_time = int(time() * 1000)
@@ -119,6 +173,12 @@ class PipelineStats:
         click.echo()
         click.echo(self.as_string())
         click.echo()
+        if len(self.filter_stats.keys()) > 0:
+            click.secho("Filter statistics", bold=True)
+            for key in self.filter_stats:
+                click.echo()
+                click.echo(f"{key}: {self.filter_stats[key].as_string()}")
+            click.echo()
         if len(self.transformer_stats.keys()) > 0:
             click.secho("Transformer statistics", bold=True)
             for key in self.transformer_stats:

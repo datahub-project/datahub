@@ -13,16 +13,34 @@ import uuid
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
+pytestmark = pytest.mark.domain(Domain.AI)
 
-def execute_graphql(auth_session, query: str, variables: dict | None = None) -> dict:
-    """Execute a GraphQL query against the frontend API."""
+
+def execute_graphql(
+    auth_session,
+    query: str,
+    variables: dict | None = None,
+    no_sync_wait: bool = False,
+) -> dict:
+    """Execute a GraphQL query against the frontend API.
+
+    no_sync_wait=True uses auth_session.raw_post to skip TestSessionWrapper's
+    automatic wait_for_writes_to_sync() call. Use for all-but-the-last call in
+    a batch of writes where only the state after the whole batch matters.
+    """
     payload = {"query": query, "variables": variables or {}}
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/graphql", json=payload
-    )
+    if no_sync_wait:
+        response = auth_session.raw_post(
+            f"{auth_session.frontend_url()}/api/graphql", json=payload
+        )
+    else:
+        response = auth_session.post(
+            f"{auth_session.frontend_url()}/api/graphql", json=payload
+        )
     response.raise_for_status()
     result = response.json()
     return result
@@ -51,13 +69,12 @@ def test_document_change_history(auth_session):
             "contents": {"text": "Initial content"},
         }
     }
-    create_res = execute_graphql(auth_session, create_mutation, create_vars)
+    create_res = execute_graphql(
+        auth_session, create_mutation, create_vars, no_sync_wait=True
+    )
     assert "errors" not in create_res, f"GraphQL errors: {create_res.get('errors')}"
     urn = create_res["data"]["createDocument"]
     assert urn is not None
-
-    wait_for_writes_to_sync()
-    time.sleep(2)
 
     # Update the document content
     update_mutation = """
@@ -71,12 +88,11 @@ def test_document_change_history(auth_session):
             "contents": {"text": "Updated content"},
         },
     }
-    update_res = execute_graphql(auth_session, update_mutation, update_vars)
+    update_res = execute_graphql(
+        auth_session, update_mutation, update_vars, no_sync_wait=True
+    )
     assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
     assert update_res["data"]["updateDocumentContents"] is True
-
-    wait_for_writes_to_sync()
-    time.sleep(2)
 
     # Update the document state
     status_mutation = """
@@ -85,11 +101,15 @@ def test_document_change_history(auth_session):
         }
     """
     status_vars = {"input": {"urn": urn, "state": "PUBLISHED"}}
-    status_res = execute_graphql(auth_session, status_mutation, status_vars)
+    status_res = execute_graphql(
+        auth_session, status_mutation, status_vars, no_sync_wait=True
+    )
     assert "errors" not in status_res, f"GraphQL errors: {status_res.get('errors')}"
     assert status_res["data"]["updateDocumentStatus"] is True
 
-    wait_for_writes_to_sync()
+    # Only the state after this whole batch of writes matters for the change-history
+    # read below, so wait once here instead of after each individual write.
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Query change history
@@ -109,7 +129,9 @@ def test_document_change_history(auth_session):
         }
     """
     history_vars = {"urn": urn}
-    history_res = execute_graphql(auth_session, history_query, history_vars)
+    history_res = execute_graphql(
+        auth_session, history_query, history_vars, no_sync_wait=True
+    )
     assert "errors" not in history_res, f"GraphQL errors: {history_res.get('errors')}"
 
     doc = history_res["data"]["document"]
@@ -142,11 +164,13 @@ def test_document_change_history(auth_session):
     # and it has the right structure (actual event generation depends on
     # Timeline Service configuration and entity registration)
 
-    # Cleanup
+    # Cleanup -- nothing reads state after this, so skip the sync wait.
     delete_mutation = """
         mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
     """
-    del_res = execute_graphql(auth_session, delete_mutation, {"urn": urn})
+    del_res = execute_graphql(
+        auth_session, delete_mutation, {"urn": urn}, no_sync_wait=True
+    )
     assert del_res["data"]["deleteDocument"] is True
 
 
@@ -169,12 +193,14 @@ def test_document_change_history_with_time_range(auth_session):
             "contents": {"text": "Test content"},
         }
     }
-    create_res = execute_graphql(auth_session, create_mutation, create_vars)
+    create_res = execute_graphql(
+        auth_session, create_mutation, create_vars, no_sync_wait=True
+    )
     assert "errors" not in create_res, f"GraphQL errors: {create_res.get('errors')}"
     urn = create_res["data"]["createDocument"]
     assert urn is not None
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Query change history with time range
@@ -199,7 +225,9 @@ def test_document_change_history_with_time_range(auth_session):
         "endTime": current_time,
         "limit": 10,
     }
-    history_res = execute_graphql(auth_session, history_query, history_vars)
+    history_res = execute_graphql(
+        auth_session, history_query, history_vars, no_sync_wait=True
+    )
     assert "errors" not in history_res, f"GraphQL errors: {history_res.get('errors')}"
 
     doc = history_res["data"]["document"]
@@ -212,11 +240,13 @@ def test_document_change_history_with_time_range(auth_session):
     # Verify the limit is respected
     assert len(change_history) <= 10, "Expected at most 10 change events"
 
-    # Cleanup
+    # Cleanup -- nothing reads state after this, so skip the sync wait.
     delete_mutation = """
         mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
     """
-    del_res = execute_graphql(auth_session, delete_mutation, {"urn": urn})
+    del_res = execute_graphql(
+        auth_session, delete_mutation, {"urn": urn}, no_sync_wait=True
+    )
     assert del_res["data"]["deleteDocument"] is True
 
 
@@ -239,12 +269,14 @@ def test_document_change_history_empty(auth_session):
             "contents": {"text": "Test"},
         }
     }
-    create_res = execute_graphql(auth_session, create_mutation, create_vars)
+    create_res = execute_graphql(
+        auth_session, create_mutation, create_vars, no_sync_wait=True
+    )
     assert "errors" not in create_res, f"GraphQL errors: {create_res.get('errors')}"
     urn = create_res["data"]["createDocument"]
     assert urn is not None
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     time.sleep(2)
 
     # Query change history with a future time range (should return empty)
@@ -264,7 +296,9 @@ def test_document_change_history_empty(auth_session):
         }
     """
     history_vars = {"urn": urn, "startTime": future_start, "endTime": future_end}
-    history_res = execute_graphql(auth_session, history_query, history_vars)
+    history_res = execute_graphql(
+        auth_session, history_query, history_vars, no_sync_wait=True
+    )
     assert "errors" not in history_res, f"GraphQL errors: {history_res.get('errors')}"
 
     doc = history_res["data"]["document"]
@@ -276,9 +310,11 @@ def test_document_change_history_empty(auth_session):
     # Should be empty since we queried a future time range
     assert len(change_history) == 0, "Expected no change events in future time range"
 
-    # Cleanup
+    # Cleanup -- nothing reads state after this, so skip the sync wait.
     delete_mutation = """
         mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
     """
-    del_res = execute_graphql(auth_session, delete_mutation, {"urn": urn})
+    del_res = execute_graphql(
+        auth_session, delete_mutation, {"urn": urn}, no_sync_wait=True
+    )
     assert del_res["data"]["deleteDocument"] is True

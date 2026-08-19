@@ -32,10 +32,13 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.InvalidSearchHitException;
+import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -252,7 +255,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    applyFetchSource(searchSourceBuilder, searchFlags);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -314,7 +317,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    applyFetchSource(searchSourceBuilder, searchFlags);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -391,7 +394,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
-            .field(ESUtils.toKeywordField(field, false, opContext.getAspectRetriever()))
+            .field(ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever()))
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 
@@ -401,6 +404,15 @@ public class SearchRequestHandler extends BaseRequestHandler {
   public QueryBuilder getQuery(
       @Nonnull OperationContext opContext, @Nonnull String query, boolean fulltext) {
     return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
+  }
+
+  private static void applyFetchSource(
+      @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SearchFlags searchFlags) {
+    String[] includes =
+        SearchDocFieldFetchConfig.resolve(
+                SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags)
+            .toArray(String[]::new);
+    searchSourceBuilder.fetchSource(includes, null);
   }
 
   @Override
@@ -457,8 +469,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
     for (SearchHit hit : searchHits) {
-      // Build base SearchEntity
-      SearchEntity entity = getResult(hit);
+      // Build base SearchEntity — skip hits with missing/invalid URN rather than crashing
+      Optional<SearchEntity> maybeEntity = getResultSafely(opContext, hit);
+      if (maybeEntity.isEmpty()) {
+        continue;
+      }
+      SearchEntity entity = maybeEntity.get();
       // Compute per-hit scrollId using this hit's sort values
       Object[] sort = hit.getSortValues();
       String perHitScrollId =
@@ -506,7 +522,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   @Nonnull
   private List<MatchedField> extractMatchedFields(@Nonnull SearchHit hit) {
+    // getHighlightFields() and getMatchedQueries() can be null for a valid hit (no highlight / no
+    // named-query match). Default them to empty: now that getResultSafely only catches
+    // InvalidSearchHitException, an unguarded NPE here would fail the whole search instead of
+    // skipping a single bad hit.
     Map<String, HighlightField> highlightedFields = hit.getHighlightFields();
+    if (highlightedFields == null) {
+      highlightedFields = Map.of();
+    }
     // Keep track of unique field values that matched for a given field name
     Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
@@ -523,7 +546,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
     }
     // fallback matched query, non-analyzed field
-    for (String queryName : hit.getMatchedQueries()) {
+    String[] matchedQueries =
+        hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
+    for (String queryName : matchedQueries) {
       if (!highlightedFieldNamesAndValues.containsKey(queryName)) {
         if (hit.getFields().containsKey(queryName)) {
           for (Object fieldValue : hit.getFields().get(queryName).getValues()) {
@@ -598,16 +623,54 @@ public class SearchRequestHandler extends BaseRequestHandler {
         Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
   }
 
-  private SearchEntity getResult(@Nonnull SearchHit hit) {
-    return new SearchEntity()
-        .setEntity(getUrnFromSearchHit(hit))
-        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
-        .setScore(hit.getScore())
-        .setFeatures(new DoubleMap(extractFeatures(hit)));
+  private SearchEntity getResult(@Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+    SearchEntity entity =
+        new SearchEntity()
+            .setEntity(getUrnFromSearchHit(hit))
+            .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
+            .setScore(hit.getScore())
+            .setFeatures(new DoubleMap(extractFeatures(hit)));
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags != null && CollectionUtils.isNotEmpty(flags.getFetchExtraFields())) {
+      entity.setExtraFields(
+          SearchResultUtils.toExtraFields(
+              opContext.getObjectMapper(), hit.getSourceAsMap(), flags.getFetchExtraFields()));
+    }
+    return entity;
   }
 
   /**
-   * Gets list of entities returned in the search response
+   * Builds a {@link SearchEntity} for a hit, returning empty (and skipping the hit) only when its
+   * URN is missing or invalid — e.g. documents created by older bootstrap code (see issue #13181).
+   *
+   * <p>Any other failure is left to propagate: silently swallowing it would mask real bugs and
+   * could drop valid results without surfacing the cause. The narrow {@link
+   * InvalidSearchHitException} catch ensures only the known, recoverable data-quality condition is
+   * tolerated.
+   */
+  private Optional<SearchEntity> getResultSafely(
+      @Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+    try {
+      return Optional.of(getResult(opContext, hit));
+    } catch (InvalidSearchHitException e) {
+      log.warn(
+          "Skipping search hit with invalid or missing URN. Index: {}, ID: {}",
+          hit.getIndex(),
+          hit.getId(),
+          e);
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(SearchRequestHandler.class, "skippedInvalidSearchHit", 1));
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Gets list of entities returned in the search response, skipping any hits with missing or
+   * invalid URN fields (e.g. documents created by older bootstrap code) instead of crashing the
+   * entire search operation.
    *
    * @param searchResponse the raw search response from search engine
    * @return List of search entities
@@ -615,11 +678,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
   @Nonnull
   private Collection<SearchEntity> getRestrictedResults(
       @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
-    return ESAccessControlUtil.restrictSearchResult(
-        opContext,
+    List<SearchEntity> results =
         Arrays.stream(searchResponse.getHits().getHits())
-            .map(this::getResult)
-            .collect(Collectors.toList()));
+            .flatMap(hit -> getResultSafely(opContext, hit).stream())
+            .collect(Collectors.toList());
+    return ESAccessControlUtil.restrictSearchResult(opContext, results);
   }
 
   @Nonnull
@@ -647,7 +710,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       final List<AggregationMetadata> aggregationMetadataList =
           aggregationQueryBuilder.extractAggregationMetadata(
-              searchResponse, filter, opContext.getAspectRetriever());
+              searchResponse, filter, opContext, opContext.getAspectRetriever());
       searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
 

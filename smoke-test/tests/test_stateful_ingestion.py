@@ -1,5 +1,6 @@
 from typing import Any, Dict, Union, cast
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
@@ -8,7 +9,10 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.testing.state_helpers import get_current_checkpoint_from_pipeline
+from tests.utilities.domains import Domain
 from tests.utils import get_db_password, get_db_type, get_db_url, get_db_username
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def test_stateful_ingestion(auth_session):
@@ -24,11 +28,13 @@ def test_stateful_ingestion(auth_session):
 
     def create_table(engine: Any, name: str, defn: str) -> None:
         create_table_query = text(f"CREATE TABLE IF NOT EXISTS {name}{defn};")
-        engine.execute(create_table_query)
+        with engine.begin() as conn:
+            conn.execute(create_table_query)
 
     def drop_table(engine: Any, table_name: str) -> None:
-        drop_table_query = text(f"DROP TABLE {table_name};")
-        engine.execute(drop_table_query)
+        drop_table_query = text(f"DROP TABLE IF EXISTS {table_name};")
+        with engine.begin() as conn:
+            conn.execute(drop_table_query)
 
     def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
         pipeline = Pipeline.create(pipeline_config_dict)

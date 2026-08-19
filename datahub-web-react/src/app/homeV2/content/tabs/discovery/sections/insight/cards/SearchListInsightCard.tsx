@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
@@ -66,6 +67,8 @@ type Props = {
 };
 
 export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filters, sort, empty }: Props) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [loaded, setLoaded] = useState(false);
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
@@ -98,7 +101,7 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
             module: HomePageModule.Discover,
             section: 'For you',
             subSection: title,
-            value: 'View all',
+            value: tc('viewAll'),
         });
     };
 
@@ -122,12 +125,12 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
                             {title}
                         </Title>
                     </Tooltip>
-                    <ShowAll onClick={handleViewAll}>View all</ShowAll>
+                    <ShowAll onClick={handleViewAll}>{tc('viewAll')}</ShowAll>
                 </Header>
                 <EntityLinkList
                     entities={assets}
                     loading={false}
-                    empty={empty || 'No assets found'}
+                    empty={empty || t('insights.noAssetsFound')}
                     onClickEntity={handleClickEntity}
                 />
             </InsightCard>

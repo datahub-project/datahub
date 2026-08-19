@@ -72,6 +72,23 @@ test.describe('Welcome to DataHub Modal', () => {
       await expect(welcomeModalPage.docsLink).toBeVisible();
     });
 
+    test('should advance to next slide via ArrowRight key', async () => {
+      await welcomeModalPage.navigateToHome();
+      await welcomeModalPage.expectModalVisible();
+      await welcomeModalPage.expectSlide1Visible();
+      await welcomeModalPage.pressArrowRight();
+      await welcomeModalPage.expectSlide2Visible();
+    });
+
+    test('should go back to previous slide via ArrowLeft key', async () => {
+      await welcomeModalPage.navigateToHome();
+      await welcomeModalPage.expectModalVisible();
+      await welcomeModalPage.clickCarouselDot(1);
+      await welcomeModalPage.expectSlide2Visible();
+      await welcomeModalPage.pressArrowLeft();
+      await welcomeModalPage.expectSlide1Visible();
+    });
+
     test.skip('should auto-advance slides after 10 seconds', async () => {
       // Skipped in CI: react-slick autoplay is paused in headless Chromium
       // (window focus / visibilityState is not reliable), causing the 10-second
@@ -176,6 +193,7 @@ test.describe('Welcome to DataHub Modal', () => {
       });
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const viewEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalViewEvent');
       expect(viewEvent).toBeDefined();
@@ -191,6 +209,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const interactEvents = trackRequests.filter((r) => r['type'] === 'WelcomeToDataHubModalInteractEvent');
       expect(interactEvents.length).toBeGreaterThan(0);
@@ -206,10 +225,28 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
       expect(exitEvent).toBeDefined();
       expect(exitEvent?.['exitMethod']).toBe('close_button');
+    });
+
+    test('should track exit event with escape_key method when Esc is pressed', async ({ page }) => {
+      const trackRequests: Record<string, unknown>[] = [];
+      await page.route('**/track', (route) => {
+        const postData = route.request().postData();
+        if (postData) trackRequests.push(JSON.parse(postData) as Record<string, unknown>);
+        void route.continue();
+      });
+      await welcomeModalPage.navigateToHome();
+      await welcomeModalPage.expectModalVisible();
+      await welcomeModalPage.closeViaEscape();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(1000);
+      const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
+      expect(exitEvent).toBeDefined();
+      expect(exitEvent?.['exitMethod']).toBe('escape_key');
     });
 
     test('should track documentation link click event', async ({ page }) => {
@@ -224,6 +261,7 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.clickLastCarouselDot();
       await welcomeModalPage.expectFinalSlideVisible();
       await welcomeModalPage.docsLink.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(1000);
       const linkClickEvent = trackRequests.find(
         (r) => r['type'] === 'WelcomeToDataHubModalClickViewDocumentationEvent',

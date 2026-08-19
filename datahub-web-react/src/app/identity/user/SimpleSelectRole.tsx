@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { SimpleSelect, Text, Tooltip } from '@components';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
@@ -37,11 +38,13 @@ interface Props {
 export default function SimpleSelectRole({
     selectedRole,
     onRoleSelect,
-    placeholder = 'No Role',
+    placeholder,
     size = 'md',
     width = 'fit-content',
     disabled = false,
 }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const resolvedPlaceholder = placeholder ?? t('users.noRole');
     const { roles, loading, hasMore, observerRef, setSearchQuery } = useRoleSelector();
 
     const roleSelectOptions = useMemo(() => {
@@ -69,15 +72,22 @@ export default function SimpleSelectRole({
         });
 
         // Add "No Role" option at the end
-        const options = [...sortedRoleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
+        const options = [
+            ...sortedRoleOptions,
+            { value: '', label: resolvedPlaceholder, icon: mapRoleToPhosphorIcon('') },
+        ];
 
         // Add sentinel option for infinite scroll trigger
         if (hasMore) {
-            options.push({ value: LOAD_MORE_VALUE, label: 'Loading more...', icon: <LoadingOutlined /> });
+            options.push({
+                value: LOAD_MORE_VALUE,
+                label: t('users.loadingMoreRolesSentinel'),
+                icon: <LoadingOutlined />,
+            });
         }
 
         return options;
-    }, [roles, placeholder, hasMore]);
+    }, [roles, resolvedPlaceholder, hasMore, t]);
 
     const handleRoleSelect = (roleUrn: string) => {
         // Ignore clicks on the sentinel option
@@ -98,7 +108,7 @@ export default function SimpleSelectRole({
                 <LoadMoreContainer ref={observerRef}>
                     <LoadingOutlined />
                     <Text color="gray" size="sm" style={{ marginLeft: 8 }}>
-                        Loading more roles...
+                        {t('users.loadingMoreRoles')}
                     </Text>
                 </LoadMoreContainer>
             );
@@ -106,7 +116,7 @@ export default function SimpleSelectRole({
 
         // Default rendering for role options
         return (
-            <Tooltip title={option.value || 'No URN'} placement="right">
+            <Tooltip title={option.value || t('users.statusNoUrn')} placement="right">
                 <OptionContainer>
                     {option.icon}
                     <Text weight="semiBold" size="md" color="gray">
@@ -118,12 +128,12 @@ export default function SimpleSelectRole({
     };
 
     return (
-        <Tooltip title="Set user role" placement="top">
+        <Tooltip title={t('users.setRoleTooltip')} placement="top">
             <span>
                 <SimpleSelect
                     onUpdate={(values) => handleRoleSelect(values[0] || '')}
                     options={roleSelectOptions}
-                    placeholder={placeholder}
+                    placeholder={resolvedPlaceholder}
                     values={selectedRole?.urn ? [selectedRole.urn] : []}
                     size={size}
                     width={width}

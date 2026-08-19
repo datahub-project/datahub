@@ -1,45 +1,47 @@
+import i18next from 'i18next';
+
 import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
 import { Incident, IncidentState, IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 
-export const INCIDENT_DISPLAY_TYPES = [
-    {
-        type: IncidentType.Operational,
-        name: 'Operational',
-    },
-    {
-        type: 'OTHER',
-        name: 'Custom',
-    },
-];
+export function getIncidentDisplayTypes() {
+    return [
+        {
+            type: IncidentType.Operational,
+            name: i18next.t('entity.profile.incident:type.operational'),
+        },
+        {
+            type: 'OTHER',
+            name: i18next.t('entity.profile.incident:type.custom'),
+        },
+    ];
+}
 
-export const INCIDENT_DISPLAY_STATES = [
-    {
-        type: undefined,
-        name: 'All',
-    },
-    {
-        type: IncidentState.Active,
-        name: 'Active',
-    },
-    {
-        type: IncidentState.Resolved,
-        name: 'Resolved',
-    },
-];
-
-const incidentTypeToDetails = new Map();
-INCIDENT_DISPLAY_TYPES.forEach((incidentDetails) => {
-    incidentTypeToDetails.set(incidentDetails.type, incidentDetails);
-});
+export function getIncidentDisplayStates() {
+    return [
+        {
+            type: undefined,
+            name: i18next.t('entity.profile.incident:state.all'),
+        },
+        {
+            type: IncidentState.Active,
+            name: i18next.t('entity.profile.incident:state.active'),
+        },
+        {
+            type: IncidentState.Resolved,
+            name: i18next.t('entity.profile.incident:state.resolved'),
+        },
+    ];
+}
 
 export const getNameFromType = (type: IncidentType) => {
+    const incidentTypeToDetails = new Map();
+    getIncidentDisplayTypes().forEach((incidentDetails) => {
+        incidentTypeToDetails.set(incidentDetails.type, incidentDetails);
+    });
     return incidentTypeToDetails.get(type)?.name || type;
 };
-
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
 
 // apollo caching
 const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {

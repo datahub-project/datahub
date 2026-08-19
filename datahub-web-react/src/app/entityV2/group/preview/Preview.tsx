@@ -1,5 +1,6 @@
 import { Tag, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -73,6 +74,7 @@ export const Preview = ({
     description?: string | null;
     membersCount?: number;
 }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
 
@@ -90,7 +92,7 @@ export const Preview = ({
                         <Link to={url}>
                             <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
-                                <Tag>{membersCount} members</Tag>
+                                <Tag>{t('shared.membersCount', { count: membersCount || 0 })}</Tag>
                             </MemberCountContainer>
                         </Link>
                     </TitleContainer>

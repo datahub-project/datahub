@@ -7,16 +7,15 @@ import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
-import graphql.language.OperationDefinition;
-import graphql.parser.Parser;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 
 @Getter
@@ -38,26 +37,13 @@ public class SpringQueryContext implements QueryContext {
       @Nonnull final OperationContext systemOperationContext,
       @Nonnull final DataHubAppConfiguration dataHubAppConfig,
       @Nonnull final HttpServletRequest request,
-      @Nullable final String operationName,
-      String jsonQuery,
-      Map<String, Object> variables) {
+      @Nonnull final GraphqlDocumentMetadata documentMetadata,
+      Map<String, Object> variables,
+      @Nonnull GraphqlUsageClassificationRegistry graphqlUsageClassificationRegistry) {
     this.isAuthenticated = isAuthenticated;
     this.authentication = authentication;
     this.authorizer = authorizer;
-
-    // operationName is an optional field only required if multiple operations are present
-    this.queryName =
-        operationName != null
-            ? operationName
-            : new Parser()
-                .parseDocument(jsonQuery).getDefinitions().stream()
-                    .filter(def -> def instanceof OperationDefinition)
-                    .map(def -> (OperationDefinition) def)
-                    .filter(
-                        opDef -> opDef.getOperation().equals(OperationDefinition.Operation.QUERY))
-                    .findFirst()
-                    .map(OperationDefinition::getName)
-                    .orElse("graphql");
+    this.queryName = documentMetadata.resolvedOperationName();
 
     GraphQLConfiguration graphQL =
         Objects.requireNonNull(
@@ -70,11 +56,18 @@ public class SpringQueryContext implements QueryContext {
     this.relationshipTraversalContext =
         new RelationshipTraversalContext(queryConfig.getMaxVisitedUrns());
     this.maxParentDepth = queryConfig.getMaxParentDepth();
+
+    GraphqlRequestUsageClassifier.Result classification =
+        GraphqlRequestUsageClassifier.classify(
+            documentMetadata, graphqlUsageClassificationRegistry);
+
     this.operationContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildGraphql(authentication.getActor().toUrnStr(), request, queryName, variables),
+                .buildGraphql(authentication.getActor().toUrnStr(), request, queryName, variables)
+                .withUsageOperation(classification.usageOperation())
+                .graphqlOperationKind(classification.kind()),
             authorizer,
             authentication,
             true);

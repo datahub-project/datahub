@@ -1,13 +1,13 @@
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
     getFieldDescription,
-    getFieldOperatorDescription,
-    getFieldParametersDescription,
-    getFieldTransformDescription,
+    getFieldDescriptionDescriptor,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 
 import { FieldAssertionInfo } from '@types';
@@ -44,27 +44,47 @@ const StyledColumnTag = styled.div`
  * if @param showColumnTag is true then description will be -> column values are greater than 5
  * if @param showColumnTag is false then description will be -> profileId is greater than 5
  */
+const renderFallbackDescription = (field: string | null | undefined) => (
+    <Trans
+        i18nKey="entity.profile.validations:fieldDescription.customCheckOn"
+        values={{ field: field ?? i18next.t('entity.profile.validations:fieldDescription.fieldFallback') }}
+        components={{ bold: <Typography.Text style={{ fontWeight: 'bold' }} /> }}
+    />
+);
+
 export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const field = getFieldDescription(assertionInfo);
-    const transform = getFieldTransformDescription(assertionInfo);
-    // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
-    const operator = getFieldOperatorDescription({ assertionInfo, isPlural: showColumnTag && !transform });
-    const parameters = getFieldParametersDescription(assertionInfo);
-    let descriptionContent = <>{assertionDescription}</>;
+    let descriptionContent: React.ReactNode = assertionDescription;
 
     if (!assertionDescription) {
-        descriptionContent = (
-            <>
-                {transform}
-                {transform ? ' of ' : ''}
-                {showColumnTag ? (
-                    (transform && 'column') || 'Values'
-                ) : (
-                    <Typography.Text style={{ fontWeight: 'bold' }}>{field}</Typography.Text>
-                )}{' '}
-                {operator} {parameters}
-            </>
-        );
+        try {
+            const descriptor = getFieldDescriptionDescriptor(assertionInfo, {
+                showColumnTag,
+            });
+            descriptionContent = (
+                <Trans
+                    t={t}
+                    i18nKey={`fieldDescription.${descriptor.shape}.${descriptor.operatorKey}`}
+                    values={{
+                        field: descriptor.field,
+                        transform: descriptor.transformLabelKey ? t(descriptor.transformLabelKey) : '',
+                        metric: descriptor.metricLabelKey ? t(descriptor.metricLabelKey) : '',
+                        value: descriptor.tokens.value,
+                        minValue: descriptor.tokens.minValue,
+                        maxValue: descriptor.tokens.maxValue,
+                    }}
+                    components={{
+                        bold: <Typography.Text style={{ fontWeight: 'bold' }} />,
+                    }}
+                />
+            );
+        } catch (e) {
+            // Helpers throw on unsupported enum values (e.g. operator = _NATIVE_ from external
+            // integrations). Without this catch, the whole Assertions tab error-boundaries out.
+            console.warn('Failed to render field assertion description', e);
+            descriptionContent = renderFallbackDescription(field);
+        }
     }
 
     return (

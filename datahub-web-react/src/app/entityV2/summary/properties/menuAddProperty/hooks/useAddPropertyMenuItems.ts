@@ -1,5 +1,6 @@
 import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
 import { sortMenuItems } from '@components/components/Menu/utils';
@@ -11,6 +12,7 @@ import { assetPropertyToMenuItem } from '@app/entityV2/summary/properties/utils'
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 export default function useAddPropertyMenuItems(onClick: (property: AssetProperty) => void): ItemType[] {
+    const { t } = useTranslation('entity.profile.summary');
     const basicAssetProperties = useBasicAssetProperties();
     const { summaryElements } = usePageTemplateContext();
     const structuredPropertiesMenuItems = useStructuredPropertiesMenuItems(onClick);
@@ -40,14 +42,14 @@ export default function useAddPropertyMenuItems(onClick: (property: AssetPropert
             items.push({
                 type: 'item',
                 key: 'structuredProperties',
-                title: 'Properties',
+                title: t('menu.properties'),
                 icon: ListDashes,
                 children: structuredPropertiesMenuItems,
             });
         }
 
         return sortMenuItems(items);
-    }, [onClick, basicAssetProperties, structuredPropertiesMenuItems, summaryElements]);
+    }, [t, onClick, basicAssetProperties, structuredPropertiesMenuItems, summaryElements]);
 
     return menuItems;
 }

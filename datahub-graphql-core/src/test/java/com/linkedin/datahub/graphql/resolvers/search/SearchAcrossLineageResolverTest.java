@@ -75,6 +75,28 @@ public class SearchAcrossLineageResolverTest {
   }
 
   @Test
+  public void testSearchAcrossLineageEmptyUrn() {
+    final SearchAcrossLineageInput input = new SearchAcrossLineageInput();
+    input.setUrn("");
+    input.setDirection(LineageDirection.DOWNSTREAM);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    assertThrows(
+        IllegalArgumentException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
+  public void testSearchAcrossLineageInvalidUrn() {
+    final SearchAcrossLineageInput input = new SearchAcrossLineageInput();
+    input.setUrn("not-a-valid-urn");
+    input.setDirection(LineageDirection.DOWNSTREAM);
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+
+    assertThrows(
+        IllegalArgumentException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
   public void testSearchAcrossLineage() throws Exception {
     final QueryContext mockContext = getMockAllowContext();
     when(mockContext.getAuthentication()).thenReturn(_authentication);

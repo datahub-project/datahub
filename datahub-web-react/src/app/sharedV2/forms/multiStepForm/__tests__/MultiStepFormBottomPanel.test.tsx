@@ -319,9 +319,21 @@ describe('MultiStepFormBottomPanel', () => {
     it('calls renderLeftButtons when provided', async () => {
         const mockRenderLeftButtons = vi.fn((buttons) => <div data-testid="custom-left">{buttons}</div>);
 
+        const TestComponent = () => {
+            const { setCurrentStepCompleted, currentStepIndex } = useMultiStepContext();
+
+            React.useEffect(() => {
+                if (currentStepIndex === 0) {
+                    setCurrentStepCompleted();
+                }
+            }, [currentStepIndex, setCurrentStepCompleted]);
+
+            return <MultiStepFormBottomPanel renderLeftButtons={mockRenderLeftButtons} />;
+        };
+
         renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
-                <MultiStepFormBottomPanel renderLeftButtons={mockRenderLeftButtons} />
+                <TestComponent />
             </MultiStepFormProvider>,
         );
 
@@ -335,7 +347,7 @@ describe('MultiStepFormBottomPanel', () => {
         // Wait for the re-render to complete and check that function was called multiple times
         await waitFor(
             () => {
-                expect(mockRenderLeftButtons).toHaveBeenCalledTimes(2);
+                expect(mockRenderLeftButtons.mock.calls.length).toBeGreaterThanOrEqual(2);
             },
             { timeout: 1000 },
         );

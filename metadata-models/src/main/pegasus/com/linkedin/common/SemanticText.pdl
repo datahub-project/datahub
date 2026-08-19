@@ -1,0 +1,34 @@
+namespace com.linkedin.common
+
+/**
+ * Curated text that supersedes an entity's primary textual content as the
+ * source for semantic-search embeddings.
+ *
+ * When present, the embedding pipeline embeds this text instead of the
+ * entity's own content (e.g. a document's `contents.text`); when absent,
+ * embeddings fall back to that content. This lets the full body stay on the
+ * entity while a concise, curated representation (e.g. a short summary plus
+ * sample questions) drives retrieval.
+ *
+ * This aspect is a curated embedding *source*. It is distinct from
+ * `semanticContent`, which stores the embedding *vectors* produced by the
+ * embedding pipeline.
+ */
+@Aspect = {
+  "name": "semanticText"
+}
+record SemanticText {
+
+  /**
+   * The curated embedding-source text. Keyword-indexed (under the
+   * `semanticText` field, matching the field this aspect replaced on
+   * `DocumentContents`) so it is searchable alongside the entity's primary
+   * content.
+   */
+  @Searchable = {
+    "fieldName": "semanticText",
+    "fieldType": "TEXT",
+    "searchTier": 2
+  }
+  text: string
+}

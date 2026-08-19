@@ -12,6 +12,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
@@ -20,6 +21,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -37,6 +39,8 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.service.LifecycleStageTypeService;
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -134,7 +138,29 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+
   // End of field types
+
+  /**
+   * {@code ignore_above} for TEXT-derived keyword fields. Lucene rejects indexed terms longer than
+   * 32766 bytes; matching that limit skips oversized values instead of failing the document. See
+   * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
+   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
+   * sub-fields are unaffected.
+   *
+   * <p>Structured-property write validation is configured separately via {@code
+   * structuredProperties.keywordMaxLength} / {@code STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH}.
+   */
+  public static final int KEYWORD_MAXLENGTH = 32766;
+
+  /** Mapping parameter name for the keyword length guard described above. */
+  public static final String IGNORE_ABOVE = "ignore_above";
+
+  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
+    int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
+    return maxBytes / 4;
+  }
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(
@@ -430,7 +456,7 @@ public class ESUtils {
       return finalQueryBuilder;
     }
 
-    StructuredPropertyUtils.validateFilter(filter, opContext.getAspectRetriever());
+    StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
 
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
@@ -549,7 +575,8 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
-    final String fieldName = toParentField(criterion.getField(), opContext.getAspectRetriever());
+    final String fieldName =
+        toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
 
     /*
      * Check the field-name for a "sibling" field, or one which should ALWAYS
@@ -723,15 +750,21 @@ public class ESUtils {
   /**
    * Resolve structured property field, or normal field, and strip subfields
    *
+   * @param opContext operation context for tenant-aware aspect retrieval
    * @param filterField name of the field used in the filter request
    * @param aspectRetriever aspect retriever, used if structured property
    * @return normalized field name without subfields
    */
   @Nonnull
   public static String toParentField(
-      @Nonnull final String filterField, @Nullable final AspectRetriever aspectRetriever) {
+      @Nullable final Object opContext,
+      @Nonnull final String filterField,
+      @Nullable final AspectRetriever aspectRetriever) {
+    // Only structured-property filters need definition lookup to sanitize/version the ES field
+    // name. Non-SP fields pass through unchanged aside from stripping known subfield suffixes.
     String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
+        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
+                (OperationFingerprint) opContext, filterField, aspectRetriever)
             .map(
                 urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
@@ -763,6 +796,7 @@ public class ESUtils {
   /**
    * Return resolved structured property field, normal field, or subfield which is of type `keyword`
    *
+   * @param opContext operation context for tenant-aware aspect retrieval
    * @param filterField the field name used in the filter
    * @param skipKeywordSuffix prevent use of `keyword` subfield, useful when parent field is known
    *     or always `keyword`
@@ -771,26 +805,46 @@ public class ESUtils {
    */
   @Nonnull
   public static String toKeywordField(
+      @Nullable final Object opContext,
       @Nonnull final String filterField,
       final boolean skipKeywordSuffix,
       @Nullable final AspectRetriever aspectRetriever) {
-    String fieldName =
-        StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
-            .map(
-                urnDefinition ->
-                    STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                        + StructuredPropertyUtils.toElasticsearchFieldName(
-                            urnDefinition.getFirst(), urnDefinition.getSecond()))
-            .orElse(filterField);
+    // Structured properties: single source of truth for parent vs .keyword is
+    // StructuredPropertyUtils.toStructuredPropertyFacetName (DATE/NUMBER/URN skip .keyword).
+    Optional<String> structuredPropertyField =
+        StructuredPropertyUtils.toStructuredPropertyFacetName(
+            (OperationFingerprint) opContext, filterField, aspectRetriever);
+    if (structuredPropertyField.isPresent()) {
+      return skipKeywordSuffix
+          ? replaceSuffix(structuredPropertyField.get())
+          : structuredPropertyField.get();
+    }
+
+    // Definition lookup failed. If the caller already passed a versioned ES path, infer type from
+    // the trailing segment so STRING still gets .keyword and URN/DATE/NUMBER do not. Unversioned
+    // FQN misses prefer the parent (strip any caller-supplied .keyword / other subfields) so
+    // typed parents are not queried on a missing multi-field.
+    if (filterField.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      Optional<LogicalValueType> inferredType =
+          StructuredPropertyUtils.getLogicalValueTypeFromFieldName(filterField);
+      if (inferredType.isPresent()) {
+        String parent = replaceSuffix(filterField);
+        if (skipKeywordSuffix || !StructuredPropertyUtils.usesKeywordSubfield(inferredType.get())) {
+          return parent;
+        }
+        return parent + ESUtils.KEYWORD_SUFFIX;
+      }
+      return replaceSuffix(filterField);
+    }
 
     return skipKeywordSuffix
-            || KEYWORD_FIELDS.contains(fieldName)
+            || KEYWORD_FIELDS.contains(filterField)
             || KEYWORD_FIELDS.stream()
-                .anyMatch(nestedField -> fieldName.endsWith("." + nestedField))
-            || PATH_HIERARCHY_FIELDS.contains(fieldName)
-            || SUBFIELDS.stream().anyMatch(subfield -> fieldName.endsWith("." + subfield))
-        ? fieldName
-        : fieldName + ESUtils.KEYWORD_SUFFIX;
+                .anyMatch(nestedField -> filterField.endsWith("." + nestedField))
+            || PATH_HIERARCHY_FIELDS.contains(filterField)
+            || SUBFIELDS.stream().anyMatch(subfield -> filterField.endsWith("." + subfield))
+        ? filterField
+        : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 
   public static RequestOptions buildReindexTaskRequestOptions(
@@ -850,7 +904,8 @@ public class ESUtils {
       orQueryBuilder.should(
           getQueryBuilderFromCriterionForSingleField(
                   buildCriterion(
-                      toKeywordField(field, isTimeseries, opContext.getAspectRetriever()),
+                      toKeywordField(
+                          opContext, field, isTimeseries, opContext.getAspectRetriever()),
                       criterion.getCondition(),
                       criterion.isNegated(),
                       criterion.getValues()),
@@ -878,7 +933,7 @@ public class ESUtils {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     final Condition condition = criterion.getCondition();
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
-    final String fieldName = toParentField(criterion.getField(), aspectRetriever);
+    final String fieldName = toParentField(opContext, criterion.getField(), aspectRetriever);
 
     boolean enableCaseInsensitiveSearch;
 
@@ -898,6 +953,7 @@ public class ESUtils {
                 criterion,
                 isTimeseries,
                 searchableFieldTypes,
+                opContext,
                 aspectRetriever,
                 enableCaseInsensitiveSearch)
             .queryName(queryName != null ? queryName : fieldName);
@@ -908,17 +964,18 @@ public class ESUtils {
                 searchableFieldTypes,
                 condition,
                 isTimeseries,
+                opContext,
                 aspectRetriever)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.CONTAIN) {
         return buildContainsConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
       } else if (condition == Condition.START_WITH) {
         return buildStartsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
       } else if (condition == Condition.END_WITH) {
         return buildEndsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, aspectRetriever);
+            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
       } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
         enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return QueryFilterRewriterContext.builder()
@@ -933,6 +990,7 @@ public class ESUtils {
                     criterion,
                     isTimeseries,
                     searchableFieldTypes,
+                    opContext,
                     aspectRetriever,
                     enableCaseInsensitiveSearch))
             .queryName(queryName != null ? queryName : fieldName);
@@ -946,6 +1004,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       @Nullable String queryName,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       String wildcardPattern) {
     BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
@@ -953,7 +1012,7 @@ public class ESUtils {
     for (String value : criterion.getValues()) {
       boolQuery.should(
           QueryBuilders.wildcardQuery(
-                  toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                  toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
               .queryName(queryName != null ? queryName : fieldName)
               .caseInsensitive(true));
@@ -966,9 +1025,10 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
       final boolean isTimeseries,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s*");
+        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s*");
   }
 
   private static QueryBuilder buildStartsWithConditionFromCriterion(
@@ -976,9 +1036,10 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
       final boolean isTimeseries,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "%s*");
+        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "%s*");
   }
 
   private static QueryBuilder buildEndsWithConditionFromCriterion(
@@ -986,9 +1047,10 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
       final boolean isTimeseries,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, aspectRetriever, "*%s");
+        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s");
   }
 
   private static QueryBuilder buildEqualsConditionFromCriterion(
@@ -996,6 +1058,7 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch) {
     return buildEqualsConditionFromCriterionWithValues(
@@ -1003,6 +1066,7 @@ public class ESUtils {
         criterion,
         isTimeseries,
         searchableFieldTypes,
+        opContext,
         aspectRetriever,
         enableCaseInsensitiveSearch);
   }
@@ -1016,10 +1080,11 @@ public class ESUtils {
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch) {
     Set<String> fieldTypes =
-        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.debug(
           "Multiple field types for field name {}, determining best fit for set: {}",
@@ -1047,7 +1112,8 @@ public class ESUtils {
               value ->
                   boolQuery.should(
                       QueryBuilders.termQuery(
-                              toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                              toKeywordField(
+                                  opContext, criterion.getField(), isTimeseries, aspectRetriever),
                               value.trim())
                           .caseInsensitive(true)));
       if (!boolQuery.should().isEmpty()) {
@@ -1057,7 +1123,7 @@ public class ESUtils {
     }
 
     return QueryBuilders.termsQuery(
-            toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+            toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
             criterion.getValues())
         .queryName(fieldName);
   }
@@ -1066,6 +1132,7 @@ public class ESUtils {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
       String fieldName,
       @Nonnull final Criterion criterion,
+      @Nullable final Object opContext,
       @Nullable AspectRetriever aspectRetriever) {
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
@@ -1073,7 +1140,9 @@ public class ESUtils {
       // underscores
       finalFieldTypes =
           StructuredPropertyUtils.toElasticsearchFieldType(
-              replaceSuffix(criterion.getField()), aspectRetriever);
+              (OperationFingerprint) opContext,
+              replaceSuffix(criterion.getField()),
+              aspectRetriever);
     } else {
       Set<SearchableAnnotation.FieldType> fieldTypes =
           searchableFields.getOrDefault(fieldName.split("\\.")[0], Collections.emptySet());
@@ -1103,9 +1172,10 @@ public class ESUtils {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       Condition condition,
       boolean isTimeseries,
+      @Nullable final Object opContext,
       AspectRetriever aspectRetriever) {
     Set<String> fieldTypes =
-        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
 
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
@@ -1124,7 +1194,7 @@ public class ESUtils {
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(fieldName, isTimeseries, aspectRetriever);
+      documentFieldName = toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever);
     }
 
     // Set up QueryBuilder based on condition
@@ -1521,7 +1591,11 @@ public class ESUtils {
   }
 
   public static @Nonnull String computePointInTime(
-      String scrollId, String keepAlive, SearchClientShim<?> client, String... indexArray) {
+      @Nonnull OperationContext opContext,
+      String scrollId,
+      String keepAlive,
+      SearchClientShim<?> client,
+      String... indexArray) {
     if (scrollId != null) {
       SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
       if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
@@ -1530,11 +1604,11 @@ public class ESUtils {
     }
     switch (client.getEngineType()) {
       case ELASTICSEARCH_7:
-        return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+        return createPointInTimeElasticSearch(opContext, client, indexArray, keepAlive);
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
       case ELASTICSEARCH_9:
-        return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+        return createPointInTimeOpenSearch(opContext, client, indexArray, keepAlive);
       default:
         log.warn("Unsupported elasticsearch implementation: {}", client.getEngineType());
         throw new IllegalStateException("Unsupported elasticsearch implementation.");
@@ -1542,12 +1616,15 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeElasticSearch(
-      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String[] indexArray,
+      String keepAlive) {
     String endPoint = String.join(",", indexArray) + "/_pit";
     Request request = new Request("POST", endPoint);
     request.addParameter("keep_alive", keepAlive);
     try {
-      RawResponse response = client.performLowLevelRequest(request);
+      RawResponse response = client.performLowLevelRequest(opContext, request);
       Map<String, Object> mappedResponse =
           OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
       return (String) mappedResponse.get("id");
@@ -1558,18 +1635,24 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeOpenSearch(
-      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String[] indexArray,
+      String keepAlive) {
     try {
       CreatePitRequest request =
           new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
-      CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
+      CreatePitResponse response = client.createPit(opContext, request, RequestOptions.DEFAULT);
       return response.getId();
     } catch (OpenSearchStatusException ose) {
       if (TOO_MANY_REQUESTS.equals(ose.status())) {
         APIThrottleException throttleException =
             new APIThrottleException(
                 TimeValue.parseTimeValue(keepAlive, "keepAlive").millis(),
-                "Too many point in times created, retry after keep alive has expired.");
+                "Too many point in times created, retry after keep alive has expired.",
+                "opensearch-pit",
+                ThrottleMechanismType.SEARCH,
+                ThrottleResponseSource.OPENSEARCH);
         try {
           throttleException.initCause(ose);
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -1592,7 +1675,11 @@ public class ESUtils {
    * @param pitId The PIT ID to clean up
    * @param context Optional context for logging (e.g., "slice 0", "search request")
    */
-  public static void cleanupPointInTime(SearchClientShim<?> client, String pitId, String context) {
+  public static void cleanupPointInTime(
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String pitId,
+      String context) {
     if (pitId == null) {
       return;
     }
@@ -1605,7 +1692,7 @@ public class ESUtils {
           {
             DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
             DeletePitResponse deletePitResponse =
-                client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
+                client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
             // DeletePitResponse doesn't have isAcknowledged(), but if we get here without
             // exception, it
             // succeeded
@@ -1618,7 +1705,7 @@ public class ESUtils {
             String endPoint = "/_pit";
             Request request = new Request("DELETE", endPoint);
             request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
-            RawResponse response = client.performLowLevelRequest(request);
+            RawResponse response = client.performLowLevelRequest(opContext, request);
             if (response.getStatusLine().getStatusCode() == 200) {
               log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
             } else {

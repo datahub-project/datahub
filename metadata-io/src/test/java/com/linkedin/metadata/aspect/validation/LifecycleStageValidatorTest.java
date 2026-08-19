@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
@@ -38,7 +40,7 @@ public class LifecycleStageValidatorTest {
       AspectPluginConfig.builder()
           .className(LifecycleStageValidator.class.getName())
           .enabled(true)
-          .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE"))
+          .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH"))
           .supportedEntityAspectNames(
               List.of(new AspectPluginConfig.EntityAspectName("*", STATUS_ASPECT_NAME)))
           .build();
@@ -64,14 +66,19 @@ public class LifecycleStageValidatorTest {
     LifecycleStageTypeInfo info = makeStageInfo(null);
     doReturn(new Aspect(info.data()))
         .when(mockAspectRetriever)
-        .getLatestAspectObject(eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
 
     Status status = new Status();
     status.setLifecycleStage(STAGE_URN);
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     assertEquals(errors, 0, "Valid stage should pass validation");
@@ -80,7 +87,7 @@ public class LifecycleStageValidatorTest {
   @Test
   public void testNonexistentStageFailsValidation() {
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(NONEXISTENT_URN), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(NONEXISTENT_URN), eq("lifecycleStageTypeInfo")))
         .thenReturn(null);
 
     Status status = new Status();
@@ -88,7 +95,11 @@ public class LifecycleStageValidatorTest {
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     assertEquals(errors, 1, "Non-existent stage should fail validation");
@@ -101,11 +112,16 @@ public class LifecycleStageValidatorTest {
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     assertEquals(errors, 0, "Status without lifecycleStage should pass validation");
-    verify(mockAspectRetriever, never()).getLatestAspectObject(any(Urn.class), anyString());
+    verify(mockAspectRetriever, never())
+        .getLatestAspectObject(any(OperationFingerprint.class), any(Urn.class), anyString());
   }
 
   @Test
@@ -113,14 +129,19 @@ public class LifecycleStageValidatorTest {
     LifecycleStageTypeInfo info = makeStageInfo(List.of("dataset", "chart"));
     doReturn(new Aspect(info.data()))
         .when(mockAspectRetriever)
-        .getLatestAspectObject(eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
 
     Status status = new Status();
     status.setLifecycleStage(STAGE_URN);
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     assertEquals(errors, 0, "Stage applicable to dataset should pass for dataset entity");
@@ -131,14 +152,19 @@ public class LifecycleStageValidatorTest {
     LifecycleStageTypeInfo info = makeStageInfo(List.of("glossaryTerm"));
     doReturn(new Aspect(info.data()))
         .when(mockAspectRetriever)
-        .getLatestAspectObject(eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
 
     Status status = new Status();
     status.setLifecycleStage(STAGE_URN);
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     assertEquals(errors, 1, "Stage scoped to glossaryTerm should fail for dataset entity");
@@ -149,14 +175,19 @@ public class LifecycleStageValidatorTest {
     LifecycleStageTypeInfo info = makeStageInfo(null);
     doReturn(new Aspect(info.data()))
         .when(mockAspectRetriever)
-        .getLatestAspectObject(eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
 
     Status status = new Status();
     status.setLifecycleStage(STAGE_URN);
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     assertEquals(errors, 0, "Stage with null entityTypes should pass for any entity type");
@@ -167,20 +198,78 @@ public class LifecycleStageValidatorTest {
     LifecycleStageTypeInfo info = makeStageInfo(List.of());
     doReturn(new Aspect(info.data()))
         .when(mockAspectRetriever)
-        .getLatestAspectObject(eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
 
     Status status = new Status();
     status.setLifecycleStage(STAGE_URN);
 
     long errors =
         validator
-            .validateProposed(Set.of(buildMCP(DATASET_URN, status)), mockRetrieverContext, null)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(buildMCP(DATASET_URN, status)),
+                mockRetrieverContext,
+                null)
             .count();
 
     // Empty entityTypes list means "applies to no types" per the PDL doc,
     // but the validator treats it as "applies to all" since empty != explicit restriction.
     // The real enforcement of "empty = disabled" is at the hideInSearch/search layer.
     assertEquals(errors, 0, "Stage with empty entityTypes should pass (empty != restricted)");
+  }
+
+  /** A stage set via patch is validated from the patch's own value at the request stage. */
+  @Test
+  public void testPatchLifecycleStageValidated() {
+    // valid stage passes
+    LifecycleStageTypeInfo info = makeStageInfo(null);
+    doReturn(new Aspect(info.data()))
+        .when(mockAspectRetriever)
+        .getLatestAspectObject(
+            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+    String validOps =
+        "[{\"op\":\"add\",\"path\":\"/lifecycleStage\",\"value\":\"" + STAGE_URN + "\"}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, validOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Patch setting an existing stage should pass");
+
+    // nonexistent stage is rejected
+    String invalidOps =
+        "[{\"op\":\"add\",\"path\":\"/lifecycleStage\",\"value\":\"" + NONEXISTENT_URN + "\"}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, invalidOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Patch setting a nonexistent stage should fail");
+  }
+
+  /** A patch touching other Status fields carries no stage to validate. */
+  @Test
+  public void testPatchWithoutLifecycleStageIgnored() {
+    String ops = "[{\"op\":\"add\",\"path\":\"/removed\",\"value\":true}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Patch without a lifecycleStage should pass without lookups");
   }
 
   private TestMCP buildMCP(Urn entityUrn, Status status) {

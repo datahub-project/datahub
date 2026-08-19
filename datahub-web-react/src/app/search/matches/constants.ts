@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { EntityType, MatchedField } from '@types';
 
 export type MatchedFieldName =
@@ -25,90 +27,94 @@ export type MatchedFieldConfig = {
     showInMatchedFieldList?: boolean;
 };
 
-const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = [
-    {
-        name: 'urn',
-        label: 'urn',
-    },
-    {
-        name: 'title',
-        label: 'title',
-    },
-    {
-        name: 'displayName',
-        groupInto: 'name',
-        label: 'display name',
-    },
-    {
-        name: 'name',
-        groupInto: 'name',
-        label: 'name',
-    },
-    {
-        name: 'editedDescription',
-        groupInto: 'description',
-        label: 'description',
-    },
-    {
-        name: 'description',
-        groupInto: 'description',
-        label: 'description',
-    },
-    {
-        name: 'editedFieldDescriptions',
-        groupInto: 'fieldDescriptions',
-        label: 'column description',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'fieldDescriptions',
-        groupInto: 'fieldDescriptions',
-        label: 'column description',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'tags',
-        label: 'tag',
-    },
-    {
-        name: 'editedFieldTags',
-        groupInto: 'fieldTags',
-        label: 'column tag',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'fieldTags',
-        groupInto: 'fieldTags',
-        label: 'column tag',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'glossaryTerms',
-        label: 'term',
-    },
-    {
-        name: 'editedFieldGlossaryTerms',
-        groupInto: 'fieldGlossaryTerms',
-        label: 'column term',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'fieldGlossaryTerms',
-        groupInto: 'fieldGlossaryTerms',
-        label: 'column term',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'fieldLabels',
-        label: 'label',
-        showInMatchedFieldList: true,
-    },
-    {
-        name: 'fieldPaths',
-        label: 'column',
-        showInMatchedFieldList: true,
-    },
-];
+function getDefaultMatchedFieldConfig(): Array<MatchedFieldConfig> {
+    return [
+        {
+            name: 'urn',
+            label: 'urn' /* untranslated-text -- technical identifier, not UI prose */,
+        },
+        {
+            name: 'title',
+            label: 'title' /* untranslated-text -- technical field name, not UI prose */,
+        },
+        {
+            name: 'displayName',
+            groupInto: 'name',
+            label: i18next.t('search:matches.field.displayName'),
+        },
+        {
+            name: 'name',
+            groupInto: 'name',
+            label: i18next.t('search:matches.field.name'),
+        },
+        {
+            name: 'editedDescription',
+            groupInto: 'description',
+            label: i18next.t('search:matches.field.description'),
+        },
+        {
+            name: 'description',
+            groupInto: 'description',
+            label: i18next.t('search:matches.field.description'),
+        },
+        {
+            name: 'editedFieldDescriptions',
+            groupInto: 'fieldDescriptions',
+            label: i18next.t('search:matches.field.columnDescription'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'fieldDescriptions',
+            groupInto: 'fieldDescriptions',
+            label: i18next.t('search:matches.field.columnDescription'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'tags',
+            label: i18next.t('search:matches.field.tag'),
+        },
+        {
+            name: 'editedFieldTags',
+            groupInto: 'fieldTags',
+            label: i18next.t('search:matches.field.columnTag'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'fieldTags',
+            groupInto: 'fieldTags',
+            label: i18next.t('search:matches.field.columnTag'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'glossaryTerms',
+            label: i18next.t('search:matches.field.term'),
+        },
+        {
+            name: 'editedFieldGlossaryTerms',
+            groupInto: 'fieldGlossaryTerms',
+            label: i18next.t('search:matches.field.columnTerm'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'fieldGlossaryTerms',
+            groupInto: 'fieldGlossaryTerms',
+            label: i18next.t('search:matches.field.columnTerm'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'fieldLabels',
+            label: i18next.t('search:matches.field.label'),
+            showInMatchedFieldList: true,
+        },
+        {
+            name: 'fieldPaths',
+            label: i18next.t('search:matches.field.column'),
+            showInMatchedFieldList: true,
+        },
+    ];
+}
+
+const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = getDefaultMatchedFieldConfig();
 
 const CHART_DASHBOARD_FIELD_CONFIG: Array<MatchedFieldConfig> = DEFAULT_MATCHED_FIELD_CONFIG.map((config) => {
     if (config.name === 'title') return { ...config, groupInto: 'name' };

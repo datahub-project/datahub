@@ -7,6 +7,21 @@ export enum PillLabel {
 }
 
 export const MISCELLANEOUS_CATEGORY_NAME = 'Miscellaneous';
+
+export const CATEGORY_I18N_KEYS: Record<string, string> = {
+    'BI & Analytics': 'category.biAndAnalytics',
+    'BI Tool': 'category.biTool',
+    'Context Document Sources': 'category.contextDocumentSources',
+    'Data Collector': 'category.dataCollector',
+    'Data Lake': 'category.dataLake',
+    'Data Warehouse': 'category.dataWarehouse',
+    Database: 'category.database',
+    'ETL / ELT': 'category.etlElt',
+    'ML Platforms': 'category.mlPlatforms',
+    Miscellaneous: 'category.miscellaneous',
+    Orchestration: 'category.orchestration',
+    'Query Engine': 'category.queryEngine',
+};
 const DATA_WAREHOUSE_CATEGORY_NAME = 'Data Warehouse';
 export const DATA_LAKE_CATEGORY_NAME = 'Data Lake';
 const BI_AND_ANALYTICS_CATEGORY_NAME = 'BI & Analytics';

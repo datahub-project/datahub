@@ -34,27 +34,19 @@ Extracts:
 
 ## Profiler Implementation
 
-DataHub is transitioning from Great Expectations (GE) based profiling to a custom SQLAlchemy profiler.
+DataHub uses a SQLAlchemy-based profiler for all SQL sources. It runs profiling queries directly against your SQL source's existing SQLAlchemy connection and emits the table- and column-level statistics listed under [Capabilities](#capabilities). No additional dependencies are required beyond the SQL connector itself.
 
-### Current State
-
-Two profiler implementations are available:
-
-1. **GE Profiler** (default): Uses Great Expectations library
-2. **SQLAlchemy Profiler** (opt-in): Custom implementation with no external GE dependency
-
-The SQLAlchemy profiler can be enabled via `profile.method = "sqlalchemy"`:
+No configuration is required to use it — any SQL source with profiling enabled will use the SQLAlchemy profiler automatically:
 
 ```yaml
 source:
   config:
     profiling:
       enabled: true
-      method: sqlalchemy
 ```
 
-### Rollout Plan
+:::note
 
-- **Phase 1 (Current):** SQLAlchemy profiler available as opt-in. Users can test and validate.
-- **Phase 2 (Future):** SQLAlchemy profiler becomes the default. GE profiler still available for compatibility.
-- **Phase 3 (Future):** GE profiler removed from codebase to reduce maintenance and dependencies.
+The legacy Great Expectations profiler (`profiling.method: ge`) has been removed. SQLAlchemy is now the only SQL profiler; the `profiling.method` option no longer has any effect and can be dropped from recipes.
+
+:::

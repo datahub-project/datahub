@@ -3,6 +3,9 @@ package com.linkedin.datahub.upgrade.sqlsetup;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgQueueSchemaStep;
+import com.linkedin.metadata.config.postgres.DatabaseType;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,15 +55,19 @@ public class SqlSetup implements Upgrade {
   private List<UpgradeStep> buildSteps(final Database server, final SqlSetupArgs setupArgs) {
     final List<UpgradeStep> steps = new ArrayList<>();
 
-    // Add database table creation step
     steps.add(new CreateTablesStep(server, setupArgs));
 
-    // Add user creation step if enabled
+    PostgresSqlSetupProperties postgresProperties = setupArgs.getPostgres();
+    if (setupArgs.getDbType() == DatabaseType.POSTGRES
+        && postgresProperties != null
+        && postgresProperties.getPgQueue().isEnabled()) {
+      steps.add(new PgQueueSchemaStep(server, postgresProperties));
+    }
+
     if (setupArgs.isCreateUser()) {
       steps.add(new CreateUsersStep(server, setupArgs));
     }
 
-    // Add CDC user creation step if enabled
     if (setupArgs.isCdcEnabled()) {
       steps.add(new CreateCdcUserStep(server, setupArgs));
     }

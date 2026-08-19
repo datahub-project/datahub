@@ -33,6 +33,14 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# TableType.METRIC_VIEW is absent on older databricks-sdk versions.
+_TABLE_TYPE_METRIC_VIEW = getattr(TableType, "METRIC_VIEW", None)
+
+
+def metric_view_supported() -> bool:
+    return _TABLE_TYPE_METRIC_VIEW is not None
+
+
 # TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
@@ -71,7 +79,27 @@ OPERATION_STATEMENT_TYPES = {
     QueryStatementType.DROP: OperationTypeClass.DROP,
     QueryStatementType.OTHER: OperationTypeClass.UNKNOWN,
 }
-ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+ALLOWED_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
+    {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+)
+
+USAGE_READ_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
+    {QueryStatementType.SELECT}
+)
+
+
+def usage_statement_types(
+    include_operational_stats: bool,
+) -> FrozenSet[QueryStatementType]:
+    """Statement types to fetch for usage aggregation.
+
+    When operational stats are disabled, only SELECT queries are fetched
+    (BigQuery-style). DML/DDL statements are omitted from the history fetch
+    since they do not contribute to read-side usage statistics.
+    """
+    if include_operational_stats:
+        return ALLOWED_STATEMENT_TYPES
+    return USAGE_READ_STATEMENT_TYPES
 
 
 NotebookId = int
@@ -109,6 +137,12 @@ class Catalog(CommonProperty):
     metastore: Optional[Metastore]
     owner: Optional[str]
     type: Optional[Union[CatalogType, CustomCatalogType]]
+    connection_name: Optional[str] = None
+    options: Optional[Dict[str, str]] = None
+
+    @property
+    def is_foreign_catalog(self) -> bool:
+        return self.type == CatalogType.FOREIGN_CATALOG
 
 
 @dataclass
@@ -126,6 +160,7 @@ class Column(CommonProperty):
     position: Optional[int]
     nullable: Optional[bool]
     comment: Optional[str]
+    partition_index: Optional[int] = None
 
 
 @dataclass
@@ -261,6 +296,10 @@ class Table(CommonProperty):
             TableType.MATERIALIZED_VIEW,
             HiveTableType.HIVE_VIEW,
         ]
+        self.is_metric_view = (
+            _TABLE_TYPE_METRIC_VIEW is not None
+            and self.table_type == _TABLE_TYPE_METRIC_VIEW
+        )
 
 
 @dataclass
@@ -268,14 +307,21 @@ class Query:
     query_id: Optional[str]
     query_text: str
     statement_type: Optional[QueryStatementType]
-    start_time: datetime
-    end_time: datetime
+    start_time: Optional[datetime]
+    end_time: datetime  # guaranteed non-null by the SQL filter (execution_status='FINISHED' AND end_time <= ...)
     # User who ran the query
     user_id: Optional[int]
     user_name: Optional[str]  # Email or username
     # User whose credentials were used to run the query
     executed_as_user_id: Optional[int]
     executed_as_user_name: Optional[str]
+    # Pre-resolved table refs from system.access.table_lineage (system-tables usage path).
+    source_table_full_names: List[str] = field(default_factory=list)
+    target_table_full_names: List[str] = field(default_factory=list)
+
+    @property
+    def has_system_table_lineage(self) -> bool:
+        return bool(self.source_table_full_names or self.target_table_full_names)
 
 
 @dataclass

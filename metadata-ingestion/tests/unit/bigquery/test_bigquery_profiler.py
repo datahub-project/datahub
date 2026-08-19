@@ -37,6 +37,28 @@ def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table(
     assert query == (None, None)
 
 
+def test_get_batch_kwargs_includes_row_count():
+    # The SQLAlchemy profiler uses this row count to skip a COUNT(*) when
+    # deciding whether to sample. The GE profiler ignores it (**kwargs).
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+    test_table = BigqueryTable(
+        name="test_table",
+        comment="test_comment",
+        rows_count=12345,
+        size_in_bytes=1,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+    )
+
+    kwargs = profiler.get_batch_kwargs(
+        table=test_table, schema_name="test_dataset", db_name="test_project"
+    )
+
+    assert kwargs["row_count"] == 12345
+    assert kwargs["schema"] == "test_project"
+    assert kwargs["table"] == "test_dataset.test_table"
+
+
 def test_generate_day_partitioned_partition_profiler_query():
     column = BigqueryColumn(
         name="date",
@@ -245,6 +267,51 @@ def test_profiler_engine_uses_user_supplied_client_when_credential_set(
                 "private_key": "random_private_key",
                 "client_email": "test@acryl.io",
                 "client_id": "test_client-id",
+            },
+        }
+    )
+    fake_client = MagicMock(spec=bigquery.Client)
+    fake_client.project = "test-project"
+
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+    with (
+        patch.object(
+            BigQueryConnectionConfig, "get_bigquery_client", return_value=fake_client
+        ),
+        pytest.raises(RuntimeError, match="intercepted"),
+    ):
+        profiler.get_profiler_instance("test-project")
+
+    args, kwargs = mock_create_engine.call_args
+    url = args[0]
+    assert "user_supplied_client=true" in url
+    assert kwargs["connect_args"]["client"] is fake_client
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.build_credentials_from_wif_dict"
+)
+@patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
+def test_profiler_engine_uses_user_supplied_client_for_wif(
+    mock_create_engine, mock_build_wif
+):
+    """WIF builds in-memory credentials with no `credential` field set. The
+    profiler must still inject the explicit bigquery.Client so the SQLAlchemy
+    dialect does not fall back to GOOGLE_APPLICATION_CREDENTIALS lookup.
+    """
+    mock_create_engine.side_effect = RuntimeError("intercepted")
+    mock_build_wif.return_value = (MagicMock(), None)
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "test-project",
+            "auth_type": "workload_identity_federation",
+            "gcp_wif_configuration_json": {
+                "type": "external_account",
+                "audience": "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/pool/providers/provider",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "token_url": "https://sts.googleapis.com/v1/token",
+                "credential_source": {"url": "https://example.com/token"},
             },
         }
     )

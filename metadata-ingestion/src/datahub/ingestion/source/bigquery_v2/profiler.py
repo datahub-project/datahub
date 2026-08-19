@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine, inspect
@@ -13,7 +13,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -46,7 +45,7 @@ class BigqueryProfiler(GenericProfiler):
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+    ) -> "SQLAlchemyProfiler":
         # Override the parent so the SQLAlchemy engine reuses our in-memory
         # bigquery.Client (built with explicit credentials) instead of letting
         # the dialect fall back to google.auth.default() — which would require
@@ -59,10 +58,13 @@ class BigqueryProfiler(GenericProfiler):
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
         connect_args: Dict[str, object] = {}
-        if self.config.credential is not None:
+        if self.config.has_explicit_credentials():
             # user_supplied_client=true tells the BigQuery dialect to short
             # circuit its own client construction and use the one we pass via
             # connect_args. Requires sqlalchemy-bigquery>=1.5.0.
+            # Covers both the service-account and WIF paths — anywhere we hold
+            # an in-memory credential, we pass it through explicitly rather
+            # than leaking the key via GOOGLE_APPLICATION_CREDENTIALS.
             separator = "&" if "?" in url else "?"
             url = f"{url}{separator}user_supplied_client=true"
             connect_args["client"] = self.config.get_bigquery_client()
@@ -72,31 +74,16 @@ class BigqueryProfiler(GenericProfiler):
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            # TODO: Remove this branch once Great Expectations is fully
-            # deprecated. The entire if/else then collapses to the
-            # SQLAlchemyProfiler return above.
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return DatahubGEProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -270,6 +257,10 @@ WHERE
         return dict(
             schema=db_name,  # <project>
             table=f"{schema_name}.{table.name}",  # <dataset>.<table>
+            # Pass the row count the crawl already collected so the SQLAlchemy
+            # profiler's sampling decision avoids a COUNT(*). The GE profiler
+            # ignores it (it has **kwargs and recomputes rowCount itself).
+            row_count=table.rows_count,
         )
 
     def get_profile_request(
@@ -283,6 +274,11 @@ WHERE
         # Below code handles profiling changes required for partitioned or sharded tables
         # 1. Skip profile if partition profiling is disabled.
         # 2. Else update `profile_request.batch_kwargs` with partition and custom_sql
+        #
+        # NOTE: unlike Snowflake (where #18253 gated custom_sql to the GE path),
+        # this partition custom_sql feeds BOTH the GE and SQLAlchemy profilers,
+        # so its shape must stay valid for both engines. Once GE is removed, this
+        # partition selection should move down into the SQLAlchemy adapter.
 
         bq_table = cast(BigqueryTable, table)
         (partition, custom_sql) = self.generate_partition_profiler_query(
@@ -301,10 +297,11 @@ WHERE
             and bq_table.partition_info.column
             is not None  # Only skip if it's a real partitioned column, not a pseudo-partition
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Profile skipped for partitioned table",
                 message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
+                log=False,
             )
             return None
 

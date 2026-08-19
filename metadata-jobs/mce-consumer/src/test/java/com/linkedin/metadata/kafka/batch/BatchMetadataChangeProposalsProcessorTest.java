@@ -22,6 +22,7 @@ import static org.testng.Assert.assertTrue;
 import com.codahale.metrics.Histogram;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -36,6 +37,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -48,6 +50,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -55,7 +58,9 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
@@ -65,7 +70,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.slf4j.MDC;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -99,7 +103,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @Mock private ThrottleSensor mockKafkaThrottle;
 
-  @Mock private KafkaListenerEndpointRegistry mockRegistry;
+  @Mock private ConsumerPauseSupport mockConsumerPauseSupport;
 
   @Mock private ConfigurationProvider mockProvider;
 
@@ -151,8 +155,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             entityClient,
             mockKafkaProducer,
             mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockProvider,
+            mockConsumerPauseSupport);
 
     // Set fmcpTopicName field via reflection
     try {
@@ -593,8 +597,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             entityClient,
             mockKafkaProducer,
             mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockProvider,
+            mockConsumerPauseSupport);
 
     // Set required fields via reflection
     try {
@@ -675,8 +679,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             entityClient,
             mockKafkaProducer,
             mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockProvider,
+            mockConsumerPauseSupport);
 
     // Set required fields
     setProcessorFields(processorWithMetrics);
@@ -699,10 +703,12 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Verify timer was recorded
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertNotNull(timer);
@@ -738,8 +744,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             entityClient,
             mockKafkaProducer,
             mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockProvider,
+            mockConsumerPauseSupport);
 
     setProcessorFields(processorWithMetrics);
     setupBasicConfiguration();
@@ -764,10 +770,12 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Verify timer was recorded twice
     Timer timer =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertEquals(timer.count(), 2);
@@ -803,8 +811,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             entityClient,
             mockKafkaProducer,
             mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockProvider,
+            mockConsumerPauseSupport);
 
     setProcessorFields(processorWithMetrics);
     setupBasicConfiguration();
@@ -830,18 +838,22 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Verify separate timers for different topics
     Timer timer1 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_v1",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     Timer timer2 =
         meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
+            MetricUtils.MESSAGING_QUEUE_TIME,
+            MetricUtils.MESSAGING_SYSTEM,
+            MetricUtils.MESSAGING_SYSTEM_KAFKA,
+            MetricUtils.MESSAGING_TOPIC,
             "MetadataChangeProposal_Timeseries",
-            "consumer.group",
+            MetricUtils.MESSAGING_CONSUMER_GROUP,
             "MetadataChangeProposal-Consumer");
 
     assertEquals(timer1.count(), 1);
@@ -881,8 +893,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             entityClient,
             mockKafkaProducer,
             mockKafkaThrottle,
-            mockRegistry,
-            mockProvider);
+            mockProvider,
+            mockConsumerPauseSupport);
 
     setProcessorFields(processorNoRegistry);
     setupBasicConfiguration();
@@ -895,6 +907,107 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Execute - should not throw exception
     processorNoRegistry.consume(List.of(mockConsumerRecord1));
+  }
+
+  @Test
+  public void testStreamingSingleConversionPerRecord() throws Exception {
+    // The streaming refactor must convert each avro record to a Pegasus MCP exactly
+    // once in the common (non-trace-enabled) path: the pre-pass only peeks
+    // systemMetadata.properties for trace ids and must NOT convert, and the span
+    // pass converts once for ingestion. Use the real OperationContext (like the
+    // ingestion tests) so withQueueSpan actually runs the processing runnable.
+    setupBasicConfiguration();
+
+    MetadataChangeProposal mcp1 = createSimpleMCP();
+    MetadataChangeProposal mcp2 = createSimpleMCP();
+    MetadataChangeProposal mcp3 = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp1);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(mcp2);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord3)).thenReturn(mcp3);
+
+    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3));
+
+    // One conversion per record — no double conversion from a pre-pass.
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord1), times(1));
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord2), times(1));
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord3), times(1));
+
+    // All three still ingested together (MAX_VALUE batch limit).
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
+  }
+
+  @Test
+  public void testTracedRecordSystemMetadataExtractedPrePass() throws Exception {
+    // A trace-carrying record must have its telemetry props read from the avro
+    // systemMetadata.properties map WITHOUT a full avro->Pegasus conversion, and the trimmed
+    // SystemMetadata handed to withQueueSpan must carry every property the receive span needs:
+    // trace id, queue span id, AND the enqueued-at timestamp used for queue-latency attributes.
+    // The record itself is still converted exactly once, inside the span, for ingestion.
+    setupBasicConfiguration();
+
+    // Capture the SystemMetadata list the pre-pass passes to withQueueSpan, and run the runnable.
+    // Explicit matchers per vararg (BATCH_SIZE_ATTR + value, DROPWIZARD_NAME + name) — a single
+    // any() does not match the 4-element varargs.
+    OperationContext tracingContext = spy(opContext);
+    List<List<SystemMetadata>> capturedTracing = new ArrayList<>();
+    doAnswer(
+            invocation -> {
+              capturedTracing.add(invocation.getArgument(1));
+              ((Runnable) invocation.getArgument(3)).run();
+              return null;
+            })
+        .when(tracingContext)
+        .withQueueSpan(
+            anyString(),
+            anyList(),
+            anyString(),
+            any(Runnable.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString());
+
+    BatchMetadataChangeProposalsProcessor tracingProcessor =
+        new BatchMetadataChangeProposalsProcessor(
+            tracingContext,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockProvider,
+            mockConsumerPauseSupport);
+    setProcessorFields(tracingProcessor);
+
+    // Wire mockRecord1's avro systemMetadata.properties with the trace keys plus enqueued-at
+    // (valid W3C hex ids so a real closeQueueSpan could build a remote SpanContext).
+    GenericRecord sysMetaAvro = mock(GenericRecord.class);
+    Map<String, String> props = new HashMap<>();
+    props.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "0123456789abcdef0123456789abcdef");
+    props.put(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY, "0123456789abcdef");
+    props.put(SystemTelemetryContext.TELEMETRY_ENQUEUED_AT, "1700000000000");
+    when(mockRecord1.get("systemMetadata")).thenReturn(sysMetaAvro);
+    when(sysMetaAvro.get("properties")).thenReturn(props);
+
+    MetadataChangeProposal mcp = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp);
+
+    tracingProcessor.consume(List.of(mockConsumerRecord1));
+
+    // Single conversion: the pre-pass reads properties off the avro map; only the span (ingest)
+    // pass converts.
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord1), times(1));
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
+
+    // Regression guard: the trimmed SystemMetadata carries the trace keys AND the enqueued-at
+    // timestamp, so closeQueueSpan can still set queue-latency attributes on the receive span.
+    assertEquals(capturedTracing.size(), 1);
+    assertEquals(capturedTracing.get(0).size(), 1);
+    StringMap tracedProps = capturedTracing.get(0).get(0).getProperties();
+    assertEquals(
+        tracedProps.get(SystemTelemetryContext.TELEMETRY_TRACE_KEY),
+        "0123456789abcdef0123456789abcdef");
+    assertEquals(
+        tracedProps.get(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY), "0123456789abcdef");
+    assertEquals(tracedProps.get(SystemTelemetryContext.TELEMETRY_ENQUEUED_AT), "1700000000000");
   }
 
   // Helper methods to reduce duplication

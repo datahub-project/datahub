@@ -1,5 +1,6 @@
 package io.datahubproject.test.search;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -11,8 +12,10 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -66,6 +69,7 @@ import org.opensearch.client.indices.ResizeRequest;
 import org.opensearch.client.indices.ResizeResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -95,7 +99,10 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
-  public CountResponse count(@Nonnull CountRequest countRequest, @Nonnull RequestOptions options)
+  public CountResponse count(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CountRequest countRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     FaultSpec spec = FaultSpec.Holder.get();
     if (spec != null
@@ -110,13 +117,15 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
       }
       throw new IOException(ex);
     }
-    return delegate.count(countRequest, options);
+    return delegate.count(opContext, countRequest, options);
   }
 
   @Override
   @Nonnull
   public CreateIndexResponse createIndex(
-      @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreateIndexRequest createIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     FaultSpec spec = FaultSpec.Holder.get();
     if (spec != null
@@ -124,7 +133,7 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
         && createIndexInvocations.getAndIncrement() < spec.getCreateIndexFailures()) {
       throw new IOException("simulated createIndex failure for test");
     }
-    return delegate.createIndex(createIndexRequest, options);
+    return delegate.createIndex(opContext, createIndexRequest, options);
   }
 
   @Override
@@ -135,166 +144,216 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   @Override
   @Nonnull
   public SearchResponse search(
-      @Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options) throws IOException {
-    return delegate.search(searchRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.search(opContext, searchRequest, options);
   }
 
   @Override
   @Nonnull
   public SearchResponse scroll(
-      @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchScrollRequest searchScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.scroll(searchScrollRequest, options);
+    return delegate.scroll(opContext, searchScrollRequest, options);
   }
 
   @Override
   @Nonnull
   public ClearScrollResponse clearScroll(
-      @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ClearScrollRequest clearScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.clearScroll(clearScrollRequest, options);
+    return delegate.clearScroll(opContext, clearScrollRequest, options);
   }
 
   @Override
   @Nonnull
   public ExplainResponse explain(
-      @Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options) throws IOException {
-    return delegate.explain(explainRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ExplainRequest explainRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.explain(opContext, explainRequest, options);
   }
 
   @Override
   @Nonnull
-  public GetResponse getDocument(@Nonnull GetRequest getRequest, @Nonnull RequestOptions options)
+  public GetResponse getDocument(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetRequest getRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.getDocument(getRequest, options);
+    return delegate.getDocument(opContext, getRequest, options);
   }
 
   @Override
   @Nonnull
   public IndexResponse indexDocument(
-      @Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options) throws IOException {
-    return delegate.indexDocument(indexRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull IndexRequest indexRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.indexDocument(opContext, indexRequest, options);
   }
 
   @Override
   @Nonnull
   public DeleteResponse deleteDocument(
-      @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException {
-    return delegate.deleteDocument(deleteRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteRequest deleteRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.deleteDocument(opContext, deleteRequest, options);
   }
 
   @Override
   @Nonnull
   public BulkByScrollResponse deleteByQuery(
-      @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.deleteByQuery(deleteByQueryRequest, options);
+    return delegate.deleteByQuery(opContext, deleteByQueryRequest, options);
   }
 
   @Override
   @Nonnull
   public CreatePitResponse createPit(
-      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreatePitRequest createPitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.createPit(createPitRequest, options);
+    return delegate.createPit(opContext, createPitRequest, options);
   }
 
   @Override
   @Nonnull
   public DeletePitResponse deletePit(
-      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeletePitRequest deletePitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.deletePit(deletePitRequest, options);
+    return delegate.deletePit(opContext, deletePitRequest, options);
   }
 
   @Override
   @Nonnull
-  public GetIndexResponse getIndex(GetIndexRequest getIndexRequest, RequestOptions options)
+  public GetIndexResponse getIndex(
+      @Nonnull OperationFingerprint opContext,
+      GetIndexRequest getIndexRequest,
+      RequestOptions options)
       throws IOException {
-    return delegate.getIndex(getIndexRequest, options);
+    return delegate.getIndex(opContext, getIndexRequest, options);
   }
 
   @Override
   @Nonnull
-  public ResizeResponse cloneIndex(ResizeRequest resizeRequest, RequestOptions options)
+  public ResizeResponse cloneIndex(
+      @Nonnull OperationFingerprint opContext, ResizeRequest resizeRequest, RequestOptions options)
       throws IOException {
-    return delegate.cloneIndex(resizeRequest, options);
+    return delegate.cloneIndex(opContext, resizeRequest, options);
   }
 
   @Override
   @Nonnull
   public AcknowledgedResponse deleteIndex(
-      @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteIndexRequest deleteIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.deleteIndex(deleteIndexRequest, options);
+    return delegate.deleteIndex(opContext, deleteIndexRequest, options);
   }
 
   @Override
   public boolean indexExists(
-      @Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetIndexRequest getIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.indexExists(getIndexRequest, options);
+    return delegate.indexExists(opContext, getIndexRequest, options);
   }
 
   @Override
   @Nonnull
   public AcknowledgedResponse putIndexMapping(
-      @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull PutMappingRequest putMappingRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.putIndexMapping(putMappingRequest, options);
+    return delegate.putIndexMapping(opContext, putMappingRequest, options);
   }
 
   @Override
   @Nonnull
   public GetMappingsResponse getIndexMapping(
-      @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetMappingsRequest getMappingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.getIndexMapping(getMappingsRequest, options);
+    return delegate.getIndexMapping(opContext, getMappingsRequest, options);
   }
 
   @Override
   @Nonnull
   public GetSettingsResponse getIndexSettings(
-      @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetSettingsRequest getSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.getIndexSettings(getSettingsRequest, options);
+    return delegate.getIndexSettings(opContext, getSettingsRequest, options);
   }
 
   @Override
   @Nonnull
   public AcknowledgedResponse updateIndexSettings(
-      @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateSettingsRequest updateSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.updateIndexSettings(updateSettingsRequest, options);
+    return delegate.updateIndexSettings(opContext, updateSettingsRequest, options);
   }
 
   @Override
   @Nonnull
   public RefreshResponse refreshIndex(
-      @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException {
-    return delegate.refreshIndex(refreshRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull RefreshRequest refreshRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.refreshIndex(opContext, refreshRequest, options);
   }
 
   @Override
   @Nonnull
   public GetAliasesResponse getIndexAliases(
-      @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetAliasesRequest getAliasesRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.getIndexAliases(getAliasesRequest, options);
+    return delegate.getIndexAliases(opContext, getAliasesRequest, options);
   }
 
   @Override
   @Nonnull
   public AcknowledgedResponse updateIndexAliases(
-      IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException {
-    return delegate.updateIndexAliases(indicesAliasesRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      IndicesAliasesRequest indicesAliasesRequest,
+      RequestOptions options)
+      throws IOException {
+    return delegate.updateIndexAliases(opContext, indicesAliasesRequest, options);
   }
 
   @Override
   @Nonnull
-  public AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options)
+  public AnalyzeResponse analyzeIndex(
+      @Nonnull OperationFingerprint opContext, AnalyzeRequest request, RequestOptions options)
       throws IOException {
-    return delegate.analyzeIndex(request, options);
+    return delegate.analyzeIndex(opContext, request, options);
   }
 
   @Override
@@ -348,6 +407,19 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
+  public Set<String> indexSettingNamesForComparison(
+      @Nonnull Map<String, Object> targetSettings, @Nonnull Settings storedSettings) {
+    return delegate.indexSettingNamesForComparison(targetSettings, storedSettings);
+  }
+
+  @Override
+  public boolean indexSettingValuesEqual(
+      @Nullable Object targetValue, @Nullable String storedValue) {
+    return delegate.indexSettingValuesEqual(targetValue, storedValue);
+  }
+
+  @Override
+  @Nonnull
   public String getEngineVersion() throws IOException {
     return delegate.getEngineVersion();
   }
@@ -365,29 +437,39 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
-  public RawResponse performLowLevelRequest(Request request) throws IOException {
-    return delegate.performLowLevelRequest(request);
+  public RawResponse performLowLevelRequest(
+      @Nonnull OperationFingerprint opContext, Request request) throws IOException {
+    return delegate.performLowLevelRequest(opContext, request);
   }
 
   @Override
   @Nonnull
   public BulkByScrollResponse updateByQuery(
-      UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException {
-    return delegate.updateByQuery(updateByQueryRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateByQueryRequest updateByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.updateByQuery(opContext, updateByQueryRequest, options);
   }
 
   @Override
   @Nonnull
   public String submitDeleteByQueryTask(
-      DeleteByQueryRequest deleteByQueryRequest, RequestOptions options) throws IOException {
-    return delegate.submitDeleteByQueryTask(deleteByQueryRequest, options);
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
+    return delegate.submitDeleteByQueryTask(opContext, deleteByQueryRequest, options);
   }
 
   @Override
   @Nonnull
-  public String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
+  public String submitReindexTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ReindexRequest reindexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
-    return delegate.submitReindexTask(reindexRequest, options);
+    return delegate.submitReindexTask(opContext, reindexRequest, options);
   }
 
   @Override
@@ -429,8 +511,11 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   }
 
   @Override
-  public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
-    delegate.addBulk(urn, writeRequest);
+  public void addBulk(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String urn,
+      @Nonnull DocWriteRequest<?> writeRequest) {
+    delegate.addBulk(opContext, urn, writeRequest);
   }
 
   @Override
@@ -456,8 +541,10 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Nonnull
   @Override
-  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
-    return delegate.searchKnn(request);
+  public KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request)
+      throws IOException {
+    return delegate.searchKnn(opContext, request);
   }
 
   @Override
@@ -466,7 +553,8 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   }
 
   @Override
-  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
-    delegate.indexEmbeddings(batch);
+  public void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) throws IOException {
+    delegate.indexEmbeddings(opContext, batch);
   }
 }

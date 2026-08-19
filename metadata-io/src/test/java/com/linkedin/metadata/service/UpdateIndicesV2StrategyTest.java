@@ -470,9 +470,11 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
-    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(false);
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(false);
 
     UpdateIndicesV2Strategy strategyWithMissingIndex =
         new UpdateIndicesV2Strategy(
@@ -498,9 +500,11 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
-    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
 
     UpdateIndicesV2Strategy strategyWithAllConditions =
         new UpdateIndicesV2Strategy(
@@ -526,9 +530,11 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
-    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
 
     UpdateIndicesV2Strategy strategyWithCaching =
         new UpdateIndicesV2Strategy(
@@ -549,7 +555,8 @@ public class UpdateIndicesV2StrategyTest {
     assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
 
     // Verify: indexExists should only be called once due to caching
-    verify(elasticSearchService, times(1)).indexExists("datasetindex_v2_semantic");
+    verify(elasticSearchService, times(1))
+        .indexExists(any(OperationContext.class), eq("datasetindex_v2_semantic"));
   }
 
   @Test
@@ -559,9 +566,11 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
-    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
 
     UpdateIndicesV2Strategy strategyWithSemantic =
         new UpdateIndicesV2Strategy(
@@ -608,7 +617,8 @@ public class UpdateIndicesV2StrategyTest {
     verify(elasticSearchService)
         .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
     verify(elasticSearchService)
-        .upsertDocumentByIndexName(eq("datasetindex_v2_semantic"), anyString(), anyString());
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq("datasetindex_v2_semantic"), anyString(), anyString());
   }
 
   @Test
@@ -644,7 +654,8 @@ public class UpdateIndicesV2StrategyTest {
     verify(elasticSearchService)
         .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
     verify(elasticSearchService, never())
-        .upsertDocumentByIndexName(anyString(), anyString(), anyString());
+        .upsertDocumentByIndexName(
+            any(OperationContext.class), anyString(), anyString(), anyString());
   }
 
   @Test
@@ -654,9 +665,11 @@ public class UpdateIndicesV2StrategyTest {
     when(semanticConfig.isEnabled()).thenReturn(true);
     when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
         .thenReturn("datasetindex_v2_semantic");
-    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
 
     UpdateIndicesV2Strategy strategyWithSemantic =
         new UpdateIndicesV2Strategy(
@@ -684,7 +697,8 @@ public class UpdateIndicesV2StrategyTest {
     // Verify: Both V2 and semantic index should have documents deleted
     verify(elasticSearchService).deleteDocument(eq(operationContext), eq("dataset"), anyString());
     verify(elasticSearchService)
-        .deleteDocumentByIndexName(eq("datasetindex_v2_semantic"), anyString());
+        .deleteDocumentByIndexName(
+            eq(operationContext), eq("datasetindex_v2_semantic"), anyString());
   }
 
   // ==================== processBatch coalescing tests ====================

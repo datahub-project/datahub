@@ -138,23 +138,32 @@ public class DailyReport {
     DateRange monthRange =
         new DateRange(String.valueOf(lastMonth.getMillis()), String.valueOf(endDate.getMillis()));
 
+    // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no per-event
+    // context available
     int dailyActiveUsers =
         analyticsService.getHighlights(
-            analyticsService.getUsageIndexName(),
+            systemOperationContext,
+            analyticsService.getUsageIndexName(systemOperationContext),
             Optional.of(dayRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.of("browserId"));
+    // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no per-event
+    // context available
     int weeklyActiveUsers =
         analyticsService.getHighlights(
-            analyticsService.getUsageIndexName(),
+            systemOperationContext,
+            analyticsService.getUsageIndexName(systemOperationContext),
             Optional.of(weekRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.of("browserId"));
+    // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no per-event
+    // context available
     int monthlyActiveUsers =
         analyticsService.getHighlights(
-            analyticsService.getUsageIndexName(),
+            systemOperationContext,
+            analyticsService.getUsageIndexName(systemOperationContext),
             Optional.of(monthRange),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -212,7 +221,7 @@ public class DailyReport {
           systemOperationContext
               .getSearchContext()
               .getIndexConvention()
-              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
+              .getEntityIndexName(systemOperationContext, Constants.CORP_USER_ENTITY_NAME);
 
       SearchRequest searchRequest = new SearchRequest(corpUserIndex);
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -221,7 +230,10 @@ public class DailyReport {
       searchSourceBuilder.trackTotalHits(true);
       searchRequest.source(searchSourceBuilder);
 
-      SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+      // per-event context available
+      SearchResponse searchResponse =
+          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count users for telemetry: {}", e.getMessage());
@@ -241,7 +253,7 @@ public class DailyReport {
           systemOperationContext
               .getSearchContext()
               .getIndexConvention()
-              .getEntityIndexName(Constants.CORP_USER_ENTITY_NAME);
+              .getEntityIndexName(systemOperationContext, Constants.CORP_USER_ENTITY_NAME);
 
       SearchRequest searchRequest = new SearchRequest(corpUserIndex);
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -250,7 +262,10 @@ public class DailyReport {
       searchSourceBuilder.trackTotalHits(true);
       searchRequest.source(searchSourceBuilder);
 
-      SearchResponse searchResponse = _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+      // per-event context available
+      SearchResponse searchResponse =
+          _elasticClient.search(systemOperationContext, searchRequest, RequestOptions.DEFAULT);
       return (int) searchResponse.getHits().getTotalHits().value;
     } catch (Exception e) {
       log.warn("Failed to count service accounts for telemetry: {}", e.getMessage());
@@ -312,9 +327,12 @@ public class DailyReport {
     // Iterate only tracked entity types (not all)
     for (EntityType entityType : REPORTING_ENTITY_TYPES) {
       try {
-        String index = analyticsService.getEntityIndexName(entityType);
+        String index = analyticsService.getEntityIndexName(systemOperationContext, entityType);
+        // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+        // per-event context available
         int count =
             analyticsService.getHighlights(
+                systemOperationContext,
                 index,
                 Optional.empty(), // No date range
                 ImmutableMap.of(), // No filters
@@ -343,9 +361,12 @@ public class DailyReport {
   private void collectPlatformStatistics(AnalyticsService analyticsService, JSONObject report) {
     try {
       // Query for platform distribution
+      // TODO(opcontext-pr6): cannot use per-event opContext — scheduled telemetry job, no
+      // per-event context available
       List<NamedBar> platformBars =
           analyticsService.getBarChart(
-              analyticsService.getAllEntityIndexName(),
+              systemOperationContext,
+              analyticsService.getAllEntityIndexName(systemOperationContext),
               Optional.empty(),
               ImmutableList.of("platform.keyword"),
               Collections.emptyMap(),

@@ -1,9 +1,10 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { DEGREE_FILTER_NAME, FIELD_TO_LABEL, ORDERED_FIELDS } from '@app/search/utils/constants';
+import { DEGREE_FILTER_NAME, ORDERED_FIELDS, getFieldToLabel } from '@app/search/utils/constants';
 
 import { FacetFilterInput } from '@types';
 
@@ -20,6 +21,8 @@ interface Props {
 const { Option } = Select;
 
 export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSelect, isCompact }: Props) => {
+    const { t } = useTranslation('search');
+    const fieldToLabel = getFieldToLabel();
     const selectStyle = {
         padding: isCompact ? 3 : 6,
         fontWeight: 500,
@@ -32,11 +35,12 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
         <Select
             data-testid="adv-search-add-filter-select"
             value={{
+                // eslint-disable-next-line i18next/no-literal-string
                 value: 'value',
                 label: (
                     <div>
                         <StyledPlus />
-                        Add Filter
+                        {t('advancedSearch.addFilter')}
                     </div>
                 ),
             }}
@@ -54,7 +58,7 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
                     data-testid={`adv-search-add-filter-${key}`}
                     key={key}
                 >
-                    {FIELD_TO_LABEL[key]}
+                    {fieldToLabel[key]}
                 </Option>
             ))}
         </Select>

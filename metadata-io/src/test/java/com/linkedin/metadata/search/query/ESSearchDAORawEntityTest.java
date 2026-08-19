@@ -36,7 +36,11 @@ public class ESSearchDAORawEntityTest {
     Mockito.when(mockResponse.getHits()).thenReturn(mockHits);
 
     // Setup behavior for mocks
-    Mockito.when(mockClient.search(Mockito.any(), Mockito.eq(RequestOptions.DEFAULT)))
+    Mockito.when(
+            mockClient.search(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     // Create test URN
@@ -65,6 +69,8 @@ public class ESSearchDAORawEntityTest {
     assertEquals(results.get(datasetUrn), mockResponse);
 
     // Verify the search was performed with correct parameters
-    Mockito.verify(mockClient).search(Mockito.any(), Mockito.eq(RequestOptions.DEFAULT));
+    Mockito.verify(mockClient)
+        .search(
+            Mockito.any(OperationContext.class), Mockito.any(), Mockito.eq(RequestOptions.DEFAULT));
   }
 }

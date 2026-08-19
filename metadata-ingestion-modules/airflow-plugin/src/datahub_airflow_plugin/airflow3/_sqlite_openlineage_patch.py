@@ -11,8 +11,8 @@ import os
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from airflow.models.connection import Connection
     from airflow.providers.openlineage.sqlparser import DatabaseInfo
+    from airflow.sdk import Connection
 
 logger = logging.getLogger(__name__)
 

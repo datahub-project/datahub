@@ -45,11 +45,11 @@ const OnlyColumnsWrapper = styled.div`
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
-    ${(props) => (props.selected ? `color: ${props.theme.colors.textBrand};` : '')};
+    ${(props) => (props.selected ? `color: ${props.theme.colors.iconSelected};` : '')};
     padding-right: 4px;
 
     :hover {
-        color: ${(props) => props.theme.colors.textInformation};
+        color: ${(props) => props.theme.colors.iconHover};
     }
 
     ::after {

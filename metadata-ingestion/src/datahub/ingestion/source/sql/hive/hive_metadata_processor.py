@@ -13,9 +13,7 @@ The processor handles:
 - View lineage integration via SqlParsingAggregator
 """
 
-import base64
 import dataclasses
-import json
 import logging
 from collections import namedtuple
 from itertools import groupby
@@ -38,6 +36,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.presto_view_decoder import decode_presto_view
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -100,10 +99,6 @@ class HiveMetadataProcessor:
     It extracts shared metadata processing logic from HiveMetastoreSource
     to enable composition-based design.
     """
-
-    # Presto view markers for base64-encoded view definitions
-    _PRESTO_VIEW_PREFIX = "/* Presto View: "
-    _PRESTO_VIEW_SUFFIX = " */"
 
     def __init__(
         self,
@@ -288,14 +283,10 @@ class HiveMetadataProcessor:
         self, view_original_text: str
     ) -> Tuple[List[Dict[str, Any]], str]:
         """Extract column metadata from base64-encoded Presto view definition."""
-        encoded_view_info = view_original_text.split(self._PRESTO_VIEW_PREFIX, 1)[
-            -1
-        ].rsplit(self._PRESTO_VIEW_SUFFIX, 1)[0]
+        decoded_view_info = decode_presto_view(view_original_text)
+        view_definition = decoded_view_info["originalSql"]
 
-        decoded_view_info = base64.b64decode(encoded_view_info)
-        view_definition = json.loads(decoded_view_info).get("originalSql")
-
-        columns = json.loads(decoded_view_info).get("columns")
+        columns = decoded_view_info["columns"]
         for col in columns:
             col["col_name"], col["col_type"] = col["name"], col["type"]
 
@@ -459,7 +450,11 @@ class HiveMetadataProcessor:
                 ),
             )
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.warning(
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
+                )
 
             dataset_urn: str = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -595,7 +590,11 @@ class HiveMetadataProcessor:
             columns = list(group)
 
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.warning(
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
+                )
 
             yield ViewDataset(
                 dataset_name=dataset_name,
@@ -632,12 +631,26 @@ class HiveMetadataProcessor:
             )
             dataset_name = self._get_identifier(schema=schema_name, entity=row["name"])
 
-            columns, view_definition = self._get_presto_view_column_metadata(
-                row["view_original_text"]
-            )
+            try:
+                columns, view_definition = self._get_presto_view_column_metadata(
+                    row["view_original_text"]
+                )
+            except Exception as e:
+                # A single malformed Presto view must not abort the whole database.
+                self.report.warning(
+                    message="Failed to decode Presto view definition",
+                    context=dataset_name,
+                    exc=e,
+                    log=False,
+                )
+                continue
 
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.warning(
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
+                )
 
             yield ViewDataset(
                 dataset_name=dataset_name,

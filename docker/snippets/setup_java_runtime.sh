@@ -37,7 +37,6 @@ apk add --no-cache \
   curl \
   wget \
   ca-certificates \
-  sqlite \
   snappy \
   unzip \
   "$JAVA_JRE_PKG"

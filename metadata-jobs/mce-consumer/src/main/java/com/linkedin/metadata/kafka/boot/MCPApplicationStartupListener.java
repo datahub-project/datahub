@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -24,7 +23,6 @@ public class MCPApplicationStartupListener implements ApplicationListener<Contex
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID =
       String.format("%s:", WebApplicationContext.class.getName());
 
-  private final DataHubUpgradeKafkaListener _dataHubUpgradeKafkaListener;
   private final ConfigurationProvider _configurationProvider;
   private final BootstrapManager _mcpBootstrapManager;
 
@@ -33,11 +31,8 @@ public class MCPApplicationStartupListener implements ApplicationListener<Contex
   OperationContext systemOperationContext;
 
   public MCPApplicationStartupListener(
-      @Qualifier("dataHubUpgradeKafkaListener")
-          DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener,
       ConfigurationProvider configurationProvider,
       @Qualifier("mcpBootstrapManager") BootstrapManager bootstrapManager) {
-    _dataHubUpgradeKafkaListener = dataHubUpgradeKafkaListener;
     _configurationProvider = configurationProvider;
     _mcpBootstrapManager = bootstrapManager;
   }

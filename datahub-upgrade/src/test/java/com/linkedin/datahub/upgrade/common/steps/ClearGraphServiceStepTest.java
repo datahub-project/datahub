@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -28,12 +29,15 @@ public class ClearGraphServiceStepTest {
 
   @Mock private UpgradeReport upgradeReport;
 
+  @Mock private OperationContext opContext;
+
   private ClearGraphServiceStep clearGraphServiceStep;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
     when(upgradeContext.report()).thenReturn(upgradeReport);
+    when(upgradeContext.opContext()).thenReturn(opContext);
   }
 
   @Test
@@ -83,7 +87,7 @@ public class ClearGraphServiceStepTest {
 
     UpgradeStepResult result = executable.apply(upgradeContext);
 
-    verify(graphService).clear();
+    verify(graphService).clear(opContext);
     assertEquals(result.stepId(), "ClearGraphServiceStep");
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
@@ -91,14 +95,14 @@ public class ClearGraphServiceStepTest {
 
   @Test
   public void testExecutable_Failure() {
-    doThrow(new RuntimeException("Test exception")).when(graphService).clear();
+    doThrow(new RuntimeException("Test exception")).when(graphService).clear(opContext);
 
     clearGraphServiceStep = new ClearGraphServiceStep(graphService, true);
     Function<UpgradeContext, UpgradeStepResult> executable = clearGraphServiceStep.executable();
 
     UpgradeStepResult result = executable.apply(upgradeContext);
 
-    verify(graphService).clear();
+    verify(graphService).clear(opContext);
     verify(upgradeReport).addLine(eq("Failed to clear graph indices"), any(Exception.class));
     assertEquals(result.stepId(), "ClearGraphServiceStep");
     assertEquals(result.result(), DataHubUpgradeState.FAILED);

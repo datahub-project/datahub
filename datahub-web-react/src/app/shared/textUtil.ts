@@ -28,22 +28,39 @@ export function validateCustomUrnId(str: string) {
     return true;
 }
 
+/**
+ * @deprecated - use i18next pluralization instead
+ */
 export function pluralize(count: number, noun: string, suffix = 's') {
     return count !== 1 ? pluralizeIfIrregular(noun, suffix) : noun;
 }
 
+/**
+ * @deprecated - use i18next pluralization instead
+ */
 export function forcePluralize(noun: string, suffix = 's') {
-    return `${noun}${suffix}`;
+    return pluralizeIfIrregular(noun, suffix);
 }
 
+/**
+ * @deprecated - use i18next pluralization instead
+ */
 export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     const irregularPlurals: Record<string, string> = {
         query: 'queries',
         match: 'matches',
+        analysis: 'analyses',
+        axis: 'axes',
     };
 
-    if (irregularPlurals.hasOwnProperty(noun?.toLowerCase())) {
-        return irregularPlurals[noun?.toLowerCase()];
+    const lower = noun?.toLowerCase();
+    if (irregularPlurals.hasOwnProperty(lower)) {
+        return irregularPlurals[lower];
+    }
+    // Don't double-pluralize names that are already plural (e.g. "Shared Folders",
+    // "Data Sources"). Only applies to the default "s" suffix.
+    if (suffix === 's' && lower?.endsWith('s')) {
+        return noun;
     }
     return `${noun}${suffix}`;
 }

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -168,6 +169,7 @@ public class DataProductUnsetSideEffectTest {
             .build(mockAspectRetriever);
     testOutput =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 List.of(
                     MCLItemImpl.builder()
                         .build(
@@ -206,6 +208,7 @@ public class DataProductUnsetSideEffectTest {
             .build(mockAspectRetriever);
     testOutput =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 List.of(
                     MCLItemImpl.builder()
                         .build(
@@ -321,6 +324,7 @@ public class DataProductUnsetSideEffectTest {
 
     List<MCPItem> testOutput =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 List.of(
                     MCLItemImpl.builder()
                         .build(
@@ -398,6 +402,7 @@ public class DataProductUnsetSideEffectTest {
 
     List<MCPItem> testOutput =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 List.of(
                     MCLItemImpl.builder()
                         .build(
@@ -446,6 +451,7 @@ public class DataProductUnsetSideEffectTest {
 
     List<MCPItem> noChangeOutput =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 List.of(
                     MCLItemImpl.builder()
                         .build(noChangeItem, null, null, retrieverContext.getAspectRetriever())),

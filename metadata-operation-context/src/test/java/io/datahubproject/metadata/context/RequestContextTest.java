@@ -3,11 +3,16 @@ package io.datahubproject.metadata.context;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
+import io.datahubproject.metadata.context.usage.AuthChannel;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -75,11 +80,11 @@ public class RequestContextTest {
 
     RequestContext context =
         RequestContext.builder()
-            .buildGraphql(Constants.DATAHUB_ACTOR, mockHttpRequest, "GetUserQuery", variables)
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", variables)
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
+    assertEquals(context.getActorUrn(), "urn:li:corpuser:testuser");
     assertEquals(context.getSourceIP(), "192.168.1.100");
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.GRAPHQL);
     assertEquals(context.getRequestID(), "GetUserQuery");
@@ -166,11 +171,11 @@ public class RequestContextTest {
   public void testBuildOpenapiWithEntity() {
     RequestContext context =
         RequestContext.builder()
-            .buildOpenapi(Constants.DATAHUB_ACTOR, mockHttpRequest, "GetMetadata", "chart")
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "GetMetadata", "chart")
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
+    assertEquals(context.getActorUrn(), "urn:li:corpuser:testuser");
     assertEquals(context.getSourceIP(), "192.168.1.100");
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.OPENAPI);
     assertEquals(context.getRequestID(), "GetMetadata([chart])");
@@ -182,14 +187,14 @@ public class RequestContextTest {
     RequestContext context =
         RequestContext.builder()
             .buildOpenapi(
-                Constants.DATAHUB_ACTOR,
+                "urn:li:corpuser:testuser",
                 mockHttpRequest,
                 "GetMetadata",
                 Arrays.asList("dataset", "chart"))
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
+    assertEquals(context.getActorUrn(), "urn:li:corpuser:testuser");
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.OPENAPI);
     assertEquals(context.getRequestID(), "GetMetadata([dataset, chart])");
   }
@@ -198,11 +203,11 @@ public class RequestContextTest {
   public void testBuildOpenapiWithNullRequest() {
     RequestContext context =
         RequestContext.builder()
-            .buildOpenapi(Constants.DATAHUB_ACTOR, null, "GetMetadata", "chart")
+            .buildOpenapi("urn:li:corpuser:testuser", null, "GetMetadata", "chart")
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getActorUrn(), Constants.DATAHUB_ACTOR);
+    assertEquals(context.getActorUrn(), "urn:li:corpuser:testuser");
     assertEquals(context.getSourceIP(), "");
     assertEquals(context.getRequestAPI(), RequestContext.RequestAPI.OPENAPI);
     assertEquals(context.getUserAgent(), "");
@@ -253,7 +258,48 @@ public class RequestContextTest {
     assertTrue(toString.contains("requestAPI=RESTLI"));
     assertTrue(toString.contains("requestID='test-request'"));
     assertTrue(toString.contains("userAgent=''"));
-    assertTrue(toString.contains("agentClass='"));
+    assertTrue(toString.contains("agentClass="));
+  }
+
+  @Test
+  public void testToStringIncludesUsageFieldsWhenTagged() {
+    RequestContext context =
+        RequestContext.builder()
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "postEntities", "dataset")
+            .usageOperation(UsageOperation.METADATA_INGEST.key())
+            .usageIdentity("urn:li:corpuser:datahub")
+            .authChannel(AuthChannel.PAT)
+            .inputBytes(128L)
+            .outputBytes(512L)
+            .requestBodyMaterialized(true)
+            .responseBodyMaterialized(true)
+            .usageQuantity(3)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    String toString = context.toString();
+    assertTrue(toString.contains("usageOperation='metadata_ingest'"));
+    assertTrue(toString.contains("authChannel=PAT"));
+    assertTrue(toString.contains("inputBytes=128"));
+    assertTrue(toString.contains("usageQuantity=3"));
+    assertFalse(toString.contains("usageIdentity"));
+    assertFalse(toString.contains("outputBytes"));
+    assertFalse(toString.contains("requestBodyMaterialized"));
+    assertFalse(toString.contains("responseBodyMaterialized"));
+  }
+
+  @Test
+  public void testToStringOmitsUsageFieldsWhenUntagged() {
+    RequestContext context =
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    String toString = context.toString();
+    assertFalse(toString.contains("usageOperation"));
+    assertFalse(toString.contains("authChannel"));
+    assertFalse(toString.contains("usageQuantity"));
   }
 
   @Test
@@ -265,17 +311,13 @@ public class RequestContextTest {
 
   @Test
   public void testCaptureAPIMetricsForSystemUser() {
-    // Using buildRestli instead of direct build()
-    RequestContext context =
-        RequestContext.builder()
-            .buildRestli(Constants.SYSTEM_ACTOR, null, "test-request")
-            .metricUtils(mockMetricUtils)
-            .build();
+    RequestContext.builder()
+        .buildRestli(Constants.SYSTEM_ACTOR, null, "test-request")
+        .metricUtils(mockMetricUtils)
+        .build();
 
-    // Verify that both legacy and new metrics are recorded
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_system_unknown_restli"), eq(1.0d));
-
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
             eq(MetricUtils.DATAHUB_REQUEST_COUNT),
@@ -289,24 +331,43 @@ public class RequestContextTest {
   }
 
   @Test
-  public void testCaptureAPIMetricsForDatahubUser() {
-    // Using buildRestli instead of direct build()
-    RequestContext context =
-        RequestContext.builder()
-            .buildRestli(Constants.DATAHUB_ACTOR, null, "test-request")
-            .metricUtils(mockMetricUtils)
-            .build();
+  public void testCaptureAPIMetricsSkipsLegacyRequestCountWhenSuppressed() {
+    when(mockMetricUtils.isSuppressLegacyRequestCountMicrometer()).thenReturn(true);
 
-    // Verify that both legacy and new metrics are recorded
+    RequestContext.builder()
+        .buildRestli(Constants.SYSTEM_ACTOR, null, "test-request")
+        .metricUtils(mockMetricUtils)
+        .build();
+
     verify(mockMetricUtils, atLeastOnce())
-        .increment(eq("requestContext_admin_unknown_restli"), eq(1.0d));
+        .increment(eq("requestContext_system_unknown_restli"), eq(1.0d));
+    verify(mockMetricUtils, never())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            anyDouble(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString());
+  }
 
+  @Test
+  public void testCaptureAPIMetricsForDatahubUser() {
+    RequestContext.builder()
+        .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+        .metricUtils(mockMetricUtils)
+        .build();
+
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_regular_unknown_restli"), eq(1.0d));
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
             eq(MetricUtils.DATAHUB_REQUEST_COUNT),
             eq(1.0d),
             eq("user_category"),
-            eq("admin"),
+            eq("regular"),
             eq("agent_class"),
             eq("unknown"),
             eq("request_api"),
@@ -315,17 +376,13 @@ public class RequestContextTest {
 
   @Test
   public void testCaptureAPIMetricsForRegularUser() {
-    // Using buildRestli instead of direct build()
-    RequestContext context =
-        RequestContext.builder()
-            .buildRestli("urn:li:corpuser:testuser", null, "test-request")
-            .metricUtils(mockMetricUtils)
-            .build();
+    RequestContext.builder()
+        .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+        .metricUtils(mockMetricUtils)
+        .build();
 
-    // Verify that both legacy and new metrics are recorded
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_regular_unknown_restli"), eq(1.0d));
-
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
             eq(MetricUtils.DATAHUB_REQUEST_COUNT),
@@ -357,7 +414,7 @@ public class RequestContextTest {
             .build();
 
     // Verify that the agentClass is set to "Unknown"
-    assertEquals(context.getAgentClass(), "Unknown");
+    assertEquals(context.getAgentClass(), AgentClass.UNKNOWN);
 
     // Verify that a metric was captured with "unknown" agent class
     verify(mockMetricUtils, atLeastOnce())
@@ -382,7 +439,7 @@ public class RequestContextTest {
               .build();
 
       // Verify agent class is set to "Unknown" for null user agent
-      assertEquals(context.getAgentClass(), "Unknown");
+      assertEquals(context.getAgentClass(), AgentClass.UNKNOWN);
 
       // Verify a metric was captured
       verify(mockMetricUtils, atLeastOnce())
@@ -409,7 +466,7 @@ public class RequestContextTest {
     assertNotNull(context.getAgentClass());
     // The agent class should be "Browser" for this user agent string, but we're only checking it's
     // not null
-    assertFalse(context.getAgentClass().isEmpty());
+    assertNotEquals(context.getAgentClass(), AgentClass.UNKNOWN);
   }
 
   @Test
@@ -452,7 +509,7 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getAgentClass(), "sdk");
+    assertEquals(context.getAgentClass(), AgentClass.SDK);
     assertEquals(context.getAgentName(), "Actions");
 
     // Verify metrics were captured correctly
@@ -472,7 +529,7 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getAgentClass(), "cli");
+    assertEquals(context.getAgentClass(), AgentClass.CLI);
     assertEquals(context.getAgentName(), "Datahub");
 
     // Verify metrics were captured correctly
@@ -492,12 +549,154 @@ public class RequestContextTest {
             .metricUtils(mockMetricUtils)
             .build();
 
-    assertEquals(context.getAgentClass(), "ingestion");
+    assertEquals(context.getAgentClass(), AgentClass.INGESTION);
     assertEquals(context.getAgentName(), "Actions");
 
     // Verify metrics were captured correctly
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_regular_ingestion_graphql"), eq(1.0d));
+  }
+
+  @Test
+  public void testRequestContextWithDataHubBotPreservesAgentName() {
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0.0 (bot; dh/automation-client; 1.0.1)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getAgentClass(), AgentClass.ROBOT);
+    assertEquals(context.getAgentName(), "DH/Automation-Client");
+  }
+
+  @Test
+  public void testBuildRestliAppliesWireInputFromContentLengthHeader() {
+    ResourceContext resourceContext = Mockito.mock(ResourceContext.class);
+    Map<String, String> headers = new HashMap<>();
+    headers.put(HttpHeaders.CONTENT_LENGTH, "256");
+    when(resourceContext.getRequestHeaders()).thenReturn(headers);
+    when(resourceContext.getRawRequestContext())
+        .thenReturn(mock(com.linkedin.r2.message.RequestContext.class));
+    when(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR")).thenReturn("10.0.0.2");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", resourceContext, "ingest", "dataset")
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getInputBytes(), Long.valueOf(256));
+    assertTrue(context.isRequestBodyMaterialized());
+  }
+
+  @Test
+  public void testResolveResponseOutputBytesFromContentLength() {
+    HttpServletResponse response = Mockito.mock(HttpServletResponse.class);
+    when(response.getHeader(HttpHeaders.CONTENT_LENGTH)).thenReturn("42");
+    when(response.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn(null);
+
+    assertEquals(RequestContext.resolveResponseOutputBytes(response), Long.valueOf(42));
+  }
+
+  @Test
+  public void testResolveResponseOutputBytesPrefersMeasuredBytes() {
+    HttpServletResponse response = Mockito.mock(HttpServletResponse.class);
+    when(response.getHeader(HttpHeaders.CONTENT_LENGTH)).thenReturn("100");
+    when(response.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn("chunked");
+
+    assertEquals(RequestContext.resolveResponseOutputBytes(response, 512L), Long.valueOf(512));
+  }
+
+  @Test
+  public void testResolveResponseOutputBytesNullForChunkedResponse() {
+    HttpServletResponse response = Mockito.mock(HttpServletResponse.class);
+    when(response.getHeader(HttpHeaders.CONTENT_LENGTH)).thenReturn("100");
+    when(response.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn("chunked");
+
+    assertNull(RequestContext.resolveResponseOutputBytes(response));
+  }
+
+  @Test
+  public void testBuildOpenapiAppliesWireInputFromContentLength() {
+    when(mockHttpRequest.getContentLengthLong()).thenReturn(128L);
+    when(mockHttpRequest.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn(null);
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "createEntity", "dataset")
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getInputBytes(), Long.valueOf(128));
+    assertTrue(context.isRequestBodyMaterialized());
+  }
+
+  @Test
+  public void testBuildGraphqlAppliesWireInputFromContentLength() {
+    when(mockHttpRequest.getContentLengthLong()).thenReturn(64L);
+    when(mockHttpRequest.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn(null);
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getInputBytes(), Long.valueOf(64));
+    assertTrue(context.isRequestBodyMaterialized());
+  }
+
+  @Test
+  public void testBuildOpenapiSkipsWireInputForChunkedRequest() {
+    when(mockHttpRequest.getContentLengthLong()).thenReturn(128L);
+    when(mockHttpRequest.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn("chunked");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "createEntity", "dataset")
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertNull(context.getInputBytes());
+    assertFalse(context.isRequestBodyMaterialized());
+  }
+
+  @Test
+  public void testMaterializedInputUtf8BytesFillsChunkedWireGap() {
+    when(mockHttpRequest.getContentLengthLong()).thenReturn(128L);
+    when(mockHttpRequest.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn("chunked");
+
+    String body = "[{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:file,chunked,PROD)\"}]";
+    RequestContext context =
+        RequestContext.builder()
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "createEntity", "dataset")
+            .withMaterializedInputUtf8Bytes(body)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(
+        context.getInputBytes(),
+        Long.valueOf(body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length));
+    assertTrue(context.isRequestBodyMaterialized());
+  }
+
+  @Test
+  public void testMaterializedInputUtf8BytesDoesNotOverrideContentLength() {
+    when(mockHttpRequest.getContentLengthLong()).thenReturn(128L);
+    when(mockHttpRequest.getHeader(HttpHeaders.TRANSFER_ENCODING)).thenReturn(null);
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "createEntity", "dataset")
+            .withMaterializedInputUtf8Bytes("much-longer-body-than-content-length-header")
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getInputBytes(), Long.valueOf(128));
+    assertTrue(context.isRequestBodyMaterialized());
   }
 
   @Test
@@ -515,5 +714,75 @@ public class RequestContextTest {
     // Verify the counter was incremented with the appropriate metric name
     // The metric name should contain the lowercase agent class
     verify(mockMetricUtils, times(1)).increment(matches(".*sdk.*"), eq(1d));
+  }
+
+  @Test
+  public void testResolveIngestUsageQuantityFromJsonArray() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    assertEquals(RequestContext.resolveIngestUsageQuantity("[1,2,3]", mapper), 3L);
+    assertEquals(RequestContext.resolveIngestUsageQuantity("{\"a\":1}", mapper), 1L);
+    assertEquals(RequestContext.resolveIngestUsageQuantity("not-json", mapper), 1L);
+  }
+
+  @Test
+  public void testResolveIngestUsageQuantityFromObjectNode() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode root =
+        mapper.readTree(
+            "{\"dataset\":[{\"urn\":\"a\"},{\"urn\":\"b\"}],\"chart\":{\"urn\":\"c\"}}");
+    assertEquals(RequestContext.resolveIngestUsageQuantity(root), 3L);
+    assertEquals(RequestContext.resolveIngestUsageQuantity(mapper.readTree("[1]")), 1L);
+  }
+
+  @Test
+  public void testUsageMdcAndClear() {
+    RequestContext.builder()
+        .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+        .withUsageOperation(UsageOperation.METADATA_WRITE)
+        .authChannel(AuthChannel.PAT)
+        .withUsageQuantity(4)
+        .metricUtils(mockMetricUtils)
+        .build();
+
+    assertEquals(org.slf4j.MDC.get(RequestContext.MDC_USAGE_OPERATION), "metadata_write");
+    assertEquals(org.slf4j.MDC.get(RequestContext.MDC_AUTH_CHANNEL), "pat");
+    assertEquals(org.slf4j.MDC.get(RequestContext.MDC_USAGE_QUANTITY), "4");
+
+    RequestContext.clearUsageFieldsFromMdc();
+    assertNull(org.slf4j.MDC.get(RequestContext.MDC_USAGE_OPERATION));
+    assertNull(org.slf4j.MDC.get(RequestContext.MDC_AUTH_CHANNEL));
+    assertNull(org.slf4j.MDC.get(RequestContext.MDC_USAGE_QUANTITY));
+  }
+
+  @Test
+  public void testAuthChannelDimensionValue() {
+    assertEquals(AuthChannel.SESSION.dimensionValue(), "session");
+    assertEquals(AuthChannel.UNKNOWN.dimensionValue(), "unknown");
+  }
+
+  @Test
+  public void testWithMaterializedOutputBytes() {
+    RequestContext context =
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+            .withMaterializedOutputBytes(99L)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getOutputBytes(), Long.valueOf(99));
+    assertTrue(context.isResponseBodyMaterialized());
+  }
+
+  @Test
+  public void testPeekInputBytesAndUsageQuantityClamp() {
+    RequestContext.RequestContextBuilder builder =
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", null, "test-request")
+            .withUsageQuantity(0);
+    assertNull(builder.peekInputBytes());
+    assertEquals(builder.peekUsageOperation(), null);
+
+    RequestContext context = builder.metricUtils(mockMetricUtils).build();
+    assertEquals(context.getUsageQuantity(), 1L);
   }
 }

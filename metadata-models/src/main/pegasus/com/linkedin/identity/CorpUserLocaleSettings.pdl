@@ -1,0 +1,11 @@
+namespace com.linkedin.identity
+
+/**
+ * Settings for a user's locale and language preferences
+ */
+record CorpUserLocaleSettings {
+  /**
+   * BCP 47 language tag representing the user's preferred UI language (e.g. "en", "de").
+   */
+  language: optional string
+}

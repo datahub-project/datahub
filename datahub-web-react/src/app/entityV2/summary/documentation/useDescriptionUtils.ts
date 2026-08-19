@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { useEffect, useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -61,7 +62,9 @@ export function useDescriptionUtils() {
         });
     };
 
-    const emptyDescriptionText = `Write a description for this ${entityRegistry.getEntityName(entityType)?.toLowerCase()}`;
+    const emptyDescriptionText = i18next.t('entity.profile.summary:documentation.writePlaceholder', {
+        entityName: entityRegistry.getEntityName(entityType)?.toLowerCase(),
+    });
 
     return {
         displayedDescription,

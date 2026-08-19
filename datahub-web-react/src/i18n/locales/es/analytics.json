@@ -1,0 +1,11 @@
+{
+    "allDomains": "Todos los dominios",
+    "dataLandscapeSummary": "Resumen del panorama de datos",
+    "domainLandscapeSummary": "Resumen del panorama de dominios",
+    "failedToLoadCharts": "No se pudieron cargar los gráficos",
+    "failedToLoadDomains": "No se pudieron cargar los dominios",
+    "failedToLoadHighlights": "No se pudieron cargar los aspectos destacados",
+    "noDomainData": "No hay datos de analítica para este dominio",
+    "selectDomain": "Seleccionar dominio",
+    "usageAnalytics": "Analítica de uso"
+}

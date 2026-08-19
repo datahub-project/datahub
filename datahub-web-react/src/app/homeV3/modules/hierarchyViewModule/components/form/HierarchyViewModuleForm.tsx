@@ -1,5 +1,6 @@
 import { Input } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import RelatedEntitiesSection from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/relatedEntities/RelatedEntitiesSection';
@@ -13,6 +14,7 @@ const FormWrapper = styled.div`
 `;
 
 export default function HierarchyViewModuleForm() {
+    const { t } = useTranslation('modules');
     return (
         <FormWrapper>
             <FormItem
@@ -20,13 +22,13 @@ export default function HierarchyViewModuleForm() {
                 rules={[
                     {
                         required: true,
-                        message: 'Please enter the name',
+                        message: t('details.nameValidation'),
                     },
                 ]}
             >
                 <Input
-                    label="Name"
-                    placeholder="Choose a name for your module"
+                    label={t('details.nameLabel')}
+                    placeholder={t('details.namePlaceholder')}
                     isRequired
                     data-testid="hierarchy-module-name"
                 />

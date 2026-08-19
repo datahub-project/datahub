@@ -20,13 +20,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -137,7 +135,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
         except Exception as e:
             log.error(e)
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to process dataset",
                 context=dataset,
                 exc=e,
@@ -274,14 +272,6 @@ class Neo4jSource(StatefulIngestionSourceBase):
     def get_relationships(self, record: dict) -> dict:
         return record.get("relationships", {})
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         query = (
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key "
@@ -310,11 +300,12 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
             except Exception as e:
                 log.warning(f"Failed to process row {row['key']}: {str(e)}")
-                self.report.report_warning(
+                self.report.warning(
                     title="Error processing Neo4j metadata",
                     message="Some entities will be missed",
                     context=row["key"],
                     exc=e,
+                    log=False,
                 )
                 self.report.obj_failures += 1
 
