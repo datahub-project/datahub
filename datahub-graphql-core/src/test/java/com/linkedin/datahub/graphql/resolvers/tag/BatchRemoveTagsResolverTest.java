@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -59,15 +58,12 @@ public class BatchRemoveTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_TAG_1_URN),
+        Urn.createFromString(TEST_TAG_2_URN));
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -100,6 +96,8 @@ public class BatchRemoveTagsResolverTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -137,15 +135,12 @@ public class BatchRemoveTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(oldTags2);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN_1),
+        Urn.createFromString(TEST_ENTITY_URN_2),
+        Urn.createFromString(TEST_TAG_1_URN),
+        Urn.createFromString(TEST_TAG_2_URN));
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -173,6 +168,8 @@ public class BatchRemoveTagsResolverTest {
             Urn.createFromString(TEST_ENTITY_URN_2), GLOBAL_TAGS_ASPECT_NAME, emptyTags);
 
     verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
+
+    verifyExistenceResolvedInBatches(mockService, 1);
   }
 
   @Test
@@ -194,12 +191,9 @@ public class BatchRemoveTagsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
-        .thenReturn(true);
+    // The first resource does not exist.
+    stubExistingUrns(
+        mockService, Urn.createFromString(TEST_ENTITY_URN_2), Urn.createFromString(TEST_TAG_1_URN));
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 

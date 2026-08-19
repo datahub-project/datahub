@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Är du säker?",
     "unlinkVersion.error": "Det gick inte att ta bort länken: \n {{errorMessage}}",
     "unlinkVersion.loading": "Tar bort länken...",
-    "unlinkVersion.success": "Länken till {{entityName}} har tagits bort!"
+    "unlinkVersion.success": "Länken till {{entityName}} har tagits bort!",
+    "dataProductSelect.notFound": "Inga Data Products hittades",
+    "dataProductSelect.placeholder": "Välj ett överordnat Data Product",
+    "moveDataProduct.title": "Flytta Data Product"
 }

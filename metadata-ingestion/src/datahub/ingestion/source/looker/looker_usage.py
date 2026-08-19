@@ -7,8 +7,11 @@ import concurrent
 import concurrent.futures
 import dataclasses
 import datetime
+import json as json_module
 import logging
+import re
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, cast
 
@@ -40,6 +43,7 @@ from datahub.metadata.schema_classes import (
     ChartUserUsageCountsClass,
     DashboardUsageStatisticsClass,
     DashboardUserUsageCountsClass,
+    DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
@@ -48,6 +52,8 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.lossy_collections import LossySet
 
 logger = logging.getLogger(__name__)
+
+_QUERY_FIELDS_SPLIT_RE = re.compile(r"[,\n]")
 
 
 @dataclass
@@ -112,6 +118,8 @@ class StatGeneratorConfig:
 
 
 # QueryId and query_collection helps to return dummy responses in test cases
+# Filter syntax reference: https://docs.cloud.google.com/looker/docs/filter-expressions
+# String fields use "-NULL" for is-not-null; numeric fields use "NOT NULL".
 class QueryId(StrEnum):
     DASHBOARD_PER_DAY_USAGE_STAT = "counts_per_day_per_dashboard"
     DASHBOARD_PER_USER_PER_DAY_USAGE_STAT = "counts_per_day_per_user_per_dashboard"
@@ -119,6 +127,7 @@ class QueryId(StrEnum):
     LOOK_PER_USER_PER_DAY_USAGE_STAT = "counts_per_day_per_user_per_look"
     EXPLORE_PER_DAY_USAGE_STAT = "counts_per_day_per_explore"
     EXPLORE_PER_USER_PER_DAY_USAGE_STAT = "counts_per_day_per_user_per_explore"
+    EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT = "counts_per_day_per_field_per_explore"
 
 
 query_collection: Dict[QueryId, LookerQuery] = {
@@ -177,7 +186,7 @@ query_collection: Dict[QueryId, LookerQuery] = {
             QueryViewField.QUERY_VIEW,
         ],
         filters={
-            QueryViewField.QUERY_VIEW: "NOT NULL",
+            QueryViewField.QUERY_VIEW: "-NULL",
         },
     ),
     QueryId.EXPLORE_PER_USER_PER_DAY_USAGE_STAT: LookerQuery(
@@ -191,7 +200,25 @@ query_collection: Dict[QueryId, LookerQuery] = {
             UserViewField.USER_ID,
         ],
         filters={
-            QueryViewField.QUERY_VIEW: "NOT NULL",
+            QueryViewField.QUERY_VIEW: "-NULL",
+        },
+    ),
+    # Kept separate from the per-day explore query: adding query.fields would
+    # fragment the (model, view, date) grouping that feeds totalSqlQueries.
+    # Rows here are exploded client-side into per-field counts.
+    QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT: LookerQuery(
+        model=LookerModel.SYSTEM_ACTIVITY,
+        explore=LookerExplore.HISTORY,
+        fields=[
+            HistoryViewField.HISTORY_CREATED_DATE,
+            HistoryViewField.HISTORY_COUNT,
+            QueryViewField.QUERY_MODEL,
+            QueryViewField.QUERY_VIEW,
+            QueryViewField.QUERY_FIELDS,
+        ],
+        filters={
+            QueryViewField.QUERY_VIEW: "-NULL",
+            QueryViewField.QUERY_FIELDS: "-NULL",
         },
     ),
 }
@@ -418,6 +445,14 @@ class BaseStatGenerator(ABC):
         """
         return True
 
+    def _augment_entity_timeseries_aspects(
+        self, entity_usage_stat: Dict[Tuple[str, str], Any]
+    ) -> None:
+        """Hook for subclasses to enrich per-day entity aspects with extra
+        signals (keyed by the same ``get_entity_stat_key`` tuple).  No-op by
+        default so dashboards/looks are unaffected."""
+        return
+
     def generate_usage_stat_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # No looker entities available to process stat generation
         if len(self.looker_models) == 0:
@@ -439,6 +474,10 @@ class BaseStatGenerator(ABC):
         entity_usage_stat: Dict[Tuple[str, str], Any] = (
             self._process_entity_timeseries_rows(entity_rows)
         )  # Any type to pass mypy unbound Aspect type error
+
+        # Optional per-entity enrichment (e.g. explore field-usage counts).
+        # Default no-op; subclasses override to run extra queries.
+        self._augment_entity_timeseries_aspects(entity_usage_stat)
 
         user_wise_query_with_filters: LookerQuery = self._append_filters(
             self.get_entity_user_timeseries_query()
@@ -780,6 +819,59 @@ class ExploreStatGenerator(BaseStatGenerator):
             uniqueUserCount=0,
             userCounts=[],
         )
+
+    @staticmethod
+    def _parse_query_fields(raw_fields: object) -> List[str]:
+        # The Looker Query API model defines fields as Sequence[str].
+        # System Activity serialises it into a JSON array string
+        # (e.g. '["view.field", ...]') when returned as a dimension value.
+        if isinstance(raw_fields, str):
+            try:
+                parsed = json_module.loads(raw_fields)
+                if isinstance(parsed, list):
+                    return [str(t).strip() for t in parsed if str(t).strip()]
+            except (json_module.JSONDecodeError, ValueError):
+                pass
+            tokens = _QUERY_FIELDS_SPLIT_RE.split(raw_fields)
+        elif isinstance(raw_fields, list):
+            tokens = [str(t) for t in raw_fields]
+        else:
+            tokens = _QUERY_FIELDS_SPLIT_RE.split(str(raw_fields))
+        return [t.strip() for t in tokens if t.strip()]
+
+    def _augment_entity_timeseries_aspects(
+        self, entity_usage_stat: Dict[Tuple[str, str], Any]
+    ) -> None:
+        """Attach per-field usage (``query.fields``) to each per-day explore
+        aspect.  Each System Activity row is one ``(date, model, explore,
+        field-set)`` bucket with its execution count.  We explode each
+        field-set and sum the row's count into every field it names."""
+        field_query_with_filters: LookerQuery = self._append_filters(
+            query_collection[QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT]
+        )
+        # _execute_query handles exceptions internally and returns [] on failure.
+        field_rows = self._execute_query(field_query_with_filters, "field_query")
+
+        per_key_counts: Dict[Tuple[str, str], Dict[str, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+        for row in field_rows:
+            raw_fields = row.get(QueryViewField.QUERY_FIELDS)
+            if not raw_fields:
+                continue
+            key = self.get_entity_stat_key(row)
+            count = row[HistoryViewField.HISTORY_COUNT]
+            for field_name in self._parse_query_fields(raw_fields):
+                per_key_counts[key][field_name] += count
+
+        for key, field_counts in per_key_counts.items():
+            aspect = entity_usage_stat.get(key)
+            if aspect is None:
+                continue
+            aspect.fieldCounts = [
+                DatasetFieldUsageCountsClass(fieldPath=field_name, count=count)
+                for field_name, count in sorted(field_counts.items())
+            ]
 
     def append_user_stat(
         self, entity_stat_aspect: Aspect, user: LookerUser, row: Dict

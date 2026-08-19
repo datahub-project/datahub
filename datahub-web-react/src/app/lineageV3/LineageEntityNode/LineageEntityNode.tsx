@@ -28,7 +28,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const parentDataProduct = getMemberDataProductUrn(id);
     const isOutputPort = !!dataProducts?.find((dataProduct) => dataProduct.urn === parentDataProduct)?.isOutputPort;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const { rootUrn, rootType, nodes, adjacencyList } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, nodes, adjacencyList, collapseColumnsVersion } = useContext(LineageNodesContext);
     const {
         selectedColumn,
         hoveredColumn,
@@ -49,6 +49,11 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     useEffect(() => {
         setPageIndex(0);
     }, [filterText, onlyWithLineage, setPageIndex]);
+
+    // Collapse columns when the graph is redrawn, so nodes are laid out at their default size
+    useEffect(() => {
+        setShowColumns(false);
+    }, [collapseColumnsVersion]);
 
     const transitionDuration = shownUrns.length <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
 

@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Les collections sélectionnées manuellement ne prennent pas en charge le lien “Afficher tout” pour le moment.",
     "assetCollection.viewAllUnsupportedHint": "Cette collection n'affichera pas de lien “Afficher tout” — ce type de filtre n'est pas pris en charge pour le moment.",
     "assets.moduleName": "Assets",
+    "assets.relatedModuleName": "Assets associés",
     "assets.moduleDescription": "Assets associés taggés avec l'entité parente",
     "assets.addTermError": "Échec de l'ajout du terme de glossaire: \n {{error}}",
     "assets.addTermModalTitle": "Ajouter un terme de glossaire aux assets",

@@ -2234,8 +2234,8 @@ class TestStreamUpstreamMultiTableInsert:
         assert isinstance(results[0], ObservedQuery)
         assert extractor.report.num_create_temp_view_queries_observed == 1
 
-    def test_single_target_stream_falls_back_unchanged(self):
-        """Single-target stream INSERT -> bypass (only multi-target uses fast path)."""
+    def test_single_target_clean_stream_uses_preparsed_path(self):
+        """Single-target stream INSERT with clean metadata -> PreparsedQuery with CLL."""
         extractor = self._create_mock_extractor()
         single_target = [
             {
@@ -2269,9 +2269,15 @@ class TestStreamUpstreamMultiTableInsert:
         results = list(extractor._parse_audit_log_row(row, {}))
 
         assert len(results) == 1
-        assert isinstance(results[0], ObservedQuery)
-        assert extractor.report.num_stream_queries_observed == 1
-        assert extractor.report.num_stream_queries_clean_fast_path == 0
+        assert isinstance(results[0], PreparsedQuery)
+        assert results[0].downstream == self.DOWNSTREAM_PROFILE_URN
+        assert results[0].upstreams == [self.UPSTREAM_STREAM_URN]
+        assert results[0].column_lineage and len(results[0].column_lineage) == 1
+        cl = results[0].column_lineage[0]
+        assert len(cl.upstreams) == 1
+        assert cl.upstreams[0].table == self.UPSTREAM_STREAM_URN
+        assert extractor.report.num_stream_queries_observed == 0
+        assert extractor.report.num_stream_queries_clean_fast_path == 1
 
     def test_multi_target_stream_with_unknown_dollar_prefix_falls_back(self):
         """$-prefix objectName that isn't $SYS_VIEW_ -> bypass + drift counter."""

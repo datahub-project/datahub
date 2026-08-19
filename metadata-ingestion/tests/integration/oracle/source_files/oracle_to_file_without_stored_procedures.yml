@@ -17,9 +17,16 @@ source:
     schema_pattern:
       allow:
         - "^HR_SCHEMA"
+        # Holds the case-only column pair. Only this recipe allows it, so the
+        # other goldens stay untouched by it.
+        - "^CASING_SCHEMA"
     
+    # Oracle is one of only two dialects DataHub uses that set
+    # requires_name_normalize, so it is the only non-Snowflake source where the
+    # profiler's stored-column-name path runs. Profile here so that path has
+    # coverage against a real Oracle rather than mocks alone.
     profiling:
-      enabled: false
+      enabled: true
 sink:
   type: file
   config:

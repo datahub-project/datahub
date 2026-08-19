@@ -1246,6 +1246,41 @@ query dataset {
             }
             logic
           }
+          customAssertion {
+            type
+            entityUrn
+            field {
+              urn
+              path
+            }
+            fields {
+              urn
+              path
+            }
+            scope
+            aggregation
+            operator
+            parameters {
+              value {
+                value
+                type
+              }
+              minValue {
+                value
+                type
+              }
+              maxValue {
+                value
+                type
+              }
+            }
+            nativeType
+            nativeParameters {
+              key
+              value
+            }
+            logic
+          }
           freshnessAssertion {
             type
             entityUrn
@@ -1474,6 +1509,41 @@ query getAssertion {
         fields {
           urn
           path
+        }
+        nativeType
+        nativeParameters {
+          key
+          value
+        }
+        logic
+      }
+      customAssertion {
+        type
+        entityUrn
+        field {
+          urn
+          path
+        }
+        fields {
+          urn
+          path
+        }
+        scope
+        aggregation
+        operator
+        parameters {
+          value {
+            value
+            type
+          }
+          minValue {
+            value
+            type
+          }
+          maxValue {
+            value
+            type
+          }
         }
         nativeType
         nativeParameters {

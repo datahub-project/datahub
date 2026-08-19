@@ -15,6 +15,7 @@
 import { test, expect } from '../../fixtures/login-test';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { users } from '../../data/users';
+import { DATAHUB_GRAPHQL_PATH } from '../../utils/constants';
 
 const FRONTEND_URL = process.env.BASE_URL || 'http://localhost:9002';
 
@@ -38,7 +39,7 @@ const DATA_PRODUCT_FILTER_JSON = JSON.stringify({
 const MANUAL_ASSET_URNS = ['urn:li:corpuser:datahub'];
 
 async function gql<T>(ctx: APIRequestContext, query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const resp = await ctx.post('/api/v2/graphql', { data: { query, variables } });
+  const resp = await ctx.post(DATAHUB_GRAPHQL_PATH, { data: { query, variables } });
   expect(resp.ok()).toBe(true);
   const body = await resp.json();
   expect(body.errors, `GraphQL errors: ${JSON.stringify(body.errors)}`).toBeUndefined();

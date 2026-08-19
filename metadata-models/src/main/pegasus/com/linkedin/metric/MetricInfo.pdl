@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record MetricInfo includes ExternalReference {
 
@@ -81,10 +81,5 @@ record MetricInfo includes ExternalReference {
    * The SQL expression used to compute this metric, in one or more dialects.
    */
   expression: optional MetricExpression
-
-  /**
-   * AI-specific context for improved disambiguation and retrieval.
-   */
-  aiContext: optional AiContext
 
 }

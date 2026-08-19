@@ -55,6 +55,9 @@ DOCKER_DEFAULT_UNLIMITED_PARALLELISM = -1
 def docker_compose_runner(
     docker_compose_command, docker_compose_project_name, docker_setup, docker_cleanup
 ):
+    def _as_commands(commands: Union[List[str], str]) -> List[str]:
+        return [commands] if isinstance(commands, str) else list(commands or [])
+
     @contextlib.contextmanager
     def run(
         compose_file_path: Union[str, List[str]],
@@ -63,15 +66,25 @@ def docker_compose_runner(
         parallel: int = DOCKER_DEFAULT_UNLIMITED_PARALLELISM,
         setup_command: Optional[Union[List[str], str]] = None,
     ) -> Iterator[pytest_docker.plugin.Services]:
-        with pytest_docker.plugin.get_docker_services(
-            docker_compose_command=f"{docker_compose_command} --parallel {parallel}",
-            # We can remove the type ignore once this is merged:
-            # https://github.com/avast/pytest-docker/pull/108
-            docker_compose_file=compose_file_path,  # type: ignore
-            docker_compose_project_name=f"{docker_compose_project_name}-{key}",
-            docker_setup=setup_command if setup_command is not None else docker_setup,
-            docker_cleanup=docker_cleanup if cleanup else [],
-        ) as docker_services:
-            yield docker_services
+        # We deliberately do NOT delegate to pytest_docker.get_docker_services: it
+        # runs docker_setup *before* the try/finally that owns cleanup, so a setup
+        # failure — e.g. an `up --wait` healthcheck timeout on a loaded runner —
+        # raises before cleanup is registered and leaks the container (with its
+        # host port still bound). Running setup inside our own try keeps `down -v`
+        # reachable on that path, which fixes every suite in one place.
+        compose = pytest_docker.plugin.DockerComposeExecutor(
+            f"{docker_compose_command} --parallel {parallel}",
+            compose_file_path,
+            f"{docker_compose_project_name}-{key}",
+        )
+        setup = setup_command if setup_command is not None else docker_setup
+        cleanup_commands = _as_commands(docker_cleanup) if cleanup else []
+        try:
+            for command in _as_commands(setup):
+                compose.execute(command)
+            yield pytest_docker.plugin.Services(compose)
+        finally:
+            for command in cleanup_commands:
+                compose.execute(command)
 
     return run

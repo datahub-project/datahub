@@ -92,7 +92,9 @@ Open **Claude Desktop → Settings → Developer → Edit Config** and update `c
       "args": [
         "-y",
         "mcp-remote",
-        "https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>"
+        "https://<tenant>.acryl.io/integrations/ai/mcp/",
+        "--header",
+        "Authorization: Bearer <token>"
       ]
     }
   }

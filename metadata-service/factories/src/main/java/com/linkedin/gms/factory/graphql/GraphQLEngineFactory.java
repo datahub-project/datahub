@@ -35,6 +35,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
@@ -54,11 +55,11 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
@@ -116,6 +117,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
+
+  @Autowired
+  @Qualifier("entitySearchService")
+  private EntitySearchService entitySearchService;
 
   @Autowired
   @Qualifier("recommendationsService")
@@ -241,8 +246,8 @@ public class GraphQLEngineFactory {
   private PageModuleService pageModuleService;
 
   @Autowired(required = false)
-  @Qualifier("s3Util")
-  private S3Util s3Util;
+  @Qualifier("objectStorageClient")
+  private ObjectStorageClient objectStorageClient;
 
   @Autowired
   @Qualifier("dataHubFileService")
@@ -275,6 +280,7 @@ public class GraphQLEngineFactory {
     args.setRecommendationsService(recommendationsService);
     args.setStatefulTokenService(statefulTokenService);
     args.setTimeseriesAspectService(timeseriesAspectService);
+    args.setEntitySearchService(entitySearchService);
     args.setEntityRegistry(entityRegistry);
     args.setSecretService(secretService);
     args.setNativeUserService(nativeUserService);
@@ -322,7 +328,7 @@ public class GraphQLEngineFactory {
     args.setDocumentService(documentService);
     args.setDocumentImportService(documentImportService);
     args.setMetricUtils(metricUtils);
-    args.setS3Util(s3Util);
+    args.setObjectStorageClient(objectStorageClient);
     args.setSemanticSearchService(semanticSearchService);
     args.setSemanticSearchConfiguration(
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());

@@ -32,6 +32,11 @@ def get_dialect_str(platform: str) -> str:
     elif platform_lower == "fabric-onelake":
         # Fabric SQL Analytics Endpoint speaks T-SQL.
         return "tsql"
+    elif platform_lower == "fabricspark":
+        # dbt-fabricspark (Fabric Lakehouse via Spark/Livy) speaks Spark 3+ SQL.
+        # Use sqlglot's "spark" (Spark 3), not "spark2". Do not map to "fabric"
+        # — that dialect is T-SQL (warehouse), not Lakehouse Spark.
+        return "spark"
     elif platform_lower in {"athena", "glue"}:
         # Glue catalog views are Athena/Presto views, which speak Trino SQL.
         return "trino"
