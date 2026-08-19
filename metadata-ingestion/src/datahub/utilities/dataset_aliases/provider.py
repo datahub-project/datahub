@@ -25,10 +25,10 @@ def provide_urn_alias_resolver(
     env: str,
     batch_size: int = _BATCH_SIZE,
 ) -> Optional[UrnAliasResolver]:
-    """A resolver over one bulk-loaded region of DataHub's catalog, cached per region.
+    """A graph-less resolver over one bulk-loaded region of DataHub, cached per region.
 
-    None, not a half-filled resolver, when the scroll fails: a key holds every casing of a
-    name, so a partial one answers a later reference with the wrong entity.
+    None when the scroll fails part way: a key holds every casing of a name, so a partial
+    row is a hit with an incomplete list, which heals a reference to the wrong entity.
 
     Scrolls URNs alone; schemas are a separate concern with a separate loader.
     """
@@ -64,20 +64,20 @@ def provide_urn_alias_resolver(
         resolver.close()
         return None
 
-    if count == 0:
-        # An instance filter matches the `dataPlatformInstance` aspect, which a connector
-        # may never emit even with the instance in the URN.
+    if count == 0 and platform_instance:
+        # The instance filter matches the `dataPlatformInstance` aspect, which a connector
+        # may never emit even with the instance in the URN. Every reference then misses and
+        # is asked of DataHub, which is correct but costs a query each.
         logger.warning(
-            f"Loaded 0 URNs for {scope}. If this platform instance does hold datasets, "
-            "its connector likely does not emit the dataPlatformInstance aspect the "
-            "filter matches; drop platform_instance to load it."
+            f"Loaded 0 URNs for {scope}. If this platform instance does hold datasets, its "
+            "connector likely does not emit the dataPlatformInstance aspect the filter "
+            "matches; drop platform_instance to load it."
         )
     return resolver
 
 
 @functools.lru_cache(maxsize=None)
 def graph_urn_alias_resolver(graph: "DataHubGraph") -> UrnAliasResolver:
-    """The resolver that asks `graph` about one name at a time, for references outside
-    every bulk-loaded region. Shared, so a question one consumer paid for is not asked
-    twice."""
+    """Asks `graph` about one name at a time, for references no bulk load held. Shared, so
+    one question is not paid for twice."""
     return UrnAliasResolver(graph)

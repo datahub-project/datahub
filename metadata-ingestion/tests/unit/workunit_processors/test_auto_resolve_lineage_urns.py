@@ -46,7 +46,10 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.utilities.dataset_aliases.resolver import UrnAliasResolver
+from datahub.utilities.dataset_aliases.resolver import (
+    UrnAliasResolver,
+    lowercased_urn,
+)
 from datahub.utilities.server_config_util import RestServiceConfig
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
@@ -122,16 +125,20 @@ def _seed_index(
     urns: List[str],
     regions: Sequence[_Region] = (_SNOWFLAKE_PROD,),
 ) -> Any:
-    """A `provide_urn_alias_resolver` stand-in over completed loads of `regions`.
+    """A `provide_urn_alias_resolver` stand-in, plus a graph that knows every seeded URN.
 
-    Identity lives in these resolvers, not in any SchemaResolver, so this is what makes an
-    entity findable. One per region, holding only what that load would have reached.
+    Each region in `regions` gets a graph-less resolver holding only what its own filter
+    would have reached; a region not listed yields None, as a failed load does. Either way a
+    miss falls through to the graph, which answers from `urns` as DataHub would.
     """
     _registers_aliases(graph)
+    graph.get_dataset_urns_ignoring_case.side_effect = lambda key: [
+        urn for urn in urns if lowercased_urn(urn) == key
+    ]
     resolvers: Dict[_Region, UrnAliasResolver] = {}
     for region in regions:
-        resolver = UrnAliasResolver()
         platform, instance, env = region
+        resolver = UrnAliasResolver()
         for urn in urns:
             in_region = f"dataPlatform:{platform}," in urn and urn.endswith(f",{env})")
             if in_region and (instance is None or f",{instance}." in urn):
@@ -344,9 +351,11 @@ def test_does_not_heal_across_environments() -> None:
     dev_ref = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE", env="DEV")
     out = _run({LOWER: {"amount": "int"}}, _upstream_wu(dev_ref))
     assert _stored_upstream(out) == dev_ref
-    # DEV falls outside every slice this run loaded, so nothing was ever looked up and
-    # there is no verdict to stamp — an absence would claim a check that never happened.
-    assert _upstream_aspect(out).upstreams[0].matchType is None
+    # snowflake is in scope, so the reference is checked. Matching is on the whole URN, so
+    # the PROD entity is not a match and DataHub holds no DEV one.
+    assert _upstream_aspect(out).upstreams[0].matchType == (
+        LineageMatchTypeClass.UNRESOLVED
+    )
 
 
 def test_leaves_unchanged_when_no_entity_matches():
@@ -891,16 +900,19 @@ def test_catalog_load_failure_is_reported_and_passes_through():
     pipeline_ctx.flags.auto_resolve_lineage_urns = cfg
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
+    # No region loads, so neither the alias index nor the schema cache is built.
+    load_index = _seed_index(pipeline_ctx.graph, [], regions=[])
 
     with (
         mock.patch(_PATCH_TARGET, provide_mock),
-        mock.patch(_LOAD_INDEX_TARGET, mock.MagicMock(return_value=None)),
+        mock.patch(_LOAD_INDEX_TARGET, load_index),
     ):
         processor = AutoResolveLineageUrnsProcessor.create(ctx)
         [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
 
-    assert _stored_upstream(out) == UPPER  # unchanged (platform left unindexed)
-    # Identity and columns are loaded separately, so each failure is reported on its own.
+    assert _stored_upstream(out) == UPPER  # unchanged: DataHub has no such entity
+    # Identity and columns load separately, so each failure is reported on its own. The
+    # reference is still checked, by asking, hence the third warning.
     titles = {
         c.kwargs["title"]
         for c in cast(mock.MagicMock, ctx.source_report).warning.call_args_list
@@ -908,6 +920,7 @@ def test_catalog_load_failure_is_reported_and_passes_through():
     assert titles == {
         "Lineage URN casing: upstream URNs not loaded",
         "Lineage URN casing: upstream catalog not loaded",
+        "Lineage references not resolved to an existing entity",
     }
 
 
@@ -1268,46 +1281,10 @@ def _processor_for(
     return AutoResolveLineageUrnsProcessor.create(ctx), pipeline_ctx.graph, patcher
 
 
-def test_a_match_from_a_slice_we_did_not_load_is_not_used():
-    # Identity comes from an index shared with every consumer, so it can hold entities
-    # some other consumer loaded — here, a platform_instance the operator did not list.
-    # Resolving to one would heal the reference outside what was configured, and leave
-    # its columns unreachable. The answer is confined to our own regions instead.
-    stored = _instanced("db.schema.table", "other_instance")
-    referenced = _instanced("DB.SCHEMA.TABLE", "other_instance")
-
-    cfg = AutoResolveLineageUrnsConfig(
-        enabled=True,
-        upstream_platforms=[
-            UpstreamPlatformCasing(
-                platform="snowflake", platform_instance="my_instance", env="PROD"
-            )
-        ],
-    )
-    processor, _graph, patcher = _processor_for(
-        cfg,
-        _resolver({}),
-        [stored],
-        [("snowflake", "other_instance", "PROD")],
-    )
-    try:
-        [out] = list(processor.process(iter([_upstream_wu(referenced)])))
-    finally:
-        patcher.stop()
-
-    # Left exactly as the source emitted it, and counted as never attempted. Unstamped
-    # too: a verdict would certify a check that never ran.
-    assert _stored_upstream(out) == referenced
-    assert _upstream_aspect(out).upstreams[0].matchType is None
-    assert processor.report.num_refs_out_of_scope == 1
-    assert processor.report.num_refs_verified_exact == 0
-    assert processor.report.num_refs_unresolved == 0
-
-
 # --- scope: which references get reconciled ------------------------------------------
 #
-# upstream_platforms says what to read up front; resolve_all_platforms says what may be
-# reconciled at all. The two are independent, and these cover each combination.
+# upstream_platforms says which platforms to reconcile and which catalogs to preload;
+# resolve_all_platforms says whether anything else is reconciled at all.
 
 BQ_UPPER = make_dataset_urn("bigquery", "PROJ.DS.T")
 BQ_LOWER = make_dataset_urn("bigquery", "proj.ds.t")
@@ -1346,7 +1323,8 @@ def _schema_metadata(platform: str, columns: List[str]) -> SchemaMetadataClass:
     )
 
 
-def test_a_preloaded_catalog_answers_its_own_misses():
+def test_a_preloaded_miss_is_still_asked_about():
+    # A preload covers one platform_instance / env, so its miss is not an absence.
     cfg = AutoResolveLineageUrnsConfig(
         enabled=True,
         upstream_platforms=[UpstreamPlatformCasing(platform="snowflake", env="PROD")],
@@ -1359,9 +1337,9 @@ def test_a_preloaded_catalog_answers_its_own_misses():
     finally:
         patcher.stop()
 
-    # The scroll covered this slice, so the miss is an answer, not a question.
-    assert _stored_upstream(out) == UPPER
-    graph.get_dataset_urns_ignoring_case.assert_not_called()
+    assert _stored_upstream(out) == UPPER  # DataHub does not have it either
+    assert processor.report.num_refs_unresolved == 1
+    graph.get_dataset_urns_ignoring_case.assert_called_once()
 
 
 def test_an_unlisted_platform_is_healed_when_scope_is_widened():
@@ -1369,9 +1347,8 @@ def test_an_unlisted_platform_is_healed_when_scope_is_widened():
     # preload, bigquery only occasionally. The bigquery reference must actually be
     # rewritten — resolved and then discarded for being unlisted is the bug.
     processor, graph, patcher = _processor_for(
-        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+        _widened(), _resolver({}), [BQ_LOWER], [_SNOWFLAKE_SLICE]
     )
-    graph.get_dataset_urns_ignoring_case.return_value = [BQ_LOWER]
     graph.get_aspect.return_value = None  # exists, but holds no schemaMetadata
     try:
         [out] = list(processor.process(iter([_upstream_wu(BQ_UPPER)])))
@@ -1389,9 +1366,8 @@ def test_an_unlisted_platform_gets_column_casing_too():
     # Table-level healing alone would leave the field URN pointing at a column name
     # DataHub does not have, so the edge stays broken where it matters.
     processor, graph, patcher = _processor_for(
-        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+        _widened(), _resolver({}), [BQ_LOWER], [_SNOWFLAKE_SLICE]
     )
-    graph.get_dataset_urns_ignoring_case.return_value = [BQ_LOWER]
     graph.get_aspect.return_value = _schema_metadata("bigquery", ["amount"])
     try:
         [out] = list(
@@ -1409,9 +1385,8 @@ def test_a_failed_schema_fetch_keeps_the_table_level_healing():
     # The fetch is column enrichment on top of an identity that already resolved; a
     # network failure there must not take the resolved table reference down with it.
     processor, graph, patcher = _processor_for(
-        _widened(), _resolver({}), [], [_SNOWFLAKE_SLICE]
+        _widened(), _resolver({}), [BQ_LOWER], [_SNOWFLAKE_SLICE]
     )
-    graph.get_dataset_urns_ignoring_case.return_value = [BQ_LOWER]
     graph.get_aspect.side_effect = Exception("boom")
     try:
         [out] = list(
@@ -1451,10 +1426,9 @@ def test_a_listed_platform_is_still_answered_locally_when_scope_is_widened():
     assert _schema_fetches(graph) == 0
 
 
-def test_a_schemaless_listed_entity_costs_no_round_trip_when_scope_is_widened():
-    # The preload fetched every schema its slice holds, so "this entity has no columns"
-    # is already known. Asking the server for it would spend a round trip per schemaless
-    # reference.
+def test_a_schemaless_listed_entity_is_asked_about_once():
+    # A preload is a cache, not an authority, so "not in my copy" is not "has no columns".
+    # The column is fetched and comes back empty: one round trip per schemaless reference.
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [LOWER], [_SNOWFLAKE_SLICE]
     )
@@ -1467,7 +1441,7 @@ def test_a_schemaless_listed_entity_costs_no_round_trip_when_scope_is_widened():
 
     # Healed at table level; the column is left as the source reported it.
     assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "AMOUNT")]
-    assert _schema_fetches(graph) == 0
+    assert _schema_fetches(graph) == 1
 
 
 def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
@@ -1538,8 +1512,8 @@ def test_a_failed_catalog_load_still_gets_column_casing_when_scope_is_widened():
     processor, graph, patcher = _processor_for(
         _widened(),
         _resolver({}),
-        [],
-        [],  # the scroll failed, so it recorded no coverage
+        [LOWER],
+        [],  # nothing loaded, so every reference is asked
         provide=mock.MagicMock(side_effect=RuntimeError("boom")),
     )
     graph.get_dataset_urns_ignoring_case.return_value = [LOWER]
@@ -1600,10 +1574,8 @@ def test_one_failed_instance_does_not_disable_the_one_that_loaded():
 
 
 def test_a_reference_into_the_failed_instance_is_left_as_emitted():
-    # The sibling instance loaded, so the platform and env are in scope and this
-    # reference is looked up against what did load. It is not found, so it is reported
-    # UNRESOLVED — alongside the "upstream catalog not loaded" warning that says why the
-    # instance it lives in was never read. The URN itself is untouched either way.
+    # This instance's own load failed, so nothing local can answer and the reference is
+    # asked of DataHub, which does not have it either.
     referenced = _instanced("DB.SCHEMA.TABLE", _OTHER_INSTANCE)
     loaded_slice: _Region = ("snowflake", _MY_INSTANCE, "PROD")
     provide = mock.MagicMock(side_effect=[_resolver({}), RuntimeError("boom")])
@@ -1617,9 +1589,138 @@ def test_a_reference_into_the_failed_instance_is_left_as_emitted():
         patcher.stop()
 
     assert _stored_upstream(out) == referenced  # left exactly as emitted
+    assert _upstream_aspect(out).upstreams[0].matchType == (
+        LineageMatchTypeClass.UNRESOLVED
+    )
+    assert processor.report.num_refs_out_of_scope == 0
     assert _catalog_not_loaded_warnings(
         cast(mock.MagicMock, processor.ctx.source_report)
     )
+
+
+def test_a_sibling_instance_does_not_answer_for_the_one_referenced():
+    # A preload narrowed to one platform_instance holds nothing for a sibling, so a
+    # reference into the sibling must be asked about rather than called broken.
+    stored = _instanced("db.schema.table", _OTHER_INSTANCE)
+    referenced = _instanced("DB.SCHEMA.TABLE", _OTHER_INSTANCE)
+    preloaded = _instanced("db.schema.table", _MY_INSTANCE)
+
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+            )
+        ],
+        resolve_all_platforms=True,
+    )
+    processor, graph, patcher = _processor_for(
+        cfg, _resolver({}), [preloaded, stored], [("snowflake", _MY_INSTANCE, "PROD")]
+    )
+    graph.get_aspect.return_value = None
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(referenced)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == stored
+    assert _upstream_aspect(out).upstreams[0].matchType == (
+        LineageMatchTypeClass.NORMALIZED
+    )
+    assert processor.report.num_refs_unresolved == 0
+    # Asked under the reference's own key, not answered from the preloaded sibling.
+    graph.get_dataset_urns_ignoring_case.assert_called_once()
+
+
+def test_a_platform_wide_preload_answers_for_every_instance_locally():
+    # The same reference, when the slice that was read does contain it: no instance filter
+    # narrowed the scroll, so it enumerated every instance and a miss would be a fact.
+    stored = _instanced("db.schema.table", _OTHER_INSTANCE)
+    referenced = _instanced("DB.SCHEMA.TABLE", _OTHER_INSTANCE)
+
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({stored: {"amount": "int"}}), [stored], [_SNOWFLAKE_SLICE]
+    )
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(referenced)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == stored
+    graph.get_dataset_urns_ignoring_case.assert_not_called()
+
+
+def test_columns_are_fetched_when_an_instance_filtered_schema_fetch_came_back_empty():
+    # The fetch succeeds but returns nothing, its instance filter matching an aspect the
+    # connector never emitted. That does not establish that the slice has no schemas, so
+    # columns must be fetched per URN — otherwise the table heals and the columns do not.
+    stored = _instanced("db.schema.table", _MY_INSTANCE)
+    referenced = _instanced("DB.SCHEMA.TABLE", _MY_INSTANCE)
+
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+            )
+        ],
+    )
+    processor, graph, patcher = _processor_for(
+        cfg,
+        _resolver({}),  # loaded, but empty
+        [stored],
+        [("snowflake", _MY_INSTANCE, "PROD")],
+    )
+    graph.get_aspect.return_value = _schema_metadata("snowflake", ["amount"])
+    try:
+        [out] = list(
+            processor.process(
+                iter([_upstream_wu(referenced, fine_grained_field="AMOUNT")])
+            )
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(stored, "amount")]
+    assert _schema_fetches(graph) == 1
+
+
+def test_columns_are_fetched_for_a_slice_whose_schemas_were_never_loaded():
+    # Identity and columns are recorded apart, so a slice whose alias scroll finished while
+    # its schema load failed keeps its healed identity and fetches columns per URN. A
+    # platform-wide "loaded" flag would answer "no columns" without looking.
+    stored = _instanced("db.schema.table", _MY_INSTANCE)
+    referenced = _instanced("DB.SCHEMA.TABLE", _MY_INSTANCE)
+
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+            )
+        ],
+    )
+    processor, graph, patcher = _processor_for(
+        cfg,
+        _resolver({}),
+        [stored],
+        [("snowflake", _MY_INSTANCE, "PROD")],
+        provide=mock.MagicMock(side_effect=RuntimeError("boom")),
+    )
+    graph.get_aspect.return_value = _schema_metadata("snowflake", ["amount"])
+    try:
+        [out] = list(
+            processor.process(
+                iter([_upstream_wu(referenced, fine_grained_field="AMOUNT")])
+            )
+        )
+    finally:
+        patcher.stop()
+
+    # Identity healed from the completed alias scroll; the column from the fetched schema.
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(stored, "amount")]
+    graph.get_dataset_urns_ignoring_case.assert_not_called()
+    assert _schema_fetches(graph) == 1
 
 
 # --- what checking a column actually established -------------------------------------
@@ -1629,14 +1730,14 @@ def test_a_reference_into_the_failed_instance_is_left_as_emitted():
 
 
 def test_the_four_outcomes_are_counted_apart():
-    # Verified-exact, out-of-scope platform, out-of-scope slice and malformed each mean
-    # something different to an operator, so none of them may share a bucket.
+    # Exact, out-of-scope platform, absent and malformed each mean something different to
+    # an operator, so none of them may share a bucket.
     dev_ref = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE", env="DEV")
     aspect = UpstreamLineageClass(
         upstreams=[
             UpstreamClass(dataset=UPPER, type="TRANSFORMED"),  # exists as emitted
             UpstreamClass(dataset=BQ_UPPER, type="TRANSFORMED"),  # platform unlisted
-            UpstreamClass(dataset=dev_ref, type="TRANSFORMED"),  # env never loaded
+            UpstreamClass(dataset=dev_ref, type="TRANSFORMED"),  # checked, absent
         ],
         fineGrainedLineages=[
             FineGrainedLineageClass(
@@ -1657,9 +1758,9 @@ def test_the_four_outcomes_are_counted_apart():
         patcher.stop()
 
     assert processor.report.num_refs_verified_exact == 1
-    assert processor.report.num_refs_out_of_scope == 2
+    assert processor.report.num_refs_out_of_scope == 1  # bigquery: platform not listed
+    assert processor.report.num_refs_unresolved == 1  # snowflake DEV: asked, not there
     assert processor.report.num_refs_skipped_malformed == 1
-    assert processor.report.num_refs_unresolved == 0
 
 
 # --- the sample behind the unresolved count --------------------------------------------
