@@ -241,6 +241,36 @@ def test_batch_partition_executor_delivers_per_item_outcomes():
     assert isinstance(outcomes["task2"], ValueError)
 
 
+def test_batch_partition_executor_falls_back_to_shared_future():
+    """A plain exception (not BatchItemFailures) must fall back to shared-Future dispatch."""
+    error = ValueError("whole batch rejected")
+    outcomes: Dict[str, Optional[BaseException]] = {}
+
+    def process_batch(batch):
+        raise error
+
+    def make_callback(task_id: str):
+        def _callback(future: Future) -> None:
+            outcomes[task_id] = future.exception()
+
+        return _callback
+
+    with BatchPartitionExecutor(
+        max_workers=1,
+        max_pending=10,
+        max_per_batch=3,
+        process_batch=process_batch,
+    ) as executor:
+        for task_id in ("task1", "task2", "task3"):
+            executor.submit("key1", task_id, done_callback=make_callback(task_id))
+
+    # `error` is the same instance regardless of how many batches these get split
+    # into, so this holds no matter the batch boundaries.
+    assert outcomes["task1"] is error
+    assert outcomes["task2"] is error
+    assert outcomes["task3"] is error
+
+
 def test_extract_per_item_outcomes_rejects_length_mismatch():
     """A malformed outcome list must fall back to shared-future dispatch, not mis-attribute."""
     batch = [_work_item("a"), _work_item("b")]
