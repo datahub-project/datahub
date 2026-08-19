@@ -456,6 +456,9 @@ def test_get_dataset_error_skips_dataset(error):
 
     assert seeded.handler.get_info("consumer-project", "shared_a") is None
     assert seeded.handler.report.num_linked_dataset_get_dataset_errors == 1
+    assert [w.title for w in seeded.handler.report.warnings] == [
+        "Cannot read linked dataset metadata"
+    ]
 
 
 def test_linked_dataset_without_source_is_warned_and_kept():
@@ -475,7 +478,9 @@ def test_linked_dataset_without_source_is_warned_and_kept():
     assert info is not None
     assert info.has_resolved_publisher is False
     assert seeded.handler.report.num_linked_dataset_source_unresolved == 1
-    assert len(seeded.handler.report.warnings) == 1
+    assert [w.title for w in seeded.handler.report.warnings] == [
+        "Linked dataset source not resolved"
+    ]
 
 
 def test_publisher_resolve_failure_keeps_dataset_but_skips_lineage():
