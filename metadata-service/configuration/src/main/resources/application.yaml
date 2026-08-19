@@ -82,6 +82,14 @@ authentication:
   # The max duration of a password reset token in milliseconds. Defaults to 1 day.
   passwordResetTokenExpirationMs: ${PASSWORD_RESET_TOKEN_EXPIRATION_MS:86400000}
 
+  # Personal / service-account access token duration policy (create-time only).
+  accessTokens:
+    # When false, NO_EXPIRY tokens cannot be created. Existing tokens keep working.
+    allowNoExpiry: ${ACCESS_TOKEN_ALLOW_NO_EXPIRY:false}
+    # Comma-separated ISO-8601 durations shown in the UI and enforced on create.
+    # P1M = 30 days, P1Y = 365 days (fixed approximations). Must be non-empty.
+    allowedDurations: ${ACCESS_TOKEN_ALLOWED_DURATIONS:PT1H,P1D,P7D,P30D,P90D,P180D,P365D}
+
 # Authorization-related configurations.
 authorization:
   # Configurations for the default DataHub policies-based authorizer.
@@ -579,6 +587,8 @@ ebean:
   entityWriteLockLeaseSeconds: ${ENTITY_WRITE_LOCK_LEASE_SECONDS:300} # Hazelcast lock lease: auto-release a held lock after this many seconds so a dead/hung holder never wedges a URN.
   optimisticLockingEnabled: ${OPTIMISTIC_LOCKING_ENABLED:false} # Opt-in, per-process: write aspects via compare-and-set on SystemMetadata.version instead of SELECT ... FOR UPDATE. Ignored on Cassandra. Default off (legacy path unchanged).
   scopedRetryEnabled: ${SCOPED_RETRY_ENABLED:false} # Opt-in, requires optimisticLockingEnabled: on an optimistic-lock CONFLICT retry only the conflicted URN's branch within the transaction instead of re-running the whole batch. Default off (full-batch retry).
+  optimisticWriteBatchEnabled: ${OPTIMISTIC_WRITE_BATCH_ENABLED:false} # Opt-in: batch CAS updates via JDBC executeBatch. Requires optimisticLockingEnabled AND scopedRetryEnabled. Default off.
+  optimisticWriteBatchMinSize: ${OPTIMISTIC_WRITE_BATCH_MIN_SIZE:10} # Min batch size below which batching is skipped. (Max per executeBatch is a hardcoded constant, packet-limited.)
   readPool:
     enabled: ${EBEAN_READ_POOL_ENABLED:false}
     url: ${EBEAN_READ_POOL_URL:${EBEAN_READ_REPLICA_URL:}}
@@ -1777,6 +1787,10 @@ cache:
           telemetryClientId: 86400 # 1 day
         dataHubRetention:
           dataHubRetentionConfig: 21600 # 6hrs
+        dataPlatform:
+          dataPlatformInfo: 86400 # 1 day
+        dataPlatformInstance:
+          dataPlatformInstanceKey: 300 # 5 min
 
 graphQL:
   graphiql:

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.ResolvedGraphEd
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder.BuildResult;
 import com.linkedin.metadata.graph.cache.store.EntityGraphCacheKeys;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -40,6 +42,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -336,6 +339,11 @@ public class EntityGraphSnapshotBuilderGraphTest {
 
     BuildResult result =
         builder.build(searchContext, searchableDefinition, GraphSnapshotSource.SEARCH, null);
+
+    ArgumentCaptor<SearchFlags> flagsCaptor = ArgumentCaptor.forClass(SearchFlags.class);
+    verify(searchRetriever)
+        .scroll(any(), any(), nullable(String.class), anyInt(), any(), flagsCaptor.capture());
+    assertEquals(flagsCaptor.getValue().getFetchExtraFields(), List.of("parentDomain"));
 
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertNotNull(result.getSnapshot());

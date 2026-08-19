@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Bist du sicher?",
     "unlinkVersion.error": "Aufheben der Verknüpfung fehlgeschlagen: \n {{errorMessage}}",
     "unlinkVersion.loading": "Verknüpfung wird aufgehoben...",
-    "unlinkVersion.success": "Verknüpfung von {{entityName}} aufgehoben!"
+    "unlinkVersion.success": "Verknüpfung von {{entityName}} aufgehoben!",
+    "dataProductSelect.notFound": "Keine Data Products gefunden",
+    "dataProductSelect.placeholder": "Übergeordnetes Data Product auswählen",
+    "moveDataProduct.title": "Data Product verschieben"
 }

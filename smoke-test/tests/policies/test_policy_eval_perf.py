@@ -14,11 +14,12 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.privileges.utils import create_user, remove_user
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, get_admin_credentials, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.global_policy_mutator
+pytestmark = [pytest.mark.global_policy_mutator, pytest.mark.domain(Domain.PLATFORM)]
 
 PERF_NUM_QUERIES = 25
 PERF_LATENCY_RATIO_THRESHOLD = 2
