@@ -89,4 +89,5 @@ public class FeatureFlags {
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
+  private boolean siblingsSearchBatchLoadEnabled = true;
 }
