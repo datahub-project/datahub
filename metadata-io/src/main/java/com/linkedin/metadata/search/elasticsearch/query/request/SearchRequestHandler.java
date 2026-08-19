@@ -32,11 +32,13 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.InvalidSearchHitException;
+import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -253,7 +255,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    applyFetchSource(searchSourceBuilder, searchFlags);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -315,7 +317,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    applyFetchSource(searchSourceBuilder, searchFlags);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -402,6 +404,15 @@ public class SearchRequestHandler extends BaseRequestHandler {
   public QueryBuilder getQuery(
       @Nonnull OperationContext opContext, @Nonnull String query, boolean fulltext) {
     return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
+  }
+
+  private static void applyFetchSource(
+      @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SearchFlags searchFlags) {
+    String[] includes =
+        SearchDocFieldFetchConfig.resolve(
+                SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags)
+            .toArray(String[]::new);
+    searchSourceBuilder.fetchSource(includes, null);
   }
 
   @Override
@@ -612,12 +623,20 @@ public class SearchRequestHandler extends BaseRequestHandler {
         Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
   }
 
-  private SearchEntity getResult(@Nonnull SearchHit hit) {
-    return new SearchEntity()
-        .setEntity(getUrnFromSearchHit(hit))
-        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
-        .setScore(hit.getScore())
-        .setFeatures(new DoubleMap(extractFeatures(hit)));
+  private SearchEntity getResult(@Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+    SearchEntity entity =
+        new SearchEntity()
+            .setEntity(getUrnFromSearchHit(hit))
+            .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
+            .setScore(hit.getScore())
+            .setFeatures(new DoubleMap(extractFeatures(hit)));
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags != null && CollectionUtils.isNotEmpty(flags.getFetchExtraFields())) {
+      entity.setExtraFields(
+          SearchResultUtils.toExtraFields(
+              opContext.getObjectMapper(), hit.getSourceAsMap(), flags.getFetchExtraFields()));
+    }
+    return entity;
   }
 
   /**
@@ -632,7 +651,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private Optional<SearchEntity> getResultSafely(
       @Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
     try {
-      return Optional.of(getResult(hit));
+      return Optional.of(getResult(opContext, hit));
     } catch (InvalidSearchHitException e) {
       log.warn(
           "Skipping search hit with invalid or missing URN. Index: {}, ID: {}",

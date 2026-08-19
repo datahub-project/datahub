@@ -81,6 +81,7 @@ export default class DescriptionEditorPage extends BasePage {
       await this.uploadFileButton.click();
       await this.fileUploadInput.waitFor({ state: 'attached', timeout: TIMEOUTS.MEDIUM });
       await this.fileUploadInput.setInputFiles(tempFilePath);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(TABLE_LOAD_DELAY);
       // For invalid files, backend validation rejects silently - verify file wasn't added
       const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
@@ -104,15 +105,16 @@ export default class DescriptionEditorPage extends BasePage {
     await fileNode.waitFor({ state: 'visible', timeout: TIMEOUTS.EXTRA_LONG });
   }
 
+  private async waitForFileUrlAttribute(fileNode: Locator, urlPattern: RegExp): Promise<void> {
+    await expect(fileNode).toHaveAttribute('data-file-url', urlPattern, { timeout: TIMEOUTS.EXTRA_LONG });
+  }
+
   async verifyFileNodeInEditor(_fileId: string, fileName: string): Promise<void> {
     const fileNode = this.editorFileNodesContainer.getByTestId(this.getFileNodeTestId(fileName));
     await expect(fileNode).toBeVisible();
 
     const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
 
@@ -121,10 +123,7 @@ export default class DescriptionEditorPage extends BasePage {
     await expect(fileNode).toBeVisible();
 
     const urlPattern = /\/openapi\/v1\/files\/product_assets\/urn:li:dataHubFile:.+/;
-    const actualUrl = await fileNode.getAttribute('data-file-url');
-    if (!actualUrl || !urlPattern.test(actualUrl)) {
-      throw new Error(`File URL does not match expected pattern. Got: ${actualUrl}`);
-    }
+    await this.waitForFileUrlAttribute(fileNode, urlPattern);
     await expect(fileNode).toContainText(fileName);
   }
 
@@ -157,6 +156,7 @@ export default class DescriptionEditorPage extends BasePage {
     }
     await this.clearDescription();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TABLE_LOAD_DELAY);
   }
 }

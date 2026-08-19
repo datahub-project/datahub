@@ -2838,6 +2838,11 @@ type GlossaryNode implements Entity {
   The Domain associated with the glossary node
   """
   domain: DomainAssociation
+
+  """
+  The applications associated with the glossary node
+  """
+  applications: [ApplicationAssociation!]
 }
 
 """
@@ -13798,6 +13803,16 @@ type Application implements Entity {
   Ownership metadata of the Application
   """
   ownership: Ownership
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean
+
+  """
+  Soft deletion status.
+  """
+  status: Status
 
   """
   References to internal resources related to the Application

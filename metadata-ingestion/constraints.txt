@@ -176,16 +176,16 @@ cachetools==5.5.2
     #   confluent-kafka
     #   mlflow-skinny
     #   pyiceberg
-cassandra-driver==3.29.3
+cassandra-driver==3.30.1
     # via acryl-datahub
 cattrs==26.1.0
     # via looker-sdk
 certifi==2026.2.25
     # via
     #   confluent-kafka
-    #   elasticsearch
     #   httpcore
     #   httpx
+    #   opensearch-py
     #   pinecone-client
     #   requests
     #   sentry-sdk
@@ -306,6 +306,7 @@ deepmerge==2.0
 defusedxml==0.7.1
     # via
     #   acryl-datahub
+    #   nltk
     #   python3-openid
     #   tableauserverclient
 deltalake==0.25.5
@@ -314,6 +315,7 @@ deprecated==1.3.1
     # via
     #   acryl-datahub
     #   atlassian-python-api
+    #   cassandra-driver
 dill==0.3.9
     # via feast
 distro==1.9.0
@@ -334,12 +336,12 @@ duckdb==1.5.0
     # via acryl-datahub
 ecdsa==0.19.1
     # via python-jose
-elasticsearch==7.13.4
-    # via acryl-datahub
 emoji==2.15.0
     # via unstructured
 et-xmlfile==2.0.0
     # via openpyxl
+events==0.5
+    # via opensearch-py
 exceptiongroup==1.3.1 ; python_full_version < '3.11'
     # via
     #   anyio
@@ -516,6 +518,7 @@ grpcio==1.78.0
     #   grpc-google-iam-v1
     #   grpcio-status
     #   grpcio-tools
+    #   opensearch-protobufs
 grpcio-status==1.62.3
     # via google-api-core
 grpcio-tools==1.71.2
@@ -768,7 +771,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.10.3
     # via
     #   acryl-datahub
     #   unstructured
@@ -799,6 +802,10 @@ openpyxl==3.1.5
     #   acryl-datahub
     #   databricks-sql-connector
     #   dataflows-tabulator
+opensearch-protobufs==1.2.0
+    # via opensearch-py
+opensearch-py==3.2.0
+    # via acryl-datahub
 opentelemetry-api==1.40.0
     # via
     #   google-cloud-logging
@@ -924,6 +931,7 @@ protobuf==5.29.6
     #   grpcio-status
     #   grpcio-tools
     #   mlflow-skinny
+    #   opensearch-protobufs
     #   proto-plus
 psutil==7.2.2
     # via
@@ -1066,6 +1074,7 @@ python-dateutil==2.9.0.post0
     #   croniter
     #   google-cloud-bigquery
     #   moto
+    #   opensearch-py
     #   pandas
     #   pendulum
     #   python-liquid
@@ -1174,6 +1183,7 @@ requests==2.32.5
     #   mlflow-skinny
     #   moto
     #   msal
+    #   opensearch-py
     #   pydruid
     #   pyiceberg
     #   redash-toolbelt
@@ -1363,7 +1373,7 @@ stopit==1.1.2
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
-tableauserverclient==0.25
+tableauserverclient==0.40
     # via acryl-datahub
 tableschema==1.21.0
     # via acryl-datahub
@@ -1530,6 +1540,7 @@ typing-extensions==4.15.0
     #   snowflake-connector-python
     #   sqlalchemy2-stubs
     #   starlette
+    #   tableauserverclient
     #   textual
     #   typeguard
     #   typing-inspect
@@ -1571,13 +1582,13 @@ unstructured-client==0.42.10
     # via unstructured
 unstructured-ingest==0.7.2
     # via acryl-datahub
-urllib3==1.26.20
+urllib3==2.7.0
     # via
     #   acryl-datahub
     #   botocore
     #   databricks-sql-connector
     #   docker
-    #   elasticsearch
+    #   opensearch-py
     #   pinecone-client
     #   requests
     #   responses

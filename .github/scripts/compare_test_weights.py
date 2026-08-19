@@ -13,7 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 def load_weights(file_path: str, test_id_key: str) -> Dict[str, float]:
@@ -89,7 +89,6 @@ def calculate_changes(
 
 def generate_pr_body(
     pytest_changes: Dict,
-    cypress_changes: Optional[Dict] = None,
     title: str = "🤖 Automated Test Weight Update",
 ) -> str:
     """Generate markdown PR body with change analysis."""
@@ -109,8 +108,6 @@ def generate_pr_body(
     lines.append("|-----------|-----------|-----------|--------|---------|")
 
     summary_rows: List[tuple[str, Dict]] = [("Pytest", pytest_changes)]
-    if cypress_changes is not None:
-        summary_rows.insert(0, ("Cypress", cypress_changes))
 
     for name, changes in summary_rows:
         old_min = changes["old_total"] / 60
@@ -143,8 +140,6 @@ def generate_pr_body(
         lines.append("<summary>Batch count recommendations</summary>")
         lines.append("")
         lines.append("Current configuration:")
-        if cypress_changes is not None:
-            lines.append("- Cypress: 11 batches (Depot) / 5 batches (GitHub runners)")
         lines.append("- Pytest: 7 batches (GitHub runners)")
         lines.append("")
         lines.append(
@@ -257,16 +252,6 @@ def main():
         description="Compare test weights and generate PR description"
     )
     parser.add_argument(
-        "--old-cypress",
-        required=False,
-        help="Path to old Cypress weights JSON",
-    )
-    parser.add_argument(
-        "--new-cypress",
-        required=False,
-        help="Path to new Cypress weights JSON",
-    )
-    parser.add_argument(
         "--old-pytest", required=True, help="Path to old Pytest weights JSON"
     )
     parser.add_argument(
@@ -291,24 +276,11 @@ def main():
 
     args = parser.parse_args()
 
-    if (args.old_cypress is None) != (args.new_cypress is None):
-        print("Error: --old-cypress and --new-cypress must be provided together")
-        sys.exit(1)
-
     old_pytest = load_weights(args.old_pytest, "testId")
     new_pytest = load_weights(args.new_pytest, "testId")
     pytest_changes = calculate_changes(old_pytest, new_pytest)
 
-    cypress_changes = None
-    change_pcts = [abs(pytest_changes["total_change_pct"])]
-    if args.old_cypress and args.new_cypress:
-        old_cypress = load_weights(args.old_cypress, "filePath")
-        new_cypress = load_weights(args.new_cypress, "filePath")
-        cypress_changes = calculate_changes(old_cypress, new_cypress)
-        change_pcts.append(abs(cypress_changes["total_change_pct"]))
-        print(f"Cypress total change: {cypress_changes['total_change_pct']:+.2f}%")
-
-    max_change = max(change_pcts)
+    max_change = abs(pytest_changes["total_change_pct"])
 
     print(f"Pytest total change: {pytest_changes['total_change_pct']:+.2f}%")
     print(f"Max change: {max_change:.2f}%")
@@ -322,22 +294,15 @@ def main():
 
     print("\n✓ Changes exceed threshold. Generating PR body...")
 
-    pr_body = generate_pr_body(pytest_changes, cypress_changes, title=args.title)
+    pr_body = generate_pr_body(pytest_changes, title=args.title)
 
     with open(args.output, "w") as f:
         f.write(pr_body)
 
     print(f"✓ PR body written to {args.output}")
-    if cypress_changes is not None:
-        print(
-            "✓ Significant changes: "
-            f"Cypress={len(cypress_changes['significant_changes'])}, "
-            f"Pytest={len(pytest_changes['significant_changes'])}"
-        )
-    else:
-        print(
-            f"✓ Significant changes: Pytest={len(pytest_changes['significant_changes'])}"
-        )
+    print(
+        f"✓ Significant changes: Pytest={len(pytest_changes['significant_changes'])}"
+    )
 
     sys.exit(0)
 

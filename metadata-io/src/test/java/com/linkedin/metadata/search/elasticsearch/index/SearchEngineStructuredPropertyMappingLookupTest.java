@@ -33,7 +33,7 @@ public class SearchEngineStructuredPropertyMappingLookupTest {
 
   @Test
   public void testFindsStructuredPropertyFieldAcrossEntityMappings() throws IOException {
-    when(indexConvention.getAllEntityIndicesPatterns())
+    when(indexConvention.getAllEntityIndicesPatterns(OperationFingerprint.EMPTY))
         .thenReturn(List.of("*index_v2", "*index_v3"));
     stubMappings(
         Map.of(
@@ -48,7 +48,8 @@ public class SearchEngineStructuredPropertyMappingLookupTest {
 
   @Test
   public void testFindsNestedVersionedField() throws IOException {
-    when(indexConvention.getAllEntityIndicesPatterns()).thenReturn(List.of("*index_v3"));
+    when(indexConvention.getAllEntityIndicesPatterns(OperationFingerprint.EMPTY))
+        .thenReturn(List.of("*index_v3"));
     Map<String, Object> versionMapping =
         Map.of("properties", Map.of("string", Map.of("type", "keyword")));
     Map<String, Object> propertyMapping =
@@ -69,7 +70,8 @@ public class SearchEngineStructuredPropertyMappingLookupTest {
 
   @Test
   public void testNoConfiguredEntityIndicesSkipsBackendCall() throws IOException {
-    when(indexConvention.getAllEntityIndicesPatterns()).thenReturn(List.of());
+    when(indexConvention.getAllEntityIndicesPatterns(OperationFingerprint.EMPTY))
+        .thenReturn(List.of());
 
     assertFalse(lookup.fieldExists(OperationFingerprint.EMPTY, "certification_status"));
     verifyNoInteractions(searchClient);

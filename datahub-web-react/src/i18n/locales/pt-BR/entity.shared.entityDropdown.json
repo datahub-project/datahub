@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Tem certeza?",
     "unlinkVersion.error": "Falha ao desvincular: \n {{errorMessage}}",
     "unlinkVersion.loading": "Desvinculando...",
-    "unlinkVersion.success": "{{entityName}} desvinculado(a)!"
+    "unlinkVersion.success": "{{entityName}} desvinculado(a)!",
+    "dataProductSelect.notFound": "Nenhum Data Product encontrado",
+    "dataProductSelect.placeholder": "Selecione um Data Product pai",
+    "moveDataProduct.title": "Mover Data Product"
 }

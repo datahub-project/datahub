@@ -170,7 +170,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # Filtering configuration
         filtering:
           skip_empty_documents: true
-          min_text_length: 50  # Skip pages with < 50 chars
+          min_text_length: 50  # optional; default 0 embeds all non-empty pages
 
         # Advanced options
         advanced:
@@ -1831,11 +1831,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # those roots, so any document it emits is in-scope by construction —
         # no extra filtering is needed here.
 
-        # Check for empty documents
+        total_text_length = sum(len(elem.get("text", "")) for elem in elements)
+
+        # Check for empty documents: no elements, or elements that carry no text
+        # at all. The total_text_length == 0 check matters now that
+        # min_text_length defaults to 0 -- otherwise a page whose elements have no
+        # text (e.g. image-only) would slip past the length check below.
         if self.config.filtering.skip_empty_documents:
-            if not elements:
+            if not elements or total_text_length == 0:
                 self.report.report_file_skipped(
-                    metadata.get("filename", "unknown"), "No elements extracted"
+                    metadata.get("filename", "unknown"), "No text content"
                 )
                 return True
 
@@ -1846,7 +1851,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             and current_page_id in parent_page_ids
         )
 
-        total_text_length = sum(len(elem.get("text", "")) for elem in elements)
         if total_text_length < self.config.filtering.min_text_length:
             if is_parent_page:
                 logger.info(

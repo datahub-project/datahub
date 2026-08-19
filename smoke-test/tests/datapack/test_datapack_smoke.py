@@ -19,9 +19,12 @@ from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import StatusClass
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, run_datahub_cmd, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 # Showcase pack definitions file sets status.removed=false then propertyDefinition.
 # After datapack unload (rollback), these entities are soft-deleted with no definition.
@@ -72,7 +75,7 @@ def _restore_soft_deleted_showcase_structured_properties(
         len(restore_mcps),
     )
     graph.emit_mcps(restore_mcps, emit_mode=EmitMode.SYNC_PRIMARY)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 class TestDatapackCLI:
