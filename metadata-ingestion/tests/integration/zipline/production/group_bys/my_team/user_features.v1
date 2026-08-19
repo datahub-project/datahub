@@ -1,0 +1,74 @@
+{
+  "metaData": {
+    "name": "my_team.user_features.v1",
+    "online": 0,
+    "customJson": "{\"lag\": 0, \"groupby_tags\": {\"tier\": \"gold\", \"pii\": \"false\"}, \"column_tags\": {}}",
+    "dependencies": [
+      "{\"name\": \"wait_for_data.user_purchases_ds\", \"spec\": \"data.user_purchases/ds={{ ds }}\", \"start\": null, \"end\": null}"
+    ],
+    "tableProperties": {},
+    "outputNamespace": "my_team_features",
+    "team": "my_team",
+    "offlineSchedule": "@daily",
+    "description": "Rolling purchase behaviour features keyed on user_id"
+  },
+  "sources": [
+    {
+      "events": {
+        "table": "data.user_purchases",
+        "topic": "events.user_purchases",
+        "query": {
+          "selects": {
+            "user_id": "user_id",
+            "purchase_amount": "purchase_amount",
+            "item_id": "item_id"
+          },
+          "timeColumn": "ts",
+          "setups": []
+        }
+      }
+    }
+  ],
+  "keyColumns": [
+    "user_id"
+  ],
+  "aggregations": [
+    {
+      "inputColumn": "purchase_amount",
+      "operation": 7,
+      "argMap": {},
+      "windows": [
+        {
+          "length": 3,
+          "timeUnit": 1
+        },
+        {
+          "length": 7,
+          "timeUnit": 1
+        }
+      ]
+    },
+    {
+      "inputColumn": "purchase_amount",
+      "operation": 8,
+      "argMap": {},
+      "windows": [
+        {
+          "length": 7,
+          "timeUnit": 1
+        }
+      ]
+    },
+    {
+      "inputColumn": "item_id",
+      "operation": 5,
+      "argMap": {},
+      "windows": [
+        {
+          "length": 30,
+          "timeUnit": 1
+        }
+      ]
+    }
+  ]
+}

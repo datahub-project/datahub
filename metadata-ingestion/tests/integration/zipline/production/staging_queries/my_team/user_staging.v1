@@ -1,0 +1,13 @@
+{
+  "metaData": {
+    "name": "my_team.user_staging.v1",
+    "tableProperties": {
+      "tier": "gold"
+    },
+    "outputNamespace": "my_team_features",
+    "team": "my_team",
+    "description": "Cleans raw purchase events into a curated table for downstream GroupBys"
+  },
+  "query": "\nSELECT\n    user_id,\n    purchase_amount,\n    item_id,\n    ts,\n    ds\nFROM data.raw_purchases\nWHERE ds BETWEEN '{{ start_date }}' AND '{{ end_date }}'\n",
+  "startPartition": "2023-01-01"
+}

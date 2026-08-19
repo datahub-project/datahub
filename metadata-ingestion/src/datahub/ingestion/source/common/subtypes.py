@@ -213,6 +213,11 @@ class MLAssetSubTypes(StrEnum):
 
     FOLDER = "Folder"
 
+    # Feature-store assets (Zipline/Chronon, Feast)
+    FEATURE_TABLE = "Feature Table"
+    FEATURE = "Feature"
+    PRIMARY_KEY = "Primary Key"
+
 
 class DataFlowSubTypes(StrEnum):
     # dlt
@@ -224,6 +229,8 @@ class DataFlowSubTypes(StrEnum):
     SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # Zipline/Chronon — one DataFlow per team groups its Joins and StagingQueries.
+    ZIPLINE_TEAM = "Zipline Team"
 
 
 class DataJobSubTypes(StrEnum):
@@ -234,6 +241,10 @@ class DataJobSubTypes(StrEnum):
     SAP_TASK_CHAIN_STEP = "Task Chain Step"
     # Amazon Data Firehose — the single delivery step within a Firehose stream.
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
+    # Zipline/Chronon job types.
+    ZIPLINE_GROUP_BY = "Group By"
+    ZIPLINE_JOIN = "Join"
+    ZIPLINE_STAGING_QUERY = "Staging Query"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

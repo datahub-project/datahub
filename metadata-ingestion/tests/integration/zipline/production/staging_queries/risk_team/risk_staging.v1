@@ -1,0 +1,13 @@
+{
+  "metaData": {
+    "name": "risk_team.risk_staging.v1",
+    "tableProperties": {
+      "tier": "silver"
+    },
+    "outputNamespace": "risk_features",
+    "team": "risk_team",
+    "description": "Joins warehouse accounts with raw purchases to build a risk staging table"
+  },
+  "query": "\nSELECT\n    a.account_id,\n    a.balance,\n    p.purchase_amount\nFROM warehouse.accounts a\nJOIN data.raw_purchases p ON a.account_id = p.user_id\nWHERE a.ds = '{{ latest_date }}'\n",
+  "startPartition": "2023-01-01"
+}
