@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
+import { Tag as CustomTag, Form, Radio, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -13,11 +13,13 @@ import {
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
+    getFieldCondition,
     getFieldValues,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
     mapResourceTypeToEntityType,
     mapResourceTypeToPrivileges,
+    setFieldCondition,
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -30,7 +32,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
+import { Container, Domain, Entity, EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -61,7 +63,8 @@ const PrivilegesForm = styled(Form)`
 `;
 
 const TagSelect = styled(Select)`
-    width: 480px;
+    flex: 1;
+    min-width: 0;
 `;
 
 const StyleTag = styled(CustomTag)`
@@ -73,6 +76,12 @@ const StyleTag = styled(CustomTag)`
     opacity: 1;
     color: ${(props) => props.theme.colors.borderDisabled};
     line-height: 16px;
+`;
+
+const SelectRow = styled.div`
+    display: flex;
+    gap: 8px;
+    align-items: center;
 `;
 
 /**
@@ -149,6 +158,31 @@ export default function PolicyPrivilegeForm({
     containers.forEach((containerEntity) => {
         containerUrnToDisplayName[containerEntity.value] = getDisplayName(containerEntity.entity);
     });
+
+    // Conditions for each filter field (EQUALS = include, NOT_EQUALS = exclude)
+    const resourceTypeCondition =
+        getFieldCondition(resources.filter, TYPE, RESOURCE_TYPE) || PolicyMatchCondition.Equals;
+    const resourceCondition = getFieldCondition(resources.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
+    const tagCondition = getFieldCondition(resources.filter, 'TAG') || PolicyMatchCondition.Equals;
+    const domainCondition = getFieldCondition(resources.filter, 'DOMAIN') || PolicyMatchCondition.Equals;
+    const containerCondition = getFieldCondition(resources.filter, 'CONTAINER') || PolicyMatchCondition.Equals;
+
+    const onChangeCondition = (field: string, condition: PolicyMatchCondition) => {
+        const filter = resources.filter || { criteria: [] };
+        setResources({ ...resources, filter: setFieldCondition(filter, field, condition) });
+    };
+
+    const conditionSelect = (field: string, currentCondition: PolicyMatchCondition) => (
+        <Radio.Group
+            size="small"
+            value={currentCondition}
+            buttonStyle="solid"
+            onChange={(e) => onChangeCondition(field, e.target.value as PolicyMatchCondition)}
+        >
+            <Radio.Button value={PolicyMatchCondition.Equals}>{t('includeOption')}</Radio.Button>
+            <Radio.Button value={PolicyMatchCondition.NotEquals}>{t('excludeOption')}</Radio.Button>
+        </Radio.Group>
+    );
 
     // Whether to show the resource filter inputs including "resource type", "resource", and "domain"
     const showResourceFilterInput = policyType !== PolicyType.Platform;
@@ -542,35 +576,36 @@ export default function PolicyPrivilegeForm({
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item
-                    label={<Typography.Text strong>{t('privilegeForm.resourceTypeLabel')}</Typography.Text>}
-                    labelAlign="right"
-                >
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.resourceTypeLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
                         <Trans t={t} i18nKey="privilegeForm.resourceTypeDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
-                    <Select
-                        value={resourceTypeSelectValue}
-                        mode="multiple"
-                        placeholder={t('privilegeForm.resourceTypePlaceholder')}
-                        onSelect={onSelectResourceType}
-                        onDeselect={onDeselectResourceType}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {mapResourceTypeToDisplayName(tagProps.value.toString(), resourcePrivileges)}
-                            </Tag>
-                        )}
-                    >
-                        {resourcePrivileges
-                            .filter((privs) => privs.resourceType !== 'all')
-                            .map((resPrivs) => {
-                                return (
-                                    <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
-                                        {resPrivs.resourceTypeDisplayName}
-                                    </Select.Option>
-                                );
-                            })}
-                    </Select>
+                    <SelectRow>
+                        {conditionSelect(TYPE, resourceTypeCondition)}
+                        <Select
+                            style={{ flex: 1 }}
+                            value={resourceTypeSelectValue}
+                            mode="multiple"
+                            placeholder={t('privilegeForm.resourceTypePlaceholder')}
+                            onSelect={onSelectResourceType}
+                            onDeselect={onDeselectResourceType}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    {mapResourceTypeToDisplayName(tagProps.value.toString(), resourcePrivileges)}
+                                </Tag>
+                            )}
+                        >
+                            {resourcePrivileges
+                                .filter((privs) => privs.resourceType !== 'all')
+                                .map((resPrivs) => {
+                                    return (
+                                        <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
+                                            {resPrivs.resourceTypeDisplayName}
+                                        </Select.Option>
+                                    );
+                                })}
+                        </Select>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -578,64 +613,71 @@ export default function PolicyPrivilegeForm({
                     <Typography.Paragraph>
                         <Trans t={t} i18nKey="privilegeForm.resourceDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
-                    <Select
-                        notFoundContent={t('privilegeForm.resourceNotFound')}
-                        value={resourceSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder={t('privilegeForm.resourcePlaceholder')}
-                        onSelect={onSelectResource}
-                        onDeselect={onDeselectResource}
-                        onSearch={handleResourceSearch}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                <Tooltip title={tagProps.value.toString()}>
-                                    {displayStringWithMaxLength(
-                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
-                                        75,
-                                    )}
-                                </Tooltip>
-                            </Tag>
-                        )}
-                    >
-                        {resourceSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
+                    <SelectRow>
+                        {conditionSelect(URN, resourceCondition)}
+                        <Select
+                            style={{ flex: 1 }}
+                            notFoundContent={t('privilegeForm.resourceNotFound')}
+                            value={resourceSelectValue}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder={t('privilegeForm.resourcePlaceholder')}
+                            onSelect={onSelectResource}
+                            onDeselect={onDeselectResource}
+                            onSearch={handleResourceSearch}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    <Tooltip title={tagProps.value.toString()}>
+                                        {displayStringWithMaxLength(
+                                            resourceUrnToDisplayName[tagProps.value.toString()] ||
+                                                tagProps.value.toString(),
+                                            75,
+                                        )}
+                                    </Tooltip>
+                                </Tag>
+                            )}
+                        >
+                            {resourceSearchResults?.map((result) => (
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>{t('privilegeForm.tagsLabel')}</Typography.Text>}>
                     <Typography.Paragraph>{t('privilegeForm.tagsDescription')}</Typography.Paragraph>
-                    <TagSelect
-                        data-testid="tag-term-modal-input"
-                        mode="multiple"
-                        ref={inputEl}
-                        filterOption={false}
-                        placeholder={t('privilegeForm.tagSearchPlaceholder', {
-                            entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
-                        })}
-                        showSearch
-                        defaultActiveFirstOption={false}
-                        onSelect={(asset: any) => onSelectValue(asset)}
-                        onDeselect={(asset: any) => onDeselectValue(asset)}
-                        onSearch={(value: string) => {
-                            // eslint-disable-next-line react/prop-types
-                            handleSearch(value.trim());
-                            // eslint-disable-next-line react/prop-types
-                            setInputValue(value.trim());
-                        }}
-                        tagRender={tagRender}
-                        value={tags}
-                        onClear={clearInput}
-                        onBlur={handleBlurTag}
-                        onInputKeyDown={handleKeyDown}
-                    >
-                        {tagSearchOptions}
-                    </TagSelect>
+                    <SelectRow>
+                        {conditionSelect('TAG', tagCondition)}
+                        <TagSelect
+                            data-testid="tag-term-modal-input"
+                            mode="multiple"
+                            ref={inputEl}
+                            filterOption={false}
+                            placeholder={t('privilegeForm.tagSearchPlaceholder', {
+                                entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
+                            })}
+                            showSearch
+                            defaultActiveFirstOption={false}
+                            onSelect={(asset: any) => onSelectValue(asset)}
+                            onDeselect={(asset: any) => onDeselectValue(asset)}
+                            onSearch={(value: string) => {
+                                // eslint-disable-next-line react/prop-types
+                                handleSearch(value.trim());
+                                // eslint-disable-next-line react/prop-types
+                                setInputValue(value.trim());
+                            }}
+                            tagRender={tagRender}
+                            value={tags}
+                            onClear={clearInput}
+                            onBlur={handleBlurTag}
+                            onInputKeyDown={handleKeyDown}
+                        >
+                            {tagSearchOptions}
+                        </TagSelect>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -643,38 +685,45 @@ export default function PolicyPrivilegeForm({
                     <Typography.Paragraph>
                         <Trans t={t} i18nKey="privilegeForm.domainsDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
-                        <Select
-                            showSearch
-                            value={domainSelectValue}
-                            mode="multiple"
-                            filterOption={false}
-                            placeholder={t('privilegeForm.domainPlaceholder')}
-                            onSelect={(value) => onSelectDomain(value)}
-                            onDeselect={onDeselectDomain}
-                            onSearch={handleDomainSearch}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            onBlur={handleBlur}
-                            tagRender={(tagProps) => (
-                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                    {displayStringWithMaxLength(
-                                        domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                        75,
+                    <SelectRow>
+                        {conditionSelect('DOMAIN', domainCondition)}
+                        <div style={{ flex: 1 }}>
+                            <ClickOutside onClickOutside={handleCLickOutside}>
+                                <Select
+                                    showSearch
+                                    style={{ width: '100%' }}
+                                    value={domainSelectValue}
+                                    mode="multiple"
+                                    filterOption={false}
+                                    placeholder={t('privilegeForm.domainPlaceholder')}
+                                    onSelect={(value) => onSelectDomain(value)}
+                                    onDeselect={onDeselectDomain}
+                                    onSearch={handleDomainSearch}
+                                    onFocus={() => setIsFocusedOnInput(true)}
+                                    onBlur={handleBlur}
+                                    tagRender={(tagProps) => (
+                                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                            {displayStringWithMaxLength(
+                                                domainUrnToDisplayName[tagProps.value.toString()] ||
+                                                    tagProps.value.toString(),
+                                                75,
+                                            )}
+                                        </Tag>
                                     )}
-                                </Tag>
-                            )}
-                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                        >
-                            {domainSearchResults?.map((result) => (
-                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                    {renderSearchResult(result)}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
+                                    dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
+                                >
+                                    {domainSearchResults?.map((result) => (
+                                        <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                            {renderSearchResult(result)}
+                                        </Select.Option>
+                                    ))}
+                                </Select>
+                                <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
+                                    <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                                </BrowserWrapper>
+                            </ClickOutside>
+                        </div>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && (
@@ -682,32 +731,37 @@ export default function PolicyPrivilegeForm({
                     <Typography.Paragraph>
                         <Trans t={t} i18nKey="privilegeForm.containersDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
-                    <Select
-                        showSearch
-                        value={containerSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder={t('privilegeForm.containerPlaceholder')}
-                        onSelect={(value) => onSelectContainer(value)}
-                        onDeselect={onDeselectContainer}
-                        onSearch={handleContainerSearch}
-                        onBlur={handleBlurContainer}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                {displayStringWithMaxLength(
-                                    containerUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                    75,
-                                )}
-                            </Tag>
-                        )}
-                        dropdownStyle={isShowingContainerNavigator ? { display: 'none' } : {}}
-                    >
-                        {containerSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
+                    <SelectRow>
+                        {conditionSelect('CONTAINER', containerCondition)}
+                        <Select
+                            showSearch
+                            style={{ flex: 1 }}
+                            value={containerSelectValue}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder={t('privilegeForm.containerPlaceholder')}
+                            onSelect={(value) => onSelectContainer(value)}
+                            onDeselect={onDeselectContainer}
+                            onSearch={handleContainerSearch}
+                            onBlur={handleBlurContainer}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    {displayStringWithMaxLength(
+                                        containerUrnToDisplayName[tagProps.value.toString()] ||
+                                            tagProps.value.toString(),
+                                        75,
+                                    )}
+                                </Tag>
+                            )}
+                            dropdownStyle={isShowingContainerNavigator ? { display: 'none' } : {}}
+                        >
+                            {containerSearchResults?.map((result) => (
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            ))}
+                        </Select>
+                    </SelectRow>
                 </Form.Item>
             )}
             {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
