@@ -2,7 +2,18 @@ import json
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union, cast
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import dateutil.parser as dp
 import requests
@@ -246,6 +257,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
+    def _extracted_model_ids(self) -> Set[int]:
+        if not self.config.extract_models:
+            return set()
+        return {item.id for item in self._list_card_items() if item.is_model}
+
     def _build_dataset_urn(
         self,
         datasource: DatasourceInfo,
@@ -464,30 +480,47 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
 
         chart_edges = []
+        dataset_edges = []
+        extracted_model_ids = self._extracted_model_ids()
         for dashcard in dashboard.dashcards:
             if not dashcard.card or not dashcard.card.id:
                 continue
 
-            chart_urn = builder.make_chart_urn(
-                platform=self.platform, name=str(dashcard.card.id)
-            )
-            chart_edges.append(
-                EdgeClass(
-                    destinationUrn=chart_urn,
-                    lastModified=last_modified.lastModified,
+            card_id = dashcard.card.id
+            last_mod = last_modified.lastModified
+            if self.config.extract_models and (
+                dashcard.card.is_model or card_id in extracted_model_ids
+            ):
+                dataset_edges.append(
+                    EdgeClass(
+                        destinationUrn=self._model_urn(card_id),
+                        lastModified=last_mod,
+                    )
                 )
-            )
+            else:
+                chart_edges.append(
+                    EdgeClass(
+                        destinationUrn=builder.make_chart_urn(
+                            platform=self.platform, name=str(card_id)
+                        ),
+                        lastModified=last_mod,
+                    )
+                )
+
+        dashboard_aspect = DashboardInfoClass(
+            description=dashboard.description or "",
+            title=dashboard.name,
+            chartEdges=chart_edges,
+            lastModified=last_modified,
+            dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
+            customProperties={},
+        )
+        if dataset_edges:
+            dashboard_aspect.datasetEdges = dataset_edges
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
-            aspect=DashboardInfoClass(
-                description=dashboard.description or "",
-                title=dashboard.name,
-                chartEdges=chart_edges,
-                lastModified=last_modified,
-                dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
-                customProperties={},
-            ),
+            aspect=dashboard_aspect,
         ).as_workunit()
 
         yield from self._emit_ownership_and_tags(

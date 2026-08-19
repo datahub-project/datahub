@@ -184,6 +184,11 @@ class MetabaseCardInfo(MetabaseBaseModel):
 
     id: Optional[int] = None
     name: Optional[str] = None
+    type: Optional[str] = None
+
+    @property
+    def is_model(self) -> bool:
+        return self.type == _CARD_TYPE_MODEL
 
 
 class MetabaseDashCard(MetabaseBaseModel):

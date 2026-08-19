@@ -5588,34 +5588,36 @@
                 {
                     "destinationUrn": "urn:li:chart:(metabase,38)",
                     "lastModified": {
-                        "time": 1787161174674,
+                        "time": 1787178311857,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,39)",
                     "lastModified": {
-                        "time": 1787161174674,
-                        "actor": "urn:li:corpuser:admin@test.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,40)",
-                    "lastModified": {
-                        "time": 1787161174674,
+                        "time": 1787178311857,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 }
             ],
             "datasets": [],
+            "datasetEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.40,PROD)",
+                    "lastModified": {
+                        "time": 1787178311857,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                }
+            ],
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1787161174674,
+                    "time": 1787178311857,
                     "actor": "urn:li:corpuser:admin@test.com"
                 },
                 "lastModified": {
-                    "time": 1787161174674,
+                    "time": 1787178311857,
                     "actor": "urn:li:corpuser:admin@test.com"
                 }
             },
@@ -5623,8 +5625,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002880,
-        "runId": "metabase-2024_01_20-12_00_00-ic58kn",
+        "lastObserved": 1705752002726,
+        "runId": "metabase-2024_01_20-12_00_00-n8c8wq",
         "lastRunId": "no-run-id-provided"
     }
 },

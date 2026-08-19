@@ -17,6 +17,7 @@ from datahub.ingestion.source.metabase.models import (
     MetabaseCard,
     MetabaseCardListItem,
     MetabaseCollection,
+    MetabaseDashboardListItem,
     MetabaseDatabaseDetails,
     MetabaseDatasetQuery,
     MetabaseField,
@@ -26,6 +27,7 @@ from datahub.ingestion.source.metabase.report import MetabaseReport
 from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    DashboardInfoClass,
     DatasetLineageTypeClass,
     GlobalTagsClass,
     SchemaMetadataClass,
@@ -995,6 +997,66 @@ def test_emit_chart_workunits_skips_models_when_extraction_enabled(
     assert 1 in called_card_ids
     assert 3 in called_card_ids
     assert 2 not in called_card_ids  # Model should be skipped
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_dashboard_edges_route_extracted_models_to_datasets(
+    mock_post, mock_get, mock_delete
+):
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=SecretStr("pwd"),
+        extract_models=True,
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    metabase_source._list_card_items = MagicMock(  # type: ignore[method-assign]
+        return_value=[
+            MetabaseCardListItem(id=10, name="Question", type="question"),
+            MetabaseCardListItem(id=20, name="Model", type="model"),
+        ]
+    )
+    metabase_source._get_json = MagicMock(  # type: ignore[method-assign]
+        return_value={
+            "id": 1,
+            "name": "Sales",
+            "dashcards": [
+                {"id": 1, "dashboard_id": 1, "card": {"id": 10, "name": "Question"}},
+                {"id": 2, "dashboard_id": 1, "card": {"id": 20, "name": "Model"}},
+            ],
+        }
+    )
+
+    workunits = list(
+        metabase_source._emit_dashboard_workunits(
+            MetabaseDashboardListItem(id=1, name="Sales", model="dashboard")
+        )
+    )
+    dashboard_aspect = next(
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DashboardInfoClass)
+    )
+    assert [edge.destinationUrn for edge in dashboard_aspect.chartEdges or []] == [
+        "urn:li:chart:(metabase,10)"
+    ]
+    assert [edge.destinationUrn for edge in dashboard_aspect.datasetEdges or []] == [
+        "urn:li:dataset:(urn:li:dataPlatform:metabase,model.20,PROD)"
+    ]
 
     metabase_source.close()
 
