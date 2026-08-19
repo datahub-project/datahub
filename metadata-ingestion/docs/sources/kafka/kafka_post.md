@@ -106,9 +106,8 @@ Requirements and limitations:
   Tags and business metadata are an Advanced feature: on Essentials the catalog API returns
   `403` even for reads. The catalog does not exist on self-managed Kafka, and the block is
   ignored elsewhere.
-- The Schema Registry API key needs a role that grants catalog read access — in practice
-  **DataSteward** on the environment. `EnvironmentAdmin` alone is not enough: it administers the
-  environment but does not carry the catalog read permission.
+- The Schema Registry API key needs a role that grants catalog read access — for example
+  **DataSteward** or **DataDiscovery** on the environment.
 - If the key cannot read the catalog, ingestion continues without catalog metadata and records a
   warning rather than failing.
 - The catalog covers a whole **environment**, so if that environment holds more than one Kafka
