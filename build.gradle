@@ -96,7 +96,8 @@ buildscript {
   // CVE-2026-56816 (netty-codec-http3); CVE-2026-56817 (netty-codec-xml);
   // CVE-2026-56820/56821/56822 (netty-handler-ssl-ocsp); CVE-2026-59901 (netty-codec-compression):
   // all fixed in 4.2.16+
-  ext.nettyVersion = '4.2.16.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-59902 (netty-transport-sctp): 4.2.17+
+  ext.nettyVersion = '4.2.17.Final' // align all io.netty modules (excl. netty-tcnative line)
   // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
   // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
   ext.wireVersion = '6.3.0'
