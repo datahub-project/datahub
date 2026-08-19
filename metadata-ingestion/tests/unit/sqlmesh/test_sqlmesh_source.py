@@ -11,6 +11,22 @@ from typing import Any, Iterable, List, Type, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionRunEventClass,
+    AssertionTypeClass,
+    DatasetProfileClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    IncidentInfoClass,
+    OperationClass,
+    SiblingsClass,
+    UpstreamLineageClass,
+)
+from datahub.metadata.urns import TagUrn
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -41,22 +57,6 @@ from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
     SqlmeshSource,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
-from datahub.metadata.schema_classes import (
-    AssertionInfoClass,
-    AssertionRunEventClass,
-    AssertionTypeClass,
-    DatasetProfileClass,
-    DatasetPropertiesClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-    IncidentInfoClass,
-    OperationClass,
-    SiblingsClass,
-    UpstreamLineageClass,
-)
-from datahub.metadata.urns import TagUrn
 
 WAREHOUSE_PLATFORM = "snowflake"
 
@@ -585,7 +585,12 @@ class TestFreshnessAndVolumeSignals:
         # Operator/scope/aggregation are structured on customAssertion (dbt
         # parity), not stringified into customProperties.
         assert infos[0].customAssertion.operator == "NOT_NULL"
-        assert infos[0].customAssertion.field == "id"
+        field_urn = (
+            "urn:li:schemaField:(urn:li:dataset:"
+            "(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD),id)"
+        )
+        assert infos[0].customAssertion.field == field_urn
+        assert infos[0].customAssertion.fields == [field_urn]
 
     def test_builtin_audit_carries_std_parameters(self):
         """A built-in with bounds (accepted_range) emits structured
