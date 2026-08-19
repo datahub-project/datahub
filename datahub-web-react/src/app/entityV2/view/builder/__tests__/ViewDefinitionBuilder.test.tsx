@@ -1,11 +1,13 @@
 import { act, render } from '@testing-library/react';
 import React from 'react';
+import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ViewDefinitionBuilder } from '@app/entityV2/view/builder/ViewDefinitionBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+import themeV2 from '@conf/theme/themeV2';
 
 import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types';
 
@@ -25,15 +27,18 @@ vi.mock('@app/sharedV2/queryBuilder/LogicalFiltersBuilder', () => ({
     },
 }));
 
-// Render only the active tab's content; avoids pulling in TabButtons/theme.
-vi.mock('@app/homeV3/modules/shared/ButtonTabs/ButtonTabs', () => ({
-    default: ({ tabs, defaultKey }: { tabs: { key: string; content: React.ReactNode }[]; defaultKey?: string }) =>
-        tabs.find((t) => t.key === defaultKey)?.content ?? null,
-}));
-
 vi.mock('@app/entityV2/view/builder/SelectFilterValuesTab', () => ({
     SelectFilterValuesTab: () => null,
 }));
+
+// The property list is fetched via GraphQL (structured properties) and is not
+// what this test exercises — serve the static list so no Apollo mock is needed.
+vi.mock('@app/entityV2/view/builder/useViewBuilderProperties', async () => {
+    const actual = await vi.importActual<typeof import('@app/entityV2/view/builder/viewBuilderProperties')>(
+        '@app/entityV2/view/builder/viewBuilderProperties',
+    );
+    return { useViewBuilderProperties: () => actual.viewBuilderProperties };
+});
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key: string) => key }),
@@ -56,7 +61,11 @@ const EXISTING_VIEW: ViewBuilderState = {
 
 describe('ViewDefinitionBuilder wiring', () => {
     it('seeds entity types and per-row negation when opening an existing view', () => {
-        render(<ViewDefinitionBuilder mode={ViewBuilderMode.EDITOR} state={EXISTING_VIEW} updateState={vi.fn()} />);
+        render(
+            <ThemeProvider theme={themeV2}>
+                <ViewDefinitionBuilder mode={ViewBuilderMode.EDITOR} state={EXISTING_VIEW} updateState={vi.fn()} />
+            </ThemeProvider>,
+        );
 
         const seeded = captured.filters as LogicalPredicate;
         expect(seeded.operands).toHaveLength(2);
@@ -70,7 +79,11 @@ describe('ViewDefinitionBuilder wiring', () => {
 
     it('preserves entity types and negation in the state emitted on edit', () => {
         const updateState = vi.fn();
-        render(<ViewDefinitionBuilder mode={ViewBuilderMode.EDITOR} state={EXISTING_VIEW} updateState={updateState} />);
+        render(
+            <ThemeProvider theme={themeV2}>
+                <ViewDefinitionBuilder mode={ViewBuilderMode.EDITOR} state={EXISTING_VIEW} updateState={updateState} />
+            </ThemeProvider>,
+        );
 
         // Simulate the user editing the filters (echo the seeded predicate back).
         act(() => captured.onChange?.(captured.filters));
