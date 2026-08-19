@@ -337,6 +337,35 @@ def test_subscription_fields_mapped_onto_linked_dataset_info():
     assert info.last_modify_time == DEFAULT_LAST_MODIFY_TIME.isoformat()
 
 
+def test_inactive_and_unlinked_states_are_detected_and_keep_lineage():
+    seeded = _seeded_handler(
+        subscriptions={
+            "us": [
+                make_subscription(
+                    dataset_id="shared_a",
+                    state=bigquery_analyticshub_v1.Subscription.State.STATE_INACTIVE,
+                )
+            ]
+        },
+        datasets={
+            "consumer-project.shared_a": make_dataset_with_linked_source(
+                dataset_id="shared_a", link_state="UNLINKED"
+            )
+        },
+    )
+
+    seeded.handler.populate_for_project(
+        "consumer-project", [BigqueryDataset(name="shared_a", location="US")]
+    )
+
+    info = seeded.handler.get_info("consumer-project", "shared_a")
+    assert info is not None
+    props = info.to_extra_properties()
+    assert props["analytics_hub.subscription_state"] == "STATE_INACTIVE"
+    assert props["linked_dataset.link_state"] == "UNLINKED"
+    assert seeded.handler.emits_copy_lineage("consumer-project", "shared_a")
+
+
 def test_only_bigquery_dataset_subscriptions_advance():
     """Non-BigQuery shared resources (e.g. Pub/Sub) are skipped."""
     pubsub_sub = make_subscription(
@@ -385,20 +414,26 @@ def test_dataset_pattern_filter_short_circuits():
     seeded.bq.get_dataset.assert_called_once_with("consumer-project.shared_a")
 
 
-def test_locations_lowercased_for_ah_call():
+def test_ah_parents_derived_from_distinct_dataset_locations():
+    """Locations are lower-cased and de-duplicated, and a dataset without one
+    contributes no parent."""
     seeded = _seeded_handler(
         subscriptions={"eu": [make_subscription(dataset_id="shared_a")]},
         datasets={"consumer-project.shared_a": make_dataset_with_linked_source()},
     )
 
-    # Mixed-case location coming back from BigQuery's API is normalised.
-    datasets = [BigqueryDataset(name="shared_a", location="EU")]
+    datasets = [
+        BigqueryDataset(name="no_location", location=None),
+        BigqueryDataset(name="shared_a", location="EU"),
+        BigqueryDataset(name="also_eu", location="eu"),
+    ]
     seeded.handler.populate_for_project("consumer-project", datasets)
 
-    assert (
-        seeded.ah.list_subscriptions.call_args.kwargs["parent"]
-        == "projects/consumer-project/locations/eu"
-    )
+    parents = {
+        call.kwargs["parent"] for call in seeded.ah.list_subscriptions.call_args_list
+    }
+    assert parents == {"projects/consumer-project/locations/eu"}
+    assert not seeded.handler.report.warnings
 
 
 @pytest.mark.parametrize(
@@ -668,6 +703,15 @@ def test_one_failing_location_does_not_stop_the_others():
     assert seeded.handler.get_info("consumer-project", "shared_a") is not None
     assert seeded.handler.report.num_linked_dataset_location_errors == 1
     assert seeded.ah.list_subscriptions.call_count == 2
+
+
+def test_subscription_without_destination_dataset_is_skipped():
+    seeded = _seeded_handler(subscriptions={"us": [make_subscription(dataset_id="")]})
+
+    datasets = [BigqueryDataset(name="shared_a", location="US")]
+    seeded.handler.populate_for_project("consumer-project", datasets)
+
+    seeded.bq.get_dataset.assert_not_called()
 
 
 def test_data_exchange_only_subscription_is_skipped():
