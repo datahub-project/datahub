@@ -407,5 +407,22 @@ class DataHubDatabaseReader:
                 row["urn"]
             )
             if self.quarantine is not None:
+                was_disabled = self.quarantine.disabled
                 self.quarantine.write(row, str(e))
+
+                if self.quarantine.disabled and not was_disabled:
+                    # The writer only disables itself on an unrecoverable (OSError)
+                    # write failure; surface that in the run summary too, not just
+                    # the writer's own log line, so it isn't buried in a long run.
+                    self.report.warning(
+                        message="Parse-error quarantine file disabled after a write failure",
+                        context=self.quarantine.disabled_reason,
+                        log=False,
+                    )
+
+                self.report.num_database_quarantined_rows = (
+                    self.quarantine.records_written
+                )
+                if self.quarantine.records_written:
+                    self.report.database_quarantine_file = self.quarantine.filename
             return None
