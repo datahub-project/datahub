@@ -544,10 +544,10 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "Unknown",
+                    "nativeDataType": "String",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -555,7 +555,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684866,
+        "lastObserved": 1787214162324,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -750,7 +750,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataplatform:mssql,my_db.my_schema.sales_remote,prod)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.sales_remote,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -758,7 +758,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataplatform:mssql,my_db.my_schema.sales_remote,prod),Amount)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.sales_remote,PROD),Amount)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -770,7 +770,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684871,
+        "lastObserved": 1787214162334,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -929,10 +929,10 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "Double",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -940,7 +940,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684875,
+        "lastObserved": 1787214162339,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -974,7 +974,6 @@
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),RowNumber-11111111-1111-1111-1111-111111111111)",
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),SalesSummary)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)"
                     ],
                     "downstreamType": "FIELD",
@@ -982,25 +981,12 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),TotalAmount)"
                     ],
                     "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),RowNumber-11111111-1111-1111-1111-111111111111)",
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)",
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductName)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),SalesSummary)"
-                    ],
-                    "confidenceScore": 1.0
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684875,
+        "lastObserved": 1787214162339,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
