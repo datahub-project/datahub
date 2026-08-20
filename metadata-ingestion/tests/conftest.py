@@ -27,6 +27,13 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # between retries.
 os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
+# Disable the column-level lineage timeout. Its deadline is wall-clock
+# (time.perf_counter_ns), so a CI runner that stalls under load exhausts the budget
+# without the parser doing any work. Column lineage is then dropped and the affected
+# node is emitted with an empty schema and no fineGrainedLineages, which reads as a
+# golden-file mismatch rather than the graceful degradation it is in production.
+os.environ["SQL_LINEAGE_TIMEOUT_ENABLED"] = "false"
+
 
 @atexit.register
 def _report_threads_alive_at_exit() -> None:
