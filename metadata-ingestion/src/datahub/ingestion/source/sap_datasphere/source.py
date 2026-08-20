@@ -1512,6 +1512,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def _business_layer_upstream_urn(self, space_name: str, key: str) -> str:
+        # Bare same-space BL keys need the AM's space; dotted keys are already
+        # space-qualified (same heuristic as query-FROM lineage).
+        if CsnLineageExtractor._is_qualified(key):
+            return self._qualified_upstream_urn(key)
+        return self._qualified_upstream_urn(f"{space_name}.{key}")
+
     def _apply_business_layer_guarded(
         self,
         csn_obj: Optional[Dict],
@@ -1530,6 +1537,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 schema_fields,
                 custom_properties,
                 query_upstreams,
+                space_name,
             )
         except Exception as e:
             self.report.warning(
@@ -1549,6 +1557,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         schema_fields: Optional[List[SchemaFieldClass]],
         custom_properties: Dict[str, str],
         query_upstreams: Optional[UpstreamLineageClass],
+        space_name: str,
     ) -> Optional[UpstreamLineageClass]:
         """Wire an analytic model's businessLayerDefinitions in as the authoritative table-level lineage, replacing the query-FROM upstreams (which may double-prefix the fact's space)."""
         bld = (csn_obj or {}).get(CSN_KEY_BUSINESS_LAYER)
@@ -1574,11 +1583,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return query_upstreams
 
         bl_upstream_urns = {
-            self._qualified_upstream_urn(key) for key in bl.upstream_keys
+            self._business_layer_upstream_urn(space_name, key)
+            for key in bl.upstream_keys
         }
         upstreams = [
             UpstreamClass(
-                dataset=self._qualified_upstream_urn(key),
+                dataset=self._business_layer_upstream_urn(space_name, key),
                 type=DatasetLineageTypeClass.VIEW,
             )
             for key in bl.upstream_keys

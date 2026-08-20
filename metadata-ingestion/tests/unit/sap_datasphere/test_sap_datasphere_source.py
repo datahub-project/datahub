@@ -4484,6 +4484,7 @@ def test_business_layer_keeps_fgl_when_upstreams_match():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4537,6 +4538,7 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4545,6 +4547,37 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
     # FGL DROPPED: its upstream parent is the double-prefixed fact, not in the
     # business-layer set -> set to None (not an empty list).
     assert result.fineGrainedLineages is None
+
+
+def test_business_layer_prefixes_bare_same_space_keys():
+    # Same-space BL keys are bare names; without a space prefix they become
+    # ghost lineage URNs that only show as hidden edges.
+    src = _bl_source("bl-bare-same-space")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_dim_region,PROD)",
+    }
+    # Cross-space keys stay unprefixed by the AM's space.
+    assert src._business_layer_upstream_urn("MY_SPACE", "OTHER_SPACE.BASE_TABLE") == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "other_space.base_table,PROD)"
+    )
 
 
 def test_schema_field_parent_extracts_dataset_urn():
