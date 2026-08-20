@@ -566,8 +566,12 @@ class ConfluentJDBCSourceConnector(BaseConnector):
     ) -> List[KafkaConnectLineage]:
         """Extract lineages for non-cloud (platform) environment."""
         # For platform: Get topics from connector's topics endpoint (manifest.topic_names)
-        # These are the actual topics reported by the connector
+        # These are the actual topics reported by the connector. On Confluent Cloud
+        # the traditional JDBC class reports no topic_names, so fall back to the live
+        # cluster topic list the source populated for exactly this case.
         topics = list(self.connector_manifest.topic_names)
+        if not topics and self.all_cluster_topics:
+            topics = list(self.all_cluster_topics)
 
         if parser.transforms:
             # Use transform pipeline to trace back from actual topics to source tables
