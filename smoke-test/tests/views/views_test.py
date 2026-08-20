@@ -3,9 +3,12 @@ from typing import Any, Dict
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @with_test_retry()
@@ -273,8 +276,10 @@ def test_update_global_view(auth_session):
             "definition": new_view_definition,
         }
     }
+    # No read of this view's state happens until after the update+delete below,
+    # so skip the sync wait on this create.
     res_data = execute_graphql(
-        auth_session, create_view_mutation, create_view_variables
+        auth_session, create_view_mutation, create_view_variables, no_sync_wait=True
     )
     assert res_data["data"]["createView"] is not None
 
@@ -310,14 +315,20 @@ def test_update_global_view(auth_session):
             "definition": new_view_definition,
         },
     }
+    # Nothing reads this view's state before the delete below either.
     res_data = execute_graphql(
-        auth_session, update_view_mutation, update_view_variables
+        auth_session,
+        update_view_mutation,
+        update_view_variables,
+        no_sync_wait=True,
     )
     assert res_data["data"]["updateView"] is not None
 
-    # Delete the View
+    # Delete the View -- nothing reads state after this, so skip the sync wait.
     delete_view_mutation = """mutation deleteView($urn: String!) {
         deleteView(urn: $urn)
     }"""
     delete_view_variables: Dict[str, Any] = {"urn": view_urn}
-    execute_graphql(auth_session, delete_view_mutation, delete_view_variables)
+    execute_graphql(
+        auth_session, delete_view_mutation, delete_view_variables, no_sync_wait=True
+    )

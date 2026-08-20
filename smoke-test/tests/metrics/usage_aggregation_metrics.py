@@ -188,8 +188,12 @@ def wait_for_metric_at_least(
 def generate_graphql_read_traffic(auth_session, *, repeat: int = 3) -> None:
     from tests.utils import execute_graphql
 
+    # _ME_QUERY is a pure read (no mutation) -- there is nothing for
+    # wait_for_writes_to_sync() to wait on, so skip it on every iteration.
+    # Callers poll Prometheus for the resulting metric via wait_for_metric_delta/
+    # wait_for_metric_at_least, which have their own retry/backoff independent of this.
     for _ in range(repeat):
-        execute_graphql(auth_session, _ME_QUERY)
+        execute_graphql(auth_session, _ME_QUERY, no_sync_wait=True)
 
 
 def execute_graphql_raw(auth_session, query: str) -> str:
@@ -263,7 +267,7 @@ def graphql_metadata_query_tags(actor_class: str) -> Dict[str, str]:
 
 def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
     """Mint a short-lived PAT for ``actor_urn`` when the session is authorized."""
-    from tests.utils import execute_graphql
+    from tests.utils import execute_graphql, unique_suffix
 
     try:
         result = execute_graphql(
@@ -281,7 +285,11 @@ def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
                     "type": "PERSONAL",
                     "actorUrn": actor_urn,
                     "duration": "ONE_HOUR",
-                    "name": "usage-aggregation-pat-probe",
+                    # createAccessToken requires a unique name per actor; a fixed
+                    # name fails when a prior ONE_HOUR PAT with that name still
+                    # exists (leftover run or parallel worker), so mint returns
+                    # None and PAT-auth traffic never runs.
+                    "name": f"usage-aggregation-pat-{unique_suffix()}",
                 }
             },
             expect_errors=True,
@@ -306,8 +314,10 @@ def generate_graphql_search_traffic(auth_session, *, repeat: int = 1) -> None:
       }
     }
     """
+    # Pure read (SearchResolver only calls entityClient.search, no writes) -- same
+    # reasoning as generate_graphql_read_traffic: skip the no-op sync wait per call.
     for _ in range(repeat):
-        execute_graphql(auth_session, query)
+        execute_graphql(auth_session, query, no_sync_wait=True)
 
 
 def generate_openapi_metadata_read_traffic(auth_session, *, repeat: int = 1) -> None:
@@ -362,7 +372,7 @@ def set_corpuser_is_support_user(
             f"{post_resp.text}",
             response=post_resp,
         )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def make_support_actor_user(admin_session, name: str):
