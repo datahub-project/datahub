@@ -265,8 +265,10 @@ def graphql_metadata_query_tags(actor_class: str) -> Dict[str, str]:
     )
 
 
-def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
-    """Mint a short-lived PAT for ``actor_urn`` when the session is authorized."""
+def try_mint_personal_access_token(
+    auth_session, actor_urn: str
+) -> tuple[str, str] | None:
+    """Mint a short-lived PAT for ``actor_urn``. Returns ``(token, token_id)`` or None."""
     from tests.utils import execute_graphql, unique_suffix
 
     try:
@@ -301,7 +303,10 @@ def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
     token_payload = result.get("data", {}).get("createAccessToken")
     if not token_payload or not token_payload.get("accessToken"):
         return None
-    return token_payload["accessToken"]
+    token_id = (token_payload.get("metadata") or {}).get("id")
+    if not token_id:
+        return None
+    return token_payload["accessToken"], token_id
 
 
 def generate_graphql_search_traffic(auth_session, *, repeat: int = 1) -> None:
@@ -325,6 +330,20 @@ def generate_openapi_metadata_read_traffic(auth_session, *, repeat: int = 1) -> 
         response = auth_session.get(
             f"{auth_session.gms_url()}/openapi/v3/entity/dataset",
             params={"count": 1, "query": "*"},
+        )
+        response.raise_for_status()
+
+
+def generate_openapi_corpuser_read_traffic(
+    auth_session, corp_user_urn: str, *, repeat: int = 1
+) -> None:
+    """GET a corpuser entity. Dataset list is often empty/chunked for unprivileged
+    users, so output_bytes never increment; a corpuser document does.
+    """
+    encoded = urllib.parse.quote(corp_user_urn, safe="")
+    for _ in range(repeat):
+        response = auth_session.get(
+            f"{auth_session.gms_url()}/openapi/v3/entity/corpuser/{encoded}"
         )
         response.raise_for_status()
 

@@ -212,3 +212,40 @@ jobs:
         with:
           path: ~/.cache/yarn
           key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
+
+  # Separate job so the docs-website entry stays small instead of duplicating the
+  # ~1.2GB web-react cache under a second key. Prefix matches lint-jobs.yml
+  # docs-website-lint; this is the family's GitHub-hosted master-scoped writer.
+  warm-docs-website-yarn-cache:
+    name: Warm docs-website yarn cache
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Key must stay byte-identical with the yarn restore key in lint-jobs.yml
+      # docs-website-lint and the save key at the bottom of this job.
+      - name: Check for existing cache entry
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
+          lookup-only: true
+      - name: Set up JDK 25
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+      - name: Populate yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: ./gradlew :docs-website:yarnInstall
+      - name: Save yarn cache
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
