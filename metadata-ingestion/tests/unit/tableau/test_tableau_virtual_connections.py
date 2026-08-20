@@ -4,6 +4,7 @@ import pytest
 import time_machine
 from tableauserverclient.models import SiteItem
 
+import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
@@ -789,6 +790,62 @@ class TestVirtualConnectionProcessor:
             )
 
             assert len(result.upstream_tables) == 1
+
+    def test_vc_snowflake_lineage_adopts_the_ingested_field_path(self):
+        # The virtual-connection path carried its own copy of the lowercase
+        # assumption, so column lineage into a Snowflake source that preserves
+        # the warehouse's casing pointed at a field path that does not exist.
+        # The sibling test above asserts only the upstream table count, so it
+        # never covered the column name it is named for.
+        table_info = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "col1", c.NAME: "CUSTOMER_ID", c.REMOTE_TYPE: "STRING"},
+            ],
+        }
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc.test_table,PROD)"
+        mock_db_table = {
+            c.ID: "db-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "db-col1", c.NAME: "CUSTOMER_ID"},
+            ],
+        }
+        snowflake_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        )
+
+        # The schema DataHub already holds kept the warehouse's casing.
+        resolver = mock.MagicMock()
+        resolver.resolve_urn.return_value = (snowflake_urn, {"CUSTOMER_ID": "VARCHAR"})
+        self.tableau_source.__dict__["_upstream_schema_resolver"] = resolver
+
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_create_database_table_urn",
+                return_value=snowflake_urn,
+            ),
+            # default_config turns this on, which skips the Snowflake branch
+            # entirely -- the shipped default is off.
+            mock.patch.object(
+                self.vc_processor.config, "ingest_tables_external", False
+            ),
+        ):
+            result = self.vc_processor._create_table_upstream_lineage(
+                table_info, table_urn
+            )
+
+        assert len(result.fine_grained_lineages) == 1
+        assert result.fine_grained_lineages[0].upstreams == [
+            builder.make_schema_field_urn(snowflake_urn, "CUSTOMER_ID")
+        ]
 
     @pytest.mark.parametrize(
         "malformed_data,description",
