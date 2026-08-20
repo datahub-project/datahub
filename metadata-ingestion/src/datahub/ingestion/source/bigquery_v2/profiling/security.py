@@ -71,11 +71,19 @@ def validate_bigquery_identifier(
 
     identifier = identifier.strip()
 
-    if identifier.startswith("INFORMATION_SCHEMA"):
-        if identifier == "INFORMATION_SCHEMA" or identifier.startswith(
-            "INFORMATION_SCHEMA."
-        ):
-            return f"`{identifier}`"
+    if identifier == "INFORMATION_SCHEMA" or identifier.startswith(
+        "INFORMATION_SCHEMA."
+    ):
+        # INFORMATION_SCHEMA views are referenced by their bare dotted name
+        # (project.dataset.INFORMATION_SCHEMA.VIEW). Wrapping "INFORMATION_SCHEMA.VIEW"
+        # in a single backtick pair makes BigQuery treat the whole dotted string as one
+        # identifier — it then looks for a table literally named "INFORMATION_SCHEMA.VIEW"
+        # and the query fails. Validate the view suffix so this branch still rejects
+        # injection, then return the reference unquoted.
+        view_suffix = identifier[len("INFORMATION_SCHEMA.") :]
+        if view_suffix and not VALID_COLUMN_NAME_PATTERN.match(view_suffix):
+            raise ValueError(f"Invalid INFORMATION_SCHEMA view name: {identifier}")
+        return identifier
 
     # Injection/escape chars that must never appear in an identifier we backtick ourselves.
     dangerous_patterns = [";", "--", "/*", "*/", '"', "'", "\\", "\n", "\r", "\t", "`"]
@@ -116,7 +124,11 @@ def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
     if table.startswith("INFORMATION_SCHEMA"):
         safe_project = validate_bigquery_identifier(project, "project")
         safe_dataset = validate_bigquery_identifier(dataset, "dataset")
-        return f"{safe_project}.{safe_dataset}.`{table}`"
+        # validate_bigquery_identifier returns the INFORMATION_SCHEMA view as a bare
+        # (validated) dotted name, so the canonical `project`.`dataset`.INFORMATION_SCHEMA.VIEW
+        # form is produced rather than a single backtick-quoted third component.
+        safe_view = validate_bigquery_identifier(table, "general")
+        return f"{safe_project}.{safe_dataset}.{safe_view}"
 
     safe_project = validate_bigquery_identifier(project, "project")
     safe_dataset = validate_bigquery_identifier(dataset, "dataset")

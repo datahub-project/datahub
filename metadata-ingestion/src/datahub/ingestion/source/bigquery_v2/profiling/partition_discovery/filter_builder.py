@@ -6,6 +6,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_TIME_TYPES,
     DATETIME_SECONDS_PATTERN,
     ISO_DATE_PATTERN,
+    PARTITION_ID_YYYY_PATTERN,
     PARTITION_ID_YYYYMM_PATTERN,
     PARTITION_ID_YYYYMMDD_LENGTH,
     PARTITION_ID_YYYYMMDD_PATTERN,
@@ -69,10 +70,14 @@ class FilterBuilder:
                 if col_type.upper() == "TIMESTAMP" and " " not in formatted_val:
                     return f"`{col_name}` = TIMESTAMP('{formatted_val}')"
                 return f"`{col_name}` = '{formatted_val}'"
-            else:
-                logger.warning(
-                    f"Could not format date value '{str_val}' for {col_type} column {col_name}"
-                )
+            # An unrecognized date shape for a DATE/DATETIME/TIMESTAMP column would
+            # otherwise fall through to the generic quoted-string branch and emit an
+            # uncastable predicate (e.g. DATE = 'garbage') that BigQuery rejects at
+            # query time. Raise so the caller's skip-and-report path surfaces the drop,
+            # mirroring the numeric branch above.
+            raise ValueError(
+                f"Could not format date value '{str_val}' for {col_type} column {col_name}"
+            )
 
         if "'" in str_val:
             escaped_val = str_val.replace("'", "''")
@@ -101,6 +106,12 @@ class FilterBuilder:
                 return f"{date_part} {hour_part}:00:00"
             else:
                 return date_part
+
+        # Yearly-partitioned DATE/DATETIME/TIMESTAMP tables use a bare YYYY partition
+        # ID; without this it falls through to None and the caller emits an invalid
+        # string predicate. Normalize to January 1 of that year.
+        if PARTITION_ID_YYYY_PATTERN.match(val):
+            return f"{val}-01-01"
 
         return None
 
@@ -131,25 +142,25 @@ class FilterBuilder:
                 col_name = required_columns[0]
                 col_type = column_types.get(col_name)
 
+                # Hand the raw partition ID to create_safe_filter and let it normalize
+                # per the column type (dates -> YYYY-MM-DD[ HH:00:00], numeric -> int,
+                # string -> quoted). Pre-formatting an 8/10-digit ID to a date here would
+                # corrupt STRING partitions ("20250115" is a real string value) and
+                # hourly/numeric partitions. Only apply the legacy date normalization
+                # when the column type is unavailable to guide create_safe_filter.
+                filter_value: PartitionValue = partition_id
                 if (
-                    len(partition_id) == PARTITION_ID_YYYYMMDD_LENGTH
+                    not col_type
                     and partition_id.isdigit()
-                ) or (
-                    len(partition_id) == PARTITION_ID_YYYYMMDDHH_LENGTH
-                    and partition_id.isdigit()
+                    and len(partition_id)
+                    in (PARTITION_ID_YYYYMMDD_LENGTH, PARTITION_ID_YYYYMMDDHH_LENGTH)
                 ):
-                    date_str = (
+                    filter_value = (
                         f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
                     )
-                    filters.append(
-                        FilterBuilder.create_safe_filter(col_name, date_str, col_type)
-                    )
-                else:
-                    filters.append(
-                        FilterBuilder.create_safe_filter(
-                            col_name, partition_id, col_type
-                        )
-                    )
+                filters.append(
+                    FilterBuilder.create_safe_filter(col_name, filter_value, col_type)
+                )
             else:
                 logger.debug(
                     f"Complex partition mapping for {partition_id} with {len(required_columns)} columns"

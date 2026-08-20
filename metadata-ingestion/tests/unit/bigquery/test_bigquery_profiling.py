@@ -112,6 +112,67 @@ def test_batch_kwargs_rejects_invalid_identifier():
             )
 
 
+def test_batch_kwargs_partition_spec_classification():
+    """A single-partition scan carries the partition key (PARTITION); an unpartitioned
+    table and a window-widened scan do not (QUERY/FULL_TABLE), so the reported
+    partitionSpec matches the data actually scanned."""
+    # Windowing off, single partition column -> the scan is exactly one partition, so
+    # the partition key is set.
+    config = make_config(partition_datetime_window_days=None)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date` = '2023-12-25'"],
+    ):
+        partitioned = profiler.get_batch_kwargs(
+            make_table(rows_count=1000, max_partition_id="20231225"),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert partitioned.get("partition") == "20231225"
+
+    # No partition filters and no partition id -> unpartitioned; no partition key.
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=[],
+    ):
+        unpartitioned = profiler.get_batch_kwargs(
+            make_table(rows_count=500),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert "partition" not in unpartitioned
+
+    # Windowing on (default) widens the scan to a range, so labeling it with the single
+    # anchor partition id would misdescribe the data — the key must be omitted.
+    windowed_config = make_config(partition_datetime_window_days=30)
+    windowed_profiler = BigqueryProfiler(windowed_config, BigQueryV2Report())
+    with patch.object(
+        windowed_profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date` = '2023-12-25'"],
+    ):
+        windowed = windowed_profiler.get_batch_kwargs(
+            make_table(rows_count=1000, max_partition_id="20231225"),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert "partition" not in windowed
+
+
+def test_sample_percent_guards_zero_sample_size():
+    """A zero/non-positive sample size or empty table must not emit
+    TABLESAMPLE SYSTEM (0 PERCENT), which BigQuery rejects."""
+    profiler = BigqueryProfiler(make_config(sample_size=0), BigQueryV2Report())
+    assert profiler._sample_percent(1000) == 100.0
+
+    profiler = BigqueryProfiler(make_config(sample_size=1000), BigQueryV2Report())
+    assert profiler._sample_percent(0) == 100.0
+    assert 0 < profiler._sample_percent(10000) <= 100.0
+
+
 def test_partition_discovery_strategic_dates():
     discovery = PartitionDiscovery(make_config())
     dates = discovery._get_strategic_candidate_dates()

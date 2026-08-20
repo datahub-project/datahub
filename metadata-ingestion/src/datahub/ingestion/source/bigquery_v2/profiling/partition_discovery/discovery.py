@@ -569,21 +569,23 @@ class PartitionDiscovery:
             col = active.get(component)
             if col is None:
                 continue
-            if resolved and not component_filters:
-                # A prior component produced no filter; nothing left to constrain within.
-                break
 
-            component_filters.extend(
-                self._find_max_component_within_constraint(
-                    component_col=col,
-                    safe_table_ref=safe_table_ref,
-                    constraint_filters=component_filters,
-                    execute_query_func=execute_query_func,
-                    result_values=result_values,
-                    column_types=column_types,
-                    scope_label="max " + "/".join(resolved) if resolved else "table",
-                )
+            new_filters = self._find_max_component_within_constraint(
+                component_col=col,
+                safe_table_ref=safe_table_ref,
+                constraint_filters=component_filters,
+                execute_query_func=execute_query_func,
+                result_values=result_values,
+                column_types=column_types,
+                scope_label="max " + "/".join(resolved) if resolved else "table",
             )
+            # Stop as soon as a component yields no filter. Continuing would run the next
+            # component (e.g. day) constrained only by the earlier ones (e.g. year),
+            # skipping the missing middle component (month) and selecting a year/day
+            # combination that broadens the scan or points at the wrong partition.
+            if not new_filters:
+                break
+            component_filters.extend(new_filters)
             resolved.append(component)
 
         return component_filters
@@ -652,21 +654,27 @@ class PartitionDiscovery:
         table: BigqueryTable,
         result_values: Dict[str, PartitionValue],
     ) -> None:
-        # When date filters exist, constrain to them so the most-common non-date value
-        # is taken within the latest date, not globally (which could be stale).
+        # Non-date partition columns form a composite key, so pick each column's
+        # most-common value *within* the values already chosen (date filters plus any
+        # earlier non-date column), not independently. Choosing each column's global
+        # mode separately can name a (col_a, col_b) combination that never co-occurs,
+        # producing an empty or wrong-partition profile. Accumulate each resolved filter
+        # so later columns are constrained by earlier picks — a greedy joint selection
+        # whose result is guaranteed to co-exist in the data.
+        combined_filters: List[str] = list(latest_date_filters)
         for col_name in non_date_columns:
             try:
                 if not VALID_COLUMN_NAME_PATTERN.match(col_name):
                     logger.warning(f"Invalid column name: {col_name}")
                     continue
 
-                if latest_date_filters:
+                if combined_filters:
                     constrained_query = self._build_partition_stats_cte(
                         safe_table_ref,
                         col_name,
                         order_by="record_count DESC",
                         limit_clause="@max_results",
-                        extra_where=" AND ".join(latest_date_filters),
+                        extra_where=" AND ".join(combined_filters),
                     )
 
                     job_config = QueryJobConfig(
@@ -692,13 +700,20 @@ class PartitionDiscovery:
                 if chosen_result is None:
                     continue
 
-                context = " within latest date partition" if latest_date_filters else ""
+                context = " within latest partition" if combined_filters else ""
                 logger.info(
                     f"Found most populated partition for {col_name}: {chosen_result.val} "
                     f"({chosen_result.record_count} records{context}, queried table directly)"
                 )
 
                 result_values[col_name] = chosen_result.val
+                # Constrain the remaining non-date columns to this pick so the composite
+                # key stays internally consistent.
+                combined_filters.append(
+                    self._create_safe_filter(
+                        col_name, chosen_result.val, column_types.get(col_name, "")
+                    )
+                )
 
             except Exception as e:
                 self._warn_partition_column_discovery_failed(
@@ -845,10 +860,15 @@ class PartitionDiscovery:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         purpose: str,
     ) -> Tuple[Set[str], Optional[str]]:
-        # Cheap COUNT(*) probe: BigQuery raises "requires filter over column(s) ..." for a
-        # partitioned table queried without a filter. Success => not partitioned (empty set,
-        # no error); failure (including a bad identifier) => columns parsed from the error,
-        # plus the raw error for reporting.
+        # Cheap COUNT(*) probe. This is only a *supplementary* detector: BigQuery raises
+        # "requires filter over column(s) ..." only for tables with
+        # require_partition_filter=TRUE, so a failure lets us parse the partition columns
+        # from the error. A *successful* probe does NOT prove the table is unpartitioned —
+        # a partitioned table with require_partition_filter=FALSE also succeeds. That is
+        # why this runs only after the authoritative INFORMATION_SCHEMA.COLUMNS lookup
+        # (which flags partition columns regardless of require_partition_filter); callers
+        # must not treat probe success alone as definitive. Returns (columns, error):
+        # empty columns + None error means "no require-filter error", not "unpartitioned".
         try:
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
             test_query = queries.COUNT_STAR_PROBE.format(table_ref=safe_table_ref)

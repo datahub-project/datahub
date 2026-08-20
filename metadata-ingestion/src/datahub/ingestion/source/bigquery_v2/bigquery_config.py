@@ -114,17 +114,19 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "This helps focus profiling on recent data patterns and improves performance.",
     )
 
-    @field_validator("fallback_partition_values")
+    @field_validator("fallback_partition_values", mode="before")
     @classmethod
-    def reject_bool_fallback_values(
-        cls, v: Dict[str, Union[str, int, float]]
-    ) -> Dict[str, Union[str, int, float]]:
-        # bool is an int subclass, so it slips past Union[str, int, float] otherwise.
-        for col, val in v.items():
-            if isinstance(val, bool):
-                raise ValueError(
-                    f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
-                )
+    def reject_bool_fallback_values(cls, v: object) -> object:
+        # Must run in mode="before": a YAML `true`/`false` is otherwise coerced to 1/0 by
+        # the Union[str, int, float] field before an after-validator sees it (bool is an
+        # int subclass), so the wrong partition could be selected silently. Inspect the
+        # raw mapping here and reject bools; leave other shapes for normal validation.
+        if isinstance(v, dict):
+            for col, val in v.items():
+                if isinstance(val, bool):
+                    raise ValueError(
+                        f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
+                    )
         return v
 
 

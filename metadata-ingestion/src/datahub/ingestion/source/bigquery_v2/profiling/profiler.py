@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
 import requests
@@ -73,11 +73,13 @@ class DeferredExternalTable:
 @dataclass
 class DateLiteralSpec:
     # A parsed partition equality literal: the strftime format key, whether it was
-    # quoted, any DATE()/TIMESTAMP() wrapper, and the resolved date.
+    # quoted, any DATE()/TIMESTAMP() wrapper, and the resolved moment. This is a full
+    # datetime (not a date) so an hourly YYYYMMDDHH partition keeps its hour through
+    # windowing and rendering; date-only formats simply carry hour 0.
     fmt: str
     quoted: bool
     wrapper: Optional[str]
-    date: date
+    moment: datetime
 
 
 def _widen_client_connection_pool(client: bigquery.Client, size: int) -> None:
@@ -265,12 +267,18 @@ class BigqueryProfiler(GenericProfiler):
         )
 
     def _sample_percent(self, rows_count: int) -> float:
+        # A zero/non-positive sample size (or empty table) would produce a
+        # `TABLESAMPLE SYSTEM (0 PERCENT)`, which BigQuery rejects. Fall back to no
+        # downsampling rather than emitting an invalid percentage.
+        if rows_count <= 0 or self.config.profiling.sample_size <= 0:
+            return 100.0
         sample_pc = self.config.profiling.sample_size / rows_count
         return min(100 * sample_pc, 100.0)
 
     def _should_sample(self, rows_count: Optional[int]) -> TypeGuard[int]:
         return bool(
             self.config.profiling.use_sampling
+            and self.config.profiling.sample_size > 0
             and rows_count
             and rows_count > self.config.profiling.sample_size
         )
@@ -409,10 +417,13 @@ class BigqueryProfiler(GenericProfiler):
                 partition_filters, "batch kwargs"
             )
 
-            # Apply partition date windowing once here so it isn't duplicated in get_profile_request.
+            # Apply partition date windowing once here so it isn't duplicated in
+            # get_profile_request. Only None disables windowing (per the config docs); a
+            # 0-day window is a valid same-day window, so test `is not None` rather than
+            # truthiness.
             if (
                 validated_filters
-                and self.config.profiling.partition_datetime_window_days
+                and self.config.profiling.partition_datetime_window_days is not None
             ):
                 validated_filters = self._apply_partition_date_windowing(
                     validated_filters, bq_table
@@ -460,13 +471,32 @@ class BigqueryProfiler(GenericProfiler):
         else:
             logger.debug(f"Generated batch kwargs for {table_ref} without custom_sql")
 
-        # Set the partition key so that profile MCPs carry the real partition ID and
-        # type=PARTITION rather than type=QUERY/"SAMPLE".  This matches the master branch
-        # behaviour where generate_partition_profiler_query returned (partition, custom_sql).
+        # Label the profile with the real partition ID (type=PARTITION rather than
+        # type=QUERY) only when the SQL actually scanned exactly that single partition.
+        # Setting it unconditionally from max_partition_id mislabels three cases the
+        # reviewer flagged: a full-scan fallback (partition_where empty), a datetime
+        # window that widened the scan to a range of partitions, and a multi-column
+        # partition (a single time ID silently drops the other dimensions). In those
+        # cases leave the label off so GE records type=QUERY instead of a partition key
+        # that does not describe the data scanned.
         partition_id = bq_table.max_partition_id or getattr(
             bq_table, "max_shard_id", None
         )
-        if partition_id and partition_id not in BQ_SPECIAL_PARTITION_IDS:
+        is_multi_column_partition = bool(
+            bq_table.partition_info
+            and bq_table.partition_info.fields
+            and len(bq_table.partition_info.fields) > 1
+        )
+        window_widened_scan = (
+            self.config.profiling.partition_datetime_window_days is not None
+        )
+        if (
+            partition_id
+            and partition_id not in BQ_SPECIAL_PARTITION_IDS
+            and partition_where
+            and not is_multi_column_partition
+            and not window_widened_scan
+        ):
             base_kwargs["partition"] = partition_id
 
         return base_kwargs
@@ -491,6 +521,24 @@ class BigqueryProfiler(GenericProfiler):
             )
             return None
 
+        # Skip partitioned tables up front when partition profiling is disabled, before
+        # super().get_profile_request() runs partition metadata/value discovery (issuing
+        # BigQuery queries) only for the result to be discarded below. bq_table already
+        # carries enough to tell whether the table is partitioned. Non-partitioned tables
+        # still fall through and profile normally.
+        if not self.config.profiling.partition_profiling_enabled:
+            is_partitioned = (
+                bq_table.max_partition_id
+                or getattr(bq_table, "max_shard_id", None)
+                or (hasattr(bq_table, "partition_info") and bq_table.partition_info)
+            )
+            if is_partitioned:
+                logger.info(f"Skipping partition profiling (disabled): {table_ref}")
+                self.report.profiling_skipped_partition_profiling_disabled.append(
+                    table_ref
+                )
+                return None
+
         try:
             profile_request = super().get_profile_request(table, schema_name, db_name)
         except (ValueError, AttributeError, KeyError, GoogleAPICallError) as e:
@@ -513,21 +561,6 @@ class BigqueryProfiler(GenericProfiler):
                 f"Skipping profiling for external table {profile_request.pretty_name} (profiling.profile_external_tables is disabled)"
             )
             return None
-
-        # Only skip profiling for tables that actually have partitions when
-        # partition_profiling_enabled is False. Non-partitioned tables should still be profiled.
-        if not self.config.profiling.partition_profiling_enabled:
-            is_partitioned = (
-                bq_table.max_partition_id
-                or getattr(bq_table, "max_shard_id", None)
-                or (hasattr(bq_table, "partition_info") and bq_table.partition_info)
-            )
-            if is_partitioned:
-                logger.info(f"Skipping partition profiling (disabled): {table_ref}")
-                self.report.profiling_skipped_partition_profiling_disabled.append(
-                    profile_request.pretty_name
-                )
-                return None
 
         # External-table partition discovery is deferred to a worker pool by get_workunits.
         logger.info(f"Successfully created profile request for {table_ref}")
@@ -562,8 +595,11 @@ class BigqueryProfiler(GenericProfiler):
                 profile_request = self.get_profile_request(table, dataset, project_id)
 
                 if profile_request is not None:
-                    self.report.report_entity_profiled(profile_request.pretty_name)
                     if table.external:
+                        # External tables still need partition discovery in a worker
+                        # pool, which can drop the table. Defer the profiled/accepted
+                        # accounting to generate_profile_workunits_with_deferred_partitions
+                        # so a table that discovery later skips is not counted as profiled.
                         deferred_external.append(
                             DeferredExternalTable(
                                 request=profile_request,
@@ -574,8 +610,9 @@ class BigqueryProfiler(GenericProfiler):
                         )
                         self._external_tables_processed += 1
                     else:
+                        self.report.report_entity_profiled(profile_request.pretty_name)
                         profile_requests.append(profile_request)
-                    self._tables_profiled += 1
+                        self._tables_profiled += 1
                     logger.info(
                         f"Accepted table for profiling: {normalized_table_name}"
                     )
@@ -721,7 +758,9 @@ class BigqueryProfiler(GenericProfiler):
             )
 
             with ThreadPoolExecutor(
-                max_workers=min(max_workers, len(deferred_external))
+                # Clamp to at least 1: a misconfigured max_workers <= 0 would otherwise
+                # make ThreadPoolExecutor raise ValueError and abort all profiling.
+                max_workers=max(1, min(max_workers, len(deferred_external)))
             ) as executor:
                 future_to_deferred = {
                     executor.submit(self._discover_external_partition_filter, d): d
@@ -746,6 +785,11 @@ class BigqueryProfiler(GenericProfiler):
                         )
                         continue
                     if result is not None:
+                        # Account external tables as profiled only now that partition
+                        # discovery has returned a usable request (see get_workunits,
+                        # which defers this for external tables).
+                        self.report.report_entity_profiled(result.pretty_name)
+                        self._tables_profiled += 1
                         processed_requests.append(result)
 
         if processed_requests:
@@ -798,7 +842,9 @@ class BigqueryProfiler(GenericProfiler):
     def _apply_partition_date_windowing(
         self, partition_filters: List[str], table: BigqueryTable
     ) -> List[str]:
-        if not self.config.profiling.partition_datetime_window_days:
+        # Only None disables windowing (per the config docs); a 0-day window is valid
+        # (a same-day range), so guard on None rather than truthiness.
+        if self.config.profiling.partition_datetime_window_days is None:
             return partition_filters
 
         window_days = self.config.profiling.partition_datetime_window_days
@@ -827,7 +873,7 @@ class BigqueryProfiler(GenericProfiler):
                     DATE_FORMAT_YYYY_MM_DD,
                     True,
                     None,
-                    datetime.now(timezone.utc).date(),
+                    datetime.now(timezone.utc),
                 )
             else:
                 parsed = self._parse_date_literal(literal)
@@ -837,12 +883,12 @@ class BigqueryProfiler(GenericProfiler):
                     continue
                 spec = parsed
 
-            start_date = spec.date - timedelta(days=window_days)
+            start_moment = spec.moment - timedelta(days=window_days)
             start_str = self._render_date_bound(
-                start_date, spec.fmt, spec.quoted, spec.wrapper
+                start_moment, spec.fmt, spec.quoted, spec.wrapper
             )
             end_str = self._render_date_bound(
-                spec.date, spec.fmt, spec.quoted, spec.wrapper
+                spec.moment, spec.fmt, spec.quoted, spec.wrapper
             )
             ranges[col_name] = (
                 f"`{col_name}` >= {start_str} AND `{col_name}` <= {end_str}"
@@ -893,7 +939,9 @@ class BigqueryProfiler(GenericProfiler):
         for fmt, pattern in DATE_LITERAL_SHAPES:
             if pattern.fullmatch(inner):
                 try:
-                    parsed = datetime.strptime(inner, STRFTIME_FORMATS[fmt]).date()
+                    # Parse to a full datetime (no .date()) so an hourly YYYYMMDDHH
+                    # literal keeps its hour; date-only shapes get hour 0.
+                    parsed = datetime.strptime(inner, STRFTIME_FORMATS[fmt])
                 except ValueError:
                     return None
                 return DateLiteralSpec(fmt, quoted, wrapper, parsed)
@@ -901,7 +949,7 @@ class BigqueryProfiler(GenericProfiler):
 
     @staticmethod
     def _render_date_bound(
-        value: date, fmt: str, quoted: bool, wrapper: Optional[str]
+        value: datetime, fmt: str, quoted: bool, wrapper: Optional[str]
     ) -> str:
         rendered = value.strftime(STRFTIME_FORMATS[fmt])
         if quoted:

@@ -131,7 +131,10 @@ def _parse_taxonomy_id(policy_tag_resource_name: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-@dataclass(frozen=True)
+# Not frozen: the optional nested BigqueryColumn tuple is mutable, so a frozen
+# dataclass would advertise __hash__ but raise TypeError the moment it is used as a
+# dict key or set member. Keep it plain and treat it as value-like by convention.
+@dataclass
 class PartitionInfo:
     fields: Tuple[str, ...]
     columns: Optional[Tuple[BigqueryColumn, ...]] = None

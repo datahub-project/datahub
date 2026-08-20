@@ -21,8 +21,12 @@ class QueryExecutor:
         if not validate_sql_structure(query):
             raise ValueError("Query failed structural validation (empty or malformed)")
 
-        # Extra guard against comment-based injection that slips past structural checks.
-        dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
+        # Extra guard against comment-/statement-separator injection that slips past
+        # structural checks. Deliberately BigQuery-relevant only: SQL Server builtins
+        # like xp_cmdshell/sp_executesql are not removed here because they are valid
+        # STRING/Hive partition values (e.g. `col` = 'xp_cmdshell') that BigQuery would
+        # run fine, and blocking them drops legitimate partitions.
+        dangerous_patterns = [";", "--", "/*"]
         for pattern in dangerous_patterns:
             if pattern in query:
                 logger.error(

@@ -93,15 +93,6 @@ DATE_TIME_TYPES: Set[str] = {
     "TIME",
 }
 
-# String types that must be quoted when used as literals in a filter.
-BIGQUERY_STRING_TYPES: Set[str] = {
-    "STRING",
-    "BYTES",
-    "GEOGRAPHY",
-    "JSON",
-}
-
-
 VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.
@@ -158,8 +149,9 @@ FILTER_DANGEROUS_PATTERNS = [
         r"UNION\s+(?:ALL\s+)?SELECT",
         r"--",
         r"/\*",
-        r"xp_cmdshell",
-        r"sp_executesql",
+        # xp_cmdshell / sp_executesql intentionally omitted: they are SQL Server
+        # builtins with no meaning in BigQuery and are valid STRING/Hive partition
+        # values, so matching them here would reject legitimate partition filters.
         r"<script",
         r"javascript:",
         r"eval\s*\(",
@@ -204,6 +196,8 @@ DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 PARTITION_ID_YYYYMMDD_PATTERN = re.compile(r"^\d{8}$")
 PARTITION_ID_YYYYMM_PATTERN = re.compile(r"^\d{6}$")
 PARTITION_ID_YYYYMMDDHH_PATTERN = re.compile(r"^\d{10}$")
+# Bare four-digit year, used by yearly-partitioned DATE/DATETIME/TIMESTAMP tables.
+PARTITION_ID_YYYY_PATTERN = re.compile(r"^\d{4}$")
 
 # Captures the column and right-hand literal of a `col` = <literal> partition
 # predicate so date windowing can reproduce the literal's exact shape.
