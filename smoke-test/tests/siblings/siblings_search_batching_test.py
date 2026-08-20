@@ -292,7 +292,7 @@ def test_siblings_search_symmetric_pair_resolves_from_both_sides(auth_session):
 def test_siblings_search_total_counts_all_siblings_while_results_respect_count(
     auth_session,
 ):
-    """total comes from the facet and counts every sibling; results are bounded by the page size."""
+    """total counts every attributed sibling; results are bounded by the page size."""
     multi_urn = _urn(_DBT, _MULTI)
 
     @with_test_retry()
@@ -304,6 +304,28 @@ def test_siblings_search_total_counts_all_siblings_while_results_respect_count(
         assert node["total"] == _MULTI_SIBLING_COUNT
         assert node["count"] == 2
         assert len(node["searchResults"]) == 2
+
+    check()
+
+
+def test_siblings_search_zero_count_returns_total_only(auth_session):
+    """`count: 0` is a legitimate totals-only request and must not fail.
+
+    An empty page satisfies the requested size, so it reads as full while having no last hit to
+    take a cursor from. Both arms must answer the same way.
+    """
+    multi_urn = _urn(_DBT, _MULTI)
+
+    @with_test_retry()
+    def check() -> None:
+        res = execute_graphql(
+            auth_session, _aliased_query("siblingsZero", [multi_urn], count=0), {}
+        )
+        assert not res.get("errors"), res.get("errors")
+        node = res["data"]["d0"]["siblingsSearch"]
+        assert node["total"] == _MULTI_SIBLING_COUNT
+        assert node["count"] == 0
+        assert node["searchResults"] == []
 
     check()
 

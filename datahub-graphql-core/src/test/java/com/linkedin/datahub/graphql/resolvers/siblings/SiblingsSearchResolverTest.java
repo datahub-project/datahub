@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertSame;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
@@ -41,6 +42,7 @@ public class SiblingsSearchResolverTest {
   private ViewService _viewService;
   private DataLoader<SiblingsSearchBatchLoader.Key, ScrollResults> _loader;
   private DataLoaderRegistry _registry;
+  private ScrollResults _loaderResult;
 
   @BeforeMethod
   @SuppressWarnings("unchecked")
@@ -48,8 +50,8 @@ public class SiblingsSearchResolverTest {
     _entityClient = Mockito.mock(EntityClient.class);
     _viewService = Mockito.mock(ViewService.class);
     _loader = Mockito.mock(DataLoader.class);
-    Mockito.when(_loader.load(any()))
-        .thenReturn(CompletableFuture.completedFuture(new ScrollResults()));
+    _loaderResult = new ScrollResults();
+    Mockito.when(_loader.load(any())).thenReturn(CompletableFuture.completedFuture(_loaderResult));
 
     _registry = Mockito.mock(DataLoaderRegistry.class);
     // doReturn avoids generic-inference issues on the generic getDataLoader(String) signature.
@@ -123,12 +125,35 @@ public class SiblingsSearchResolverTest {
 
   @Test
   public void testBatchesWhenFlagEnabled() throws Exception {
-    new SiblingsSearchResolver(_entityClient, _viewService, flags(true))
-        .get(env(input(null)))
-        .get();
+    final ScrollResults results =
+        new SiblingsSearchResolver(_entityClient, _viewService, flags(true))
+            .get(env(input(null)))
+            .get();
 
-    Mockito.verify(_loader, Mockito.times(1)).load(any());
+    // The scope default is asserted on the unbatched path elsewhere; assert it here too, because
+    // on this path it reaches the search through the key rather than the client.
+    final ArgumentCaptor<SiblingsSearchBatchLoader.Key> key =
+        ArgumentCaptor.forClass(SiblingsSearchBatchLoader.Key.class);
+    Mockito.verify(_loader, Mockito.times(1)).load(key.capture());
+    assertEquals(key.getValue().getUrn(), TEST_URN);
+    assertEquals(key.getValue().getEntityNames(), List.of("dataset"));
+    // The loader's answer is what the caller gets, not a fresh empty result.
+    assertSame(results, _loaderResult);
     Mockito.verifyNoInteractions(_entityClient);
+  }
+
+  /** An explicit type has to survive into the key, not be replaced by the default scope. */
+  @Test
+  public void testBatchedKeyCarriesExplicitTypes() throws Exception {
+    final Map<String, Object> in = input(null);
+    in.put("types", List.of(EntityType.CHART.name()));
+
+    new SiblingsSearchResolver(_entityClient, _viewService, flags(true)).get(env(in)).get();
+
+    final ArgumentCaptor<SiblingsSearchBatchLoader.Key> key =
+        ArgumentCaptor.forClass(SiblingsSearchBatchLoader.Key.class);
+    Mockito.verify(_loader).load(key.capture());
+    assertEquals(key.getValue().getEntityNames(), List.of("chart"));
   }
 
   @Test

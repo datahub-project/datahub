@@ -139,6 +139,19 @@ public class SiblingsSearchBatchLoaderTest {
         .setMetadata(new SearchResultMetadata());
   }
 
+  /** A chunk page whose hits carry no cursor, as if SearchRequestHandler had not stamped one. */
+  private static ScrollResult searchResultWithoutCursors(final List<String> hitUrns) {
+    final SearchEntityArray entities = new SearchEntityArray();
+    for (String urn : hitUrns) {
+      entities.add(new SearchEntity().setEntity(UrnUtils.getUrn(urn)));
+    }
+    return new ScrollResult()
+        .setEntities(entities)
+        .setNumEntities(hitUrns.size())
+        .setPageSize(hitUrns.size())
+        .setMetadata(new SearchResultMetadata());
+  }
+
   /** Wires each hit urn to the sibling urns its {@code siblings} aspect lists. */
   private void stubSiblingAspects(final Map<String, List<String>> siblingsByHitUrn)
       throws Exception {
@@ -374,6 +387,59 @@ public class SiblingsSearchBatchLoaderTest {
     verifySearchCount(3);
   }
 
+  /**
+   * `count: 0` is a legitimate totals-only request. The empty page satisfies the requested size, so
+   * it counts as full, but there is no last hit to take a cursor from.
+   */
+  @Test
+  public void testZeroCountReturnsTotalWithoutHitsOrCursor() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS, SNOW_USERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_ORDERS)));
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_ORDERS, 0)), _context, _entityClient, _viewService);
+
+    assertEquals(results.get(0).getTotal(), 2);
+    assertEquals(results.get(0).getCount(), 0);
+    assertTrue(results.get(0).getSearchResults().isEmpty());
+    // Matches what the unbatched path returns for count: 0.
+    assertNull(results.get(0).getNextScrollId());
+  }
+
+  /**
+   * The unbatched path treats a negative count as unbounded and returns every sibling, so the
+   * batched path must too rather than letting Stream#limit reject it.
+   */
+  @Test
+  public void testNegativeCountReturnsEverySiblingLikeTheUnbatchedPath() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS, SNOW_USERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_ORDERS)));
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_ORDERS, -1)), _context, _entityClient, _viewService);
+
+    assertEquals(results.get(0).getTotal(), 2);
+    assertEquals(results.get(0).getCount(), 2);
+    assertNull(results.get(0).getNextScrollId());
+  }
+
+  /** A hit with no stamped cursor must not be reported as one, and must not fail the chunk. */
+  @Test
+  public void testFullPageWithoutStampedCursorReturnsNoCursor() throws Exception {
+    stubSearch(searchResultWithoutCursors(List.of(SNOW_ORDERS, SNOW_USERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_ORDERS)));
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_ORDERS, 2)), _context, _entityClient, _viewService);
+
+    assertEquals(results.get(0).getTotal(), 2);
+    assertEquals(results.get(0).getCount(), 2);
+    assertNull(results.get(0).getNextScrollId());
+  }
+
   /** A page size larger than the per-urn floor has to widen the window, or it cannot be filled. */
   @Test
   public void testLargePageWidensTheWindow() throws Exception {
@@ -426,9 +492,13 @@ public class SiblingsSearchBatchLoaderTest {
     // "chart" is not in the view, so the intersection drops it.
     assertEquals(call.entityNames(), List.of("dataset"));
     // The view's own predicate has to survive into the query alongside the siblings filter.
+    // Assert the values too, not just the field names: a combine that kept the field but dropped
+    // its value would still satisfy a field-name check.
     final String rendered = call.filter().toString();
-    assertTrue(rendered.contains("origin"), "view filter missing from query: " + rendered);
-    assertTrue(rendered.contains(SIBLINGS_FACET), "siblings filter missing: " + rendered);
+    assertTrue(rendered.contains("origin"), "view filter field missing: " + rendered);
+    assertTrue(rendered.contains("PROD"), "view filter value missing: " + rendered);
+    assertTrue(rendered.contains(SIBLINGS_FACET), "siblings filter field missing: " + rendered);
+    assertTrue(rendered.contains(DBT_ORDERS), "siblings filter urn missing: " + rendered);
   }
 
   /** A dangling view urn resolves to null; the request must still run on its own types. */
@@ -491,8 +561,10 @@ public class SiblingsSearchBatchLoaderTest {
         _viewService);
 
     final String rendered = captureSearch().filter().toString();
-    assertTrue(rendered.contains("platform"), "caller filter missing: " + rendered);
-    assertTrue(rendered.contains(SIBLINGS_FACET), "siblings filter missing: " + rendered);
+    assertTrue(rendered.contains("platform"), "caller filter field missing: " + rendered);
+    assertTrue(rendered.contains("snowflake"), "caller filter value missing: " + rendered);
+    assertTrue(rendered.contains(SIBLINGS_FACET), "siblings filter field missing: " + rendered);
+    assertTrue(rendered.contains(DBT_ORDERS), "siblings filter urn missing: " + rendered);
   }
 
   /** Caller search flags are honoured, and the key's own instance is never mutated. */

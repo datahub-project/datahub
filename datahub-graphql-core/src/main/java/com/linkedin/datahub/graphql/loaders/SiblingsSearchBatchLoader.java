@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
@@ -87,8 +88,8 @@ public final class SiblingsSearchBatchLoader {
    * Pegasus {@link Filter}/{@link SearchFlags}; the GraphQL input classes compare by identity.
    */
   public static final class Key {
-    private final String urn;
-    private final List<String> entityNames;
+    @Getter private final String urn;
+    @Getter private final List<String> entityNames;
     private final String query;
     @Nullable private final Filter inputFilter;
     @Nullable private final SearchFlags searchFlags;
@@ -110,10 +111,6 @@ public final class SiblingsSearchBatchLoader {
       this.searchFlags = searchFlags;
       this.viewUrn = viewUrn;
       this.count = count;
-    }
-
-    public String getUrn() {
-      return urn;
     }
 
     private GroupKey groupKey() {
@@ -317,12 +314,19 @@ public final class SiblingsSearchBatchLoader {
     for (Key key : chunk) {
       final List<SearchEntity> attributed =
           hitsByUrn.getOrDefault(key.urn, Collections.emptyList());
-      final List<SearchEntity> hits =
-          attributed.stream().limit(group.count).collect(Collectors.toList());
+      final List<SearchEntity> hits = page(attributed, group.count);
       results.put(
           key, toScrollResults(queryContext, hits, attributed.size(), hits.size() == group.count));
     }
     return results;
+  }
+
+  /**
+   * The requested page of a urn's hits. A negative count reaches the unbatched path as an unbounded
+   * page size, so it has to mean the same here; {@link java.util.stream.Stream#limit} rejects it.
+   */
+  private static List<SearchEntity> page(final List<SearchEntity> attributed, final int count) {
+    return count < 0 ? attributed : attributed.stream().limit(count).collect(Collectors.toList());
   }
 
   /**
@@ -512,7 +516,8 @@ public final class SiblingsSearchBatchLoader {
     // hit's sort values). Sort is [_score, urn] and filter context does not score, so the value is
     // the same one the unbatched query would have produced for this row. Only emit it on a full
     // page, matching SearchRequestHandler's "there may be more" rule.
-    results.setNextScrollId(pageIsFull ? cursorOf(hits.get(hits.size() - 1)) : null);
+    // `count: 0` asks for a total and no hits, which counts as a full page but has no last hit.
+    results.setNextScrollId(pageIsFull && !hits.isEmpty() ? cursorOf(hits) : null);
     // Entities returned, not the requested page size — matches UrnScrollResultsMapper.
     results.setCount(hits.size());
     results.setTotal((int) Math.min(total, Integer.MAX_VALUE));
@@ -528,11 +533,23 @@ public final class SiblingsSearchBatchLoader {
     return toScrollResults(null, Collections.emptyList(), 0, false);
   }
 
-  /** The per-hit cursor stamped by SearchRequestHandler, or null if absent. */
+  /**
+   * The cursor the last hit carries, or null when it has none. Callers guard against an empty page.
+   * A null here means the page cannot advertise where to resume even though more may exist, so say
+   * so rather than letting the page look like the end of the results.
+   */
   @Nullable
-  private static String cursorOf(final SearchEntity hit) {
-    final StringMap extra = hit.getExtraFields();
-    return extra == null ? null : extra.get("scrollId");
+  private static String cursorOf(final List<SearchEntity> hits) {
+    final SearchEntity last = hits.get(hits.size() - 1);
+    final StringMap extra = last.getExtraFields();
+    final String cursor = extra == null ? null : extra.get("scrollId");
+    if (cursor == null) {
+      log.warn(
+          "Hit {} carries no scrollId, so this page cannot return a cursor and will read as the"
+              + " last page.",
+          last.getEntity());
+    }
+    return cursor;
   }
 
   private static SearchFlags copyFlags(final SearchFlags flags) {
