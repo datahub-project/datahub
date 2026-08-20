@@ -1,9 +1,17 @@
 import pathlib
+from typing import Tuple
 
 import pytest
+import sqlglot
 
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    _apply_normalize_name,
+    _collect_as_written_tables,
+    _table_name_from_sqlglot_table,
+    sqlglot_lineage,
+)
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -82,6 +90,191 @@ FROM mytable
         },
         expected_file=RESOURCE_DIR / "test_select_max_with_schema_all_resolved.json",
     )
+
+
+@pytest.mark.parametrize("schema_ref", ["my_schema", "MY_SCHEMA"])
+def test_oracle_quoted_identifier_casing_recovered(schema_ref: str) -> None:
+    # An Oracle table created as `CREATE TABLE "MixedCase"` keeps its casing, while
+    # the surrounding ALL-CAPS schema name is lowercased by the Oracle source's
+    # normalize_name. The resulting URN is therefore a mixture that none of
+    # resolve_table's uniform candidates can produce. Both spellings of the
+    # (case-insensitive) schema reference have to land on the same URN.
+    #
+    # The two parameters are not redundant. The as-written index is built from the
+    # statement before qualify() runs, so the unquoted schema keeps whichever case
+    # the query used, and each spelling exercises a different recovery candidate:
+    #   my_schema -> as-written `my_db.my_schema.MixedCase` resolves directly
+    #   MY_SCHEMA -> as-written `my_db.MY_SCHEMA.MixedCase` misses, and the
+    #                normalize_name candidate resolves it
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,my_db.my_schema.MixedCase,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        f'SELECT t."MyValueCol" FROM {schema_ref}."MixedCase" t',
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert result.column_lineage is not None
+    assert [u.column for c in result.column_lineage for u in c.upstreams] == [
+        "MyValueCol"
+    ]
+
+
+def test_mssql_mixed_case_identifier_casing_recovered() -> None:
+    # SQL Server's catalog is case-preserving but case-insensitive, so mixed-case
+    # names are normal there and queries may spell them however they like. sqlglot
+    # folds T-SQL identifiers to lowercase, so without recovery the lineage points
+    # at a URN that does not exist.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "SELECT t.MyValueCol FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert result.column_lineage is not None
+    assert [u.column for c in result.column_lineage for u in c.upstreams] == [
+        "MyValueCol"
+    ]
+
+
+def test_identifier_casing_recovery_leaves_unresolved_tables_alone() -> None:
+    # Recovery is only consulted after the normal candidates miss, and only adopts
+    # a candidate that actually resolved. A table that is genuinely absent from
+    # DataHub must still fall back to the same best-effort URN as before.
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = sqlglot_lineage(
+        "SELECT t.MyValueCol FROM my_schema.MixedCaseTable AS t",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.mixedcasetable,PROD)"
+    ]
+    assert result.debug_info.table_schemas_resolved == 0
+
+
+def test_identifier_casing_recovery_survives_a_colliding_cte_name() -> None:
+    # sqlglot models a CTE reference as an exp.Table, so a CTE named after the table
+    # it stages - `WITH orders AS (SELECT * FROM ORDERS)`, the standard ELT idiom -
+    # used to land in the same case-insensitive bucket as the real table and get both
+    # of them discarded as ambiguous. Recovery then silently never ran, and lineage
+    # went back to pointing at a lowercase URN that does not exist.
+    table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.my_schema.MixedCaseTable,PROD)"
+    )
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+    schema_resolver.add_raw_schema_info(table_urn, {"MyValueCol": "NUMBER"})
+
+    result = sqlglot_lineage(
+        "WITH mixedcasetable AS (SELECT MyValueCol FROM my_schema.MixedCaseTable) "
+        "SELECT MyValueCol FROM mixedcasetable",
+        schema_resolver=schema_resolver,
+        default_db="my_db",
+    )
+
+    assert result.in_tables == [table_urn]
+    assert result.debug_info.table_schemas_resolved == 1
+    assert result.column_lineage is not None
+    assert [
+        upstream.column
+        for column in result.column_lineage
+        for upstream in column.upstreams
+    ] == ["MyValueCol"]
+
+
+@pytest.mark.parametrize(
+    "sql,expected_table,expected_parts",
+    [
+        # Past three components, _table_name_from_sqlglot_table puts everything after
+        # the catalog and schema into `table`, joined by dots. Folding that as a
+        # single name is a no-op as soon as one component is mixed-case, since the
+        # joined string is not isupper() - which left `SCH` uppercase next to a
+        # lowercased `parts`, a candidate that can never match a real URN.
+        (
+            'SELECT * FROM SRV.DB.SCH."MixedCase"',
+            "sch.MixedCase",
+            ("srv", "db", "sch", "MixedCase"),
+        ),
+        # A quoted identifier may contain a dot of its own. There the dot is part of
+        # the name rather than a separator, so the name is folded as a whole.
+        ('SELECT * FROM DB."MY.Table"', "MY.Table", ("db", "MY.Table")),
+    ],
+)
+def test_normalize_name_candidate_folds_each_identifier(
+    sql: str, expected_table: str, expected_parts: Tuple[str, ...]
+) -> None:
+    dialect = get_dialect("oracle")
+    table_expr = next(
+        iter(parse_statement(sql, dialect=dialect).find_all(sqlglot.exp.Table))
+    )
+
+    normalized = _apply_normalize_name(
+        _table_name_from_sqlglot_table(table_expr, dialect)
+    )
+
+    assert normalized.table == expected_table
+    assert normalized.parts == expected_parts
+
+
+def test_as_written_index_matches_cte_names_by_the_dialect_rule() -> None:
+    # A CTE reference is skipped so it cannot collide with a real table of that name,
+    # but the comparison has to follow the dialect. MySQL is case-sensitive, so a CTE
+    # `Foo` and a table `foo` are different objects and the table must still be
+    # indexed; on the folding dialects a differently-cased reference is the same CTE.
+    mysql = get_dialect("mysql")
+    indexed = _collect_as_written_tables(
+        parse_statement(
+            "WITH `Foo` AS (SELECT 1 AS x) SELECT * FROM foo", dialect=mysql
+        ),
+        mysql,
+        default_db="db",
+        default_schema=None,
+    )
+    assert [key[2] for key in indexed] == ["foo"]
+
+    # Same dialect, reference spelled as the CTE was declared: that is the CTE.
+    assert not _collect_as_written_tables(
+        parse_statement(
+            "WITH `Foo` AS (SELECT 1 AS x) SELECT * FROM `Foo`", dialect=mysql
+        ),
+        mysql,
+        default_db="db",
+        default_schema=None,
+    )
+
+
+def test_as_written_index_keeps_multi_part_names_that_share_a_leaf() -> None:
+    # `a.b.c.d` and `a.b."c.d"` are different tables - four identifiers versus three
+    # with a dot inside the last - yet they collapse to the same database/schema/
+    # table triple. The index is keyed the way _TableName hashes itself, including
+    # `parts` past three of them, so the two stay apart instead of being written off
+    # as an ambiguous pair and dropped, which would skip recovery for both.
+    dialect = get_dialect("mssql")
+    statement = parse_statement(
+        'SELECT * FROM a.b.c.d JOIN a.b."c.d" ON 1 = 1', dialect=dialect
+    )
+
+    as_written = _collect_as_written_tables(
+        statement, dialect, default_db="a", default_schema="b"
+    )
+
+    assert len(as_written) == 2
 
 
 def test_select_count() -> None:
