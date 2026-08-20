@@ -58,6 +58,7 @@
     "filters.allStatuses": "All Statuses",
     "filters.cli": "CLI",
     "filters.resultStatus": "Result Status",
+    "filters.sourceType": "Source Type",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "You don't have permission to perform this action. Please contact your DataHub admin for more info.",
     "page.subtitle": "Configure and schedule syncs to import data from your data sources",

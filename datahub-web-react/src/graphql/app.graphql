@@ -24,6 +24,8 @@ query appConfig {
         }
         authConfig {
             tokenAuthEnabled
+            allowNoExpiry
+            allowedAccessTokenDurations
         }
         identityManagementConfig {
             enabled

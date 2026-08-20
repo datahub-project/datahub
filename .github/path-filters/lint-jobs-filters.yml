@@ -31,6 +31,11 @@ smoke-test-python:
   - "smoke-test/build.gradle"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
+  # yarnGenerate declares these as inputs (see datahub-web-react/build.gradle):
+  # codegen validates the frontend's own query documents against the server
+  # schema, so a schema change alone can break the frontend build. Without this
+  # the check ran nowhere on a schema-only PR.
+  - "datahub-graphql-core/src/main/resources/**/*.graphql"
 metadata-ingestion:
   - added|modified: "metadata-ingestion/**"
   - "metadata-models/**"
@@ -48,3 +53,14 @@ prefect-plugin:
   - added|modified: "metadata-ingestion-modules/prefect-plugin/**"
 playwright-e2e:
   - added|modified: "e2e-test/ui/playwright/**"
+docs-website:
+  - added|modified: "docs-website/generateDocsDir.ts"
+  - added|modified: "docs-website/sidebars.js"
+  - added|modified: "docs-website/src/pages/index.js"
+  - "docs-website/package.json"
+  - "docs-website/yarn.lock"
+  - "docs-website/build.gradle"
+spotless:
+  - added|modified: "**/*.java"
+  - "**/*.gradle"
+  - "**/*.gradle.kts"

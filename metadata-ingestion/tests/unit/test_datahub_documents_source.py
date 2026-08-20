@@ -85,6 +85,21 @@ class TestTextPartitioner:
 
         assert elements == []
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason="unstructured requires Python 3.10+",
+    )
+    def test_partition_single_character_falls_back(self):
+        """A single-character document yields zero elements from the markdown
+        partitioner; the fallback keeps it embeddable instead of silently
+        dropping it."""
+        partitioner = TextPartitioner()
+
+        elements = partitioner.partition_text("x")
+
+        assert len(elements) == 1
+        assert elements[0]["text"] == "x"
+
 
 class TestDataHubDocumentsConfig:
     """Test configuration validation."""
@@ -96,7 +111,7 @@ class TestDataHubDocumentsConfig:
         assert config.platform_filter is None  # Default: None = all NATIVE documents
         assert config.incremental.enabled is True
         assert config.skip_empty_text is True
-        assert config.min_text_length == 50
+        assert config.min_text_length == 0
         assert config.event_mode.enabled is False
         assert config.chunking.strategy == "by_title"
         assert config.partition_strategy == "markdown"
@@ -4222,3 +4237,44 @@ class TestSystemicAbortHandling:
                     list(source._process_event_mode())
 
             assert mock_batch.call_count == 1
+
+
+class TestTotalProcessingFailure:
+    """A run where every attempted document failed is systemic, not bad data."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _run(
+        self, ctx: PipelineContext, failed: int, processed: int
+    ) -> DataHubDocumentsSource:
+        source = DataHubDocumentsSource(ctx, _make_config())
+        with patch.object(source, "_process_batch_mode", return_value=iter([])):
+            source.report.num_documents_failed = failed
+            source.chunking_source.report.num_documents_processed = processed
+            list(source.get_workunits_internal())
+        return source
+
+    def test_all_documents_failed_fails_the_run(self, ctx, mock_graph):
+        # Otherwise the run exits 0 having indexed nothing, and a dependency
+        # break looks identical to "there was nothing to do".
+        with mock_graph:
+            source = self._run(ctx, failed=3, processed=0)
+
+        assert source.report.failures
+
+    def test_partial_failure_does_not_fail_the_run(self, ctx, mock_graph):
+        # Also pins the counter this reads: self.report.num_documents_processed is
+        # only populated in get_report(), so reading it here would still be 0 and
+        # would fail every run that had any per-document error.
+        with mock_graph:
+            source = self._run(ctx, failed=2, processed=5)
+
+        assert not source.report.failures

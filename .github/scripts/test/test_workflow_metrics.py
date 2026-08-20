@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.github.workflow_metrics import JobMetrics
+from utils.github.workflow_metrics import JobMetrics, WorkflowMetrics
 
 
 def test_parse_matrix_normal_job():
@@ -29,3 +29,117 @@ def test_parse_matrix_reusable_workflow_dynamic_inner_name():
     assert JobMetrics._parse_matrix(
         "Playwright E2E Tests (5, 5) / Playwright E2E Tests (Shard 5/5)"
     ) == ("Playwright E2E Tests", ["5", "5"])
+
+
+def test_workflow_metrics_base_branch_from_pull_request():
+    metrics = WorkflowMetrics.from_api(
+        {
+            "workflow_id": 1,
+            "name": "lint",
+            "event": "pull_request",
+            "actor": {"login": "alice"},
+            "triggering_actor": {"login": "alice"},
+            "pull_requests": [
+                {
+                    "number": 42,
+                    "url": "https://api.github.com/repos/org/repo/pulls/42",
+                    "base": {"ref": "main"},
+                }
+            ],
+            "head_branch": "feature/foo",
+            "head_sha": "abc123",
+            "conclusion": "success",
+            "created_at": "2026-01-01T00:00:00Z",
+            "run_started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:01:00Z",
+        },
+        run_id=99,
+        attempt=1,
+        rerun_type="initial",
+    )
+    assert metrics.base_branch == "main"
+    assert metrics.pull_request_number == 42
+
+
+def test_workflow_metrics_base_branch_from_pull_request_target():
+    metrics = WorkflowMetrics.from_api(
+        {
+            "workflow_id": 1,
+            "name": "lint",
+            "event": "pull_request_target",
+            "actor": {"login": "alice"},
+            "triggering_actor": {"login": "alice"},
+            "pull_requests": [
+                {
+                    "number": 42,
+                    "url": "https://api.github.com/repos/org/repo/pulls/42",
+                    "base": {"ref": "main"},
+                }
+            ],
+            "head_branch": "feature/foo",
+            "head_sha": "abc123",
+            "conclusion": "success",
+            "created_at": "2026-01-01T00:00:00Z",
+            "run_started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:01:00Z",
+        },
+        run_id=99,
+        attempt=1,
+        rerun_type="initial",
+    )
+    assert metrics.base_branch == "main"
+
+
+def test_workflow_metrics_base_branch_absent_without_pull_request():
+    metrics = WorkflowMetrics.from_api(
+        {
+            "workflow_id": 1,
+            "name": "lint",
+            "event": "push",
+            "actor": {"login": "alice"},
+            "triggering_actor": {"login": "alice"},
+            "pull_requests": [],
+            "head_branch": "main",
+            "head_sha": "abc123",
+            "conclusion": "success",
+            "created_at": "2026-01-01T00:00:00Z",
+            "run_started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:01:00Z",
+        },
+        run_id=99,
+        attempt=1,
+        rerun_type="initial",
+    )
+    assert metrics.base_branch is None
+    assert metrics.pull_request_number is None
+
+
+def test_workflow_metrics_base_branch_ignored_for_non_pull_request_event():
+    # GitHub may associate an open PR with a push run; base_branch stays null.
+    metrics = WorkflowMetrics.from_api(
+        {
+            "workflow_id": 1,
+            "name": "lint",
+            "event": "push",
+            "actor": {"login": "alice"},
+            "triggering_actor": {"login": "alice"},
+            "pull_requests": [
+                {
+                    "number": 42,
+                    "url": "https://api.github.com/repos/org/repo/pulls/42",
+                    "base": {"ref": "main"},
+                }
+            ],
+            "head_branch": "feature/foo",
+            "head_sha": "abc123",
+            "conclusion": "success",
+            "created_at": "2026-01-01T00:00:00Z",
+            "run_started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:01:00Z",
+        },
+        run_id=99,
+        attempt=1,
+        rerun_type="initial",
+    )
+    assert metrics.base_branch is None
+    assert metrics.pull_request_number == 42

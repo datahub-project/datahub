@@ -64,6 +64,7 @@ import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import snowplowLogo from '@images/snowplowlogo.png';
 import sparkLogo from '@images/sparklogo.png';
+import sqlmeshLogo from '@images/sqlmeshlogo.png';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
@@ -205,6 +206,8 @@ export const CSV = 'csv-enricher';
 const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 const SPARK = 'spark';
 const SPARK_URN = `urn:li:dataPlatform:${SPARK}`;
+export const SQLMESH = 'sqlmesh';
+export const SQLMESH_URN = `urn:li:dataPlatform:${SQLMESH}`;
 const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 const S3 = 's3';
@@ -293,6 +296,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SNOWPLOW_URN]: snowplowLogo,
     [STREAMLIT_URN]: streamlitLogo,
     [SPARK_URN]: sparkLogo,
+    [SQLMESH_URN]: sqlmeshLogo,
     [TABLEAU_URN]: tableauLogo,
     [THOUGHTSPOT_URN]: thoughtspotLogo,
     [TIDB_URN]: tidbLogo,

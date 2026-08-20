@@ -34,8 +34,10 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    NativeQueryLineage,
     OdbcLineage,
     OracleLineage,
+    _get_data_source_tokens,
     _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -85,6 +87,115 @@ def _build_oracle_lineage(
         reporter=PowerBiDashboardSourceReport(),
         platform_instance_resolver=MagicMock(spec=AbstractDataPlatformInstanceResolver),
     )
+
+
+def _build_native_query_lineage(
+    *, config: PowerBiDashboardSourceConfig
+) -> NativeQueryLineage:
+    table = Table(
+        columns=None,
+        measures=[],
+        expression="",
+        name="t",
+        full_name="ds.t",
+    )
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.graph = None
+    return NativeQueryLineage(
+        ctx=ctx,
+        table=table,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=MagicMock(spec=AbstractDataPlatformInstanceResolver),
+    )
+
+
+def _snowflake_native_query_source_node(
+    name_value: Optional[dict] = None,
+) -> dict:
+    """Structurally faithful (tokenRange/position noise stripped) AST fragment
+    for ``Snowflake.Databases(SnowflakeURL,SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``.
+    ``SnowflakeDBLake`` is an unquoted identifier (a Power Query dataset
+    Parameter reference), not a literal string, unless ``name_value`` is given.
+    """
+    if name_value is None:
+        name_value = {
+            "kind": "IdentifierExpression",
+            "identifier": {
+                "kind": "Identifier",
+                "literal": "SnowflakeDBLake",
+            },
+        }
+    return {
+        "kind": "RecursivePrimaryExpression",
+        "head": {
+            "kind": "IdentifierExpression",
+            "identifier": {"kind": "Identifier", "literal": "Snowflake.Databases"},
+        },
+        "recursiveExpressions": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "InvokeExpression",
+                    "content": {
+                        "kind": "ArrayWrapper",
+                        "elements": [
+                            {
+                                "kind": "Csv",
+                                "node": {
+                                    "kind": "IdentifierExpression",
+                                    "identifier": {
+                                        "kind": "Identifier",
+                                        "literal": "SnowflakeURL",
+                                    },
+                                },
+                            },
+                            {
+                                "kind": "Csv",
+                                "node": {
+                                    "kind": "IdentifierExpression",
+                                    "identifier": {
+                                        "kind": "Identifier",
+                                        "literal": "SnowflakeWarehouse",
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "kind": "ItemAccessExpression",
+                    "content": {
+                        "kind": "RecordExpression",
+                        "content": {
+                            "kind": "ArrayWrapper",
+                            "elements": [
+                                {
+                                    "kind": "Csv",
+                                    "node": {
+                                        "kind": "GeneralizedIdentifierPairedExpression",
+                                        "key": {
+                                            "kind": "GeneralizedIdentifier",
+                                            "literal": "Name",
+                                        },
+                                        "value": name_value,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+                {"kind": "FieldSelector"},
+            ],
+        },
+    }
+
+
+_SNOWFLAKE_NATIVE_QUERY_PARAMETERS = {
+    "SnowflakeURL": "myserver.snowflakecomputing.com",
+    "SnowflakeWarehouse": "MYWH",
+    "SnowflakeDBLake": "DATA_LAKE_DEV",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -908,3 +1019,258 @@ def test_is_sql_query_handles_other_platforms_without_raising():
     assert OdbcLineage.is_sql_query(query, "databricks") is True
     assert OdbcLineage.is_sql_query(query, "db2") is True
     assert OdbcLineage.is_sql_query("not a query at all", "db2") is False
+
+
+# ---------------------------------------------------------------------------
+# Snowflake Value.NativeQuery with a parameterized database identifier
+# ---------------------------------------------------------------------------
+
+
+def test_get_data_source_tokens_resolves_snowflake_item_access_with_parameter():
+    """``Snowflake.Databases(SnowflakeURL, SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``.
+    Positional IdentifierExpression args and the ItemAccess ``Name`` field all
+    resolve from dataset parameters, so tokens[1] is the server rather than
+    the record key ``Name``.
+    """
+    source_node = _snowflake_native_query_source_node()
+
+    tokens = _get_data_source_tokens(
+        node_map={},
+        arg_node=source_node,
+        parameters=_SNOWFLAKE_NATIVE_QUERY_PARAMETERS,
+    )
+
+    assert tokens[0] == "Snowflake.Databases"
+    assert tokens[1] == "myserver.snowflakecomputing.com"
+    assert tokens[2] == "MYWH"
+    assert "Name" in tokens
+    assert tokens[tokens.index("Name") + 1] == "DATA_LAKE_DEV"
+
+
+def test_get_data_source_tokens_omits_name_when_parameter_unresolved():
+    """Sanity check for the other side of the same fix: if the parameter isn't
+    supplied at all, the ItemAccessExpression is now visited (the structural
+    gap is fixed), but the identifier still can't be resolved to a literal --
+    so ``Name`` correctly does not appear, rather than resolving to garbage.
+    """
+    source_node = _snowflake_native_query_source_node()
+
+    tokens = _get_data_source_tokens(
+        node_map={},
+        arg_node=source_node,
+        parameters=None,
+    )
+
+    assert "Name" not in tokens
+
+
+def test_native_query_lineage_get_db_name_resolves_snowflake_from_name_token():
+    """``get_db_name()`` had Databricks and BigQuery branches but fell through
+    to ``None`` for every Snowflake token list, regardless of content."""
+    instance = _build_native_query_lineage(config=_build_config())
+
+    tokens = [
+        "Snowflake.Databases",
+        "SnowflakeURL",
+        "SnowflakeWarehouse",
+        "Name",
+        "DATA_LAKE_DEV",
+    ]
+
+    assert instance.get_db_name(tokens) == "DATA_LAKE_DEV"
+
+
+def test_native_query_lineage_get_db_name_returns_none_for_snowflake_without_name():
+    """No ``Name`` token (e.g. a bare ``Snowflake.Databases(server, warehouse)``
+    with no database navigation step at all) -- still correctly returns None
+    rather than crashing or guessing."""
+    instance = _build_native_query_lineage(config=_build_config())
+
+    tokens = ["Snowflake.Databases", "SnowflakeURL", "SnowflakeWarehouse"]
+
+    assert instance.get_db_name(tokens) is None
+
+
+def _native_query_arg_list(sql: str, source_node: Optional[dict] = None) -> dict:
+    """InvokeExpression node for ``Value.NativeQuery(<source>, "<sql>", null, [...])``
+    -- just the 2 args ``create_lineage`` actually reads (source, sql)."""
+    return {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "Csv",
+                    "node": source_node or _snowflake_native_query_source_node(),
+                },
+                {
+                    "kind": "Csv",
+                    "node": {
+                        "kind": "LiteralExpression",
+                        "literalKind": "Text",
+                        "literal": f'"{sql}"',
+                    },
+                },
+            ],
+        },
+    }
+
+
+def test_create_lineage_warns_when_snowflake_database_name_unresolved():
+    """PR #18030 added a warning for the equivalent unresolved-parameter case
+    on the three-step navigation-chain path (no embedded SQL). This is the
+    same failure mode on the ``Value.NativeQuery`` + embedded-SQL path:
+    silently producing no/wrong lineage when a parameter can't be resolved.
+    """
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select * from unqualified_table",
+            source_node=_snowflake_native_query_source_node(),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        # Server/warehouse resolve; SnowflakeDBLake is deliberately omitted.
+        parameters={
+            "SnowflakeURL": "myserver.snowflakecomputing.com",
+            "SnowflakeWarehouse": "MYWH",
+        },
+    )
+
+    instance.create_lineage(detail)
+
+    warning_titles = [w.title for w in instance.reporter.warnings]
+    assert "Unresolved database name in Value.NativeQuery" in warning_titles
+
+
+def test_create_lineage_does_not_warn_when_snowflake_database_name_resolved():
+    """Sanity check for the other side: when the parameter *is* supplied and
+    resolves, no spurious warning is emitted."""
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select col_a from my_schema.my_table",
+            source_node=_snowflake_native_query_source_node(),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters=_SNOWFLAKE_NATIVE_QUERY_PARAMETERS,
+    )
+
+    instance.create_lineage(detail)
+
+    warning_titles = [w.title for w in instance.reporter.warnings]
+    assert "Unresolved database name in Value.NativeQuery" not in warning_titles
+
+
+def test_get_data_source_tokens_resolves_parameters_case_insensitively():
+    source_node = _snowflake_native_query_source_node()
+
+    tokens = _get_data_source_tokens(
+        node_map={},
+        arg_node=source_node,
+        parameters={
+            "snowflakeurl": "myserver.snowflakecomputing.com",
+            "snowflakewarehouse": "MYWH",
+            "snowflakedblake": "DATA_LAKE_DEV",
+        },
+    )
+
+    assert tokens[1] == "myserver.snowflakecomputing.com"
+    assert tokens[2] == "MYWH"
+    assert tokens[tokens.index("Name") + 1] == "DATA_LAKE_DEV"
+
+
+def test_create_lineage_skips_when_server_token_is_navigation_record_key():
+    """Unresolved positional args + a literal {[Name=...]} used to put ``Name``
+    in tokens[1], which create_lineage then treated as the Snowflake host."""
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select col_a from my_db.my_schema.my_table",
+            source_node=_snowflake_native_query_source_node(
+                name_value={
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": '"DATA_LAKE_DEV"',
+                }
+            ),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={},
+    )
+
+    result = instance.create_lineage(detail)
+
+    assert result.upstreams == []
+    assert result.column_lineage == []
+
+
+def test_create_lineage_does_not_skip_bigquery_billing_project_record_key():
+    """GoogleBigQuery.Database([BillingProject=...]) puts the record key
+    ``BillingProject`` in tokens[1]. That is the connector's first argument, not
+    a leaked Snowflake {[Name=...]} key — lineage must still be attempted.
+    """
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list("select * from public.my_table"),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={},
+    )
+    sentinel = Lineage.empty()
+
+    with (
+        patch(
+            "datahub.ingestion.source.powerbi.m_query.pattern_handler._get_data_source_tokens",
+            return_value=[
+                "GoogleBigQuery.Database",
+                "BillingProject",
+                "my_project",
+                "Name",
+                "my_project",
+            ],
+        ),
+        patch.object(instance, "parse_custom_sql", return_value=sentinel) as mock_parse,
+    ):
+        result = instance.create_lineage(detail)
+
+    mock_parse.assert_called_once()
+    assert result is sentinel
+
+
+def test_create_lineage_does_not_warn_when_sql_already_fully_qualified():
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select * from my_db.my_schema.my_table",
+            source_node=_snowflake_native_query_source_node(),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={
+            "SnowflakeURL": "myserver.snowflakecomputing.com",
+            "SnowflakeWarehouse": "MYWH",
+        },
+    )
+
+    instance.create_lineage(detail)
+
+    warning_titles = [w.title for w in instance.reporter.warnings]
+    assert "Unresolved database name in Value.NativeQuery" not in warning_titles
