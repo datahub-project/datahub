@@ -191,7 +191,9 @@ class FileProfiler:
             )
         return smart_open(path, "rb")
 
-    def _iter_table_paths(self, table_data: TableDataLike) -> Iterable[str]:
+    def _iter_table_paths(
+        self, table_data: TableDataLike, path_spec: Optional[PathSpec] = None
+    ) -> Iterable[str]:
         """Enumerate every file under a (possibly partitioned) table path.
 
         `table_data.table_path` is a directory when the table spans multiple
@@ -204,15 +206,20 @@ class FileProfiler:
 
         extension = os.path.splitext(table_data.full_path)[1]
         table_path = table_data.table_path
+        include_hidden = path_spec is not None and path_spec.include_hidden_folders
 
         def _is_data_file(key: str) -> bool:
-            # With default_extension the representative file has no extension, so
-            # ``endswith("")`` would otherwise match Spark/Hadoop side-car files
-            # (``_SUCCESS``, ``_committed_*``, ``.crc``, hidden files) and read
-            # them as the default type. Skip anything whose basename starts with
-            # ``_`` or ``.``.
+            if not key.endswith(extension):
+                return False
+            # Only the default_extension case (no suffix) risks matching
+            # Spark/Hadoop side-car files (``_SUCCESS``, ``_committed_*``,
+            # ``.crc``) via ``endswith("")``. With an explicit extension a
+            # leading ``_``/``.`` (e.g. ``_events.json``) is a real data file,
+            # so keep it. When the user opts into hidden paths, keep everything.
+            if extension or include_hidden:
+                return True
             base = key.rsplit("/", 1)[-1]
-            return key.endswith(extension) and not base.startswith(("_", "."))
+            return not base.startswith(("_", "."))
 
         if is_s3_uri(table_path):
             if self.aws_config is None:
@@ -339,7 +346,7 @@ class FileProfiler:
                 # (throttling / AccessDenied) warns and skips this table like a
                 # read failure, instead of propagating out and aborting the
                 # whole source run.
-                paths = list(self._iter_table_paths(table_data))
+                paths = list(self._iter_table_paths(table_data, path_spec))
             except Exception as e:
                 self.report.warning(
                     title="Failed to list files during profiling",

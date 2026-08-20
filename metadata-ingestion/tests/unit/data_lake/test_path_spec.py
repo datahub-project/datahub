@@ -697,6 +697,16 @@ def test_extension_map_rejects_empty_key() -> None:
         PathSpec(include="s3://bucket/{table}/*.js", extension_map={".": "json"})
 
 
+def test_extension_map_rejects_colliding_keys() -> None:
+    # A bare and a dot-prefixed key normalize to the same form; without a guard
+    # the last one would silently win. Reject the ambiguous config instead.
+    with pytest.raises(ValidationError):
+        PathSpec(
+            include="s3://bucket/{table}/*.js",
+            extension_map={"js": "json", ".js": "parquet"},
+        )
+
+
 # Tests for partition extraction
 def test_get_partition_from_path_no_table() -> None:
     """Test get_partition_from_path when include doesn't contain {table}."""

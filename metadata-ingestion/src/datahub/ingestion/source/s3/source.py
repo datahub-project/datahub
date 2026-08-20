@@ -428,15 +428,20 @@ class S3Source(StatefulIngestionSourceBase):
         entry_name = supported[0]
         inner_extension = pathlib.Path(entry_name).suffix
         try:
-            if zf.getinfo(entry_name).file_size > MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES:
+            # The uncompressed size in the central-directory header is
+            # attacker-controlled and never verified by zipfile, so a crafted
+            # entry can understate file_size yet still decompress to gigabytes.
+            # Decompress incrementally and stop one byte past the cap instead of
+            # trusting the header (ZipExtFile.read(n) bounds decompressed bytes).
+            with zf.open(entry_name) as entry:
+                entry_bytes = entry.read(MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES + 1)
+            if len(entry_bytes) > MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES:
                 self.report.report_warning(
                     full_path,
-                    f"zip entry {entry_name} uncompressed size "
-                    f"{zf.getinfo(entry_name).file_size} exceeds the "
+                    f"zip entry {entry_name} uncompressed size exceeds the "
                     f"{MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES} byte limit; skipping",
                 )
                 return None, ""
-            entry_bytes = zf.read(entry_name)
         finally:
             zf.close()
             zip_file.close()

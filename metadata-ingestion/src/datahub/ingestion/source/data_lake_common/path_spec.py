@@ -438,11 +438,17 @@ class PathSpec(ConfigModel):
         # the file suffix) match consistently. A leading-dot or empty key would
         # otherwise be accepted here but silently never resolve.
         normalized: Dict[str, str] = {}
+        source_key: Dict[str, str] = {}
         for ext, target in v.items():
             key = ext.lstrip(".")
             if not key:
                 raise ValueError(
                     f"extension_map key '{ext}' is empty; specify a bare extension like 'js'"
+                )
+            if key in normalized:
+                raise ValueError(
+                    f"extension_map keys '{source_key[key]}' and '{ext}' both normalize to "
+                    f"'{key}'; declare each extension only once"
                 )
             if target not in SUPPORTED_FILE_TYPES:
                 raise ValueError(
@@ -450,6 +456,7 @@ class PathSpec(ConfigModel):
                     f"Please specify one from {SUPPORTED_FILE_TYPES}"
                 )
             normalized[key] = target
+            source_key[key] = ext
         return normalized
 
     def resolve_extension(self, ext: str) -> str:
