@@ -55,7 +55,9 @@ class SeekableRangeFile(io.RawIOBase):
         return self._pos
 
     def seekable(self) -> bool:
+        self._checkClosed()
         return True
 
     def readable(self) -> bool:
+        self._checkClosed()
         return True

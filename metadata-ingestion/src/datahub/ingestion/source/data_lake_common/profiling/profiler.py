@@ -403,6 +403,11 @@ class FileProfiler:
                             staged_entry.seek(0)
                             read_stream = staged_entry
                             read_extension = entry.suffix
+                            # Drop the in-memory copy now that it is staged, so
+                            # the spooled file is the only retained buffer for the
+                            # rest of the profiling pass rather than pinning up to
+                            # max_zip_entry_size bytes alongside it.
+                            del entry
 
                         source = self._read_source(read_stream, read_extension)
                         if source is None:

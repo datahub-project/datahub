@@ -126,6 +126,17 @@ class TestSeekableS3File:
         f.seek(-100)
         assert f.tell() == 0
 
+    def test_capabilities_raise_after_close(self, s3_client):
+        # A closed range stream must not report itself as usable; seekable/readable
+        # raise ValueError like the other IOBase operations do.
+        _upload(s3_client, b"abcde")
+        f = SeekableS3File(s3_client, BUCKET, KEY)
+        f.close()
+        with pytest.raises(ValueError):
+            f.seekable()
+        with pytest.raises(ValueError):
+            f.readable()
+
     def test_zipfile_round_trip(self, s3_client):
         csv_content = b"name,age\nAlice,30\n"
         _upload(s3_client, _make_zip({"data.csv": csv_content}))

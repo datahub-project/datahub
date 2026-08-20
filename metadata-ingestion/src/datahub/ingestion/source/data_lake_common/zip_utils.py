@@ -135,12 +135,27 @@ def read_first_supported_zip_entry(
 
         inner_suffix = pathlib.Path(entry.filename).suffix
         # Read the selected ZipInfo (not the name) so duplicate member names
-        # cannot swap in a different entry, and read one byte past the cap to
-        # detect a header that under-declares the real decompressed size. The
-        # compress_type is allowlisted above, so read(n) bounds decompressed
-        # output for every method reached here.
-        with zf.open(entry) as member:
-            data = member.read(max_entry_size + 1)
+        # cannot swap in a different entry, and read one byte past the cap so an
+        # entry over the limit is caught even if the header under-declares its
+        # size. The compress_type is allowlisted above, so read(n) bounds
+        # decompressed output to n for every method reached here (verified for
+        # deflate/bzip2/lzma), keeping peak memory at ~max_entry_size regardless
+        # of what the header claims.
+        try:
+            with zf.open(entry) as member:
+                data = member.read(max_entry_size + 1)
+        except (zipfile.BadZipFile, EOFError, OSError) as e:
+            # Reading to EOF validates the entry's CRC-32 against the stored
+            # value; a crafted or corrupt archive whose real content does not
+            # match its header fails here. Reject it rather than let the
+            # exception abort the whole source or silently accept bad data.
+            report.warning(
+                title="Corrupt zip entry",
+                message="Skipping zip entry that failed decompression or CRC "
+                "validation",
+                context=f"{context}: entry {entry.filename}: {e}",
+            )
+            return None
         if len(data) > max_entry_size:
             report.warning(
                 title="Zip entry too large",

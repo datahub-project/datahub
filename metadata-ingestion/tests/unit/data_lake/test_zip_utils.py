@@ -152,6 +152,30 @@ def test_uncappable_compression_method_is_skipped(monkeypatch):
     assert report.warnings
 
 
+def test_crc_mismatch_is_skipped_not_raised():
+    # A crafted/corrupt archive whose stored payload no longer matches its CRC-32
+    # must be reported and skipped, not crash the source. Build a STORED entry
+    # (so file_size is honest and the size guard passes) then flip a payload byte
+    # so reading to EOF fails CRC validation.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("data.csv", b"hello\n")
+    raw = bytearray(buf.getvalue())
+    idx = raw.find(b"hello\n")
+    assert idx != -1
+    raw[idx] = ord("H")  # same length, different content -> CRC no longer matches
+
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        io.BytesIO(bytes(raw)),
+        context="archive.zip",
+        report=report,
+        supported_suffixes=SUPPORTED,
+    )
+    assert result is None
+    assert report.warnings
+
+
 def test_directory_entry_with_supported_suffix_is_ignored():
     # A directory named like a data file (data.csv/) must not be selected over
     # the real data entry.

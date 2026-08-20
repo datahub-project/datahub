@@ -388,8 +388,6 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
         extension = pathlib.Path(table_data.full_path).suffix
-        # The outer archive/compression content type must not drive inference of
-        # the inner file, so it is cleared once we unwrap a compressed member.
         content_type = table_data.content_type
 
         if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
@@ -399,13 +397,18 @@ class S3Source(StatefulIngestionSourceBase):
                     return []
                 file: IO[bytes] = io.BytesIO(entry.data)
                 extension = entry.suffix
+                # A zip's content type describes the archive, not the member we
+                # just unwrapped, so it must not drive inference of the inner file.
                 content_type = None
             else:
-                # .gz / .bz2 — smart_open decompresses transparently
+                # .gz / .bz2 — smart_open decompresses transparently. Keep the
+                # object's content type: for these single-file compressions it
+                # describes the inner payload (e.g. application/json for a
+                # .json.gz) and is the only inference signal when the inner
+                # extension is absent.
                 file = self._smart_open(table_data.full_path, s3_client)
                 # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
                 extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-                content_type = None
         else:
             file = self._smart_open(table_data.full_path, s3_client)
 
