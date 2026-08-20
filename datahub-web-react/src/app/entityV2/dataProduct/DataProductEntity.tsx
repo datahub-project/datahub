@@ -158,13 +158,11 @@ export class DataProductEntity implements Entity<DataProduct> {
     ];
 
     getProfileTabs = (): EntityTab[] => {
-        const showSummaryTab = useShowAssetSummaryPage();
-
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
-                component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
+                component: DataProductSummaryTab,
                 icon: ReadOutlined,
             },
             {
