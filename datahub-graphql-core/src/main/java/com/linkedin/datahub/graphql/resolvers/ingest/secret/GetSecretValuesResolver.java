@@ -25,11 +25,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Retrieves the plaintext values of secrets stored in DataHub. Uses AES symmetric encryption /
  * decryption. Requires the MANAGE_SECRETS privilege.
  */
+@Slf4j
 public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<List<SecretValue>>> {
 
   private final EntityClient _entityClient;
@@ -67,25 +69,40 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
                       new HashSet<>(urns),
                       ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
 
-              // Now for each secret, decrypt and return the value. If no secret was found, then we
-              // will simply omit it from the list.
+              // Now for each secret, decrypt and return the value. If no secret was found, or its
+              // stored value cannot be decrypted, it is omitted from the list so that the
+              // remaining secrets in the batch still resolve.
               // There is no ordering guarantee for the list.
               return entities.values().stream()
                   .map(
                       entity -> {
                         EnvelopedAspect aspect =
                             entity.getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME);
-                        if (aspect != null) {
-                          // Aspect is present.
-                          final DataHubSecretValue secretValue =
-                              new DataHubSecretValue(aspect.getValue().data());
+                        if (aspect == null) {
+                          // No secret exists
+                          return null;
+                        }
+                        final DataHubSecretValue secretValue =
+                            new DataHubSecretValue(aspect.getValue().data());
+                        try {
                           // Now decrypt the encrypted secret.
                           final String decryptedSecretValue =
                               _secretService.decrypt(
                                   context.getOperationContext(), secretValue.getValue());
                           return new SecretValue(secretValue.getName(), decryptedSecretValue);
-                        } else {
-                          // No secret exists
+                        } catch (Exception e) {
+                          // A stored value encrypted with a different SECRET_SERVICE_ENCRYPTION_KEY
+                          // (e.g. after a migration) or with corrupted encoding is undecryptable;
+                          // failing the whole batch for it would also break every healthy secret
+                          // requested alongside it.
+                          log.error(
+                              "Failed to decrypt secret '{}' (urn: {}). The stored value is likely "
+                                  + "corrupted or was encrypted with a different encryption key; "
+                                  + "delete and re-create the secret to fix it. Omitting it from "
+                                  + "the response. Reason: {}",
+                              secretValue.getName(),
+                              entity.getUrn(),
+                              e.getMessage());
                           return null;
                         }
                       })
