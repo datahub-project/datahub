@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime
 from typing import (
     AbstractSet,
     Any,
@@ -203,6 +204,32 @@ def _bounded_dataset_name(name: str) -> str:
     digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
     prefix_len = _DATASET_URN_NAME_MAX_LENGTH - len(digest) - 1
     return f"{name[:prefix_len]}.{digest}"
+
+
+def _build_timestamps(
+    created_at: Optional[datetime],
+    created_by: Optional[str],
+    updated_at: Optional[datetime],
+    updated_by: Optional[str],
+) -> Tuple[Optional[TimeStampClass], Optional[TimeStampClass]]:
+    # Build the (created, lastModified) pair shared by tables, volumes and
+    # volume files. lastModified falls back to created when there is no update
+    # timestamp. make_ts_millis returns a non-null int for any non-null
+    # datetime (see its @overload), so no inner None-guard is needed once the
+    # datetime is known to be present.
+    created: Optional[TimeStampClass] = None
+    if created_at is not None:
+        created = TimeStampClass(
+            make_ts_millis(created_at),
+            make_user_urn(created_by) if created_by else None,
+        )
+    last_modified = created
+    if updated_at is not None:
+        last_modified = TimeStampClass(
+            make_ts_millis(updated_at),
+            make_user_urn(updated_by) if updated_by else None,
+        )
+    return created, last_modified
 
 
 # Databricks external lineage can return object-storage paths with a trailing
@@ -938,31 +965,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if volume.updated_at:
             custom_properties["updated_at"] = str(volume.updated_at)
 
-        created: Optional[TimeStampClass] = None
-        if volume.created_at:
-            created_ts = make_ts_millis(volume.created_at)
-            if created_ts is not None:
-                created = TimeStampClass(
-                    created_ts,
-                    make_user_urn(volume.created_by) if volume.created_by else None,
-                )
-        last_modified = created
-        if volume.updated_at:
-            updated_ts = make_ts_millis(volume.updated_at)
-            if updated_ts is not None:
-                last_modified = TimeStampClass(
-                    updated_ts,
-                    make_user_urn(volume.updated_by) if volume.updated_by else None,
-                )
-
-        owner_urn = self.get_owner_urn(volume.owner)
-        ownership = (
-            OwnershipClass(
-                owners=[OwnerClass(owner=owner_urn, type=OwnershipTypeClass.DATAOWNER)]
-            )
-            if owner_urn is not None
-            else None
+        created, last_modified = _build_timestamps(
+            volume.created_at,
+            volume.created_by,
+            volume.updated_at,
+            volume.updated_by,
         )
+
+        ownership = self._create_ownership_aspect(volume.owner)
 
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=dataset_urn,
@@ -1019,11 +1029,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if volume_file.file_size is not None:
             custom_properties["file_size"] = str(volume_file.file_size)
 
-        last_modified: Optional[TimeStampClass] = None
-        if volume_file.last_modified:
-            updated_ts = make_ts_millis(volume_file.last_modified)
-            if updated_ts is not None:
-                last_modified = TimeStampClass(updated_ts)
+        _, last_modified = _build_timestamps(
+            None, None, volume_file.last_modified, None
+        )
 
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=dataset_urn,
@@ -1416,30 +1424,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             user = self.service_principals[user].display_name
         return make_user_urn(user)
 
-    def gen_dataset_urn(self, table_ref: TableReference) -> str:
+    def _gen_dataset_urn(self, name: str) -> str:
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             platform_instance=self.platform_instance_name,
-            name=str(table_ref),
+            name=name,
             env=self.config.env,
         )
+
+    def gen_dataset_urn(self, table_ref: TableReference) -> str:
+        return self._gen_dataset_urn(str(table_ref))
 
     def gen_volume_urn(self, volume_ref: unity_proxy_types.VolumeReference) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            platform_instance=self.platform_instance_name,
-            name=str(volume_ref),
-            env=self.config.env,
-        )
+        return self._gen_dataset_urn(str(volume_ref))
 
     def gen_volume_file_urn(self, volume_file: VolumeFile) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            platform_instance=self.platform_instance_name,
-            name=_bounded_dataset_name(
+        return self._gen_dataset_urn(
+            _bounded_dataset_name(
                 f"{volume_file.volume.ref}/{volume_file.relative_path}"
-            ),
-            env=self.config.env,
+            )
         )
 
     def gen_ml_model_urn(self, name: str) -> str:
@@ -2125,23 +2128,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self._build_metric_view_spec_custom_props(metric_view_spec)
             )
 
-        created: Optional[TimeStampClass] = None
         if table.created_at:
             custom_properties["created_at"] = str(table.created_at)
-            created_ts = make_ts_millis(table.created_at)
-            if created_ts is not None:
-                created = TimeStampClass(
-                    created_ts,
-                    make_user_urn(table.created_by) if table.created_by else None,
-                )
-        last_modified = created
-        if table.updated_at:
-            updated_ts = make_ts_millis(table.updated_at)
-            if updated_ts is not None:
-                last_modified = TimeStampClass(
-                    updated_ts,
-                    table.updated_by and make_user_urn(table.updated_by),
-                )
+        created, last_modified = _build_timestamps(
+            table.created_at,
+            table.created_by,
+            table.updated_at,
+            table.updated_by,
+        )
 
         # YAML top-level `comment` is the metric view's own documentation; UC's table.comment
         # is separate and may not be kept in sync. Prefer YAML when present.
@@ -2165,8 +2159,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             externalUrl=f"{self.external_url_base}/{table.ref.external_path}",
         )
 
-    def _create_table_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
-        owner_urn = self.get_owner_urn(table.owner)
+    def _create_ownership_aspect(
+        self, owner: Optional[str]
+    ) -> Optional[OwnershipClass]:
+        owner_urn = self.get_owner_urn(owner)
         if owner_urn is not None:
             return OwnershipClass(
                 owners=[
@@ -2177,6 +2173,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ]
             )
         return None
+
+    def _create_table_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
+        return self._create_ownership_aspect(table.owner)
 
     def _create_data_platform_instance_aspect(
         self,

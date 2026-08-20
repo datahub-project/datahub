@@ -910,6 +910,54 @@ class TestUnityCatalogProxy:
         assert proxy.report.num_volumes_list_failed == 1
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volumes_parse_failure_warns(self, mock_workspace_client):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        # Two raw volumes come back; parsing the first blows up, the second is fine.
+        bad_volume = MagicMock(name="bad")
+        bad_volume.name = "bad"
+        good_volume = MagicMock(name="good")
+        good_volume.name = "good"
+        mock_client.volumes.list.return_value = [bad_volume, good_volume]
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+
+        sentinel = object()
+
+        def _create_volume(_schema, raw_volume):
+            if raw_volume is bad_volume:
+                raise ValueError("cannot parse volume")
+            return sentinel
+
+        proxy._create_volume = _create_volume  # type: ignore[assignment]
+        result = list(proxy.volumes(schema))
+        # The parse failure is isolated: the good volume still comes through.
+        assert result == [sentinel]
+        assert proxy.report.num_volumes_parse_failed == 1
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volume_files_walks_directories(self, mock_workspace_client):
         from datahub.ingestion.source.unity.proxy_types import (
             Catalog,
@@ -1064,7 +1112,93 @@ class TestUnityCatalogProxy:
             )
         )
         assert [f.relative_path for f in files] == ["keep.parquet"]
-        assert proxy.report.num_volume_files_truncated == 1
+        assert proxy.report.num_volumes_file_limit_reached == 1
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volume_files_max_results_zero_lists_nothing(self, mock_workspace_client):
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        list_api = MagicMock()
+        proxy._files_api.list_directory_contents = list_api  # type: ignore[assignment]
+        volume = self._file_test_volume()
+
+        assert list(proxy.volume_files(volume, max_results=0)) == []
+        # max_results=0 must short-circuit without ever hitting the Files API.
+        list_api.assert_not_called()
+        assert proxy.report.num_volumes_file_limit_reached == 0
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volume_files_cycle_guard_terminates(self, mock_workspace_client):
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        # A backend that lists a directory pointing back at itself would loop
+        # forever without a visited-set guard.
+        self_ref_dir = MagicMock(
+            path="/Volumes/c/s/landing",
+            is_directory=True,
+            name="landing",
+            file_size=None,
+            last_modified=None,
+        )
+        file_entry = MagicMock(
+            path="/Volumes/c/s/landing/events.parquet",
+            is_directory=False,
+            name="events.parquet",
+            file_size=1,
+            last_modified=None,
+        )
+
+        def _list(_directory_path, page_size=None):
+            return [self_ref_dir, file_entry]
+
+        proxy._files_api.list_directory_contents = _list  # type: ignore[assignment]
+        volume = self._file_test_volume()
+        files = list(proxy.volume_files(volume, max_results=10))
+        assert [f.relative_path for f in files] == ["events.parquet"]
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volume_files_unresolvable_entries_counted(self, mock_workspace_client):
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        pathless_dir = MagicMock(
+            path="", is_directory=True, file_size=None, last_modified=None
+        )
+        # `name` is a reserved MagicMock constructor kwarg, so set it as an
+        # attribute to make entry.name actually resolve to "".
+        pathless_dir.name = ""
+        pathless_file = MagicMock(
+            path="", is_directory=False, file_size=1, last_modified=None
+        )
+        pathless_file.name = ""
+        good_file = MagicMock(
+            path="/Volumes/c/s/landing/events.parquet",
+            is_directory=False,
+            name="events.parquet",
+            file_size=1,
+            last_modified=None,
+        )
+
+        def _list(_directory_path, page_size=None):
+            return [pathless_dir, pathless_file, good_file]
+
+        proxy._files_api.list_directory_contents = _list  # type: ignore[assignment]
+        volume = self._file_test_volume()
+        files = list(proxy.volume_files(volume, max_results=10))
+        assert [f.relative_path for f in files] == ["events.parquet"]
+        # One pathless directory + one pathless file were dropped but counted.
+        assert proxy.report.num_volume_file_entries_unresolvable == 2
 
     @staticmethod
     def _file_test_volume():

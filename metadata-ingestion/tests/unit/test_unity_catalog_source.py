@@ -3269,6 +3269,7 @@ class TestUnityCatalogVolumes:
         from datahub.ingestion.source.common.subtypes import DatasetSubTypes
         from datahub.metadata.schema_classes import (
             DatasetPropertiesClass,
+            OwnershipClass,
             SubTypesClass,
         )
 
@@ -3298,6 +3299,86 @@ class TestUnityCatalogVolumes:
         assert props.customProperties["volume_type"] == "MANAGED"
         assert props.customProperties["storage_location"] == "s3://bucket/vols/landing"
         assert props.description == "landing files"
+
+        # include_ownership=True + volume.owner="data-eng" must emit ownership.
+        ownership: Optional[OwnershipClass] = None
+        for wu in wus:
+            found_ownership = wu.get_aspect_of_type(OwnershipClass)
+            if found_ownership is not None:
+                ownership = found_ownership
+                break
+        assert ownership is not None
+        assert len(ownership.owners) == 1
+        assert "data-eng" in ownership.owners[0].owner
+
+    def test_process_volume_without_ownership_emits_none(self) -> None:
+        from datahub.metadata.schema_classes import OwnershipClass
+
+        source = self._build_source(include_ownership=False)
+        volume, schema = self._build_volume()
+        wus = list(source.process_volume(volume, schema))
+        assert all(wu.get_aspect_of_type(OwnershipClass) is None for wu in wus)
+
+    def test_process_volume_emits_timestamps(self) -> None:
+        from datetime import datetime, timezone
+        from typing import Optional
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Volume,
+        )
+        from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+        source = self._build_source(include_ownership=True)
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        created_at = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        updated_at = datetime(2026, 6, 7, 8, 9, 10, tzinfo=timezone.utc)
+        volume = Volume(
+            id="c.s.landing",
+            name="landing",
+            comment=None,
+            schema=schema,
+            owner=None,
+            volume_type=None,
+            storage_location=None,
+            volume_id=None,
+            created_at=created_at,
+            created_by="alice",
+            updated_at=updated_at,
+            updated_by="bob",
+        )
+        props: Optional[DatasetPropertiesClass] = None
+        for wu in source.process_volume(volume, schema):
+            found = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if found is not None:
+                props = found
+                break
+        assert props is not None
+        assert props.created is not None
+        assert props.created.time == int(created_at.timestamp() * 1000)
+        assert props.created.actor is not None and "alice" in props.created.actor
+        assert props.lastModified is not None
+        assert props.lastModified.time == int(updated_at.timestamp() * 1000)
+        assert (
+            props.lastModified.actor is not None and "bob" in props.lastModified.actor
+        )
+        # Both timestamps also mirrored into custom properties.
+        assert props.customProperties["created_at"] == str(created_at)
+        assert props.customProperties["updated_at"] == str(updated_at)
 
     def test_include_volume_files_false_skips_api(self) -> None:
         source = self._build_source(include_volume_files=False)
@@ -3376,8 +3457,19 @@ class TestUnityCatalogVolumes:
         assert len(full_name) > _DATASET_URN_NAME_MAX_LENGTH
         bounded = _bounded_dataset_name(full_name)
         assert len(bounded) == _DATASET_URN_NAME_MAX_LENGTH
-        other = _bounded_dataset_name(f"{volume.ref}/dir/{'y' * 250}/file.parquet")
-        assert bounded != other
+
+        # True collision risk: two names that share the same prefix well past the
+        # truncation point and differ only in a suffix that the prefix slice
+        # discards. The digest (hashed over the full name) must keep them apart.
+        shared_prefix = f"{volume.ref}/dir/" + ("z" * 250)
+        collide_a = _bounded_dataset_name(shared_prefix + "/alpha.parquet")
+        collide_b = _bounded_dataset_name(shared_prefix + "/beta.parquet")
+        prefix_a, digest_a = collide_a.rsplit(".", 1)
+        prefix_b, digest_b = collide_b.rsplit(".", 1)
+        # Truncated prefixes are byte-identical; only the appended digest differs.
+        assert prefix_a == prefix_b
+        assert digest_a != digest_b
+        assert collide_a != collide_b
         assert bounded in source.gen_volume_file_urn(volume_file)
         props = None
         for wu in source.process_volume_file(volume_file, schema):

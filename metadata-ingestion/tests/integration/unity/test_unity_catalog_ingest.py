@@ -1801,3 +1801,119 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
     urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_tables": False})
     assert not any("my_table" in urn for urn in urns)
     assert any("my_view" in urn for urn in urns)
+
+
+def _register_volume_mock_data(workspace_client):
+    """Add one managed volume with a small nested file tree to the mock schema."""
+    from databricks.sdk.service.catalog import VolumeInfo, VolumeType
+    from databricks.sdk.service.files import DirectoryEntry
+
+    workspace_client.volumes.list.return_value = [
+        VolumeInfo.from_dict(
+            {
+                "name": "landing",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "full_name": "quickstart_catalog.quickstart_schema.landing",
+                "volume_type": VolumeType.MANAGED.value,
+                "storage_location": "s3://db-bucket/volumes/landing",
+                "owner": "account users",
+                "comment": "Landing zone for raw files",
+                "volume_id": "vol-0000-0001",
+                "created_at": 1666185645311,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186056973,
+                "updated_by": "abc@acryl.io",
+            }
+        )
+    ]
+
+    root = "/Volumes/quickstart_catalog/quickstart_schema/landing"
+
+    def _list_directory_contents(directory_path, page_size=None):
+        if directory_path == root:
+            return [
+                DirectoryEntry(path=f"{root}/raw", is_directory=True, name="raw"),
+                DirectoryEntry(
+                    path=f"{root}/readme.md",
+                    is_directory=False,
+                    name="readme.md",
+                    file_size=42,
+                    last_modified=1666186056973,
+                ),
+            ]
+        if directory_path == f"{root}/raw":
+            return [
+                DirectoryEntry(
+                    path=f"{root}/raw/events.parquet",
+                    is_directory=False,
+                    name="events.parquet",
+                    file_size=2048,
+                    last_modified=1666186056973,
+                ),
+            ]
+        return []
+
+    return _list_directory_contents
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_volume_ingestion(pytestconfig, tmp_path, requests_mock):
+    """Full-pipeline golden coverage for Unity Catalog volumes + volume files.
+
+    Tables/views/hive are disabled so the golden isolates volume and volume-file
+    aspects (subtypes, properties, ownership, container nesting under the schema).
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_volumes_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch("datahub.ingestion.source.unity.proxy.FilesAPI") as mock_files_api,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+        list_directory_contents = _register_volume_mock_data(workspace_client)
+
+        files_instance = mock.MagicMock()
+        files_instance.list_directory_contents.side_effect = list_directory_contents
+        mock_files_api.return_value = files_instance
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-volumes-test",
+            "pipeline_name": "unity-catalog-volumes-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_hive_metastore": False,
+                    "include_tables": False,
+                    "include_views": False,
+                    "include_ownership": True,
+                    "include_usage_statistics": False,
+                    "include_volumes": True,
+                    "include_volume_files": True,
+                    "warehouse_id": "test",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"/{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/unity_catalog_volumes_mces_golden.json",
+        )

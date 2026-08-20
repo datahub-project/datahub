@@ -18,6 +18,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Union,
     cast,
 )
@@ -99,6 +100,28 @@ logger: logging.Logger = logging.getLogger(__name__)
 # It is enough to keep the cache size to 1, since we only process one catalog at a time
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
+
+# Substrings that indicate a volume listing failure is a missing-grant problem
+# rather than an SDK/network fault. Only when one of these matches do we advise
+# granting READ VOLUME; otherwise we give neutral guidance so an unrelated error
+# (a TypeError from an SDK signature change, a transient network fault) isn't
+# misdiagnosed as a permissions issue.
+_PERMISSION_ERROR_KEYWORDS = (
+    "permission",
+    "not authorized",
+    "unauthorized",
+    "does not have",
+    "access denied",
+    "forbidden",
+    "privilege",
+    "read volume",
+    "403",
+)
+
+
+def _looks_like_permission_error(error: Exception) -> bool:
+    error_str = str(error).lower()
+    return any(keyword in error_str for keyword in _PERMISSION_ERROR_KEYWORDS)
 
 
 # Import and apply the proxy patch from separate module
@@ -674,13 +697,28 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
         except Exception as e:
             self.report.num_volumes_list_failed += 1
-            self.report.warning(
-                title="Failed to list Unity Catalog volumes",
-                message=(
+            # A whole schema's volumes are skipped here, so log live (not just in
+            # the final report) — this is broader-impact than a per-volume parse
+            # failure, which already logs.
+            logger.warning(
+                f"Failed to list volumes for schema {schema.id}: {e}", exc_info=True
+            )
+            if _looks_like_permission_error(e):
+                message = (
                     "Volumes in this schema were skipped. Grant READ VOLUME on the "
                     "volumes (plus USE CATALOG / USE SCHEMA on the parent) or set "
                     "include_volumes: false."
-                ),
+                )
+            else:
+                message = (
+                    "Volumes in this schema were skipped due to an unexpected error "
+                    "while listing them. If this is a permissions issue, grant READ "
+                    "VOLUME (plus USE CATALOG / USE SCHEMA on the parent); otherwise "
+                    "set include_volumes: false to skip volume ingestion."
+                )
+            self.report.warning(
+                title="Failed to list Unity Catalog volumes",
+                message=message,
                 context=schema.id,
                 exc=e,
                 log=False,
@@ -694,10 +732,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if optional_volume:
                     yield optional_volume
             except Exception as e:
-                logger.warning(f"Error parsing volume: {e}")
+                self.report.num_volumes_parse_failed += 1
+                volume_name = getattr(volume, "name", None)
+                logger.warning(f"Error parsing volume {volume_name}: {e}")
                 self.report.warning(
-                    message="Error parsing volume",
-                    context="volume-parse",
+                    title="Failed to parse Unity Catalog volume",
+                    message="A volume could not be parsed and was skipped.",
+                    context=f"{schema.id}.{volume_name}",
                     exc=e,
                     log=False,
                 )
@@ -711,10 +752,22 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if max_results <= 0:
             return
         root = volume_fs_root(volume)
+        # `pending` is used as a stack (pop() takes the most recently appended
+        # directory), so the volume is walked depth-first. Traversal order only
+        # affects which files survive when `max_results` truncates the walk; the
+        # set of files is otherwise order-independent.
         pending: List[str] = [root]
+        # A backend that returns a self-referential or duplicated directory entry
+        # would otherwise loop forever (max_results bounds yielded files, not
+        # directory visits). Track visited directories to guarantee termination.
+        visited: Set[str] = set()
         yielded = 0
+        limit_reached = False
         while pending and yielded < max_results:
             directory_path = pending.pop()
+            if directory_path in visited:
+                continue
+            visited.add(directory_path)
             try:
                 entries = self._files_api.list_directory_contents(
                     directory_path,
@@ -724,8 +777,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     path = entry.path or ""
                     is_directory = bool(entry.is_directory)
                     if is_directory:
-                        if path:
+                        if path and path not in visited:
                             pending.append(path)
+                        elif not path:
+                            # A directory entry with no path can't be walked;
+                            # count it so a run doesn't look clean when subtrees
+                            # were silently dropped.
+                            self.report.num_volume_file_entries_unresolvable += 1
                         continue
                     relative = (
                         path[len(root) :].lstrip("/")
@@ -733,13 +791,16 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         else (entry.name or "")
                     )
                     if not relative:
+                        # A file with neither a resolvable path under the volume
+                        # root nor a name would vanish silently; count it.
+                        self.report.num_volume_file_entries_unresolvable += 1
                         continue
                     qualified_name = f"{volume.ref.qualified_name}/{relative}"
                     if allowed is not None and not allowed(qualified_name):
                         continue
                     if yielded >= max_results:
-                        self.report.num_volume_files_truncated += 1
-                        return
+                        limit_reached = True
+                        break
                     yielded += 1
                     yield VolumeFile(
                         volume=volume,
@@ -752,21 +813,38 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                             else None
                         ),
                     )
+                if limit_reached:
+                    break
             except Exception as e:
                 self.report.num_volume_files_list_failed += 1
-                self.report.warning(
-                    title="Failed to list files in Unity Catalog volume",
-                    message=(
+                logger.warning(
+                    f"Failed to list files under {directory_path}: {e}", exc_info=True
+                )
+                if _looks_like_permission_error(e):
+                    message = (
                         "Files under this path were skipped. Grant READ VOLUME "
                         "or set include_volume_files: false."
-                    ),
+                    )
+                else:
+                    message = (
+                        "Files under this path were skipped due to an unexpected "
+                        "error while listing them. If this is a permissions issue, "
+                        "grant READ VOLUME; otherwise set include_volume_files: "
+                        "false to skip volume-file ingestion."
+                    )
+                self.report.warning(
+                    title="Failed to list files in Unity Catalog volume",
+                    message=message,
                     context=directory_path,
                     exc=e,
                     log=False,
                 )
                 continue
-        if pending:
-            self.report.num_volume_files_truncated += 1
+        # True when the file cap stopped the walk before every directory was
+        # visited — either we broke out mid-listing or directories were left
+        # unvisited. Counts volumes that hit the cap (see report field docs).
+        if limit_reached or pending:
+            self.report.num_volumes_file_limit_reached += 1
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
