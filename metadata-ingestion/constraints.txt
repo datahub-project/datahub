@@ -176,7 +176,7 @@ cachetools==5.5.2
     #   confluent-kafka
     #   mlflow-skinny
     #   pyiceberg
-cassandra-driver==3.29.3
+cassandra-driver==3.30.1
     # via acryl-datahub
 cattrs==26.1.0
     # via looker-sdk
@@ -306,6 +306,7 @@ deepmerge==2.0
 defusedxml==0.7.1
     # via
     #   acryl-datahub
+    #   nltk
     #   python3-openid
     #   tableauserverclient
 deltalake==0.25.5
@@ -314,6 +315,7 @@ deprecated==1.3.1
     # via
     #   acryl-datahub
     #   atlassian-python-api
+    #   cassandra-driver
 dill==0.3.9
     # via feast
 distro==1.9.0
@@ -769,7 +771,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.10.3
     # via
     #   acryl-datahub
     #   unstructured

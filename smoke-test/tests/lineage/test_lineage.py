@@ -38,9 +38,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
+from tests.utilities.domains import Domain
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 class DeleteAgent:

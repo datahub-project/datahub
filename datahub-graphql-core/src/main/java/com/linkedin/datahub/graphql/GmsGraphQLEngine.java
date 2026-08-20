@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 import static graphql.scalars.ExtendedScalars.*;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.invite.InviteTokenService;
@@ -241,6 +242,7 @@ import com.linkedin.datahub.graphql.resolvers.search.GetQuickFiltersResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
@@ -1144,6 +1146,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "scrollAcrossLineage", new ScrollAcrossLineageResolver(this.entityClient))
                 .dataFetcher(
+                    "searchAcrossLineageCounts",
+                    new SearchAcrossLineageCountsResolver(this.entityClient))
+                .dataFetcher(
                     "aggregateAcrossEntities",
                     new AggregateAcrossEntitiesResolver(
                         this.entityClient, this.viewService, this.formService))
@@ -1200,7 +1205,10 @@ public class GmsGraphQLEngine {
                     new ListRecommendationsResolver(recommendationsService, viewService))
                 .dataFetcher(
                     "getEntityCounts", new EntityCountsResolver(this.entityClient, viewService))
-                .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
+                .dataFetcher(
+                    "getAccessToken",
+                    new GetAccessTokenResolver(
+                        statefulTokenService, resolveAccessTokenConfiguration()))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(
                     "getAccessTokenMetadata",
@@ -1463,7 +1471,10 @@ public class GmsGraphQLEngine {
                   "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher(
                   "createAccessToken",
-                  new CreateAccessTokenResolver(this.statefulTokenService, this.entityClient))
+                  new CreateAccessTokenResolver(
+                      this.statefulTokenService,
+                      this.entityClient,
+                      resolveAccessTokenConfiguration()))
               .dataFetcher(
                   "revokeAccessToken",
                   new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
@@ -3351,6 +3362,18 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher(
+                    "ownershipTypes",
+                    new LoadableTypeBatchResolver<>(
+                        ownershipType,
+                        (env) -> {
+                          final FormActorAssignment actors = env.getSource();
+                          return actors.getOwnershipTypes() != null
+                              ? actors.getOwnershipTypes().stream()
+                                  .map(OwnershipTypeEntity::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
+                        }))
+                .dataFetcher(
                     "users",
                     new LoadableTypeBatchResolver<>(
                         corpUserType,
@@ -3933,7 +3956,8 @@ public class GmsGraphQLEngine {
 
     // Add incidents attribute to all entities that support it
     final List<String> entitiesWithIncidents =
-        ImmutableList.of("Dataset", "DataJob", "DataFlow", "Dashboard", "Chart");
+        ImmutableList.of(
+            "Dataset", "DataJob", "DataFlow", "Dashboard", "Chart", "MLModel", "MLFeature");
     for (String entity : entitiesWithIncidents) {
       builder.type(
           entity,
@@ -4291,5 +4315,11 @@ public class GmsGraphQLEngine {
                           ? smp.getSemanticModel().getUrn()
                           : null;
                     })));
+  }
+
+  private AccessTokenConfiguration resolveAccessTokenConfiguration() {
+    return authenticationConfiguration.getAccessTokens() != null
+        ? authenticationConfiguration.getAccessTokens()
+        : AccessTokenConfiguration.defaults();
   }
 }

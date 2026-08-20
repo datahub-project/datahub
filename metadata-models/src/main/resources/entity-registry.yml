@@ -24,6 +24,8 @@ entities:
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - usageFeatures
+      - storageFeatures
       - operation
       - domains
       - applications
@@ -276,7 +278,6 @@ entities:
       - displayProperties
       - assetSettings
   - name: container
-    viewUnrestricted: true
     doc: A container of related data assets.
     category: core
     keyAspect: containerKey
@@ -454,6 +455,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -538,6 +540,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey

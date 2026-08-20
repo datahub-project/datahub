@@ -72,7 +72,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -259,18 +258,10 @@ public class SpringStandardPluginConfiguration {
     return new DataProductUnsetSideEffect().setConfig(config);
   }
 
-  // Returns null when MeterRegistry/ObjectMapper unavailable
   @Bean
   @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
   public MCPObserver ingestionMetricsEmitter(
-      ObjectProvider<MeterRegistry> meterRegistryProvider,
-      ObjectProvider<ObjectMapper> objectMapperProvider) {
-    MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
-    ObjectMapper objectMapper = objectMapperProvider.getIfAvailable();
-    if (meterRegistry == null || objectMapper == null) {
-      log.info("Required beans not available, skipping IngestionMetricsEmitter");
-      return null;
-    }
+      MeterRegistry meterRegistry, ObjectMapper objectMapper) {
     AspectPluginConfig config =
         AspectPluginConfig.builder()
             .className(IngestionMetricsEmitter.class.getName())
@@ -475,6 +466,18 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_GROUP_ENTITY_NAME)
                             .aspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
                             .build()))
                 .build());
   }

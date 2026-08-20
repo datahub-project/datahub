@@ -12,6 +12,7 @@ on:
       - "!.github/**"
       - ".github/workflows/build-and-test.yml"
       - ".github/actions/ensure-codegen-updated"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/send_failed_tests_to_posthog.py"
   pull_request:
     branches:
@@ -23,6 +24,7 @@ on:
       - "!.github/**"
       - ".github/workflows/build-and-test.yml"
       - ".github/actions/ensure-codegen-updated"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/send_failed_tests_to_posthog.py"
   workflow_dispatch:
   schedule:
@@ -125,13 +127,16 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build (and test) for NOT metadata ingestion
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
@@ -292,13 +297,16 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build and test for frontend (no JS tests)
         run: |
@@ -357,11 +365,11 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
@@ -507,13 +515,16 @@ jobs:
             echo "::error::Only $count backend test modules discovered (<20) — globs/excludes likely broken; refusing near-empty sharded run."
             exit 1
           fi
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           # setup-gradle handles deps/wrapper; the local build cache is managed explicitly
@@ -592,13 +603,16 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
@@ -721,12 +735,15 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: true

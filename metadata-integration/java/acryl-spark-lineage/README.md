@@ -469,7 +469,7 @@ The agent shadow jar is compiled to **Java 17 bytecode**, so it requires a Spark
 **Java 17 or newer**. This matches the current defaults of the major managed Spark platforms:
 
 - Amazon EMR 7.x (Java 17)
-- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18+ is Java 21)
+- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18.x/19.x run Java 21)
 - Dataproc Serverless 2.x / 3.0 and Dataproc on GCE image 3.0
 - Microsoft Fabric runtime 2.0
 
@@ -478,7 +478,7 @@ Java 8 and Java 11 runtimes are **not supported** (e.g. EMR 6.x, Databricks ≤ 
 
 ## How to build
 
-The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and produces the Java
+The build uses Gradle (the JDK 25 toolchain is provisioned automatically) and produces the Java
 17-bytecode shadow jar:
 
 ```shell
