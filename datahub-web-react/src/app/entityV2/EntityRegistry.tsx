@@ -298,6 +298,7 @@ export default class EntityRegistry {
                         type: LineageAssetType.Column,
                         dataType: field.type,
                         nativeDataType: field.nativeDataType,
+                        description: field.description,
                     };
                     return [name, value];
                 }),
