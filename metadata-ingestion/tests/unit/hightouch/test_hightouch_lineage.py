@@ -1176,3 +1176,147 @@ def test_resolve_sql_model_upstream_urns_parse_failure(
 
     assert urns == []
     assert source_instance.report.sql_parsing_failures >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_extract_table_urns_from_sql_normalizes_schema_off(
+    mock_api_client_class, pipeline_context
+):
+    """The extractor runs parser output through normalize_parsed_upstream_urn: with
+    include_schema_in_urn off the schema segment is dropped and the bare table is
+    re-qualified with the configured database, matching the source connector's URNs."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        parse_model_sql=True,
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(
+                platform="snowflake",
+                database="raw_data",
+                include_schema_in_urn=False,
+            ),
+        },
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="Raw SQL Model",
+        slug="raw-sql-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="SELECT id, email FROM raw_data.public.customers",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Source",
+        slug="snowflake-source",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    urns = source_instance._model_handler.extract_table_urns_from_sql(
+        model, source_connection
+    )
+
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw_data.customers,PROD)"
+    ]
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_extract_table_urns_from_sql_keeps_schema_on(
+    mock_api_client_class, pipeline_context
+):
+    """With include_schema_in_urn on the parser output already matches, so the extractor
+    returns the fully schema-qualified URN unchanged."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        parse_model_sql=True,
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(
+                platform="snowflake",
+                database="raw_data",
+                include_schema_in_urn=True,
+            ),
+        },
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="Raw SQL Model",
+        slug="raw-sql-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="SELECT id FROM raw_data.public.customers",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Source",
+        slug="snowflake-source",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    urns = source_instance._model_handler.extract_table_urns_from_sql(
+        model, source_connection
+    )
+
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw_data.public.customers,PROD)"
+    ]
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_extract_table_urns_from_sql_returns_empty_on_parse_failure(
+    mock_api_client_class, pipeline_context
+):
+    """Unparseable SQL yields no upstreams instead of raising."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        parse_model_sql=True,
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(platform="snowflake", database="raw_data"),
+        },
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_2",
+        name="Broken SQL Model",
+        slug="broken-sql-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="this is not valid SQL @@@ ;;;",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Source",
+        slug="snowflake-source",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    urns = source_instance._model_handler.extract_table_urns_from_sql(
+        model, source_connection
+    )
+
+    assert urns == []

@@ -18,7 +18,7 @@ from datahub.ingestion.source.hightouch.protocols import (
     GetPlatformForDestination,
     GetPlatformForSource,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, InvalidUrnError
 
 
 class HightouchUrnBuilder:
@@ -65,6 +65,16 @@ class HightouchUrnBuilder:
         configuration = source.configuration or {}
         return configuration.get(SOURCE_CONFIG_KEY_DATABASE, "")
 
+    @staticmethod
+    def _strip_to_database_qualified(name: str, database: str) -> str:
+        # include_schema_in_urn is false: reduce any schema/database qualification down
+        # to the bare table, then re-qualify with the configured database so the name
+        # matches the URN the source platform emits. Shared by qualified_table_name and
+        # normalize_parsed_upstream_urn so the source-table and raw-SQL lineage paths
+        # cannot diverge.
+        bare_table = name.split(".")[-1]
+        return f"{database}.{bare_table}" if database else bare_table
+
     def qualified_table_name(
         self, model: HightouchModel, source: HightouchSourceConnection
     ) -> str:
@@ -82,20 +92,21 @@ class HightouchUrnBuilder:
                 parts = [part for part in (database, schema, table_name) if part]
                 return ".".join(parts)
             # Qualification is requested but no schema is configured: preserve any
-            # schema already embedded in the model name (e.g. "schema.table")
-            # instead of stripping it, and only prepend the database when the name
-            # is not already database-qualified.
-            if database and not table_name.startswith(f"{database}."):
+            # schema already embedded in the model name (e.g. "schema.table"). Only
+            # prepend the database when the name is not already fully qualified — a
+            # three-part name (db.schema.table), possibly with a different database,
+            # would otherwise become an invalid four-part name.
+            already_qualified = len(
+                table_name.split(".")
+            ) >= 3 or table_name.startswith(f"{database}.")
+            if database and not already_qualified:
                 return f"{database}.{table_name}"
             return table_name
 
         # include_schema_in_urn is false: drop any existing schema/database
         # qualification down to the bare table name so the option actually removes
         # the schema segment, then prepend the configured database.
-        bare_table = table_name.split(".")[-1]
-        if database:
-            return f"{database}.{bare_table}"
-        return bare_table
+        return self._strip_to_database_qualified(table_name, database)
 
     def make_model_urn(
         self,
@@ -140,11 +151,14 @@ class HightouchUrnBuilder:
             return str(urn)
         try:
             parsed = DatasetUrn.from_string(str(urn))
-        except Exception:
+        except InvalidUrnError:
+            # Malformed parser output: keep the original URN rather than dropping the
+            # edge. Only the documented invalid-URN error is swallowed here; any other
+            # exception is a programming error and must propagate to the caller's
+            # reraise_if_programming_error guard instead of being hidden.
             return str(urn)
         database = self._resolve_source_database(source, source_details)
-        bare_table = parsed.name.split(".")[-1]
-        name = f"{database}.{bare_table}" if database else bare_table
+        name = self._strip_to_database_qualified(parsed.name, database)
         return str(self.make_upstream_table_urn(name, source))
 
     def make_destination_urn(

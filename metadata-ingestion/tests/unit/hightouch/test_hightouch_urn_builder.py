@@ -424,6 +424,50 @@ def _urn_builder_for_schema_flag(pipeline_context, include_schema_in_urn):
     return urn_builder, source_connection
 
 
+def _model(name: str) -> HightouchModel:
+    return HightouchModel(
+        id="model_1",
+        name=name,
+        slug="raw-sql-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_qualified_table_name_does_not_double_prefix_qualified_names(
+    mock_api_client_class, pipeline_context
+):
+    """With schema qualification requested but no schema configured, a bare name is
+    prefixed with the configured database, an already db-prefixed name is left alone,
+    and a fully three-part name (even for a different database) is not turned into an
+    invalid four-part name."""
+    urn_builder, source_connection = _urn_builder_for_schema_flag(
+        pipeline_context, include_schema_in_urn=True
+    )
+
+    assert (
+        urn_builder.qualified_table_name(_model("customers"), source_connection)
+        == "raw_data.customers"
+    )
+    assert (
+        urn_builder.qualified_table_name(
+            _model("raw_data.customers"), source_connection
+        )
+        == "raw_data.customers"
+    )
+    # A fully qualified name for a different database must be preserved as-is.
+    assert (
+        urn_builder.qualified_table_name(
+            _model("other_db.public.customers"), source_connection
+        )
+        == "other_db.public.customers"
+    )
+
+
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_normalize_parsed_upstream_urn_keeps_schema_when_flag_true(
     mock_api_client_class, pipeline_context
