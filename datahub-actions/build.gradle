@@ -167,7 +167,6 @@ docker {
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testFull
 
 clean {

@@ -64,11 +64,11 @@ jobs:
         include:
           - python-version: "3.10"
             extraPythonRequirement: "great-expectations~=0.18.0"
-            gradleTasks: ":metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:testFull"
             venvName: "venv"
           - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.18.0"
-            gradleTasks: ":metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:testFull"
             venvName: "venv"
           # GX Core 1.x exercises datahub_gx_plugin.action_v1 in its own venv.
           - python-version: "3.11"

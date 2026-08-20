@@ -3923,7 +3923,14 @@ public class GmsGraphQLEngine {
     // Add incidents attribute to all entities that support it
     final List<String> entitiesWithIncidents =
         ImmutableList.of(
-            "Dataset", "DataJob", "DataFlow", "Dashboard", "Chart", "MLModel", "MLFeature");
+            "Dataset",
+            "DataJob",
+            "DataFlow",
+            "Dashboard",
+            "Chart",
+            "MLModel",
+            "MLFeature",
+            "SchemaFieldEntity");
     for (String entity : entitiesWithIncidents) {
       builder.type(
           entity,

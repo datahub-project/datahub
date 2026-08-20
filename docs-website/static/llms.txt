@@ -95,7 +95,7 @@ DataHub goes beyond a traditional data catalog: it connects technical metadata, 
 
 ## Community
 
-- [Slack Community](https://docs.datahub.com/docs/slack): Join 15,000+ practitioners for support and discussion
+- [Slack Community](https://docs.datahub.com/docs/slack): Join 16,000+ practitioners for support and discussion
 - [Town Halls](https://docs.datahub.com/docs/townhalls): Monthly calls with customer stories, roadmap updates, demos, and Q&A
 - [Contributing Guide](https://docs.datahub.com/docs/contributing): How to contribute code, docs, and bug reports
 - [Code of Conduct](https://docs.datahub.com/docs/code_of_conduct): Community standards for respectful collaboration
