@@ -106,4 +106,12 @@ def maintains_dataset_aliases(graph: "DataHubGraph") -> bool:
     """
     config = graph.server_config
     minimum = _MIN_CLOUD_VERSION if config.is_datahub_cloud else _MIN_OSS_VERSION
-    return config.is_version_at_least(*minimum)
+    try:
+        return config.is_version_at_least(*minimum)
+    except ValueError:
+        logger.warning(
+            f"Cannot read the DataHub server version {config.service_version!r}, so "
+            "whether it maintains the dataset `aliases` aspect is unknown; lineage URN "
+            "casing resolution is disabled and lineage is emitted unchanged."
+        )
+        return False
