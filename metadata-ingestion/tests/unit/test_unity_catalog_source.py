@@ -3388,6 +3388,29 @@ class TestUnityCatalogVolumes:
         assert props is not None
         assert props.qualifiedName == volume_file.qualified_name
 
+    def test_bounded_dataset_name_case_folds_before_hashing(self) -> None:
+        from unittest.mock import patch
+
+        from datahub.ingestion.source.unity import source as unity_source
+        from datahub.ingestion.source.unity.source import (
+            _DATASET_URN_NAME_MAX_LENGTH,
+            _bounded_dataset_name,
+        )
+
+        long_path = "c.s.vol/dir/" + ("X" * 250) + "/File.parquet"
+        assert len(long_path) > _DATASET_URN_NAME_MAX_LENGTH
+        # When URNs are lower-cased, paths differing only by case must collapse to
+        # one bounded name — the digest can't diverge on the pre-normalized case.
+        with patch.object(unity_source, "DATASET_URN_TO_LOWER", True):
+            assert _bounded_dataset_name(long_path) == _bounded_dataset_name(
+                long_path.lower()
+            )
+        # Without lower-casing, the two remain distinct.
+        with patch.object(unity_source, "DATASET_URN_TO_LOWER", False):
+            assert _bounded_dataset_name(long_path) != _bounded_dataset_name(
+                long_path.lower()
+            )
+
     def test_volume_file_pattern_drops(self) -> None:
         from datahub.ingestion.source.unity.proxy_types import VolumeFile
 

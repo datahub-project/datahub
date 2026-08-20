@@ -27,6 +27,7 @@ import yaml
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
+    DATASET_URN_TO_LOWER,
     UNKNOWN_USER,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -189,6 +190,12 @@ _DATASET_URN_NAME_MAX_LENGTH = 210
 
 
 def _bounded_dataset_name(name: str) -> str:
+    # make_dataset_urn_with_platform_instance lower-cases the whole name when
+    # DATASET_URN_TO_LOWER is set, so hash the same normalized form here.
+    # Otherwise two paths differing only by case would fold to one prefix but
+    # keep distinct digests, yielding two URNs for what is one dataset.
+    if DATASET_URN_TO_LOWER:
+        name = name.lower()
     if len(name) <= _DATASET_URN_NAME_MAX_LENGTH:
         return name
     digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
