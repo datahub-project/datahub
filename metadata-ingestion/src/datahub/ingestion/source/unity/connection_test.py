@@ -46,7 +46,17 @@ class UnityCatalogConnectionTest:
             query_history = self.proxy.query_history(
                 self.config.start_time, self.config.end_time
             )
-            _ = next(iter(query_history))
+            first = next(iter(query_history))
+            if first.is_query_text_redacted:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=(
+                        "Query text is redacted (<REDACTED>). Add the ingestion "
+                        "principal to the account-level group databricks_pii_access "
+                        "so usage statistics and Query entities can read unmasked "
+                        "SQL statement text."
+                    ),
+                )
             return CapabilityReport(capable=True)
         except StopIteration:
             return CapabilityReport(

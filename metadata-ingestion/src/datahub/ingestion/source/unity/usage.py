@@ -329,6 +329,10 @@ class UnityCatalogUsageExtractor:
         query: Query,
         default_db: Optional[str],
     ) -> None:
+        if query.is_query_text_redacted:
+            self.report.num_queries_with_redacted_text += 1
+            return
+
         if self.config.include_column_usage_stats:
             self._add_observed_query(aggregator, query, default_db)
             return
@@ -423,6 +427,21 @@ class UnityCatalogUsageExtractor:
                     context=f"count={count}",
                     log=False,
                 )
+
+        if self.report.num_queries_with_redacted_text > 0:
+            self.report.warning(
+                title="Databricks query text is redacted",
+                message=(
+                    "Databricks returned <REDACTED> instead of SQL statement text, "
+                    "so affected queries were skipped and usage statistics, "
+                    "operational statistics, and Query entities may be incomplete. "
+                    "Add the ingestion principal to the account-level "
+                    "databricks_pii_access group while retaining its existing query "
+                    "history permissions. See the DataHub Databricks connector "
+                    "prerequisites for details."
+                ),
+                context=f"count={self.report.num_queries_with_redacted_text}",
+            )
 
         # Handled separately: it appends sample table names to the context.
         if self.report.num_lineage_tables_unresolvable > 0:

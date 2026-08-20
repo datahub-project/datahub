@@ -1523,6 +1523,62 @@ def test_preparsed_query_used_when_system_table_lineage_present(
     assert agg.preparsed[0].upstreams, "preparsed query must carry upstream urns"
 
 
+def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
+    config = MagicMock()
+    proxy = MagicMock()
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query("<REDACTED>"),
+        default_db=None,
+    )
+    ex._report_usage_lineage_warnings()
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    redaction_warnings = [
+        warning
+        for warning in ex.report.warnings
+        if warning.title == "Databricks query text is redacted"
+    ]
+    assert len(redaction_warnings) == 1
+    assert "databricks_pii_access" in redaction_warnings[0].message
+
+
+def test_redacted_query_text_detection_is_case_insensitive() -> None:
+    config = MagicMock()
+    proxy = MagicMock()
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(aggregator, _query("<Redacted>"), default_db=None)
+
+    aggregator.add_observed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+
+
+def test_usage_connectivity_fails_when_query_text_redacted() -> None:
+    from datahub.ingestion.source.unity.connection_test import (
+        UnityCatalogConnectionTest,
+    )
+
+    config = MagicMock()
+    config.include_usage_statistics = True
+    test = UnityCatalogConnectionTest.__new__(UnityCatalogConnectionTest)
+    test.config = config
+    test.proxy = MagicMock()
+    test.proxy.query_history.return_value = iter([_query("<REDACTED>")])
+
+    report = test.usage_connectivity()
+    assert report is not None
+    assert report.capable is False
+    assert report.failure_reason is not None
+    assert "databricks_pii_access" in report.failure_reason
+
+
 def test_fallback_to_observed_when_lineage_unresolvable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

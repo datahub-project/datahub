@@ -147,3 +147,14 @@ Similarly, `include_table_constraints: true` adds one `tables.get()` call per no
 
 - On the system-tables path, queries without rows in `system.access.table_lineage` are parsed with sqlglot unless `skip_sqlglot_when_system_table_lineage_missing: true`.
 - With `push_down_database_pattern_access_history: true`, only statements with lineage in the time window are fetched. Disable pushdown or relax `catalog_pattern` if usage looks incomplete.
+- If the ingestion report contains **Databricks query text is redacted**, Databricks returned `<REDACTED>` instead of SQL text. Create the account-level group `databricks_pii_access` and add the ingestion principal to it, while retaining its existing system-table or Query History API permissions. You can verify access by running the following query as the ingestion principal:
+
+  ```sql
+  SELECT statement_text
+  FROM system.query.history
+  WHERE execution_status = 'FINISHED'
+  ORDER BY start_time DESC
+  LIMIT 5;
+  ```
+
+  The result should contain SQL text rather than `<REDACTED>`.
