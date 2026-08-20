@@ -1445,16 +1445,61 @@ def test_a_schemaless_listed_entity_is_asked_about_once():
     assert _schema_fetches(graph) == 1
 
 
-def test_a_failing_preloaded_schema_resolver_keeps_the_table_level_healing():
-    # A preloaded catalog reads sqlite, so it can fail too. Unhandled, that escaped into
-    # process() and discarded the whole work unit's reconciliation — losing the table
-    # casing as well as the columns.
+def test_a_failing_preloaded_urn_catalog_still_lets_datahub_answer():
+    # Identity follows the same rule as columns: a preloaded catalog that raises has not
+    # said the entity is absent, and DataHub's search is exhaustive, so the reference still
+    # heals rather than going unstamped.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [LOWER], [_SNOWFLAKE_SLICE]
+    )
+    for resolvers in processor._alias_resolvers.values():
+        for resolver in resolvers:
+            resolver.resolve = mock.MagicMock(side_effect=Exception("sqlite went away"))
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == LOWER
+    assert processor.report.num_dataset_urns_normalized == 1
+    assert processor.report.num_refs_lookup_failed == 0
+    assert processor.report.num_exceptions == 0
+
+
+def test_a_failing_preloaded_resolver_still_lets_datahub_answer():
+    # A raise is not an absence. A slice whose load failed has its columns fetched, and a
+    # slice that breaks at read time is no different — DataHub is still asked, so the
+    # columns are recovered and nothing is reported lost.
     failing = mock.MagicMock()
     failing.schema_count.return_value = 0
     failing.resolve_urn.side_effect = Exception("sqlite went away")
     processor, graph, patcher = _processor_for(
         _widened(), failing, [LOWER], [_SNOWFLAKE_SLICE]
     )
+    graph.get_aspect.return_value = _schema_metadata("snowflake", ["amount"])
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="AMOUNT")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "amount")]
+    assert processor.report.num_schema_fetches_failed == 0
+    assert processor.report.num_exceptions == 0
+
+
+def test_a_failing_preloaded_schema_resolver_keeps_the_table_level_healing():
+    # Neither the preloaded catalog nor the fetch can answer. Unhandled, the catalog's
+    # failure escaped into process() and discarded the whole work unit's reconciliation —
+    # losing the table casing as well as the columns.
+    failing = mock.MagicMock()
+    failing.schema_count.return_value = 0
+    failing.resolve_urn.side_effect = Exception("sqlite went away")
+    processor, graph, patcher = _processor_for(
+        _widened(), failing, [LOWER], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_aspect.side_effect = Exception("boom")
     try:
         [out] = list(
             processor.process(iter([_upstream_wu(UPPER, fine_grained_field="AMOUNT")]))
