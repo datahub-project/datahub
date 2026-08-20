@@ -67,7 +67,6 @@ public class FeatureFlags {
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
   private boolean metricsEnabled = false;
-  private boolean dataProductMarketplaceEnabled = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
