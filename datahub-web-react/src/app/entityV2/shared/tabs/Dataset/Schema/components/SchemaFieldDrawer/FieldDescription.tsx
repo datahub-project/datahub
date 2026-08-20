@@ -144,6 +144,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                             <Tooltip title={noPermissionTooltip}>
                                 <AddNewDescription
                                     $disabled={!canEditSchemaFieldDescription}
+                                    aria-disabled={!canEditSchemaFieldDescription}
                                     onClick={() => {
                                         if (!canEditSchemaFieldDescription) return;
                                         setIsModalVisible(true);
