@@ -895,6 +895,42 @@ class TestUnityCatalogProxy:
         )
         assert list(proxy.volumes(schema)) == []
         assert proxy.report.num_volumes_list_failed == 1
+        # A permission-flavoured error advises the READ VOLUME grant so the user
+        # is pointed at the real cause rather than a generic failure.
+        messages = [str(w.message) for w in proxy.report.warnings]
+        assert any("Grant READ VOLUME on the" in m for m in messages), messages
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_volumes_list_failure_non_permission_warns(self, mock_workspace_client):
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        # A transient SDK/network fault must NOT be misdiagnosed as a missing grant.
+        mock_client.volumes.list.side_effect = RuntimeError("connection reset by peer")
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        assert list(proxy.volumes(schema)) == []
+        assert proxy.report.num_volumes_list_failed == 1
+        messages = [str(w.message) for w in proxy.report.warnings]
+        # The generic "unexpected error" guidance is used, and the confident
+        # permission-grant advice is deliberately withheld.
+        assert any("unexpected error" in m for m in messages), messages
+        assert not any("Grant READ VOLUME on the" in m for m in messages), messages
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volumes_parse_failure_warns(self, mock_workspace_client):
