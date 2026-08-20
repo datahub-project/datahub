@@ -73,7 +73,7 @@ export default function MarketplaceSearch() {
                     onFocus={() => setIsSearchBarFocused(true)}
                     data-testid="marketplace-sidebar-search-input"
                 />
-                {isSearchBarFocused && (loading || !!searchResults?.length) && (
+                {isSearchBarFocused && searchInput === query && (loading || !!searchResults?.length) && (
                     <SearchResultsDropdown>
                         {loading && (
                             <LoadingWrapper>

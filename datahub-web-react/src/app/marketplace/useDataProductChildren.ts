@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 
-import { useScrollDataProductChildrenQuery } from '@graphql/marketplaceBrowse.generated';
+import { useScrollDataProductsQuery } from '@graphql/marketplaceBrowse.generated';
 import { EntityType, SortOrder } from '@types';
 
 export const DATA_PRODUCT_CHILDREN_COUNT = 50;
@@ -35,12 +35,19 @@ export default function useDataProductChildren({ parentUrn, skip }: Props) {
     const [scrollId, setScrollId] = useState<string | null>(null);
     const [data, setData] = useState<DataProductEntity[]>([]);
 
-    useEffect(() => {
+    const [prevParentUrn, setPrevParentUrn] = useState(parentUrn);
+    if (parentUrn !== prevParentUrn) {
+        setPrevParentUrn(parentUrn);
         setScrollId(null);
         setData([]);
-    }, [parentUrn]);
+    }
 
-    const { data: scrollData, loading } = useScrollDataProductChildrenQuery({
+    const {
+        data: scrollData,
+        loading,
+        error,
+        refetch,
+    } = useScrollDataProductsQuery({
         variables: buildScrollInput(parentUrn, scrollId),
         skip: !!skip,
         notifyOnNetworkStatusChange: true,
@@ -76,9 +83,17 @@ export default function useDataProductChildren({ parentUrn, skip }: Props) {
         }
     }, [inView, nextScrollId, scrollId, loading]);
 
+    const refetchChildren = useCallback(() => {
+        setScrollId(null);
+        setData([]);
+        return refetch(buildScrollInput(parentUrn, null));
+    }, [parentUrn, refetch]);
+
     return {
         data,
         loading,
+        error,
+        refetch: refetchChildren,
         scrollRef,
     };
 }

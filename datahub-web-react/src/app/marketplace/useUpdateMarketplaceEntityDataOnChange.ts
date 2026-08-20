@@ -7,6 +7,27 @@ import usePrevious from '@app/shared/usePrevious';
 
 import { EntityType } from '@types';
 
+type MarketplaceEntitySource = Pick<GenericEntityProperties, 'urn'> & {
+    parentDataProducts?: Array<{ urn: string } | null> | null;
+};
+
+function toMarketplaceEntityData(
+    entityData: MarketplaceEntitySource,
+    entityType: EntityType,
+): MarketplaceEntityData | null {
+    if (!entityData.urn) {
+        return null;
+    }
+
+    return {
+        urn: entityData.urn,
+        entityType,
+        parentDataProducts: Array.isArray(entityData.parentDataProducts)
+            ? entityData.parentDataProducts.filter((p): p is { urn: string } => !!p?.urn).map((p) => ({ urn: p.urn }))
+            : null,
+    };
+}
+
 /**
  * Called from EntityProfile whenever the entity data for a data-product profile page changes.
  * Pushes the parentDataProducts chain into MarketplaceEntityContext so the sidebar can
@@ -29,15 +50,11 @@ export function useUpdateMarketplaceEntityDataOnChange(
             return;
         }
 
-        const raw = entityData as any;
-        const next: MarketplaceEntityData = {
-            urn: raw.urn ?? '',
-            entityType,
-            parentDataProducts: Array.isArray(raw.parentDataProducts)
-                ? raw.parentDataProducts.map((p: any) => ({ urn: p.urn }))
-                : null,
-        };
+        const next = toMarketplaceEntityData(entityData, entityType);
+        if (!next) {
+            return;
+        }
 
         setEntityData(next);
-    });
+    }, [entityData, entityType, previousEntityData, setEntityData]);
 }

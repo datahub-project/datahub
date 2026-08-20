@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
@@ -32,6 +32,7 @@ export default function useDataProductRoots() {
     const {
         data: scrollData,
         loading,
+        error,
         refetch,
     } = useScrollDataProductsQuery({
         variables: buildScrollInput(scrollId),
@@ -68,10 +69,17 @@ export default function useDataProductRoots() {
         }
     }, [inView, nextScrollId, scrollId, loading]);
 
+    const refetchRoots = useCallback(() => {
+        setScrollId(null);
+        setData([]);
+        return refetch(buildScrollInput(null));
+    }, [refetch]);
+
     return {
         data,
         loading,
+        error,
         scrollRef,
-        refetch,
+        refetch: refetchRoots,
     };
 }

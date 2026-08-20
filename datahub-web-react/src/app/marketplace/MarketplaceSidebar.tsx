@@ -7,7 +7,7 @@ import styled from 'styled-components';
 
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
-import { DataProductRow } from '@app/marketplace/DataProductRow';
+import { DataProductChildRow } from '@app/marketplace/DataProductChildRow';
 import MarketplaceSearch from '@app/marketplace/MarketplaceSearch';
 import { useMarketplaceEntityContext } from '@app/marketplace/context/MarketplaceEntityContext';
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
@@ -181,6 +181,24 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
             />
         ) : null;
 
+    const emptyState =
+        visibleProducts.length === 0 ? (
+            <EmptyStateWrapper>
+                <EmptyState
+                    icon={Storefront}
+                    title={
+                        allProducts.length === 0 ? t('marketplace.emptyTreeTitle') : t('marketplace.emptyFilterTitle')
+                    }
+                    description={
+                        allProducts.length === 0
+                            ? t('marketplace.emptyTreeDescription')
+                            : t('marketplace.emptyFilterDescription')
+                    }
+                    size="sm"
+                />
+            </EmptyStateWrapper>
+        ) : null;
+
     return (
         <HierarchicalBrowseSidebar
             title={t('marketplace.sidebarTitle')}
@@ -216,19 +234,11 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
                 />
                 {isProductsExpanded && (
                     <>
-                        {allProducts.length === 0 && (
-                            <EmptyStateWrapper>
-                                <EmptyState
-                                    icon={Storefront}
-                                    title={t('marketplace.emptyTreeTitle')}
-                                    description={t('marketplace.emptyTreeDescription')}
-                                    size="sm"
-                                />
-                            </EmptyStateWrapper>
-                        )}
+                        {emptyState}
                         {visibleProducts.map((product) => (
-                            <DataProductRow
+                            <DataProductChildRow
                                 key={product.urn}
+                                level={0}
                                 dataProduct={product}
                                 isExpanded={expandedDataProductUrns.has(product.urn)}
                                 isSelected={selectedUrn === product.urn}

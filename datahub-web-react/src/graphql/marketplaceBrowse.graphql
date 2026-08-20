@@ -96,20 +96,3 @@ query scrollDataProducts($input: ScrollAcrossEntitiesInput!) {
         }
     }
 }
-
-query scrollDataProductChildren($input: ScrollAcrossEntitiesInput!) {
-    scrollAcrossEntities(input: $input) {
-        nextScrollId
-        count
-        total
-        searchResults {
-            entity {
-                urn
-                type
-                ... on DataProduct {
-                    ...dataProductBrowseFields
-                }
-            }
-        }
-    }
-}

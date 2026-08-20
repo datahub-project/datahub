@@ -30,17 +30,7 @@ type MarketplaceEntityContextType = {
     setEntityData: (data: MarketplaceEntityData | null) => void;
 };
 
-const MarketplaceEntityContext = createContext<MarketplaceEntityContextType>({
-    expandedDataProductUrns: new Set(),
-    selectedUrn: null,
-    toggleDataProduct: () => {},
-    expandAllDataProducts: () => {},
-    collapseAllExpanded: () => {},
-    refetchTree: () => {},
-    refetchKey: 0,
-    entityData: null,
-    setEntityData: () => {},
-});
+const MarketplaceEntityContext = createContext<MarketplaceEntityContextType | undefined>(undefined);
 
 type Props = {
     children: React.ReactNode;
@@ -66,8 +56,12 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
         const match = matchPath<{ urn: string }>(location.pathname, {
             path: `${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`,
         });
-        if (match) return decodeURIComponent(match.params.urn);
-        return null;
+        if (!match) return null;
+        try {
+            return decodeURIComponent(match.params.urn);
+        } catch {
+            return null;
+        }
     }, [location.pathname]);
 
     const toggleDataProduct = useCallback((urn: string) => {
@@ -120,5 +114,9 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
 }
 
 export function useMarketplaceEntityContext(): MarketplaceEntityContextType {
-    return useContext(MarketplaceEntityContext);
+    const context = useContext(MarketplaceEntityContext);
+    if (context === undefined) {
+        throw new Error('useMarketplaceEntityContext must be used inside a MarketplaceEntityContextProvider');
+    }
+    return context;
 }

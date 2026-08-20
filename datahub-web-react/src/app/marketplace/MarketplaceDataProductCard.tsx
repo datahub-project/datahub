@@ -178,7 +178,7 @@ export default function MarketplaceDataProductCard({ dataProduct }: Props) {
             )}
 
             <Footer>
-                {owners.length > 0 && <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />}
+                {owners.length > 0 && <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} hideLink />}
                 <Meta>{metaLabel}</Meta>
             </Footer>
         </CardLink>

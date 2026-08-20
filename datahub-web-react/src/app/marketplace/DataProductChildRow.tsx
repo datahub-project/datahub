@@ -40,7 +40,7 @@ export function DataProductChildRow({
             onToggle();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityData?.urn, dataProduct.urn]);
+    }, [entityData?.urn, entityData?.parentDataProducts, dataProduct.urn]);
 
     const { data, scrollRef } = useDataProductChildren({
         parentUrn: dataProduct.urn,

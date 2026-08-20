@@ -1,4 +1,4 @@
-import { Button, Card, EmptyState } from '@components';
+import { Button, Card, EmptyState, Loader } from '@components';
 import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
@@ -124,8 +124,13 @@ export default function MarketplaceMainContent() {
     }, [setEntityData]);
     const cardStyle = { flex: 1 };
 
-    const { data: productsData } = useGetRootDataProductsBrowseQuery({
-        variables: { input: { count: 100, start: 0 } },
+    // Follow-up: add sortInput to GetRootEntitiesInput / getRootDataProducts.
+    const {
+        data: productsData,
+        loading,
+        error,
+    } = useGetRootDataProductsBrowseQuery({
+        variables: { input: { count: 500, start: 0 } },
     });
 
     const totalProducts = productsData?.getRootDataProducts?.total ?? 0;
@@ -151,12 +156,114 @@ export default function MarketplaceMainContent() {
         return urns.size;
     }, [recentProducts]);
 
-    const latestUpdateLabel = useMemo(() => {
+    const latestAdditionLabel = useMemo(() => {
         const latest = Math.max(...recentProducts.map((p) => p.properties?.createdOn?.time ?? 0), 0);
         return latest > 0 ? toRelativeTimeString(latest) : null;
     }, [recentProducts]);
 
-    const isEmpty = totalProducts === 0;
+    const isEmpty = !loading && !error && totalProducts === 0;
+
+    let body: React.ReactNode;
+    if (loading) {
+        body = (
+            <EmptyListHint>
+                <Loader size="lg" />
+            </EmptyListHint>
+        );
+    } else if (error) {
+        body = (
+            <EmptyListHint>
+                <EmptyState
+                    icon={Storefront}
+                    title={t('marketplace.homeLoadErrorTitle')}
+                    description={t('marketplace.homeLoadErrorDescription')}
+                    size="lg"
+                />
+            </EmptyListHint>
+        );
+    } else if (isEmpty) {
+        body = (
+            <EmptyListHint>
+                <EmptyState
+                    icon={Storefront}
+                    title={t('marketplace.homeEmptyTitle')}
+                    description={t('marketplace.homeEmptyDescription')}
+                    size="lg"
+                    action={{
+                        label: t('marketplace.homeEmptyAction'),
+                        onClick: () => history.push(PageRoutes.DOMAINS),
+                        dataTestId: 'marketplace-domains-cta',
+                    }}
+                />
+            </EmptyListHint>
+        );
+    } else {
+        body = (
+            <>
+                <SummaryCards>
+                    <Card
+                        dataTestId="marketplace-count-products"
+                        icon={<Storefront size={18} weight="regular" />}
+                        iconStyles={cardIconStyles}
+                        style={cardStyle}
+                        title={String(totalProducts)}
+                        subTitle={t('marketplace.totalDataProducts')}
+                    />
+                    <Card
+                        dataTestId="marketplace-count-applications"
+                        icon={<AppWindow size={18} weight="regular" />}
+                        iconStyles={cardIconStyles}
+                        style={cardStyle}
+                        title={String(applicationCount)}
+                        subTitle={t('marketplace.sourceApplications')}
+                    />
+                    <Card
+                        dataTestId="marketplace-latest-update"
+                        icon={<Clock size={18} weight="regular" />}
+                        iconStyles={cardIconStyles}
+                        style={cardStyle}
+                        title={latestAdditionLabel ?? '—'}
+                        subTitle={t('marketplace.latestAddition')}
+                    />
+                </SummaryCards>
+
+                <RecentSection data-testid="marketplace-recent-products">
+                    <SectionHeader>
+                        <SectionTitle>{t('marketplace.recentDataProducts')}</SectionTitle>
+                    </SectionHeader>
+                    {recentProducts.length === 0 ? (
+                        <EmptyListHint>
+                            <EmptyState icon={Storefront} title={t('marketplace.emptyTreeTitle')} size="sm" />
+                        </EmptyListHint>
+                    ) : (
+                        <>
+                            <CardGrid>
+                                {visibleProducts.map((product) => (
+                                    <MarketplaceDataProductCard key={product.urn} dataProduct={product} />
+                                ))}
+                            </CardGrid>
+                            {recentProducts.length > MAX_RECENT && (
+                                <ShowMoreRow>
+                                    <Button
+                                        variant="link"
+                                        color="gray"
+                                        size="sm"
+                                        onClick={() => setShowAllProducts((v) => !v)}
+                                    >
+                                        {showAllProducts
+                                            ? tc('showLess')
+                                            : tc('showCountMore', {
+                                                  count: recentProducts.length - MAX_RECENT,
+                                              })}
+                                    </Button>
+                                </ShowMoreRow>
+                            )}
+                        </>
+                    )}
+                </RecentSection>
+            </>
+        );
+    }
 
     return (
         <ContentCard data-testid="marketplace-main-content">
@@ -164,86 +271,7 @@ export default function MarketplaceMainContent() {
                 <HomeTitle>{t('marketplace.homeTitle')}</HomeTitle>
                 <HomeBlurb>{t('marketplace.homeBlurb')}</HomeBlurb>
             </PageHeader>
-
-            {isEmpty ? (
-                <EmptyListHint>
-                    <EmptyState
-                        icon={Storefront}
-                        title={t('marketplace.homeEmptyTitle')}
-                        description={t('marketplace.homeEmptyDescription')}
-                        size="lg"
-                        action={{
-                            label: t('marketplace.homeEmptyAction'),
-                            onClick: () => history.push(PageRoutes.DOMAINS),
-                            dataTestId: 'marketplace-domains-cta',
-                        }}
-                    />
-                </EmptyListHint>
-            ) : (
-                <>
-                    <SummaryCards>
-                        <Card
-                            dataTestId="marketplace-count-products"
-                            icon={<Storefront size={18} weight="regular" />}
-                            iconStyles={cardIconStyles}
-                            style={cardStyle}
-                            title={String(totalProducts)}
-                            subTitle={t('marketplace.totalDataProducts')}
-                        />
-                        <Card
-                            dataTestId="marketplace-count-applications"
-                            icon={<AppWindow size={18} weight="regular" />}
-                            iconStyles={cardIconStyles}
-                            style={cardStyle}
-                            title={String(applicationCount)}
-                            subTitle={t('marketplace.sourceApplications')}
-                        />
-                        <Card
-                            dataTestId="marketplace-latest-update"
-                            icon={<Clock size={18} weight="regular" />}
-                            iconStyles={cardIconStyles}
-                            style={cardStyle}
-                            title={latestUpdateLabel ?? '—'}
-                            subTitle={t('marketplace.latestUpdate')}
-                        />
-                    </SummaryCards>
-
-                    <RecentSection data-testid="marketplace-recent-products">
-                        <SectionHeader>
-                            <SectionTitle>{t('marketplace.recentDataProducts')}</SectionTitle>
-                        </SectionHeader>
-                        {recentProducts.length === 0 ? (
-                            <EmptyListHint>
-                                <EmptyState icon={Storefront} title={t('marketplace.emptyTreeTitle')} size="sm" />
-                            </EmptyListHint>
-                        ) : (
-                            <>
-                                <CardGrid>
-                                    {visibleProducts.map((product) => (
-                                        <MarketplaceDataProductCard key={product.urn} dataProduct={product} />
-                                    ))}
-                                </CardGrid>
-                                {recentProducts.length > MAX_RECENT && (
-                                    <ShowMoreRow>
-                                        <Button
-                                            variant="link"
-                                            color="gray"
-                                            size="sm"
-                                            onClick={() => setShowAllProducts((v) => !v)}
-                                        >
-                                            {showAllProducts
-                                                ? tc('showLess')
-                                                : tc('showCountMore', {
-                                                      count: recentProducts.length - MAX_RECENT,
-                                                  })}
-                                        </Button>
-                                    </ShowMoreRow>
-                                )}
-                            </>
-                        )}
-                    </RecentSection>
-                </>
-            )}
+            {body}
         </ContentCard>
     );
 }
