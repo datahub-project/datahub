@@ -848,7 +848,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 return None
             # Schema inferrers need seekable input (parquet reads the footer, json
             # seeks back to 0), so buffer the download in memory bounded by max_bytes.
-            return BytesIO(contents.read(max_bytes))
+            # Close the streaming response so its HTTP resources aren't retained
+            # across many files.
+            with closing(contents):
+                return BytesIO(contents.read(max_bytes))
         except Exception as e:
             self.report.warning(
                 title="Failed to download Unity Catalog volume file",

@@ -3514,6 +3514,102 @@ class TestUnityCatalogVolumes:
             assert wu.get_aspect_of_type(SchemaMetadataClass) is None
         assert source.report.num_volume_file_schema_skipped == 1
 
+    def test_process_volume_file_schema_skipped_when_download_exceeds_cap(self) -> None:
+        # file_size is unknown, so the byte cap can only be enforced by inspecting the
+        # downloaded content; a file larger than the cap must be skipped, not inferred
+        # from a truncated read.
+        source = self._build_source(
+            include_volume_files=True,
+            include_volume_file_schemas=True,
+            volume_file_schema_max_bytes=4,
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=None,
+            last_modified=None,
+        )
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(b"id,name\n1,alice\n")
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        for wu in source.process_volume_file(volume_file, folder_key):
+            assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+        assert source.report.num_volume_file_schema_skipped == 1
+        assert source.report.num_volume_file_schemas_inferred == 0
+
+    def test_process_volume_file_schema_download_failure_counts(self) -> None:
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=16,
+            last_modified=None,
+        )
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: None
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        emitted_props = False
+        for wu in source.process_volume_file(volume_file, folder_key):
+            assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+            if wu.get_aspect_of_type(DatasetPropertiesClass) is not None:
+                emitted_props = True
+        # The dataset is still emitted; only its schema is missing.
+        assert emitted_props
+        assert source.report.num_volume_file_schema_inference_failed == 1
+
+    def test_process_volume_file_schema_inferrer_load_failure_emits_without_schema(
+        self,
+    ) -> None:
+        # A missing optional format dependency makes inferrer construction raise; the
+        # file dataset must still be emitted (without a schema) rather than aborting.
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=16,
+            last_modified=None,
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        emitted_props = False
+        with patch.object(
+            source,
+            "_volume_file_schema_inferrer",
+            side_effect=ImportError("tableschema is not installed"),
+        ):
+            for wu in source.process_volume_file(volume_file, folder_key):
+                assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+                if wu.get_aspect_of_type(DatasetPropertiesClass) is not None:
+                    emitted_props = True
+        assert emitted_props
+        assert source.report.num_volume_file_schema_inference_failed == 1
+
+    def test_include_volume_file_schemas_requires_include_volume_files(self) -> None:
+        with pytest.raises(
+            Exception, match="include_volume_file_schemas requires include_volume_files"
+        ):
+            UnityCatalogSourceConfig.model_validate(
+                {
+                    "token": "test_token",
+                    "workspace_url": "https://test.databricks.com",
+                    "warehouse_id": "test_warehouse",
+                    "include_hive_metastore": False,
+                    "include_volume_file_schemas": True,
+                    "include_volume_files": False,
+                }
+            )
+
     def test_volume_file_urn_bounded_to_dataset_name_limit(self) -> None:
 
         source = self._build_source(include_volume_files=True)

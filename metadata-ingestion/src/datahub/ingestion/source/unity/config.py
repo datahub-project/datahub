@@ -381,8 +381,8 @@ class UnityCatalogSourceConfig(
         default=100,
         ge=1,
         description=(
-            "Number of rows sampled per file when inferring csv/tsv/json schemas. "
-            "Only applies when `include_volume_file_schemas` is True."
+            "Number of rows sampled per file when inferring csv/tsv/json/jsonl "
+            "schemas. Only applies when `include_volume_file_schemas` is True."
         ),
     )
 

@@ -364,6 +364,7 @@ databricks = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "tableschema" },
 ]
 datahub = [
     { name = "cachetools" },
@@ -1565,6 +1566,7 @@ unity-catalog = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "tableschema" },
 ]
 unstructured = [
     { name = "boto3" },
@@ -2717,6 +2719,7 @@ requires-dist = [
     { name = "tableschema", marker = "extra == 'abs'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'abs-slim'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'all'", specifier = ">=1.20.2,<2.0.0" },
+    { name = "tableschema", marker = "extra == 'databricks'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'delta-lake'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'dev'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'docs'", specifier = ">=1.20.2,<2.0.0" },
@@ -2726,6 +2729,7 @@ requires-dist = [
     { name = "tableschema", marker = "extra == 'integration-tests'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 's3'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 's3-slim'", specifier = ">=1.20.2,<2.0.0" },
+    { name = "tableschema", marker = "extra == 'unity-catalog'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tabulate", specifier = "<0.11.0" },
     { name = "tabulate", marker = "extra == 'dev'", specifier = "<0.11.0" },
     { name = "tabulate", marker = "extra == 'docs'", specifier = "<0.11.0" },

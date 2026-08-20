@@ -965,8 +965,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             extra_properties["updated_at"] = str(volume.updated_at)
 
         created_ms = make_ts_millis(volume.created_at) if volume.created_at else None
+        # Leave last_modified unset when Databricks reports no update time rather than
+        # fabricating it from the creation time.
         last_modified_ms = (
-            make_ts_millis(volume.updated_at) if volume.updated_at else created_ms
+            make_ts_millis(volume.updated_at) if volume.updated_at else None
         )
 
         yield from gen_containers(
@@ -1107,7 +1109,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[SchemaMetadataClass]:
         if not self.config.include_volume_file_schemas:
             return None
-        inferrer = self._volume_file_schema_inferrer(volume_file.name)
+        try:
+            # Inferrer construction lazily imports the format's optional dependency,
+            # which can fail (e.g. tableschema not installed); emit without a schema
+            # instead of aborting the volume's file loop.
+            inferrer = self._volume_file_schema_inferrer(volume_file.name)
+        except Exception as e:
+            self.report.num_volume_file_schema_inference_failed += 1
+            self.report.warning(
+                title="Failed to load schema inferrer for Unity Catalog volume file",
+                message="The file dataset was emitted without a schema. Install the "
+                "format's optional dependency to enable inference.",
+                context=volume_file.qualified_name,
+                exc=e,
+                log=False,
+            )
+            return None
         if inferrer is None:
             self.report.num_volume_file_schema_skipped += 1
             return None
@@ -1117,11 +1134,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ):
             self.report.num_volume_file_schema_skipped += 1
             return None
+        # Read one byte past the cap so an unknown/misreported file_size can't slip a
+        # file through that is larger than we're willing to buffer — inferring from a
+        # truncated read would publish a partial schema as if it were complete.
         contents = self.unity_catalog_api_proxy.download_volume_file(
-            volume_file.dbfs_path, self.config.volume_file_schema_max_bytes
+            volume_file.dbfs_path, self.config.volume_file_schema_max_bytes + 1
         )
         if contents is None:
             self.report.num_volume_file_schema_inference_failed += 1
+            return None
+        contents.seek(0, 2)
+        downloaded_bytes = contents.tell()
+        contents.seek(0)
+        if downloaded_bytes > self.config.volume_file_schema_max_bytes:
+            self.report.num_volume_file_schema_skipped += 1
             return None
         try:
             fields = inferrer.infer_schema(contents)
