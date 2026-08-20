@@ -1,6 +1,7 @@
 namespace com.linkedin.dataproduct
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
 
 /**
  * The main properties of a Data Product
@@ -43,4 +44,18 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     }
   }
   assets: optional array[DataProductAssociation]
+
+  /**
+   * Optional: parent Data Product, forming a parent-child taxonomy.
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "dataProduct" ],
+  }
+  @Searchable = {
+    "fieldName": "parentDataProduct",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentDataProduct"
+  }
+  parentDataProduct: optional Urn
 }

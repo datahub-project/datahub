@@ -38,6 +38,9 @@ fragment glossaryNodeFields on GlossaryNode {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
     parentNodes {
         ...parentNodesFields
     }

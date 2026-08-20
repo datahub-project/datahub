@@ -3,6 +3,7 @@ import warnings
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.runner import ZDUReport
 from tests.zdu.framework.scenario_loader import ZDUTestScenario
 
@@ -19,14 +20,17 @@ from tests.zdu.framework.scenario_loader import ZDUTestScenario
 # behind ZDU_E2E_ENABLED so it only runs when explicitly opted in.
 # The fast, side-effect-free unit tests under tests/zdu/framework/ are
 # unaffected — they don't import this module or the zdu_report fixture.
-pytestmark = pytest.mark.skipif(
-    os.environ.get("ZDU_E2E_ENABLED") not in ("1", "true", "True", "yes"),
-    reason=(
-        "ZDU end-to-end pipeline is destructive (nukes the Compose stack). "
-        "Set ZDU_E2E_ENABLED=1 to run; the daily zdu-e2e workflow uses the "
-        "CLI entry point instead of pytest."
+pytestmark = [
+    pytest.mark.skipif(
+        os.environ.get("ZDU_E2E_ENABLED") not in ("1", "true", "True", "yes"),
+        reason=(
+            "ZDU end-to-end pipeline is destructive (nukes the Compose stack). "
+            "Set ZDU_E2E_ENABLED=1 to run; the daily zdu-e2e workflow uses the "
+            "CLI entry point instead of pytest."
+        ),
     ),
-)
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 # ── Infrastructure phase tests ───────────────────────────────────────────────
 

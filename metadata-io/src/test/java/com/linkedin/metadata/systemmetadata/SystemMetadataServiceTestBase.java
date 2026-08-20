@@ -11,6 +11,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -46,10 +47,8 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   private final IndexConvention _indexConvention =
       new IndexConventionImpl(
-          IndexConventionImpl.IndexConventionConfig.builder()
-              .prefix("es_system_metadata_service_test")
-              .hashIdAlgo("MD5")
-              .build(),
+          IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+          new ConfiguredIndexPrefixResolver("es_system_metadata_service_test"),
           SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
   private ElasticSearchSystemMetadataService _client;

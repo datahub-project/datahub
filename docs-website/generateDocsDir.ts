@@ -124,6 +124,12 @@ function list_markdown_files(): string[] {
     /^\.github\//,
     // Ignore hidden/dot directories at the repo root (e.g. .claude, .agent-skills, .cursor).
     /^\.[^/]+\//,
+    // Ignore nested agent/Bugbot rule files (e.g. docs/.cursor/BUGBOT.md).
+    /\/\.cursor\//,
+    // Agent context files (Claude Code / Cursor / Codex) — not public docs.
+    /(^|\/)CLAUDE\.md$/,
+    /(^|\/)CLAUDE\.MD$/,
+    /(^|\/)AGENTS\.md$/,
     // Ignore everything within this directory.
     /^docs-website\//,
     // Ignore third-party dependencies and library documentation.
@@ -714,7 +720,7 @@ ${CODE_FENCE}
 
 // Keep in sync with FeatureCardSection component (src/pages/docs/_components/FeatureCardSection/index.jsx)
 const FEATURE_CARD_SECTION_MD = `- **[Data Discovery](/docs/how/search)** — Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.
-- **[Data Governance](https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb)** — Define ownership and track PII.
+- **[Data Governance](https://datahub.com/blog/)** — Define ownership and track PII.
 - **[Data Quality & Observability](/docs/features/feature-guides/observe)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
 - **[UI-based Ingestion](/docs/ui-ingestion)** — Easily set up integrations in minutes using DataHub's intuitive UI-based ingestion feature.
 - **[APIs and SDKs](/docs/api/datahub-apis)** — For users who prefer programmatic control, DataHub offers a comprehensive set of APIs and SDKs.
