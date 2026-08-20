@@ -166,7 +166,16 @@ class AirbyteBaseClient(ABC):
             url, params=params, timeout=self.config.request_timeout
         )
         response.raise_for_status()
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as e:
+            # 2xx with a non-JSON body is a server/proxy bug, not a transport
+            # blip — keep the HTTP status so callers do not treat it as
+            # "unavailable" the way a connection error (no status) is.
+            raise AirbyteApiError(
+                f"Airbyte API returned invalid JSON (HTTP {response.status_code})",
+                status_code=response.status_code,
+            ) from e
 
     def _make_request(
         self,
@@ -438,8 +447,9 @@ class AirbyteBaseClient(ABC):
     @staticmethod
     def _is_streams_api_unavailable_error(error: AirbyteApiError) -> bool:
         # 404: no /streams, or inaccessible source. 5xx / no status: transient
-        # server or connection failure after retries. Other 4xx (400/422/…) are
-        # client bugs and must surface — not degrade to a per-run warning.
+        # server or connection failure after retries. Other 4xx (400/422/…) and
+        # successful-but-malformed payloads (status preserved on JSON decode
+        # failures) are client/server bugs and must surface.
         if error.status_code is None:
             return True
         if error.status_code == 404:

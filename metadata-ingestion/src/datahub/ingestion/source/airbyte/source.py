@@ -598,9 +598,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         "Airbyte /streams could not be read, so per-stream "
                         "namespaces and column-level lineage are unavailable. "
                         "Dataset lineage is skipped for streams without a "
-                        "catalog or per-table namespace rather than emitting "
-                        "fallback-schema URNs that would not match a later "
-                        "successful /streams response"
+                        "catalog namespace, per-table schema, or configured "
+                        "default_schema rather than emitting fallback URNs "
+                        "from the connector-wide schema key that would not "
+                        "match a later successful /streams response"
                     ),
                     context=context,
                 )
@@ -1236,15 +1237,19 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source: AirbyteSourcePartial,
         stream_name: Optional[str],
     ) -> bool:
-        # Catalog namespace (configurations.streams or /streams backfill) and
-        # per-table schema from the connector config are stable across runs.
-        # default_schema / source.get_schema are not — they churn vs a later
-        # successful /streams response.
+        # Stable across runs even when /streams blips: catalog namespace,
+        # per-table schema from the connector config, and operator-set
+        # default_schema. Connector-wide source.get_schema is not — it
+        # sometimes holds a database name and churns vs a later /streams
+        # response that reports real namespaces.
         if stream_config.stream and stream_config.stream.namespace:
             return True
         if stream_name and source.get_schema_for_table(stream_name):
             return True
-        return False
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source.source_id or "", PlatformDetail()
+        )
+        return bool(source_details.default_schema)
 
     def _should_skip_fallback_dataset_lineage(
         self,

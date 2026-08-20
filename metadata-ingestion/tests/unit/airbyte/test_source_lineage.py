@@ -361,6 +361,42 @@ def test_create_lineage_keeps_datasets_when_catalog_namespace_present(
     assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
 
 
+def test_create_lineage_keeps_datasets_when_default_schema_configured(
+    source, pipeline_info, stream
+):
+    # Operator-set default_schema is stable; keep lineage through a /streams blip.
+    pipeline_info.connection.streams_api_unavailable = True
+    source.source_config.sources_to_platform_instance = {
+        "source-1": PlatformDetail(platform="postgres", default_schema="dbo"),
+    }
+    stream_info = AirbyteStreamInfo(
+        config=AirbyteStreamConfig(
+            stream=AirbyteStream(name="customers", namespace=None)
+        ),
+        details=stream,
+    )
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.dbo.customers,PROD)"
+    destination_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,dest_db.dbo.customers,PROD)"
+    )
+
+    with (
+        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
+        patch.object(
+            source,
+            "_create_dataset_urns",
+            return_value=AirbyteDatasetUrns(
+                source_urn=source_urn,
+                destination_urn=destination_urn,
+            ),
+        ) as mock_create_urns,
+    ):
+        workunits = list(source._create_lineage_workunits(pipeline_info))
+
+    mock_create_urns.assert_called_once()
+    assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
+
+
 def test_snowflake_destination_lowercases_columns(source, pipeline_info, stream):
     # Snowflake folds identifiers to lowercase when `convert_urns_to_lowercase`
     # is set; non-Snowflake platforms must preserve column case regardless.

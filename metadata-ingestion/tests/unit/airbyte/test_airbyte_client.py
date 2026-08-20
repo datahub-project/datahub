@@ -1531,6 +1531,46 @@ class TestFetchStreamApiMetadata:
         assert client._stream_api_metadata_cache.get("source-id-123") is None
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_invalid_json_reraises(self, mock_list_streams):
+        # 2xx with a non-JSON body keeps the HTTP status, so it must not degrade
+        # to unavailable the way a connection error (status_code=None) does.
+        mock_list_streams.side_effect = AirbyteApiError(
+            "Airbyte API returned invalid JSON (HTTP 200)", status_code=200
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._fetch_stream_api_metadata("source-id-123")
+
+        assert exc_info.value.status_code == 200
+        assert not AirbyteOSSClient._is_streams_api_unavailable_error(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.requests.Session.get")
+    def test_do_get_invalid_json_preserves_http_status(self, mock_get):
+        response = MagicMock()
+        response.status_code = 200
+        response.raise_for_status.return_value = None
+        response.json.side_effect = ValueError("Expecting value")
+        mock_get.return_value = response
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._do_get("http://localhost:8000/api/public/v1/streams")
+
+        assert exc_info.value.status_code == 200
+        assert "invalid JSON" in str(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_flags_namespaceless_response(
         self, mock_list_streams
     ):

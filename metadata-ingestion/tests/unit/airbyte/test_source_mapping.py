@@ -263,7 +263,7 @@ def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
     assert len(matching) == 1
     assert "HTTP 500" in matching[0].context[0]
     assert "detail=500 Internal Server Error" in matching[0].context[0]
-    assert "fallback-schema URNs" in matching[0].message
+    assert "default_schema" in matching[0].message
     assert not source.report.failures
 
 
