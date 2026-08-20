@@ -294,3 +294,10 @@ def test_a_server_that_reports_no_version_is_not_assumed_new() -> None:
     graph = mock.MagicMock()
     graph.server_config = RestServiceConfig(raw_config={})
     assert maintains_dataset_aliases(graph) is False
+
+
+def test_a_server_whose_version_does_not_parse_disables_the_feature() -> None:
+    # A build off a git SHA reports an unparseable version. The gate is read outside its
+    # caller's try/except, so raising here would abort the run rather than turn the feature
+    # off.
+    assert maintains_dataset_aliases(_versioned_server("a1b2c3d")) is False
