@@ -373,6 +373,11 @@ def _walk_identifier_name(
     seen.add(guard_key)
 
     resolved = resolve_identifier(node_map, current_let, name)
+    if resolved is None and name not in (parameters or {}):
+        # Not a variable in this scope and not a dataset parameter, so the walk
+        # ends here without reaching an unhandled node kind.
+        resolution.unresolved_identifiers.add(name)
+
     _walk(
         node_map,
         resolved,

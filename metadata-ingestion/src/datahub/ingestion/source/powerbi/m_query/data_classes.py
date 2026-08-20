@@ -53,6 +53,10 @@ class DataAccessResolution:
     # an M shape the resolver does not model, which is the usual reason an
     # expression parses cleanly and still yields no lineage.
     unhandled_node_kinds: Set[str] = field(default_factory=set)
+    # Names the expression references but does not define: another query in the
+    # model, or an outer-scope name reached from a nested let. Known dataset
+    # parameters are excluded, since those are values rather than tables.
+    unresolved_identifiers: Set[str] = field(default_factory=set)
 
 
 @dataclass

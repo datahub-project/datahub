@@ -152,6 +152,11 @@ def get_upstream_tables(
                 reporter.m_query_unhandled_node_kinds.get(node_kind, 0) + 1
             )
 
+        for unresolved in sorted(resolution.unresolved_identifiers):
+            reporter.m_query_unresolved_identifiers.append(
+                f"{table.full_name} -> {unresolved}"
+            )
+
         if not data_access_func_details:
             logger.debug(
                 "No recognized data-access function found in expression for table %s."

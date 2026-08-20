@@ -274,6 +274,12 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_tables_without_lineage: LossyList[str] = dataclass_field(
         default_factory=LossyList
     )
+    # Sample of "<table> -> <name>" pairs where the expression references a name
+    # it does not define. A name recurring across many tables is usually a query
+    # that is not loaded into the model.
+    m_query_unresolved_identifiers: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count

@@ -2009,3 +2009,49 @@ def test_table_without_lineage_is_sampled():
 
     assert reporter.m_query_resolver_no_lineage == 1
     assert "MyDataSet.web_table" in reporter.m_query_tables_without_lineage
+
+
+@pytest.mark.integration
+def test_unresolved_identifier_is_reported():
+    """A reference to a name the expression does not define -- another query, or
+    an outer-scope name seen from a nested let -- is named in the report."""
+    reporter = _resolve_and_report(
+        'let Source = #"Hidden Base Query",'
+        " out = Table.SelectRows(Source, each true) in out",
+        "MyDataSet.combined_table",
+    )
+
+    unresolved = list(reporter.m_query_unresolved_identifiers)
+    assert any("Hidden Base Query" in entry for entry in unresolved), (
+        f"Expected the unresolved query name to be reported; got: {unresolved}"
+    )
+    assert any("MyDataSet.combined_table" in entry for entry in unresolved), (
+        f"Expected the referencing table to be reported; got: {unresolved}"
+    )
+
+
+@pytest.mark.integration
+def test_known_parameter_is_not_reported_as_unresolved():
+    """A dataset parameter is not a missing query reference, so it must not be
+    reported as one -- otherwise every unsupported source produces noise."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression="let Source = Web.Contents(BaseUrl) in Source",
+        name="param_table",
+        full_name="MyDataSet.param_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={"BaseUrl": "https://example.com"},
+    )
+
+    assert list(reporter.m_query_unresolved_identifiers) == []
