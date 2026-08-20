@@ -488,11 +488,13 @@ class AutoResolveLineageUrnsProcessor(
         """Resolve `urn` to the casing DataHub already stores, via the URN alias index.
 
         ``UrnAliasResolver.resolve`` returns the stored URN matching the reference under
-        any casing, or None when nothing matches or when two entities differ only by case
-        (no single right answer). A hit under the reference's own casing is EXACT, a hit
-        under a different casing is NORMALIZED, and None is UNRESOLVED. A reference
-        outside scope is never looked up at all, so it abstains rather than reporting an
-        absence.
+        any casing: a hit under the reference's own casing is EXACT, a hit under a different
+        casing is NORMALIZED, and None is UNRESOLVED. It is called with
+        ``prefer_lowercased=True``, so two stored entities differing only by case heal to
+        the lowercase-named one rather than leaving the lineage broken; None is left for a
+        reference nothing matches, or a collision with no lowercase-named side to prefer. A
+        reference outside scope is never looked up at all, so it abstains rather than
+        reporting an absence.
 
         Matching whole URNs means platform_instance and env are part of the comparison, so a
         reference is never healed across either.
@@ -501,8 +503,8 @@ class AutoResolveLineageUrnsProcessor(
         _schema_of, which is where identity and columns are paired back up.
         """
         try:
-            dataset = DatasetUrn.from_string(urn)
-            platform = DataPlatformUrn.from_string(dataset.platform).platform_name
+            dataset_urn = DatasetUrn.from_string(urn)
+            platform = DataPlatformUrn.from_string(dataset_urn.platform).platform_name
         except Exception:
             return _Resolution(urn, None, None)
         # Track referenced platforms so _warn_unmatched_platforms can flag configured
@@ -512,8 +514,6 @@ class AutoResolveLineageUrnsProcessor(
             # Out of scope: left untouched, and unstamped (no verdict == not processed).
             self.report.num_refs_out_of_scope += 1
             return _Resolution(urn, None, None)
-        # prefer_lowercased: when two stored casings of the same name collide, heal to
-        # the lowercase-named entity rather than leaving the lineage broken.
         try:
             resolved = self._resolve_alias(urn, platform)
         except Exception as e:
