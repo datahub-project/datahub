@@ -198,6 +198,44 @@ def test_upstream_lineage_merges_all_partitions() -> None:
     assert datasets == {urn_2024, urn_2025}
 
 
+def test_upstream_lineage_dedupes_fine_grained_across_partitions() -> None:
+    # Every partition of an incremental-refresh table resolves the SAME source
+    # column, so all partitions produce an identical column edge. These must be
+    # deduplicated, not emitted (and counted) once per partition.
+    extractor = _extractor()
+    table = AasTable(
+        name="Sales",
+        columns=[AasColumn(name="Amount", datahub_data_type=NullTypeClass())],
+        partitions=[
+            AasPartition(name="p2024", query_definition="let Source = 1 in Source"),
+            AasPartition(name="p2025", query_definition="let Source = 2 in Source"),
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,salesdb.dbo.sales,PROD)"
+    fake_lineage = SimpleNamespace(
+        upstreams=[SimpleNamespace(urn=upstream_urn)],
+        column_lineage=[
+            SimpleNamespace(
+                downstream=SimpleNamespace(column="Amount"),
+                upstreams=[SimpleNamespace(table=upstream_urn, column="amount")],
+            )
+        ],
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+        return_value=[fake_lineage],
+    ):
+        result = extractor.extract_upstream_for_table(table, dataset_urn)
+
+    # Both partitions yield the same column edge; only one survives.
+    assert len(result.fine_grained) == 1
+    assert extractor.report.column_lineage_edges == 1
+
+
 def test_upstream_lineage_engine_failure_degrades() -> None:
     # A table's lineage extraction must never abort the model: an engine
     # exception is downgraded to a warning and an empty result.
