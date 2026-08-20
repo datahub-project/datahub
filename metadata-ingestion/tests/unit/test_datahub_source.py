@@ -514,5 +514,5 @@ def test_parse_error_log_default_filename_includes_run_id():
 
     source = DataHubSource(config, ctx)
     assert source.quarantine is not None
-    assert "my-run-id" in source.quarantine.filename
+    assert source.quarantine.filename == "parse-errors-my-run-id.jsonl"
     source.close()
