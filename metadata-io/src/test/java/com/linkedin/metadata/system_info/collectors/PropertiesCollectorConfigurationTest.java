@@ -999,6 +999,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
           "metadataChangeProposal.validation.aspectAuthorization.logicalParent.enabled",
           "metadataChangeProposal.validation.aspectAuthorization.dataProductMembership.enabled",
+          "metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled",
           "metadataChangeProposal.validation.urlValidation.allowHttp",
           "metadataChangeProposal.validation.urlValidation.enabled",
           "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
