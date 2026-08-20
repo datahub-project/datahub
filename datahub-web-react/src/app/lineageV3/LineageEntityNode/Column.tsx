@@ -106,6 +106,11 @@ const ColumnText = styled(Typography.Text)`
     color: inherit;
 `;
 
+const TooltipColumnName = styled.div`
+    font-weight: 600;
+    word-break: break-all;
+`;
+
 const StyledLoadingIndicator = styled(LoadingOutlined)`
     display: flex;
     font-size: inherit;
@@ -224,10 +229,20 @@ export default function Column({
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            {/* When the field has a description, show it instead of the name-truncation tooltip:
-                it is the more useful thing to surface on hover, and antd's ellipsis tooltip only
-                fires when the name actually overflows. */}
-            <Tooltip title={lineageAsset.description || undefined} mouseEnterDelay={0.3}>
+            {/* Show the description on hover. This replaces antd's ellipsis tooltip, which only
+                fires when the name overflows, so the name is repeated above the description to
+                keep a truncated name readable. */}
+            <Tooltip
+                title={
+                    lineageAsset.description ? (
+                        <>
+                            <TooltipColumnName>{columnName}</TooltipColumnName>
+                            {lineageAsset.description}
+                        </>
+                    ) : undefined
+                }
+                mouseEnterDelay={0.3}
+            >
                 <ColumnText ellipsis={{ tooltip: lineageAsset.description ? false : { showArrow: false } }}>
                     {columnName}
                 </ColumnText>

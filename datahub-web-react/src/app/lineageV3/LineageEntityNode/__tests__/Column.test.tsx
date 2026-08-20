@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
@@ -83,16 +83,25 @@ describe('Column description tooltip', () => {
         });
     });
 
-    it('renders the column without a tooltip body when there is no description', async () => {
+    it('repeats the column name in the tooltip so a truncated name stays readable', async () => {
+        renderColumn(buildColumnAsset('Unique identifier for the user'));
+
+        fireEvent.mouseOver(screen.getByText('user_id'));
+
+        const tooltip = await screen.findByRole('tooltip');
+        expect(within(tooltip).getByText('user_id')).toBeInTheDocument();
+        expect(within(tooltip).getByText('Unique identifier for the user')).toBeInTheDocument();
+    });
+
+    it('renders no tooltip on hover when there is no description', async () => {
         renderColumn(buildColumnAsset(null));
 
-        const columnText = screen.getByText('user_id');
-        fireEvent.mouseOver(columnText);
+        fireEvent.mouseOver(screen.getByText('user_id'));
 
-        // The column still renders; only the description tooltip is absent.
-        expect(columnText).toBeInTheDocument();
+        // Guard, not a red-green case: with no description there is nothing to show, and antd's
+        // ellipsis tooltip does not fire because the name does not overflow in jsdom.
         await waitFor(() => {
-            expect(screen.queryByText('Unique identifier for the user')).not.toBeInTheDocument();
+            expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
         });
     });
 });
