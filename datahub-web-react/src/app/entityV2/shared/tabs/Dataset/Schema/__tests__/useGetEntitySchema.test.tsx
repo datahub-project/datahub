@@ -132,6 +132,20 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         expect(result.current.entityWithSchema).toBeNull();
     });
 
+    it('a full-metadata failure sets fullMetadataError and ends fullMetadataLoading', async () => {
+        const fullErrorMock = { request: fullMock.request, error: new Error('metadata boom') };
+        const { result } = renderHook(() => useGetEntityWithSchema(), {
+            wrapper: wrapperWith([structuralMock, fullErrorMock]),
+        });
+
+        await waitFor(() => expect(result.current.structuralSchemaMetadata).not.toBeNull());
+        await waitFor(() => expect(result.current.fullMetadataError).toBeTruthy());
+        // Loading must end on failure so cells fall back to structural content instead of
+        // rendering skeletons forever; the tab-level banner is the error indicator.
+        expect(result.current.fullMetadataLoading).toBe(false);
+        expect(result.current.structuralSchemaMetadata?.fields).toHaveLength(2);
+    });
+
     it('surfaces a structural query failure via structuralSchemaError', async () => {
         const errorMock = { request: structuralMock.request, error: new Error('boom') };
         const { result } = renderHook(() => useGetEntityWithSchema(), {
