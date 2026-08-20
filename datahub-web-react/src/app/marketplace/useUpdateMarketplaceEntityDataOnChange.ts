@@ -2,7 +2,10 @@ import isEqual from 'lodash/isEqual';
 import { useEffect } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { MarketplaceEntityData, useMarketplaceEntityContext } from '@app/marketplace/context/MarketplaceEntityContext';
+import {
+    MarketplaceEntityData,
+    useMaybeMarketplaceEntityContext,
+} from '@app/marketplace/context/MarketplaceEntityContext';
 import usePrevious from '@app/shared/usePrevious';
 
 import { EntityType } from '@types';
@@ -32,15 +35,22 @@ function toMarketplaceEntityData(
  * Called from EntityProfile whenever the entity data for a data-product profile page changes.
  * Pushes the parentDataProducts chain into MarketplaceEntityContext so the sidebar can
  * self-expand to the currently-viewed entity.
+ *
+ * Safe to call for all entity types / outside the marketplace provider — no-ops when the
+ * provider is absent (EntityProfile is shared across entity routes).
  */
 export function useUpdateMarketplaceEntityDataOnChange(
     entityData: GenericEntityProperties | null,
     entityType: EntityType,
 ): void {
-    const { setEntityData } = useMarketplaceEntityContext();
+    const marketplaceContext = useMaybeMarketplaceEntityContext();
+    const setEntityData = marketplaceContext?.setEntityData;
     const previousEntityData = usePrevious(entityData);
 
     useEffect(() => {
+        if (!setEntityData) {
+            return;
+        }
         if (entityType !== EntityType.DataProduct || isEqual(entityData, previousEntityData)) {
             return;
         }

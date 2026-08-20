@@ -113,8 +113,13 @@ export function MarketplaceEntityContextProvider({ children }: Props) {
     return <MarketplaceEntityContext.Provider value={value}>{children}</MarketplaceEntityContext.Provider>;
 }
 
+/** Returns undefined when rendered outside MarketplaceEntityContextProvider. */
+export function useMaybeMarketplaceEntityContext(): MarketplaceEntityContextType | undefined {
+    return useContext(MarketplaceEntityContext);
+}
+
 export function useMarketplaceEntityContext(): MarketplaceEntityContextType {
-    const context = useContext(MarketplaceEntityContext);
+    const context = useMaybeMarketplaceEntityContext();
     if (context === undefined) {
         throw new Error('useMarketplaceEntityContext must be used inside a MarketplaceEntityContextProvider');
     }
