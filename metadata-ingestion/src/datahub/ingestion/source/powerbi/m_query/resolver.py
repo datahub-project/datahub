@@ -4,7 +4,7 @@ entries (recognized data-source function calls with their navigation chain).
 """
 
 import logging
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
@@ -13,6 +13,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
+    DataAccessResolution,
     FunctionName,
     IdentifierAccessor,
 )
@@ -25,18 +26,20 @@ _RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
 def resolve_to_data_access_functions(
     node_map: NodeIdMap,
     parameters: Optional[Dict[str, str]] = None,
-) -> List[DataAccessFunctionDetail]:
+) -> DataAccessResolution:
     """
-    Entry point: walk the NodeIdMap and return all DataAccessFunctionDetail entries
-    for recognized data-access function calls in the expression.
+    Entry point: walk the NodeIdMap and return the recognized data-access function
+    calls in the expression, along with any NodeKinds the walk could not follow.
     """
     parameters = parameters or {}
+    resolution = DataAccessResolution(functions=[])
+
     let_nodes = [
         (k, v) for k, v in node_map.items() if v.get("kind") == "LetExpression"
     ]
     if not let_nodes:
         logger.debug("No LetExpression found in node map")
-        return []
+        return resolution
 
     # Use the outermost let (smallest id = parsed first / outermost scope)
     root_let_id, root_let = min(let_nodes, key=lambda kv: kv[0])
@@ -48,9 +51,8 @@ def resolve_to_data_access_functions(
             "LetExpression (id=%d) has no output expression — cannot resolve lineage",
             root_let_id,
         )
-        return []
+        return resolution
 
-    results: List[DataAccessFunctionDetail] = []
     seen: Set[Tuple[int, str]] = set()
 
     _walk(
@@ -59,11 +61,11 @@ def resolve_to_data_access_functions(
         current_let=root_let,
         current_let_id=root_let_id,
         accessor_chain=None,
-        results=results,
+        resolution=resolution,
         seen=seen,
         parameters=parameters,
     )
-    return results
+    return resolution
 
 
 def _walk(
@@ -72,7 +74,7 @@ def _walk(
     current_let: dict,
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
-    results: List[DataAccessFunctionDetail],
+    resolution: DataAccessResolution,
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
 ) -> None:
@@ -94,7 +96,7 @@ def _walk(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -111,7 +113,7 @@ def _walk(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -127,7 +129,7 @@ def _walk(
             node,
             inner_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -143,7 +145,7 @@ def _walk(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -163,7 +165,7 @@ def _walk(
                     current_let,
                     current_let_id,
                     accessor_chain,
-                    results,
+                    resolution,
                     seen.copy(),
                     parameters,
                 )
@@ -179,7 +181,7 @@ def _walk(
                 current_let,
                 current_let_id,
                 accessor_chain,
-                results,
+                resolution,
                 seen,
                 parameters,
             )
@@ -193,7 +195,7 @@ def _walk(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -203,12 +205,13 @@ def _walk(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen.copy(),
             parameters,
         )
         return
 
+    resolution.unhandled_node_kinds.add(kind)
     logger.debug("Unhandled node kind '%s', returning empty for this branch", kind)
 
 
@@ -218,7 +221,7 @@ def _walk_recursive_primary(
     current_let: dict,
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
-    results: List[DataAccessFunctionDetail],
+    resolution: DataAccessResolution,
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
 ) -> None:
@@ -233,7 +236,7 @@ def _walk_recursive_primary(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -250,7 +253,7 @@ def _walk_recursive_primary(
             current_let,
             current_let_id,
             accessor_chain,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -274,7 +277,7 @@ def _walk_recursive_primary(
             current_let,
             current_let_id,
             new_accessor,
-            results,
+            resolution,
             seen,
             parameters,
         )
@@ -287,7 +290,7 @@ def _walk_recursive_primary(
         current_let,
         current_let_id,
         accessor_chain,
-        results,
+        resolution,
         seen,
         parameters,
     )
@@ -300,7 +303,7 @@ def _walk_invoke(
     current_let: dict,
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
-    results: List[DataAccessFunctionDetail],
+    resolution: DataAccessResolution,
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
 ) -> None:
@@ -309,7 +312,7 @@ def _walk_invoke(
         callee = head.get("identifier", {}).get("literal")
 
     if callee and callee in _RECOGNIZED_FUNCTIONS:
-        results.append(
+        resolution.functions.append(
             DataAccessFunctionDetail(
                 arg_list=invoke_node,
                 data_access_function_name=callee,
@@ -333,7 +336,7 @@ def _walk_invoke(
                     current_let,
                     current_let_id,
                     accessor_chain,
-                    results,
+                    resolution,
                     seen,
                     parameters,
                 )
@@ -355,7 +358,7 @@ def _walk_identifier_name(
     current_let: dict,
     current_let_id: int,
     accessor_chain: Optional[IdentifierAccessor],
-    results: List[DataAccessFunctionDetail],
+    resolution: DataAccessResolution,
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
 ) -> None:
@@ -376,7 +379,7 @@ def _walk_identifier_name(
         current_let,
         current_let_id,
         accessor_chain,
-        results,
+        resolution,
         seen,
         parameters,
     )

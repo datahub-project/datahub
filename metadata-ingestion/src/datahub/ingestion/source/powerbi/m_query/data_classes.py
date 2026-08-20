@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from datahub.configuration.env_vars import get_trace_powerbi_mquery_parser
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
@@ -44,6 +44,15 @@ class DataAccessFunctionDetail:
     identifier_accessor: Optional[IdentifierAccessor]
     node_map: Dict[int, dict] = field(repr=False)  # full NodeIdMap for ast_utils
     parameters: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class DataAccessResolution:
+    functions: List[DataAccessFunctionDetail]
+    # NodeKinds the walk could not follow. Non-empty means the expression uses
+    # an M shape the resolver does not model, which is the usual reason an
+    # expression parses cleanly and still yields no lineage.
+    unhandled_node_kinds: Set[str] = field(default_factory=set)
 
 
 @dataclass

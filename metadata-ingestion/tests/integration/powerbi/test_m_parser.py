@@ -1958,3 +1958,54 @@ def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
 
     assert lineage[0].column_lineage
     assert lineage[0].column_lineage[0].downstream.column == "CustomerId"
+
+
+# Resolver observability. A table whose expression parses but yields no lineage
+# is otherwise invisible: the reason is only ever logged at debug level.
+
+
+def _resolve_and_report(q: str, full_name: str) -> PowerBiDashboardSourceReport:
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name=full_name.split(".")[-1],
+        full_name=full_name,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    return reporter
+
+
+@pytest.mark.integration
+def test_unhandled_node_kind_is_reported():
+    """An M shape the resolver walk cannot follow is named in the report, so an
+    unsupported expression form is visible without enabling debug logging."""
+    reporter = _resolve_and_report(
+        "let Source = 1 + 2 in Source", "MyDataSet.arithmetic_table"
+    )
+
+    assert "ArithmeticExpression" in reporter.m_query_unhandled_node_kinds
+
+
+@pytest.mark.integration
+def test_table_without_lineage_is_sampled():
+    """A table that parses but produces no lineage is sampled by name, so the
+    resolver_no_lineage count has something behind it."""
+    reporter = _resolve_and_report(
+        'let Source = Web.Contents("https://example.com/data.json") in Source',
+        "MyDataSet.web_table",
+    )
+
+    assert reporter.m_query_resolver_no_lineage == 1
+    assert "MyDataSet.web_table" in reporter.m_query_tables_without_lineage

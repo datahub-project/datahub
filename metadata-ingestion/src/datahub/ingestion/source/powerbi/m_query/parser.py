@@ -140,9 +140,17 @@ def get_upstream_tables(
     reporter.m_query_parse_successes += 1
 
     try:
-        data_access_func_details = mquery_resolver.resolve_to_data_access_functions(
+        resolution = mquery_resolver.resolve_to_data_access_functions(
             node_map, parameters=parameters
         )
+        data_access_func_details = resolution.functions
+
+        # Count each kind once per table, so the tally reads as "tables affected"
+        # rather than "nodes encountered".
+        for node_kind in resolution.unhandled_node_kinds:
+            reporter.m_query_unhandled_node_kinds[node_kind] = (
+                reporter.m_query_unhandled_node_kinds.get(node_kind, 0) + 1
+            )
 
         if not data_access_func_details:
             logger.debug(
@@ -178,6 +186,7 @@ def get_upstream_tables(
             reporter.m_query_resolver_successes += 1
         else:
             reporter.m_query_resolver_no_lineage += 1
+            reporter.m_query_tables_without_lineage.append(table.full_name)
             if data_access_func_details:
                 # Function(s) were recognized but all handlers returned empty —
                 # the per-handler debug logs above explain why. Log the expression
