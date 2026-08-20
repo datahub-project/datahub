@@ -1,10 +1,4 @@
-import {
-    AppstoreOutlined,
-    FileOutlined,
-    PartitionOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Export } from '@phosphor-icons/react/dist/csr/Export';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
@@ -13,7 +7,6 @@ import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DataProductEntitiesTab } from '@app/entityV2/dataProduct/DataProductEntitiesTab';
-import { DataProductSummaryTab } from '@app/entityV2/dataProduct/DataProductSummaryTab';
 import { OutputPortsTab } from '@app/entityV2/dataProduct/OutputPortsTab';
 import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -37,7 +30,6 @@ import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
-import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
@@ -162,7 +154,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
-                component: DataProductSummaryTab,
+                component: SummaryTab,
                 icon: ReadOutlined,
             },
             {
@@ -189,15 +181,6 @@ export class DataProductEntity implements Entity<DataProduct> {
                     enabled: (_, _2) => true,
                 },
             },
-            ...(!showSummaryTab
-                ? [
-                      {
-                          name: i18next.t('entity.types:tab.documentation'),
-                          component: DocumentationTab,
-                          icon: FileOutlined,
-                      },
-                  ]
-                : []),
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
