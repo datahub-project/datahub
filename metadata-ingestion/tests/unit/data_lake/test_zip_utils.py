@@ -1,5 +1,9 @@
 import io
+import lzma
 import zipfile
+import zlib
+
+import pytest
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.data_lake_common.zip_utils import (
@@ -168,6 +172,29 @@ def test_crc_mismatch_is_skipped_not_raised():
     report = SourceReport()
     result = read_first_supported_zip_entry(
         io.BytesIO(bytes(raw)),
+        context="archive.zip",
+        report=report,
+        supported_suffixes=SUPPORTED,
+    )
+    assert result is None
+    assert report.warnings
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [zlib.error("malformed deflate"), lzma.LZMAError("malformed lzma")],
+)
+def test_decompressor_error_is_skipped_not_raised(monkeypatch, exc):
+    # A supported member whose deflate/LZMA stream is malformed raises
+    # zlib.error / lzma.LZMAError from read() rather than a zipfile error. It must
+    # be reported and skipped, not abort the whole source.
+    def boom(self, *args, **kwargs):
+        raise exc
+
+    monkeypatch.setattr(zipfile.ZipExtFile, "read", boom)
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        _make_zip({"data.csv": b"a\n1\n"}),
         context="archive.zip",
         report=report,
         supported_suffixes=SUPPORTED,

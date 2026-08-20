@@ -1,7 +1,9 @@
 import dataclasses
 import logging
+import lzma
 import pathlib
 import zipfile
+import zlib
 from typing import IO, Iterable, Optional, Protocol
 
 from typing_extensions import LiteralString
@@ -144,11 +146,13 @@ def read_first_supported_zip_entry(
         try:
             with zf.open(entry) as member:
                 data = member.read(max_entry_size + 1)
-        except (zipfile.BadZipFile, EOFError, OSError) as e:
+        except (zipfile.BadZipFile, EOFError, OSError, zlib.error, lzma.LZMAError) as e:
             # Reading to EOF validates the entry's CRC-32 against the stored
             # value; a crafted or corrupt archive whose real content does not
-            # match its header fails here. Reject it rather than let the
-            # exception abort the whole source or silently accept bad data.
+            # match its header fails here. Malformed deflate/LZMA streams raise
+            # zlib.error / lzma.LZMAError (bzip2 raises OSError), so catch those
+            # too. Reject the entry rather than let the exception abort the whole
+            # source or silently accept bad data.
             report.warning(
                 title="Corrupt zip entry",
                 message="Skipping zip entry that failed decompression or CRC "
