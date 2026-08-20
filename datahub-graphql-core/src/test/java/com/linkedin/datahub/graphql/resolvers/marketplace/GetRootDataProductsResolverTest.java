@@ -59,7 +59,8 @@ public class GetRootDataProductsResolverTest {
                     new SearchEntityArray(
                         ImmutableList.of(
                             new SearchEntity().setEntity(Urn.createFromString(DATA_PRODUCT_URN_1)),
-                            new SearchEntity().setEntity(Urn.createFromString(DATA_PRODUCT_URN_2)))))
+                            new SearchEntity()
+                                .setEntity(Urn.createFromString(DATA_PRODUCT_URN_2)))))
                 .setFrom(0)
                 .setPageSize(2)
                 .setNumEntities(2));
