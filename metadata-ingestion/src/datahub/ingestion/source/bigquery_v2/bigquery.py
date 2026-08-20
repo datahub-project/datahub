@@ -345,11 +345,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.bq_schema_extractor.snapshots_by_ref,
             )
 
-        if self.config.use_queries_v2 and (
-            # The queries extractor is no longer the last thing emitted, so a bare
-            # `return` here would skip the work that follows it.
-            self.config.include_usage_statistics or self.config.include_table_lineage
-        ):
+        if self.config.use_queries_v2:
+            # if both usage and lineage are disabled then skip queries extractor piece
+            if (
+                not self.config.include_usage_statistics
+                and not self.config.include_table_lineage
+            ):
+                return
+
             redundant_queries_run_skip_handler: Optional[
                 RedundantQueriesRunSkipHandler
             ] = None
@@ -378,7 +381,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 self.report.queries_extractor = queries_extractor.report
                 yield from queries_extractor.get_workunits_internal()
-        elif not self.config.use_queries_v2:
+        else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
                     [p.id for p in projects], self.bq_schema_extractor.table_refs

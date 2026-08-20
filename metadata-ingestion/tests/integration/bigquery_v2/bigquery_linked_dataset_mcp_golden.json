@@ -1,475 +1,437 @@
 [
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-        "changeType": "UPSERT",
-        "aspectName": "containerProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {
-                    "platform": "bigquery",
-                    "env": "PROD",
-                    "project_id": "project-id-1"
-                },
-                "name": "project-id-1",
-                "qualifiedName": "project-id-1",
-                "env": "PROD"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "env": "PROD",
+                "project_id": "project-id-1"
+            },
+            "name": "project-id-1",
+            "qualifiedName": "project-id-1",
+            "env": "PROD"
         }
     },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {
-            "json": {
-                "platform": "urn:li:dataPlatform:bigquery"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {
-            "json": {
-                "typeNames": [
-                    "Project"
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-        "changeType": "UPSERT",
-        "aspectName": "browsePathsV2",
-        "aspect": {
-            "json": {
-                "path": []
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-        "changeType": "UPSERT",
-        "aspectName": "container",
-        "aspect": {
-            "json": {
-                "container": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-        "changeType": "UPSERT",
-        "aspectName": "containerProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {
-                    "platform": "bigquery",
-                    "env": "PROD",
-                    "project_id": "project-id-1",
-                    "dataset_id": "linked-dataset-1",
-                    "location": "US",
-                    "link_state": "LINKED",
-                    "source_project_id": "publisher-project-1",
-                    "source_dataset_id": "source-dataset-1"
-                },
-                "externalUrl": "https://console.cloud.google.com/bigquery?project=project-id-1&ws=!1m4!1m3!3m2!1sproject-id-1!2slinked-dataset-1",
-                "name": "linked-dataset-1",
-                "qualifiedName": "project-id-1.linked-dataset-1",
-                "env": "PROD"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-w0954x",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {
-            "json": {
-                "platform": "urn:li:dataPlatform:bigquery"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {
-            "json": {
-                "typeNames": [
-                    "Linked Dataset"
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-        "changeType": "UPSERT",
-        "aspectName": "browsePathsV2",
-        "aspect": {
-            "json": {
-                "path": [
-                    {
-                        "id": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-                        "urn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {
-            "json": {
-                "removed": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "schemaMetadata",
-        "aspect": {
-            "json": {
-                "schemaName": "project-id-1.linked-dataset-1.table-1",
-                "platform": "urn:li:dataPlatform:bigquery",
-                "version": 0,
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "hash": "",
-                "platformSchema": {
-                    "com.linkedin.schema.MySqlDDL": {
-                        "tableSchema": ""
-                    }
-                },
-                "fields": [
-                    {
-                        "fieldPath": "age",
-                        "nullable": false,
-                        "description": "comment",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "INT",
-                        "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
-                        "isPartOfKey": false,
-                        "isPartitioningKey": false
-                    },
-                    {
-                        "fieldPath": "email",
-                        "nullable": true,
-                        "description": "comment",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "STRING",
-                        "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
-                        "isPartOfKey": false,
-                        "isPartitioningKey": false
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "datasetProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {},
-                "externalUrl": "https://console.cloud.google.com/bigquery?project=project-id-1&ws=!1m5!1m4!4m3!1sproject-id-1!2slinked-dataset-1!3stable-1",
-                "name": "table-1",
-                "qualifiedName": "project-id-1.linked-dataset-1.table-1",
-                "description": "",
-                "tags": []
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "container",
-        "aspect": {
-            "json": {
-                "container": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {
-            "json": {
-                "platform": "urn:li:dataPlatform:bigquery",
-                "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,project-id-1)"
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {
-            "json": {
-                "typeNames": [
-                    "Table"
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "siblings",
-        "aspect": {
-            "json": {
-                "siblings": [
-                    "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)"
-                ],
-                "primary": false
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "browsePathsV2",
-        "aspect": {
-            "json": {
-                "path": [
-                    {
-                        "id": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
-                        "urn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
-                    },
-                    {
-                        "id": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
-                        "urn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171"
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "siblings",
-        "aspect": {
-            "json": {
-                "siblings": [
-                    "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)"
-                ],
-                "primary": true
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "upstreamLineage",
-        "aspect": {
-            "json": {
-                "upstreams": [
-                    {
-                        "auditStamp": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)",
-                        "type": "COPY"
-                    }
-                ],
-                "fineGrainedLineages": [
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD),age)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD),age)"
-                        ],
-                        "confidenceScore": 1.0
-                    },
-                    {
-                        "upstreamType": "FIELD_SET",
-                        "upstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD),email)"
-                        ],
-                        "downstreamType": "FIELD",
-                        "downstreams": [
-                            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD),email)"
-                        ],
-                        "confidenceScore": 1.0
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
-            "lastRunId": "no-run-id-provided"
-        }
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "env": "PROD",
+                "project_id": "project-id-1",
+                "dataset_id": "linked-dataset-1",
+                "location": "US",
+                "link_state": "LINKED",
+                "source_project_id": "publisher-project-1",
+                "source_dataset_id": "source-dataset-1"
+            },
+            "externalUrl": "https://console.cloud.google.com/bigquery?project=project-id-1&ws=!1m4!1m3!3m2!1sproject-id-1!2slinked-dataset-1",
+            "name": "linked-dataset-1",
+            "qualifiedName": "project-id-1.linked-dataset-1",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-w0954x",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Linked Dataset"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+                    "urn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "project-id-1.linked-dataset-1.table-1",
+            "platform": "urn:li:dataPlatform:bigquery",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "age",
+                    "nullable": false,
+                    "description": "comment",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": true,
+                    "description": "comment",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
+                    "isPartOfKey": false,
+                    "isPartitioningKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "https://console.cloud.google.com/bigquery?project=project-id-1&ws=!1m5!1m4!4m3!1sproject-id-1!2slinked-dataset-1!3stable-1",
+            "name": "table-1",
+            "qualifiedName": "project-id-1.linked-dataset-1.table-1",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,project-id-1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+                    "urn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
+                },
+                {
+                    "id": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171",
+                    "urn": "urn:li:container:f420b7cc7367e0adbb8fd788e2d4a171"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)",
+                    "type": "COPY"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD),age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD),age)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.linked-dataset-1.table-1,PROD),email)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "lastRunId": "no-run-id-provided"
+    }
+}
 ]

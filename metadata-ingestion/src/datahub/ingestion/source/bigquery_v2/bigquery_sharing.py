@@ -1,4 +1,3 @@
-import logging
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Protocol, Set, Tuple
 
@@ -28,12 +27,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    SiblingsClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 # Split rather than one `project.dataset` string: the publisher is in a different
 # project from the `project_id` already on this container, and each half is filterable
@@ -53,6 +49,9 @@ REASON_SERVICE_DISABLED: str = "SERVICE_DISABLED"
 # The generated client wraps list_subscriptions with default_timeout=None, so nothing
 # bounds a hung connection. 600s matches google-cloud-bigquery's own deadline.
 _LIST_SUBSCRIPTIONS_TIMEOUT: float = 600.0
+# Per-request bound for list_projects, which the client leaves at None. Sits inside the
+# client's own 600s retry budget so a slow request cannot exhaust it in one attempt.
+_LIST_PROJECTS_TIMEOUT: float = 120.0
 
 
 def _last_segment(resource_name: Optional[str]) -> Optional[str]:
@@ -143,8 +142,6 @@ class BigQuerySharingHandler:
 
         self._lookup: Dict[Tuple[str, str], LinkedDatasetInfo] = {}
         self._entities: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
-        # `siblings` is versioned, so one write per consumer would leave only the last.
-        self._publisher_siblings: Dict[str, Set[str]] = {}
         self._publisher_project_ids: Dict[str, Optional[str]] = {}
         self._project_number_map: Optional[Dict[str, str]] = None
         self._sharing_client: Optional["AnalyticsHubServiceClient"] = None
@@ -228,7 +225,7 @@ class BigQuerySharingHandler:
                 title="Linked dataset source not resolved",
                 message=(
                     "A dataset reported itself as linked but exposed no source "
-                    "dataset, so no lineage or siblings are emitted for it."
+                    "dataset, so no lineage is emitted for it."
                 ),
                 context=f"{project_id}.{dataset_name}",
             )
@@ -269,6 +266,22 @@ class BigQuerySharingHandler:
                     "google-cloud-bigquery-analyticshub is not installed, so the "
                     "listing and subscription state are omitted. Lineage is "
                     "unaffected. Install `acryl-datahub[bigquery]` or unset the flag."
+                ),
+                context=project_id,
+                exc=e,
+            )
+            return
+        except Exception as e:
+            # Construction resolves credentials and opens a channel, so it fails on
+            # more than a missing package. Kept separate from ImportError because the
+            # remedy differs.
+            self.report.warning(
+                title="BigQuery Sharing client could not be created",
+                message=(
+                    "`extract_subscriptions_from_analytics_hub` is on but the Analytics "
+                    "Hub client could not be constructed, so the listing and "
+                    "subscription state are omitted. Lineage is unaffected. Check the "
+                    "ingestion account's credentials and the installed client version."
                 ),
                 context=project_id,
                 exc=e,
@@ -360,11 +373,15 @@ class BigQuerySharingHandler:
             "dataset_reference",
             None,
         )
+        # Counted before the dataset_id check so a subscription naming no dataset still
+        # leaves a trace.
+        self.report.num_sharing_subscriptions_scanned += 1
+
         consumer_dataset = getattr(reference, "dataset_id", None)
         if not consumer_dataset:
+            self.report.num_sharing_subscriptions_unmatched += 1
             return
 
-        self.report.num_sharing_subscriptions_scanned += 1
         existing = self._lookup.get((project_id, consumer_dataset))
         if existing is None:
             # Detection and the sharing API disagree about this dataset: one reports
@@ -406,17 +423,37 @@ class BigQuerySharingHandler:
         """Tier 1, needing no additional permission. list_projects() carries both forms for every
         project the account holds a BigQuery role on."""
         if self._project_number_map is None:
-            self._project_number_map = {}
+            mapping: Dict[str, str] = {}
             try:
-                for project in self.client.list_projects():
+                # The client's DEFAULT_RETRY already covers the rate-limit errors
+                # projects.list is prone to at its 2 req/s quota. Only the timeout is
+                # left unset, so that is all this passes.
+                for project in self.client.list_projects(
+                    timeout=_LIST_PROJECTS_TIMEOUT
+                ):
                     numeric_id = getattr(project, "numeric_id", None)
                     if numeric_id is not None:
-                        self._project_number_map[str(numeric_id)] = project.project_id
+                        mapping[str(numeric_id)] = project.project_id
             except Exception as e:
                 # Broad on purpose, matching _resolve_from_dataset: the client raises
                 # more than GoogleAPIError, and tier 1 failing must fall through to
                 # Resource Manager rather than end the project.
-                logger.debug(f"Could not list projects for number resolution: {e}")
+                self.report.warning(
+                    title="Could not list projects to resolve publisher project numbers",
+                    message=(
+                        "Publisher resolution falls back to Resource Manager, which "
+                        "needs `resourcemanager.projects.get` on each publisher "
+                        "project. This is the ingestion account's own project list "
+                        "failing, not a permission on the publisher."
+                    ),
+                    exc=e,
+                )
+                # Left unset rather than cached: list_projects() paginates lazily, so
+                # `mapping` holds only the pages that arrived, and caching it would deny
+                # lineage to every publisher past the failure. Retrying costs one call
+                # per distinct publisher number, which _publisher_project_ids bounds.
+                return None
+            self._project_number_map = mapping
 
         resolved = self._project_number_map.get(project_number)
         if resolved is not None:
@@ -432,7 +469,11 @@ class BigQuerySharingHandler:
             )
             self.report.num_publisher_lookups_from_resource_manager += 1
             return project.project_id
-        except GoogleAPIError as e:
+        except Exception as e:
+            # Broad on purpose, matching tier 1: this client shares its credentials, so
+            # a credential refresh raises GoogleAuthError rather than GoogleAPIError.
+            # Nothing between here and get_workunits_internal catches, so a narrow
+            # except would end the run rather than this one lookup.
             self.report.warning(
                 title="Cannot resolve publisher project",
                 message=(
@@ -454,44 +495,28 @@ class BigQuerySharingHandler:
     ) -> Optional[LinkedDatasetInfo]:
         return self._lookup.get((project_id, dataset_name))
 
-    def suppresses_view_definition(self, project_id: str, dataset_name: str) -> bool:
-        """Whether the view path should skip registering a definition for SQL parsing.
-
-        Registration writes the same upstreamLineage slot this handler writes, so only
-        one of the two may do it. This covers every linked dataset, not only live ones:
-        a dead link emits no COPY edge, and parsed lineage for a stale mirror would be
-        no better than none.
-        """
-        if not self.config.include_table_lineage:
-            return False
-        return (project_id, dataset_name) in self._lookup
-
     # ---- deferred emission ------------------------------------------------
 
-    def record_entities(
+    def record_entity(
         self,
         project_id: str,
         dataset_name: str,
-        columns_by_entity: Dict[str, List[BigqueryColumn]],
+        entity_name: str,
+        columns: List[BigqueryColumn],
     ) -> None:
-        """Note the tables and views of a linked dataset, for emission at the end.
+        """Note one table or view of a linked dataset, for emission at the end.
 
-        Called from the schema workers. `_entities` needs no lock only because each
-        (project, dataset) key has exactly one writer; sharding the fan-out below
-        dataset level breaks that.
+        Called from the schema workers once the entity has passed its own
+        table_pattern/view_pattern check, so the filtering is not repeated here.
+        `_entities` needs no lock only because a single worker owns each
+        (project, dataset); sharding the fan-out below dataset level breaks that.
         """
         info = self._lookup.get((project_id, dataset_name))
         if info is None or not info.is_live_link:
             return
-        recorded = self._entities.setdefault((project_id, dataset_name), {})
-        for entity_name, columns in columns_by_entity.items():
-            names: List[str] = []
-            seen: Set[str] = set()
-            for column in columns or []:
-                if column.name not in seen:
-                    seen.add(column.name)
-                    names.append(column.name)
-            recorded[entity_name] = names
+        self._entities.setdefault((project_id, dataset_name), {})[entity_name] = [
+            column.name for column in columns
+        ]
 
     def gen_all_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Emit every linked dataset's lineage, last in the run.
@@ -499,34 +524,20 @@ class BigQuerySharingHandler:
         Four code paths write `upstreamLineage` destructively and nothing reports the
         loss, so position is load-bearing.
         """
+        if not self.config.include_table_lineage:
+            return
+
         for (project_id, dataset_name), entities in self._entities.items():
+            info = self._lookup.get((project_id, dataset_name))
+            publisher = info.publisher if info is not None else None
+            if publisher is None:
+                continue
             for entity_name, column_names in entities.items():
                 yield from self._gen_lineage_for_entity(
-                    project_id, dataset_name, entity_name, column_names
+                    project_id, dataset_name, entity_name, column_names, publisher
                 )
 
-        for publisher_urn, consumer_urns in self._publisher_siblings.items():
-            # is_primary_source=False: this run may not ingest the publisher's project,
-            # and primary would have the framework synthesise `status` for an empty entity.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=publisher_urn,
-                aspect=SiblingsClass(primary=True, siblings=sorted(consumer_urns)),
-            ).as_workunit(is_primary_source=False)
-
     # ---- emission ---------------------------------------------------------
-
-    def _gen_lineage_workunits(
-        self,
-        project_id: str,
-        dataset_name: str,
-        entity_name: str,
-        columns: List[BigqueryColumn],
-    ) -> Iterable[MetadataWorkUnit]:
-        # Exercised only by tests: production reaches _gen_lineage_for_entity via
-        # gen_all_lineage_workunits, which caches names rather than column objects.
-        yield from self._gen_lineage_for_entity(
-            project_id, dataset_name, entity_name, [c.name for c in columns]
-        )
 
     def _gen_lineage_for_entity(
         self,
@@ -534,30 +545,14 @@ class BigQuerySharingHandler:
         dataset_name: str,
         entity_name: str,
         column_names: List[str],
+        publisher: PublisherRef,
     ) -> Iterable[MetadataWorkUnit]:
-        info = self._lookup.get((project_id, dataset_name))
-        if info is None or not info.is_live_link:
-            return
-        publisher = info.publisher
-        assert publisher is not None  # is_live_link implies it
-
         consumer_urn = self.identifiers.gen_dataset_urn(
             project_id, dataset_name, entity_name
         )
         publisher_urn = self.identifiers.gen_dataset_urn(
             publisher.project_id, publisher.dataset, entity_name
         )
-
-        # Both URNs describe the same underlying storage, so the pair is recorded as
-        # siblings alongside the lineage edge.
-        yield MetadataChangeProposalWrapper(
-            entityUrn=consumer_urn,
-            aspect=SiblingsClass(primary=False, siblings=[publisher_urn]),
-        ).as_workunit()
-        self._publisher_siblings.setdefault(publisher_urn, set()).add(consumer_urn)
-
-        if not self.config.include_table_lineage:
-            return
 
         yield MetadataChangeProposalWrapper(
             entityUrn=consumer_urn,

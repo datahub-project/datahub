@@ -25,7 +25,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
 from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
-    SiblingsClass,
     UpstreamLineageClass,
 )
 
@@ -163,12 +162,16 @@ def _upstream_lineage(
     return None
 
 
-def _siblings(workunits: List[MetadataWorkUnit]) -> List[SiblingsClass]:
-    return [
-        wu.metadata.aspect  # type: ignore[union-attr]
-        for wu in workunits
-        if isinstance(wu.metadata.aspect, SiblingsClass)  # type: ignore[union-attr]
-    ]
+def _lineage_workunits(
+    handler: BigQuerySharingHandler,
+    project_id: str,
+    dataset_name: str,
+    entity_name: str,
+    columns: List[BigqueryColumn],
+) -> List[MetadataWorkUnit]:
+    """Drive the production path: record during the schema pass, emit at the end."""
+    handler.record_entity(project_id, dataset_name, entity_name, columns)
+    return list(handler.gen_all_lineage_workunits())
 
 
 def _field_path_of(schema_field_urn: str) -> str:
@@ -192,7 +195,7 @@ def _first_upstream(fgl: FineGrainedLineageClass) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_gen_lineage_workunits_dedupes_nested_columns() -> None:
+def test_nested_columns_dedupe_to_one_edge_each() -> None:
     # COLUMN_FIELD_PATHS returns one row per leaf field path,
     # so a STRUCT column is represented by several BigqueryColumn entries that share
     # one `.name` but differ in `.field_path`. A table with `id` plus a 3-field
@@ -219,10 +222,8 @@ def test_gen_lineage_workunits_dedupes_nested_columns() -> None:
         ),
     ]
 
-    workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, LINKED_DATASET, "nested_cols_table", columns
-        )
+    workunits = _lineage_workunits(
+        handler, CONSUMER_PROJECT, LINKED_DATASET, "nested_cols_table", columns
     )
 
     upstream_lineage = _upstream_lineage(workunits)
@@ -240,7 +241,7 @@ def test_gen_lineage_workunits_dedupes_nested_columns() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_gen_lineage_workunits_lowercases_column_before_urn_construction() -> None:
+def test_column_name_is_lowercased_before_the_field_urn_is_built() -> None:
     # convert_column_urns_to_lowercase lowers the column
     # name itself before make_schema_field_urn is called, mirroring the existing
     # gen_foreign_keys pattern (bigquery_schema_gen.py:919-930). Applying it only to
@@ -256,10 +257,12 @@ def test_gen_lineage_workunits_lowercases_column_before_urn_construction() -> No
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
 
-    workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("UserId")]
-        )
+    workunits = _lineage_workunits(
+        handler,
+        CONSUMER_PROJECT,
+        LINKED_DATASET,
+        "plain_table",
+        [_make_column("UserId")],
     )
 
     upstream_lineage = _upstream_lineage(workunits)
@@ -298,10 +301,8 @@ def test_populate_for_project_missing_source_emits_nothing_and_warns() -> None:
 
     assert len(report.warnings) > 0
 
-    workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
-        )
+    workunits = _lineage_workunits(
+        handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
     assert workunits == []
 
@@ -327,10 +328,8 @@ def test_populate_for_project_missing_link_state_still_emits_lineage() -> None:
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
 
-    workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
-        )
+    workunits = _lineage_workunits(
+        handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
     assert _upstream_lineage(workunits) is not None
 
@@ -354,13 +353,10 @@ def test_populate_for_project_dead_link_state_suppresses_lineage() -> None:
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
 
-    workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
-        )
+    workunits = _lineage_workunits(
+        handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
-    assert _upstream_lineage(workunits) is None
-    assert _siblings(workunits) == []
+    assert workunits == []
 
 
 # ---------------------------------------------------------------------------
@@ -458,10 +454,8 @@ def test_populate_for_project_one_dataset_failure_does_not_abort_others() -> Non
 
     assert len(report.warnings) > 0
 
-    good_workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, "good_linked", "plain_table", [_make_column("id")]
-        )
+    good_workunits = _lineage_workunits(
+        handler, CONSUMER_PROJECT, "good_linked", "plain_table", [_make_column("id")]
     )
     assert _upstream_lineage(good_workunits) is not None
 
@@ -516,6 +510,55 @@ def _enriched_handler(
         [BigqueryDataset(name=dataset_name, type="LINKED", location="US")],
     )
     return handler
+
+
+def test_list_subscriptions_called_once_per_location_with_a_bounded_timeout() -> None:
+    # The API is location-scoped, so the parent string decides whether anything is
+    # found at all -- a wrong location returns an empty list, which is
+    # indistinguishable from "no subscriptions" and warns about nothing. The location
+    # is lowercased, absent locations fall back to US, and the timeout is explicit
+    # because the generated client leaves it unbounded.
+    handler = _make_handler(client=_resolvable_client())
+    handler.config.extract_subscriptions_from_analytics_hub = True
+    sharing_client = MagicMock()
+    sharing_client.list_subscriptions.return_value = []
+    handler._sharing_client = sharing_client
+
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [
+            BigqueryDataset(name="in_eu", type="LINKED", location="EU"),
+            BigqueryDataset(name="no_location", type="LINKED", location=None),
+        ],
+    )
+
+    calls = sharing_client.list_subscriptions.call_args_list
+    assert sorted(call.kwargs["parent"] for call in calls) == [
+        f"projects/{CONSUMER_PROJECT}/locations/eu",
+        f"projects/{CONSUMER_PROJECT}/locations/us",
+    ]
+    assert {call.kwargs["timeout"] for call in calls} == {600.0}
+
+
+def test_sharing_client_construction_failure_warns_rather_than_raising() -> None:
+    # Constructing the client resolves credentials and opens a channel, so it fails on
+    # more than a missing package. Nothing between here and get_workunits_internal
+    # catches, so raising would end the whole run for an optional property.
+    handler = _make_handler(client=_resolvable_client())
+    handler.config.extract_subscriptions_from_analytics_hub = True
+    handler.config.get_sharing_client = MagicMock(  # type: ignore[method-assign]
+        side_effect=ValueError("could not resolve credentials")
+    )
+
+    handler.populate_for_project(
+        CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
+    )
+
+    assert [w.title for w in handler.report.warnings] == [
+        "BigQuery Sharing client could not be created"
+    ]
+    # Lineage is unaffected: the publisher still resolved.
+    assert _info(handler).publisher is not None
 
 
 def test_sharing_properties_absent_when_flag_off() -> None:
@@ -583,10 +626,8 @@ def test_sharing_permission_denied_warns_and_keeps_lineage() -> None:
 
     assert len(report.warnings) > 0
     assert len(report.failures) == 0
-    workunits = list(
-        handler._gen_lineage_workunits(
-            CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
-        )
+    workunits = _lineage_workunits(
+        handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
     assert _upstream_lineage(workunits) is not None
 
@@ -646,18 +687,17 @@ def test_publisher_resolution_failure_is_cached_not_retried() -> None:
     # Nothing emitted: a URN built from an unresolved project number would match
     # nothing and create a phantom entity.
     assert (
-        list(
-            handler._gen_lineage_workunits(
-                CONSUMER_PROJECT, "linked_a", "plain_table", [_make_column("id")]
-            )
+        _lineage_workunits(
+            handler, CONSUMER_PROJECT, "linked_a", "plain_table", [_make_column("id")]
         )
         == []
     )
 
 
-def test_two_consumers_of_one_publisher_share_a_single_siblings_aspect() -> None:
-    # `siblings` is versioned, so one write per consumer would leave only the last.
-    # Two datasets in the same project can link the same published dataset.
+def test_two_consumers_of_one_publisher_each_carry_their_own_copy_edge() -> None:
+    # Two datasets in the same project can link the same published dataset. Each
+    # consumer carries its own COPY edge and nothing is written onto the publisher, so
+    # separate recipes ingesting different consumers cannot overwrite each other.
     handler = _make_handler(client=_resolvable_client())
     handler.populate_for_project(
         CONSUMER_PROJECT,
@@ -667,8 +707,8 @@ def test_two_consumers_of_one_publisher_share_a_single_siblings_aspect() -> None
         ],
     )
     for dataset in ("linked_a", "linked_b"):
-        handler.record_entities(
-            CONSUMER_PROJECT, dataset, {"plain_table": [_make_column("id")]}
+        handler.record_entity(
+            CONSUMER_PROJECT, dataset, "plain_table", [_make_column("id")]
         )
 
     workunits = list(handler.gen_all_lineage_workunits())
@@ -676,34 +716,33 @@ def test_two_consumers_of_one_publisher_share_a_single_siblings_aspect() -> None
     publisher_urn = handler.identifiers.gen_dataset_urn(
         PUBLISHER_PROJECT, SOURCE_DATASET, "plain_table"
     )
-    on_publisher = [
-        wu
+    assert {
+        wu.metadata.entityUrn  # type: ignore[union-attr]
         for wu in workunits
-        if wu.metadata.entityUrn == publisher_urn  # type: ignore[union-attr]
-        and isinstance(wu.metadata.aspect, SiblingsClass)  # type: ignore[union-attr]
-    ]
-    assert len(on_publisher) == 1
-    assert len(on_publisher[0].metadata.aspect.siblings) == 2  # type: ignore[union-attr]
-    # The publisher's entity is not owned by this run.
-    assert on_publisher[0].is_primary_source is False
+    } == {
+        handler.identifiers.gen_dataset_urn(CONSUMER_PROJECT, dataset, "plain_table")
+        for dataset in ("linked_a", "linked_b")
+    }
+    for wu in workunits:
+        aspect = wu.metadata.aspect  # type: ignore[union-attr]
+        assert isinstance(aspect, UpstreamLineageClass)
+        assert [upstream.dataset for upstream in aspect.upstreams] == [publisher_urn]
 
 
-def test_lineage_disabled_still_emits_siblings() -> None:
-    # Siblings assert identity, not derivation, so the
-    # lineage flag does not gate them. Matches W1 view lineage, which is also ungated.
+def test_lineage_disabled_emits_nothing() -> None:
+    # The COPY edge is the handler's only output, so include_table_lineage gates the
+    # feature outright. This is also what makes the bare `return` in
+    # BigqueryV2Source.get_workunits_internal harmless: it is reachable only when
+    # include_table_lineage is off, and this handler emits nothing in that case.
     handler = _make_handler(client=_resolvable_client(), include_table_lineage=False)
     handler.populate_for_project(
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
-    handler.record_entities(
-        CONSUMER_PROJECT, LINKED_DATASET, {"plain_table": [_make_column("id")]}
+    handler.record_entity(
+        CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
 
-    workunits = list(handler.gen_all_lineage_workunits())
-
-    assert _upstream_lineage(workunits) is None
-    # one on the consumer, one accumulated onto the publisher
-    assert len(_siblings(workunits)) == 2
+    assert list(handler.gen_all_lineage_workunits()) == []
 
 
 def test_sharing_denied_classified_by_reason_then_by_message() -> None:
@@ -879,34 +918,6 @@ def test_missing_analyticshub_package_warns_instead_of_raising() -> None:
     assert info.listing is None and info.subscription_state is None
 
 
-def test_view_definition_suppressed_even_when_the_link_is_dead() -> None:
-    # A dead link emits no COPY edge, but its view definition must still not be
-    # registered: parsed lineage for a stale mirror is no better than none, and the
-    # gate exists to keep exactly one writer on the upstreamLineage slot.
-    handler = _make_handler(
-        client=_resolvable_client(_make_get_dataset_response(link_state="UNLINKED"))
-    )
-    handler.populate_for_project(
-        CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
-    )
-
-    info = _info(handler)
-    assert not info.is_live_link  # no COPY edge for this one
-    assert handler.suppresses_view_definition(CONSUMER_PROJECT, LINKED_DATASET)
-    # a dataset the handler never detected is untouched
-    assert not handler.suppresses_view_definition(CONSUMER_PROJECT, "ordinary_ds")
-
-
-def test_view_definition_not_suppressed_when_table_lineage_is_off() -> None:
-    # With lineage off no COPY edge is written, so the SQL parser is the only
-    # remaining source and must keep its registration.
-    handler = _make_handler(client=_resolvable_client(), include_table_lineage=False)
-    handler.populate_for_project(
-        CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
-    )
-    assert not handler.suppresses_view_definition(CONSUMER_PROJECT, LINKED_DATASET)
-
-
 def test_tier1_non_api_error_still_falls_through_to_resource_manager() -> None:
     # list_projects can fail with more than GoogleAPIError: credential refresh raises
     # its own types, and a malformed response raises ValueError. Any of them must
@@ -933,6 +944,84 @@ def test_tier1_non_api_error_still_falls_through_to_resource_manager() -> None:
     assert report.num_publisher_lookups_from_resource_manager == 1
 
 
+def test_tier2_non_api_error_warns_rather_than_ending_the_run() -> None:
+    # Resource Manager shares tier 1's credentials and transport, so it raises the same
+    # non-GoogleAPIError types. Nothing between here and get_workunits_internal
+    # catches: _resolve_publisher_project_id runs outside _resolve_from_dataset's try,
+    # populate_for_project is called un-guarded from the schema generator, and the
+    # per-project loop has no guard either. A narrow except would discard every
+    # remaining project over one publisher lookup.
+    client = MagicMock()
+    client.get_dataset.return_value = _make_get_dataset_response()
+    client.list_projects.return_value = []  # publisher invisible in BigQuery
+    projects_client = MagicMock()
+    projects_client.get_project.side_effect = ValueError("credential refresh failed")
+
+    report = BigQueryV2Report()
+    handler = _make_handler(
+        client=client, projects_client=projects_client, report=report
+    )
+    handler.populate_for_project(
+        CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
+    )
+
+    assert [w.title for w in report.warnings] == ["Cannot resolve publisher project"]
+    assert _info(handler).publisher is None
+
+
+def test_project_list_failure_is_reported_and_not_cached_as_partial() -> None:
+    # list_projects paginates lazily, so a failure part-way through must not leave a
+    # half-filled map authoritative for the rest of the run: every publisher past the
+    # failure would silently become a tier-2 lookup needing a permission it should not
+    # need. The failure also has to reach the report, because the tier-2 warning that
+    # follows blames the publisher's IAM when the cause is the consumer's own project
+    # list.
+    def _one_page_then_fail():
+        yield SimpleNamespace(
+            project_id="some-other-project", numeric_id="999", friendly_name=""
+        )
+        raise GoogleAPIError("quota exceeded mid-pagination")
+
+    client = MagicMock()
+    client.get_dataset.return_value = _make_get_dataset_response()
+    # A fresh generator per call, so a retry can succeed where the first attempt failed.
+    client.list_projects.side_effect = lambda **kwargs: _one_page_then_fail()
+    projects_client = MagicMock()
+    projects_client.get_project.return_value = SimpleNamespace(
+        project_id=PUBLISHER_PROJECT
+    )
+
+    report = BigQueryV2Report()
+    handler = _make_handler(
+        client=client, projects_client=projects_client, report=report
+    )
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [
+            BigqueryDataset(name="linked_a", type="LINKED"),
+            BigqueryDataset(name="linked_b", type="LINKED"),
+        ],
+    )
+
+    assert "Could not list projects to resolve publisher project numbers" in [
+        w.title for w in report.warnings
+    ]
+    # Nothing was cached, so the map is still unset and a later publisher number would
+    # re-enumerate rather than be denied by a partial answer.
+    assert handler._project_number_map is None
+    # Both datasets still resolve, via tier 2.
+    assert _info(handler, "linked_a").publisher is not None
+    assert _info(handler, "linked_b").publisher is not None
+    # One tier-2 lookup, not two: _publisher_project_ids caches per project number and
+    # bounds how often the failed enumeration is retried.
+    assert report.num_publisher_lookups_from_resource_manager == 1
+    assert client.list_projects.call_count == 1
+    # The client leaves the per-request timeout at None, so passing one is the only
+    # thing bounding a hung connection. Asserted by presence rather than by value so
+    # the bound can be retuned without editing this test.
+    assert client.list_projects.call_args.kwargs.get("timeout") is not None
+
+
 def test_last_segment_handles_absent_and_trailing_slash() -> None:
     from datahub.ingestion.source.bigquery_v2.bigquery_sharing import _last_segment
 
@@ -942,29 +1031,28 @@ def test_last_segment_handles_absent_and_trailing_slash() -> None:
     assert _last_segment("projects/p/locations/us/listings/my_listing") == "my_listing"
 
 
-def test_subscription_without_a_destination_dataset_is_ignored() -> None:
+def test_subscription_without_a_destination_dataset_is_counted_not_dropped() -> None:
     # resource_type is BIGQUERY_DATASET but the destination reference is absent, so
-    # there is no dataset name to match on. It must not be counted as scanned.
+    # there is no dataset name to match on. It is still counted both ways, so the
+    # subscription leaves a trace instead of disappearing without any record.
     handler = _enriched_handler([_make_subscription(consumer_dataset="")])
 
-    assert handler.report.num_sharing_subscriptions_scanned == 0
-    assert handler.report.num_sharing_subscriptions_unmatched == 0
+    assert handler.report.num_sharing_subscriptions_scanned == 1
+    assert handler.report.num_sharing_subscriptions_unmatched == 1
     assert _info(handler).listing is None
 
 
-def test_record_entities_skips_a_dataset_whose_link_is_not_live() -> None:
+def test_record_entity_skips_a_dataset_whose_link_is_not_live() -> None:
     handler = _make_handler(
         client=_resolvable_client(_make_get_dataset_response(link_state="UNLINKED"))
     )
     handler.populate_for_project(
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
-    handler.record_entities(
-        CONSUMER_PROJECT, LINKED_DATASET, {"t": [_make_column("id")]}
-    )
+    handler.record_entity(CONSUMER_PROJECT, LINKED_DATASET, "t", [_make_column("id")])
 
-    # Assert the intermediate state. Checking gen_all_lineage_workunits() instead
-    # would pass with this guard removed, because _gen_lineage_for_entity re-checks
-    # is_live_link before emitting anything.
+    # Assert the recorded state rather than the emitted workunits: this guard is the
+    # only thing keeping a dead link out of _entities, so nothing downstream re-checks
+    # it and an empty _entities is what proves the guard fired.
     assert handler._entities == {}
     assert list(handler.gen_all_lineage_workunits()) == []

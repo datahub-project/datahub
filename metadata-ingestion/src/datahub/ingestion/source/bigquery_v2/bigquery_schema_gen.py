@@ -764,10 +764,6 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                 )
 
-        self._record_linked_entities(
-            project_id, dataset_name, db_tables, db_views, columns
-        )
-
     def _dataset_container_properties(
         self, project_id: str, dataset_name: str, bigquery_dataset: BigqueryDataset
     ) -> Optional[Dict[str, str]]:
@@ -782,44 +778,6 @@ class BigQuerySchemaGenerator:
         if sharing_info is not None:
             properties.update(sharing_info.to_extra_properties())
         return properties or None
-
-    def _record_linked_entities(
-        self,
-        project_id: str,
-        dataset_name: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-        columns: Optional[Dict[str, List[BigqueryColumn]]],
-    ) -> None:
-        """Note this dataset's entities so their lineage can be emitted at the end.
-
-        Recorded here because columns are only in scope during the schema pass, but
-        emitted last. See BigQuerySharingHandler.gen_all_lineage_workunits.
-        """
-        if self.sharing_handler is None:
-            return
-        columns_by_entity: Dict[str, List[BigqueryColumn]] = {}
-
-        for table in db_tables.get(dataset_name, []):
-            identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
-            if self.config.table_pattern.allowed(identifier.raw_table_name()):
-                columns_by_entity[table.name] = (
-                    columns.get(table.name, []) if columns else []
-                )
-
-        # Unlike db_tables, db_views comes straight from the API and has not been
-        # through view_pattern yet; that happens later, in _process_view.
-        for view in db_views.get(dataset_name, []):
-            identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
-            if self.config.view_pattern.allowed(identifier.raw_table_name()):
-                columns_by_entity[view.name] = (
-                    columns.get(view.name, []) if columns else []
-                )
-
-        if columns_by_entity:
-            self.sharing_handler.record_entities(
-                project_id, dataset_name, columns_by_entity
-            )
 
     def _process_table(
         self,
@@ -841,6 +799,14 @@ class BigQuerySchemaGenerator:
             )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
+
+        # Recorded here, past the pattern gate, because the columns are only in scope
+        # during the schema pass but the lineage is emitted last. See
+        # BigQuerySharingHandler.gen_all_lineage_workunits.
+        if self.sharing_handler is not None:
+            self.sharing_handler.record_entity(
+                project_id, dataset_name, table.name, columns
+            )
 
         if self.store_table_refs:
             table_ref = str(
@@ -892,18 +858,15 @@ class BigQuerySchemaGenerator:
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
+        if self.sharing_handler is not None:
+            self.sharing_handler.record_entity(
+                project_id, dataset_name, view.name, columns
+            )
+
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
         logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
-        # Registering a definition makes the SQL parser write upstreamLineage for this
-        # view later; a linked dataset already writes a COPY edge into that same slot.
-        suppress_definition = (
-            self.sharing_handler is not None
-            and self.sharing_handler.suppresses_view_definition(
-                project_id, dataset_name
-            )
-        )
-        if view.view_definition and not suppress_definition:
+        if view.view_definition:
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
 

@@ -2067,89 +2067,14 @@ def test_biglake_dataset_skipped_for_region_autodetect(
 @patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_process_view_skips_definition_registration_for_linked_dataset(
+def test_linked_entities_recorded_only_past_the_pattern_gates(
     get_projects_client_mock, get_bq_client_mock
 ):
-    # Registering a view definition here is what makes the SQL
-    # parser emit upstreamLineage for that view later in the run. A view inside a
-    # linked dataset also gets a COPY edge from the sharing handler, and both writes
-    # target the same aspect, and the later one silently replaces the earlier, with no
-    # warning and no report counter. Only one of them may register.
-    #
-    # The guard belongs at this registration site rather than at
-    # gen_view_dataset_workunits, which never writes lineage at all.
-    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
-        BigQuerySharingHandler,
-    )
-
-    project_id = "consumer-project"
-    linked_dataset = "linked_ds"
-    plain_dataset = "plain_ds"
-
-    bq_client = MagicMock()
-    bq_client.get_dataset.return_value = MagicMock(
-        _properties={
-            "type": "LINKED",
-            "linkedDatasetSource": {
-                "sourceDataset": {
-                    "projectId": "123456789012",
-                    "datasetId": "source_ds",
-                }
-            },
-            "linkedDatasetMetadata": {"linkState": "LINKED"},
-        }
-    )
-    bq_client.list_projects.return_value = [
-        SimpleNamespace(
-            project_id="publisher-project",
-            numeric_id="123456789012",
-            friendly_name="",
-        )
-    ]
-
-    config = BigQueryV2Config.model_validate({"project_id": project_id})
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    schema_gen = source.bq_schema_extractor
-
-    handler = BigQuerySharingHandler(
-        config,
-        source.report,
-        identifiers=source.identifiers,
-        client=bq_client,
-        projects_client=MagicMock(),
-    )
-    handler.populate_for_project(
-        project_id, [BigqueryDataset(name=linked_dataset, type="LINKED")]
-    )
-    schema_gen.sharing_handler = handler
-
-    view = BigqueryView(
-        name="a_view",
-        comment=None,
-        created=None,
-        last_altered=None,
-        view_definition="SELECT 1",
-    )
-
-    list(schema_gen._process_view(view, [], project_id, linked_dataset))
-    assert schema_gen.view_definitions.__len__() == 0, (
-        "a linked dataset's view definition must not be registered, because the COPY edge "
-        "and the parsed view lineage write the same aspect"
-    )
-
-    # A dataset that is not linked must still register normally, or this guard would
-    # disable view lineage for ordinary datasets.
-    list(schema_gen._process_view(view, [], project_id, plain_dataset))
-    assert schema_gen.view_definitions.__len__() == 1
-
-
-@patch.object(BigQueryV2Config, "get_bigquery_client")
-@patch.object(BigQueryV2Config, "get_projects_client")
-def test_record_linked_entities_honours_view_pattern(
-    get_projects_client_mock, get_bq_client_mock
-):
-    # db_views does not reach view_pattern until _process_view, so a denied view was
-    # getting a COPY edge. db_tables is filtered upstream, hence the table control.
+    # Recording happens inside _process_table / _process_view, past the pattern gate
+    # each already applies, so an entity the run excludes cannot pick up a COPY edge
+    # pointing at an entity that was never ingested. Both gates are covered: an
+    # earlier version filtered views separately from tables and let a denied view
+    # through.
     from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
         BigQuerySharingHandler,
     )
@@ -2179,7 +2104,11 @@ def test_record_linked_entities_honours_view_pattern(
     ]
 
     config = BigQueryV2Config.model_validate(
-        {"project_id": project_id, "view_pattern": {"deny": [".*denied_view.*"]}}
+        {
+            "project_id": project_id,
+            "view_pattern": {"deny": [".*denied_view.*"]},
+            "table_pattern": {"deny": [".*denied_table.*"]},
+        }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     schema_gen = source.bq_schema_extractor
@@ -2196,31 +2125,38 @@ def test_record_linked_entities_honours_view_pattern(
     )
     schema_gen.sharing_handler = handler
 
-    def _view(name: str) -> BigqueryView:
-        return BigqueryView(
-            name=name,
-            comment=None,
-            created=None,
-            last_altered=None,
-            view_definition=None,
+    for view_name in ("allowed_view", "denied_view"):
+        list(
+            schema_gen._process_view(
+                BigqueryView(
+                    name=view_name,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    view_definition=None,
+                ),
+                [],
+                project_id,
+                linked_dataset,
+            )
         )
 
-    table = BigqueryTable(
-        name="a_table",
-        comment=None,
-        created=None,
-        last_altered=None,
-        size_in_bytes=None,
-        rows_count=None,
-    )
-
-    schema_gen._record_linked_entities(
-        project_id,
-        linked_dataset,
-        {linked_dataset: [table]},
-        {linked_dataset: [_view("allowed_view"), _view("denied_view")]},
-        None,
-    )
+    for table_name in ("allowed_table", "denied_table"):
+        list(
+            schema_gen._process_table(
+                BigqueryTable(
+                    name=table_name,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    size_in_bytes=None,
+                    rows_count=None,
+                ),
+                [],
+                project_id,
+                linked_dataset,
+            )
+        )
 
     with_lineage = {
         wu.metadata.entityUrn  # type: ignore[union-attr]
@@ -2231,12 +2167,10 @@ def test_record_linked_entities_honours_view_pattern(
     def _urn(name: str) -> str:
         return source.identifiers.gen_dataset_urn(project_id, linked_dataset, name)
 
-    assert _urn("denied_view") not in with_lineage, (
-        "a view excluded by view_pattern must not get a COPY edge -- the run never "
-        "ingests it, so the edge would point at an entity with no schema"
-    )
+    assert _urn("denied_view") not in with_lineage
+    assert _urn("denied_table") not in with_lineage
     assert _urn("allowed_view") in with_lineage
-    assert _urn("a_table") in with_lineage
+    assert _urn("allowed_table") in with_lineage
 
 
 def test_sharing_properties_without_linked_datasets_warns(
