@@ -57,6 +57,14 @@ _logging_configured: Optional[ContextManager] = None
 
 MAX_CONTENT_WIDTH = 120
 
+
+def _evals_import_suggestion(error: ImportError) -> str:
+    if getattr(error, "name", None) == "acryl_datahub_cloud":
+        return "run `pip install 'acryl-datahub[datahub-evals]'`"
+    logger.debug("acryl-datahub-cloud is installed but failed to load: %s", error)
+    return f"fix the acryl-datahub-cloud installation ({error})"
+
+
 if sys.version_info >= (3, 12):
     click.secho(
         "Python versions above 3.11 are not actively tested with yet. Please use Python 3.11 for now.",
@@ -598,6 +606,13 @@ datahub.add_command(recording)
 datahub.add_command(datapack)
 datahub.add_command(api)
 datahub.add_command(agent_skill)
+
+try:
+    from acryl_datahub_cloud.cli.evals import evals
+
+    datahub.add_command(evals)
+except ImportError as e:
+    datahub.add_command(make_shim_command("evals", _evals_import_suggestion(e)))
 
 try:
     from datahub.cli.iceberg_cli import iceberg

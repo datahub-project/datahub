@@ -310,8 +310,10 @@ def generate_pyproject_toml() -> str:
     output_lines.append("all = " + format_toml_list(sort_deps(all_unique)))
     output_lines.append("")
 
-    # Meta extras: cloud, dev, docs, lint, testing-utils, integration-tests, debug
+    # Meta extras: cloud, datahub-evals, dev, docs, lint, testing-utils, integration-tests, debug
     output_lines.append('cloud = ["acryl-datahub-cloud"]')
+    output_lines.append("")
+    output_lines.append('datahub-evals = ["acryl-datahub-cloud[datahub-evals]"]')
     output_lines.append("")
     output_lines.append("dev = " + format_toml_list(sort_deps(dev_requirements)))
     output_lines.append("")
