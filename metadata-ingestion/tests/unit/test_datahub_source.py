@@ -399,6 +399,81 @@ def test_parse_row_quarantines_unparseable_rows(tmp_path):
     assert "anAspectThisCliDoesNotKnow" in lines[0]
 
 
+def test_quarantine_state_surfaced_in_report(tmp_path):
+    """The report must reflect quarantine activity, not just a log line."""
+    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
+
+    path = tmp_path / "parse-errors.jsonl"
+    quarantine = QuarantineWriter(str(path))
+
+    config = DataHubSourceConfig.model_validate({"pull_from_datahub_api": True})
+    reader = DataHubDatabaseReader.__new__(DataHubDatabaseReader)
+    reader.config = config
+    reader.report = DataHubSourceReport()
+    reader.quarantine = quarantine
+
+    row = {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+        "aspect": "anAspectThisCliDoesNotKnow",
+        "version": 0,
+        "createdon": datetime(2026, 1, 1),
+        "metadata": "{}",
+        "systemmetadata": "{}",
+    }
+
+    reader._parse_row(row)
+
+    assert reader.report.num_database_quarantined_rows == 1
+    assert reader.report.database_quarantine_file == str(path)
+    quarantine.close()
+
+
+def test_quarantine_state_empty_on_clean_run(tmp_path):
+    """A run that drops nothing must not advertise a quarantine file."""
+    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
+
+    path = tmp_path / "parse-errors.jsonl"
+    quarantine = QuarantineWriter(str(path))
+    reader = DataHubDatabaseReader.__new__(DataHubDatabaseReader)
+    reader.report = DataHubSourceReport()
+    reader.quarantine = quarantine
+
+    quarantine.close()
+
+    assert reader.report.num_database_quarantined_rows == 0
+    assert reader.report.database_quarantine_file is None
+
+
+def test_quarantine_disable_is_surfaced_as_a_report_warning(tmp_path):
+    """An unrecoverable quarantine write failure must show up in the run summary,
+    not just the writer's own log line."""
+    from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
+
+    path = tmp_path / "no-such-dir" / "parse-errors.jsonl"
+    quarantine = QuarantineWriter(str(path))
+
+    config = DataHubSourceConfig.model_validate({"pull_from_datahub_api": True})
+    reader = DataHubDatabaseReader.__new__(DataHubDatabaseReader)
+    reader.config = config
+    reader.report = DataHubSourceReport()
+    reader.quarantine = quarantine
+
+    row = {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+        "aspect": "anAspectThisCliDoesNotKnow",
+        "version": 0,
+        "createdon": datetime(2026, 1, 1),
+        "metadata": "{}",
+        "systemmetadata": "{}",
+    }
+
+    reader._parse_row(row)
+
+    assert any("quarantine" in str(w).lower() for w in reader.report.warnings)
+    assert reader.report.num_database_quarantined_rows == 0
+    assert reader.report.database_quarantine_file is None
+
+
 def test_parse_row_without_quarantine_still_counts_the_error():
     """The quarantine is optional; disabling it must not change parsing behaviour."""
     config = DataHubSourceConfig.model_validate({"pull_from_datahub_api": True})
