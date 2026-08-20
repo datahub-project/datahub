@@ -82,7 +82,7 @@ After creating a filter, you can choose whether results should or should not mat
 
 Search results appear ranked by their relevance.
 
-In self-hosted DataHub, keyword search ranking is based on how closely the query matched textual
+In DataHub OSS, keyword search ranking is based on how closely the query matched textual
 fields of an asset and its metadata, and deprecated assets are demoted. On the browse / explore-all
 view (an empty or `*` query) assets are additionally ranked by metadata completeness — having a
 description, owners, a domain, glossary terms, or tags each contributes a boost. These weights live
@@ -386,7 +386,7 @@ measurably improves where an asset lands among competing results, and cleaning u
 stale-looking assets is at least as effective as enriching the good ones. Naming conventions matter
 too, since assets whose names look like test, staging, or backup copies are deliberately demoted.
 
-To influence ranking beyond the defaults, self-hosted deployments can edit the `functionScore`
+To influence ranking beyond the defaults, DataHub OSS deployments can edit the `functionScore`
 weights in `search_config.yaml`. DataHub Cloud additionally supports per-tag ranking boosts and
 opting a structured property in as a ranking feature, which lets you promote a curated or certified
 subset of the catalog; contact your DataHub representative to tune these.
