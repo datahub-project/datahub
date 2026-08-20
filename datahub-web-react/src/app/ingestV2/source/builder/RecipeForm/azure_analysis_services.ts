@@ -72,6 +72,29 @@ export const AAS_CLIENT_SECRET: RecipeField = {
     rules: null,
 };
 
+export const AAS_USERNAME: RecipeField = {
+    name: 'username',
+    label: 'Username',
+    helper: 'Azure AD username',
+    tooltip: 'The Azure AD username. Required when the authentication type is Username & Password.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.username',
+    placeholder: 'user@contoso.com',
+    rules: null,
+};
+
+export const AAS_PASSWORD: RecipeField = {
+    name: 'password',
+    label: 'Password',
+    helper: 'Azure AD password',
+    tooltip:
+        'The Azure AD password. Required when the authentication type is Username & Password. Add it in the Secrets tab and reference it by name.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.password',
+    placeholder: 'password',
+    rules: null,
+};
+
 const extractLineagePath = 'source.config.extract_lineage';
 export const AAS_EXTRACT_LINEAGE: RecipeField = {
     name: 'extract_lineage',

@@ -10,6 +10,7 @@ from datahub.ingestion.source.azure_analysis_services.lineage import AasLineageE
 from datahub.ingestion.source.azure_analysis_services.models import (
     AasCalcDependency,
     AasColumn,
+    AasMeasure,
     AasPartition,
     AasTable,
     AasTabularModel,
@@ -54,6 +55,19 @@ def test_intra_model_lineage_edges() -> None:
     model = AasTabularModel(
         catalog="SalesModel",
         name="Sales Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                columns=[AasColumn(name="Amount", datahub_data_type=NullTypeClass())],
+                measures=[AasMeasure(name="Total Sales")],
+            ),
+            AasTable(
+                name="SalesSummary",
+                columns=[
+                    AasColumn(name="TotalAmount", datahub_data_type=NullTypeClass())
+                ],
+            ),
+        ],
         calc_dependencies=[
             _calc_dep("MEASURE", "Sales", "Total Sales", "COLUMN", "Sales", "Amount"),
             _calc_dep(
@@ -68,6 +82,24 @@ def test_intra_model_lineage_edges() -> None:
             _calc_dep("COLUMN", "Sales", "Amount", "COLUMN", "Sales", "Amount"),
             # Unknown object type is ignored.
             _calc_dep("TABLE", "Sales", "Sales", "COLUMN", "Sales", "Amount"),
+            # System RowNumber column is not an emitted field: no edge.
+            _calc_dep(
+                "CALC_COLUMN",
+                "SalesSummary",
+                "TotalAmount",
+                "COLUMN",
+                "Sales",
+                "RowNumber-11111111-2222-3333-4444-555555555555",
+            ),
+            # Calc-table self-reference (the "column" is the table name): no edge.
+            _calc_dep(
+                "CALC_COLUMN",
+                "SalesSummary",
+                "TotalAmount",
+                "CALC_COLUMN",
+                "SalesSummary",
+                "SalesSummary",
+            ),
         ],
     )
     sales_urn = builder.make_dataset_urn("azure-analysis-services", "SalesModel.Sales")
@@ -81,6 +113,12 @@ def test_intra_model_lineage_edges() -> None:
     downstreams = {d for edge in edges for d in (edge.downstreams or [])}
     assert builder.make_schema_field_urn(sales_urn, "Total Sales") in downstreams
     assert builder.make_schema_field_urn(summary_urn, "TotalAmount") in downstreams
+    # The only upstream for TotalAmount is Sales.Amount — the RowNumber and
+    # calc-table self-reference dependencies are dropped as non-emitted fields.
+    upstreams = {u for edge in edges for u in (edge.upstreams or [])}
+    assert builder.make_schema_field_urn(sales_urn, "Amount") in upstreams
+    assert not any("RowNumber-" in u for u in upstreams)
+    assert builder.make_schema_field_urn(summary_urn, "SalesSummary") not in upstreams
     # Self-reference and unknown-type rows produce no edges.
     assert len(edges) == 2
 
@@ -118,9 +156,46 @@ def test_upstream_lineage_via_engine() -> None:
         result = extractor.extract_upstream_for_table(table, dataset_urn)
 
     assert len(result.upstreams) == 1
-    # convert_lineage_urns_to_lowercase defaults True.
-    assert result.upstreams[0].dataset == upstream_urn.lower()
+    # convert_lineage_urns_to_lowercase defaults True, but only the dataset name
+    # is lowercased (already lowercase here), so the URN is preserved.
+    assert result.upstreams[0].dataset == upstream_urn
     assert len(result.fine_grained) == 1
+
+
+def test_upstream_lineage_merges_all_partitions() -> None:
+    # A table with several query partitions must contribute lineage from every
+    # partition, not just the first, with duplicate upstreams collapsed.
+    extractor = _extractor()
+    table = AasTable(
+        name="Sales",
+        partitions=[
+            AasPartition(name="p2024", query_definition="let Source = 1 in Source"),
+            AasPartition(name="p2025", query_definition="let Source = 2 in Source"),
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+    urn_2024 = "urn:li:dataset:(urn:li:dataPlatform:mssql,salesdb.dbo.sales_2024,PROD)"
+    urn_2025 = "urn:li:dataset:(urn:li:dataPlatform:mssql,salesdb.dbo.sales_2025,PROD)"
+
+    def fake_parse(table, **_kwargs):
+        # The engine sees a one-partition copy; return a different upstream per
+        # partition expression.
+        urn = urn_2025 if "= 2 " in (table.expression or "") else urn_2024
+        return [
+            SimpleNamespace(upstreams=[SimpleNamespace(urn=urn)], column_lineage=[])
+        ]
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+        side_effect=fake_parse,
+    ):
+        result = extractor.extract_upstream_for_table(table, dataset_urn)
+
+    datasets = {u.dataset for u in result.upstreams}
+    # Names are already lowercase, so the lineage URNs are preserved as-is.
+    assert datasets == {urn_2024, urn_2025}
 
 
 def test_upstream_lineage_engine_failure_degrades() -> None:
