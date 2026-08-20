@@ -46,8 +46,8 @@ class UrnAliasResolver:
     """
 
     def __init__(self, graph: "Optional[DataHubGraph]" = None) -> None:
-        # Backed by sqlite: a bulk load holds a whole platform for the pipeline's
-        # lifetime, roughly 500 bytes per dataset.
+        # Backed by sqlite rather than memory: a bulk load holds a whole platform for the
+        # pipeline's lifetime.
         self._graph = graph
         self._urns_by_key: FileBackedDict[List[str]] = FileBackedDict(tablename=_TABLE)
 

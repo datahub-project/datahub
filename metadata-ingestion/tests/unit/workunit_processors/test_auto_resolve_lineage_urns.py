@@ -1403,9 +1403,10 @@ def test_a_failed_schema_fetch_keeps_the_table_level_healing():
     assert processor.report.num_column_urns_normalized == 1
     # The parent moved, so NORMALIZED is honest — but nothing checked the column.
     assert _fine_grained(out).matchType == LineageMatchTypeClass.NORMALIZED
-    # Both the table-level upstream and the field's parent ask, and a failed fetch is not
-    # negative-cached, so each one counts (and a transient failure can recover later).
-    assert processor.report.num_schema_fetches_failed == 2
+    # Only the field's parent asks for columns — the table-level upstream has none to
+    # reconcile. A failed fetch is not negative-cached, so a transient failure can still be
+    # recovered by a later reference.
+    assert processor.report.num_schema_fetches_failed == 1
     assert processor.report.num_exceptions == 0
 
 
@@ -1442,6 +1443,20 @@ def test_a_schemaless_listed_entity_is_asked_about_once():
     # Healed at table level; the column is left as the source reported it.
     assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "AMOUNT")]
     assert _schema_fetches(graph) == 1
+
+
+def test_table_only_lineage_fetches_no_schema():
+    # Columns are fetched for the column-level path alone. A table-level reference has no
+    # columns to reconcile, so paying a schema query per resolved entity would double the
+    # round trips of the common BI aspect for nothing.
+    processor, graph, patcher = _processor_for(_widened(), _resolver({}), [LOWER], [])
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == LOWER
+    assert _schema_fetches(graph) == 0
 
 
 def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
