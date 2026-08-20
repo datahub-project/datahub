@@ -27,13 +27,16 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 logger = logging.getLogger(__name__)
 
 # DISCOVER_CALC_DEPENDENCY OBJECT_TYPE / REFERENCED_OBJECT_TYPE values that map
 # to a DataHub schema field (and therefore to an intra-model column edge).
+# CALC_TABLE is intentionally excluded: it is a table object, not a field, so the
+# mapper never emits a schema field for it and an edge to it would dangle.
 _FIELD_DEPENDENCY_TYPES = frozenset(
-    {"MEASURE", "COLUMN", "CALC_COLUMN", "CALCULATED_COLUMN", "CALC_TABLE"}
+    {"MEASURE", "COLUMN", "CALC_COLUMN", "CALCULATED_COLUMN"}
 )
 
 
@@ -62,8 +65,11 @@ class AasLineageExtractor:
         self.platform_instance_resolver = ServerToPlatformInstanceResolver(config)
 
     def _lineage_urn_to_lowercase(self, value: str) -> str:
+        # Only the dataset name should be lowercased; lowercasing the whole URN
+        # would fold the platform and env (e.g. PROD) and point lineage at a URN
+        # that does not match the emitted entity.
         if self.config.convert_lineage_urns_to_lowercase:
-            return value.lower()
+            return lowercase_dataset_urn(value)
         return value
 
     def extract_upstream_for_table(

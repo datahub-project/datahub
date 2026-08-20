@@ -170,10 +170,16 @@ class AzureAnalysisServicesConfig(
     @field_validator("server")
     @classmethod
     def _validate_server(cls, value: str) -> str:
-        if constants.ASAZURE_ENDPOINT_RE.match(
+        # fullmatch (not match) so a trailing path/query suffix is rejected rather
+        # than silently accepting the valid prefix and passing a malformed URL on.
+        if constants.ASAZURE_ENDPOINT_RE.fullmatch(
             value
-        ) or constants.POWERBI_ENDPOINT_RE.match(value):
-            return value
+        ) or constants.POWERBI_ENDPOINT_RE.fullmatch(value):
+            # The scheme is matched case-insensitively but XmlaClient rewrites the
+            # literal ``powerbi://`` prefix; normalize it so a mixed-case scheme
+            # still produces a valid https URL.
+            scheme, sep, rest = value.partition("://")
+            return f"{scheme.lower()}{sep}{rest}"
         raise ValueError(
             "server must be an 'asazure://<region>.asazure.windows.net/<server>' or "
             "'powerbi://api.powerbi.com/v1.0/myorg/<workspace>' endpoint; "
