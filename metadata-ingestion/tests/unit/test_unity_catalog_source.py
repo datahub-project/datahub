@@ -3391,7 +3391,7 @@ class TestUnityCatalogVolumes:
     def test_bounded_dataset_name_case_folds_before_hashing(self) -> None:
         from unittest.mock import patch
 
-        from datahub.ingestion.source.unity import source as unity_source
+        from datahub.emitter import mce_builder
         from datahub.ingestion.source.unity.source import (
             _DATASET_URN_NAME_MAX_LENGTH,
             _bounded_dataset_name,
@@ -3401,12 +3401,13 @@ class TestUnityCatalogVolumes:
         assert len(long_path) > _DATASET_URN_NAME_MAX_LENGTH
         # When URNs are lower-cased, paths differing only by case must collapse to
         # one bounded name — the digest can't diverge on the pre-normalized case.
-        with patch.object(unity_source, "DATASET_URN_TO_LOWER", True):
+        # Patch the flag on mce_builder since it is read there at call time.
+        with patch.object(mce_builder, "DATASET_URN_TO_LOWER", True):
             assert _bounded_dataset_name(long_path) == _bounded_dataset_name(
                 long_path.lower()
             )
         # Without lower-casing, the two remain distinct.
-        with patch.object(unity_source, "DATASET_URN_TO_LOWER", False):
+        with patch.object(mce_builder, "DATASET_URN_TO_LOWER", False):
             assert _bounded_dataset_name(long_path) != _bounded_dataset_name(
                 long_path.lower()
             )

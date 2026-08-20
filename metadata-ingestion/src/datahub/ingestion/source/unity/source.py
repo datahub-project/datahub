@@ -26,8 +26,8 @@ import sqlglot.expressions as sqlglot_exp
 import yaml
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
-    DATASET_URN_TO_LOWER,
     UNKNOWN_USER,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -193,8 +193,10 @@ def _bounded_dataset_name(name: str) -> str:
     # make_dataset_urn_with_platform_instance lower-cases the whole name when
     # DATASET_URN_TO_LOWER is set, so hash the same normalized form here.
     # Otherwise two paths differing only by case would fold to one prefix but
-    # keep distinct digests, yielding two URNs for what is one dataset.
-    if DATASET_URN_TO_LOWER:
+    # keep distinct digests, yielding two URNs for what is one dataset. Read the
+    # flag from the module at call time; it is toggled by PipelineContext after
+    # import, so a bound copy could be stale.
+    if mce_builder.DATASET_URN_TO_LOWER:
         name = name.lower()
     if len(name) <= _DATASET_URN_NAME_MAX_LENGTH:
         return name
