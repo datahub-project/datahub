@@ -99,8 +99,8 @@ def get_upstream_tables(
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
-            message=f"M-Query parsing timed out after {config.m_query_parse_timeout} seconds. Lineage for this table will not be extracted.",
-            context=f"table-full-name={table.full_name}, expression={expression}",
+            message="M-Query parsing timed out; lineage for this table will not be extracted",
+            context=f"timeout={config.m_query_parse_timeout}s, table-full-name={table.full_name}, expression={expression}",
         )
         return []
     except MQueryParseError as e:

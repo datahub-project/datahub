@@ -1,5 +1,7 @@
 from typing import Dict, Optional, Protocol, Sequence, Union, runtime_checkable
 
+from typing_extensions import LiteralString
+
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.source.common.m_query.config import (
@@ -109,8 +111,6 @@ class MQueryReporter(Protocol):
     m_query_parse_timeouts: int
     m_query_native_query_skipped: int
     m_query_non_mquery_expressions: int
-    m_query_parse_validation_errors: int
-    m_query_parse_unexpected_character_errors: int
     m_query_parse_unknown_errors: int
     m_query_resolver_errors: int
     m_query_resolver_no_lineage: int
@@ -122,11 +122,14 @@ class MQueryReporter(Protocol):
     @property
     def infos(self) -> LossyList[StructuredLogEntry]: ...
 
+    # message/title are LiteralString to match SourceReport.warning/info, which
+    # require literals so identical entries are grouped in the report. Dynamic
+    # detail belongs in ``context``.
     def warning(
         self,
         *,
-        title: Optional[str] = None,
-        message: str,
+        title: Optional[LiteralString] = None,
+        message: LiteralString,
         context: Optional[str] = None,
         exc: Optional[BaseException] = None,
     ) -> None: ...
@@ -134,7 +137,7 @@ class MQueryReporter(Protocol):
     def info(
         self,
         *,
-        title: Optional[str] = None,
-        message: str,
+        title: Optional[LiteralString] = None,
+        message: LiteralString,
         context: Optional[str] = None,
     ) -> None: ...
