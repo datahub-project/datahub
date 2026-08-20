@@ -952,6 +952,74 @@ def test_athena_table_platform_override_drops_platform_instance():
     )
 
 
+def test_athena_table_platform_override_uses_target_platform_instance():
+    """When the federated source is ingested under a platform_instance, the override
+    carries that target instance (not Athena's) so the URN matches the source
+    connector's entities."""
+    from datahub.ingestion.source.powerbi.config import (
+        AthenaPlatformOverride,
+        DataPlatformPair,
+        PowerBiDashboardSourceConfig,
+    )
+    from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+        ResolvePlatformInstanceFromDatasetTypeMapping,
+    )
+    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
+    from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        athena_table_platform_override=[
+            AthenaPlatformOverride(
+                database="my_schema",
+                table="my_table",
+                platform="mysql",
+                platform_instance="mysql_prod",
+            ),
+        ],
+    )
+
+    odbc = OdbcLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="test_table", full_name="test_table"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.my_schema.my_table,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    overridden_lineage = odbc._apply_table_platform_override(
+        original_lineage, dsn="TestDSN", platform_instance="my_instance"
+    )
+
+    assert (
+        overridden_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,mysql_prod.my_schema.my_table,PROD)"
+    )
+
+
 def test_athena_table_platform_override_no_match():
     """Test that tables not in override config are unchanged."""
     from datahub.ingestion.source.powerbi.config import (

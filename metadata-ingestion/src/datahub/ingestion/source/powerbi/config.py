@@ -417,6 +417,15 @@ class AthenaPlatformOverride(ConfigModel):
         description="Optional DSN to scope this override to a specific data source. "
         "If specified, this override only applies when the query comes from this DSN.",
     )
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional platform_instance of the target platform. Set this when "
+        "the federated source (e.g. the MySQL server) is ingested under a "
+        "platform_instance, so the overridden lineage URN matches that connector's "
+        "entities. The Athena platform_instance is never carried over — it names an "
+        "Athena deployment, not the source. Leave unset to target instance-less "
+        "entities.",
+    )
 
 
 # Workspace ``type`` values returned by the PowerBI admin API for personal

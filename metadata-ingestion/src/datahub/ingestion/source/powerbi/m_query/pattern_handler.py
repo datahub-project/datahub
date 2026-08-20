@@ -1978,6 +1978,10 @@ class OdbcLineage(AbstractLineage):
         This is used when Athena queries federated data sources (e.g., MySQL)
         and the lineage should point to the actual source platform entity.
 
+        The rewritten URN carries the matched override's own platform_instance (or
+        none), never Athena's — the resolved Athena instance names an Athena
+        deployment, not the federated source, so re-using it would dangle.
+
         Matching priority:
         1. DSN-scoped overrides (where override.dsn matches the current DSN)
         2. Global overrides (where override.dsn is None)
@@ -2017,28 +2021,35 @@ class OdbcLineage(AbstractLineage):
 
             # Find matching override: DSN-scoped first, then global
             target_platform = None
+            target_platform_instance = None
             for override in self.config.athena_table_platform_override:
                 if override.database == urn_database and override.table == urn_table:
                     if override.dsn == dsn:
                         # DSN-scoped match takes priority
                         target_platform = override.platform
+                        target_platform_instance = override.platform_instance
                         break
                     elif override.dsn is None and target_platform is None:
                         # Global match (only if no DSN-scoped match found yet)
                         target_platform = override.platform
+                        target_platform_instance = override.platform_instance
 
             if not target_platform:
                 return urn
 
-            # Drop the Athena platform_instance prefix on a platform change: the
-            # rewritten URN now belongs to the source connector (e.g. mysql),
-            # which uses its own platform_instance (or none) — never Athena's. The
-            # instance_prefix was only split off so the override could match the
-            # real database.table; re-attaching it would point at a URN the source
-            # connector never emits. (Catalog stripping keeps the prefix because it
-            # stays on the same Athena platform.)
-            overridden_urn = str(
-                DatasetUrn(platform=target_platform, name=table_name, env=parsed.env)
+            # A platform change hands the entity to the source connector (e.g.
+            # mysql), so Athena's platform_instance must never carry over — it
+            # names an Athena deployment, not the source, and would point at a URN
+            # that connector never emits. The Athena prefix was only split off so
+            # the override could match the real database.table. Rebuild the URN
+            # with the target connector's own platform_instance when the operator
+            # supplies one, otherwise emit an instance-less URN (the common case).
+            # (Catalog stripping keeps its prefix because it stays on athena.)
+            overridden_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=target_platform,
+                name=table_name,
+                platform_instance=target_platform_instance,
+                env=parsed.env,
             )
             logger.debug(
                 f"Overriding platform for table {table_name}: {current_platform} -> {target_platform}"
