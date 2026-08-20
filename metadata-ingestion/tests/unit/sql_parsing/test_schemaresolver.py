@@ -173,6 +173,56 @@ class TestResolveTableBatching:
         assert len(urns_tried) >= 2
         assert len(urns_tried) == len(set(urns_tried))
 
+    def test_prefetch_batches_across_tables(self, schema_resolver, mock_graph):
+        # resolve_table batches the URN variants of one table, so probing several
+        # candidate spellings costs a round trip each. prefetch_tables collapses them
+        # into one, and the resolve_table calls afterwards then read from cache.
+        mock_graph.get_entities.return_value = {}
+
+        candidates = [
+            _TableName(database="DB", db_schema="SCHEMA", table="TABLE"),
+            _TableName(database="DB", db_schema="Schema", table="Table"),
+        ]
+        schema_resolver.prefetch_tables(candidates)
+
+        assert mock_graph.get_entities.call_count == 1
+        urns_tried = mock_graph.get_entities.call_args[1]["urns"]
+        assert len(urns_tried) == len(set(urns_tried))
+
+        for candidate in candidates:
+            schema_resolver.resolve_table(candidate)
+        # Still one: every candidate URN, hit or miss, is cached by the prefetch.
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_prefetch_follows_the_lookup_shape_override(self, mock_graph):
+        # A subclass that registers URNs differently from how queries spell them
+        # (dbt's _TwoTierSchemaResolver strips the catalog) must have prefetching and
+        # resolution agree. When only resolve_table was overridden, prefetch warmed
+        # URNs nobody looked up: the batch was wasted AND resolve_table still made its
+        # own call, so batching cost an extra round trip instead of saving one.
+        class _CatalogStrippingResolver(SchemaResolver):
+            def _table_for_lookup(self, table: _TableName) -> _TableName:
+                return table.model_copy(update={"database": None})
+
+        resolver = _CatalogStrippingResolver(
+            platform="trino", env="PROD", graph=mock_graph
+        )
+        mock_graph.get_entities.return_value = {}
+        table = _TableName(
+            database="my_catalog", db_schema="my_schema", table="MixedCase"
+        )
+
+        resolver.prefetch_tables([table])
+        prefetched = set(mock_graph.get_entities.call_args[1]["urns"])
+        assert prefetched, "prefetch fetched nothing"
+        assert all("my_catalog" not in urn for urn in prefetched)
+
+        mock_graph.get_entities.reset_mock()
+        resolver.resolve_table(table)
+        assert not mock_graph.get_entities.called, (
+            "resolve_table re-fetched, so the prefetched URNs were the wrong ones"
+        )
+
     def test_uses_cache_first(self, schema_resolver, mock_graph):
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
         schema_resolver.add_schema_metadata(

@@ -3,7 +3,16 @@ import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+)
 
 from requests.models import HTTPError
 from typing_extensions import TypedDict
@@ -60,6 +69,15 @@ class SchemaResolverInterface(Protocol):
     def includes_temp_tables(self) -> bool: ...
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
+
+    def prefetch_tables(self, tables: Iterable[_TableName]) -> None:
+        """Optionally warm the cache for several tables in one round trip.
+
+        Defaulted to a no-op so an implementation without a remote backend, or without
+        a cache to warm, needs no code: callers use this only to save round trips, and
+        must still resolve through ``resolve_table``.
+        """
+        return None
 
     def __hash__(self) -> int:
         # Mainly to make lru_cache happy in methods that accept a schema resolver.
@@ -151,15 +169,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         return urn, None
 
-    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
-        """Resolve a table to its URN and (best-effort) schema.
-
-        Contract: the returned URN is **best-effort and always non-None** — on a
-        cache/graph miss a *synthesized* URN is still returned. The resolution
-        signal is the **second element**: ``SchemaInfo is None`` means the table
-        was not found in DataHub. Callers deciding whether a table actually
-        exists must test the ``SchemaInfo``, never ``urn is None``.
-        """
+    def _candidate_urns(self, table: _TableName) -> List[str]:
+        """The URNs a table might be stored under, in the order they should be tried."""
         urn = self.get_urn_for_table(table)
         urn_lower = self.get_urn_for_table(table, lower=True)
         # Our treatment of platform instances when lowercasing urns
@@ -177,6 +188,111 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             urns_to_try.append(urn_lower)
         if urn_mixed not in {urn, urn_lower}:
             urns_to_try.append(urn_mixed)
+        return urns_to_try
+
+    def _fetch_uncached_urns(self, urns: List[str]) -> None:
+        """Fetch and cache the schemas for any of ``urns`` not already cached."""
+        if not self.graph:
+            return
+
+        # Skip URNs already in cache (None entries included) to avoid repeated API calls.
+        urns_to_fetch = [u for u in urns if u not in self._schema_cache]
+        if not urns_to_fetch:
+            return
+
+        try:
+            entity_results = self.graph.get_entities(
+                entity_name="dataset",
+                urns=urns_to_fetch,
+                aspects=[SchemaMetadataClass.ASPECT_NAME],
+                with_system_metadata=False,
+            )
+
+            for fetch_urn in urns_to_fetch:
+                schema_metadata: Optional[SchemaMetadataClass] = None
+
+                if fetch_urn in entity_results:
+                    entity_aspects = entity_results[fetch_urn]
+                    if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
+                        aspect_value, _ = entity_aspects[
+                            SchemaMetadataClass.ASPECT_NAME
+                        ]
+                        if isinstance(aspect_value, SchemaMetadataClass):
+                            schema_metadata = aspect_value
+
+                self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+        except (
+            TimeoutError,
+            ConnectionError,
+            OSError,
+            HTTPError,
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+            GraphError,
+            AssertionError,
+        ) as e:
+            logger.warning(
+                f"Batch schema fetch failed ({type(e).__name__}): {e}. "
+                f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
+                exc_info=True,
+            )
+            for fetch_urn in urns_to_fetch:
+                self._save_to_cache(fetch_urn, None)
+
+    def _table_for_lookup(self, table: _TableName) -> _TableName:
+        """The shape this resolver looks a table up under.
+
+        Subclasses that register URNs differently from how queries spell them
+        override this rather than ``resolve_table``, so that every path deriving URNs
+        from a table - resolution and prefetching alike - agrees on the shape. An
+        override on ``resolve_table`` alone would leave ``prefetch_tables`` warming
+        URNs that are never looked up.
+        """
+        return table
+
+    def prefetch_tables(self, tables: Iterable[_TableName]) -> None:
+        """Fetch the schemas for several tables in a single round trip.
+
+        ``resolve_table`` already batches the URN variants it tries for one table, but
+        a caller probing several candidate spellings of the same table pays a round
+        trip per candidate. Warming the cache for all of them first collapses that into
+        one. Which candidate wins is unaffected: ``resolve_table`` reads through this
+        same cache and tries the same candidates in the same order.
+
+        Not free of side effects, despite being an optimisation: a failed fetch caches
+        every requested URN as missing for the rest of the run, exactly as the fetch
+        inside ``resolve_table`` does.
+        """
+        if not self.graph:
+            return
+
+        urns: List[str] = []
+        seen: Set[str] = set()
+        for table in tables:
+            for urn in self._candidate_urns(self._table_for_lookup(table)):
+                if urn not in seen:
+                    seen.add(urn)
+                    urns.append(urn)
+        self._fetch_uncached_urns(urns)
+
+    def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve a table to its URN and (best-effort) schema.
+
+        Contract: the returned URN is **best-effort and always non-None** — on a
+        cache/graph miss a *synthesized* URN is still returned. The resolution
+        signal is the **second element**: ``SchemaInfo is None`` means the table
+        was not found in DataHub. Callers deciding whether a table actually
+        exists must test the ``SchemaInfo``, never ``urn is None``.
+        """
+        table = self._table_for_lookup(table)
+
+        urn = self.get_urn_for_table(table)
+        urn_lower = self.get_urn_for_table(table, lower=True)
+        urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
+
+        urns_to_try = self._candidate_urns(table)
 
         for candidate_urn in urns_to_try:
             if candidate_urn in self._schema_cache:
@@ -186,50 +302,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     return candidate_urn, schema_info
 
         if self.graph:
-            # Skip URNs already in cache (None entries included) to avoid repeated API calls.
-            urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
-
-            if urns_to_fetch:
-                try:
-                    entity_results = self.graph.get_entities(
-                        entity_name="dataset",
-                        urns=urns_to_fetch,
-                        aspects=[SchemaMetadataClass.ASPECT_NAME],
-                        with_system_metadata=False,
-                    )
-
-                    for fetch_urn in urns_to_fetch:
-                        schema_metadata: Optional[SchemaMetadataClass] = None
-
-                        if fetch_urn in entity_results:
-                            entity_aspects = entity_results[fetch_urn]
-                            if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
-                                aspect_value, _ = entity_aspects[
-                                    SchemaMetadataClass.ASPECT_NAME
-                                ]
-                                if isinstance(aspect_value, SchemaMetadataClass):
-                                    schema_metadata = aspect_value
-
-                        self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
-
-                except (
-                    TimeoutError,
-                    ConnectionError,
-                    OSError,
-                    HTTPError,
-                    json.JSONDecodeError,
-                    ValueError,
-                    KeyError,
-                    GraphError,
-                    AssertionError,
-                ) as e:
-                    logger.warning(
-                        f"Batch schema fetch failed ({type(e).__name__}): {e}. "
-                        f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
-                        exc_info=True,
-                    )
-                    for fetch_urn in urns_to_fetch:
-                        self._save_to_cache(fetch_urn, None)
+            self._fetch_uncached_urns(urns_to_try)
 
             for candidate_urn in urns_to_try:
                 schema_info = self._schema_cache.get(candidate_urn)
@@ -393,6 +466,11 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
             self._base_resolver._track_cache_hit()
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
+
+    def prefetch_tables(self, tables: Iterable[_TableName]) -> None:
+        # Extra schemas are already in memory, so only the base resolver has anything
+        # to fetch. Warming it is still correct: resolve_table checks the extras first.
+        self._base_resolver.prefetch_tables(tables)
 
     def add_temp_tables(
         self, temp_tables: Dict[str, Optional[List[SchemaFieldClass]]]
