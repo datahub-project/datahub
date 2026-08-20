@@ -80,9 +80,14 @@ class HightouchUrnBuilder:
         if source_details.include_schema_in_urn and schema:
             parts = [part for part in (database, schema, table_name) if part]
             return ".".join(parts)
-        if database and "." not in table_name:
-            return f"{database}.{table_name}"
-        return table_name
+
+        # include_schema_in_urn is false: drop any existing schema/database
+        # qualification down to the bare table name so the option actually removes
+        # the schema segment, then prepend the configured database.
+        bare_table = table_name.split(".")[-1]
+        if database:
+            return f"{database}.{bare_table}"
+        return bare_table
 
     def make_model_urn(
         self,
@@ -108,7 +113,7 @@ class HightouchUrnBuilder:
         return DatasetUrn.create_from_ids(
             platform_id=source_details.platform or source.type.lower(),
             table_name=table_name,
-            env=source_details.env,
+            env=source_details.env or self.config.env,
             platform_instance=source_details.platform_instance,
         )
 
@@ -123,6 +128,6 @@ class HightouchUrnBuilder:
         return DatasetUrn.create_from_ids(
             platform_id=dest_details.platform or destination.type.lower(),
             table_name=table_name,
-            env=dest_details.env,
+            env=dest_details.env or self.config.env,
             platform_instance=dest_details.platform_instance,
         )

@@ -146,7 +146,12 @@ class HightouchContractHandler:
         event: HightouchContractEvent,
         event_dataset: Dataset,
     ) -> Iterable[MetadataWorkUnit]:
-        if not event.json_schema:
+        # Build the assertion from the already-translated fields (field-list) rather
+        # than the json-schema contract type: the json-schema path passes a full
+        # platform URN into get_schema_metadata, which prepends the platform prefix
+        # again and produces a double-prefixed, invalid SchemaMetadata.platform.
+        schema_fields = self._schema_fields(event)
+        if not schema_fields:
             return
 
         try:
@@ -155,8 +160,8 @@ class HightouchContractHandler:
                     "version": 1,
                     "entity": str(event_dataset.urn),
                     "schema": {
-                        "type": "json-schema",
-                        "json-schema": event.json_schema,
+                        "type": "field-list",
+                        "fields": schema_fields,
                         "description": self._contract_description(contract, event),
                     },
                 }

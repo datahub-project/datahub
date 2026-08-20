@@ -12,7 +12,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400207,
+        "lastObserved": 1704110402390,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -30,7 +30,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400207,
+        "lastObserved": 1704110402393,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -46,7 +46,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400207,
+        "lastObserved": 1704110402394,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -64,7 +64,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400213,
+        "lastObserved": 1704110402579,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400214,
+        "lastObserved": 1704110402585,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400214,
+        "lastObserved": 1704110402588,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -114,7 +114,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400217,
+        "lastObserved": 1704110402648,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -150,7 +150,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400217,
+        "lastObserved": 1704110402649,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -183,7 +183,7 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
                     "nativeDataType": "INTEGER",
@@ -218,7 +218,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400217,
+        "lastObserved": 1704110402651,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -237,7 +237,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400218,
+        "lastObserved": 1704110402653,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -255,7 +255,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400218,
+        "lastObserved": 1704110402654,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -278,7 +278,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400218,
+        "lastObserved": 1704110402655,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -297,7 +297,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400218,
+        "lastObserved": 1704110402665,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -313,7 +313,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400218,
+        "lastObserved": 1704110402666,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -333,7 +333,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400218,
+        "lastObserved": 1704110402666,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -349,7 +349,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400219,
+        "lastObserved": 1704110402682,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -367,7 +367,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400219,
+        "lastObserved": 1704110402682,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -383,7 +383,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400219,
+        "lastObserved": 1704110402683,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -403,7 +403,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400219,
+        "lastObserved": 1704110402684,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -419,7 +419,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400219,
+        "lastObserved": 1704110402688,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -452,7 +452,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400220,
+        "lastObserved": 1704110402689,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -473,7 +473,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400220,
+        "lastObserved": 1704110402690,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -497,7 +497,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400220,
+        "lastObserved": 1704110402691,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -513,7 +513,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400220,
+        "lastObserved": 1704110402698,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -549,7 +549,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400220,
+        "lastObserved": 1704110402700,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -574,7 +574,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400221,
+        "lastObserved": 1704110402761,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -593,7 +593,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400221,
+        "lastObserved": 1704110402762,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -612,7 +612,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400221,
+        "lastObserved": 1704110402762,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -628,7 +628,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400221,
+        "lastObserved": 1704110402762,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -648,7 +648,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400221,
+        "lastObserved": 1704110402763,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -673,7 +673,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400223,
+        "lastObserved": 1704110402783,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -688,7 +688,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110400223,
+                        "time": 1704110402783,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -740,7 +740,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400224,
+        "lastObserved": 1704110402785,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -755,7 +755,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110400224,
+                        "time": 1704110402785,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -769,7 +769,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400226,
+        "lastObserved": 1704110402984,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -785,7 +785,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402991,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -801,7 +801,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402991,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -817,7 +817,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402993,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -833,7 +833,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402993,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -849,7 +849,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402993,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -865,7 +865,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402994,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -881,7 +881,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400227,
+        "lastObserved": 1704110402995,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -897,7 +897,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400228,
+        "lastObserved": 1704110402995,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -913,7 +913,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400228,
+        "lastObserved": 1704110402996,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }

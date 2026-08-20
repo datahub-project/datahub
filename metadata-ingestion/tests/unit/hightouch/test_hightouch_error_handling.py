@@ -9,6 +9,7 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchAPIConfig,
     HightouchSourceConfig,
 )
+from datahub.ingestion.source.hightouch.constants import DESTINATION_FALLBACK_SUFFIX
 from datahub.ingestion.source.hightouch.hightouch import HightouchSource
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 
@@ -380,6 +381,7 @@ class TestHightouchMalformedAPIResponses:
         mock_client_instance.get_model_by_id.return_value = model_mock
         mock_client_instance.get_destination_by_id.return_value = dest_mock
         mock_client_instance.get_contracts.return_value = []
+        mock_client_instance.extract_field_mappings.return_value = []
 
         source_mock = Mock()
         source_mock.id = "source_1"
@@ -395,11 +397,24 @@ class TestHightouchMalformedAPIResponses:
             source = HightouchSource(config, ctx)
             workunits = list(source.get_workunits())
 
-            assert any(
-                hasattr(wu, "metadata")
-                and hasattr(wu.metadata, "aspectName")
-                and wu.metadata.aspectName == "dataFlowInfo"
+            # The destination has no configuration, so the outlet table URN must
+            # fall back to "<sync_slug>_destination". Assert the missing-config
+            # branch actually drives the emitted dataJob lineage.
+            outlet_urns = [
+                urn
                 for wu in workunits
+                if hasattr(wu, "metadata")
+                and getattr(wu.metadata, "aspectName", None) == "dataJobInputOutput"
+                for urn in (
+                    getattr(
+                        getattr(wu.metadata, "aspect", None), "outputDatasets", None
+                    )
+                    or []
+                )
+            ]
+            assert any(
+                f"{sync_mock.slug}{DESTINATION_FALLBACK_SUFFIX}" in urn
+                for urn in outlet_urns
             )
 
 
@@ -435,12 +450,14 @@ class TestHightouchConfigValidation:
         assert "request_timeout_sec must be positive" in str(exc_info.value)
 
     def test_invalid_base_url_no_protocol(self):
+        # A schemeless URL is not https, so it is rejected to prevent sending the
+        # API key over plaintext.
         with pytest.raises(ValidationError) as exc_info:
             HightouchSourceConfig(
                 api_config={"api_key": "test_key", "base_url": "api.hightouch.com"}
             )
 
-        assert "base_url must start with http:// or https://" in str(exc_info.value)
+        assert "https" in str(exc_info.value)
 
     def test_empty_base_url(self):
         with pytest.raises(ValidationError) as exc_info:

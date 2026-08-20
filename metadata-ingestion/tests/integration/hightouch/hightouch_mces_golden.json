@@ -12,7 +12,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400939,
+        "lastObserved": 1704110458821,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -30,7 +30,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400939,
+        "lastObserved": 1704110458828,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -46,7 +46,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400939,
+        "lastObserved": 1704110458834,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -64,7 +64,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401118,
+        "lastObserved": 1704110464543,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401119,
+        "lastObserved": 1704110464574,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401119,
+        "lastObserved": 1704110464575,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -114,7 +114,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401122,
+        "lastObserved": 1704110464665,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -150,7 +150,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401122,
+        "lastObserved": 1704110464666,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -183,7 +183,7 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
                     "nativeDataType": "INTEGER",
@@ -218,7 +218,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401122,
+        "lastObserved": 1704110464668,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -237,7 +237,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464669,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -255,7 +255,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464670,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -278,7 +278,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464676,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -294,7 +294,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464678,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -314,7 +314,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464679,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -330,7 +330,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464682,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -348,7 +348,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401123,
+        "lastObserved": 1704110464683,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -364,7 +364,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401124,
+        "lastObserved": 1704110464683,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -384,7 +384,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401124,
+        "lastObserved": 1704110464684,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -400,7 +400,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401124,
+        "lastObserved": 1704110464686,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -433,7 +433,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401124,
+        "lastObserved": 1704110464686,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -489,7 +489,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401124,
+        "lastObserved": 1704110464688,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -513,7 +513,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401125,
+        "lastObserved": 1704110464689,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -529,13 +529,13 @@
                 "sync_run_id": "run_1",
                 "sync_id": "sync_1",
                 "status": "success",
-                "planned_rows_added": "0",
-                "planned_rows_changed": "0",
-                "planned_rows_removed": "0",
+                "planned_rows_added": "50",
+                "planned_rows_changed": "30",
+                "planned_rows_removed": "5",
                 "planned_rows_total": "85",
-                "successful_rows_added": "0",
-                "successful_rows_changed": "0",
-                "successful_rows_removed": "0",
+                "successful_rows_added": "50",
+                "successful_rows_changed": "30",
+                "successful_rows_removed": "5",
                 "successful_rows_total": "85",
                 "failed_rows_added": "0",
                 "failed_rows_changed": "0",
@@ -553,7 +553,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401125,
+        "lastObserved": 1704110464691,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -570,7 +570,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401125,
+        "lastObserved": 1704110464692,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -588,7 +588,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401125,
+        "lastObserved": 1704110464692,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -606,7 +606,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401125,
+        "lastObserved": 1704110464693,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -627,7 +627,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401126,
+        "lastObserved": 1704110464697,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -652,7 +652,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401126,
+        "lastObserved": 1704110464698,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -668,7 +668,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401126,
+        "lastObserved": 1704110464716,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -704,7 +704,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401126,
+        "lastObserved": 1704110464716,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -729,7 +729,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401126,
+        "lastObserved": 1704110464717,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -748,7 +748,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464718,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -764,7 +764,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464718,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -784,7 +784,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464718,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -800,7 +800,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464720,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -818,7 +818,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464723,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -834,7 +834,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464723,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -854,7 +854,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401127,
+        "lastObserved": 1704110464724,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -870,7 +870,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401128,
+        "lastObserved": 1704110464725,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -903,7 +903,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401128,
+        "lastObserved": 1704110464727,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -948,7 +948,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401128,
+        "lastObserved": 1704110464729,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -972,7 +972,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401128,
+        "lastObserved": 1704110464730,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1032,7 +1032,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401128,
+        "lastObserved": 1704110464731,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1081,7 +1081,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401131,
+        "lastObserved": 1704110464817,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1096,7 +1096,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110401131,
+                        "time": 1704110464807,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -1148,7 +1148,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401132,
+        "lastObserved": 1704110464821,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1163,7 +1163,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110401132,
+                        "time": 1704110464820,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -1177,7 +1177,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401134,
+        "lastObserved": 1704110464927,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1193,7 +1193,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401134,
+        "lastObserved": 1704110464934,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1209,7 +1209,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464935,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1225,7 +1225,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464936,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1241,7 +1241,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464936,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1257,7 +1257,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464937,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1273,7 +1273,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464937,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1289,7 +1289,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464938,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1305,7 +1305,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464939,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1321,7 +1321,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401135,
+        "lastObserved": 1704110464939,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1337,7 +1337,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401136,
+        "lastObserved": 1704110464940,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1353,7 +1353,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401136,
+        "lastObserved": 1704110464941,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1369,7 +1369,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401136,
+        "lastObserved": 1704110464942,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1385,7 +1385,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110401136,
+        "lastObserved": 1704110464942,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }

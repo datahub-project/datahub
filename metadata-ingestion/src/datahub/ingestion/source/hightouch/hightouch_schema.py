@@ -9,6 +9,8 @@ from datahub.ingestion.source.hightouch.constants import (
     QUERY_TYPE_TABLE,
 )
 from datahub.ingestion.source.hightouch.hightouch_utils import (
+    SchemaMetadataCache,
+    fetch_schema_metadata_cached,
     reraise_if_programming_error,
 )
 from datahub.ingestion.source.hightouch.models import (
@@ -38,10 +40,17 @@ class HightouchSchemaHandler:
         report: HightouchSourceReport,
         graph: Optional[DataHubGraph],
         urn_builder: HightouchUrnBuilder,
+        schema_metadata_cache: Optional[SchemaMetadataCache] = None,
     ) -> None:
         self.report = report
         self.graph = graph
         self.urn_builder = urn_builder
+        # Shared, run-scoped cache injected by the source so preload, model, and
+        # lineage resolution reuse the same fetched schema metadata. Defaults to a
+        # private cache when constructed standalone (e.g. in unit tests).
+        self._schema_metadata_cache: SchemaMetadataCache = (
+            schema_metadata_cache if schema_metadata_cache is not None else {}
+        )
 
     @staticmethod
     def _get_first_value(d: Dict[str, Any], keys: List[str]) -> Optional[Any]:
@@ -226,7 +235,9 @@ class HightouchSchemaHandler:
             if not upstream_urn:
                 return None
 
-            schema_metadata = self.graph.get_schema_metadata(str(upstream_urn))
+            schema_metadata = fetch_schema_metadata_cached(
+                self.graph, self._schema_metadata_cache, str(upstream_urn)
+            )
 
             if not schema_metadata or not schema_metadata.fields:
                 self.report.report_model_schema_datahub_not_found(model.slug)
@@ -271,7 +282,9 @@ class HightouchSchemaHandler:
             return False
 
         try:
-            schema_metadata = self.graph.get_schema_metadata(urn)
+            schema_metadata = fetch_schema_metadata_cached(
+                self.graph, self._schema_metadata_cache, urn
+            )
             if schema_metadata and schema_metadata.fields:
                 aggregator.register_schema(urn, schema_metadata)
                 registered_urns.add(urn)

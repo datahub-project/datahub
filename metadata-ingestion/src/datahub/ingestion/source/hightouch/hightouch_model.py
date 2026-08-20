@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.hightouch.config import (
@@ -23,6 +24,7 @@ from datahub.ingestion.source.hightouch.hightouch_schema import (
 from datahub.ingestion.source.hightouch.hightouch_utils import (
     normalize_column_name,
     reraise_if_programming_error,
+    resolve_datahub_field_type,
 )
 from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
@@ -38,10 +40,8 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     GlobalTagsClass,
     SchemaFieldClass,
-    SchemaFieldDataTypeClass,
     SchemalessClass,
     SchemaMetadataClass,
-    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -135,12 +135,20 @@ class HightouchModelHandler:
         schema_field_classes: List[SchemaFieldClass] = []
         for field in schema_fields:
             normalized_name = normalize_column_name(field.name)
-            field_path = upstream_field_casing.get(normalized_name, field.name)
+            upstream_cased = upstream_field_casing.get(normalized_name)
+            # Only adopt the upstream field's casing when it differs from the model
+            # field purely by letter case. A looser match (underscores/hyphens
+            # stripped, or a SQL alias that normalizes to the same key) would rename
+            # the model's actual output column, so keep the model field name then.
+            if upstream_cased and upstream_cased.lower() == field.name.lower():
+                field_path = upstream_cased
+            else:
+                field_path = field.name
 
             schema_field_classes.append(
                 SchemaFieldClass(
                     fieldPath=field_path,
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    type=resolve_datahub_field_type(field.type),
                     nativeDataType=field.type,
                     description=field.description,
                     isPartOfKey=field.is_primary_key,
@@ -280,7 +288,7 @@ class HightouchModelHandler:
 
         if model.tags:
             tags_to_emit = [
-                TagAssociationClass(tag=f"urn:li:tag:ht_{key}_{value}")
+                TagAssociationClass(tag=make_tag_urn(f"ht_{key}_{value}"))
                 for key, value in model.tags.items()
                 if key and value
             ]
@@ -386,7 +394,7 @@ class HightouchModelHandler:
                 default_db=source_platform.database,
                 platform=source_platform.platform,
                 platform_instance=source_platform.platform_instance,
-                env=source_platform.env,
+                env=source_platform.env or self.config.env,
                 graph=None,
                 schema_aware=False,
             )

@@ -21,6 +21,9 @@ from datahub.ingestion.source.hightouch.constants import (
     SYNC_CONFIG_TYPE_EVENT,
     SYNC_CONFIG_VALUE_KEY_FROM,
     SYNC_CONFIG_VALUE_KEY_NAME,
+    SYNC_RUN_ROW_KEY_ADDED,
+    SYNC_RUN_ROW_KEY_CHANGED,
+    SYNC_RUN_ROW_KEY_REMOVED,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_container import (
@@ -98,9 +101,9 @@ class HightouchSyncHandler:
             platform_instance=self.config.platform_instance,
         )
 
-    def get_inlet_urn_for_model(
+    def get_inlet_urns_for_model(
         self, model: HightouchModel, sync: HightouchSync
-    ) -> Union[str, DatasetUrn, None]:
+    ) -> List[Union[str, DatasetUrn]]:
         source = self.get_source(model.source_id)
         if not source:
             self.report.warning(
@@ -108,26 +111,34 @@ class HightouchSyncHandler:
                 message="Could not retrieve source information for lineage creation.",
                 context=f"sync_slug: {sync.slug} (model_id: {model.source_id})",
             )
-            return None
+            return []
 
         if not self.config.emit_models_as_datasets:
             if model.query_type == QUERY_TYPE_TABLE and model.name:
                 table_name = self.urn_builder.qualified_table_name(model, source)
-                return self.urn_builder.make_upstream_table_urn(table_name, source)
-            else:
-                self.report.report_lineage_resolution_failure(
-                    f"sync_slug: {sync.slug} (model_slug: {model.slug})"
-                )
-                self.report.warning(
-                    title="No upstream lineage for non-table model",
-                    message="emit_models_as_datasets=False but the model is not a "
-                    "table-type model, so no upstream table URN can be resolved; "
-                    "lineage for this sync will be missing.",
-                    context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
-                )
-                return None
+                return [self.urn_builder.make_upstream_table_urn(table_name, source)]
 
-        return self.urn_builder.make_model_urn(model, source)
+            # For non-table (raw SQL) models there is no intermediate model dataset,
+            # so resolve the SQL's upstream tables directly and use them as inlets.
+            sql_upstreams = self.lineage_handler.resolve_sql_model_upstream_urns(
+                model, source
+            )
+            if sql_upstreams:
+                return list(sql_upstreams)
+
+            self.report.report_lineage_resolution_failure(
+                f"sync_slug: {sync.slug} (model_slug: {model.slug})"
+            )
+            self.report.warning(
+                title="No upstream lineage for non-table model",
+                message="emit_models_as_datasets=False and the model's SQL upstream "
+                "tables could not be resolved, so no upstream lineage can be "
+                "emitted for this sync.",
+                context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
+            )
+            return []
+
+        return [self.urn_builder.make_model_urn(model, source)]
 
     def get_outlet_urn_for_sync(
         self, sync: HightouchSync, destination: HightouchDestination
@@ -185,9 +196,7 @@ class HightouchSyncHandler:
 
         inlets: List[Union[str, DatasetUrn]] = []
         if model:
-            inlet_urn = self.get_inlet_urn_for_model(model, sync)
-            if inlet_urn:
-                inlets.append(inlet_urn)
+            inlets = self.get_inlet_urns_for_model(model, sync)
 
         datajob.set_inlets(inlets)
 
@@ -198,7 +207,11 @@ class HightouchSyncHandler:
         if outlet_urn:
             datajob.set_outlets([outlet_urn])
 
-        if model and outlet_urn and inlets:
+        # Column-level lineage maps the model's output columns to a single upstream.
+        # With multiple SQL upstreams (raw-SQL model, no intermediate dataset) there
+        # is no unambiguous upstream to attribute field mappings to, so emit only
+        # table-level lineage in that case.
+        if model and outlet_urn and len(inlets) == 1:
             model_schema_fields = self.model_schema_fields_cache.get(model.id)
             fine_grained_lineages = self.lineage_handler.generate_column_lineage(
                 sync, model, inlets[0], outlet_urn, model_schema_fields
@@ -270,9 +283,13 @@ class HightouchSyncHandler:
         ):
             if not rows:
                 continue
-            custom_props[f"{prefix}_added"] = str(rows.get("added", 0))
-            custom_props[f"{prefix}_changed"] = str(rows.get("changed", 0))
-            custom_props[f"{prefix}_removed"] = str(rows.get("removed", 0))
+            custom_props[f"{prefix}_added"] = str(rows.get(SYNC_RUN_ROW_KEY_ADDED, 0))
+            custom_props[f"{prefix}_changed"] = str(
+                rows.get(SYNC_RUN_ROW_KEY_CHANGED, 0)
+            )
+            custom_props[f"{prefix}_removed"] = str(
+                rows.get(SYNC_RUN_ROW_KEY_REMOVED, 0)
+            )
             custom_props[f"{prefix}_total"] = str(sum(rows.values()))
 
         if sync_run.query_size:

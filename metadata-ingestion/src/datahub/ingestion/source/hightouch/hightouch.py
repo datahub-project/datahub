@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -42,6 +42,7 @@ from datahub.ingestion.source.hightouch.hightouch_model import HightouchModelHan
 from datahub.ingestion.source.hightouch.hightouch_schema import HightouchSchemaHandler
 from datahub.ingestion.source.hightouch.hightouch_sync import HightouchSyncHandler
 from datahub.ingestion.source.hightouch.hightouch_utils import (
+    SchemaMetadataCache,
     reraise_if_programming_error,
 )
 from datahub.ingestion.source.hightouch.models import (
@@ -63,6 +64,11 @@ from datahub.sdk.entity import Entity
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
+
+# SQL parsing aggregators must not be shared across sources that resolve to the
+# same platform but different instances or environments, otherwise SQL-derived
+# lineage is emitted under the wrong dataset URNs. Key the cache by all three.
+AggregatorCacheKey = Tuple[str, Optional[str], str]
 
 
 @platform_name("Hightouch")
@@ -100,19 +106,25 @@ class HightouchSource(StatefulIngestionSourceBase):
         self._users_cache: Dict[str, HightouchUser] = {}
         self._registered_urns: Set[str] = set()
         self._model_schema_fields_cache: Dict[str, List[SchemaFieldClass]] = {}
+        self._schema_metadata_cache: SchemaMetadataCache = {}
 
         self._urn_builder = HightouchUrnBuilder(
             config=self.config,
             get_platform_for_source=self._get_platform_for_source,
             get_platform_for_destination=self._get_platform_for_destination,
         )
-        self._sql_aggregators: Dict[str, Optional[SqlParsingAggregator]] = {}
+        self._sql_aggregators: Dict[
+            AggregatorCacheKey, Optional[SqlParsingAggregator]
+        ] = {}
         self._destination_lineage: Dict[str, HightouchDestinationLineageInfo] = {}
 
         self._container_handler = HightouchContainerHandler(config=self.config)
 
         self._schema_handler = HightouchSchemaHandler(
-            report=self.report, graph=self.graph, urn_builder=self._urn_builder
+            report=self.report,
+            graph=self.graph,
+            urn_builder=self._urn_builder,
+            schema_metadata_cache=self._schema_metadata_cache,
         )
 
         self._lineage_handler = HightouchLineageHandler(
@@ -125,6 +137,7 @@ class HightouchSource(StatefulIngestionSourceBase):
             model_schema_fields_cache=self._model_schema_fields_cache,
             destination_lineage=self._destination_lineage,
             sql_aggregators=self._sql_aggregators,
+            schema_metadata_cache=self._schema_metadata_cache,
         )
 
         self._model_handler = HightouchModelHandler(
@@ -165,12 +178,19 @@ class HightouchSource(StatefulIngestionSourceBase):
         if not platform:
             return None
 
-        if platform not in self._sql_aggregators:
+        env = source_platform.env or self.config.env
+        cache_key: AggregatorCacheKey = (
+            platform,
+            source_platform.platform_instance,
+            env,
+        )
+
+        if cache_key not in self._sql_aggregators:
             try:
-                self._sql_aggregators[platform] = SqlParsingAggregator(
+                self._sql_aggregators[cache_key] = SqlParsingAggregator(
                     platform=platform,
                     platform_instance=source_platform.platform_instance,
-                    env=source_platform.env or self.config.env,
+                    env=env,
                     graph=self.graph,
                     eager_graph_load=False,
                     generate_lineage=True,
@@ -190,10 +210,10 @@ class HightouchSource(StatefulIngestionSourceBase):
                     context=f"platform: {platform}",
                     exc=e,
                 )
-                self._sql_aggregators[platform] = None
+                self._sql_aggregators[cache_key] = None
                 return None
 
-        return self._sql_aggregators[platform]
+        return self._sql_aggregators[cache_key]
 
     def _get_source(self, source_id: str) -> Optional[HightouchSourceConnection]:
         if source_id not in self._sources_cache:
@@ -355,10 +375,12 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         for sync in filtered_syncs:
             try:
+                yield from self._get_sync_workunits(sync)
+                # Only suppress the model from the standalone pass once the sync
+                # workunits were produced without error; a failed sync must not
+                # silently drop its model.
                 if self.config.emit_models_as_datasets:
                     emitted_model_ids.add(sync.model_id)
-
-                yield from self._get_sync_workunits(sync)
             except Exception as e:
                 self.report.warning(
                     title="Failed to process sync",
@@ -397,11 +419,12 @@ class HightouchSource(StatefulIngestionSourceBase):
             yield from self._lineage_handler.emit_all_destination_lineage()
 
         active_aggregators = {
-            platform: aggregator
-            for platform, aggregator in self._sql_aggregators.items()
+            cache_key: aggregator
+            for cache_key, aggregator in self._sql_aggregators.items()
             if aggregator is not None
         }
-        for platform, aggregator in active_aggregators.items():
+        for cache_key, aggregator in active_aggregators.items():
+            platform = cache_key[0]
             try:
                 for mcp in aggregator.gen_metadata():
                     yield mcp.as_workunit()

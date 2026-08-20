@@ -20,7 +20,7 @@ source:
 
     # Optional: Emit Hightouch models as Dataset entities (RECOMMENDED)
     emit_models_as_datasets: true  # Default is true
-    include_model_lineage: true  # Default is true
+    parse_model_sql: true  # Parse model SQL to extract upstream table lineage (default is true)
 
     # Optional: Filter models by name pattern
     model_patterns:
@@ -31,8 +31,8 @@ source:
     include_sync_runs: true  # Default is true
     max_sync_runs_per_sync: 10  # Default is 10
 
-    # Optional: Include column-level lineage
-    include_column_lineage: true  # Default is true
+    # Optional: Link table models to their source warehouse tables as siblings
+    include_sibling_relationships: true  # Default is true
 
     # Optional: Map Hightouch sources to DataHub platforms
     sources_to_platform_instance:

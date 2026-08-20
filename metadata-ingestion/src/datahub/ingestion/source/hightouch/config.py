@@ -1,12 +1,12 @@
 import dataclasses
 import logging
 from typing import Dict, Optional
+from urllib.parse import urlparse
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -39,13 +39,32 @@ class HightouchAPIConfig(ConfigModel):
         "Increase this if large workspaces time out on listing endpoints.",
     )
 
+    @field_validator("api_key")
+    @classmethod
+    def validate_api_key(cls, v: SecretStr) -> SecretStr:
+        # A blank secret passes pydantic's type check but produces an unusable
+        # "Authorization: Bearer " header, so reject it before ingestion starts.
+        if not v.get_secret_value().strip():
+            raise ValueError("api_key cannot be empty")
+        return v
+
     @field_validator("base_url")
     @classmethod
     def validate_base_url(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("base_url cannot be empty")
-        if not v.startswith(("http://", "https://")):
-            raise ValueError("base_url must start with http:// or https://")
+        # The API key is sent as a Bearer token on every request, so plaintext
+        # HTTP would leak it. Require TLS except for loopback hosts used in tests.
+        parsed = urlparse(v)
+        if parsed.scheme != "https":
+            if parsed.scheme == "http" and parsed.hostname in (
+                "localhost",
+                "127.0.0.1",
+            ):
+                return v.rstrip("/")
+            raise ValueError(
+                "base_url must use https:// so the API key is not sent over plaintext"
+            )
         return v.rstrip("/")
 
     @field_validator("request_timeout_sec")
@@ -69,9 +88,10 @@ class PlatformDetail(ConfigModel):
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
-    env: str = Field(
-        default=DEFAULT_ENV,
-        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+    env: Optional[str] = Field(
+        default=None,
+        description="The environment that all assets produced by this mapping belong to. "
+        "When unset, the connector-level `env` is used.",
     )
     database: Optional[str] = Field(
         default=None,

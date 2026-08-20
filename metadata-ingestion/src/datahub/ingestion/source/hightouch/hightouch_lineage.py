@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -15,6 +15,8 @@ from datahub.ingestion.source.hightouch.constants import (
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_utils import (
+    SchemaMetadataCache,
+    fetch_schema_metadata_cached,
     normalize_column_name,
     reraise_if_programming_error,
 )
@@ -41,6 +43,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -57,7 +60,10 @@ class HightouchLineageHandler:
         registered_urns: Set[str],
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
         destination_lineage: Dict[str, HightouchDestinationLineageInfo],
-        sql_aggregators: Dict[str, Optional[SqlParsingAggregator]],
+        sql_aggregators: Dict[
+            Tuple[str, Optional[str], str], Optional[SqlParsingAggregator]
+        ],
+        schema_metadata_cache: SchemaMetadataCache,
     ) -> None:
         self.config = config
         self.api_client = api_client
@@ -68,6 +74,23 @@ class HightouchLineageHandler:
         self._model_schema_fields_cache = model_schema_fields_cache
         self._destination_lineage = destination_lineage
         self._sql_aggregators = sql_aggregators
+        self._schema_metadata_cache = schema_metadata_cache
+
+    def _fetch_schema_field_paths(self, urn: str, kind: str) -> Optional[List[str]]:
+        if not self.graph:
+            return None
+        try:
+            metadata = fetch_schema_metadata_cached(
+                self.graph, self._schema_metadata_cache, urn
+            )
+            if metadata and metadata.fields:
+                return [f.fieldPath for f in metadata.fields]
+        except Exception as e:
+            reraise_if_programming_error(e, f"fetching {kind} schema")
+            logger.debug(
+                f"Could not fetch {kind} schema for column matching (optional): {e}"
+            )
+        return None
 
     def get_upstream_field_casing(
         self,
@@ -100,7 +123,9 @@ class HightouchLineageHandler:
             return {}
 
         try:
-            upstream_schema = self.graph.get_schema_metadata(str(upstream_urn))
+            upstream_schema = fetch_schema_metadata_cached(
+                self.graph, self._schema_metadata_cache, str(upstream_urn)
+            )
             if not upstream_schema or not upstream_schema.fields:
                 return {}
 
@@ -133,7 +158,9 @@ class HightouchLineageHandler:
         fine_grained_lineages = []
 
         try:
-            upstream_schema = self.graph.get_schema_metadata(upstream_table_urn)
+            upstream_schema = fetch_schema_metadata_cached(
+                self.graph, self._schema_metadata_cache, upstream_table_urn
+            )
 
             if not upstream_schema or not upstream_schema.fields:
                 return []
@@ -240,7 +267,6 @@ class HightouchLineageHandler:
             self.config.parse_model_sql
             and model.raw_sql
             and model.query_type == QUERY_TYPE_RAW_SQL
-            and hasattr(aggregator, "add_view_definition")
         ):
             self.report.sql_parsing_attempts += 1
 
@@ -265,6 +291,52 @@ class HightouchLineageHandler:
                     context=f"model_id: {model.id}, platform: {source_platform.platform}",
                     exc=e,
                 )
+
+    def resolve_sql_model_upstream_urns(
+        self, model: HightouchModel, source: HightouchSourceConnection
+    ) -> List[str]:
+        # Parse a raw-SQL model's query to resolve the upstream table URNs it reads
+        # from. Used to build sync lineage when models are not emitted as datasets,
+        # where there is no intermediate model dataset to hang lineage from.
+        if not (
+            self.config.parse_model_sql
+            and model.raw_sql
+            and model.query_type == QUERY_TYPE_RAW_SQL
+        ):
+            return []
+
+        source_platform = self.urn_builder.get_platform_for_source(source)
+        if not source_platform.platform:
+            return []
+
+        self.report.sql_parsing_attempts += 1
+        result = create_lineage_sql_parsed_result(
+            query=model.raw_sql,
+            default_db=source_platform.database,
+            default_schema=None,
+            platform=source_platform.platform,
+            platform_instance=source_platform.platform_instance,
+            env=source_platform.env or self.config.env,
+            graph=self.graph,
+            schema_aware=self.graph is not None,
+        )
+
+        if result.debug_info.table_error:
+            self.report.sql_parsing_failures += 1
+            self.report.report_lineage_resolution_failure(
+                f"sql_model_upstreams model_slug: {model.slug}"
+            )
+            self.report.warning(
+                title="Could not parse model SQL for upstream lineage",
+                message="Upstream table lineage could not be derived from the "
+                "model's SQL and will be missing for syncs using this model.",
+                context=f"model_slug: {model.slug}",
+                exc=result.debug_info.table_error,
+            )
+            return []
+
+        self.report.sql_parsing_successes += 1
+        return list(result.in_tables)
 
     def normalize_and_match_column(
         self,
@@ -318,29 +390,17 @@ class HightouchLineageHandler:
         if model_schema_fields_override:
             model_schema_fields = [f.fieldPath for f in model_schema_fields_override]
         elif self.graph:
-            try:
-                model_schema_metadata = self.graph.get_schema_metadata(str(inlet_urn))
-                if model_schema_metadata and model_schema_metadata.fields:
-                    model_schema_fields = [
-                        f.fieldPath for f in model_schema_metadata.fields
-                    ]
-            except Exception as e:
-                reraise_if_programming_error(e, "fetching model schema")
-                logger.debug(
-                    f"Could not fetch model schema for column matching (optional): {e}"
-                )
+            model_schema_fields = self._fetch_schema_field_paths(
+                str(inlet_urn), "model"
+            )
 
-            try:
-                dest_schema_metadata = self.graph.get_schema_metadata(str(outlet_urn))
-                if dest_schema_metadata and dest_schema_metadata.fields:
-                    dest_schema_fields = [
-                        f.fieldPath for f in dest_schema_metadata.fields
-                    ]
-            except Exception as e:
-                reraise_if_programming_error(e, "fetching destination schema")
-                logger.debug(
-                    f"Could not fetch destination schema for column matching (optional): {e}"
-                )
+        # Destination schema is resolved independently of how the model schema was
+        # obtained; otherwise a supplied model override would leave destination
+        # field mappings in API casing and produce mismatched schema-field URNs.
+        if self.graph:
+            dest_schema_fields = self._fetch_schema_field_paths(
+                str(outlet_urn), "destination"
+            )
 
         for mapping in field_mappings:
             column_pair = self.normalize_and_match_column(

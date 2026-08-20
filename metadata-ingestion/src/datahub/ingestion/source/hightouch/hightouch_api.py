@@ -95,8 +95,12 @@ class HightouchAPIClient:
             allowed_methods=HTTP_RETRY_ALLOWED_METHODS,
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount(HTTP_PROTOCOL_HTTP, adapter)
         session.mount(HTTP_PROTOCOL_HTTPS, adapter)
+        # The API key is sent as a Bearer token, so plaintext HTTP is only mounted
+        # for the loopback base URLs the config validator allows (local tests);
+        # production base URLs are required to be https.
+        if self.config.base_url.startswith(HTTP_PROTOCOL_HTTP):
+            session.mount(HTTP_PROTOCOL_HTTP, adapter)
 
         session.headers.update(
             {
@@ -152,17 +156,18 @@ class HightouchAPIClient:
                 f"items={len(items)}, total_so_far={len(all_items)})"
             )
 
-            # Distinguish an explicit hasMore=false from an omitted field: if the
-            # field is missing but the page came back full, the API may have more
-            # data that we would otherwise silently drop.
-            has_more = response.get(API_RESPONSE_FIELD_HAS_MORE)
-            if has_more is None and len(items) == limit:
-                self._warn_pagination(
-                    f"{endpoint}: response omitted '{API_RESPONSE_FIELD_HAS_MORE}' "
-                    f"on a full page (limit={limit}); results may be truncated."
-                )
+            if len(items) == 0:
+                break
 
-            if not has_more or len(items) == 0:
+            # Distinguish an explicit hasMore=false from an omitted field. When the
+            # flag is omitted we infer more data from a full page (a short page
+            # signals the end); dropping a full page would silently truncate.
+            has_more = response.get(API_RESPONSE_FIELD_HAS_MORE)
+            page_full = len(items) == limit
+            if has_more is None:
+                if not page_full:
+                    break
+            elif not has_more:
                 break
 
             offset += len(items)
@@ -369,49 +374,91 @@ class HightouchAPIClient:
         if not config:
             return field_mappings
 
-        mappings = config.get("mappings", [])
-        if not isinstance(mappings, list):
-            self._report_field_mappings_dropped(
-                f"Sync {sync.id}: expected mappings to be a list, got "
-                f"{type(mappings).__name__}; column-level lineage will be missing."
-            )
-            return field_mappings
+        raw_mappings = self._normalize_raw_field_mappings(sync, config)
 
-        for i, mapping in enumerate(mappings):
+        for i, raw in enumerate(raw_mappings):
+            source = raw.get("source")
+            dest = raw.get("dest")
+
+            if not source or not dest:
+                self._report_field_mappings_dropped(
+                    f"Sync {sync.id}: mapping at index {i} is missing a source or "
+                    "destination field; column-level lineage for this column will "
+                    "be missing."
+                )
+                continue
+
+            if not isinstance(source, str) or not isinstance(dest, str):
+                logger.warning(
+                    f"Sync {sync.id}: Field names must be strings, got "
+                    f"source={type(source).__name__}, dest={type(dest).__name__}. "
+                    "Converting to strings."
+                )
+                source = str(source)
+                dest = str(dest)
+
+            field_mappings.append(
+                HightouchFieldMapping(
+                    source_field=source,
+                    destination_field=dest,
+                    is_primary_key=bool(raw.get("is_pk", False)),
+                )
+            )
+
+        return field_mappings
+
+    def _normalize_raw_field_mappings(
+        self, sync: HightouchSync, config: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        # Hightouch encodes column mappings in three shapes depending on the
+        # destination: a `mappings` list ({from,to}), a `fieldMappings` list
+        # ({sourceField,destinationField}), and a `columnMappings` dict keyed by
+        # destination field. Normalize all three to {source,dest,is_pk} so column
+        # lineage is emitted regardless of destination type.
+        list_shapes = [
+            ("mappings", "from", "to"),
+            ("fieldMappings", "sourceField", "destinationField"),
+        ]
+        for key, source_key, dest_key in list_shapes:
+            raw = config.get(key)
+            if raw is None:
+                continue
+            if not isinstance(raw, list):
+                self._report_field_mappings_dropped(
+                    f"Sync {sync.id}: expected '{key}' to be a list, got "
+                    f"{type(raw).__name__}; column-level lineage will be missing."
+                )
+                return []
+            return self._normalize_list_mappings(sync, raw, source_key, dest_key)
+
+        column_mappings = config.get("columnMappings")
+        if isinstance(column_mappings, dict):
+            # columnMappings maps destination field -> source field.
+            return [
+                {"source": source, "dest": dest}
+                for dest, source in column_mappings.items()
+            ]
+
+        return []
+
+    def _normalize_list_mappings(
+        self,
+        sync: HightouchSync,
+        raw: List[Any],
+        source_key: str,
+        dest_key: str,
+    ) -> List[Dict[str, Any]]:
+        normalized: List[Dict[str, Any]] = []
+        for i, mapping in enumerate(raw):
             if not isinstance(mapping, dict):
                 self._report_field_mappings_dropped(
                     f"Sync {sync.id}: skipping non-dict mapping at index {i} "
                     f"({type(mapping).__name__}); column-level lineage will be missing."
                 )
                 continue
-
-            source = mapping.get("from")
-            dest = mapping.get("to")
-
-            if not source or not dest:
-                self._report_field_mappings_dropped(
-                    f"Sync {sync.id}: mapping at index {i} is missing a source "
-                    "('from') or destination ('to') field; column-level lineage for "
-                    "this column will be missing."
-                )
-                continue
-
-            if not isinstance(source, str) or not isinstance(dest, str):
-                logger.warning(
-                    f"Sync {sync.id}: Field names must be strings, got from={type(source).__name__}, "
-                    f"to={type(dest).__name__}. Converting to strings."
-                )
-                source = str(source)
-                dest = str(dest)
-
+            # Accept both the shape-specific keys and the generic from/to aliases.
+            source = mapping.get(source_key, mapping.get("from"))
+            dest = mapping.get(dest_key, mapping.get("to"))
             is_pk = mapping.get("isPrimaryKey", mapping.get("is_primary_key", False))
-
-            field_mappings.append(
-                HightouchFieldMapping(
-                    source_field=source,
-                    destination_field=dest,
-                    is_primary_key=bool(is_pk),
-                )
-            )
-
-        return field_mappings
+            normalized.append({"source": source, "dest": dest, "is_pk": is_pk})
+        return normalized

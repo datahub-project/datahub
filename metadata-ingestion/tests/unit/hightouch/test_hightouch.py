@@ -361,9 +361,16 @@ def test_sync_patterns_filtering(mock_api_client_class, pipeline_context):
     mock_client.get_models.return_value = []
 
     source_instance = HightouchIngestionSource(config, pipeline_context)
-    workunits = list(source_instance.get_workunits_internal())
+    list(source_instance.get_workunits_internal())
 
-    assert len(workunits) >= 0
+    # The denied 'test-sync' (model_id="10") must be filtered out before any
+    # per-sync processing, while the allowed 'prod-sync' (model_id="11") is
+    # processed and therefore resolves its model.
+    looked_up_model_ids = {
+        call.args[0] for call in mock_client.get_model_by_id.call_args_list
+    }
+    assert "11" in looked_up_model_ids
+    assert "10" not in looked_up_model_ids
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")

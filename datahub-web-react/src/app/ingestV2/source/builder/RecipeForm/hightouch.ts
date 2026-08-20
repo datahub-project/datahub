@@ -44,7 +44,12 @@ export const HIGHTOUCH_MAX_SYNC_RUNS: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.max_sync_runs_per_sync',
     placeholder: '10',
-    rules: null,
+    rules: [
+        {
+            pattern: /^\d+$/,
+            message: 'Max Sync Runs per Sync must be a non-negative integer.',
+        },
+    ],
 };
 
 export const HIGHTOUCH_SYNC_ALLOW: FilterRecipeField = {

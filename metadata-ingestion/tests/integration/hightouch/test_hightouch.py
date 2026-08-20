@@ -173,6 +173,97 @@ def get_mock_api_responses():
     }
 
 
+def _mock_extract_field_mappings(sync):
+    config = sync.configuration
+    field_mappings = []
+    if "fieldMappings" in config:
+        for mapping in config["fieldMappings"]:
+            field_mappings.append(
+                HightouchFieldMapping(
+                    source_field=mapping["sourceField"],
+                    destination_field=mapping["destinationField"],
+                    is_primary_key=mapping.get("isPrimaryKey", False),
+                )
+            )
+    elif "columnMappings" in config:
+        for dest_field, source_field in config["columnMappings"].items():
+            field_mappings.append(
+                HightouchFieldMapping(
+                    source_field=str(source_field),
+                    destination_field=str(dest_field),
+                    is_primary_key=False,
+                )
+            )
+    return field_mappings
+
+
+def configure_mock_api_client(
+    mock_api_instance, mock_responses, *, with_sync_runs, with_field_mappings
+):
+    """Wire a mocked HightouchAPIClient from the canned responses.
+
+    ``with_sync_runs`` and ``with_field_mappings`` toggle the only behavior that
+    differs between the integration scenarios; everything else is shared.
+    """
+    mock_api_instance._parse_model = lambda d: HightouchModel(**d) if d else None
+    mock_api_instance._parse_source = lambda d: (
+        HightouchSourceConnection(**d) if d else None
+    )
+    mock_api_instance._parse_destination = lambda d: (
+        HightouchDestination(**d) if d else None
+    )
+    mock_api_instance._parse_sync = lambda d: HightouchSync(**d) if d else None
+    mock_api_instance._parse_sync_run = lambda d: HightouchSyncRun(**d) if d else None
+
+    mock_api_instance.get_syncs.return_value = [
+        mock_api_instance._parse_sync(s) for s in mock_responses["syncs"]
+    ]
+    mock_api_instance.get_models.return_value = [
+        mock_api_instance._parse_model(m) for m in mock_responses["models"]
+    ]
+    mock_api_instance.get_workspaces.return_value = []
+    mock_api_instance.get_contracts.return_value = []
+
+    def mock_get_model(model_id):
+        model_dict = next(
+            (m for m in mock_responses["models"] if m["id"] == model_id), None
+        )
+        return mock_api_instance._parse_model(model_dict) if model_dict else None
+
+    def mock_get_source(source_id):
+        source_dict = next(
+            (s for s in mock_responses["sources"] if s["id"] == source_id), None
+        )
+        return mock_api_instance._parse_source(source_dict) if source_dict else None
+
+    def mock_get_destination(dest_id):
+        dest_dict = next(
+            (d for d in mock_responses["destinations"] if d["id"] == dest_id), None
+        )
+        return mock_api_instance._parse_destination(dest_dict) if dest_dict else None
+
+    mock_api_instance.get_model_by_id.side_effect = mock_get_model
+    mock_api_instance.get_source_by_id.side_effect = mock_get_source
+    mock_api_instance.get_destination_by_id.side_effect = mock_get_destination
+
+    if with_sync_runs:
+
+        def mock_get_sync_runs(sync_id, limit=10):
+            runs = mock_responses["sync_runs"].get(sync_id, [])[:limit]
+            return [mock_api_instance._parse_sync_run(r) for r in runs]
+
+        mock_api_instance.get_sync_runs.side_effect = mock_get_sync_runs
+    else:
+        mock_api_instance.get_sync_runs.return_value = []
+
+    if with_field_mappings:
+        mock_api_instance.extract_field_mappings.side_effect = (
+            _mock_extract_field_mappings
+        )
+    else:
+        mock_api_instance.extract_field_mappings.return_value = []
+
+
 @time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_hightouch_source_basic(pytestconfig, tmp_path):
@@ -185,85 +276,11 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
         "datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient"
     ) as mock_api_class:
         mock_api_instance = mock_api_class.return_value
-
-        mock_api_instance._parse_model = lambda d: HightouchModel(**d) if d else None
-        mock_api_instance._parse_source = lambda d: (
-            HightouchSourceConnection(**d) if d else None
-        )
-        mock_api_instance._parse_destination = lambda d: (
-            HightouchDestination(**d) if d else None
-        )
-        mock_api_instance._parse_sync = lambda d: HightouchSync(**d) if d else None
-        mock_api_instance._parse_sync_run = lambda d: (
-            HightouchSyncRun(**d) if d else None
-        )
-
-        # NOW use the parsers to set return values
-        mock_api_instance.get_syncs.return_value = [
-            mock_api_instance._parse_sync(s) for s in mock_responses["syncs"]
-        ]
-        mock_api_instance.get_models.return_value = [
-            mock_api_instance._parse_model(m) for m in mock_responses["models"]
-        ]
-        mock_api_instance.get_workspaces.return_value = []
-        mock_api_instance.get_contracts.return_value = []
-
-        def mock_get_model(model_id):
-            model_dict = next(
-                (m for m in mock_responses["models"] if m["id"] == model_id), None
-            )
-            return mock_api_instance._parse_model(model_dict) if model_dict else None
-
-        def mock_get_source(source_id):
-            source_dict = next(
-                (s for s in mock_responses["sources"] if s["id"] == source_id), None
-            )
-            return mock_api_instance._parse_source(source_dict) if source_dict else None
-
-        def mock_get_destination(dest_id):
-            dest_dict = next(
-                (d for d in mock_responses["destinations"] if d["id"] == dest_id), None
-            )
-            return (
-                mock_api_instance._parse_destination(dest_dict) if dest_dict else None
-            )
-
-        def mock_get_sync_runs(sync_id, limit=10):
-            runs = mock_responses["sync_runs"].get(sync_id, [])[:limit]
-            return [mock_api_instance._parse_sync_run(r) for r in runs]
-
-        def mock_extract_field_mappings(sync):
-            config = sync.configuration
-            field_mappings = []
-
-            if "fieldMappings" in config:
-                for mapping in config["fieldMappings"]:
-                    field_mappings.append(
-                        HightouchFieldMapping(
-                            source_field=mapping["sourceField"],
-                            destination_field=mapping["destinationField"],
-                            is_primary_key=mapping.get("isPrimaryKey", False),
-                        )
-                    )
-            elif "columnMappings" in config:
-                for dest_field, source_field in config["columnMappings"].items():
-                    field_mappings.append(
-                        HightouchFieldMapping(
-                            source_field=str(source_field),
-                            destination_field=str(dest_field),
-                            is_primary_key=False,
-                        )
-                    )
-
-            return field_mappings
-
-        # Attach side effects
-        mock_api_instance.get_model_by_id.side_effect = mock_get_model
-        mock_api_instance.get_source_by_id.side_effect = mock_get_source
-        mock_api_instance.get_destination_by_id.side_effect = mock_get_destination
-        mock_api_instance.get_sync_runs.side_effect = mock_get_sync_runs
-        mock_api_instance.extract_field_mappings.side_effect = (
-            mock_extract_field_mappings
+        configure_mock_api_client(
+            mock_api_instance,
+            mock_responses,
+            with_sync_runs=True,
+            with_field_mappings=True,
         )
 
         pipeline = Pipeline.create(
@@ -336,50 +353,12 @@ def test_hightouch_source_with_patterns(pytestconfig, tmp_path):
         "datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient"
     ) as mock_api_class:
         mock_api_instance = mock_api_class.return_value
-
-        mock_api_instance._parse_model = lambda d: HightouchModel(**d) if d else None
-        mock_api_instance._parse_source = lambda d: (
-            HightouchSourceConnection(**d) if d else None
+        configure_mock_api_client(
+            mock_api_instance,
+            mock_responses,
+            with_sync_runs=False,
+            with_field_mappings=False,
         )
-        mock_api_instance._parse_destination = lambda d: (
-            HightouchDestination(**d) if d else None
-        )
-        mock_api_instance._parse_sync = lambda d: HightouchSync(**d) if d else None
-
-        mock_api_instance.get_syncs.return_value = [
-            mock_api_instance._parse_sync(s) for s in mock_responses["syncs"]
-        ]
-        mock_api_instance.get_models.return_value = [
-            mock_api_instance._parse_model(m) for m in mock_responses["models"]
-        ]
-        mock_api_instance.get_workspaces.return_value = []
-        mock_api_instance.get_contracts.return_value = []
-
-        def mock_get_model(model_id):
-            model_dict = next(
-                (m for m in mock_responses["models"] if m["id"] == model_id), None
-            )
-            return mock_api_instance._parse_model(model_dict) if model_dict else None
-
-        def mock_get_source(source_id):
-            source_dict = next(
-                (s for s in mock_responses["sources"] if s["id"] == source_id), None
-            )
-            return mock_api_instance._parse_source(source_dict) if source_dict else None
-
-        def mock_get_destination(dest_id):
-            dest_dict = next(
-                (d for d in mock_responses["destinations"] if d["id"] == dest_id), None
-            )
-            return (
-                mock_api_instance._parse_destination(dest_dict) if dest_dict else None
-            )
-
-        mock_api_instance.get_model_by_id.side_effect = mock_get_model
-        mock_api_instance.get_source_by_id.side_effect = mock_get_source
-        mock_api_instance.get_destination_by_id.side_effect = mock_get_destination
-        mock_api_instance.get_sync_runs.return_value = []
-        mock_api_instance.extract_field_mappings.return_value = []
 
         pipeline = Pipeline.create(
             {

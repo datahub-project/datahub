@@ -53,6 +53,12 @@ DESTINATION_FALLBACK_SUFFIX = "_destination"
 API_RESPONSE_FIELD_DATA = "data"
 API_RESPONSE_FIELD_HAS_MORE = "hasMore"
 
+# Keys inside a sync run's row-count breakdown (plannedRows/successfulRows/failedRows).
+# The Hightouch API suffixes these with "Count".
+SYNC_RUN_ROW_KEY_ADDED = "addedCount"
+SYNC_RUN_ROW_KEY_CHANGED = "changedCount"
+SYNC_RUN_ROW_KEY_REMOVED = "removedCount"
+
 # Container types for organization
 CONTAINER_TYPE_MODELS = "Models"
 CONTAINER_TYPE_SYNCS = "Syncs"
@@ -115,7 +121,7 @@ KNOWN_SOURCE_PLATFORM_MAPPING = {
     "azure_data_lake_storage": "abs",
     # SaaS & Other
     "salesforce": "salesforce",
-    "google_sheets": "google-sheets",
+    "google_sheets": "google_sheets",
     "airtable": "airtable",
     "google_analytics": "google-analytics",
     "hubspot": "hubspot",
@@ -181,7 +187,7 @@ KNOWN_DESTINATION_PLATFORM_MAPPING = {
     "freshdesk": "freshdesk",
     "kustomer": "kustomer",
     # Collaboration & Productivity
-    "google_sheets": "google-sheets",
+    "google_sheets": "google_sheets",
     "airtable": "airtable",
     "slack": "slack",
     # Payment & Finance

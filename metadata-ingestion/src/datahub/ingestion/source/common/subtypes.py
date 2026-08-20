@@ -131,8 +131,6 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
-    HIGHTOUCH_WORKSPACE = "Workspace"
-    HIGHTOUCH_FOLDER = "Folder"
     THOUGHTSPOT_WORKSPACE = "Workspace"
     MICROSTRATEGY_PROJECT = "Project"
     MICROSTRATEGY_FOLDER = "Folder"
