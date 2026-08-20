@@ -95,6 +95,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import lower_if_all_upper
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -427,7 +428,7 @@ def normalize_db_name(name: str) -> str:
     converts them to lowercase for consistency. We apply the same rule wherever
     we use urn_db_name without access to the dialect (e.g. in OracleConfig methods).
     """
-    return name.lower() if name.isupper() else name
+    return lower_if_all_upper(name)
 
 
 DB_NAME_QUERY = """
