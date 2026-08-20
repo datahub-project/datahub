@@ -407,8 +407,13 @@ type SemanticModelInfo {
   The logical datasets that this semantic model exposes. Each is a Dataset entity in its own
   right (carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect), rather
   than an embedded record — resolve `... on Dataset` for schema/lineage/governance.
+
+  Deprecated: returns empty. Membership lives on member-side `semanticModelProperties.semanticModel`.
   """
   datasets: [Dataset!]!
+    @deprecated(
+      reason: "Field returns empty; membership lives on member-side semanticModelProperties.semanticModel / metricInfo.semanticModel."
+    )
   relationships: [SemanticModelRelationship!]
   """
   URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).

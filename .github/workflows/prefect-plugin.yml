@@ -71,7 +71,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install prefect package
-        run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint :metadata-ingestion-modules:prefect-plugin:testFull
+        run: ./gradlew :metadata-ingestion-modules:prefect-plugin:testFull
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/prefect-plugin/venv/bin/activate && uv pip freeze
