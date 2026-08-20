@@ -24,6 +24,11 @@ class QuarantineWriter:
         self._file: Optional[TextIO] = None
         self._lock = threading.Lock()
         self._disabled = False
+        self.disabled_reason: Optional[str] = None
+
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
 
     def write(self, row: Dict[str, Any], error: str) -> None:
         if self._disabled:
@@ -33,6 +38,13 @@ class QuarantineWriter:
             try:
                 # default=str because createdon is a datetime.
                 line = json.dumps({"error": error, "row": row}, default=str)
+            except Exception as e:
+                # A bad value on this one row (e.g. a custom __str__ that raises)
+                # shouldn't take every later dropped row down with it.
+                logger.warning(f"Skipping quarantine row that failed to serialize: {e}")
+                return
+
+            try:
                 if self._file is None:
                     self._file = open(self.filename, "a", encoding="utf-8")
                     logger.info(f"Writing unparseable rows to {self.filename}")
@@ -40,19 +52,15 @@ class QuarantineWriter:
                 self._file.flush()
                 self.records_written += 1
             except OSError as e:
+                self.disabled_reason = f"cannot write to {self.filename}: {e}"
                 logger.warning(
-                    f"Disabling the parse-error quarantine, cannot write to "
-                    f"{self.filename}: {e}"
+                    f"Disabling the parse-error quarantine, {self.disabled_reason}"
                 )
                 self._disabled = True
                 self._file = None
             except Exception as e:
-                # Catch any serialization or value conversion error (e.g., custom __str__ that raises).
-                logger.warning(
-                    f"Disabling the parse-error quarantine, could not serialize row: {e}"
-                )
-                self._disabled = True
-                self._file = None
+                # Not writer-fatal: skip this row and keep the channel open for later ones.
+                logger.warning(f"Skipping quarantine row that failed to write: {e}")
 
     def close(self) -> None:
         with self._lock:
@@ -65,3 +73,5 @@ class QuarantineWriter:
                     )
                 finally:
                     self._file = None
+            # A write() after close() must not silently reopen the file.
+            self._disabled = True

@@ -1,11 +1,12 @@
 import json
 from datetime import datetime, timezone
+from typing import Any, Dict
 from unittest.mock import MagicMock
 
 from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
 
 
-def _row() -> dict:
+def _row() -> Dict[str, Any]:
     return {
         "urn": "urn:li:dashboard:(my_tool,my dashboard (copy))",
         "aspect": "dashboardInfo",
@@ -62,18 +63,33 @@ class RaisingStr:
         raise ValueError("Intentional serialization failure")
 
 
-def test_disables_itself_when_serialization_fails(tmp_path):
-    """A serialization error must not raise."""
+def test_skips_row_that_fails_to_serialize_without_disabling(tmp_path):
+    """A row-local serialization failure must not take down every later dropped row."""
     path = tmp_path / "parse-errors.jsonl"
     writer = QuarantineWriter(str(path))
 
     bad_row = _row()
     bad_row["bad_value"] = RaisingStr()
 
-    writer.write(bad_row, "some error")  # must not raise
+    writer.write(bad_row, "some error")  # must not raise, and must not disable
+    writer.write(_row(), "a later, parseable error")
 
-    assert writer.records_written == 0
+    assert not writer.disabled
+    assert writer.records_written == 1
     writer.close()
+
+
+def test_write_after_close_does_not_reopen_file(tmp_path):
+    """A write() call after close() must not resurrect the file handle."""
+    path = tmp_path / "parse-errors.jsonl"
+    writer = QuarantineWriter(str(path))
+    writer.write(_row(), "some error")
+    writer.close()
+
+    writer.write(_row(), "a write after close")
+
+    assert writer._file is None
+    assert writer.records_written == 1
 
 
 def test_handles_close_failure_gracefully(tmp_path):
