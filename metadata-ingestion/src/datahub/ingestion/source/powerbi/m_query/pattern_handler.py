@@ -982,6 +982,12 @@ class OracleLineage(AbstractLineage):
         return False
 
 
+# Databricks navigation chains are ordered catalog -> schema -> table, so a step
+# that omits Kind (valid M that Power BI refreshes) takes the first level the
+# chain has not filled yet.
+_DATABRICKS_NAVIGATION_LEVELS: Tuple[str, ...] = ("Database", "Schema", "Table")
+
+
 class DatabricksLineage(AbstractLineage):
     def form_qualified_table_name(
         self,
@@ -1030,7 +1036,30 @@ class DatabricksLineage(AbstractLineage):
                 table_detail["Schema"] = temp_accessor.items["Schema"]
                 table_detail["Table"] = temp_accessor.items["Item"]
             else:
-                table_detail[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                name: Optional[str] = temp_accessor.items.get("Name")
+                level: Optional[str] = temp_accessor.items.get("Kind")
+                if level is None:
+                    level = next(
+                        (
+                            candidate
+                            for candidate in _DATABRICKS_NAVIGATION_LEVELS
+                            if candidate not in table_detail
+                        ),
+                        None,
+                    )
+
+                if name is None or level is None:
+                    self.reporter.warning(
+                        title="Unusable M-Query navigation step",
+                        message="A navigation step could not be mapped to a Databricks "
+                        "catalog, schema or table. Lineage will be missing for this "
+                        "table.",
+                        context=f"table-full-name={self.table.full_name}, "
+                        f"navigation-step={temp_accessor.items}",
+                    )
+                    return Lineage.empty()
+
+                table_detail[level] = name
 
             if temp_accessor.next is not None:
                 temp_accessor = temp_accessor.next

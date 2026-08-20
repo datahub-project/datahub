@@ -322,6 +322,51 @@ def test_databricks_parenthesized_navigation_step_in_if_branch():
     assert data_platform_tables[0].urn == _DATABRICKS_PARENTHESIZED_EXPECTED_URN
 
 
+# Leaf navigation step written without Kind="Table". Valid M that Power BI
+# refreshes fine.
+_DATABRICKS_NO_KIND_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    my_table_Table = my_schema_Schema{[Name="my_table"]}[Data]\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+
+@pytest.mark.integration
+def test_databricks_navigation_step_without_kind():
+    """A leaf navigation step lacking Kind="Table" must still yield lineage."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_NO_KIND_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_PARENTHESIZED_EXPECTED_URN
+    assert reporter.m_query_resolver_errors == 0
+
+
 @pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
