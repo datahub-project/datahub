@@ -160,3 +160,126 @@ class TestGetEntityAspectSpecs:
         specs2 = _graph(session2).get_entity_aspect_specs()
         assert specs2 is not None and specs2.supports("dataset", "status")
         assert session2.request.call_count == 0
+
+class TestGetDocumentsByAsset:
+    def test_get_documents_by_asset_paginates(self) -> None:
+        session = MagicMock()
+        graph = _graph(session)
+        dataset_urn = "urn:li:dataset:test"
+        
+        page1 = MagicMock()
+        page1.json.return_value = {
+            "data": {
+                "entity": {
+                    "relatedDocuments": {
+                        "total": 2,
+                        "documents": [{"urn": "urn:li:document:doc1"}]
+                    }
+                }
+            }
+        }
+        page1.raise_for_status.return_value = None
+        
+        page2 = MagicMock()
+        page2.json.return_value = {
+            "data": {
+                "entity": {
+                    "relatedDocuments": {
+                        "total": 2,
+                        "documents": [{"urn": "urn:li:document:doc2"}]
+                    }
+                }
+            }
+        }
+        page2.raise_for_status.return_value = None
+
+        session.request.side_effect = [page1, page2]
+        
+        docs = list(graph.get_documents_by_asset(dataset_urn, count=1))
+        
+        assert docs == [
+            "urn:li:document:doc1",
+            "urn:li:document:doc2",
+        ]
+        
+        # Verify query semantics
+        query_str = session.request.call_args_list[0][1]["json"]["query"]
+        assert "relatedDocuments" in query_str
+        assert "entity(urn: $urn)" in query_str
+        assert "searchDocuments" not in query_str
+
+        # Verify pagination variables were correct
+        captured_variables = [call[1]["json"]["variables"] for call in session.request.call_args_list]
+        assert captured_variables == [
+            {
+                "urn": dataset_urn,
+                "input": {"start": 0, "count": 1},
+            },
+            {
+                "urn": dataset_urn,
+                "input": {"start": 1, "count": 1},
+            },
+        ]
+
+    def test_get_documents_by_asset_empty(self) -> None:
+        session = MagicMock()
+        graph = _graph(session)
+        
+        page1 = MagicMock()
+        page1.json.return_value = {
+            "data": {
+                "entity": {
+                    "relatedDocuments": {
+                        "total": 0,
+                        "documents": []
+                    }
+                }
+            }
+        }
+        page1.raise_for_status.return_value = None
+        session.request.side_effect = [page1]
+        
+        docs = list(graph.get_documents_by_asset("urn:li:dataset:test", count=20))
+        assert docs == []
+
+    def test_get_documents_by_asset_missing_entity(self) -> None:
+        session = MagicMock()
+        graph = _graph(session)
+        
+        page1 = MagicMock()
+        # DataHub returns null for entity if not found
+        page1.json.return_value = {
+            "data": {
+                "entity": None
+            }
+        }
+        page1.raise_for_status.return_value = None
+        session.request.side_effect = [page1]
+        
+        docs = list(graph.get_documents_by_asset("urn:li:dataset:test", count=20))
+        assert docs == []
+
+    def test_get_documents_by_asset_uses_related_documents_query(self) -> None:
+        session = MagicMock()
+        graph = _graph(session)
+        
+        page1 = MagicMock()
+        page1.json.return_value = {
+            "data": {
+                "entity": {
+                    "relatedDocuments": {
+                        "total": 0,
+                        "documents": []
+                    }
+                }
+            }
+        }
+        page1.raise_for_status.return_value = None
+        session.request.side_effect = [page1]
+        
+        list(graph.get_documents_by_asset("urn:li:dataset:test", count=20))
+        query_str = session.request.call_args_list[0][1]["json"]["query"]
+        
+        assert "relatedDocuments" in query_str
+        assert "entity(urn: $urn)" in query_str
+        assert "searchDocuments" not in query_str
