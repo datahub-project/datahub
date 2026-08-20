@@ -986,7 +986,6 @@ query getLineageCounts(
 # How many columns a column is directly related to, counted the way the lineage graph draws them.
 # `orFilters` carries the degree filter plus the exclusions that keep this comparable to the drawn
 # graph -- see `buildRelatedColumnFilters`.
-# How many columns a column is directly related to, counted the way the lineage graph draws them.
 #
 # Counts only: the related columns are mostly schema fields that were never materialized as entities
 # -- fine-grained lineage writes graph edges without creating them -- so there is nothing to return

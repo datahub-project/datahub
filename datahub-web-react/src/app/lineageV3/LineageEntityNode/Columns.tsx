@@ -13,7 +13,6 @@ import ColumnSearch from '@app/lineageV3/LineageEntityNode/ColumnSearch';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LineageNodesContext, TRANSITION_DURATION_MS, onClickPreventSelect } from '@app/lineageV3/common';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
-import { LineageAssetType } from '@app/lineageV3/types';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;
@@ -252,17 +251,5 @@ function useComputeAllNeighborsFetched(entity: FetchedEntity): boolean {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [entity.upstreamChildren, entity.downstreamChildren, nodes, dataVersion],
     );
-    useEffect(() => {
-        if (allNeighborsFetched) {
-            const node = nodes.get(entity.urn);
-            node?.entity?.lineageAssets?.forEach((asset) => {
-                if (asset.type === LineageAssetType.Column) {
-                    // eslint-disable-next-line no-param-reassign
-                    asset.lineageCountsFetched = true;
-                }
-            });
-        }
-    }, [allNeighborsFetched, nodes, entity.urn]);
-
     return allNeighborsFetched;
 }

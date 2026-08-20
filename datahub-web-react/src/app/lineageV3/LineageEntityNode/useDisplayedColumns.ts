@@ -63,11 +63,15 @@ export function columnHasLineage(lineageAsset: ColumnAsset, connectedToHomeNode:
 
 /** Identifies a column by everything about it that is rendered, so that changed counts re-render. */
 function describe(column: LineageDisplayColumn): string {
-    const { shownRelated } = column;
+    const { shownRelated, lineageAsset } = column;
     return [
         column.fieldPath,
         shownRelated?.[LineageDirection.Upstream],
         shownRelated?.[LineageDirection.Downstream],
+        // Written onto the asset in place as counts resolve, so they are not visible as a change
+        // to any of the values this memo is computed from
+        lineageAsset.numUpstream,
+        lineageAsset.numDownstream,
     ].join('␟');
 }
 

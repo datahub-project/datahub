@@ -60,11 +60,6 @@ export default function useFetchColumnCounts(
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const mergedUrns = useMergedUrns(parentUrn);
 
-    // Counts are written through a ref: the graph rebuilds its column assets as it fetches, so the
-    // asset captured when the request went out may no longer be the one being rendered
-    const assetToWrite = useRef(lineageAsset);
-    assetToWrite.current = lineageAsset;
-
     const [fetchCounts, { loading }] = useGetColumnLineageCountsLazyQuery({
         variables: {
             urn: schemaFieldUrn,
@@ -74,16 +69,6 @@ export default function useFetchColumnCounts(
             ignoreAsHops: generateIgnoreAsHops(rootType),
             includeSoftDeleted: showGhostEntities || ignoreSchemaFieldStatus,
             orFilters: buildRelatedColumnFilters(mergedUrns),
-        },
-        onCompleted: (data) => {
-            const asset = assetToWrite.current;
-            asset.lineageCountsFetched = true;
-            asset.numUpstream = data.upstream?.total ?? 0;
-            asset.numDownstream = data.downstream?.total ?? 0;
-            if (!asset.numUpstream && !asset.numDownstream) {
-                onDisabled();
-            }
-            setColumnEdgeVersion((v) => v + 1);
         },
     });
 
@@ -96,18 +81,27 @@ export default function useFetchColumnCounts(
     }, []);
     const initiateRequest = useCallback(
         (delay = 0) => {
-            // Guarded on the counts themselves rather than `lineageCountsFetched`, which is also set
-            // without fetching anything once all of a node's neighbors are loaded. A request already
-            // waiting is left alone, so that re-rendering -- which the graph does plenty of -- can
-            // never restart the delay out from under it.
-            if (lineageAsset.numUpstream === undefined && !loading && timeoutRef.current === null) {
+            // A request already waiting or in flight is left alone to avoid debouncing
+            if (!lineageAsset.lineageCountsFetched && !loading && timeoutRef.current === null) {
                 timeoutRef.current = setTimeout(() => {
                     timeoutRef.current = null;
-                    fetchCounts();
+                    fetchCounts().then(({ data }) => {
+                        if (data) {
+                            /* eslint-disable no-param-reassign */
+                            lineageAsset.lineageCountsFetched = true;
+                            lineageAsset.numUpstream = data.upstream?.total ?? 0;
+                            lineageAsset.numDownstream = data.downstream?.total ?? 0;
+                            /* eslint-enable no-param-reassign */
+                            if (!lineageAsset.numUpstream && !lineageAsset.numDownstream) {
+                                onDisabled();
+                            }
+                            setColumnEdgeVersion((v) => v + 1);
+                        }
+                    });
                 }, delay);
             }
         },
-        [lineageAsset.numUpstream, fetchCounts, loading],
+        [lineageAsset, fetchCounts, loading, onDisabled, setColumnEdgeVersion],
     );
     return { initiateRequest, cancelRequest, loading };
 }

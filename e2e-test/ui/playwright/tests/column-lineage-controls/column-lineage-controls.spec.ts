@@ -45,6 +45,9 @@ for (const hideDbtSourceInLineage of [true, false]) {
       await lineagePage.navigateToDatasetLineage(WAREHOUSE_URN);
       await lineagePage.waitForGraphToRender();
       await lineagePage.expandContractColumns(WAREHOUSE_URN);
+      // The graph fits its viewport on a delay after entity data loads; if that lands after a
+      // hover, it slides the column out from under the cursor and everything hover-driven unmounts
+      await lineagePage.waitForViewportToSettle();
     });
 
     test('says nothing while the node is showing all of its lineage', async ({ page }) => {
@@ -61,11 +64,15 @@ for (const hideDbtSourceInLineage of [true, false]) {
       // Contracting takes the downstream node off the graph and re-lays out what is left, which
       // moves the column out from under the cursor
       await lineagePage.checkNodeNotExists(DOWNSTREAM_URN);
-      await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
 
-      // One downstream column exists, and contracting took it off the graph
+      // One downstream column exists, and contracting took it off the graph. The readout only
+      // lives as long as the hover, and any relayout can steal the hover by moving the column out
+      // from under the cursor, so re-hover and retry rather than asserting on a single hover.
       const control = page.getByTestId(`column-lineage-control-${LINEAGE_COLUMN}-DOWNSTREAM`);
-      await expect(control).toHaveText(/0 \/ 1/, { timeout: TIMEOUTS.MEDIUM });
+      await expect(async () => {
+        await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+        await expect(control).toHaveText(/0 \/ 1/, { timeout: TIMEOUTS.SHORT });
+      }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
     });
 
     test('leaves a column whose only lineage is to its sibling out of it', async ({ page }) => {
@@ -85,23 +92,41 @@ for (const hideDbtSourceInLineage of [true, false]) {
     });
 
     test('highlights nothing elsewhere for a column whose only lineage is to its sibling', async ({ page }) => {
-      // As above: select and deselect a column the graph does highlight for, so that the selection
+      // Columns light up by taking on a background; every other column on the graph is transparent
+      const countHighlighted = () =>
+        page.evaluate((homeUrn) => {
+          const home = document.querySelector(`[data-testid="lineage-node-${homeUrn}"]`);
+          const columns = document.querySelectorAll(
+            '[data-testid^="column-"]:not([data-testid^="column-lineage-control-"])',
+          );
+          const highlighted = Array.from(columns).filter(
+            (element) => getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)',
+          );
+          return {
+            home: highlighted.filter((element) => home?.contains(element)).length,
+            elsewhere: highlighted.filter((element) => !home?.contains(element)).length,
+          };
+        }, WAREHOUSE_URN);
+
+      // As above: take the graph through a hover it does react to first, so that the interaction
       // under test is read by a graph that has already been through the whole cycle once
-      await lineagePage.selectColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+      await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
       await lineagePage.checkEdgeBetweenColumnsExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
-      await lineagePage.selectColumn(WAREHOUSE_URN, LINEAGE_COLUMN); // Clicking again deselects
-      await lineagePage.checkEdgeBetweenColumnsNotExists(WAREHOUSE_URN, LINEAGE_COLUMN, DOWNSTREAM_URN, LINEAGE_COLUMN);
+      await lineagePage.unhoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+      await expect.poll(countHighlighted, { timeout: TIMEOUTS.MEDIUM }).toEqual({ home: 0, elsewhere: 0 });
 
+      // Hovering the column first, as a user does on the way to clicking it: drawing a column's
+      // edges moves the nodes apart, which slides the column out from under an immediate click
+      await lineagePage.hoverColumn(WAREHOUSE_URN, SIBLING_ONLY_COLUMN);
       await lineagePage.selectColumn(WAREHOUSE_URN, SIBLING_ONLY_COLUMN);
+      // Long enough for the graph to have lit something up, there being nothing to wait for when
+      // the expected outcome is that nothing happens
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.SHORT);
 
-      const highlightedElsewhere = await page.evaluate((homeUrn) => {
-        const home = document.querySelector(`[data-testid="lineage-node-${homeUrn}"]`);
-        return Array.from(document.querySelectorAll('[data-testid^="column-"]')).filter(
-          (element) => !home?.contains(element) && getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)',
-        ).length;
-      }, WAREHOUSE_URN);
-
-      expect(highlightedElsewhere).toEqual(0);
+      // A sibling is drawn folded into this node, so that lineage can never be drawn: nothing
+      // outside the column's own node lights up
+      expect((await countHighlighted()).elsewhere).toEqual(0);
     });
   });
 }
