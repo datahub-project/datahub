@@ -1452,11 +1452,16 @@ def test_a_failing_preloaded_urn_catalog_still_lets_datahub_answer():
     processor, graph, patcher = _processor_for(
         _widened(), _resolver({}), [LOWER], [_SNOWFLAKE_SLICE]
     )
-    for resolvers in processor._alias_resolvers.values():
-        for resolver in resolvers:
-            resolver.resolve = mock.MagicMock(side_effect=Exception("sqlite went away"))
+    [preloaded] = [
+        resolver
+        for resolvers in processor._alias_resolvers.values()
+        for resolver in resolvers
+    ]
     try:
-        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
+        with mock.patch.object(
+            preloaded, "resolve", side_effect=Exception("sqlite went away")
+        ):
+            [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
     finally:
         patcher.stop()
 
