@@ -1,49 +1,60 @@
 ---
-description: "Use the datahub evals CLI command to manage, run, and report DataHub Context Evals from the terminal or from CI."
+description: "Use the acryl-datahub-cloud evals command to manage, run, and report DataHub Context Evals from the terminal or from CI."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# datahub evals
+# acryl-datahub-cloud evals
 
 <FeatureAvailability saasOnly stage="private-beta" />
 
-The `datahub evals` command manages **Context Evals** — question-and-answer checks that measure whether
+The `evals` command manages **Context Evals** — question-and-answer checks that measure whether
 DataHub answers questions about your metadata correctly. An eval pairs a question with one or more
 pass conditions; running it records a verdict you can track over time or gate a CI job on.
 
 Context Evals are in private beta, so the command surface can change between releases.
 
-The command ships with DataHub Cloud rather than with the open source CLI. Install it alongside
-`acryl-datahub`:
+## Installation
+
+The command lives in the `acryl-datahub-cloud` package only — it is not part of the open source
+`acryl-datahub` CLI. Install that package and run the command from it:
 
 ```shell
-pip install -U 'acryl-datahub[datahub-evals]'
+pip install 'acryl-datahub-cloud[datahub-evals]>=2.1.4rc1'
 ```
 
-This pulls in `acryl-datahub-cloud`, which provides the command. It requires
-`acryl-datahub-cloud` 2.1.4rc1 or later — pass `-U` so an older installed copy is upgraded rather
-than left in place. Without the plugin, `datahub evals` is registered as a stub that prints an
-install hint instead of failing with an import error.
+The `datahub-evals` extra pulls in the GraphQL client the command needs, so installing the package
+without it leaves `evals` unusable. The version floor matters too: `evals` first shipped in
+2.1.4rc1, and because that is a pre-release, pip only considers it when the requirement names it
+explicitly as above.
+
+Every command below is invoked through the package's own entry point:
+
+```shell
+acryl-datahub-cloud evals --help
+```
+
+Connection details come from the same place as the rest of the DataHub CLI — `~/.datahubenv` written
+by `datahub init`, or the `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN` environment variables.
 
 ## Quick Start
 
 ```shell
 # Create or update evals from a definition file
-datahub evals upsert -f evals.yml
+acryl-datahub-cloud evals upsert -f evals.yml
 
 # List what exists
-datahub evals list
+acryl-datahub-cloud evals list
 
 # Run one eval and wait for the verdict
-datahub evals run urn:li:eval:my-eval
+acryl-datahub-cloud evals run urn:li:eval:my-eval
 
 # Run everything for one agent and fail the shell on any FAIL or ERROR
-datahub evals run --all --agent-urn urn:li:aiAgent:my-agent --fail-on-fail
+acryl-datahub-cloud evals run --all --agent-urn urn:li:aiAgent:my-agent --fail-on-fail
 ```
 
-`upsert` is the default subcommand, so `datahub evals -f evals.yml` is equivalent to
-`datahub evals upsert -f evals.yml`.
+`upsert` is the default subcommand, so `acryl-datahub-cloud evals -f evals.yml` is equivalent to
+`acryl-datahub-cloud evals upsert -f evals.yml`.
 
 ## Defining Evals
 
@@ -127,9 +138,9 @@ submits the result with [`report`](#report).
 List eval definitions.
 
 ```shell
-datahub evals list
-datahub evals list --agent-urn urn:li:aiAgent:my-agent --eval-type METADATA
-datahub evals list --start 20 --limit 20
+acryl-datahub-cloud evals list
+acryl-datahub-cloud evals list --agent-urn urn:li:aiAgent:my-agent --eval-type METADATA
+acryl-datahub-cloud evals list --start 20 --limit 20
 ```
 
 | Option              | Default | Description                                      |
@@ -150,9 +161,9 @@ datahub evals list --start 20 --limit 20
 Fetch one eval and its latest run summary.
 
 ```shell
-datahub evals get urn:li:eval:my-eval
-datahub evals get urn:li:eval:my-eval --history 5
-datahub evals get urn:li:eval:my-eval --format upsert > my-eval.yml
+acryl-datahub-cloud evals get urn:li:eval:my-eval
+acryl-datahub-cloud evals get urn:li:eval:my-eval --history 5
+acryl-datahub-cloud evals get urn:li:eval:my-eval --format upsert > my-eval.yml
 ```
 
 | Option      | Default | Description                          |
@@ -168,8 +179,8 @@ fed straight back to `upsert`.
 Create or update evals from a file.
 
 ```shell
-datahub evals upsert -f evals.yml
-datahub evals upsert -f evals.yml --dry-run
+acryl-datahub-cloud evals upsert -f evals.yml
+acryl-datahub-cloud evals upsert -f evals.yml --dry-run
 ```
 
 | Option         | Description                                                     |
@@ -183,7 +194,7 @@ URNs, then exits non-zero. Reuse those URNs when retrying — a repeated create 
 ### delete
 
 ```shell
-datahub evals delete urn:li:eval:my-eval
+acryl-datahub-cloud evals delete urn:li:eval:my-eval
 ```
 
 ### run
@@ -191,9 +202,9 @@ datahub evals delete urn:li:eval:my-eval
 Start a run and wait for every selected eval to reach a terminal event.
 
 ```shell
-datahub evals run urn:li:eval:my-eval urn:li:eval:my-other-eval
-datahub evals run --all --agent-urn urn:li:aiAgent:my-agent
-datahub evals run --all --wait 600 --fail-on-fail
+acryl-datahub-cloud evals run urn:li:eval:my-eval urn:li:eval:my-other-eval
+acryl-datahub-cloud evals run --all --agent-urn urn:li:aiAgent:my-agent
+acryl-datahub-cloud evals run --all --wait 600 --fail-on-fail
 ```
 
 | Option            | Default | Description                                                  |
@@ -229,12 +240,12 @@ a filter spans every agent, so the two can return different counts.
 Submit an answer produced outside DataHub, using the run ID returned by `run`.
 
 ```shell
-datahub evals report urn:li:eval:my-eval \
+acryl-datahub-cloud evals report urn:li:eval:my-eval \
   --run-id "$RUN_ID" \
   --answer "The revenue table is owned by the analytics team."
 
 # Read a long answer from stdin
-my-harness answer | datahub evals report urn:li:eval:my-eval --run-id "$RUN_ID" --answer -
+my-harness answer | acryl-datahub-cloud evals report urn:li:eval:my-eval --run-id "$RUN_ID" --answer -
 ```
 
 | Option                | Description                                                              |
@@ -262,8 +273,8 @@ terminal is deduplicated rather than duplicated.
 List run events for one eval.
 
 ```shell
-datahub evals history urn:li:eval:my-eval
-datahub evals history urn:li:eval:my-eval --limit 50
+acryl-datahub-cloud evals history urn:li:eval:my-eval
+acryl-datahub-cloud evals history urn:li:eval:my-eval --limit 50
 ```
 
 | Option                    | Default | Description                                 |
@@ -292,21 +303,21 @@ otherwise.
 
 ## Using the Command from an Agent
 
-`datahub evals --agent-context` prints a condensed reference covering every subcommand, the exit-code
+`acryl-datahub-cloud evals --agent-context` prints a condensed reference covering every subcommand, the exit-code
 contract, and the run and report semantics. The same text is appended to `--help` output when stdout
-is not a terminal, so a coding agent that shells out to `datahub evals --help` gets the full contract
+is not a terminal, so a coding agent that shells out to `acryl-datahub-cloud evals --help` gets the full contract
 without a separate call.
 
 ## CI Example
 
 ```shell
-pip install -U 'acryl-datahub[datahub-evals]'
+pip install 'acryl-datahub-cloud[datahub-evals]>=2.1.4rc1'
 
 export DATAHUB_GMS_URL=https://your-instance.acryl.io/gms
 export DATAHUB_GMS_TOKEN=your-token
 
-datahub evals upsert -f evals.yml
-datahub evals run --all --agent-urn "$AGENT_URN" --wait 900 --fail-on-fail
+acryl-datahub-cloud evals upsert -f evals.yml
+acryl-datahub-cloud evals run --all --agent-urn "$AGENT_URN" --wait 900 --fail-on-fail
 ```
 
 The run exits non-zero on any failing, errored, or stale eval, which fails the job.
