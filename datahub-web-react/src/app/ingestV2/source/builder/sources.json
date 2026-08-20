@@ -740,5 +740,15 @@
         "category": "Data Collector",
         "isPopular": false,
         "isNew": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:hightouch",
+        "name": "hightouch",
+        "displayName": "Hightouch",
+        "description": "Import Models, Syncs, sync run history, and lineage between warehouse sources and downstream destinations from Hightouch.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hightouch",
+        "recipe": "source:\n    type: hightouch\n    config:\n        api_config:\n            api_key: \"${HIGHTOUCH_API_KEY}\"\n        emit_models_as_datasets: true\n        include_sync_runs: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isNew": true
     }
 ]

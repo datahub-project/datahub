@@ -45,6 +45,9 @@ class DatasetSubTypes(StrEnum):
     TIMESCALEDB_CONTINUOUS_AGGREGATE = "Continuous Aggregate"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    HIGHTOUCH_MODEL = "Hightouch Model"
+    HIGHTOUCH_EVENT_CONTRACT = "Event Contract"
+    HIGHTOUCH_EVENT_SOURCE = "Event Source"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
@@ -272,6 +275,9 @@ class DataJobSubTypes(StrEnum):
     ADF_SYNAPSE_SPARK_JOB = "Synapse Spark Job"
     ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
     ADF_FAIL_ACTIVITY = "Fail Activity"
+
+    # Hightouch Sync Types
+    HIGHTOUCH_SYNC = "Hightouch Sync"
 
     # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
     FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"
