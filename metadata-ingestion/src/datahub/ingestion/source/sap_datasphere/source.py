@@ -101,6 +101,7 @@ from datahub.ingestion.source.sap_datasphere.graph_resolver import (
 )
 from datahub.ingestion.source.sap_datasphere.lineage import (
     CsnLineageExtractor,
+    is_qualified,
     parse_remote_table_source,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
@@ -1515,8 +1516,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _business_layer_upstream_urn(self, space_name: str, key: str) -> str:
         # Bare same-space BL keys need the AM's space; dotted keys are already
         # space-qualified (same heuristic as query-FROM lineage).
-        if CsnLineageExtractor._is_qualified(key):
+        if is_qualified(key):
+            logger.debug(
+                "Business-layer upstream key %r treated as already qualified",
+                key,
+            )
             return self._qualified_upstream_urn(key)
+        logger.debug(
+            "Business-layer upstream key %r prefixed with space %r",
+            key,
+            space_name,
+        )
         return self._qualified_upstream_urn(f"{space_name}.{key}")
 
     def _apply_business_layer_guarded(
@@ -1582,16 +1592,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not bl.upstream_keys:
             return query_upstreams
 
-        bl_upstream_urns = {
+        # One URN per key — shared by table upstreams and the FGL retention filter.
+        bl_upstream_urns_list = [
             self._business_layer_upstream_urn(space_name, key)
             for key in bl.upstream_keys
-        }
+        ]
+        bl_upstream_urns = set(bl_upstream_urns_list)
         upstreams = [
-            UpstreamClass(
-                dataset=self._business_layer_upstream_urn(space_name, key),
-                type=DatasetLineageTypeClass.VIEW,
-            )
-            for key in bl.upstream_keys
+            UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.VIEW)
+            for urn in bl_upstream_urns_list
         ]
 
         fine_grained = None
