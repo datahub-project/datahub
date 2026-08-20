@@ -17,6 +17,7 @@
     "optional": "(optional)",
     "owner": "Owner",
     "owners": "Owners",
+    "plusCount": "+{{count}}",
     "roles": "Roles",
     "rows": "Rows",
     "source": "Source",

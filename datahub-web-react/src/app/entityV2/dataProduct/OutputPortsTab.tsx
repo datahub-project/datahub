@@ -9,8 +9,6 @@ import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 
-import { useListDataProductAssetsQuery } from '@graphql/search.generated';
-
 const ToggleHeader = styled.div`
     display: flex;
     align-items: center;
@@ -38,24 +36,15 @@ const OUTPUT_PORT_FILTER = [{ field: OUTPUT_PORTS_FIELD, values: ['true'] }];
 
 export function OutputPortsTab() {
     const { t } = useTranslation('entity.types');
-    const { urn } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const routeToTab = useRouteToTab();
 
-    const { data: outputPortsData } = useListDataProductAssetsQuery({
-        variables: {
-            urn,
-            input: {
-                query: '*',
-                start: 0,
-                count: 0,
-                filters: OUTPUT_PORT_FILTER,
-            },
-        },
+    const useOutputPortsCount = generateUseListDataProductAssetsCount({
+        urn,
+        extraFilters: OUTPUT_PORT_FILTER,
     });
-
-    const { data: assetsData } = useListDataProductAssetsQuery({
+    const { total: outputPortsCount = 0 } = useOutputPortsCount({
         variables: {
-            urn,
             input: {
                 query: '*',
                 start: 0,
@@ -65,8 +54,7 @@ export function OutputPortsTab() {
         },
     });
 
-    const outputPortsCount = outputPortsData?.listDataProductAssets?.total ?? 0;
-    const assetsCount = assetsData?.listDataProductAssets?.total ?? 0;
+    const assetsCount = entityData?.entities?.total ?? 0;
 
     return (
         <>

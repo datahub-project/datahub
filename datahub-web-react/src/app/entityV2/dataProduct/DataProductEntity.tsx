@@ -1,10 +1,5 @@
-import {
-    AppstoreOutlined,
-    ExportOutlined,
-    PartitionOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Export } from '@phosphor-icons/react/dist/csr/Export';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import i18next from 'i18next';
@@ -40,6 +35,8 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '@types';
+
+const OutputPortsTabIcon = () => <Export size={14} />;
 
 const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
@@ -163,7 +160,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             {
                 name: i18next.t('entity.types:tab.outputPorts'),
                 component: OutputPortsTab,
-                icon: ExportOutlined,
+                icon: OutputPortsTabIcon,
             },
             {
                 name: i18next.t('entity.types:tab.assets'),

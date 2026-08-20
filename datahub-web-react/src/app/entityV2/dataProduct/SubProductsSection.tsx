@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SummaryModuleContent, SummaryModuleHeader } from '@app/entityV2/dataProduct/SummaryModule.components';
@@ -12,6 +13,12 @@ import { Entity, ScrollResults } from '@types';
 type EntityDataWithChildren = {
     childDataProducts?: ScrollResults | null;
 };
+
+const ShowingSubtitle = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-size: 12px;
+    font-weight: 400;
+`;
 
 export const SubProductsSection = () => {
     const { t } = useTranslation('entity.types');
@@ -35,7 +42,12 @@ export const SubProductsSection = () => {
             style={{ flex: 1, minWidth: 240 }}
         >
             <SummaryModuleHeader>
-                <ModuleName text={t('dataProduct.subProductsCountTitle', { count: total })} />
+                <ModuleName text={t('dataProduct.subProductsCountTitle', { count: children.length })} />
+                {total > children.length && (
+                    <ShowingSubtitle>
+                        {t('dataProduct.showingSubProductsOfTotal', { count: children.length, total })}
+                    </ShowingSubtitle>
+                )}
             </SummaryModuleHeader>
             <SummaryModuleContent>
                 {children.map((entity) => (

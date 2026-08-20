@@ -46,6 +46,10 @@ const MetaEmpty = styled.span`
 
 const DATE_FORMAT = 'll';
 
+type EntityDataWithCreatedOn = {
+    properties?: { createdOn?: { time?: number } };
+};
+
 export const DataProductMetaRow = () => {
     const { t: tl } = useTranslation('common.labels');
     const { t: ts } = useTranslation('entity.profile.summary');
@@ -55,7 +59,7 @@ export const DataProductMetaRow = () => {
     const domain = entityData?.domain?.domain as Domain | undefined;
     const owners = entityData?.ownership?.owners?.map((owner) => owner.owner) ?? [];
     const terms = entityData?.glossaryTerms?.terms ?? [];
-    const updatedTime = (entityData as { properties?: { createdOn?: { time?: number } } })?.properties?.createdOn?.time;
+    const createdTime = (entityData as EntityDataWithCreatedOn | null)?.properties?.createdOn?.time;
 
     return (
         <MetaRow>
@@ -78,7 +82,7 @@ export const DataProductMetaRow = () => {
                             </HoverEntityTooltip>
                         );
                     })}
-                    {owners.length > 3 && <MetaEmpty>{`+${owners.length - 3}`}</MetaEmpty>}
+                    {owners.length > 3 && <MetaEmpty>{tl('plusCount', { count: owners.length - 3 })}</MetaEmpty>}
                 </MetaValues>
             </MetaItem>
             <MetaItem>
@@ -88,13 +92,13 @@ export const DataProductMetaRow = () => {
                     {terms.slice(0, 3).map((term: GlossaryTermAssociation) => (
                         <Term key={term.term.urn} term={term} readOnly />
                     ))}
-                    {terms.length > 3 && <MetaEmpty>{`+${terms.length - 3}`}</MetaEmpty>}
+                    {terms.length > 3 && <MetaEmpty>{tl('plusCount', { count: terms.length - 3 })}</MetaEmpty>}
                 </MetaValues>
             </MetaItem>
             <MetaItem>
-                <MetaLabel>{ts('properties.lastModified')}</MetaLabel>
+                <MetaLabel>{ts('properties.created')}</MetaLabel>
                 <MetaValues>
-                    {updatedTime ? formatTimestamp(updatedTime, DATE_FORMAT) : <MetaEmpty>-</MetaEmpty>}
+                    {createdTime ? formatTimestamp(createdTime, DATE_FORMAT) : <MetaEmpty>-</MetaEmpty>}
                 </MetaValues>
             </MetaItem>
         </MetaRow>

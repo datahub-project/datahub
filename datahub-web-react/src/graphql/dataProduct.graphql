@@ -17,7 +17,7 @@ query getDataProduct($urn: String!) {
         deprecation {
             ...deprecationFields
         }
-        childDataProducts(input: { count: 5, query: "*" }) {
+        childDataProducts(input: { count: 20, query: "*" }) {
             total
             nextScrollId
             searchResults {
