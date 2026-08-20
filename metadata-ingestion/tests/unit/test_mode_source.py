@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import requests
 from requests.models import HTTPError
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.mode import (
@@ -26,7 +27,13 @@ from datahub.ingestion.source.mode import (
     ModeSource,
     _is_http_404,
 )
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    InputFieldsClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+    UpstreamLineageClass,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -839,3 +846,41 @@ class TestReportPattern:
         assert len(report_args) == 1
         assert report_args[0][1]["token"] == "tok2"
         assert "slow_report" in list(source.report.filtered_reports)
+
+
+class TestGetInputFields:
+    def test_preserves_schema_field_casing(self):
+        """A chart formula field reference must resolve to the query schema's
+        actual (case-preserving) field path, not a lowercased ghost schemaField
+        URN — otherwise the column-level input-field edge points at a field that
+        does not exist on the query dataset."""
+        source = _make_source_with_definitions({})
+        query_urn = "urn:li:dataset:(urn:li:dataPlatform:mode,test.query,PROD)"
+        chart_urn = "urn:li:chart:(mode,test.chart)"
+        field_path = "MixedCaseCol"
+        chart_fields = {
+            field_path: SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="varchar",
+            )
+        }
+        chart_data = {"formula": "[MixedCaseCol] * 2"}
+
+        wus = list(
+            source.get_input_fields(
+                chart_urn=chart_urn,
+                chart_data=chart_data,
+                chart_fields=chart_fields,
+                query_urn=query_urn,
+            )
+        )
+
+        assert len(wus) == 1
+        mcp = wus[0].metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        aspect = mcp.aspect
+        assert isinstance(aspect, InputFieldsClass)
+        assert [f.schemaFieldUrn for f in aspect.fields] == [
+            builder.make_schema_field_urn(query_urn, field_path)
+        ]

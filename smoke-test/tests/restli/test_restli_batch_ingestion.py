@@ -18,9 +18,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import MlModelUrn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 generated_urns: List[str] = []
 
@@ -152,7 +155,7 @@ def test_restli_batch_ingestion_async(graph_client):
 
     # Expected that invalid field of MetadataChangeProposal is ignored,
     # Rest Fields are persistd into DB
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     aspect = graph_client.get_aspect(
         entity_urn=invalid_mcp.entityUrn, aspect_type=DashboardInfoClass
     )

@@ -37,6 +37,7 @@ import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.Metric;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.Post;
@@ -44,6 +45,7 @@ import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
@@ -272,6 +274,16 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Document();
       ((Document) partialEntity).setUrn(input.toString());
       ((Document) partialEntity).setType(EntityType.DOCUMENT);
+    }
+    if (input.getEntityType().equals(METRIC_ENTITY_NAME)) {
+      partialEntity = new Metric();
+      ((Metric) partialEntity).setUrn(input.toString());
+      ((Metric) partialEntity).setType(EntityType.METRIC);
+    }
+    if (input.getEntityType().equals(SEMANTIC_MODEL_ENTITY_NAME)) {
+      partialEntity = new SemanticModel();
+      ((SemanticModel) partialEntity).setUrn(input.toString());
+      ((SemanticModel) partialEntity).setType(EntityType.SEMANTIC_MODEL);
     }
     return partialEntity;
   }

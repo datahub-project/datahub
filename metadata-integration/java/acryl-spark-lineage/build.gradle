@@ -11,7 +11,7 @@ apply from: '../versioning.gradle'
 
 // Pin Java 17 bytecode: this agent shadow jar (and the modules it bundles) must run on managed
 // Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17). The rest of the
-// repo targets Java 21; the bundled dependency chain is pinned to 17 via ext.javaClassVersionOverride.
+// repo targets java 25; the bundled dependency chain is pinned to 17 via ext.javaClassVersionOverride.
 ext.javaClassVersionOverride = 17
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -25,13 +25,12 @@ configurations {
   provided
   implementation.extendsFrom provided
 
-  // Spark 4.x is Scala 2.13 + Java 17 only, so its smoke test lives in a separate source set. It
-  // runs against the real *shaded* 2.13 agent jar (shadowJar_2_13) — the artifact users deploy —
-  // where our bundled deps (antlr, jackson, etc.) are relocated under io.acryl.shaded and so cannot
-  // clash with Spark 4's own copies. Fresh configs (no `extendsFrom implementation`) keep the
-  // unshaded plugin classpath out.
-  sparkSmoke4Implementation
-  sparkSmoke4RuntimeOnly
+  // Spark 4.x is Scala 2.13 + Java 17 only, so its smoke test lives in a separate source set (see
+  // sourceSets below). It runs against the real *shaded* 2.13 agent jar (shadowJar_2_13) — the
+  // artifact users deploy — where our bundled deps (antlr, jackson, etc.) are relocated under
+  // io.acryl.shaded and so cannot clash with Spark 4's own copies. The sparkSmoke4 source set's
+  // own Implementation/RuntimeOnly configs are created by the source set itself and do not extend
+  // the main `implementation`, keeping the unshaded plugin classpath out.
 }
 
 sourceSets {
@@ -257,9 +256,9 @@ scalaVersions.each { sv ->
         }
 
     dependencies {
-      exclude(dependency {
+      exclude {
         exclude_modules.contains(it.name)
-      })
+      }
       exclude(dependency("org.slf4j::"))
       exclude(dependency("ch.qos.logback:"))
       exclude("org/apache/commons/logging/**")
@@ -291,9 +290,19 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    // Relocate io.openlineage so this agent can coexist with environments that ship their own
+    // openlineage-spark (Databricks, EMR, Glue, DataZone). DataHub's customized classes in
+    // src/main/java/io/openlineage/ are relocated too, so the override mechanism (project classes
+    // beat dependency classes) still works. Two sub-packages are carved out below.
     relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
       // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
       exclude 'io.openlineage.spark.extension.**'
+      // io.openlineage.sql is JNI-backed: its native methods resolve to symbols compiled into the
+      // Rust library as Java_io_openlineage_sql_OpenLineageSql_*, and shading cannot rewrite symbol
+      // names inside a native binary. Relocating the Java class makes the JVM look for
+      // Java_io_acryl_shaded_..._parse and crash with UnsatisfiedLinkError on JDBC/SQL parsing
+      // (issue #18558). Keep the whole package at its canonical name so the symbols resolve.
+      exclude 'io.openlineage.sql.**'
     }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
@@ -327,11 +336,6 @@ scalaVersions.each { sv ->
     relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
     relocate 'io.github', 'io.acryl.shaded.io.github'
     relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
-    // Relocate io.openlineage to prevent conflicts when another openlineage-spark version
-    // is on the classpath (Databricks, EMR, Glue). DataHub's customized classes in
-    // src/main/java/io/openlineage/ are also relocated by the shadow plugin, so the
-    // override mechanism (project classes beat dependency classes) still works.
-    relocate 'io.openlineage', 'io.acryl.shaded.io.openlineage'
     relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
 
     // Relocate packages that conflict with Spark's runtime classpath
@@ -393,6 +397,28 @@ ext.sparkJava21CompatibleJvmArgs = [
         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
 ]
 
+// Spark 3.5.8 + Hadoop 3.4.1 do not support JDK 24+: Hadoop's UserGroupInformation calls
+// Subject.getSubject(AccessControlContext), which JEP 486 (Security Manager removal) makes throw
+// UnsupportedOperationException on JDK 24+ — and -Djava.security.manager=allow is itself a fatal
+// launcher error there, so it can't be rescued. Run the real-Spark smoke suites on Java 21 (the
+// runtime OSS deployments and customers actually use) regardless of the build toolchain (JDK 25).
+// Remove once Spark/Hadoop ship a JDK-25-compatible line.
+ext.sparkSmokeJavaLauncher = javaToolchains.launcherFor {
+  languageVersion = JavaLanguageVersion.of(21)
+}
+
+// The root build applies the Java-17 bytecode target (ext.javaClassVersionOverride) via
+// options.release to compileJava ONLY — never to the test source sets, so test classes otherwise
+// inherit the build toolchain (JDK 25 -> class-file v69). The real-Spark smoke suites FORK on JDK 21
+// (sparkSmokeJavaLauncher above), and a JDK-21 runtime (v65) cannot load v69 classes. Pin the test
+// and sparkSmoke4 compiles to the same <=17 bytecode so the JDK-21 launcher can run them.
+compileTestJava {
+  options.release = javaClassVersion(project)
+}
+compileSparkSmoke4Java {
+  options.release = javaClassVersion(project)
+}
+
 test {
   forkEvery = 1
   // Keep the default unit-test run fast and Docker-free: the real-Spark smoke test is tagged
@@ -421,6 +447,7 @@ tasks.register('sparkRealSmokeTest', Test) {
   useJUnitPlatform {
     includeTags 'integration'
   }
+  javaLauncher = project.ext.sparkSmokeJavaLauncher
   jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
   // OpenLineage's Glue ARN resolution reads the region from the AWS_REGION env var only (not a
   // system property or Spark conf), so the Glue smoke test needs it set on the forked test JVM.
@@ -441,6 +468,7 @@ tasks.register('sparkSmoke4Test', Test) {
   classpath = sourceSets.sparkSmoke4.runtimeClasspath
   forkEvery = 1
   useJUnitPlatform()
+  javaLauncher = project.ext.sparkSmokeJavaLauncher
   jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
   testLogging {
     exceptionFormat = 'full'

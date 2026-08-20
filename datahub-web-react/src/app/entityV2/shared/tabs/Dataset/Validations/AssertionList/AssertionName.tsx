@@ -68,8 +68,7 @@ export const AssertionName = ({
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
-    const monitorSchedule = null;
-    const name = useBuildAssertionPrimaryLabel(assertion.info, monitorSchedule, {
+    const name = useBuildAssertionPrimaryLabel(assertion.info, {
         showColumnTag: true,
     });
 

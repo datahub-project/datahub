@@ -273,6 +273,28 @@ def test_should_skip_file_empty_document():
 
 
 def test_should_skip_file_text_too_short():
+    # min_text_length is opt-in (default 0); set it explicitly to exercise the filter.
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        database_ids=["abcdef01234567890123456789012345"],
+        filtering={"min_text_length": 50},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+
+    data = {"elements": [{"text": "Short"}], "metadata": {}}
+
+    assert source._should_skip_file(data, set()) is True
+
+
+def test_should_not_skip_short_file_by_default():
+    # With the default min_text_length of 0, short (non-empty) docs are embedded.
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         database_ids=["abcdef01234567890123456789012345"],
@@ -288,7 +310,7 @@ def test_should_skip_file_text_too_short():
 
     data = {"elements": [{"text": "Short"}], "metadata": {}}
 
-    assert source._should_skip_file(data, set()) is True
+    assert source._should_skip_file(data, set()) is False
 
 
 def test_should_skip_file_text_long_enough():

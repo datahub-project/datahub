@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -169,13 +169,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "table.arn": "arn:aws:dynamodb:us-west-2:123456789012:table/Location",
+                "table.arn": "arn:aws:dynamodb:us-west-2:000000000000:table/Location",
                 "table.totalItems": "1",
                 "Sort Key": "city",
                 "Partition Key": "partitionKey"
@@ -192,52 +192,19 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
         "json": {
             "tags": [
                 {
-                    "tag": "urn:li:tag:env:testing"
+                    "tag": "urn:li:tag:team:datahub"
                 },
                 {
-                    "tag": "urn:li:tag:team:datahub"
+                    "tag": "urn:li:tag:env:testing"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1693396800000,
-        "runId": "dynamodb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dynamodb",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,123456789012)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1693396800000,
-        "runId": "dynamodb-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.Location,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
@@ -254,6 +221,39 @@
     "aspect": {
         "json": {
             "name": "env:testing"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dynamodb,000000000000.us-west-2.Location,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dynamodb",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dynamodb,000000000000)"
         }
     },
     "systemMetadata": {

@@ -13,8 +13,12 @@ import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/His
 
 export default function ChangeHistoryMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const [open, setOpen] = useState(false);
+
+    // If the term is versioned, pass the version set context so the sidebar can
+    // show version-creation milestones and allow navigating between versions.
+    const versionSetUrn = (entityData as any)?.versionProperties?.versionSet?.urn as string | undefined;
 
     return (
         <>
@@ -34,6 +38,8 @@ export default function ChangeHistoryMenuAction() {
                     versionList={[]}
                     hideSemanticVersions
                     entityType={entityType}
+                    versionSetUrn={versionSetUrn}
+                    currentVersionUrn={versionSetUrn ? urn : undefined}
                 />
             )}
         </>

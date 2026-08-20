@@ -1,11 +1,11 @@
 ---
 title: Ingestion executor security and hardening
-description: Trust boundaries for UI-driven ingestion, locked datahub-actions images, and controlling Python package indexes for the ingestion executor.
+description: Trust boundaries for UI-driven ingestion, including that Manage Metadata Ingestion runs recipe code on the executor, plus locked images and package-index controls.
 ---
 
 # Ingestion executor security and hardening
 
-The **ingestion executor** runs recipes submitted from DataHub (for example via managed ingestion sources). Treat it as infrastructure that executes **user-influenced configuration**: anyone who can **create or edit** those sources controls recipe fields the executor processes. Combine that with **least privilege** for platform privileges (for example **Manage Metadata Ingestion**, secrets access, and executor-related tokens) so only trusted operators can define scheduled or ad hoc runs.
+The **ingestion executor** runs `datahub ingest` for recipes submitted from DataHub (UI, GraphQL, or OpenAPI). Treat that as **code execution on the executor**: recipe fields can import Python (custom source and transformer types, Kafka `oauth_cb`, schema registry classes) and, on non-locked images, install extra packages (`extra_pip_requirements`). Anyone with **Manage Metadata Ingestion** (included in the **Admin** role) — or **Edit** plus **Execute** on an ingestion source — controls what the executor runs. Grant those privileges only to operators you trust with that access. Combine that with **least privilege** for secrets and executor-related tokens.
 
 The executor Action authenticates to GMS as a **trusted ingestion worker** (system client credentials in OSS quickstart via `DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET` in `executor.yaml`). With the default `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, browser sessions and user PATs cannot call `getSecretValues`; **datahub-actions** can. On DataHub Cloud, the equivalent worker is an **embedded executor** (Remote Executor). See [Secret security considerations](/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations).
 

@@ -29,6 +29,7 @@ from tests.entity_graph_cache.helpers import (
     cleanup_domains,
     cleanup_glossary_entities,
     create_native_group,
+    create_test_corp_user,
     delete_native_group,
     emit_container,
     emit_domain,
@@ -51,8 +52,11 @@ from tests.entity_graph_cache.helpers import (
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 METRIC_SEARCH_SCROLL = "entity.graph.build.search_scroll"
 METRIC_GRAPH_SCROLL = "entity.graph.build.graph_scroll"
@@ -476,13 +480,49 @@ def test_container_relationships_direct_children(auth_session, graph_client):
         cleanup_containers(graph_client, created)
 
 
-def test_membership_relationships_idempotent_for_session_user(auth_session):
-    """GraphQL corpuser group relationships should be stable across repeated reads."""
-    user_urn = auth_session._upstream.cookies["actor"]
+def test_membership_relationships_idempotent_for_isolated_user(
+    auth_session, graph_client
+):
+    """GraphQL corpuser group relationships must be stable across repeated reads.
 
-    first = query_corpuser_group_relationships(auth_session, user_urn)
-    second = query_corpuser_group_relationships(auth_session, user_urn)
-    assert first == second
+    Uses a dedicated user + native groups created for this test, so the
+    membership set is known and cannot be mutated by another suite mid-test
+    (the shared session admin can be). Idempotency is asserted on the SET of
+    relationships: the list comes straight from the search/graph scroll, whose
+    order is not guaranteed stable between two reads, so normalize before
+    comparing — a real cache non-idempotency (a set difference) still fails.
+    """
+    run_id = unique_id("egc-idem")
+    user_urn = create_test_corp_user(graph_client, f"egc-idem-user-{run_id}")
+    group_a: Optional[str] = None
+    group_b: Optional[str] = None
+
+    try:
+        group_a = create_native_group(auth_session, f"egc-idem-a-{run_id}")
+        group_b = create_native_group(auth_session, f"egc-idem-b-{run_id}")
+        add_users_to_native_group(auth_session, group_a, [user_urn])
+        add_users_to_native_group(auth_session, group_b, [user_urn])
+        wait_for_hierarchy_writes()
+
+        def _key(rel: dict) -> tuple:
+            return (rel.get("type"), (rel.get("entity") or {}).get("urn"))
+
+        first = query_corpuser_group_relationships(auth_session, user_urn)
+        second = query_corpuser_group_relationships(auth_session, user_urn)
+        assert sorted(first, key=_key) == sorted(second, key=_key)
+
+        # The user is freshly created and joined exactly these two groups, so the
+        # relationship set is deterministic — a stronger idempotency check than
+        # comparing two reads of unknown, externally-mutable state.
+        member_urns = {(rel.get("entity") or {}).get("urn") for rel in first}
+        assert member_urns == {group_a, group_b}
+    finally:
+        for group_urn in (group_a, group_b):
+            if group_urn is not None:
+                remove_users_from_native_group(auth_session, group_urn, [user_urn])
+                delete_native_group(auth_session, group_urn)
+        graph_client.hard_delete_entity(user_urn)
+        wait_for_hierarchy_writes()
 
 
 def test_session_user_dual_group_types_labeled_correctly(auth_session, graph_client):

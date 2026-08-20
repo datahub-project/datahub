@@ -48,7 +48,8 @@ public class GlossaryNodeType
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
           ASSET_SETTINGS_ASPECT_NAME,
           DISPLAY_PROPERTIES_ASPECT_NAME,
-          INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

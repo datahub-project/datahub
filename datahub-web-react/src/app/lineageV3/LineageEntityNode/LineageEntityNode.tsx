@@ -13,6 +13,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
+import { getMemberDataProductUrn } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
 
 import { LineageDirection } from '@types';
 
@@ -21,9 +22,13 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob } = data;
+    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, dataProducts } = data;
+    // Members render one node per data product; the box's urn is encoded in the (qualified) node id.
+    // Resolve the boolean here (rather than passing `dataProducts`) to avoid re-memoizing NodeContents.
+    const parentDataProduct = getMemberDataProductUrn(id);
+    const isOutputPort = !!dataProducts?.find((dataProduct) => dataProduct.urn === parentDataProduct)?.isOutputPort;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const { rootUrn, rootType, nodes, adjacencyList } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, nodes, adjacencyList, collapseColumnsVersion } = useContext(LineageNodesContext);
     const {
         selectedColumn,
         hoveredColumn,
@@ -44,6 +49,11 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     useEffect(() => {
         setPageIndex(0);
     }, [filterText, onlyWithLineage, setPageIndex]);
+
+    // Collapse columns when the graph is redrawn, so nodes are laid out at their default size
+    useEffect(() => {
+        setShowColumns(false);
+    }, [collapseColumnsVersion]);
 
     const transitionDuration = shownUrns.length <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
 
@@ -79,6 +89,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             rootUrn={rootUrn}
             rootType={rootType}
             parentDataJob={parentDataJob}
+            isOutputPort={isOutputPort}
             searchQuery={searchQuery}
             setHoveredNode={setHoveredNode}
             showColumns={showColumns}

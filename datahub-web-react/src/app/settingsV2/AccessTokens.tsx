@@ -148,6 +148,7 @@ export const AccessTokens = () => {
     }, [currentUserUrn]);
 
     const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
+    const allowNoExpiry = useAppConfig().config?.authConfig?.allowNoExpiry ?? false;
     const canGeneratePersonalAccessTokens =
         isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 
@@ -433,13 +434,17 @@ export const AccessTokens = () => {
                             icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
-                        {
-                            type: 'item',
-                            key: 'remote-executor',
-                            title: t('remoteExecutor'),
-                            icon: CloudArrowUp,
-                            onClick: () => setCreateTokenFor('remote-executor'),
-                        },
+                        ...(allowNoExpiry
+                            ? ([
+                                  {
+                                      type: 'item',
+                                      key: 'remote-executor',
+                                      title: t('remoteExecutor'),
+                                      icon: CloudArrowUp,
+                                      onClick: () => setCreateTokenFor('remote-executor'),
+                                  },
+                              ] as ItemType[])
+                            : []),
                         ...(canManageServiceAccounts
                             ? ([
                                   {

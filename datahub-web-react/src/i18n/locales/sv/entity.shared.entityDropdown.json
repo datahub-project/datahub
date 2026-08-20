@@ -28,6 +28,9 @@
     "delete.tooltip": "Ta bort {{entityName}}",
     "deprecation.addDetailsTitle": "Lägg till detaljer om föråldring",
     "deprecation.decommissionDateLabel": "Avvecklingsdatum",
+    "deprecation.editDeprecated": "Redigera föråldring",
+    "deprecation.editTitle": "Redigera föråldring",
+    "deprecation.editTooltip": "Redigera detaljer om föråldring för {{entityName}}",
     "deprecation.markDeprecated": "Markera som föråldrad",
     "deprecation.markTooltip": "Markera {{entityName}} som föråldrad",
     "deprecation.markUnDeprecated": "Markera som inte föråldrad",
@@ -41,6 +44,8 @@
     "deprecation.replacementSearchTitle": "Välj en entitet som ska ersätta den föråldrade entiteten.",
     "deprecation.selectReplacement": "Välj ersättning",
     "deprecation.setReplacement": "Ange ersättning",
+    "deprecation.markedDeprecatedSuccess": "Markerad som föråldrad",
+    "deprecation.markedUnDeprecatedSuccess": "Markerad som inte föråldrad",
     "deprecation.updateError": "Det gick inte att uppdatera föråldring: \n {{errorMessage}}",
     "deprecation.updated": "Föråldring uppdaterad",
     "domainSelect.notFound": "Inga domäner hittades",
@@ -90,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Är du säker?",
     "unlinkVersion.error": "Det gick inte att ta bort länken: \n {{errorMessage}}",
     "unlinkVersion.loading": "Tar bort länken...",
-    "unlinkVersion.success": "Länken till {{entityName}} har tagits bort!"
+    "unlinkVersion.success": "Länken till {{entityName}} har tagits bort!",
+    "dataProductSelect.notFound": "Inga Data Products hittades",
+    "dataProductSelect.placeholder": "Välj ett överordnat Data Product",
+    "moveDataProduct.title": "Flytta Data Product"
 }
