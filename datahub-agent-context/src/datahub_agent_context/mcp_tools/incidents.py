@@ -27,10 +27,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 50
 
-# Entity types that expose the `incidents` field in the GraphQL schema.
-SUPPORTED_ENTITY_TYPES = ("Dataset", "DataJob", "DataFlow", "Dashboard", "Chart")
-
 IncidentState = Literal["ACTIVE", "RESOLVED"]
+DEFAULT_INCIDENT_STATE: IncidentState = "ACTIVE"
 # CUSTOM is excluded because it additionally requires a customType, which this
 # tool does not expose.
 IncidentType = Literal[
@@ -38,10 +36,8 @@ IncidentType = Literal[
 ]
 IncidentPriority = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
-# The five inline fragments below mirror the exact set of entity types that
-# expose the `incidents` field in the GraphQL schema (incident.graphql extends
-# Dataset, DataJob, DataFlow, Dashboard, and Chart); there is no shared
-# interface for the field, so each type is spelled out.
+# incident.graphql extends each entity type individually (no shared interface
+# for the `incidents` field), so each type needs its own inline fragment.
 LIST_INCIDENTS_QUERY = """
 query listEntityIncidents(
     $urn: String!,
@@ -73,6 +69,16 @@ query listEntityIncidents(
             }
         }
         ... on Chart {
+            incidents(state: $state, start: $start, count: $count) {
+                ...entityIncidentsResultFields
+            }
+        }
+        ... on MLModel {
+            incidents(state: $state, start: $start, count: $count) {
+                ...entityIncidentsResultFields
+            }
+        }
+        ... on MLFeature {
             incidents(state: $state, start: $start, count: $count) {
                 ...entityIncidentsResultFields
             }
@@ -124,10 +130,23 @@ mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {
 """
 
 
+TOOLS_DISABLED_MESSAGE = "Incident tools are disabled via INCIDENT_TOOLS_ENABLED"
+
+
 def _is_incident_tools_enabled() -> bool:
     """Check if the incident mutation tools are enabled (default: True)."""
     value = os.environ.get("INCIDENT_TOOLS_ENABLED", "true")
     return value.lower() in ("true", "1", "yes")
+
+
+def _require_non_empty(value: Optional[str], name: str) -> None:
+    if not value or not value.strip():
+        raise ValueError(f"{name} cannot be empty")
+
+
+def _validate_choice(value: str, name: str, valid: tuple) -> None:
+    if value not in valid:
+        raise ValueError(f"Invalid {name} '{value}'. Must be one of: {', '.join(valid)}")
 
 
 def _build_incident_summary(incident: dict[str, Any]) -> dict[str, Any]:
@@ -157,7 +176,7 @@ def _build_incident_summary(incident: dict[str, Any]) -> dict[str, Any]:
 
 def list_incidents(
     urn: str,
-    state: Optional[IncidentState] = "ACTIVE",
+    state: Optional[IncidentState] = DEFAULT_INCIDENT_STATE,
     start: int = 0,
     count: int = DEFAULT_PAGE_SIZE,
 ) -> dict[str, Any]:
@@ -167,8 +186,6 @@ def list_incidents(
     including their type, state, priority, and status history. Use this to
     understand whether an asset currently has known problems before relying on
     it, or to find an incident to update after remediating an issue.
-
-    Supported entity types: datasets, data jobs, data flows, dashboards, charts.
 
     Args:
         urn: Entity URN (e.g. urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD))
@@ -199,8 +216,7 @@ def list_incidents(
     """
     graph = get_graph()
 
-    if not urn:
-        raise ValueError("urn cannot be empty")
+    _require_non_empty(urn, "urn")
 
     start = max(0, start)
     count = max(1, min(count, MAX_PAGE_SIZE))
@@ -233,8 +249,7 @@ def list_incidents(
             "success": False,
             "data": None,
             "message": (
-                f"Entity type '{entity_data.get('type')}' does not support incidents. "
-                f"Supported types: {', '.join(SUPPORTED_ENTITY_TYPES)}"
+                f"Entity type '{entity_data.get('type')}' does not support incidents."
             ),
         }
 
@@ -328,31 +343,17 @@ def raise_incident(
             "success": False,
             "incidentUrn": None,
             "urn": urn,
-            "message": "Incident tools are disabled via INCIDENT_TOOLS_ENABLED",
+            "message": TOOLS_DISABLED_MESSAGE,
         }
 
     graph = get_graph()
 
-    if not urn:
-        raise ValueError("urn cannot be empty")
-    if not title or not title.strip():
-        raise ValueError("title cannot be empty")
-    if not description or not description.strip():
-        raise ValueError("description cannot be empty")
-
-    valid_incident_types = get_args(IncidentType)
-    if incident_type not in valid_incident_types:
-        raise ValueError(
-            f"Invalid incident_type '{incident_type}'. "
-            f"Must be one of: {', '.join(valid_incident_types)}"
-        )
-
-    valid_priorities = get_args(IncidentPriority)
-    if priority is not None and priority not in valid_priorities:
-        raise ValueError(
-            f"Invalid priority '{priority}'. "
-            f"Must be one of: {', '.join(valid_priorities)}"
-        )
+    _require_non_empty(urn, "urn")
+    _require_non_empty(title, "title")
+    _require_non_empty(description, "description")
+    _validate_choice(incident_type, "incident_type", get_args(IncidentType))
+    if priority is not None:
+        _validate_choice(priority, "priority", get_args(IncidentPriority))
 
     incident_input: dict[str, Any] = {
         "type": incident_type,
@@ -373,9 +374,7 @@ def raise_incident(
 
         incident_urn = result.get("raiseIncident")
         if not incident_urn:
-            raise RuntimeError(
-                f"Failed to raise incident on {urn} - no incident urn returned"
-            )
+            raise RuntimeError(f"Failed to raise incident on {urn}")
 
         return {
             "success": True,
@@ -427,13 +426,12 @@ def resolve_incident(
         return {
             "success": False,
             "incidentUrn": incident_urn,
-            "message": "Incident tools are disabled via INCIDENT_TOOLS_ENABLED",
+            "message": TOOLS_DISABLED_MESSAGE,
         }
 
     graph = get_graph()
 
-    if not incident_urn:
-        raise ValueError("incident_urn cannot be empty")
+    _require_non_empty(incident_urn, "incident_urn")
     # Strict prefix check (same convention as save_document's urn validation):
     # catches the likely agent mistake of passing the asset urn instead of the
     # incident urn, since both appear in list_incidents output.
@@ -442,8 +440,7 @@ def resolve_incident(
             f"Invalid incident_urn format '{incident_urn}'. "
             "Must start with 'urn:li:incident:'"
         )
-    if not message or not message.strip():
-        raise ValueError("message cannot be empty")
+    _require_non_empty(message, "message")
 
     try:
         result = execute_graphql(
@@ -466,9 +463,7 @@ def resolve_incident(
                 "message": f"Successfully resolved incident {incident_urn}",
             }
         else:
-            raise RuntimeError(
-                f"Failed to resolve incident {incident_urn} - operation returned false"
-            )
+            raise RuntimeError(f"Failed to resolve incident {incident_urn}")
 
     except Exception as e:
         if isinstance(e, RuntimeError):

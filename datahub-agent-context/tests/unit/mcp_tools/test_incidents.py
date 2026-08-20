@@ -310,7 +310,7 @@ class TestRaiseIncident:
         mock_client._graph.execute_graphql.return_value = {"raiseIncident": None}
 
         with DataHubContext(mock_client):
-            with pytest.raises(RuntimeError, match="no incident urn returned"):
+            with pytest.raises(RuntimeError, match="Failed to raise incident"):
                 raise_incident(urn=DATASET_URN, title="t", description="d")
 
     def test_graphql_error(self, mock_client):
@@ -364,7 +364,7 @@ class TestResolveIncident:
         }
 
         with DataHubContext(mock_client):
-            with pytest.raises(RuntimeError, match="operation returned false"):
+            with pytest.raises(RuntimeError, match="Failed to resolve incident"):
                 resolve_incident(incident_urn=INCIDENT_URN, message="fixed")
 
     def test_graphql_error(self, mock_client):
