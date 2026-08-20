@@ -362,38 +362,59 @@ def test_create_lineage_keeps_datasets_when_catalog_namespace_present(
 
 
 def test_create_lineage_keeps_datasets_when_default_schema_configured(
-    source, pipeline_info, stream
+    source, pipeline_info
 ):
-    # Operator-set default_schema is stable; keep lineage through a /streams blip.
+    # Operator-set default_schema is stable through a /streams blip: the skip
+    # gate must keep lineage, and _resolve_source_schema must land on that
+    # schema so the emitted source URN matches a later successful run.
     pipeline_info.connection.streams_api_unavailable = True
-    source.source_config.sources_to_platform_instance = {
-        "source-1": PlatformDetail(platform="postgres", default_schema="dbo"),
-    }
-    stream_info = AirbyteStreamInfo(
-        config=AirbyteStreamConfig(
-            stream=AirbyteStream(name="customers", namespace=None)
-        ),
-        details=stream,
+    pipeline_info.connection.namespace_definition = "source"
+    source_details = PlatformDetail(
+        platform="postgres",
+        default_schema="dbo",
+        convert_urns_to_lowercase=True,
     )
-    source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.dbo.customers,PROD)"
-    destination_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,dest_db.dbo.customers,PROD)"
+    source.source_config.sources_to_platform_instance = {"source-1": source_details}
+    source.source_config.destinations_to_platform_instance = {
+        "destination-1": PlatformDetail(
+            platform="snowflake", convert_urns_to_lowercase=True
+        ),
+    }
+
+    resolved = source._resolve_source_schema(
+        stream_namespace=None,
+        source=pipeline_info.source,
+        source_details=source_details,
+        stream_name="customers",
+    )
+    assert resolved.name == "dbo"
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="customers", namespace=None)
+    )
+    assert not source._should_skip_fallback_dataset_lineage(
+        pipeline_info.connection,
+        stream_config,
+        pipeline_info.source,
+        "customers",
     )
 
-    with (
-        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
-        patch.object(
-            source,
-            "_create_dataset_urns",
-            return_value=AirbyteDatasetUrns(
-                source_urn=source_urn,
-                destination_urn=destination_urn,
-            ),
-        ) as mock_create_urns,
-    ):
+    stream_info = AirbyteStreamInfo(
+        config=stream_config,
+        details=AirbyteStreamDetails(
+            stream_name="customers",
+            namespace=resolved.name,
+            property_fields=[],
+        ),
+    )
+
+    with patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]):
         workunits = list(source._create_lineage_workunits(pipeline_info))
 
-    mock_create_urns.assert_called_once()
+    io_aspect = _aspect_of_type(workunits, DataJobInputOutputClass)
+    assert io_aspect is not None
+    assert any("source_db.dbo.customers" in urn for urn in io_aspect.inputDatasets)
+    assert any("dest_db.dbo.customers" in urn for urn in io_aspect.outputDatasets)
     assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
 
 
