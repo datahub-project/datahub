@@ -1593,10 +1593,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return query_upstreams
 
         # One URN per key — shared by table upstreams and the FGL retention filter.
-        bl_upstream_urns_list = [
-            self._business_layer_upstream_urn(space_name, key)
-            for key in bl.upstream_keys
-        ]
+        bl_upstream_urns_list = list(
+            dict.fromkeys(
+                self._business_layer_upstream_urn(space_name, key)
+                for key in bl.upstream_keys
+            )
+        )
         bl_upstream_urns = set(bl_upstream_urns_list)
         upstreams = [
             UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.VIEW)
