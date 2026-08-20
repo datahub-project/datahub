@@ -1,37 +1,41 @@
 from typing import Dict, List, Optional, Union
 
-from gql import Client
-from gql.transport.requests import RequestsHTTPTransport
-
-from datahub.api.gql_transport import build_gql_transport
+from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.auth.registry import AuthConfig
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
 
 
 class BaseApi:
-    client: Client
+    graph: DataHubGraph
 
     def __init__(
         self,
         datahub_host: Optional[str] = None,
         datahub_token: Optional[str] = None,
         timeout: Optional[int] = None,
-        transport: Optional[RequestsHTTPTransport] = None,
+        graph: Optional[DataHubGraph] = None,
         datahub_auth: Optional[AuthConfig] = None,
     ):
-        if transport:
-            self.transport = transport
-        else:
-            assert datahub_host is not None
-            self.transport = build_gql_transport(
-                url=datahub_host,
+        if graph:
+            self.graph = graph
+            return
+
+        assert datahub_host is not None
+        if datahub_token is None and datahub_auth is None:
+            # Env-based OAuth (DATAHUB_AUTH_TYPE) for an explicitly passed host.
+            # TODO: drop once the emitter resolves env auth for every server and
+            # not just the "__from_env__" sentinel (PR #18547) — this call then
+            # becomes redundant.
+            datahub_auth = build_auth_config_from_env()
+
+        self.graph = DataHubGraph(
+            DatahubClientConfig(
+                server=datahub_host,
                 token=datahub_token,
                 auth=datahub_auth,
-                timeout=timeout,
+                timeout_sec=timeout,
             )
-
-        self.client = Client(
-            transport=self.transport,
-            fetch_schema_from_transport=True,
         )
 
     def gen_filter(
