@@ -127,6 +127,7 @@ class PathSpec(ConfigModel):
 
     max_zip_entry_size: int = Field(
         DEFAULT_MAX_ZIP_ENTRY_SIZE,
+        ge=1,
         description="Maximum uncompressed size (in bytes) of a single entry read from a .zip archive. "
         "Protects against zip-bomb archives that expand to far more than their compressed size and "
         "could exhaust worker memory. Entries larger than this are skipped with a warning. "

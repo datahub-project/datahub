@@ -54,6 +54,7 @@ from datahub.ingestion.source.data_lake_common.path_spec import (
     SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
 )
+from datahub.ingestion.source.data_lake_common.seekable_file import SeekableRangeFile
 from datahub.ingestion.source.data_lake_common.zip_utils import (
     ZipEntry,
     read_first_supported_zip_entry,
@@ -86,14 +87,8 @@ PAGE_SIZE = 1000
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
 
 
-class SeekableABSFile(io.RawIOBase):
-    """Seekable file-like wrapper around an Azure Blob Storage object.
-
-    zipfile.ZipFile requires random access (seek + tell) because the central
-    directory lives at the end of the archive. This wrapper satisfies that
-    interface by using BlobClient.download_blob(offset, length) range requests,
-    so only the bytes actually needed are downloaded.
-    """
+class SeekableABSFile(SeekableRangeFile):
+    """Seekable file-like wrapper around an Azure Blob Storage object."""
 
     def __init__(
         self,
@@ -105,39 +100,13 @@ class SeekableABSFile(io.RawIOBase):
         self._blob_client = blob_service_client.get_blob_client(
             container=container_name, blob=blob_name
         )
-        self._pos = 0
-        self._size: int = self._blob_client.get_blob_properties()["size"]
+        self._size = self._blob_client.get_blob_properties()["size"]
 
-    def read(self, size: int = -1) -> bytes:
-        if self._pos >= self._size:
-            return b""
-        length = (
-            (self._size - self._pos) if size < 0 else min(size, self._size - self._pos)
-        )
+    def _fetch_range(self, start: int, length: int) -> bytes:
         data: bytes = self._blob_client.download_blob(
-            offset=self._pos, length=length
+            offset=start, length=length
         ).readall()
-        self._pos += len(data)
         return data
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        if whence == 0:
-            self._pos = offset
-        elif whence == 1:
-            self._pos += offset
-        elif whence == 2:
-            self._pos = self._size + offset
-        self._pos = max(0, min(self._pos, self._size))
-        return self._pos
-
-    def tell(self) -> int:
-        return self._pos
-
-    def seekable(self) -> bool:
-        return True
-
-    def readable(self) -> bool:
-        return True
 
 
 # config flags to emit telemetry for
@@ -291,6 +260,23 @@ class ABSSource(StatefulIngestionSourceBase):
         finally:
             zip_file.close()
 
+    def _smart_open(
+        self,
+        table_data: TableData,
+        blob_service_client: Optional[BlobServiceClient],
+    ) -> IO[bytes]:
+        """Open a file for reading, routing ABS paths through smart_open's client."""
+        if (
+            blob_service_client is not None
+            and self.source_config.azure_config is not None
+        ):
+            return smart_open(
+                f"azure://{self.source_config.azure_config.container_name}/{table_data.rel_path}",
+                "rb",
+                transport_params={"client": blob_service_client},
+            )
+        return smart_open(table_data.full_path, "rb")
+
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         blob_service_client: Optional[BlobServiceClient] = None
         if self.is_abs_platform():
@@ -308,35 +294,15 @@ class ABSSource(StatefulIngestionSourceBase):
                 entry = self._open_zip_entry(table_data, blob_service_client, path_spec)
                 if entry is None:
                     return []
-                file = io.BytesIO(entry.data)
+                file: IO[bytes] = io.BytesIO(entry.data)
                 extension = entry.suffix
             else:
                 # .gz / .bz2 — smart_open decompresses transparently
-                if (
-                    blob_service_client is not None
-                    and self.source_config.azure_config is not None
-                ):
-                    file = smart_open(
-                        f"azure://{self.source_config.azure_config.container_name}/{table_data.rel_path}",
-                        "rb",
-                        transport_params={"client": blob_service_client},
-                    )
-                else:
-                    file = smart_open(table_data.full_path, "rb")
+                file = self._smart_open(table_data, blob_service_client)
                 # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
                 extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
         else:
-            if (
-                blob_service_client is not None
-                and self.source_config.azure_config is not None
-            ):
-                file = smart_open(
-                    f"azure://{self.source_config.azure_config.container_name}/{table_data.rel_path}",
-                    "rb",
-                    transport_params={"client": blob_service_client},
-                )
-            else:
-                file = smart_open(table_data.full_path, "rb")
+            file = self._smart_open(table_data, blob_service_client)
 
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"

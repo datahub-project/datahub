@@ -217,11 +217,13 @@ def test_gcs_propagates_compression_path_spec_fields():
     """GCS→S3 path-spec translation must carry compression settings, including the
     zip-bomb guard, so a .zip recipe behaves the same on GCS as on S3."""
     ctx = PipelineContext(run_id="test-gcs")
+    # enable_compression defaults to True, so set it to a non-default value to
+    # prove the field is actually copied during translation (not just defaulted).
     source = {
         "path_specs": [
             {
                 "include": "gs://test-bucket/data/{table}/*.csv.zip",
-                "enable_compression": True,
+                "enable_compression": False,
                 "max_zip_entry_size": 1234,
             }
         ],
@@ -231,7 +233,7 @@ def test_gcs_propagates_compression_path_spec_fields():
     gcs_source = GCSSource.create(source, ctx)
     s3_path_spec = gcs_source.s3_source.source_config.path_specs[0]
 
-    assert s3_path_spec.enable_compression is True
+    assert s3_path_spec.enable_compression is False
     assert s3_path_spec.max_zip_entry_size == 1234
 
 

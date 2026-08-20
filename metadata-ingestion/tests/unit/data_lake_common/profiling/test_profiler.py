@@ -262,6 +262,23 @@ def test_profiles_zip_archive_first_supported_entry(tmp_path: Path) -> None:
     assert get_profile(work_units[0]).rowCount == 2
 
 
+def test_profiles_zip_archive_with_jsonl_entry(tmp_path: Path) -> None:
+    # jsonl is profilable but not in SUPPORTED_FILE_TYPES; the profiler's zip
+    # reader must still pick it up.
+    path = tmp_path / "data.jsonl.zip"
+    _write_zip(path, {"data.jsonl": '{"id": 1}\n{"id": 2}\n'})
+    path_spec = PathSpec(include=f"{tmp_path}/*.zip", enable_compression=True)
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
+
+
 def test_zip_archive_skipped_when_compression_disabled(tmp_path: Path) -> None:
     # With compression disabled the .zip is handed to the reader untouched, which
     # rejects the .zip extension and skips the file.

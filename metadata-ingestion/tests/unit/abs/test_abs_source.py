@@ -517,6 +517,14 @@ class TestSeekableABSFile:
         f.read()
         assert f.read(10) == b""
 
+    def test_read_zero_bytes_returns_empty(self):
+        # read(0) must not issue a zero-length Azure range request.
+        f = SeekableABSFile(
+            _make_service_client(b"0123456789"), "container", "blob/key"
+        )
+        assert f.read(0) == b""
+        assert f.tell() == 0
+
     def test_seek_set(self):
         f = SeekableABSFile(
             _make_service_client(b"0123456789"), "container", "blob/key"

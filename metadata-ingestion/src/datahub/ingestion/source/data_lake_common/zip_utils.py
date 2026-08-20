@@ -4,6 +4,8 @@ import pathlib
 import zipfile
 from typing import IO, Iterable, Optional, Protocol
 
+from typing_extensions import LiteralString
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -12,14 +14,16 @@ class ZipWarningReporter(Protocol):
 
     Declared structurally so zip handling doesn't depend on the full
     ``SourceReport``; both the connectors' ``DataLakeSourceReport`` and the
-    profiler's report Protocol satisfy it.
+    profiler's report Protocol satisfy it. ``message``/``title`` are
+    ``LiteralString`` to match ``SourceReport.warning`` (which requires literals
+    so identical warnings are grouped in the report).
     """
 
     def warning(
         self,
-        message: str,
+        message: LiteralString,
         context: Optional[str] = ...,
-        title: Optional[str] = ...,
+        title: Optional[LiteralString] = ...,
     ) -> None: ...
 
 
@@ -55,9 +59,10 @@ def read_first_supported_zip_entry(
     cases. When more than one supported entry is present, only the first is used
     and a warning is logged.
 
-    The declared ``ZipInfo.file_size`` is trusted for the size check; ``zipfile``
-    itself raises ``BadZipFile`` if the decompressed stream overshoots the
-    declared size, so a lying header cannot silently bypass the cap.
+    The entry is read by its ``ZipInfo`` (not by name) and the read is bounded at
+    ``max_entry_size``: Python 3.10's ``zipfile`` does not clamp deflate output
+    to the declared ``ZipInfo.file_size``, so a crafted header cannot bypass the
+    cap and OOM the worker.
 
     The caller owns ``zip_file`` and is responsible for closing it.
     """
@@ -76,7 +81,7 @@ def read_first_supported_zip_entry(
         supported = [
             info
             for info in zf.infolist()
-            if pathlib.Path(info.filename).suffix in suffixes
+            if not info.is_dir() and pathlib.Path(info.filename).suffix in suffixes
         ]
 
         if not supported:
@@ -106,6 +111,19 @@ def read_first_supported_zip_entry(
             return None
 
         inner_suffix = pathlib.Path(entry.filename).suffix
-        data = zf.read(entry.filename)
+        # Read the selected ZipInfo (not the name) so duplicate member names
+        # cannot swap in a different entry, and read one byte past the cap to
+        # detect a header that under-declares the real decompressed size.
+        with zf.open(entry) as member:
+            data = member.read(max_entry_size + 1)
+        if len(data) > max_entry_size:
+            report.warning(
+                title="Zip entry too large",
+                message="Skipping zip entry whose uncompressed size exceeds the "
+                "configured limit; increase max_zip_entry_size to allow it",
+                context=f"{context}: entry {entry.filename} exceeds the "
+                f"{max_entry_size} byte limit",
+            )
+            return None
 
     return ZipEntry(data=data, suffix=inner_suffix)

@@ -211,7 +211,7 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 #### Compressed files
 
-When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types. Supported compression formats are `.gz`, `.bz2`, and `.zip`.
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types. Supported compression formats are `.gz` (and its `.gzip` alias), `.bz2`, and `.zip`.
 
 For `.zip` archives:
 

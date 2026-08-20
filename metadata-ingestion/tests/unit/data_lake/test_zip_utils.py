@@ -114,3 +114,36 @@ def test_entry_within_limit_is_read():
     )
     assert result is not None
     assert result.data == payload
+
+
+def test_duplicate_member_names_reads_the_first_selected_entry():
+    # zipfile.read(name) returns the *last* member with a given name; reading by
+    # ZipInfo must return the first, so the size guard and first-entry policy
+    # apply to the same member.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("data.csv", b"first\n")
+        zf.writestr("data.csv", b"second-different\n")
+    buf.seek(0)
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        buf, context="archive.zip", report=report, supported_suffixes=SUPPORTED
+    )
+    assert result is not None
+    assert result.data == b"first\n"
+
+
+def test_directory_entry_with_supported_suffix_is_ignored():
+    # A directory named like a data file (data.csv/) must not be selected over
+    # the real data entry.
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("data.csv/", b"")
+        zf.writestr("real.csv", b"a\n1\n")
+    buf.seek(0)
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        buf, context="archive.zip", report=report, supported_suffixes=SUPPORTED
+    )
+    assert result is not None
+    assert result.data == b"a\n1\n"

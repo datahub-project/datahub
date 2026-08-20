@@ -1,6 +1,8 @@
 import io
 import logging
 import os
+import shutil
+import tempfile
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -73,6 +75,14 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 NUM_SAMPLE_ROWS = 20
+
+# Suffixes the profiler can read out of a zip archive. Mirrors _read_source, so
+# it adds jsonl (which SUPPORTED_FILE_TYPES omits) to the connector file types.
+ZIP_PROFILABLE_SUFFIXES: List[str] = [*SUPPORTED_FILE_TYPES, "jsonl"]
+
+# Buffer staged zip archives in memory up to this size, spilling to a temp file
+# beyond it so a large archive cannot exhaust the profiling worker's memory.
+ZIP_STAGING_SPOOL_MAX_BYTES = 64 * 1024 * 1024  # 64 MiB
 
 
 class TableDataLike(Protocol):
@@ -350,18 +360,24 @@ class FileProfiler:
                             and path_spec.enable_compression
                             and path.lower().endswith(".zip")
                         ):
-                            # Profiling reads whole files anyway, so buffer the
-                            # archive in memory to give zipfile the random access it
-                            # needs, then profile the first supported inner entry.
-                            entry = read_first_supported_zip_entry(
-                                io.BytesIO(file_obj.read()),
-                                context=path,
-                                report=self.report,
-                                supported_suffixes=[
-                                    f".{ext}" for ext in SUPPORTED_FILE_TYPES
-                                ],
-                                max_entry_size=path_spec.max_zip_entry_size,
-                            )
+                            # zipfile needs random access (seek+tell). Stage the
+                            # archive in a spooled temp file rather than reading it
+                            # fully into memory, so a large archive spills to disk
+                            # instead of exhausting the profiling worker.
+                            with tempfile.SpooledTemporaryFile(
+                                max_size=ZIP_STAGING_SPOOL_MAX_BYTES
+                            ) as staged:
+                                shutil.copyfileobj(file_obj, staged)
+                                staged.seek(0)
+                                entry = read_first_supported_zip_entry(
+                                    staged,
+                                    context=path,
+                                    report=self.report,
+                                    supported_suffixes=[
+                                        f".{ext}" for ext in ZIP_PROFILABLE_SUFFIXES
+                                    ],
+                                    max_entry_size=path_spec.max_zip_entry_size,
+                                )
                             if entry is None:
                                 # read_first_supported_zip_entry already reported why.
                                 continue

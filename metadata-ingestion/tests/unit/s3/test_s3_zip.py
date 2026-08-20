@@ -90,6 +90,14 @@ class TestSeekableS3File:
         assert f.read(10) == b""
         assert f.read() == b""
 
+    def test_read_zero_bytes_returns_empty(self, s3_client):
+        # read(0) must not issue a (reversed) range request; zipfile relies on
+        # this when probing streams.
+        _upload(s3_client, b"0123456789")
+        f = SeekableS3File(s3_client, BUCKET, KEY)
+        assert f.read(0) == b""
+        assert f.tell() == 0
+
     def test_seek_set(self, s3_client):
         _upload(s3_client, b"0123456789")
         f = SeekableS3File(s3_client, BUCKET, KEY)

@@ -256,7 +256,7 @@ We are working on using iterator-based JSON parsers to avoid reading in the enti
 
 #### Compressed files
 
-When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types above. Supported compression formats are `.gz`, `.bz2`, and `.zip`.
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types above. Supported compression formats are `.gz` (and its `.gzip` alias), `.bz2`, and `.zip`.
 
 For `.zip` archives:
 

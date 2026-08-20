@@ -58,6 +58,7 @@ from datahub.ingestion.source.data_lake_common.path_spec import (
     FolderTraversalMethod,
     PathSpec,
 )
+from datahub.ingestion.source.data_lake_common.seekable_file import SeekableRangeFile
 from datahub.ingestion.source.data_lake_common.zip_utils import (
     ZipEntry,
     read_first_supported_zip_entry,
@@ -94,53 +95,22 @@ logger: logging.Logger = logging.getLogger(__name__)
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
 
 
-class SeekableS3File(io.RawIOBase):
-    """Seekable file-like wrapper around an S3 object using HTTP range requests.
-
-    zipfile.ZipFile requires random access (seek + tell) because the central
-    directory lives at the end of the archive. This wrapper satisfies that
-    interface without downloading the entire file upfront — only the bytes
-    actually requested are fetched.
-    """
+class SeekableS3File(SeekableRangeFile):
+    """Seekable file-like wrapper around an S3 object using HTTP range requests."""
 
     def __init__(self, s3_client: "S3Client", bucket: str, key: str) -> None:
         super().__init__()
         self._s3 = s3_client
         self._bucket = bucket
         self._key = key
-        self._pos = 0
-        self._size: int = s3_client.head_object(Bucket=bucket, Key=key)["ContentLength"]
+        self._size = s3_client.head_object(Bucket=bucket, Key=key)["ContentLength"]
 
-    def read(self, size: int = -1) -> bytes:
-        if self._pos >= self._size:
-            return b""
-        end = (
-            (self._size - 1) if size < 0 else min(self._pos + size - 1, self._size - 1)
-        )
+    def _fetch_range(self, start: int, length: int) -> bytes:
+        end = start + length - 1
         data: bytes = self._s3.get_object(
-            Bucket=self._bucket, Key=self._key, Range=f"bytes={self._pos}-{end}"
+            Bucket=self._bucket, Key=self._key, Range=f"bytes={start}-{end}"
         )["Body"].read()
-        self._pos += len(data)
         return data
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        if whence == 0:
-            self._pos = offset
-        elif whence == 1:
-            self._pos += offset
-        elif whence == 2:
-            self._pos = self._size + offset
-        self._pos = max(0, min(self._pos, self._size))
-        return self._pos
-
-    def tell(self) -> int:
-        return self._pos
-
-    def seekable(self) -> bool:
-        return True
-
-    def readable(self) -> bool:
-        return True
 
 
 # config flags to emit telemetry for
@@ -401,6 +371,13 @@ class S3Source(StatefulIngestionSourceBase):
         finally:
             zip_file.close()
 
+    def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
+        """Open a file for reading, routing S3 paths through smart_open's client."""
+        if s3_client is not None:
+            path = re.sub(URI_SCHEME_REGEX, "s3://", full_path)
+            return smart_open(path, "rb", transport_params={"client": s3_client})
+        return smart_open(full_path, "rb")
+
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         s3_client: Optional["S3Client"] = None
         if self.is_s3_platform():
@@ -411,37 +388,32 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
         extension = pathlib.Path(table_data.full_path).suffix
+        # The outer archive/compression content type must not drive inference of
+        # the inner file, so it is cleared once we unwrap a compressed member.
+        content_type = table_data.content_type
 
         if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
             if extension[1:] == "zip":
                 entry = self._open_zip_entry(table_data.full_path, s3_client, path_spec)
                 if entry is None:
                     return []
-                file = io.BytesIO(entry.data)
+                file: IO[bytes] = io.BytesIO(entry.data)
                 extension = entry.suffix
+                content_type = None
             else:
                 # .gz / .bz2 — smart_open decompresses transparently
-                if s3_client is not None:
-                    path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-                    file = smart_open(
-                        path, "rb", transport_params={"client": s3_client}
-                    )
-                else:
-                    file = smart_open(table_data.full_path, "rb")
+                file = self._smart_open(table_data.full_path, s3_client)
                 # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
                 extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
+                content_type = None
         else:
-            if s3_client is not None:
-                path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-                file = smart_open(path, "rb", transport_params={"client": s3_client})
-            else:
-                file = smart_open(table_data.full_path, "rb")
+            file = self._smart_open(table_data.full_path, s3_client)
 
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
 
         fields = []
-        inferrer = self._get_inferrer(extension, table_data.content_type)
+        inferrer = self._get_inferrer(extension, content_type)
         if inferrer:
             try:
                 fields = inferrer.infer_schema(file)
