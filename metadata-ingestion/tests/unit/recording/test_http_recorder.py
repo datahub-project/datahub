@@ -184,3 +184,34 @@ class TestHTTPReplayerForLiveSink:
 
             assert "localhost:8080" in replayer.live_hosts
             assert "gms.example.com" in replayer.live_hosts
+
+    def test_before_record_request_drops_live_hosts_and_scrubs_rest(self) -> None:
+        """Live-host traffic is not recorded; everything else is scrubbed."""
+        from datahub.ingestion.recording.http_recorder import HTTPReplayerForLiveSink
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cassette_path = Path(tmpdir) / "cassette.yaml"
+            cassette_path.write_text("interactions: []")
+
+            replayer = HTTPReplayerForLiveSink(
+                cassette_path, live_hosts=["gms.example.com"]
+            )
+
+            class FakeRequest:
+                def __init__(self, uri: str) -> None:
+                    self.uri = uri
+                    self.body = "client_secret=real-secret"
+                    self.headers: dict = {}
+
+            assert (
+                replayer._before_record_request(
+                    FakeRequest("http://gms.example.com/aspects")
+                )
+                is None
+            )
+
+            recorded = replayer._before_record_request(
+                FakeRequest("https://api.other.com/oauth/token")
+            )
+            assert recorded is not None
+            assert "real-secret" not in recorded.body

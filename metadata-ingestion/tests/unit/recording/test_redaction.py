@@ -78,6 +78,17 @@ class TestScrubBody:
         body = "the client_secret = something & more prose here"
         assert scrub_body(body) is body
 
+    def test_json_scalar_body_unchanged(self) -> None:
+        # Valid JSON but not an object/array - nothing to scrub by key
+        body = "12345"
+        assert scrub_body(body) is body
+
+    def test_form_body_without_secrets_unchanged(self) -> None:
+        # Plausible form keys but no secret params: must return the exact
+        # original string, not a re-encoded copy
+        body = "grant_type=refresh_grant&scope=all&page=1"
+        assert scrub_body(body) is body
+
     def test_body_without_secrets_unchanged(self) -> None:
         # Replay matches on exact body, so bodies without secrets must keep
         # their original serialization byte-for-byte
@@ -132,6 +143,17 @@ class TestScrubRequest:
         assert scrubbed.headers["X-Api-Key"] == REPLAY_DUMMY_MARKER
         assert scrubbed.headers["Content-Type"] == "application/json"
 
+    def test_cookie_request_header_values_scrubbed(self) -> None:
+        class FakeRequest:
+            uri = "https://api.example.com/data"
+            body = None
+            headers = {"Cookie": "session=abc; csrf=xyz"}
+
+        scrubbed = scrub_request_for_recording(FakeRequest())
+        assert scrubbed.headers["Cookie"] == (
+            f"session={REPLAY_DUMMY_MARKER}; csrf={REPLAY_DUMMY_MARKER}"
+        )
+
 
 class TestScrubResponse:
     def test_scrubs_token_response(self) -> None:
@@ -180,6 +202,19 @@ class TestScrubResponse:
         new_body = scrubbed["body"]["string"]
         assert new_body != body
         assert scrubbed["headers"]["Content-Length"] == [str(len(new_body))]
+
+    def test_content_length_updated_for_scalar_header_value(self) -> None:
+        # Header values may be plain strings rather than lists depending on
+        # where VCR is in its serialization pipeline
+        body = '{"access_token":"a-fairly-long-issued-token-value"}'
+        response = {
+            "status": {"code": 200, "message": "OK"},
+            "headers": {"Content-Length": str(len(body))},
+            "body": {"string": body},
+        }
+        scrubbed = scrub_response_for_recording(response)
+        new_body = scrubbed["body"]["string"]
+        assert scrubbed["headers"]["Content-Length"] == str(len(new_body))
 
     def test_non_json_response_unchanged(self) -> None:
         response = {
