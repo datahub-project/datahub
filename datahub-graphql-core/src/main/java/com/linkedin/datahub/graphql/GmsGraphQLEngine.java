@@ -947,7 +947,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(METRICS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(MARKETPLACE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DATA_PRODUCT_MARKETPLACE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE));
