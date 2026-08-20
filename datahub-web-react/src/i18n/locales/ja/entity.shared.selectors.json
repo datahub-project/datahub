@@ -1,0 +1,10 @@
+{
+    "actorsSearch.placeholder": "ユーザーまたはグループを検索",
+    "domainSelector.label": "Domain",
+    "domainSelector.placeholder": "Domainを選択",
+    "domainSelector.searchPlaceholder": "すべてのDomainを検索...",
+    "entitySearch.noEntitiesFound": "エンティティが見つかりません",
+    "entitySearch.placeholder": "エンティティを検索...",
+    "groupBy.displayValue": "{{label}}でグループ化",
+    "groupBy.group": "グループ化"
+}
