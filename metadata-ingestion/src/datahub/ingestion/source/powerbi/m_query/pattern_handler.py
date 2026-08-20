@@ -2007,7 +2007,7 @@ class OdbcLineage(AbstractLineage):
             # platform_instance prefix. Athena has no schema level, so the real
             # qualified name must be exactly 2 parts (database.table); skip the
             # override if the format is unexpected (e.g. unstripped catalog prefix).
-            instance_prefix, table_name = self._split_platform_instance_prefix(
+            _, table_name = self._split_platform_instance_prefix(
                 parsed.name, platform_instance
             )
             name_parts = table_name.split(".")
@@ -2030,16 +2030,18 @@ class OdbcLineage(AbstractLineage):
             if not target_platform:
                 return urn
 
-            overridden_name = (
-                f"{instance_prefix}.{table_name}" if instance_prefix else table_name
-            )
+            # Drop the Athena platform_instance prefix on a platform change: the
+            # rewritten URN now belongs to the source connector (e.g. mysql),
+            # which uses its own platform_instance (or none) — never Athena's. The
+            # instance_prefix was only split off so the override could match the
+            # real database.table; re-attaching it would point at a URN the source
+            # connector never emits. (Catalog stripping keeps the prefix because it
+            # stays on the same Athena platform.)
             overridden_urn = str(
-                DatasetUrn(
-                    platform=target_platform, name=overridden_name, env=parsed.env
-                )
+                DatasetUrn(platform=target_platform, name=table_name, env=parsed.env)
             )
             logger.debug(
-                f"Overriding platform for table {overridden_name}: {current_platform} -> {target_platform}"
+                f"Overriding platform for table {table_name}: {current_platform} -> {target_platform}"
             )
             return overridden_urn
 

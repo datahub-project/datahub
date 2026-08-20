@@ -886,9 +886,11 @@ def test_athena_table_platform_override():
     )
 
 
-def test_athena_table_platform_override_preserves_platform_instance():
-    """Override matching must skip the embedded platform_instance prefix and keep
-    it on the rewritten URN (previously the 3-part name failed the 2-part check)."""
+def test_athena_table_platform_override_drops_platform_instance():
+    """Override matching must skip the embedded Athena platform_instance prefix so
+    the 3-part name passes the 2-part check, then drop it from the rewritten URN:
+    a platform change (athena -> mysql) hands the entity to the source connector,
+    which uses its own instance (or none) — never Athena's."""
     from datahub.ingestion.source.powerbi.config import (
         AthenaPlatformOverride,
         DataPlatformPair,
@@ -946,7 +948,7 @@ def test_athena_table_platform_override_preserves_platform_instance():
 
     assert (
         overridden_lineage.upstreams[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:mysql,my_instance.my_schema.my_table,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,my_schema.my_table,PROD)"
     )
 
 
