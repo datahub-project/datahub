@@ -48,7 +48,7 @@ const renderFieldDescription = (
 ) => {
     mockUseEntityData.mockReturnValue({
         entityType: 'DATASET',
-        privileges: { canEditSchemaFieldDescription },
+        entityData: { privileges: { canEditSchemaFieldDescription } },
     });
     return render(
         <MockedProvider mocks={[]} addTypename={false}>
