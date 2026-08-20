@@ -904,6 +904,9 @@ subprojects {
     }
 
     spotless {
+      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
+      // not as part of check/build.
+      enforceCheck false
       java {
         googleJavaFormat(googleJavaFormatVersion)
         target project.fileTree(project.projectDir) {
@@ -983,11 +986,14 @@ wrapper {
   distributionSha256Sum = 'a3c4ba4aca8f0075688b9c5b18939fd28e8cb4357c227da5c1d9f38343791439'
 }
 
+def spotlessApplyTasks = subprojects.collect { "${it.path}:spotlessApply" }
+def spotlessCheckTasks = subprojects.collect { "${it.path}:spotlessCheck" }
+
 tasks.register('format') {
   dependsOn(':datahub-web-react:graphqlPrettierWrite')
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
-  dependsOn('spotlessApply')
+  dependsOn(spotlessApplyTasks)
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -995,8 +1001,48 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
-  dependsOn('spotlessApply')
+  dependsOn(spotlessApplyTasks)
   dependsOn(':scripts:dev:lintFix')
+}
+
+tasks.register('lintCheck') {
+  group = 'verification'
+  description = 'Run all lint checks (Python, JS, GraphQL, markdown, Java)'
+  dependsOn(':metadata-ingestion:lint')
+  dependsOn(':datahub-actions:lint')
+  dependsOn(':datahub-agent-context:lint')
+  dependsOn(':metadata-ingestion-modules:airflow-plugin:lint')
+  dependsOn(':metadata-ingestion-modules:gx-plugin:lint')
+  dependsOn(':metadata-ingestion-modules:dagster-plugin:lint')
+  dependsOn(':metadata-ingestion-modules:prefect-plugin:lint')
+  dependsOn(':smoke-test:lint')
+  dependsOn(':scripts:dev:lint')
+  dependsOn(':datahub-web-react:lint')
+  dependsOn(':datahub-web-react:graphqlPrettierCheck')
+  dependsOn(':datahub-web-react:mdPrettierCheck')
+  dependsOn(':datahub-web-react:githubActionsPrettierCheck')
+  dependsOn(':datahub-web-react:docusaurusMarkdownLint')
+  dependsOn(':docs-website:yarnLint')
+  dependsOn(spotlessCheckTasks)
+}
+
+tasks.register('lintFix') {
+  group = 'formatting'
+  description = 'Auto-fix all lint issues'
+  dependsOn('format')
+  dependsOn(':metadata-ingestion:lintFix')
+  dependsOn(':datahub-actions:lintFix')
+  dependsOn(':datahub-agent-context:lintFix')
+  dependsOn(':metadata-ingestion-modules:airflow-plugin:lintFix')
+  dependsOn(':metadata-ingestion-modules:gx-plugin:lintFix')
+  dependsOn(':metadata-ingestion-modules:dagster-plugin:lintFix')
+  dependsOn(':metadata-ingestion-modules:prefect-plugin:lintFix')
+  dependsOn(':datahub-web-react:lintFix')
+  dependsOn(':docs-website:yarnLintFix')
+  dependsOn(':smoke-test:lintFix')
+  dependsOn(':e2e-test:ui:playwright:lintFix')
+  dependsOn(':e2e-test:ui:playwright:prettierWrite')
+  dependsOn(':metadata-service:iceberg-catalog:lintFix')
 }
 
 // Gradle 9 forbids resolving one project's configurations from another project's task
