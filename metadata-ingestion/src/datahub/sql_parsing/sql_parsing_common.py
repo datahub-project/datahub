@@ -66,16 +66,24 @@ def get_dialect_str(platform: str) -> str:
         # At least it allows to parse simple SQL queries and build lineage for them
         return "databricks"
     elif platform_lower in {"mysql", "mariadb", "tidb"}:
-        # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
-        # default behavior on Linux. However, MySQL's default case sensitivity
-        # actually depends on the underlying OS.
-        # For us, it's simpler to just assume that it's case-insensitive, and
-        # let the fuzzy resolution logic handle it.
+        # MySQL's identifier case sensitivity depends on the underlying OS
+        # (lower_case_table_names), so we treat identifiers as case-insensitive
+        # and let the fuzzy resolution logic handle the mismatch. That fuzzing
+        # deliberately happens *after* parsing: SchemaResolver probes the
+        # exact-cased, lowercased and mixed-cased URNs, and column names are
+        # matched case-insensitively via DIALECTS_WITH_CASE_INSENSITIVE_COLS.
+        #
+        # We must therefore keep sqlglot's case-preserving normalization here.
+        # Forcing "normalization_strategy = lowercase" folds the real casing away
+        # while parsing, before the resolver ever sees it, so all three URN
+        # candidates collapse to the lowercased one and a table stored in
+        # DataHub as `my_schema.MixedCaseTable` can never be matched.
+        #
         # MariaDB and TiDB are MySQL-compatible (TiDB speaks the MySQL wire
         # protocol and presents as MySQL 8.0), so we reuse the same dialect.
         # Without this, sqlglot has no "tidb" dialect and view/query lineage
         # parsing silently produces nothing.
-        return "mysql, normalization_strategy = lowercase"
+        return "mysql"
     elif platform == "timescaledb":
         return "postgres"
     else:
@@ -99,6 +107,13 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     "mssql",
     # Fabric SQL Analytics Endpoint inherits SQL Server's case-insensitive collation.
     "fabric-onelake",
+    # MySQL column names are always case-insensitive, independent of the
+    # lower_case_table_names setting that governs table and database names.
+    # https://dev.mysql.com/doc/refman/8.0/en/identifier-case-sensitivity.html
+    # This also covers the MySQL-derived sqlglot dialects (MariaDB, TiDB, Doris,
+    # StarRocks, SingleStore), since is_dialect_instance matches on the sqlglot
+    # dialect class rather than on the platform name.
+    "mysql",
     # Oracle automatically converts unquoted identifiers to uppercase.
     # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Database-Object-Names-and-Qualifiers.html#GUID-3C59E44A-5140-4BCA-B9E1-3039C8050C49
     # In our Oracle connector, we then normalize column names to lowercase. This behavior
@@ -113,6 +128,19 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # match every other Postgres-dialect parse — flipping Postgres lineage
     # to lowercase column names and breaking unrelated golden files. Column-case
     # normalisation for these platforms is handled at the connector level.
+}
+DIALECTS_WITH_CASE_PRESERVING_COL_URNS = {
+    # When no schema is available we cannot know a column's real casing, so we have
+    # to guess. For most case-insensitive dialects the guess is lowercase, because
+    # their sources lowercase column names when building URNs (Snowflake and Oracle
+    # explicitly, see DIALECTS_WITH_DEFAULT_UPPERCASE_COLS).
+    #
+    # MySQL is the exception: its source emits the casing the catalog reports, so a
+    # lowercased guess produces a schemaField URN that does not exist. The spelling
+    # written in the query is the better guess there - an identifier that is not in
+    # the engine's default case has to be quoted to work at all, so a quoted alias
+    # like `MyAlias` is the author telling us the exact casing.
+    "mysql",
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
