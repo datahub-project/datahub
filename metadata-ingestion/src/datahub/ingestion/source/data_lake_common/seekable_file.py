@@ -25,6 +25,7 @@ class SeekableRangeFile(io.RawIOBase):
         """Return ``length`` bytes starting at ``start`` (``length`` >= 1)."""
 
     def read(self, size: int = -1) -> bytes:
+        self._checkClosed()
         if size == 0 or self._pos >= self._size:
             return b""
         length = (
@@ -35,16 +36,22 @@ class SeekableRangeFile(io.RawIOBase):
         return data
 
     def seek(self, offset: int, whence: int = 0) -> int:
+        self._checkClosed()
         if whence == 0:
             self._pos = offset
         elif whence == 1:
             self._pos += offset
         elif whence == 2:
             self._pos = self._size + offset
+        else:
+            # Reject unsupported whence rather than silently clamping, so an
+            # invalid seek surfaces instead of returning a bogus position.
+            raise ValueError(f"unsupported whence value: {whence!r}")
         self._pos = max(0, min(self._pos, self._size))
         return self._pos
 
     def tell(self) -> int:
+        self._checkClosed()
         return self._pos
 
     def seekable(self) -> bool:

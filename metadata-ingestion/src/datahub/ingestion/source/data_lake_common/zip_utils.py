@@ -32,6 +32,19 @@ class ZipWarningReporter(Protocol):
 # exceeds this many bytes.
 DEFAULT_MAX_ZIP_ENTRY_SIZE: int = 512 * 1024 * 1024  # 512 MiB
 
+# Compression methods whose decompressor honors a per-read output cap
+# (``decompress(data, max_length)``), so ``ZipExtFile.read(n)`` bounds the
+# decompressed bytes for us. Any other method could inflate past the cap before
+# it is applied, so we refuse to extract it rather than risk OOMing the worker.
+_CAPPABLE_COMPRESS_TYPES: frozenset = frozenset(
+    {
+        zipfile.ZIP_STORED,
+        zipfile.ZIP_DEFLATED,
+        zipfile.ZIP_BZIP2,
+        zipfile.ZIP_LZMA,
+    }
+)
+
 
 @dataclasses.dataclass
 class ZipEntry:
@@ -110,10 +123,22 @@ def read_first_supported_zip_entry(
             )
             return None
 
+        if entry.compress_type not in _CAPPABLE_COMPRESS_TYPES:
+            report.warning(
+                title="Zip entry uses an uncappable compression method",
+                message="Skipping zip entry whose compression method cannot be "
+                "size-bounded during decompression",
+                context=f"{context}: entry {entry.filename} uses compress_type "
+                f"{entry.compress_type}",
+            )
+            return None
+
         inner_suffix = pathlib.Path(entry.filename).suffix
         # Read the selected ZipInfo (not the name) so duplicate member names
         # cannot swap in a different entry, and read one byte past the cap to
-        # detect a header that under-declares the real decompressed size.
+        # detect a header that under-declares the real decompressed size. The
+        # compress_type is allowlisted above, so read(n) bounds decompressed
+        # output for every method reached here.
         with zf.open(entry) as member:
             data = member.read(max_entry_size + 1)
         if len(data) > max_entry_size:

@@ -133,6 +133,25 @@ def test_duplicate_member_names_reads_the_first_selected_entry():
     assert result.data == b"first\n"
 
 
+def test_uncappable_compression_method_is_skipped(monkeypatch):
+    # A member whose compression method the read cannot size-bound must be
+    # skipped with a warning rather than decompressed. Narrow the allowlist so a
+    # normal STORED/DEFLATED entry exercises that branch without crafting an
+    # exotic archive.
+    from datahub.ingestion.source.data_lake_common import zip_utils
+
+    monkeypatch.setattr(zip_utils, "_CAPPABLE_COMPRESS_TYPES", frozenset())
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        _make_zip({"data.csv": b"a\n1\n"}),
+        context="archive.zip",
+        report=report,
+        supported_suffixes=SUPPORTED,
+    )
+    assert result is None
+    assert report.warnings
+
+
 def test_directory_entry_with_supported_suffix_is_ignored():
     # A directory named like a data file (data.csv/) must not be selected over
     # the real data entry.
