@@ -18,6 +18,14 @@ If you want to re-ingest all data, you can set a different `pipeline_name` in yo
 - Does not detect hard timeseries deletions, e.g. if via a datahub delete command using the CLI. Therefore, if you deleted data in this way, it will still exist in the destination instance.
 - If you have a significant amount of aspects with the exact same createdon timestamp, stateful ingestion will not be able to save checkpoints partially through that timestamp. On a subsequent run, all aspects for that timestamp will be ingested.
 
+#### Parse-Error Quarantine
+
+Database rows that cannot be parsed into a metadata change proposal are counted in `num_database_parse_errors` and, by default, also written to an NDJSON file (`parse_error_log`) — one JSON object per line, each with the original row and the error it raised. The file is only created once a row is actually dropped, so a clean run leaves nothing behind.
+
+This file is diagnostic, not replayable: since no valid metadata change proposal could be built from these rows in the first place, they cannot be re-ingested as-is. Use it to find and fix the underlying data, then re-run ingestion.
+
+Set `parse_error_log.enabled: false` to turn this off.
+
 #### Performance
 
 For large migrations, ensure `metadata_aspect_v2.createdon` is indexed (`timeIndex`), enable async ingestion on the destination, and scale consumers/GMS/Elasticsearch workers as needed.
