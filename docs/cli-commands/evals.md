@@ -23,10 +23,17 @@ The command lives in the `acryl-datahub-cloud` package only — it is not part o
 pip install 'acryl-datahub-cloud[datahub-evals]>=2.1.4rc1'
 ```
 
+The package requires Python 3.10 or later.
+
 The `datahub-evals` extra pulls in the GraphQL client the command needs, so installing the package
 without it leaves `evals` unusable. The version floor matters too: `evals` first shipped in
 2.1.4rc1, and because that is a pre-release, pip only considers it when the requirement names it
 explicitly as above.
+
+Install it into an isolated environment — a virtualenv, or `pipx install` — rather than alongside an
+existing DataHub CLI. `acryl-datahub-cloud` depends on a specific `acryl-datahub` version and will
+install or change it, so a shared environment can end up with a different `datahub` CLI than the one
+you had.
 
 Every command below is invoked through the package's own entry point:
 
@@ -49,7 +56,7 @@ acryl-datahub-cloud evals list
 # Run one eval and wait for the verdict
 acryl-datahub-cloud evals run urn:li:eval:my-eval
 
-# Run everything for one agent and fail the shell on any FAIL or ERROR
+# Run everything for one agent and fail the shell on any failed eval
 acryl-datahub-cloud evals run --all --agent-urn urn:li:aiAgent:my-agent --fail-on-fail
 ```
 
@@ -101,35 +108,20 @@ an exported definition can be re-applied unchanged.
 
 ### Conditions
 
-Each condition is either an LLM judgement or an assertion about which assets the answer cites.
+Each condition is either an LLM judgement or an assertion about which assets the answer cites, both
+shown in the example above. A condition carries one shape or the other, never both.
 
-```yaml
-conditions:
-  - type: LLM_JUDGE
-    llmJudge:
-      guidelines: What a correct answer must contain.
-  - type: ASSET_REFERENCE
-    assetReference:
-      mustReference:
-        - urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)
-      mustNotReference:
-        - urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders_tmp,PROD)
-```
-
-An `LLM_JUDGE` condition requires non-empty `llmJudge.guidelines`. An `ASSET_REFERENCE` condition
-requires at least one URN across `mustReference` and `mustNotReference`, and every entry must be a
-DataHub URN. A condition carries one shape or the other, never both.
+| `type`            | Required fields                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `LLM_JUDGE`       | `llmJudge.guidelines` — non-empty text describing what a correct answer must contain.                                                |
+| `ASSET_REFERENCE` | `assetReference.mustReference` and/or `assetReference.mustNotReference` — lists of DataHub URNs, with at least one URN between them. |
 
 ### Executor
 
-```yaml
-executor:
-  type: NATIVE # or EXTERNAL
-  externalClient: my-harness # optional label for EXTERNAL
-```
-
-`NATIVE` means DataHub answers the question itself. `EXTERNAL` means your own harness answers it and
-submits the result with [`report`](#report).
+| Field            | Required | Meaning                                                                                                                                   |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`           | Yes      | `NATIVE` — DataHub answers the question itself. `EXTERNAL` — your own harness answers it and submits the result with [`report`](#report). |
+| `externalClient` | No       | Label identifying the harness behind an `EXTERNAL` executor.                                                                              |
 
 ## Commands
 
@@ -207,22 +199,31 @@ acryl-datahub-cloud evals run --all --agent-urn urn:li:aiAgent:my-agent
 acryl-datahub-cloud evals run --all --wait 600 --fail-on-fail
 ```
 
-| Option            | Default | Description                                                  |
-| ----------------- | ------- | ------------------------------------------------------------ |
-| `--all`           | —       | Run every matching eval instead of listed URNs.              |
-| `--agent-urn`     | —       | Restrict `--all` to one agent.                               |
-| `--eval-executor` | —       | Filter `--all` by executor type. Requires `--all`.           |
-| `--page-size`     | `10`    | Page size used to collect evals for `--all`. Also `--limit`. |
-| `--wait`          | `300`   | Seconds to wait for terminal events.                         |
-| `--fail-on-fail`  | —       | Exit non-zero when a result is `FAIL` or `ERROR`.            |
-| `--format`        | auto    | `json` or `table`.                                           |
-| `--dry-run`       | —       | Show what would run without starting anything.               |
+| Option            | Default | Description                                                                                                      |
+| ----------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--all`           | —       | Run every matching eval instead of listed URNs.                                                                  |
+| `--agent-urn`     | —       | Agent to run against. Selects the evals for `--all`, and is recorded with the run when explicit URNs are passed. |
+| `--eval-executor` | —       | Filter `--all` by executor type. Requires `--all`; `EXTERNAL` is rejected, see below.                            |
+| `--page-size`     | `10`    | Page size used to collect evals for `--all`. Also `--limit`.                                                     |
+| `--wait`          | `300`   | Seconds to wait for terminal events.                                                                             |
+| `--fail-on-fail`  | —       | Exit `1` on a failed run. See [Run failure contract](#run-failure-contract).                                     |
+| `--format`        | auto    | `json` or `table`.                                                                                               |
+| `--dry-run`       | —       | Show what would run without starting anything.                                                                   |
 
 Pass either URNs or `--all`, not both.
 
-With `--fail-on-fail`, the command exits `1` when any result is `FAIL` or `ERROR`, when a target never
-reaches a terminal event within `--wait`, or when a queued or running event has gone stale — older
-than 15 minutes. Without `--fail-on-fail`, a timeout still exits `0`, so CI jobs that must catch
+#### Run failure contract
+
+With `--fail-on-fail`, the command exits `1` when any selected eval ends in one of four states:
+
+| State          | Meaning                                                  |
+| -------------- | -------------------------------------------------------- |
+| **FAIL**       | The answer did not satisfy the eval's conditions.        |
+| **ERROR**      | The run errored instead of producing a verdict.          |
+| **Stale**      | A queued or running event is older than 15 minutes.      |
+| **Incomplete** | A target never reached a terminal event within `--wait`. |
+
+Without `--fail-on-fail` the command exits `0` in all four cases, so CI jobs that must catch
 regressions should always pass the flag.
 
 A single run selects at most 1000 evals, matching the executor's per-run limit. A larger `--all`
@@ -288,18 +289,22 @@ acryl-datahub-cloud evals history urn:li:eval:my-eval --limit 50
 
 ## Output and Exit Codes
 
-Output defaults to a table when stdout is a terminal and to JSON when it is not, so piping into `jq`
-works without extra flags. Pass `--format` explicitly when you need one or the other regardless.
+For the commands that accept `--format` — `list`, `get`, `run`, and `history` — output defaults to a
+table when stdout is a terminal and to JSON when it is not, so piping into `jq` works without extra
+flags. Pass `--format` explicitly when you need one or the other regardless. `upsert`, `delete`, and
+`report` always emit JSON, including on a terminal.
 
-| Exit code | Meaning                                                                    |
-| --------- | -------------------------------------------------------------------------- |
-| `0`       | Success.                                                                   |
-| `1`       | Command failed, or `--fail-on-fail` saw a failing, errored, or stale eval. |
-| `2`       | Invalid command input or an invalid eval definition.                       |
-| `5`       | Could not reach DataHub, or the instance does not support evals.           |
+| Exit code | Meaning                                                                                                   |
+| --------- | --------------------------------------------------------------------------------------------------------- |
+| `0`       | Success.                                                                                                  |
+| `1`       | Command failed, or `--fail-on-fail` saw a failed run — see [Run failure contract](#run-failure-contract). |
+| `2`       | Invalid command input or an invalid eval definition.                                                      |
+| `5`       | Could not reach DataHub, or the instance does not support evals.                                          |
 
-Errors print as human-readable text on a terminal and as `{"error": ..., "message": ...}` on stderr
-otherwise.
+Errors raised by the command itself — a bad eval definition, an unreachable instance, a failed run —
+print as human-readable text on a terminal and as `{"error": ..., "message": ...}` on stderr
+otherwise. Argument-parsing errors caught before the command runs, such as a non-numeric `--wait`,
+stay plain-text usage messages on stderr and still exit `2`.
 
 ## Using the Command from an Agent
 
@@ -320,4 +325,5 @@ acryl-datahub-cloud evals upsert -f evals.yml
 acryl-datahub-cloud evals run --all --agent-urn "$AGENT_URN" --wait 900 --fail-on-fail
 ```
 
-The run exits non-zero on any failing, errored, or stale eval, which fails the job.
+The run exits non-zero on any failed eval, which fails the job — see the
+[run failure contract](#run-failure-contract) for what counts.
