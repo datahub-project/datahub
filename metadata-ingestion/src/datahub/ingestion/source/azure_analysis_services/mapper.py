@@ -174,9 +174,21 @@ class AasMapper:
             extra_properties=self._model_container_properties(model),
         )
 
+        # Index only tables that pass table_pattern so intra-model FK/DAX lineage
+        # never points at a filtered-out dataset that is not emitted.
         dataset_urn_by_table: Dict[str, str] = {}
         for table in model.tables:
-            dataset_urn_by_table[table.name.lower()] = self._table_dataset_urn(
+            if not self.config.table_pattern.allowed(table.name):
+                continue
+            key = table.name.lower()
+            if key in dataset_urn_by_table:
+                self.report.warning(
+                    title="Duplicate table name",
+                    message="Two tables collide case-insensitively; lineage for one may be dropped.",
+                    context=f"catalog={model.catalog}, table={table.name}",
+                )
+                continue
+            dataset_urn_by_table[key] = self._table_dataset_urn(
                 model.catalog, table.name
             )
 
@@ -308,10 +320,20 @@ class AasMapper:
                         viewLanguage=constants.VIEW_LANGUAGE_DAX,
                     )
             return None
-        if table.expression:
+        # An import table can have several query partitions (e.g. incremental
+        # refresh); concatenate each partition's M so the stored view definition
+        # does not silently drop logic from partitions after the first.
+        partition_queries = [
+            partition.query_definition
+            for partition in table.partitions
+            if partition.query_definition
+        ]
+        if partition_queries:
             return ViewPropertiesClass(
                 materialized=False,
-                viewLogic=table.expression,
+                viewLogic=constants.VIEW_LOGIC_PARTITION_SEPARATOR.join(
+                    partition_queries
+                ),
                 viewLanguage=constants.VIEW_LANGUAGE_M,
             )
         return None

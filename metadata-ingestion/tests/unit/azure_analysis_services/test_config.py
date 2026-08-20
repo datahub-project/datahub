@@ -72,3 +72,24 @@ def test_valid_server_endpoints_accepted():
 def test_invalid_server_rejected():
     with pytest.raises(ValidationError):
         AzureAnalysisServicesConfig.model_validate(_service_principal(server="ftp://x"))
+
+
+def test_mixed_case_scheme_normalized_to_lowercase():
+    config = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(server="PowerBI://api.powerbi.com/v1.0/myorg/salesws")
+    )
+    assert config.server == "powerbi://api.powerbi.com/v1.0/myorg/salesws"
+
+
+@pytest.mark.parametrize(
+    "server",
+    [
+        f"{_ASAZURE}/",
+        f"{_ASAZURE}?foo=bar",
+    ],
+)
+def test_server_with_trailing_suffix_rejected(server):
+    # fullmatch means a trailing path/query must be rejected, not silently
+    # accepted by matching only the valid prefix.
+    with pytest.raises(ValidationError):
+        AzureAnalysisServicesConfig.model_validate(_service_principal(server=server))

@@ -21,10 +21,12 @@ import {
     AAS_DATABASE_DENY,
     AAS_EXTRACT_COLUMN_LINEAGE,
     AAS_EXTRACT_LINEAGE,
+    AAS_PASSWORD,
     AAS_SERVER,
     AAS_TABLE_ALLOW,
     AAS_TABLE_DENY,
     AAS_TENANT_ID,
+    AAS_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/azure_analysis_services';
 import {
     BIGID_ACCESS_TOKEN,
@@ -912,7 +914,15 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific PowerBI Workspaces from ingestion.',
     },
     [AZURE_ANALYSIS_SERVICES]: {
-        fields: [AAS_SERVER, AAS_AUTH_TYPE, AAS_TENANT_ID, AAS_CLIENT_ID, AAS_CLIENT_SECRET],
+        fields: [
+            AAS_SERVER,
+            AAS_AUTH_TYPE,
+            AAS_TENANT_ID,
+            AAS_CLIENT_ID,
+            AAS_CLIENT_SECRET,
+            AAS_USERNAME,
+            AAS_PASSWORD,
+        ],
         filterFields: [AAS_DATABASE_ALLOW, AAS_DATABASE_DENY, AAS_TABLE_ALLOW, AAS_TABLE_DENY],
         advancedFields: [AAS_EXTRACT_LINEAGE, AAS_EXTRACT_COLUMN_LINEAGE, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific tabular models and tables from ingestion.',

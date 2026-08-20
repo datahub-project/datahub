@@ -293,6 +293,19 @@ def test_cluster_resolve_missing_fqdn_raises(client: XmlaClient) -> None:
             client._get_xmla_url()
 
 
+def test_cluster_resolve_non_dict_payload_raises(client: XmlaClient) -> None:
+    # A non-object JSON body must raise XmlaClientError, not AttributeError.
+    resp = mock.Mock()
+    resp.json.return_value = ["unexpected"]
+    resp.raise_for_status.return_value = None
+    with (
+        mock.patch.object(client, "_bearer_token", return_value="t"),
+        mock.patch.object(client._session, "post", return_value=resp),
+    ):
+        with pytest.raises(XmlaClientError, match="non-object JSON"):
+            client._get_xmla_url()
+
+
 # --- Fault variants + rootless response -----------------------------------
 
 _FAULT_DESCRIPTION = """<?xml version="1.0"?>
@@ -344,10 +357,10 @@ def test_soap_fault_without_message(client: XmlaClient) -> None:
         client._parse_rowset(_UNKNOWN_FAULT)
 
 
-def test_rootless_response_warns_and_returns_empty(client: XmlaClient) -> None:
-    rows = client._parse_rowset(_ROOTLESS, dmv=constants.DMV_TABLES, catalog="cat")
-    assert rows == []
-    assert len(client.report.warnings) == 1
+def test_rootless_response_raises(client: XmlaClient) -> None:
+    # A fault-free but rootless response is an endpoint failure, not empty data.
+    with pytest.raises(XmlaClientError, match="no rowset"):
+        client._parse_rowset(_ROOTLESS, dmv=constants.DMV_TABLES, catalog="cat")
 
 
 def test_extract_metadata_definition_nested_element(client: XmlaClient) -> None:
@@ -390,6 +403,17 @@ def test_fetch_rows_dmv_failure_degrades(client: XmlaClient) -> None:
     rows = client._fetch_rows(constants.DMV_TABLES, AasTableRow, "cat")
     assert rows == []
     assert len(client.report.warnings) == 1
+
+
+def test_fetch_rows_required_dmv_failure_propagates(client: XmlaClient) -> None:
+    # A required structural DMV must not be downgraded to a warning: it propagates
+    # so the catalog is skipped instead of emitting a partial (soft-deleting) model.
+    def raising(dmv: str, catalog: Optional[str] = None) -> List[Dict[str, str]]:
+        raise XmlaClientError("boom")
+
+    client._query_dmv = raising  # type: ignore[method-assign]
+    with pytest.raises(XmlaClientError):
+        client._fetch_rows(constants.DMV_TABLES, AasTableRow, "cat", required=True)
 
 
 def test_fetch_rows_skips_malformed_row(client: XmlaClient) -> None:

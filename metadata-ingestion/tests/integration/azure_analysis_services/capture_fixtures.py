@@ -95,12 +95,41 @@ def main() -> None:
     print(f"capturing model: {catalog}")
     client.fetch_tabular_model(catalog)
     client.close()
+
+    missing = _missing_fixtures(out_dir, config)
+    if missing:
+        raise SystemExit(
+            "Capture incomplete — these expected fixtures were never written: "
+            + ", ".join(sorted(missing))
+            + ".\nA disabled toggle or a DMV the server refused leaves an "
+            "incomplete setup dir; regenerating the golden from it would produce "
+            "a silently wrong golden. Re-run with the relevant toggles enabled "
+            "and confirm the server returns every required DMV."
+        )
     print(
         "Done. Review and sanitize the fixture files before committing, then "
         "regenerate the golden with:\n"
         "  pytest tests/integration/azure_analysis_services/test_aas_ingest.py "
         "--update-golden-files"
     )
+
+
+def _missing_fixtures(
+    out_dir: pathlib.Path, config: AzureAnalysisServicesConfig
+) -> set:
+    # Files captured only when their feature toggle is enabled are exempt when
+    # that toggle is off; everything else is unconditionally expected.
+    optional_by_toggle = {
+        "metadata.xml": config.extract_model_definition,
+        "calc_dependency.xml": config.extract_column_level_lineage,
+        "roles.xml": config.extract_roles,
+    }
+    expected = {
+        filename
+        for filename in _BODY_TOKEN_TO_FILE.values()
+        if optional_by_toggle.get(filename, True)
+    }
+    return {name for name in expected if not (out_dir / name).exists()}
 
 
 if __name__ == "__main__":

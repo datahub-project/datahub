@@ -138,7 +138,11 @@ class XmlaClient:
             self._is_powerbi = True
             self._server_name = powerbi.group("workspace")
             self._scope = constants.POWERBI_XMLA_SCOPE
-            self._xmla_url = self.config.server.replace("powerbi://", "https://", 1)
+            # Build the URL from the portion after the scheme so an uppercase
+            # scheme (POWERBI://) still yields a requests-sendable https URL.
+            self._xmla_url = (
+                constants.HTTPS_PREFIX + self.config.server.split("://", 1)[1]
+            )
             return
 
         raise XmlaClientError(
@@ -226,6 +230,10 @@ class XmlaClient:
             raise XmlaClientError(f"clusterResolve request failed: {e}") from e
         except ValueError as e:
             raise XmlaClientError(f"clusterResolve returned invalid JSON: {e}") from e
+        if not isinstance(payload, dict):
+            raise XmlaClientError(
+                f"clusterResolve returned a non-object JSON body: {type(payload).__name__}"
+            )
         fqdn = payload.get(constants.ASAZURE_CLUSTER_FQDN_KEY)
         if not fqdn:
             raise XmlaClientError(
@@ -386,17 +394,15 @@ class XmlaClient:
         root = self._find_root_element(envelope)
         if root is None:
             # A fault-free 200 that carries no rowset (gateway HTML, redirect,
-            # empty <return/>) would otherwise look identical to a legitimately
-            # empty model. Surface it so operators can tell the two apart.
-            self.report.warning(
-                title="Unrecognized XMLA response",
-                message="A response parsed but contained no rowset; treated as empty.",
-                context=(
-                    f"dmv={dmv}, catalog={catalog}: "
-                    f"{response_text[: constants.ROOTLESS_SNIPPET_LEN]}"
-                ),
+            # empty <return/>) is an endpoint failure, not empty data. Raising it
+            # here keeps a rootless model-discovery response from masquerading as a
+            # successful zero-model ingestion; callers that can tolerate a missing
+            # optional view (_fetch_rows for non-required DMVs) downgrade it to a
+            # warning, while required views and discovery propagate it as a failure.
+            raise XmlaClientError(
+                f"XMLA response contained no rowset (dmv={dmv}, catalog={catalog}): "
+                f"{response_text[: constants.ROOTLESS_SNIPPET_LEN]}"
             )
-            return []
         rows: List[Dict[str, str]] = []
         for element in root:
             if _strip_ns(element.tag) != constants.ELEMENT_ROW:
@@ -429,14 +435,23 @@ class XmlaClient:
     # Typed fetch + assembly
 
     def _fetch_rows(
-        self, dmv: str, model_cls: Type[_RowT], catalog: Optional[str] = None
+        self,
+        dmv: str,
+        model_cls: Type[_RowT],
+        catalog: Optional[str] = None,
+        required: bool = False,
     ) -> List[_RowT]:
-        # One bad DMV must not abort the whole model, and one malformed row must
-        # not abort the DMV — both are downgraded to warnings so ingestion
-        # continues with partial metadata.
+        # One bad optional DMV must not abort the whole model, and one malformed
+        # row must not abort the DMV — both are downgraded to warnings so
+        # ingestion continues with partial metadata. A required structural DMV
+        # (tables/columns) is different: emitting a model without it would, under
+        # stateful ingestion, soft-delete tables that are missing only because the
+        # DMV call failed. Propagate so the catalog is skipped as a source failure.
         try:
             raw_rows = self._query_dmv(dmv, catalog)
         except XmlaClientError as e:
+            if required:
+                raise
             self.report.warning(
                 title="DMV query failed",
                 message="Could not read a metadata view; related metadata is skipped.",
@@ -592,6 +607,12 @@ class XmlaClient:
                 and row.referenced_object
             ):
                 continue
+            # Skip AS internal row-number columns on either endpoint; they are not
+            # emitted as schema fields, so an edge to them would dangle.
+            if row.object_name.startswith(
+                constants.ROW_NUMBER_COLUMN_PREFIX
+            ) or row.referenced_object.startswith(constants.ROW_NUMBER_COLUMN_PREFIX):
+                continue
             dependencies.append(
                 AasCalcDependency(
                     object_type=row.object_type,
@@ -623,9 +644,13 @@ class XmlaClient:
         model_rows = self._fetch_rows(constants.DMV_MODEL, AasModelRow, catalog)
         model_row = model_rows[0] if model_rows else None
 
-        table_rows = self._fetch_rows(constants.DMV_TABLES, AasTableRow, catalog)
+        table_rows = self._fetch_rows(
+            constants.DMV_TABLES, AasTableRow, catalog, required=True
+        )
         column_build = self._build_columns(
-            self._fetch_rows(constants.DMV_COLUMNS, AasColumnRow, catalog)
+            self._fetch_rows(
+                constants.DMV_COLUMNS, AasColumnRow, catalog, required=True
+            )
         )
         measures_by_table = self._build_measures(
             self._fetch_rows(constants.DMV_MEASURES, AasMeasureRow, catalog)
@@ -645,14 +670,18 @@ class XmlaClient:
             relationship_rows, table_name_by_id, column_build.name_by_id, catalog
         )
 
-        roles = [
-            AasRole(
-                name=r.name,
-                description=r.description,
-                model_permission=r.model_permission,
-            )
-            for r in self._fetch_rows(constants.DMV_ROLES, AasRoleRow, catalog)
-        ]
+        roles = (
+            [
+                AasRole(
+                    name=r.name,
+                    description=r.description,
+                    model_permission=r.model_permission,
+                )
+                for r in self._fetch_rows(constants.DMV_ROLES, AasRoleRow, catalog)
+            ]
+            if self.config.extract_roles
+            else []
+        )
         data_sources = [
             AasDataSource(name=d.name, connection_string=d.connection_string)
             for d in self._fetch_rows(

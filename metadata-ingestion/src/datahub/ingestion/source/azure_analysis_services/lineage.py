@@ -76,11 +76,47 @@ class AasLineageExtractor:
         self, table: AasTable, dataset_urn: str
     ) -> UpstreamLineageResult:
         result = UpstreamLineageResult()
-        if not self.config.extract_lineage or not table.expression:
+        if not self.config.extract_lineage:
             return result
 
+        # A table can have several query partitions (e.g. incremental refresh),
+        # each its own M expression against a different source slice. Parse every
+        # partition so lineage captures all sources, not just the first. The
+        # engine reads a single ``expression`` (the first partition's), so parse a
+        # one-partition copy per partition and merge the results.
+        query_partitions = [p for p in table.partitions if p.query_definition]
+        if not query_partitions:
+            return result
+
+        seen_upstreams: set = set()
+        for partition in query_partitions:
+            partition_table = table.model_copy(update={"partitions": [partition]})
+            for lineage in self._parse_table(partition_table):
+                for upstream_table in lineage.upstreams:
+                    urn = self._lineage_urn_to_lowercase(upstream_table.urn)
+                    if urn in seen_upstreams:
+                        continue
+                    seen_upstreams.add(urn)
+                    result.upstreams.append(
+                        UpstreamClass(
+                            dataset=urn, type=DatasetLineageTypeClass.TRANSFORMED
+                        )
+                    )
+                if self.config.extract_column_level_lineage:
+                    result.fine_grained.extend(
+                        self._column_lineage(lineage.column_lineage, dataset_urn)
+                    )
+
+        if result.upstreams:
+            self.report.tables_with_upstream_lineage += 1
+        else:
+            self.report.tables_without_upstream_lineage += 1
+        self.report.column_lineage_edges += len(result.fine_grained)
+        return result
+
+    def _parse_table(self, table: AasTable) -> List[parser.Lineage]:
         try:
-            lineages = parser.get_upstream_tables(
+            return parser.get_upstream_tables(
                 table=table,
                 reporter=self.report,
                 platform_instance_resolver=self.platform_instance_resolver,
@@ -97,27 +133,7 @@ class AasLineageExtractor:
                 context=f"table={table.full_name}",
                 exc=e,
             )
-            return result
-
-        for lineage in lineages:
-            for upstream_table in lineage.upstreams:
-                result.upstreams.append(
-                    UpstreamClass(
-                        dataset=self._lineage_urn_to_lowercase(upstream_table.urn),
-                        type=DatasetLineageTypeClass.TRANSFORMED,
-                    )
-                )
-            if self.config.extract_column_level_lineage:
-                result.fine_grained.extend(
-                    self._column_lineage(lineage.column_lineage, dataset_urn)
-                )
-
-        if result.upstreams:
-            self.report.tables_with_upstream_lineage += 1
-        else:
-            self.report.tables_without_upstream_lineage += 1
-        self.report.column_lineage_edges += len(result.fine_grained)
-        return result
+            return []
 
     def _column_lineage(
         self, column_lineage: List[ColumnLineageInfo], dataset_urn: str
@@ -160,9 +176,24 @@ class AasLineageExtractor:
         if not self.config.extract_column_level_lineage:
             return []
 
+        # Only fields the mapper actually emits (columns and measures) are valid
+        # lineage endpoints. Building this index lets us drop edges to internal
+        # objects that never become fields — AS system RowNumber-* columns and
+        # calc-table self-references (where the "column" is the table name) — which
+        # would otherwise dangle as unresolvable schema-field URNs in the golden.
+        fields_by_table: Dict[str, frozenset] = {
+            table.name.lower(): frozenset(
+                [col.name.lower() for col in table.columns]
+                + [measure.name.lower() for measure in table.measures]
+            )
+            for table in model.tables
+        }
+
         upstreams_by_downstream: Dict[str, List[str]] = {}
         for dependency in model.calc_dependencies:
-            edge = self._resolve_dependency_edge(dependency, dataset_urn_by_table)
+            edge = self._resolve_dependency_edge(
+                dependency, dataset_urn_by_table, fields_by_table
+            )
             if edge is None:
                 continue
             bucket = upstreams_by_downstream.setdefault(edge.downstream_urn, [])
@@ -186,6 +217,7 @@ class AasLineageExtractor:
         self,
         dependency: AasCalcDependency,
         dataset_urn_by_table: Dict[str, str],
+        fields_by_table: Dict[str, frozenset],
     ) -> Optional[_DependencyEdge]:
         object_type = dependency.object_type.upper()
         referenced_type = dependency.referenced_object_type.upper()
@@ -204,6 +236,19 @@ class AasLineageExtractor:
         downstream_dataset = dataset_urn_by_table.get(dependency.table.lower())
         upstream_dataset = dataset_urn_by_table.get(dependency.referenced_table.lower())
         if not downstream_dataset or not upstream_dataset:
+            return None
+
+        # Both endpoints must be fields the mapper emits as schema fields.
+        # This drops edges to AS system RowNumber-* columns and to a calc table's
+        # own name (a table object, not a field), which would otherwise dangle.
+        downstream_fields = fields_by_table.get(dependency.table.lower(), frozenset())
+        upstream_fields = fields_by_table.get(
+            dependency.referenced_table.lower(), frozenset()
+        )
+        if (
+            dependency.object_name.lower() not in downstream_fields
+            or dependency.referenced_object.lower() not in upstream_fields
+        ):
             return None
 
         return _DependencyEdge(

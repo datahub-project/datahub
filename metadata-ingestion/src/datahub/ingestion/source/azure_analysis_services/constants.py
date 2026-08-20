@@ -24,6 +24,7 @@ CONTENT_TYPE_XML = "text/xml; charset=utf-8"
 XMLA_NEGOTIATION_FLAGS = "1,0,0,0,0"
 USER_AGENT = "DataHub-AAS-Ingestion/XmlaClient"
 BEARER_PREFIX = "Bearer "
+HTTPS_PREFIX = "https://"
 
 # Property names inside the XMLA <PropertyList>.
 PROPERTY_CATALOG = "Catalog"
@@ -119,8 +120,11 @@ DATABASE_ID_RESTRICTION = "DatabaseID"
 
 class TomDataType(IntEnum):
     # TMSCHEMA_COLUMNS.ExplicitDataType / InferredDataType (Tabular Object Model
-    # DataType enumeration). AUTOMATIC is what calculated columns report for
-    # ExplicitDataType; their real type lives in InferredDataType.
+    # DataType enumeration). Regular and calculated columns report a concrete
+    # ExplicitDataType (e.g. a DAX calculated column reports DOUBLE=8); it is the
+    # calculated-table columns (TMSCHEMA_COLUMNS.Type=4) that report AUTOMATIC in
+    # ExplicitDataType and carry their real type in InferredDataType, which is the
+    # case resolved_data_type falls through for.
     AUTOMATIC = 1
     STRING = 2
     INT64 = 6
@@ -135,6 +139,12 @@ class ColumnType(IntEnum):
     DATA = 1
     CALCULATED = 2
     ROW_NUMBER = 3
+
+
+# AS auto-generates an internal row-number column per table, surfaced in
+# DISCOVER_CALC_DEPENDENCY as "RowNumber-<GUID>". It is never emitted as a schema
+# field, so dependencies referencing it must not become lineage edges.
+ROW_NUMBER_COLUMN_PREFIX = "RowNumber-"
 
 
 class PartitionType(IntEnum):
@@ -154,6 +164,8 @@ NATIVE_TYPE_CALCULATED_COLUMN = "calculated_column"
 
 VIEW_LANGUAGE_M = "M"
 VIEW_LANGUAGE_DAX = "DAX"
+# Separates the M of multiple query partitions in a single stored view definition.
+VIEW_LOGIC_PARTITION_SEPARATOR = "\n\n// --- next partition ---\n\n"
 VIEW_LANGUAGE_TMSL = "TMSL"
 
 # customProperties keys.

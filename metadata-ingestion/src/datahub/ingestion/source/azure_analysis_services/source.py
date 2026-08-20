@@ -133,9 +133,13 @@ class AzureAnalysisServicesSource(StatefulIngestionSourceBase, TestableSource):
         try:
             model = self.client.fetch_tabular_model(catalog)
         except XmlaClientError as e:
-            self.report.warning(
+            # A required structural DMV failed. Report a failure (not a warning) so
+            # stateful ingestion treats the run as incomplete and does not
+            # soft-delete this catalog's tables; the catalog is skipped rather than
+            # emitted as a partial model.
+            self.report.failure(
                 title="Model extraction failed",
-                message="Skipped a tabular model that could not be read.",
+                message="Skipped a tabular model whose required metadata could not be read.",
                 context=f"catalog={catalog}",
                 exc=e,
             )

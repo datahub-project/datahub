@@ -1,6 +1,7 @@
 from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.azure_analysis_services.models import (
     AasColumn,
+    AasColumnRow,
     tom_data_type_to_datahub,
 )
 from datahub.metadata.schema_classes import (
@@ -35,6 +36,42 @@ def test_tom_data_type_unknown_falls_back_to_null() -> None:
     # field still emits rather than being dropped.
     assert isinstance(tom_data_type_to_datahub(999), NullTypeClass)
     assert isinstance(tom_data_type_to_datahub(None), NullTypeClass)
+
+
+def test_resolved_data_type_prefers_concrete_explicit() -> None:
+    # A regular/calculated column reports a concrete ExplicitDataType, which wins
+    # over InferredDataType.
+    row = AasColumnRow(
+        id=1,
+        table_id=1,
+        explicit_data_type=constants.TomDataType.DOUBLE,
+        inferred_data_type=constants.TomDataType.INT64,
+    )
+    assert row.resolved_data_type == constants.TomDataType.DOUBLE
+
+
+def test_resolved_data_type_automatic_falls_through_to_inferred() -> None:
+    # A calculated-table column reports Automatic in ExplicitDataType; its real
+    # type lives in InferredDataType.
+    row = AasColumnRow(
+        id=1,
+        table_id=1,
+        explicit_data_type=constants.TomDataType.AUTOMATIC,
+        inferred_data_type=constants.TomDataType.STRING,
+    )
+    assert row.resolved_data_type == constants.TomDataType.STRING
+
+
+def test_resolved_data_type_automatic_without_inferred_is_none() -> None:
+    # Automatic with no inferred type has nothing to resolve to; the mapper then
+    # emits NullType rather than a wrong type.
+    row = AasColumnRow(
+        id=1,
+        table_id=1,
+        explicit_data_type=constants.TomDataType.AUTOMATIC,
+        inferred_data_type=None,
+    )
+    assert row.resolved_data_type is None
 
 
 def test_column_datatype_name_unknown_fallback() -> None:
