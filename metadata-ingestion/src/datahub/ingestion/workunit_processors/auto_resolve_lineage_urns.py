@@ -547,10 +547,18 @@ class AutoResolveLineageUrnsProcessor(
         """The stored casing of `urn`, from a preloaded catalog or by asking DataHub.
 
         A preload covers one platform_instance / env, so a miss in it is not an absence and
-        has to be asked about.
+        has to be asked about. A preload that raises is likewise not an absence: DataHub is
+        asked below either way, and its search is exhaustive, so the reference still heals.
         """
         for resolver in self._alias_resolvers.get(platform) or []:
-            resolved = resolver.resolve(urn, prefer_lowercased=True)
+            try:
+                resolved = resolver.resolve(urn, prefer_lowercased=True)
+            except Exception:
+                logger.debug(
+                    f"Preloaded URN catalog failed for {urn}; asking DataHub instead",
+                    exc_info=True,
+                )
+                continue
             if resolved is not None:
                 return resolved
         return graph_urn_alias_resolver(self._graph).resolve(
@@ -562,14 +570,23 @@ class AutoResolveLineageUrnsProcessor(
 
         Preloaded catalogs first, then a fetch — the same miss-means-ask as _resolve_alias.
 
-        A resolver that raises answers None too, either of them: columns enrich an identity
-        that is already resolved, so losing them must not unwind the reference.
+        A preloaded catalog that raises is one that did not answer, not an absence: the
+        fetch below runs regardless and reads the entity itself, so carrying on loses
+        nothing. A failed fetch answers None: columns enrich an identity that is already
+        resolved, so losing them must not unwind the reference.
         """
-        try:
-            for resolver in self._schema_resolvers.get(platform) or []:
+        for resolver in self._schema_resolvers.get(platform) or []:
+            try:
                 schema = resolver.resolve_urn(urn)[1]
-                if schema is not None:
-                    return schema
+            except Exception:
+                logger.debug(
+                    f"Preloaded schema catalog failed for {urn}; asking DataHub instead",
+                    exc_info=True,
+                )
+                continue
+            if schema is not None:
+                return schema
+        try:
             return self._graph_resolver_for(platform).resolve_urn(urn)[1]
         except Exception as e:
             self.report.num_schema_fetches_failed += 1
