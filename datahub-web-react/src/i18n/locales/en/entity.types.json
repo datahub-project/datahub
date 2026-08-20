@@ -331,9 +331,6 @@
     "user.teamsHeading": "Teams",
     "user.titleRoleLabel": "Title/Role",
     "tab.outputPorts": "Output Ports",
-    "dataProduct.subProductsCountTitle": "Sub-products ({{count}})",
-    "dataProduct.showingSubProductsOfTotal": "Showing {{count}} of {{total}}",
-    "dataProduct.lineageCounts": "{{upstream}} upstream · {{downstream}} downstream",
     "dataProduct.outputPortsToggle": "Output ports · {{count}}",
     "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

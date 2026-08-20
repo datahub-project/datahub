@@ -1,4 +1,10 @@
-import { AppstoreOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import {
+    AppstoreOutlined,
+    FileOutlined,
+    PartitionOutlined,
+    ReadOutlined,
+    UnorderedListOutlined,
+} from '@ant-design/icons';
 import { Export } from '@phosphor-icons/react/dist/csr/Export';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
@@ -30,6 +36,8 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
@@ -150,11 +158,13 @@ export class DataProductEntity implements Entity<DataProduct> {
     ];
 
     getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
-                component: DataProductSummaryTab,
+                component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
                 icon: ReadOutlined,
             },
             {
@@ -181,6 +191,15 @@ export class DataProductEntity implements Entity<DataProduct> {
                     enabled: (_, _2) => true,
                 },
             },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
             {
                 name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
