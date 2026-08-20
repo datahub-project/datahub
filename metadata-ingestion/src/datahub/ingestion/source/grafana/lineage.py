@@ -1,6 +1,8 @@
 import logging
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
+
+import sqlglot
 
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -27,6 +29,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,118 @@ def _clean_grafana_template_variables(query: str) -> str:
     query = _GRAFANA_SIMPLE_VAR_PATTERN.sub(r"'\1'", query)
 
     return query
+
+
+# What the probe below substitutes for a variable.
+_GRAFANA_PROBE_IDENTIFIER = "grafana_probe"
+
+# ${...}, matched unconditionally. The probe has to substitute inside string
+# literals too - an authored '${var}' must become 'grafana_probe' - so it cannot
+# share _GRAFANA_BRACED_VAR_PATTERN, which is a candidate for being narrowed to
+# leave already-quoted variables alone.
+_GRAFANA_ANY_BRACED_VAR_PATTERN = re.compile(r"\$\{[^}]+\}")
+
+# $var, but never a $__ macro and never a dollar sign inside a longer identifier.
+#
+# Macros are left exactly as the author wrote them. A macro is a Grafana built-in
+# standing for a time value or a predicate, so it can never be a table name and
+# substituting it would tell the comparison nothing - while the cleaner's macro
+# handling is itself capable of breaking a query that parses as authored, because
+# $__timeFrom() produces a value but is replaced with TRUE. Leaving macros alone
+# keeps the probe parseable wherever the query as authored is.
+#
+# The lookbehind leaves identifiers that merely contain a dollar sign alone:
+# "V$SESSION" is a table, not a variable. Substituting inside it
+# would make the two parses disagree over a name that was never in doubt, and the
+# query would be cleaned - which rewrites "v$session" to "v'$session'" and leaves
+# a truncated "v" behind. The cost is that a variable appended to a table name,
+# "metrics_$env", is indistinguishable from such an identifier and is emitted as
+# authored.
+_GRAFANA_PROBE_SIMPLE_VAR_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_])\$(?!__)[a-zA-Z_][a-zA-Z0-9_]*"
+)
+
+
+def _probe_grafana_template_variables(query: str) -> str:
+    """Substitute every Grafana variable - and only those - with one fixed token.
+
+    This exists to be compared against the query as authored, never to be emitted.
+    Deciding whether a variable reached a table name needs a second parse, and the
+    cleaner is a poor source of one: it substitutes a quoted string, which is not
+    valid where a table name belongs and which mangles any literal the variable
+    sat inside, so it frequently fails to parse - and a failed parse leaves the
+    comparison blind.
+
+    Because the probe differs from the query as authored in variable positions
+    alone, a difference in the table names between the two parses can only have
+    come from a variable.
+    """
+    query = _GRAFANA_BRACKET_VAR_PATTERN.sub(_GRAFANA_PROBE_IDENTIFIER, query)
+    query = _GRAFANA_ANY_BRACED_VAR_PATTERN.sub(_GRAFANA_PROBE_IDENTIFIER, query)
+    return _GRAFANA_PROBE_SIMPLE_VAR_PATTERN.sub(_GRAFANA_PROBE_IDENTIFIER, query)
+
+
+def _parsed_table_names(
+    query: str, dialect: sqlglot.Dialect
+) -> Optional[FrozenSet[str]]:
+    """Table names as sqlglot renders them, or None if the query will not parse.
+
+    Rendering, rather than reading each table's name, is what makes the comparison
+    work across dialects: Postgres and Snowflake turn a leading "$" into a
+    parameter node whose name is empty, and only the rendering still shows the
+    sigil. The renderings are not normalised either - both sides of the comparison
+    come from the same dialect, so any difference is a real difference.
+
+    This is a bare parse - no schema resolution and no column lineage - so it is
+    cheap enough to run twice for every query.
+    """
+    try:
+        statement = sqlglot.parse_one(query, dialect=dialect)
+    except Exception as e:
+        logger.debug(f"Query did not parse as {dialect}: {e}")
+        return None
+
+    if statement is None:
+        return None
+
+    return frozenset(
+        table.sql(dialect=dialect) for table in statement.find_all(sqlglot.exp.Table)
+    )
+
+
+def _select_query_for_lineage(sql: str, dialect: sqlglot.Dialect) -> Optional[str]:
+    """Choose which form of the query to extract lineage from, or None for neither.
+
+    Parse the query as authored, parse a probe of it, and compare the table names:
+
+        names agree    -> no variable reached a table name -> use it as authored
+        names differ   -> a variable reached a table name   -> use the cleaned form
+        neither parses -> no lineage
+
+    Nothing here asks whether a given name was derived from a variable. The
+    cleaner already knows where the variables are - substituting them is its whole
+    job - so the *difference* between two parses is the signal. That makes the
+    choice dialect-agnostic (a sigil that Postgres drops and Trino keeps is
+    irrelevant when both forms are parsed the same way), position-agnostic (a
+    variable in a catalog or schema qualifier is caught as readily as one standing
+    in for the table itself) and substring-safe ("metrics_$env").
+    """
+    cleaned = _clean_grafana_template_variables(sql)
+    if cleaned == sql:
+        # Nothing was substituted, so no variable can have reached a table name.
+        return sql if _parsed_table_names(sql, dialect) is not None else None
+
+    authored_names = _parsed_table_names(sql, dialect)
+    probe_names = _parsed_table_names(_probe_grafana_template_variables(sql), dialect)
+
+    if authored_names is not None and probe_names is not None:
+        return sql if authored_names == probe_names else cleaned
+
+    # No usable comparison, so cleaning is the only remaining hope - it is what
+    # rescues [[var]] used as a table name, which no dialect parses. Never fall
+    # back to the query as authored here: with no comparison to rely on there is
+    # nothing to show that a variable did not reach a table name.
+    return cleaned if _parsed_table_names(cleaned, dialect) is not None else None
 
 
 class LineageExtractor:
@@ -235,18 +350,62 @@ class LineageExtractor:
     def _parse_sql(
         self, sql: str, platform_config: PlatformConnectionConfig
     ) -> Optional[SqlParsingResult]:
-        """Parse SQL query for lineage information."""
+        """Parse SQL query for lineage information.
+
+        Grafana template variables usually survive sqlglot unchanged - a quoted
+        '${var}' is an ordinary string literal, and an unquoted one parses as a
+        placeholder - so the query is used as authored wherever that is safe.
+        Cleaning is the fallback for the queries that genuinely need it, such as
+        [[var]] used as a table name.
+
+        Cleaning unconditionally, as it used to, breaks queries that parse
+        perfectly well as written: it substitutes a quoted string for every
+        variable, which turns '${var}' into ''grafana_var'' and mangles any
+        literal a variable sat inside. create_lineage_sql_parsed_result does not
+        raise on the result - it returns a truthy result carrying the error and no
+        tables - so the panel silently fell back to lineage naming the Grafana
+        datasource UID, a dataset that does not exist upstream.
+        """
         if not self.graph:
             logger.warning("No DataHub graph specified for SQL parsing.")
             return None
 
         try:
-            # Clean Grafana template variables before parsing
-            # Variables like ${__from}, $datasource, [[var]] break SQL parsers
-            cleaned_sql = _clean_grafana_template_variables(sql)
+            dialect = get_dialect(platform_config.platform)
+        except Exception as e:
+            # A misspelled platform used to be absorbed by the lineage parser and
+            # surfaced as a parse error on the result. Choosing the query form
+            # needs the dialect up front, so say so once per datasource instead of
+            # degrading every panel to the datasource fallback in silence.
+            self.report.warning(
+                title="Configured platform is not a known SQL dialect",
+                message="Panel queries for this datasource cannot be parsed, so "
+                "lineage falls back to the datasource, which names a dataset that "
+                "may not exist upstream. Check the platform name in "
+                "connection_to_platform_map.",
+                context=f"platform={platform_config.platform}",
+                exc=e,
+            )
+            return None
 
+        try:
+            query = _select_query_for_lineage(sql, dialect)
+        except (TypeError, AttributeError) as e:
+            # GrafanaQueryTarget is Dict[str, Any], so rawSql can hold any JSON
+            # value despite _extract_raw_sql's Optional[str] annotation, and
+            # substitution over a non-string raises. Cleaning used to happen
+            # inside this method's try block; keep returning None as it did.
+            logger.warning(f"Panel SQL is not a string, so it cannot be parsed: {e}")
+            return None
+
+        if query is None:
+            # Neither form parses, so there is nothing to extract lineage from.
+            logger.debug(f"Panel SQL did not parse as {dialect}: {sql[:200]}")
+            return None
+
+        try:
             return create_lineage_sql_parsed_result(
-                query=cleaned_sql,
+                query=query,
                 platform=platform_config.platform,
                 platform_instance=platform_config.platform_instance,
                 env=platform_config.env,
