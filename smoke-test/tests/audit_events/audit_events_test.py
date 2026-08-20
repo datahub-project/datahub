@@ -12,6 +12,7 @@ from tests.tokens.token_utils import (
     token_name_filter,
     wait_for_no_tokens_matching,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
@@ -22,7 +23,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"

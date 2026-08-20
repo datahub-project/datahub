@@ -361,6 +361,7 @@ public class SemanticEntitySearchServiceTest {
     extraFields.add("name");
     extraFields.add("platform");
     extraFields.add("qualifiedName");
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
 
     SearchResult result =
         service.search(
@@ -371,10 +372,15 @@ public class SemanticEntitySearchServiceTest {
 
     SearchEntity entity = result.getEntities().get(0);
     assertNotNull(entity.getExtraFields());
-    assertTrue(entity.getExtraFields().size() > 0);
     assertTrue(entity.getExtraFields().containsKey("name"));
     assertTrue(entity.getExtraFields().containsKey("platform"));
     assertTrue(entity.getExtraFields().containsKey("qualifiedName"));
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    assertTrue(requestCaptor.getValue().fieldsToFetch().containsAll(extraFields));
+    assertTrue(requestCaptor.getValue().fieldsToFetch().contains("urn"));
   }
 
   @Test

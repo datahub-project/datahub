@@ -83,8 +83,8 @@ Releases = "https://github.com/acryldata/datahub/releases"
 
 base = []
 
-# airflow and great-expectations excluded (circular deps).
-# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly.
+# airflow, great-expectations, and sqlmesh excluded from pyproject (circular deps or irreconcilable pins).
+# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly; for sqlmesh use setuptools ``pip install 'acryl-datahub[sqlmesh]'`` until sqlmesh accepts sqlglot 30.12+.
 
 abs = [
     "azure-core>=1.38.0,<2.0.0",
@@ -252,7 +252,7 @@ confluence = [
     "graphql-core>=3.0.0,<4.0.0",
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -297,7 +297,7 @@ datahub-documents = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -749,7 +749,7 @@ notion = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -1128,7 +1128,7 @@ unstructured = [
     "botocore!=1.23.0,<2.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
 ]
@@ -1146,7 +1146,7 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
-# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc)
+# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, sqlmesh)
 all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
@@ -1211,7 +1211,7 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
@@ -1363,7 +1363,7 @@ dev = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
@@ -1555,7 +1555,7 @@ docs = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "nltk<3.10.1",
+    "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
@@ -1828,6 +1828,7 @@ redash = "datahub.ingestion.source.redash:RedashSource"
 redshift = "datahub.ingestion.source.redshift.redshift:RedshiftSource"
 sap-datasphere = "datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource"
 slack = "datahub.ingestion.source.slack.slack:SlackSource"
+sqlmesh = "datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource"
 snowflake = "datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source"
 snowflake-summary = "datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource"
 snowflake-queries = "datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource"
@@ -2043,6 +2044,7 @@ ban-relative-imports = "all"
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
 sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
+known-first-party = ["datahub"]
 combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]

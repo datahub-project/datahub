@@ -3,6 +3,8 @@ import logging
 import time
 from random import randint
 
+import pytest
+
 from datahub.cli.migration_utils import get_incoming_relationships
 from datahub.emitter.mce_builder import (
     make_dashboard_urn,
@@ -49,9 +51,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 PLATFORM = "snowflake"
 ENV = "PROD"

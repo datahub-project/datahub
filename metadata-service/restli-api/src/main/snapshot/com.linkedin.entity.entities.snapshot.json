@@ -6399,6 +6399,14 @@
       "doc" : "Include mentioned fields inside elastic highlighting query",
       "optional" : true
     }, {
+      "name" : "fetchExtraFields",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Elasticsearch _source field names to include on each SearchEntity as extraFields.\nNames are passed through as-is (nested paths and wildcards allowed). Empty or absent\nfetches no extra document fields — only the default urn include.",
+      "optional" : true
+    }, {
       "name" : "rewriteQuery",
       "type" : "boolean",
       "doc" : "invoke query rewrite chain for filters based on configured rewriters",
