@@ -17,6 +17,7 @@ from tests.metrics.usage_aggregation_metrics import (
     REQUEST_COUNT_METRIC,
     sum_matching_metric_values,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_kafka_broker_url,
     get_kafka_schema_registry,
@@ -24,6 +25,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _fetch_messaging_ingest_total(prom_url: str) -> float:

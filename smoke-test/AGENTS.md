@@ -3,9 +3,9 @@
 ## Test Principles
 
 - Test should be idempotent
-    - should not depend on an empty state of the system
-    - should not depend on the order in which they run
-    - should not depend on another test doing their cleanup
+  - should not depend on an empty state of the system
+  - should not depend on the order in which they run
+  - should not depend on another test doing their cleanup
 
 ## Logging
 
@@ -17,6 +17,7 @@
 - This ensures consistent, structured logging across all smoke tests
 
 Example:
+
 ```python
 import logging
 
@@ -32,7 +33,6 @@ def ingest_cleanup_data(auth_session, graph_client):
 ```
 
 ## Common Utilities
-
 
 ### Core Utilities (`tests/utils.py`)
 
@@ -70,6 +70,7 @@ Execute JSON fixture-based OpenAPI tests with multi-step request/response valida
 - **When to use**: Multi-step API integration tests with JSON fixtures, DeepDiff validation, complex response verification
 
 **JSON Fixture Format**: Array of objects with `request` and optional `response` fields:
+
 - Request: `url`, `method` (default: post), `json`, `params`, `description`, `wait` (sleep seconds)
 - Response: `json` (expected response), `status_codes`, `exclude_regex_paths` (for DeepDiff)
 
@@ -106,6 +107,7 @@ assert res_data["data"]["dataset"]["name"] == "expected"
 ### Fixture Pattern
 
 Basic pattern (manual cleanup):
+
 ```python
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(auth_session, graph_client):
@@ -117,6 +119,7 @@ def ingest_cleanup_data(auth_session, graph_client):
 ```
 
 Using `_ingest_cleanup_data_impl` helper:
+
 ```python
 from conftest import _ingest_cleanup_data_impl
 
@@ -171,13 +174,14 @@ def test_openapi_endpoints(auth_session):
 ```
 
 Example JSON fixture (`tests/openapi/v3/example.json`):
+
 ```json
 [
   {
     "request": {
       "url": "/openapi/v3/entity/dataset",
       "description": "Create dataset",
-      "json": [{"urn": "urn:li:dataset:(...)"}]
+      "json": [{ "urn": "urn:li:dataset:(...)" }]
     }
   },
   {
@@ -187,7 +191,7 @@ Example JSON fixture (`tests/openapi/v3/example.json`):
       "description": "Get created dataset"
     },
     "response": {
-      "json": {"urn": "urn:li:dataset:(...)"},
+      "json": { "urn": "urn:li:dataset:(...)" },
       "exclude_regex_paths": ["root\\['scrollId'\\]"]
     }
   }

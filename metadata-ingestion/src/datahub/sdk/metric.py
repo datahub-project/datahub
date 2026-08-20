@@ -10,12 +10,14 @@ from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
     DialectClass,
+    EdgeClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
+    MetricUpstreamsClass,
     StatusClass,
 )
-from datahub.metadata.urns import MetricUrn, SemanticModelUrn, Urn
+from datahub.metadata.urns import DatasetUrn, MetricUrn, SemanticModelUrn, Urn
 from datahub.sdk._semantic_shared import (
     AiContextInput,
     DialectExpressionInput,
@@ -50,10 +52,12 @@ __all__ = [
     "Metric",
     "MetricExpressionInputType",
     "SemanticModelInputType",
+    "UpstreamDatasetInputType",
 ]
 
 SemanticModelInputType: TypeAlias = Union[str, SemanticModelUrn]
 DerivedFromInputType: TypeAlias = Union[str, MetricUrn]
+UpstreamDatasetInputType: TypeAlias = Union[str, DatasetUrn]
 
 
 class Metric(
@@ -69,16 +73,20 @@ class Metric(
     """A metric: a business measure calculated over a semantic model.
 
     A semantic-model-backed metric points at its owning model via
-    ``metricInfo.semanticModel`` (the ``ModeledBy`` lineage edge). Its lineage
-    flows ``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset``;
-    do not populate ``metricUpstreams`` for these metrics.
+    ``metricInfo.semanticModel`` (``ModeledBy``). Its lineage flows
+    ``Metric -> Logical Dataset -> Physical Dataset`` via
+    ``metricUpstreams.datasetUpstreams`` (pointing at Semantic Model Dataset
+    URNs) and each logical dataset's ``upstreamLineage``.
 
     This builder emits semantic-model-backed metrics; ``semantic_model`` is
-    required. Standalone/`metricUpstreams` metrics are out of scope for now.
+    required. Pass ``upstream_datasets`` with the logical-dataset URNs the
+    metric reads from so lineage is authored.
 
     ``metricRelationships`` is always emitted (even with empty ``derivedFrom``)
-    so ``hasParentMetric`` indexes as false. ``metricInfo.expression`` is
-    optional and is omitted when not provided.
+    so ``hasParentMetric`` indexes as false. ``metricUpstreams`` is likewise
+    always emitted (even with empty ``datasetUpstreams``) so re-emits clear
+    stale upstreams. ``metricInfo.expression`` is optional and is omitted when
+    not provided.
 
     Server compatibility: requires a server build that includes the
     semanticModel/metric model (operator's responsibility — no automatic
@@ -106,6 +114,7 @@ class Metric(
         last_modified: Optional[datetime] = None,
         expression: Optional[MetricExpressionInputType] = None,
         derived_from: Optional[Sequence[DerivedFromInputType]] = None,
+        upstream_datasets: Optional[Sequence[UpstreamDatasetInputType]] = None,
         ai_context: Optional[AiContextInput] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
@@ -139,6 +148,8 @@ class Metric(
             self.set_ai_context(ai_context)
         # Always emit metricRelationships so hasParentMetric indexes as false.
         self.set_derived_from(derived_from or [])
+        # Always emit metricUpstreams so re-emits clear stale datasetUpstreams.
+        self.set_upstream_datasets(upstream_datasets or [])
         if owners is not None:
             self.set_owners(owners)
         if links is not None:
@@ -271,6 +282,33 @@ class Metric(
         dest = str(metric)
         if all(d.destinationUrn != dest for d in rels.derivedFrom):
             rels.derivedFrom.append(DerivedMetricInputClass(destinationUrn=dest))
+
+    def _ensure_metric_upstreams(self) -> MetricUpstreamsClass:
+        upstreams = self._get_aspect(MetricUpstreamsClass)
+        if upstreams is None:
+            upstreams = MetricUpstreamsClass()
+            self._set_aspect(upstreams)
+        return upstreams
+
+    @property
+    def upstream_datasets(self) -> List[str]:
+        upstreams = self._get_aspect(MetricUpstreamsClass)
+        if upstreams is None or upstreams.datasetUpstreams is None:
+            return []
+        return [edge.destinationUrn for edge in upstreams.datasetUpstreams]
+
+    def set_upstream_datasets(
+        self, upstream_datasets: Sequence[UpstreamDatasetInputType]
+    ) -> None:
+        """Set the logical (or physical) dataset URNs this metric reads from.
+
+        For semantic-model-backed metrics these should be Semantic Model
+        Dataset URNs so lineage flows Metric → SMD → Physical Dataset.
+        """
+        self._ensure_metric_upstreams().datasetUpstreams = [
+            EdgeClass(destinationUrn=str(DatasetUrn.from_string(str(ds))))
+            for ds in as_input_list(upstream_datasets)
+        ]
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:
