@@ -562,14 +562,14 @@ class AutoResolveLineageUrnsProcessor(
 
         Preloaded catalogs first, then a fetch — the same miss-means-ask as _resolve_alias.
 
-        A failed fetch answers None too: columns enrich an identity that is already
-        resolved, so losing them must not unwind the reference.
+        A resolver that raises answers None too, either of them: columns enrich an identity
+        that is already resolved, so losing them must not unwind the reference.
         """
-        for resolver in self._schema_resolvers.get(platform) or []:
-            schema = resolver.resolve_urn(urn)[1]
-            if schema is not None:
-                return schema
         try:
+            for resolver in self._schema_resolvers.get(platform) or []:
+                schema = resolver.resolve_urn(urn)[1]
+                if schema is not None:
+                    return schema
             return self._graph_resolver_for(platform).resolve_urn(urn)[1]
         except Exception as e:
             self.report.num_schema_fetches_failed += 1
