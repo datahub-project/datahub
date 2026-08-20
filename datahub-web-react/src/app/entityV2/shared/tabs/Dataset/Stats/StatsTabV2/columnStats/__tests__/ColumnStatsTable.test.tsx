@@ -100,6 +100,7 @@ describe('ColumnStatsTable', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
+        vi.unstubAllGlobals();
     });
 
     it('renders basic column stats table', () => {
