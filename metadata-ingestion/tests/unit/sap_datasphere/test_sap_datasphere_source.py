@@ -4657,6 +4657,30 @@ def test_business_layer_keeps_fgl_for_bare_same_space_keys():
     assert result.fineGrainedLineages[0] is fgl
 
 
+def test_business_layer_dedups_qualified_and_bare_same_object():
+    # Qualified MY_SPACE.V_FACT and bare V_FACT resolve to the same URN after
+    # space-prefixing; emit once.
+    src = _bl_source("bl-dedup-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="MY_SPACE.V_FACT",
+        dim_key="V_FACT",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert len(result.upstreams) == 1
+    assert result.upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_fact,PROD)"
+    )
+
+
 def test_schema_field_parent_extracts_dataset_urn():
     """``_schema_field_parent`` returns the inner dataset URN of a schemaField
     URN, and returns non-schemaField input unchanged (the current contract)."""

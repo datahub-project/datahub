@@ -122,6 +122,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     TransformOp,
     UnknownColumnType,
     UpstreamRef,
+    dedup_preserving_order,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -1516,18 +1517,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _business_layer_upstream_urn(self, space_name: str, key: str) -> str:
         # Bare same-space BL keys need the AM's space; dotted keys are already
         # space-qualified (same heuristic as query-FROM lineage).
-        if is_qualified(key):
-            logger.debug(
-                "Business-layer upstream key %r treated as already qualified",
-                key,
-            )
-            return self._qualified_upstream_urn(key)
-        logger.debug(
-            "Business-layer upstream key %r prefixed with space %r",
-            key,
-            space_name,
+        return self._qualified_upstream_urn(
+            key if is_qualified(key) else f"{space_name}.{key}"
         )
-        return self._qualified_upstream_urn(f"{space_name}.{key}")
 
     def _apply_business_layer_guarded(
         self,
@@ -1593,16 +1585,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return query_upstreams
 
         # One URN per key — shared by table upstreams and the FGL retention filter.
-        bl_upstream_urns_list = list(
-            dict.fromkeys(
-                self._business_layer_upstream_urn(space_name, key)
-                for key in bl.upstream_keys
-            )
+        bl_upstream_urns = dedup_preserving_order(
+            self._business_layer_upstream_urn(space_name, key)
+            for key in bl.upstream_keys
         )
-        bl_upstream_urns = set(bl_upstream_urns_list)
         upstreams = [
             UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.VIEW)
-            for urn in bl_upstream_urns_list
+            for urn in bl_upstream_urns
         ]
 
         fine_grained = None
