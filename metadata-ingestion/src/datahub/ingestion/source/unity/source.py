@@ -212,11 +212,7 @@ def _build_timestamps(
     updated_at: Optional[datetime],
     updated_by: Optional[str],
 ) -> Tuple[Optional[TimeStampClass], Optional[TimeStampClass]]:
-    # Build the (created, lastModified) pair shared by tables, volumes and
-    # volume files. lastModified falls back to created when there is no update
-    # timestamp. make_ts_millis returns a non-null int for any non-null
-    # datetime (see its @overload), so no inner None-guard is needed once the
-    # datetime is known to be present.
+    # lastModified falls back to created when there is no update timestamp.
     created: Optional[TimeStampClass] = None
     if created_at is not None:
         created = TimeStampClass(

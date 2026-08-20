@@ -101,11 +101,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
 
-# Substrings that indicate a volume listing failure is a missing-grant problem
-# rather than an SDK/network fault. Only when one of these matches do we advise
-# granting READ VOLUME; otherwise we give neutral guidance so an unrelated error
-# (a TypeError from an SDK signature change, a transient network fault) isn't
-# misdiagnosed as a permissions issue.
+# Matched against a listing error before advising "grant READ VOLUME", so an
+# SDK/network fault isn't misdiagnosed as a permissions issue.
 _PERMISSION_ERROR_KEYWORDS = (
     "permission",
     "not authorized",
@@ -697,9 +694,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
         except Exception as e:
             self.report.num_volumes_list_failed += 1
-            # A whole schema's volumes are skipped here, so log live (not just in
-            # the final report) — this is broader-impact than a per-volume parse
-            # failure, which already logs.
+            # A whole schema's volumes are skipped, so log live, not just in the report.
             logger.warning(
                 f"Failed to list volumes for schema {schema.id}: {e}", exc_info=True
             )
@@ -752,14 +747,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if max_results <= 0:
             return
         root = volume_fs_root(volume)
-        # `pending` is used as a stack (pop() takes the most recently appended
-        # directory), so the volume is walked depth-first. Traversal order only
-        # affects which files survive when `max_results` truncates the walk; the
-        # set of files is otherwise order-independent.
+        # Depth-first walk (pending used as a stack). Order only decides which
+        # files survive when max_results truncates the walk.
         pending: List[str] = [root]
-        # A backend that returns a self-referential or duplicated directory entry
-        # would otherwise loop forever (max_results bounds yielded files, not
-        # directory visits). Track visited directories to guarantee termination.
+        # max_results bounds yielded files, not directory visits, so a
+        # self-referential listing would loop forever without this guard.
         visited: Set[str] = set()
         yielded = 0
         limit_reached = False
@@ -780,9 +772,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         if path and path not in visited:
                             pending.append(path)
                         elif not path:
-                            # A directory entry with no path can't be walked;
-                            # count it so a run doesn't look clean when subtrees
-                            # were silently dropped.
+                            # Pathless directory can't be walked; count the
+                            # dropped subtree rather than losing it silently.
                             self.report.num_volume_file_entries_unresolvable += 1
                         continue
                     relative = (
@@ -791,8 +782,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         else (entry.name or "")
                     )
                     if not relative:
-                        # A file with neither a resolvable path under the volume
-                        # root nor a name would vanish silently; count it.
+                        # File with no resolvable path or name; count the drop.
                         self.report.num_volume_file_entries_unresolvable += 1
                         continue
                     qualified_name = f"{volume.ref.qualified_name}/{relative}"
@@ -840,9 +830,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     log=False,
                 )
                 continue
-        # True when the file cap stopped the walk before every directory was
-        # visited — either we broke out mid-listing or directories were left
-        # unvisited. Counts volumes that hit the cap (see report field docs).
+        # The cap stopped the walk with files still unvisited.
         if limit_reached or pending:
             self.report.num_volumes_file_limit_reached += 1
 

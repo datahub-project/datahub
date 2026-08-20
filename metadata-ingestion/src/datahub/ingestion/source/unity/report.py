@@ -76,12 +76,10 @@ class UnityCatalogReport(SQLSourceReport):
     num_volumes_list_failed: int = 0
     num_volumes_parse_failed: int = 0
     num_volume_files_list_failed: int = 0
-    # Directory or file entries that could not be resolved to a path/name and
-    # were skipped during the volume-file walk (would otherwise vanish silently).
+    # Volume-file entries skipped because their path/name couldn't be resolved.
     num_volume_file_entries_unresolvable: int = 0
-    # Number of volumes whose file walk stopped early because volume_file_max_results
-    # was reached (per-volume, so this counts volumes that hit the cap — not the
-    # number of files left uningested).
+    # Volumes whose file walk stopped at volume_file_max_results (counts volumes,
+    # not skipped files).
     num_volumes_file_limit_reached: int = 0
     num_federation_connections_list_failed: int = 0
     num_foreign_catalogs: int = 0

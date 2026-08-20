@@ -313,8 +313,7 @@ class Volume(CommonProperty):
     updated_at: Optional[datetime]
     updated_by: Optional[str]
 
-    # Derived once from schema/name at construction. Do not mutate `schema` or
-    # `name` after construction — `ref` will not be recomputed and would go stale.
+    # Derived once at construction; don't mutate schema/name after, ref won't update.
     ref: VolumeReference = field(init=False)
 
     def __post_init__(self) -> None:
@@ -363,8 +362,7 @@ class Table(CommonProperty):
     upstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
     downstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
 
-    # Derived once from schema/name at construction. Do not mutate `schema` or
-    # `name` after construction — `ref` will not be recomputed and would go stale.
+    # Derived once at construction; don't mutate schema/name after, ref won't update.
     ref: TableReference = field(init=False)
 
     def __post_init__(self):

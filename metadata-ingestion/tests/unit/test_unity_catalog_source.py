@@ -1,13 +1,35 @@
+from datetime import datetime, timezone
+from typing import Optional
 from unittest.mock import ANY, patch
 
 import pytest
-from databricks.sdk.service.catalog import TableType
+from databricks.sdk.service.catalog import TableType, VolumeType
 
+from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
-from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.ingestion.source.unity.proxy_types import (
+    Catalog,
+    Column,
+    Metastore,
+    Schema,
+    Table,
+    Volume,
+    VolumeFile,
+)
+from datahub.ingestion.source.unity.source import (
+    _DATASET_URN_NAME_MAX_LENGTH,
+    UnityCatalogSource,
+    _bounded_dataset_name,
+)
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DatasetPropertiesClass,
+    OwnershipClass,
+    SubTypesClass,
+)
 
 
 class TestUnityCatalogSource:
@@ -3200,14 +3222,6 @@ class TestUnityCatalogVolumes:
 
     @staticmethod
     def _build_volume(name: str = "landing") -> tuple:
-        from databricks.sdk.service.catalog import VolumeType
-
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Volume,
-        )
-
         metastore = Metastore(
             id="metastore",
             name="metastore",
@@ -3264,15 +3278,6 @@ class TestUnityCatalogVolumes:
         assert list(source.report.volumes.dropped_entities) == [volume.id]
 
     def test_process_volume_emits_dataset(self) -> None:
-        from typing import Optional
-
-        from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-        from datahub.metadata.schema_classes import (
-            DatasetPropertiesClass,
-            OwnershipClass,
-            SubTypesClass,
-        )
-
         source = self._build_source(include_ownership=True)
         volume, schema = self._build_volume()
         wus = list(source.process_volume(volume, schema))
@@ -3312,24 +3317,12 @@ class TestUnityCatalogVolumes:
         assert "data-eng" in ownership.owners[0].owner
 
     def test_process_volume_without_ownership_emits_none(self) -> None:
-        from datahub.metadata.schema_classes import OwnershipClass
-
         source = self._build_source(include_ownership=False)
         volume, schema = self._build_volume()
         wus = list(source.process_volume(volume, schema))
         assert all(wu.get_aspect_of_type(OwnershipClass) is None for wu in wus)
 
     def test_process_volume_emits_timestamps(self) -> None:
-        from datetime import datetime, timezone
-        from typing import Optional
-
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Volume,
-        )
-        from datahub.metadata.schema_classes import DatasetPropertiesClass
-
         source = self._build_source(include_ownership=True)
         metastore = Metastore(
             id="metastore",
@@ -3388,16 +3381,6 @@ class TestUnityCatalogVolumes:
         mock_files.assert_not_called()
 
     def test_process_volume_file_emits_dataset_under_schema(self) -> None:
-        from typing import Optional
-
-        from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-        from datahub.ingestion.source.unity.proxy_types import VolumeFile
-        from datahub.metadata.schema_classes import (
-            ContainerClass,
-            DatasetPropertiesClass,
-            SubTypesClass,
-        )
-
         source = self._build_source(include_volume_files=True)
         volume, schema = self._build_volume()
         volume_file = VolumeFile(
@@ -3436,12 +3419,6 @@ class TestUnityCatalogVolumes:
         assert containers
 
     def test_volume_file_urn_bounded_to_dataset_name_limit(self) -> None:
-        from datahub.ingestion.source.unity.proxy_types import VolumeFile
-        from datahub.ingestion.source.unity.source import (
-            _DATASET_URN_NAME_MAX_LENGTH,
-            _bounded_dataset_name,
-        )
-        from datahub.metadata.schema_classes import DatasetPropertiesClass
 
         source = self._build_source(include_volume_files=True)
         volume, schema = self._build_volume()
@@ -3481,19 +3458,10 @@ class TestUnityCatalogVolumes:
         assert props.qualifiedName == volume_file.qualified_name
 
     def test_bounded_dataset_name_case_folds_before_hashing(self) -> None:
-        from unittest.mock import patch
-
-        from datahub.emitter import mce_builder
-        from datahub.ingestion.source.unity.source import (
-            _DATASET_URN_NAME_MAX_LENGTH,
-            _bounded_dataset_name,
-        )
-
         long_path = "c.s.vol/dir/" + ("X" * 250) + "/File.parquet"
         assert len(long_path) > _DATASET_URN_NAME_MAX_LENGTH
-        # When URNs are lower-cased, paths differing only by case must collapse to
-        # one bounded name — the digest can't diverge on the pre-normalized case.
-        # Patch the flag on mce_builder since it is read there at call time.
+        # With lower-cased URNs, case-only variants must collapse to one bounded
+        # name; the flag is read on mce_builder at call time, so patch it there.
         with patch.object(mce_builder, "DATASET_URN_TO_LOWER", True):
             assert _bounded_dataset_name(long_path) == _bounded_dataset_name(
                 long_path.lower()
@@ -3505,8 +3473,6 @@ class TestUnityCatalogVolumes:
             )
 
     def test_volume_file_pattern_drops(self) -> None:
-        from datahub.ingestion.source.unity.proxy_types import VolumeFile
-
         source = self._build_source(
             include_volume_files=True,
             volume_file_pattern={"deny": [r".*\.tmp"]},

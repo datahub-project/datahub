@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from databricks.sdk.service.catalog import VolumeType
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
@@ -13,6 +14,13 @@ from datahub.ingestion.source.unity.proxy import (
     UnityCatalogApiProxy,
 )
 from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
+from datahub.ingestion.source.unity.proxy_types import (
+    Catalog,
+    CustomCatalogType,
+    Metastore,
+    Schema,
+    Volume,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
@@ -757,14 +765,6 @@ class TestUnityCatalogProxy:
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volumes_with_page_size(self, mock_workspace_client):
-        from databricks.sdk.service.catalog import VolumeType
-
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Schema,
-        )
-
         mock_client = mock_workspace_client.return_value
         mock_client.config.warehouse_id = "test_warehouse"
         volume_info = MagicMock()
@@ -825,13 +825,6 @@ class TestUnityCatalogProxy:
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volumes_skips_hive_metastore(self, mock_workspace_client):
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            CustomCatalogType,
-            Metastore,
-            Schema,
-        )
-
         mock_client = mock_workspace_client.return_value
         mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
@@ -868,12 +861,6 @@ class TestUnityCatalogProxy:
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volumes_list_failure_warns(self, mock_workspace_client):
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Schema,
-        )
-
         mock_client = mock_workspace_client.return_value
         mock_client.config.warehouse_id = "test_warehouse"
         mock_client.volumes.list.side_effect = RuntimeError("permission denied")
@@ -911,12 +898,6 @@ class TestUnityCatalogProxy:
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volumes_parse_failure_warns(self, mock_workspace_client):
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Schema,
-        )
-
         mock_client = mock_workspace_client.return_value
         mock_client.config.warehouse_id = "test_warehouse"
         # Two raw volumes come back; parsing the first blows up, the second is fine.
@@ -959,13 +940,6 @@ class TestUnityCatalogProxy:
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_volume_files_walks_directories(self, mock_workspace_client):
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Schema,
-            Volume,
-        )
-
         mock_client = mock_workspace_client.return_value
         mock_client.config.warehouse_id = "test_warehouse"
         proxy = UnityCatalogApiProxy(
@@ -1139,8 +1113,8 @@ class TestUnityCatalogProxy:
             workspace_client=mock_client,
             report=UnityCatalogReport(),
         )
-        # A backend that lists a directory pointing back at itself would loop
-        # forever without a visited-set guard.
+        # A directory listing pointing back at itself would loop forever without
+        # the visited-set guard.
         self_ref_dir = MagicMock(
             path="/Volumes/c/s/landing",
             is_directory=True,
@@ -1202,13 +1176,6 @@ class TestUnityCatalogProxy:
 
     @staticmethod
     def _file_test_volume():
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            Metastore,
-            Schema,
-            Volume,
-        )
-
         metastore = Metastore(
             id="metastore",
             name="metastore",

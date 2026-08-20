@@ -12,7 +12,10 @@ from databricks.sdk.service.catalog import (
     CatalogInfo,
     GetMetastoreSummaryResponse,
     SchemaInfo,
+    VolumeInfo,
+    VolumeType,
 )
+from databricks.sdk.service.files import DirectoryEntry
 from databricks.sdk.service.iam import ServicePrincipal
 from databricks.sdk.service.sql import QueryStatementType
 
@@ -1805,9 +1808,6 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
 
 def _register_volume_mock_data(workspace_client):
     """Add one managed volume with a small nested file tree to the mock schema."""
-    from databricks.sdk.service.catalog import VolumeInfo, VolumeType
-    from databricks.sdk.service.files import DirectoryEntry
-
     workspace_client.volumes.list.return_value = [
         VolumeInfo.from_dict(
             {
@@ -1861,11 +1861,8 @@ def _register_volume_mock_data(workspace_client):
     datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
 )
 def test_volume_ingestion(pytestconfig, tmp_path, requests_mock):
-    """Full-pipeline golden coverage for Unity Catalog volumes + volume files.
-
-    Tables/views/hive are disabled so the golden isolates volume and volume-file
-    aspects (subtypes, properties, ownership, container nesting under the schema).
-    """
+    """Golden coverage for volumes + volume files; tables/views/hive disabled so
+    the golden isolates volume-specific aspects."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
     register_mock_api(request_mock=requests_mock)
     output_file_name = "unity_catalog_volumes_mcps.json"
