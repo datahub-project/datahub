@@ -1,10 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
+import { ThemeProvider } from 'styled-components';
 import { vi } from 'vitest';
 
 import { useGetStructuredPropColumns } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetStructuredPropColumns';
 import { SearchResult } from '@src/types.generated';
+
+const testTheme = { colors: { bgSkeleton: '#f0f0f0', bgSkeletonShimmer: '#e0e0e0' } } as any;
 
 vi.mock('@src/app/entityV2/dataset/profile/schema/components/StructuredPropValues', () => ({
     default: ({ propColumn }: any) => <span data-testid="prop-values">{propColumn.entity.urn}</span>,
@@ -50,14 +53,22 @@ describe('useGetStructuredPropColumns', () => {
 
     it('renders real values once full metadata is loaded', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(properties, false));
-        render(<>{result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}</>);
+        render(
+            <ThemeProvider theme={testTheme}>
+                {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
+            </ThemeProvider>,
+        );
         expect(screen.getByTestId('prop-values')).toHaveTextContent('urn:li:structuredProperty:retention');
     });
 
     it('renders skeleton placeholders while full metadata is still loading', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(properties, true));
-        const { container } = render(<>{result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}</>);
-        expect(container.querySelector('.ant-skeleton-input')).toBeTruthy();
+        render(
+            <ThemeProvider theme={testTheme}>
+                {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
+            </ThemeProvider>,
+        );
+        expect(screen.getByTestId('prop-cell-skeleton')).toBeInTheDocument();
         expect(screen.queryByTestId('prop-values')).not.toBeInTheDocument();
     });
 });
