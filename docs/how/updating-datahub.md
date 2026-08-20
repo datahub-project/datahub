@@ -92,6 +92,8 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
+- **(Ingestion / DataHub source)** The `datahub` source (used for DataHub-to-DataHub migrations) now writes rows it cannot parse to a `parse-errors-{run_id}.jsonl` file, in addition to counting them in the run report as before. This makes it possible to find and fix the specific rows that were dropped during a migration. **Action:** none required; set `parse_error_log.enabled: false` in the source config to turn this off.
+
 ## v1.7.0
 
 Requirements:
