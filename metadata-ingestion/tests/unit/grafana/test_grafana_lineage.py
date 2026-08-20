@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -103,6 +104,49 @@ def test_extract_panel_lineage_postgres(lineage_extractor):
     assert isinstance(lineage.aspect, UpstreamLineageClass)
     assert len(lineage.aspect.upstreams) == 1
     assert lineage.aspect.upstreams[0].type == DatasetLineageTypeClass.TRANSFORMED
+
+
+def test_extract_panel_lineage_with_quoted_template_variable(
+    lineage_extractor, mock_graph
+):
+    # A quoted '${var}' is already a valid SQL string literal. If cleaning turns it
+    # into ''grafana_var'' the query stops parsing and lineage silently degrades to
+    # an upstream named after the Grafana datasource UID, which does not exist.
+    #
+    # The $__timeFilter macro is deliberate: it is the half of the query that
+    # genuinely needs cleaning, so this query cannot resolve without cleaning
+    # running and the quoted variable surviving it. Without the macro the query
+    # parses as authored, and the test would stop covering the substitution.
+    #
+    # The resolver injection is load-bearing, not boilerplate: create_schema_resolver
+    # delegates to graph._make_schema_resolver, and a bare MagicMock graph returns a
+    # MagicMock resolver, which makes parsing fail and silently drops this test onto
+    # the same fallback path it is meant to detect.
+    mock_graph._make_schema_resolver.return_value = SchemaResolver(
+        platform="postgres", env="PROD", graph=None
+    )
+    panel = Panel(
+        id="1",
+        title="Test Panel",
+        type="graph",
+        datasource={"type": "postgres", "uid": "postgres_uid"},
+        targets=[
+            {
+                "rawSql": "SELECT value FROM test_table WHERE $__timeFilter(ts) "
+                "AND run_id = CAST('${run_id}' AS INTEGER)",
+                "format": "table",
+            }
+        ],
+    )
+
+    lineage = lineage_extractor.extract_panel_lineage(panel, "test-dashboard")
+
+    assert lineage is not None
+    assert isinstance(lineage.aspect, UpstreamLineageClass)
+    assert len(lineage.aspect.upstreams) == 1
+    upstream_urn = lineage.aspect.upstreams[0].dataset
+    assert "test_db.public.test_table" in upstream_urn
+    assert "postgres_uid" not in upstream_urn
 
 
 def test_extract_panel_lineage_mysql(lineage_extractor):

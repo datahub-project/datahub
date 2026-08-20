@@ -1,6 +1,7 @@
 """Unit tests for Grafana query extraction and QueryInfo model."""
 
 import pytest
+import sqlglot
 
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
     _extract_query_from_panel,
@@ -145,6 +146,17 @@ class TestGrafanaTemplateVariableCleaning:
                 "WHERE lower(sensor_serial) = lower('$serial')",
                 "WHERE lower(sensor_serial) = lower('$serial')",
             ),
+            # Braced variable inside quotes (preserved - already quoted)
+            (
+                "WHERE run_id = CAST('${run_id}' AS INTEGER)",
+                "WHERE run_id = CAST('${run_id}' AS INTEGER)",
+            ),
+            # Quoted and unquoted braced variables in one query - only the
+            # unquoted one is replaced
+            (
+                "WHERE a = '${a}' AND b = ${b}",
+                "WHERE a = '${a}' AND b = 'grafana_var'",
+            ),
             # Real-world user query with standalone macro and quoted variable
             (
                 "select cast(event_timestamp as timestamp) from datalake_agg.devices where event_timestamp $__timeFilter and lower(sensor_serial) = lower('$serial') order by 1",
@@ -162,6 +174,8 @@ class TestGrafanaTemplateVariableCleaning:
             "time_macros",
             "macro_without_parens",
             "variable_in_quotes",
+            "braced_variable_in_quotes",
+            "braced_variables_quoted_and_unquoted",
             "realworld_user_query",
         ],
     )
@@ -169,6 +183,23 @@ class TestGrafanaTemplateVariableCleaning:
         """Test all Grafana variable formats are replaced with context-appropriate values."""
         result = _clean_grafana_template_variables(input_query)
         assert result == expected_pattern
+
+    def test_cleaned_query_remains_parseable_with_quoted_variables(self):
+        """Cleaning must not break SQL that sqlglot could already parse."""
+        query = (
+            "SELECT ts FROM my_catalog.my_schema.my_table "
+            "WHERE run_id = CAST('${run_id}' AS INTEGER)"
+        )
+
+        cleaned = _clean_grafana_template_variables(query)
+
+        tables = {
+            table.sql(dialect="trino")
+            for table in sqlglot.parse_one(cleaned, dialect="trino").find_all(
+                sqlglot.exp.Table
+            )
+        }
+        assert tables == {"my_catalog.my_schema.my_table"}
 
 
 class TestSqlFormatting:
