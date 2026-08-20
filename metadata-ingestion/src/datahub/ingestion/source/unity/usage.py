@@ -222,12 +222,14 @@ class UnityCatalogUsageExtractor:
             self.report.num_queries_skipped_without_system_table_lineage
         )
         fallback = self.report.num_queries_preparsed_fallback_to_sqlglot
+        redacted = self.report.num_queries_with_redacted_text
         preparsed_pct = round(100 * preparsed / total, 1) if total else 0.0
         logger.info(
             "Unity usage routing summary (system-table join): "
             "total=%s preparsed=%s (%.1f%%) "
             "sqlglot_no_lineage=%s skipped_no_system_table_lineage=%s "
-            "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s",
+            "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s "
+            "redacted=%s",
             total,
             preparsed,
             preparsed_pct,
@@ -236,6 +238,7 @@ class UnityCatalogUsageExtractor:
             fallback,
             self.report.num_queries_observed_sqlglot,
             self.report.num_lineage_tables_unresolvable,
+            redacted,
         )
 
     def _query_fingerprint(
@@ -248,6 +251,13 @@ class UnityCatalogUsageExtractor:
         already resolved, so a fingerprinting hiccup must not drop the query — fall
         back to a deterministic id derived from the (always-present) statement_id.
         """
+        if query.is_query_text_redacted:
+            # Redacted text is identical across queries, so the text-based
+            # fingerprint would collapse every redacted query into one Query
+            # entity with a summed query_count. Use the statement_id fallback so
+            # each redacted query stays distinct.
+            base = f"unity-stmt-{query.query_id}"
+            return f"{base}-{secondary_id}" if secondary_id else base
         try:
             return get_query_fingerprint(
                 query.query_text,
@@ -329,14 +339,18 @@ class UnityCatalogUsageExtractor:
         query: Query,
         default_db: Optional[str],
     ) -> None:
-        if query.is_query_text_redacted:
-            self.report.num_queries_with_redacted_text += 1
-            return
-
         if self.config.include_column_usage_stats:
+            # Column usage stats require parsing the SQL text, so redacted
+            # queries can't contribute and are skipped here.
+            if query.is_query_text_redacted:
+                self.report.num_queries_with_redacted_text += 1
+                return
             self._add_observed_query(aggregator, query, default_db)
             return
 
+        # The preparsed path derives upstreams/downstreams from
+        # system.access.table_lineage and never reads the SQL text, so redacted
+        # queries still contribute table-level usage stats through this branch.
         if self._can_use_preparsed_query(query):
             preparsed_queries = self._to_preparsed_queries(query)
             if preparsed_queries and (
@@ -395,6 +409,13 @@ class UnityCatalogUsageExtractor:
                 self._query_preview(query),
             )
 
+        # The sqlglot/observed path below needs real SQL text; redacted queries
+        # can't be parsed, so count and skip them here rather than feeding
+        # "<REDACTED>" to sqlglot as a no-op.
+        if query.is_query_text_redacted:
+            self.report.num_queries_with_redacted_text += 1
+            return
+
         self._add_observed_query(aggregator, query, default_db)
 
     def _report_usage_lineage_warnings(self) -> None:
@@ -429,16 +450,20 @@ class UnityCatalogUsageExtractor:
                 )
 
         if self.report.num_queries_with_redacted_text > 0:
+            # Logged once (no log=False) because this is an actionable operator
+            # condition, not a routine routing detail like the count-only
+            # warnings above.
             self.report.warning(
                 title="Databricks query text is redacted",
                 message=(
                     "Databricks returned <REDACTED> instead of SQL statement text, "
-                    "so affected queries were skipped and usage statistics, "
-                    "operational statistics, and Query entities may be incomplete. "
-                    "Add the ingestion principal to the account-level "
-                    "databricks_pii_access group while retaining its existing query "
-                    "history permissions. See the DataHub Databricks connector "
-                    "prerequisites for details."
+                    "so Query entities, column-level usage statistics, operational "
+                    "statistics, and the top-SQL sample may be incomplete for those "
+                    "queries. Table-level usage statistics from "
+                    "system.access.table_lineage are unaffected. Add the ingestion "
+                    "principal to the account-level databricks_pii_access group "
+                    "while retaining its existing query history permissions. See "
+                    "the DataHub Databricks connector prerequisites for details."
                 ),
                 context=f"count={self.report.num_queries_with_redacted_text}",
             )

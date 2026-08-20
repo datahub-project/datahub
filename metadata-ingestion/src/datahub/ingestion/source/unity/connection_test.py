@@ -49,12 +49,14 @@ class UnityCatalogConnectionTest:
             first = next(iter(query_history))
             if first.is_query_text_redacted:
                 return CapabilityReport(
-                    capable=False,
-                    failure_reason=(
-                        "Query text is redacted (<REDACTED>). Add the ingestion "
-                        "principal to the account-level group databricks_pii_access "
-                        "so usage statistics and Query entities can read unmasked "
-                        "SQL statement text."
+                    capable=True,
+                    mitigation_message=(
+                        "Query text is redacted (<REDACTED>). Table-level usage "
+                        "statistics still work via system.access.table_lineage, but "
+                        "Query entities, column-level usage statistics, and the "
+                        "top-SQL sample are incomplete. Add the ingestion principal "
+                        "to the account-level group databricks_pii_access to restore "
+                        "them."
                     ),
                 )
             return CapabilityReport(capable=True)

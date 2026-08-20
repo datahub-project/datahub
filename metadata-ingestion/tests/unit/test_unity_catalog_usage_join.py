@@ -1548,6 +1548,29 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
     assert "databricks_pii_access" in redaction_warnings[0].message
 
 
+def test_redacted_query_with_lineage_uses_preparsed_path() -> None:
+    """Redacted queries with system-table lineage still emit table-level usage
+    stats via the preparsed path (which reads system.access.table_lineage, not
+    the SQL text), so they are NOT counted as redacted-and-skipped."""
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+    _register_tables(ex, ["c.s.t"])
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage("<REDACTED>", "s1", sources=["c.s.t"]),
+        default_db=None,
+    )
+
+    aggregator.add_preparsed_query.assert_called_once()
+    aggregator.add_observed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 0
+
+
 def test_redacted_query_text_detection_is_case_insensitive() -> None:
     config = MagicMock()
     proxy = MagicMock()
@@ -1560,7 +1583,7 @@ def test_redacted_query_text_detection_is_case_insensitive() -> None:
     assert ex.report.num_queries_with_redacted_text == 1
 
 
-def test_usage_connectivity_fails_when_query_text_redacted() -> None:
+def test_usage_connectivity_reports_redacted_mitigation() -> None:
     from datahub.ingestion.source.unity.connection_test import (
         UnityCatalogConnectionTest,
     )
@@ -1574,9 +1597,12 @@ def test_usage_connectivity_fails_when_query_text_redacted() -> None:
 
     report = test.usage_connectivity()
     assert report is not None
-    assert report.capable is False
-    assert report.failure_reason is not None
-    assert "databricks_pii_access" in report.failure_reason
+    # Usage still works at table level via system.access.table_lineage, so the
+    # capability is present; the redaction is surfaced as a mitigation, not a
+    # hard failure.
+    assert report.capable is True
+    assert report.mitigation_message is not None
+    assert "databricks_pii_access" in report.mitigation_message
 
 
 def test_fallback_to_observed_when_lineage_unresolvable(
