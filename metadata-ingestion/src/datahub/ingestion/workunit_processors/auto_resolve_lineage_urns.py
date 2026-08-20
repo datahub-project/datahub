@@ -117,7 +117,9 @@ class _Resolution:
     """Outcome of resolving one dataset URN against the platforms in scope."""
 
     urn: str  # The (possibly rewritten) URN to emit.
-    schema: Optional[SchemaInfo]  # Cached schema of the resolved entity, if known.
+    # Schema of the resolved entity, when the caller asked for it (the column-level path)
+    # and DataHub holds one. None on a table-level resolution, which needs no columns.
+    schema: Optional[SchemaInfo]
     # EXACT / NORMALIZED / UNRESOLVED / None (no reconciliation performed).
     match_type: Optional[MatchType]
 
@@ -484,7 +486,7 @@ class AutoResolveLineageUrnsProcessor(
             else:
                 logger.info(message)
 
-    def _resolve_dataset(self, urn: str) -> _Resolution:
+    def _resolve_dataset(self, urn: str, *, with_schema: bool = False) -> _Resolution:
         """Resolve `urn` to the casing DataHub already stores, via the URN alias index.
 
         ``UrnAliasResolver.resolve`` returns the stored URN matching the reference under
@@ -499,8 +501,10 @@ class AutoResolveLineageUrnsProcessor(
         Matching whole URNs means platform_instance and env are part of the comparison, so a
         reference is never healed across either.
 
-        The resolved entity's schema is returned too, for column-casing correction — see
-        _schema_of, which is where identity and columns are paired back up.
+        With `with_schema`, the resolved entity's schema is returned too, for column-casing
+        correction — see _schema_of, which is where identity and columns are paired back up.
+        Only the column-level path asks for it: fetching a schema costs a query per entity
+        outside the preload, and a table-level reference has no columns to reconcile.
         """
         try:
             dataset_urn = DatasetUrn.from_string(urn)
@@ -536,7 +540,8 @@ class AutoResolveLineageUrnsProcessor(
             self.report.unresolved_refs_sample.add(urn)
             return _Resolution(urn, None, _UNRESOLVED)
         match_type = _EXACT if resolved == urn else _NORMALIZED
-        return _Resolution(resolved, self._schema_of(resolved, platform), match_type)
+        schema = self._schema_of(resolved, platform) if with_schema else None
+        return _Resolution(resolved, schema, match_type)
 
     def _resolve_alias(self, urn: str, platform: str) -> Optional[str]:
         """The stored casing of `urn`, from a preloaded catalog or by asking DataHub.
@@ -677,7 +682,7 @@ class AutoResolveLineageUrnsProcessor(
             return field_urn, None
 
         # Column-level: we need the parent's schema to correct the column casing.
-        res = self._resolve_dataset(parent)
+        res = self._resolve_dataset(parent, with_schema=True)
         new_field_path = field_path
         if res.schema:
             new_field_path = self._match_columns_to_schema(res.schema, [field_path])[0]
