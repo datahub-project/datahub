@@ -54,7 +54,7 @@ export function OutputPortsTab() {
         },
     });
 
-    const assetsCount = entityData?.entities?.total ?? 0;
+    const assetsCount = entityData?.entityCount ?? 0;
 
     return (
         <>
