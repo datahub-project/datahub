@@ -563,6 +563,7 @@ class PartitionDiscovery:
 
         component_filters: List[str] = []
         resolved: List[str] = []
+        resolved_cols: List[str] = []
         # DATE_COMPONENT_COLUMNS is ordered year -> month -> day, so each resolved
         # component constrains the next query.
         for component in DATE_COMPONENT_COLUMNS:
@@ -579,14 +580,30 @@ class PartitionDiscovery:
                 column_types=column_types,
                 scope_label="max " + "/".join(resolved) if resolved else "table",
             )
-            # Stop as soon as a component yields no filter. Continuing would run the next
-            # component (e.g. day) constrained only by the earlier ones (e.g. year),
-            # skipping the missing middle component (month) and selecting a year/day
-            # combination that broadens the scan or points at the wrong partition.
+            # A component that exists but yields no filter means the composite key
+            # is incomplete (e.g. month failed after year resolved). The components
+            # only identify a single partition together, so returning the partial
+            # set (year alone) would make the caller treat a year-wide scan as a
+            # precise single-partition selection. Discard the partial key so
+            # discovery is reported as failed and the caller falls back or skips,
+            # rather than silently profiling a much broader scan.
             if not new_filters:
-                break
+                for resolved_col in resolved_cols:
+                    result_values.pop(resolved_col, None)
+                warn(
+                    self.report,
+                    logger,
+                    title="Incomplete composite partition key",
+                    message="A composite date partition key could not be fully "
+                    "resolved; the partial key is discarded so profiling does not "
+                    "scan a broader range than a single partition.",
+                    context=f"{safe_table_ref}: resolved {resolved or 'nothing'}, "
+                    f"could not resolve {component}",
+                )
+                return []
             component_filters.extend(new_filters)
             resolved.append(component)
+            resolved_cols.append(col)
 
         return component_filters
 

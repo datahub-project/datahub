@@ -179,3 +179,56 @@ class TestFilterBuilderPartitionIdConversion:
         assert "`venue` = 'okx'" in filters
         assert "`product_type` = 'swap'" in filters
         assert "`date` = '20251201'" in filters
+
+
+class TestFilterBuilderYearlyRange:
+    """A bare-YYYY partition ID on a date/datetime/timestamp column is a yearly
+    partition whose rows span the whole year, so it must become a half-open full-year
+    range rather than an equality to Jan 1 (which would exclude the rest of the year)."""
+
+    def test_year_on_date_column_is_full_year_range(self):
+        filter_expr = FilterBuilder.create_safe_filter("event_date", "2025", "DATE")
+        assert (
+            filter_expr
+            == "`event_date` >= '2025-01-01' AND `event_date` < '2026-01-01'"
+        )
+
+    def test_year_on_datetime_column_is_full_year_range(self):
+        filter_expr = FilterBuilder.create_safe_filter("event_dt", "2025", "DATETIME")
+        assert filter_expr == "`event_dt` >= '2025-01-01' AND `event_dt` < '2026-01-01'"
+
+    def test_year_on_timestamp_column_wraps_bounds_in_timestamp(self):
+        filter_expr = FilterBuilder.create_safe_filter("event_ts", "2025", "TIMESTAMP")
+        assert filter_expr == (
+            "`event_ts` >= TIMESTAMP('2025-01-01') "
+            "AND `event_ts` < TIMESTAMP('2026-01-01')"
+        )
+
+    def test_year_on_string_column_is_plain_equality(self):
+        # Without a date-typed column a bare YYYY is a real string value, not a year.
+        filter_expr = FilterBuilder.create_safe_filter("year", "2025", "STRING")
+        assert filter_expr == "`year` = '2025'"
+
+
+class TestFilterBuilderFlexibleTimestamps:
+    """A DATETIME/TIMESTAMP value sampled with a 'T' separator, fractional seconds, or a
+    UTC offset is a valid literal BigQuery casts; it must pass through rather than being
+    dropped to an unformattable-date error."""
+
+    def test_timestamp_with_t_separator_and_offset(self):
+        filter_expr = FilterBuilder.create_safe_filter(
+            "ts", "2025-01-15T10:30:00.123456+00:00", "TIMESTAMP"
+        )
+        assert filter_expr == "`ts` = TIMESTAMP('2025-01-15T10:30:00.123456+00:00')"
+
+    def test_datetime_with_fractional_seconds(self):
+        filter_expr = FilterBuilder.create_safe_filter(
+            "dt", "2025-01-15 10:30:00.123456", "DATETIME"
+        )
+        assert filter_expr == "`dt` = '2025-01-15 10:30:00.123456'"
+
+    def test_timestamp_with_zulu_suffix(self):
+        filter_expr = FilterBuilder.create_safe_filter(
+            "ts", "2025-01-15T10:30:00Z", "TIMESTAMP"
+        )
+        assert filter_expr == "`ts` = TIMESTAMP('2025-01-15T10:30:00Z')"

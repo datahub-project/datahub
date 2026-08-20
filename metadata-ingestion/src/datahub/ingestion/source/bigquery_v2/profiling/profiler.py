@@ -33,8 +33,11 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_LITERAL_SHAPES,
     DATE_WRAPPER_RE,
     PARTITION_EQ_LITERAL_RE,
+    PARTITION_GE_BOUND_RE,
     PARTITION_HANDLING_ENABLED,
     PARTITION_HANDLING_KWARG,
+    PARTITION_LE_BOUND_RE,
+    PARTITION_RANGE_OPERATOR_RE,
     PARTITIONING_COLUMN_FLAG,
     STRFTIME_FORMATS,
 )
@@ -471,35 +474,65 @@ class BigqueryProfiler(GenericProfiler):
         else:
             logger.debug(f"Generated batch kwargs for {table_ref} without custom_sql")
 
-        # Label the profile with the real partition ID (type=PARTITION rather than
-        # type=QUERY) only when the SQL actually scanned exactly that single partition.
-        # Setting it unconditionally from max_partition_id mislabels three cases the
-        # reviewer flagged: a full-scan fallback (partition_where empty), a datetime
-        # window that widened the scan to a range of partitions, and a multi-column
-        # partition (a single time ID silently drops the other dimensions). In those
-        # cases leave the label off so GE records type=QUERY instead of a partition key
-        # that does not describe the data scanned.
+        partition_label = self._single_partition_label(partition_where, bq_table)
+        if partition_label is not None:
+            base_kwargs["partition"] = partition_label
+
+        return base_kwargs
+
+    def _single_partition_label(
+        self, partition_where: str, bq_table: BigqueryTable
+    ) -> Optional[str]:
+        # The profile is labeled with the real partition ID (type=PARTITION rather than
+        # type=QUERY) only when the generated predicate actually scanned exactly that
+        # one partition. The decision is derived from the predicate itself, not from
+        # config flags, so a windowing config that didn't widen anything (no date
+        # column) or a zero-day window (same-day range) is still labeled, while a
+        # genuine multi-partition scan is not.
         partition_id = bq_table.max_partition_id or getattr(
             bq_table, "max_shard_id", None
         )
-        is_multi_column_partition = bool(
+        # No usable ID or a synthetic partition has no honest single-partition label.
+        if not partition_id or partition_id in BQ_SPECIAL_PARTITION_IDS:
+            return None
+        # A multi-column partition is described by several dimensions, but
+        # max_partition_id is a single time ID that silently drops the others.
+        if (
             bq_table.partition_info
             and bq_table.partition_info.fields
             and len(bq_table.partition_info.fields) > 1
-        )
-        window_widened_scan = (
-            self.config.profiling.partition_datetime_window_days is not None
-        )
-        if (
-            partition_id
-            and partition_id not in BQ_SPECIAL_PARTITION_IDS
-            and partition_where
-            and not is_multi_column_partition
-            and not window_widened_scan
         ):
-            base_kwargs["partition"] = partition_id
+            return None
+        # An empty predicate means no partition WHERE was derived; the table keeps its
+        # current partition id label (typed PARTITION, not FULL_TABLE) per the
+        # established contract. A non-empty predicate only keeps the label when it
+        # actually scanned that one partition — a widened multi-partition range drops it.
+        if partition_where and not self._predicate_scans_single_partition(
+            partition_where
+        ):
+            return None
+        return partition_id
 
-        return base_kwargs
+    @staticmethod
+    def _predicate_scans_single_partition(partition_where: str) -> bool:
+        # Pure equality predicates each pin one partition value.
+        if not PARTITION_RANGE_OPERATOR_RE.search(partition_where):
+            return True
+        # A range that collapses to a single value per column (a zero-day window's
+        # `col >= X AND col <= X`) still scans one partition. Any other range — a
+        # multi-day window, or a full-year range using a strict `<` upper bound —
+        # spans several partitions, so it is not a single-partition scan.
+        lows = {
+            m.group(1): m.group(2).strip()
+            for m in PARTITION_GE_BOUND_RE.finditer(partition_where)
+        }
+        highs = {
+            m.group(1): m.group(2).strip()
+            for m in PARTITION_LE_BOUND_RE.finditer(partition_where)
+        }
+        if not lows or lows.keys() != highs.keys():
+            return False
+        return all(highs.get(col) == low for col, low in lows.items())
 
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -752,15 +785,18 @@ class BigqueryProfiler(GenericProfiler):
     ) -> Iterable[MetadataWorkUnit]:
         processed_requests = list(profile_requests)
 
+        # Normalize once so both the partition-discovery executor below and the parent
+        # generate_profile_workunits flow get a valid worker count; a misconfigured
+        # max_workers <= 0 would otherwise make ThreadPoolExecutor raise ValueError.
+        max_workers = max(1, max_workers)
+
         if deferred_external:
             logger.info(
                 f"Processing partition discovery for {len(deferred_external)} external table(s) in parallel"
             )
 
             with ThreadPoolExecutor(
-                # Clamp to at least 1: a misconfigured max_workers <= 0 would otherwise
-                # make ThreadPoolExecutor raise ValueError and abort all profiling.
-                max_workers=max(1, min(max_workers, len(deferred_external)))
+                max_workers=min(max_workers, len(deferred_external))
             ) as executor:
                 future_to_deferred = {
                     executor.submit(self._discover_external_partition_filter, d): d

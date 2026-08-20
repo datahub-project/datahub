@@ -1257,23 +1257,32 @@ def test_profiler_apply_partition_date_windowing_comprehensive():
     table = create_test_table()
 
     test_cases = [
-        # (windowing_days, input_filters, should_window)
-        (None, ["`event_date` = '2023-12-25'"], False),  # Disabled
-        (7, ["`event_date` = '2023-12-25'"], True),  # Enabled
-        (7, ["`user_id` = 123"], False),  # No date columns
-        (0, ["`event_date` = '2023-12-25'"], False),  # Zero days
+        # (windowing_days, input_filters, expected_mode)
+        # None disables windowing; the filter is returned unchanged.
+        (None, ["`event_date` = '2023-12-25'"], "off"),
+        # A positive window widens the equality to a multi-day range.
+        (7, ["`event_date` = '2023-12-25'"], "window"),
+        # No date column to widen, so the filter is returned unchanged.
+        (7, ["`user_id` = 123"], "off"),
+        # A 0-day window is valid (not disabled): the equality becomes a same-day
+        # range whose bounds are identical, still scanning exactly one day.
+        (0, ["`event_date` = '2023-12-25'"], "same_day"),
     ]
 
-    for window_days, input_filters, should_window in test_cases:
+    for window_days, input_filters, expected_mode in test_cases:
         config.profiling.partition_datetime_window_days = window_days
 
         result = profiler._apply_partition_date_windowing(input_filters, table)
 
         # Windowing replaces the equality with a range, so the count is unchanged.
         assert len(result) == len(input_filters)
-        if should_window:
+        if expected_mode == "window":
             assert any(">=" in f and "<=" in f for f in result)
             assert not any("`event_date` = " in f for f in result)
+        elif expected_mode == "same_day":
+            assert result == [
+                "`event_date` >= '2023-12-25' AND `event_date` <= '2023-12-25'"
+            ]
         else:
             assert result == input_filters
 
@@ -1432,6 +1441,25 @@ def test_partition_datetime_window_days_disabled():
     windowed_filters = profiler._apply_partition_date_windowing(original_filters, table)
 
     assert windowed_filters == original_filters
+
+
+def test_partition_datetime_window_days_zero_is_same_day_range():
+    """A 0-day window is valid (not disabled): the equality becomes a same-day range
+    whose bounds are identical, still scanning exactly one day."""
+    config = create_test_config(partition_datetime_window_days=0)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    windowed_filters = profiler._apply_partition_date_windowing(
+        ["`event_date` = '2024-10-15'"], table
+    )
+
+    assert len(windowed_filters) == 1
+    range_filter = windowed_filters[0]
+    assert (
+        range_filter == "`event_date` >= '2024-10-15' AND `event_date` <= '2024-10-15'"
+    )
 
 
 def test_internal_table_finds_actual_latest_date_comprehensive():
@@ -2847,12 +2875,18 @@ def test_security_project_identifier_bounds():
         validate_bigquery_identifier("my--project", "project")  # consecutive hyphens
 
 
-def test_security_information_schema_identifier_is_backticked():
+def test_security_information_schema_identifier_is_bare_dotted():
+    # INFORMATION_SCHEMA views are referenced by their bare dotted name; backticking
+    # the whole "INFORMATION_SCHEMA.VIEW" string makes BigQuery look for a table
+    # literally named that and the query fails.
     assert (
         validate_bigquery_identifier("INFORMATION_SCHEMA.COLUMNS")
-        == "`INFORMATION_SCHEMA.COLUMNS`"
+        == "INFORMATION_SCHEMA.COLUMNS"
     )
-    assert validate_bigquery_identifier("INFORMATION_SCHEMA") == "`INFORMATION_SCHEMA`"
+    assert validate_bigquery_identifier("INFORMATION_SCHEMA") == "INFORMATION_SCHEMA"
+    # A malformed/injected view suffix is still rejected rather than passed through.
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("INFORMATION_SCHEMA.COLUMNS; DROP TABLE x")
 
 
 def test_security_dataset_double_underscore_and_length():
@@ -2866,7 +2900,8 @@ def test_build_safe_table_reference_information_schema():
     ref = build_safe_table_reference(
         "my-project", "my_dataset", "INFORMATION_SCHEMA.COLUMNS"
     )
-    assert ref == "`my-project`.`my_dataset`.`INFORMATION_SCHEMA.COLUMNS`"
+    # The view keeps its canonical bare dotted form; only project/dataset are backticked.
+    assert ref == "`my-project`.`my_dataset`.INFORMATION_SCHEMA.COLUMNS"
 
 
 def test_widen_client_connection_pool_sizes_adapter():

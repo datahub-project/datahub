@@ -193,6 +193,13 @@ ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # BigQuery partition-id / date-literal shapes normalised by FilterBuilder.
 DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+# A DATETIME/TIMESTAMP value sampled from BigQuery can carry a 'T' separator,
+# fractional seconds, and/or a trailing UTC offset (e.g.
+# "2025-01-15T10:30:00.123456+00:00"). These are valid literals BigQuery casts, so
+# they must pass through rather than being dropped to an IS NOT NULL fallback.
+ISO_DATETIME_FLEX_PATTERN = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$"
+)
 PARTITION_ID_YYYYMMDD_PATTERN = re.compile(r"^\d{8}$")
 PARTITION_ID_YYYYMM_PATTERN = re.compile(r"^\d{6}$")
 PARTITION_ID_YYYYMMDDHH_PATTERN = re.compile(r"^\d{10}$")
@@ -202,6 +209,21 @@ PARTITION_ID_YYYY_PATTERN = re.compile(r"^\d{4}$")
 # Captures the column and right-hand literal of a `col` = <literal> partition
 # predicate so date windowing can reproduce the literal's exact shape.
 PARTITION_EQ_LITERAL_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*(.+?)\s*$")
+
+# Range operators in a generated partition predicate. Their presence means the scan
+# may cover more than one partition (date windowing widened an equality to a range,
+# or a yearly partition became a full-year range), so labeling the profile with a
+# single max_partition_id could misdescribe the data scanned.
+PARTITION_RANGE_OPERATOR_RE = re.compile(r">=|<=|>|<|\bBETWEEN\b", re.IGNORECASE)
+
+# Inclusive lower/upper bounds of a `col` >= X / `col` <= Y range, used to recognise
+# a zero-day window whose same-day (X == Y) range still scans exactly one partition.
+PARTITION_GE_BOUND_RE = re.compile(
+    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*>=\s*(.+?)(?:\s+AND\s|$)"
+)
+PARTITION_LE_BOUND_RE = re.compile(
+    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*<=\s*(.+?)(?:\s+AND\s|$)"
+)
 
 # Unwraps a DATE()/DATETIME()/TIMESTAMP() call around a date literal.
 DATE_WRAPPER_RE = re.compile(r"(DATE|DATETIME|TIMESTAMP)\((.+)\)", re.IGNORECASE)

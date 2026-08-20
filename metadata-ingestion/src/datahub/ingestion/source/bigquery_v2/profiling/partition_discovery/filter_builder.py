@@ -6,6 +6,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_TIME_TYPES,
     DATETIME_SECONDS_PATTERN,
     ISO_DATE_PATTERN,
+    ISO_DATETIME_FLEX_PATTERN,
     PARTITION_ID_YYYY_PATTERN,
     PARTITION_ID_YYYYMM_PATTERN,
     PARTITION_ID_YYYYMMDD_LENGTH,
@@ -19,6 +20,11 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types im
 )
 
 logger = logging.getLogger(__name__)
+
+# Types whose column values span an entire year under yearly partitioning, so a
+# bare-YYYY partition ID must become a range rather than a single-day equality.
+# TIME is excluded: it cannot be yearly-partitioned.
+YEARLY_RANGE_TYPES = {"DATE", "DATETIME", "TIMESTAMP"}
 
 
 class FilterBuilder:
@@ -65,6 +71,16 @@ class FilterBuilder:
                 ) from None
 
         if col_type and col_type.upper() in DATE_TIME_TYPES:
+            # A bare year (YYYY) for a date/datetime/timestamp column is a yearly
+            # partition whose rows span the whole year, so an equality to Jan 1 would
+            # exclude every row from the rest of the year. Emit a half-open full-year
+            # range [YYYY-01-01, (YYYY+1)-01-01) covering the entire partition.
+            if (
+                col_type.upper() in YEARLY_RANGE_TYPES
+                and PARTITION_ID_YYYY_PATTERN.match(str_val)
+            ):
+                return FilterBuilder._full_year_range(col_name, str_val, col_type)
+
             formatted_val = FilterBuilder._format_date_value(str_val, col_type.upper())
             if formatted_val:
                 if col_type.upper() == "TIMESTAMP" and " " not in formatted_val:
@@ -92,6 +108,11 @@ class FilterBuilder:
             return val
         if DATETIME_SECONDS_PATTERN.match(val):
             return val
+        # A TIMESTAMP/DATETIME value sampled with a 'T' separator, fractional seconds,
+        # or a UTC offset is a valid literal BigQuery casts; pass it through so it is
+        # not dropped to an IS NOT NULL fallback.
+        if ISO_DATETIME_FLEX_PATTERN.match(val):
+            return val
 
         if PARTITION_ID_YYYYMMDD_PATTERN.match(val):
             return f"{val[:4]}-{val[4:6]}-{val[6:8]}"
@@ -107,13 +128,22 @@ class FilterBuilder:
             else:
                 return date_part
 
-        # Yearly-partitioned DATE/DATETIME/TIMESTAMP tables use a bare YYYY partition
-        # ID; without this it falls through to None and the caller emits an invalid
-        # string predicate. Normalize to January 1 of that year.
-        if PARTITION_ID_YYYY_PATTERN.match(val):
-            return f"{val}-01-01"
-
+        # A bare YYYY partition ID is a yearly partition and is handled as a full-year
+        # range in create_safe_filter (an equality to Jan 1 would exclude the rest of
+        # the year), so it must not be normalized to a single boundary value here.
         return None
+
+    @staticmethod
+    def _full_year_range(col_name: str, year: str, col_type: str) -> str:
+        # col_name is already validated by create_safe_filter before this is reached.
+        start = f"{year}-01-01"
+        end = f"{int(year) + 1}-01-01"
+        if col_type.upper() == "TIMESTAMP":
+            return (
+                f"`{col_name}` >= TIMESTAMP('{start}') "
+                f"AND `{col_name}` < TIMESTAMP('{end}')"
+            )
+        return f"`{col_name}` >= '{start}' AND `{col_name}` < '{end}'"
 
     @staticmethod
     def convert_partition_id_to_filters(
