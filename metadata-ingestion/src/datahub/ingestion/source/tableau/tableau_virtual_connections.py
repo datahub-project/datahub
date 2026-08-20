@@ -725,8 +725,16 @@ class VirtualConnectionProcessor:
                             self.tableau_source.is_snowflake_urn(db_table_urn)
                             and not self.config.ingest_tables_external
                         ):
-                            # Snowflake normalizes field names - match that behavior for lineage
-                            final_db_col_name = db_col_name.lower().replace(" ", "_")
+                            # Snowflake field paths follow that source's own
+                            # casing settings, so match against the schema
+                            # already in DataHub rather than assuming a
+                            # convention. Same resolution the datasource
+                            # lineage path uses.
+                            final_db_col_name = (
+                                self.tableau_source._match_snowflake_column_name(
+                                    db_table_urn, db_col_name
+                                )
+                            )
 
                         fine_grained_lineages.append(
                             FineGrainedLineageClass(
