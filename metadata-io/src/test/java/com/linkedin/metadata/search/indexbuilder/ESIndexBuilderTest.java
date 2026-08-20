@@ -2325,4 +2325,130 @@ public class ESIndexBuilderTest {
     assertTrue(result.reindexStartTime() > 0);
     Assert.assertFalse(result.skippedEmpty());
   }
+
+  @Test
+  void testBuildIndex_AppliesEntityMappingLimitsToExistingIndex() throws IOException {
+    // Existing index whose current total_fields.limit differs from the configured value.
+    indexBuilder.setEntityMappingLimits(
+        new com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityMappingLimits(
+            Map.of(TEST_INDEX_NAME, Map.of("mapping.total_fields.limit", "2500")), Map.of()));
+
+    Settings currentSettings =
+        Settings.builder().put("index.mapping.total_fields.limit", "1000").build();
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(ack);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    // No mapping / settings diff via the existing pipeline — the limit application is its own path.
+    when(indexState.requiresApplyMappings()).thenReturn(false);
+    when(indexState.requiresApplySettings()).thenReturn(false);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    indexBuilder.buildIndex(opContext, indexState);
+
+    // Assert: exactly one PUT _settings call carrying the configured limit.
+    ArgumentCaptor<UpdateSettingsRequest> captor =
+        ArgumentCaptor.forClass(UpdateSettingsRequest.class);
+    verify(searchClient)
+        .updateIndexSettings(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    Settings sent = captor.getValue().settings();
+    assertEquals(sent.get("index.mapping.total_fields.limit"), "2500");
+  }
+
+  @Test
+  void testBuildIndex_NoPutWhenLimitAlreadyMatches() throws IOException {
+    // Configured value equals the live value -> applyEntityMappingLimitsToExistingIndex must no-op.
+    indexBuilder.setEntityMappingLimits(
+        new com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityMappingLimits(
+            Map.of(TEST_INDEX_NAME, Map.of("mapping.total_fields.limit", "2500")), Map.of()));
+
+    Settings currentSettings =
+        Settings.builder().put("index.mapping.total_fields.limit", "2500").build();
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.requiresApplyMappings()).thenReturn(false);
+    when(indexState.requiresApplySettings()).thenReturn(false);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    indexBuilder.buildIndex(opContext, indexState);
+
+    // No update call should fire when desired == current.
+    verify(searchClient, never())
+        .updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testBuildIndex_DefaultsFallbackAppliesToUnlistedIndex() throws IOException {
+    // No explicit entry for TEST_INDEX_NAME, but a defaults map is configured.
+    indexBuilder.setEntityMappingLimits(
+        new com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityMappingLimits(
+            Map.of(), Map.of("mapping.total_fields.limit", "1500")));
+
+    Settings currentSettings = Settings.builder().build();
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings())
+        .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(ack);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.requiresApplyMappings()).thenReturn(false);
+    when(indexState.requiresApplySettings()).thenReturn(false);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+
+    indexBuilder.buildIndex(opContext, indexState);
+
+    ArgumentCaptor<UpdateSettingsRequest> captor =
+        ArgumentCaptor.forClass(UpdateSettingsRequest.class);
+    verify(searchClient)
+        .updateIndexSettings(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    assertEquals(captor.getValue().settings().get("index.mapping.total_fields.limit"), "1500");
+  }
 }
