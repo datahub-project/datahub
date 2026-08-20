@@ -101,4 +101,15 @@ record SearchFlags {
     id: int
     max: int
   }
+
+  /**
+   * Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring
+   * below this floor are dropped, letting an agent abstain instead of returning weak matches. When
+   * null/unset, no floor is applied. Currently honored only by the semantic search path.
+   *
+   * The value is compared against the engine's raw kNN relevance score (cosine-derived), which is
+   * not a normalized 0..1 value; its scale depends on the embedding model and search engine, so a
+   * suitable floor must be calibrated per deployment rather than assumed.
+   */
+  minScore: optional float
 }

@@ -545,7 +545,7 @@ jobs:
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
-      - name: Build + non-test checks once (assemble, spotless, etc.)
+      - name: Build + non-test checks once (assemble, compile, etc.)
         # Compile main + test + non-test checks (no tests) to warm the shard cache.
         # Keep yarnGenerate / generateLazyIconStubs (codegen + graphqlUsageRegistryCheck need them);
         # drop yarnBuild via -x :datahub-frontend:testClasses / :datahub-web-react:jar (frontend-build
