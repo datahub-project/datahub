@@ -309,12 +309,13 @@ public class Constants {
   public static final String ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlModelProperties";
   public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
   public static final String ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME = "mlModelFactorPrompts";
-  public static final String METRICS_ASPECT_NAME = "metrics";
-  public static final String EVALUATION_DATA_ASPECT_NAME = "evaluationData";
-  public static final String TRAINING_DATA_ASPECT_NAME = "trainingData";
-  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "quantitativeAnalyses";
-  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "ethicalConsiderations";
-  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
+  public static final String METRICS_ASPECT_NAME = "mlModelMetrics";
+  public static final String EVALUATION_DATA_ASPECT_NAME = "mlModelEvaluationData";
+  public static final String TRAINING_DATA_ASPECT_NAME = "mlModelTrainingData";
+  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "mlModelQuantitativeAnalyses";
+  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "mlModelEthicalConsiderations";
+  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME =
+      "mlModelCaveatsAndRecommendations";
   public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
   public static final String COST_ASPECT_NAME = "cost";
 
@@ -336,6 +337,7 @@ public class Constants {
 
   // Role
   public static final String DATAHUB_ROLE_INFO_ASPECT_NAME = "dataHubRoleInfo";
+  public static final String DATAHUB_ROLE_KEY_ASPECT_NAME = "dataHubRoleKey";
 
   // Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
@@ -406,6 +408,7 @@ public class Constants {
 
   // DataHub Execution Request
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
+  public static final String EXECUTION_REQUEST_KEY_ASPECT_NAME = "dataHubExecutionRequestKey";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
   public static final String EXECUTION_REQUEST_STATUS_RUNNING = "RUNNING";
@@ -438,6 +441,7 @@ public class Constants {
 
   // Query
   public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
+  public static final String QUERY_KEY_ASPECT_NAME = "queryKey";
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // DataProduct
@@ -447,6 +451,7 @@ public class Constants {
 
   // Application
   public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_KEY_ASPECT_NAME = "applicationKey";
   public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
 
   // Ownership Types
@@ -466,9 +471,11 @@ public class Constants {
 
   // Data Type
   public static final String DATA_TYPE_INFO_ASPECT_NAME = "dataTypeInfo";
+  public static final String DATA_TYPE_KEY_ASPECT_NAME = "dataTypeKey";
 
   // Entity Type
   public static final String ENTITY_TYPE_INFO_ASPECT_NAME = "entityTypeInfo";
+  public static final String ENTITY_TYPE_KEY_ASPECT_NAME = "entityTypeKey";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
@@ -482,6 +489,7 @@ public class Constants {
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+  public static final String DATAHUB_CONNECTION_KEY_ASPECT_NAME = "dataHubConnectionKey";
 
   // Data Contracts
   public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
@@ -546,6 +554,7 @@ public class Constants {
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";
+  public static final String POST_KEY_ASPECT_NAME = "postKey";
   public static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
 
   // Telemetry
@@ -556,15 +565,18 @@ public class Constants {
   public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
   public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
       "dataHubPageTemplateProperties";
+  public static final String DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME = "dataHubPageTemplateKey";
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
       "dataHubPageModuleProperties";
+  public static final String DATAHUB_PAGE_MODULE_KEY_ASPECT_NAME = "dataHubPageModuleKey";
 
   // File
   public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
   public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
+  public static final String DATAHUB_FILE_KEY_ASPECT_NAME = "dataHubFileKey";
 
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
