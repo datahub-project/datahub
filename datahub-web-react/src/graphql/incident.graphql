@@ -295,5 +295,13 @@ query getEntityIncidents(
                 canEditIncidents
             }
         }
+        ... on MLFeatureTable {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
     }
 }

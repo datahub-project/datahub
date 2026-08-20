@@ -3983,6 +3983,7 @@ public class GmsGraphQLEngine {
             "Chart",
             "MLModel",
             "MLFeature",
+            "MLFeatureTable",
             "SchemaFieldEntity");
     for (String entity : entitiesWithIncidents) {
       builder.type(

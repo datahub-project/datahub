@@ -1002,6 +1002,14 @@ public class PoliciesConfig {
       ResourcePrivileges.of(
           "mlFeature", "ML Features", "ML Features indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
 
+  // ML Feature Table Privileges
+  public static final ResourcePrivileges ML_FEATURE_TABLE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlFeatureTable",
+          "ML Feature Tables",
+          "ML Feature Tables indexed by DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1029,7 +1037,8 @@ public class PoliciesConfig {
           APPLICATION_PRIVILEGES,
           DATAHUB_VIEW_PRIVILEGES,
           ML_MODEL_PRIVILEGES,
-          ML_FEATURE_PRIVILEGES);
+          ML_FEATURE_PRIVILEGES,
+          ML_FEATURE_TABLE_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
