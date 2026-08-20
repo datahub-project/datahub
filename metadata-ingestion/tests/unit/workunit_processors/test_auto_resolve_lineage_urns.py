@@ -1445,6 +1445,29 @@ def test_a_schemaless_listed_entity_is_asked_about_once():
     assert _schema_fetches(graph) == 1
 
 
+def test_a_failing_preloaded_schema_resolver_keeps_the_table_level_healing():
+    # A preloaded catalog reads sqlite, so it can fail too. Unhandled, that escaped into
+    # process() and discarded the whole work unit's reconciliation — losing the table
+    # casing as well as the columns.
+    failing = mock.MagicMock()
+    failing.schema_count.return_value = 0
+    failing.resolve_urn.side_effect = Exception("sqlite went away")
+    processor, graph, patcher = _processor_for(
+        _widened(), failing, [LOWER], [_SNOWFLAKE_SLICE]
+    )
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="AMOUNT")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == LOWER
+    assert processor.report.num_dataset_urns_normalized == 1
+    assert processor.report.num_schema_fetches_failed == 1
+    assert processor.report.num_exceptions == 0
+
+
 def test_table_only_lineage_fetches_no_schema():
     # Columns are fetched for the column-level path alone. A table-level reference has no
     # columns to reconcile, so paying a schema query per resolved entity would double the
