@@ -336,7 +336,13 @@ class HightouchLineageHandler:
             return []
 
         self.report.sql_parsing_successes += 1
-        return list(result.in_tables)
+        # Normalize parser output to the connector's own URN scheme so raw-SQL
+        # upstreams match the source platform's emitted entities (honors
+        # include_schema_in_urn) rather than always keeping the schema segment.
+        return [
+            self.urn_builder.normalize_parsed_upstream_urn(urn, source)
+            for urn in result.in_tables
+        ]
 
     def normalize_and_match_column(
         self,

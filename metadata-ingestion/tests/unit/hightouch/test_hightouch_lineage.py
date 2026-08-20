@@ -8,6 +8,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.hightouch.config import (
     HightouchAPIConfig,
     HightouchSourceConfig,
+    PlatformDetail,
 )
 from datahub.ingestion.source.hightouch.hightouch import (
     HightouchSource as HightouchIngestionSource,
@@ -1087,3 +1088,91 @@ def test_no_siblings_when_include_sibling_relationships_false(
     ]
 
     assert len(siblings_workunits) == 0
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_resolve_sql_model_upstream_urns_success(
+    mock_api_client_class, pipeline_context
+):
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        parse_model_sql=True,
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(platform="snowflake", database="raw_data"),
+        },
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_1",
+        name="Raw SQL Model",
+        slug="raw-sql-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="SELECT id, email FROM raw_data.public.customers",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Source",
+        slug="snowflake-source",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    urns = source_instance._lineage_handler.resolve_sql_model_upstream_urns(
+        model, source_connection
+    )
+
+    assert len(urns) == 1
+    assert "snowflake" in urns[0]
+    assert "raw_data.public.customers" in urns[0]
+    assert source_instance.report.sql_parsing_successes >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_resolve_sql_model_upstream_urns_parse_failure(
+    mock_api_client_class, pipeline_context
+):
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        parse_model_sql=True,
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(platform="snowflake", database="raw_data"),
+        },
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    model = HightouchModel(
+        id="model_2",
+        name="Broken SQL Model",
+        slug="broken-sql-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="raw_sql",
+        raw_sql="this is not valid SQL @@@ ;;;",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Source",
+        slug="snowflake-source",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    urns = source_instance._lineage_handler.resolve_sql_model_upstream_urns(
+        model, source_connection
+    )
+
+    assert urns == []
+    assert source_instance.report.sql_parsing_failures >= 1
