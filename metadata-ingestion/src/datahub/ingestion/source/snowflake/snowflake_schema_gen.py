@@ -1274,7 +1274,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # Column lineage is anchored on each logical dataset's schemaField
             # URNs (one dataset per logical table); the mapper routes FGLs to
             # the owning logical dataset's upstreamLineage and drops metric FGLs
-            # (metric lineage flows Metric -> SemanticModel -> Logical Dataset).
+            # (metric → SMD lineage is authored on metricUpstreams).
             column_lineages: List[FineGrainedLineageClass] = []
             if self.config.semantic_views.column_lineage:
                 try:
