@@ -410,6 +410,22 @@ import {
     SNOWFLAKE_WAREHOUSE,
 } from '@app/ingestV2/source/builder/RecipeForm/snowflake';
 import {
+    SQLMESH_AUDIT_RESULTS_PATH,
+    SQLMESH_DEFAULT_CATALOG,
+    SQLMESH_ENV,
+    SQLMESH_ENVIRONMENT,
+    SQLMESH_GATEWAY,
+    SQLMESH_INCLUDE_COLUMN_LINEAGE,
+    SQLMESH_INCLUDE_LINEAGE,
+    SQLMESH_INCLUDE_SCHEMA,
+    SQLMESH_MODEL_ALLOW,
+    SQLMESH_MODEL_DENY,
+    SQLMESH_PROJECT_PATH,
+    SQLMESH_TARGET_PLATFORM,
+    SQLMESH_TARGET_PLATFORM_INSTANCE,
+    SQLMESH_TOBIKO_CLOUD_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/sqlmesh';
+import {
     TABLEAU_CONNECTION_URI,
     TABLEAU_PASSWORD,
     TABLEAU_PROJECT,
@@ -469,6 +485,7 @@ import {
     POWER_BI,
     RDF,
     SAC,
+    SQLMESH,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
@@ -936,6 +953,27 @@ export const RECIPE_FIELDS: RecipeFields = {
             TABLE_PROFILING_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
+    },
+    [SQLMESH]: {
+        fields: [
+            SQLMESH_PROJECT_PATH,
+            SQLMESH_ENVIRONMENT,
+            SQLMESH_GATEWAY,
+            SQLMESH_TARGET_PLATFORM,
+            SQLMESH_TARGET_PLATFORM_INSTANCE,
+            SQLMESH_DEFAULT_CATALOG,
+            SQLMESH_TOBIKO_CLOUD_TOKEN,
+        ],
+        filterFields: [SQLMESH_MODEL_ALLOW, SQLMESH_MODEL_DENY],
+        advancedFields: [
+            SQLMESH_ENV,
+            SQLMESH_INCLUDE_SCHEMA,
+            SQLMESH_INCLUDE_LINEAGE,
+            SQLMESH_INCLUDE_COLUMN_LINEAGE,
+            SQLMESH_AUDIT_RESULTS_PATH,
+            REMOVE_STALE_METADATA_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific SQLMesh models from ingestion by name pattern.',
     },
     [CSV]: {
         fields: [CSV_FILE_URL],
