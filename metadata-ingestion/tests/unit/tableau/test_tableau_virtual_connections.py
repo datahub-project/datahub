@@ -847,6 +847,64 @@ class TestVirtualConnectionProcessor:
             builder.make_schema_field_urn(snowflake_urn, "CUSTOMER_ID")
         ]
 
+    def test_a_case_only_pair_keeps_its_own_upstream_column(self):
+        # A source that allows case-distinct identifiers can hold both `col` and
+        # `COL`. The VC-to-database column map is keyed on the folded name, so it
+        # keeps only one of them and both VC columns end up pointing at whichever
+        # survived. Nothing here is Snowflake-specific: the map is built before
+        # the platform is consulted, so a plain Postgres upstream shows it.
+        table_info = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "col1", c.NAME: "col", c.REMOTE_TYPE: "STRING"},
+                {c.ID: "col2", c.NAME: "COL", c.REMOTE_TYPE: "STRING"},
+            ],
+        }
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc.test_table,PROD)"
+        mock_db_table = {
+            c.ID: "db-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {c.ID: "db-col1", c.NAME: "col"},
+                {c.ID: "db-col2", c.NAME: "COL"},
+            ],
+        }
+        postgres_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.table,PROD)"
+        )
+
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_create_database_table_urn",
+                return_value=postgres_urn,
+            ),
+        ):
+            result = self.vc_processor._create_table_upstream_lineage(
+                table_info, table_urn
+            )
+
+        # Each column keeps its own upstream rather than sharing one.
+        assert len(result.fine_grained_lineages) == 2
+        emitted = {}
+        for lineage in result.fine_grained_lineages:
+            assert lineage.downstreams and lineage.upstreams
+            emitted[lineage.downstreams[0]] = lineage.upstreams[0]
+        assert emitted == {
+            builder.make_schema_field_urn(table_urn, "col"): (
+                builder.make_schema_field_urn(postgres_urn, "col")
+            ),
+            builder.make_schema_field_urn(table_urn, "COL"): (
+                builder.make_schema_field_urn(postgres_urn, "COL")
+            ),
+        }
+
     @pytest.mark.parametrize(
         "malformed_data,description",
         [
