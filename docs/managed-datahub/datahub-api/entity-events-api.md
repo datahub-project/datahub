@@ -727,10 +727,12 @@ These are the common parameters for all Action Request create events.
 | Name              | Type   | Description                                                                                                                                                                                | Optional |
 | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
 | actionRequestType | String | The type of Action Request. One of `TAG_ASSOCIATION`, `TERM_ASSOCIATION`, `CREATE_GLOSSARY_NODE`, `CREATE_GLOSSARY_TERM`, `CREATE_DOMAIN`, `CREATE_DATA_PRODUCT`, or `UPDATE_DESCRIPTION.` | False    |
-| resourceType      | String | The type of entity this Action Request is applied on, such as `dataset`.                                                                                                                   | True     |
-| resourceUrn       | String | The entity this Action Request is applied on.                                                                                                                                              | True     |
+| resourceType      | String | The type of entity this Action Request is applied on, such as `dataset`.                                                                                                                   | True\*   |
+| resourceUrn       | String | The entity this Action Request is applied on.                                                                                                                                              | True\*   |
 | subResourceType   | String | Filled if this Action Request is applied on a sub-resource, such as a `schemaField`.                                                                                                       | True     |
 | subResource       | String | Identifier of the sub-resource if this proposal is applied on one.                                                                                                                         | True     |
+
+\* `resourceType` and `resourceUrn` are optional in general, but some proposal types require them — see the per-type tables below (for example, `CREATE_DOMAIN` requires `resourceType`, and `CREATE_DATA_PRODUCT` requires both).
 
 Parameters specific to different proposal types are listed below.
 
