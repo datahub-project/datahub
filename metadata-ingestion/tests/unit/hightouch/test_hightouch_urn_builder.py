@@ -390,3 +390,71 @@ def test_urn_builder_fallback_to_source_type(mock_api_client_class, pipeline_con
     assert isinstance(urn, (str, DatasetUrn))
     urn_str = str(urn)
     assert "bigquery" in urn_str
+
+
+def _urn_builder_for_schema_flag(pipeline_context, include_schema_in_urn):
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        sources_to_platform_instance={
+            "source_1": PlatformDetail(
+                platform="snowflake",
+                platform_instance="snowflake-prod",
+                env="PROD",
+                database="raw_data",
+                include_schema_in_urn=include_schema_in_urn,
+            )
+        },
+    )
+    source = HightouchIngestionSource(config, pipeline_context)
+    urn_builder = HightouchUrnBuilder(
+        config=source.config,
+        get_platform_for_source=source._get_platform_for_source,
+        get_platform_for_destination=source._get_platform_for_destination,
+    )
+    source_connection = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake Source",
+        slug="snowflake-source",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    return urn_builder, source_connection
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_normalize_parsed_upstream_urn_keeps_schema_when_flag_true(
+    mock_api_client_class, pipeline_context
+):
+    urn_builder, source_connection = _urn_builder_for_schema_flag(
+        pipeline_context, include_schema_in_urn=True
+    )
+    parsed = DatasetUrn(
+        platform="snowflake", name="raw_data.public.customers", env="PROD"
+    )
+
+    result = urn_builder.normalize_parsed_upstream_urn(parsed, source_connection)
+
+    # Flag is on: the parser output already carries the schema, so it is returned as-is.
+    assert result == str(parsed)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_normalize_parsed_upstream_urn_strips_schema_when_flag_false(
+    mock_api_client_class, pipeline_context
+):
+    urn_builder, source_connection = _urn_builder_for_schema_flag(
+        pipeline_context, include_schema_in_urn=False
+    )
+    parsed = DatasetUrn(
+        platform="snowflake", name="raw_data.public.customers", env="PROD"
+    )
+
+    result = urn_builder.normalize_parsed_upstream_urn(parsed, source_connection)
+
+    # Flag is off: schema segment is dropped and the bare table is re-qualified with
+    # the configured database, matching the connector's own source URNs.
+    assert "public" not in result
+    assert "raw_data.customers" in result

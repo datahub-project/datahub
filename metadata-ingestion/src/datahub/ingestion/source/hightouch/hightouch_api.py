@@ -432,7 +432,13 @@ class HightouchAPIClient:
             return self._normalize_list_mappings(sync, raw, source_key, dest_key)
 
         column_mappings = config.get("columnMappings")
-        if isinstance(column_mappings, dict):
+        if column_mappings is not None:
+            if not isinstance(column_mappings, dict):
+                self._report_field_mappings_dropped(
+                    f"Sync {sync.id}: expected 'columnMappings' to be a dict, got "
+                    f"{type(column_mappings).__name__}; column-level lineage will be missing."
+                )
+                return []
             # columnMappings maps destination field -> source field.
             return [
                 {"source": source, "dest": dest}

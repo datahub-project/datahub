@@ -8,6 +8,9 @@ from datahub.ingestion.source.hightouch.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.hightouch.hightouch_schema import HightouchSchemaHandler
+from datahub.ingestion.source.hightouch.hightouch_utils import (
+    resolve_datahub_field_type,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSchemaField,
@@ -371,3 +374,29 @@ def test_get_first_value_helper(report, mock_graph, mock_urn_builder):
 
     result = handler._get_first_value(data, ["missing1", "missing2"])
     assert result is None
+
+
+@pytest.mark.parametrize(
+    "native_type,expected_class_name",
+    [
+        ("integer", "NumberTypeClass"),
+        ("BIGINT", "NumberTypeClass"),
+        ("decimal(10,2)", "NumberTypeClass"),
+        ("double precision", "NumberTypeClass"),
+        ("boolean", "BooleanTypeClass"),
+        ("timestamp with time zone", "TimeTypeClass"),
+        ("date", "DateTypeClass"),
+        ("varchar(255)", "StringTypeClass"),
+        ("uuid", "StringTypeClass"),
+        # interval must not match "int"; container types fall back to string.
+        ("interval", "StringTypeClass"),
+        ("array<int>", "StringTypeClass"),
+        ("json", "StringTypeClass"),
+        (None, "StringTypeClass"),
+        ("", "StringTypeClass"),
+        ("some_unknown_type", "StringTypeClass"),
+    ],
+)
+def test_resolve_datahub_field_type(native_type, expected_class_name):
+    result = resolve_datahub_field_type(native_type)
+    assert type(result.type).__name__ == expected_class_name

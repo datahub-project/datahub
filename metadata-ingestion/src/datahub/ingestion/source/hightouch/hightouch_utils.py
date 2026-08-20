@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, Optional, Tuple, Type, Union
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -40,10 +40,6 @@ def normalize_column_name(name: str) -> str:
     return name.lower().replace("_", "").replace("-", "")
 
 
-# Substrings tested against a lowercased native type, mapped to a DataHub type
-# class. Ordered by specificity: more specific patterns (e.g. "timestamp",
-# "datetime") come before broader ones ("time", "date", "int") so the first match
-# wins. Unknown types fall back to string.
 _FieldTypeClass = Union[
     Type[BooleanTypeClass],
     Type[BytesTypeClass],
@@ -52,42 +48,86 @@ _FieldTypeClass = Union[
     Type[StringTypeClass],
     Type[TimeTypeClass],
 ]
-_NATIVE_TYPE_PATTERNS: List[Tuple[str, _FieldTypeClass]] = [
-    ("bool", BooleanTypeClass),
-    ("timestamp", TimeTypeClass),
-    ("datetime", TimeTypeClass),
-    ("date", DateTypeClass),
-    ("time", TimeTypeClass),
-    ("bigint", NumberTypeClass),
-    ("smallint", NumberTypeClass),
-    ("tinyint", NumberTypeClass),
-    ("int", NumberTypeClass),
-    ("numeric", NumberTypeClass),
-    ("number", NumberTypeClass),
-    ("decimal", NumberTypeClass),
-    ("float", NumberTypeClass),
-    ("double", NumberTypeClass),
-    ("real", NumberTypeClass),
-    ("binary", BytesTypeClass),
-    ("byte", BytesTypeClass),
-    ("varchar", StringTypeClass),
-    ("char", StringTypeClass),
-    ("text", StringTypeClass),
-    ("string", StringTypeClass),
-    ("uuid", StringTypeClass),
-]
+# Exact (normalized) native scalar type name -> DataHub type class. Matching is by
+# exact base name — not substring — so unrelated types are not misclassified
+# (e.g. "interval" must not read as "int", and "array<int>" must not read as a
+# number). Parameters like "varchar(255)"/"decimal(10,2)" are stripped before
+# lookup; compound/container types are handled separately below.
+_NATIVE_TYPE_ALIASES: Dict[str, _FieldTypeClass] = {
+    "bool": BooleanTypeClass,
+    "boolean": BooleanTypeClass,
+    "timestamp": TimeTypeClass,
+    "timestamptz": TimeTypeClass,
+    "datetime": TimeTypeClass,
+    "time": TimeTypeClass,
+    "timetz": TimeTypeClass,
+    "date": DateTypeClass,
+    "bigint": NumberTypeClass,
+    "int8": NumberTypeClass,
+    "integer": NumberTypeClass,
+    "int": NumberTypeClass,
+    "int4": NumberTypeClass,
+    "smallint": NumberTypeClass,
+    "int2": NumberTypeClass,
+    "tinyint": NumberTypeClass,
+    "numeric": NumberTypeClass,
+    "number": NumberTypeClass,
+    "decimal": NumberTypeClass,
+    "float": NumberTypeClass,
+    "float4": NumberTypeClass,
+    "float8": NumberTypeClass,
+    "double": NumberTypeClass,
+    "real": NumberTypeClass,
+    "binary": BytesTypeClass,
+    "varbinary": BytesTypeClass,
+    "bytea": BytesTypeClass,
+    "byte": BytesTypeClass,
+    "varchar": StringTypeClass,
+    "nvarchar": StringTypeClass,
+    "char": StringTypeClass,
+    "nchar": StringTypeClass,
+    "text": StringTypeClass,
+    "string": StringTypeClass,
+    "uuid": StringTypeClass,
+}
+
+# Markers indicating a compound/container type that has no scalar equivalent in
+# the set above; these fall back to string rather than matching a scalar alias.
+_CONTAINER_MARKERS: Tuple[str, ...] = (
+    "<",
+    "[",
+    "array",
+    "map",
+    "struct",
+    "json",
+    "variant",
+    "object",
+    "row",
+)
 
 
 def resolve_datahub_field_type(native_type: Optional[str]) -> SchemaFieldDataTypeClass:
     # Map a source-declared native type to the closest DataHub type class so numeric,
-    # boolean, and temporal columns are not all surfaced as strings. Unknown or empty
-    # types fall back to string.
-    if native_type:
-        lowered = native_type.lower()
-        for pattern, type_class in _NATIVE_TYPE_PATTERNS:
-            if pattern in lowered:
-                return SchemaFieldDataTypeClass(type=type_class())
-    return SchemaFieldDataTypeClass(type=StringTypeClass())
+    # boolean, and temporal columns are not all surfaced as strings. Unknown, compound,
+    # or empty types fall back to string.
+    string_type = SchemaFieldDataTypeClass(type=StringTypeClass())
+    if not native_type:
+        return string_type
+
+    lowered = native_type.strip().lower()
+    if any(marker in lowered for marker in _CONTAINER_MARKERS):
+        return string_type
+
+    # Strip type parameters: "varchar(255)" -> "varchar", "decimal(10,2)" -> "decimal".
+    base = lowered.split("(", 1)[0].strip()
+    type_class = _NATIVE_TYPE_ALIASES.get(base)
+    if type_class is None:
+        # Fall back to the leading token so multi-word types still resolve, e.g.
+        # "double precision" -> "double", "timestamp with time zone" -> "timestamp".
+        type_class = _NATIVE_TYPE_ALIASES.get(base.split(" ", 1)[0])
+    if type_class is not None:
+        return SchemaFieldDataTypeClass(type=type_class())
+    return string_type
 
 
 def reraise_if_programming_error(e: Exception, context: str) -> None:

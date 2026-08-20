@@ -208,10 +208,17 @@ class HightouchSyncHandler:
             datajob.set_outlets([outlet_urn])
 
         # Column-level lineage maps the model's output columns to a single upstream.
-        # With multiple SQL upstreams (raw-SQL model, no intermediate dataset) there
-        # is no unambiguous upstream to attribute field mappings to, so emit only
-        # table-level lineage in that case.
-        if model and outlet_urn and len(inlets) == 1:
+        # It is only sound when that upstream actually carries the model's output
+        # fields: an emitted model dataset (whose schema is the model output) or a
+        # table-type model (output columns == source columns). For a raw-SQL model
+        # with emit_models_as_datasets=False the single inlet is the parsed *source
+        # table*, whose schema does not match the model's aliased/transformed output
+        # columns, so field mappings would point at nonexistent source fields — emit
+        # only table-level lineage there.
+        cll_upstream_is_model_output = self.config.emit_models_as_datasets or (
+            model is not None and model.query_type == QUERY_TYPE_TABLE
+        )
+        if model and outlet_urn and len(inlets) == 1 and cll_upstream_is_model_output:
             model_schema_fields = self.model_schema_fields_cache.get(model.id)
             fine_grained_lineages = self.lineage_handler.generate_column_lineage(
                 sync, model, inlets[0], outlet_urn, model_schema_fields

@@ -53,15 +53,11 @@ class HightouchAPIConfig(ConfigModel):
     def validate_base_url(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("base_url cannot be empty")
-        # The API key is sent as a Bearer token on every request, so plaintext
-        # HTTP would leak it. Require TLS except for loopback hosts used in tests.
+        # The API key is sent as a Bearer token on every request, so require TLS
+        # unconditionally — even a loopback HTTP endpoint would put the token on
+        # the wire in plaintext.
         parsed = urlparse(v)
         if parsed.scheme != "https":
-            if parsed.scheme == "http" and parsed.hostname in (
-                "localhost",
-                "127.0.0.1",
-            ):
-                return v.rstrip("/")
             raise ValueError(
                 "base_url must use https:// so the API key is not sent over plaintext"
             )

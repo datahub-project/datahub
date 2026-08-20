@@ -77,9 +77,17 @@ class HightouchUrnBuilder:
         source_details = self._get_cached_source_details(source)
         database = self._resolve_source_database(source, source_details)
 
-        if source_details.include_schema_in_urn and schema:
-            parts = [part for part in (database, schema, table_name) if part]
-            return ".".join(parts)
+        if source_details.include_schema_in_urn:
+            if schema:
+                parts = [part for part in (database, schema, table_name) if part]
+                return ".".join(parts)
+            # Qualification is requested but no schema is configured: preserve any
+            # schema already embedded in the model name (e.g. "schema.table")
+            # instead of stripping it, and only prepend the database when the name
+            # is not already database-qualified.
+            if database and not table_name.startswith(f"{database}."):
+                return f"{database}.{table_name}"
+            return table_name
 
         # include_schema_in_urn is false: drop any existing schema/database
         # qualification down to the bare table name so the option actually removes
@@ -116,6 +124,28 @@ class HightouchUrnBuilder:
             env=source_details.env or self.config.env,
             platform_instance=source_details.platform_instance,
         )
+
+    def normalize_parsed_upstream_urn(
+        self, urn: Union[str, DatasetUrn], source: HightouchSourceConnection
+    ) -> str:
+        # The SQL parser builds upstream URNs straight from the query text, so it
+        # always keeps the schema segment. When include_schema_in_urn is false the
+        # connector's own source URNs drop the schema, so a parsed upstream would not
+        # match the entity the source platform emits. Re-run the parsed table name
+        # through the same schema-omission rule (bare table re-qualified with the
+        # configured database) so both sides agree. When the flag is true the parser
+        # output already matches, so return it unchanged.
+        source_details = self._get_cached_source_details(source)
+        if source_details.include_schema_in_urn:
+            return str(urn)
+        try:
+            parsed = DatasetUrn.from_string(str(urn))
+        except Exception:
+            return str(urn)
+        database = self._resolve_source_database(source, source_details)
+        bare_table = parsed.name.split(".")[-1]
+        name = f"{database}.{bare_table}" if database else bare_table
+        return str(self.make_upstream_table_urn(name, source))
 
     def make_destination_urn(
         self, table_name: str, destination: HightouchDestination

@@ -400,7 +400,13 @@ class HightouchModelHandler:
             )
 
             if sql_result.in_tables:
-                return [str(urn) for urn in sql_result.in_tables]
+                # Normalize parser output to the connector's own URN scheme so
+                # raw-SQL upstreams match the source platform's emitted entities
+                # (honors include_schema_in_urn).
+                return [
+                    self.urn_builder.normalize_parsed_upstream_urn(urn, source)
+                    for urn in sql_result.in_tables
+                ]
         except Exception as e:
             reraise_if_programming_error(
                 e, f"extracting tables from SQL for model {model.id}"

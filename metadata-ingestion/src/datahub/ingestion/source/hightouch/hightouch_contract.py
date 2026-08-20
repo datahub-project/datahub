@@ -86,11 +86,19 @@ class HightouchContractHandler:
                 self.report.report_event_sources_emitted()
 
         for event in contract.events:
-            event_dataset = self._build_event_dataset(contract, event, source_urns)
+            # Parse the event's JSON schema once and reuse it for both the dataset
+            # schema and the data-contract assertion; parsing twice re-runs the
+            # parser and double-reports the "Failed to parse event schema" warning.
+            schema_fields = self._schema_fields(event)
+            event_dataset = self._build_event_dataset(
+                contract, event, source_urns, schema_fields
+            )
             yield event_dataset
             self.report.report_contract_events_emitted()
 
-            yield from self._emit_event_contract(contract, event, event_dataset)
+            yield from self._emit_event_contract(
+                contract, event, event_dataset, schema_fields
+            )
 
         self.report.report_contracts_emitted()
 
@@ -109,6 +117,7 @@ class HightouchContractHandler:
         contract: HightouchContract,
         event: HightouchContractEvent,
         source_urns: List[str],
+        schema_fields: Optional[List[SchemaFieldClass]],
     ) -> Dataset:
         upstreams: Optional[UpstreamLineageClass] = None
         if source_urns:
@@ -134,7 +143,6 @@ class HightouchContractHandler:
             upstreams=upstreams,
         )
 
-        schema_fields = self._schema_fields(event)
         if schema_fields:
             dataset._set_schema(schema_fields)
 
@@ -145,12 +153,12 @@ class HightouchContractHandler:
         contract: HightouchContract,
         event: HightouchContractEvent,
         event_dataset: Dataset,
+        schema_fields: Optional[List[SchemaFieldClass]],
     ) -> Iterable[MetadataWorkUnit]:
         # Build the assertion from the already-translated fields (field-list) rather
         # than the json-schema contract type: the json-schema path passes a full
         # platform URN into get_schema_metadata, which prepends the platform prefix
         # again and produces a double-prefixed, invalid SchemaMetadata.platform.
-        schema_fields = self._schema_fields(event)
         if not schema_fields:
             return
 
