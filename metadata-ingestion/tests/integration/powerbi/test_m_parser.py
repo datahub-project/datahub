@@ -259,7 +259,7 @@ _DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY: str = (
     "    my_table_Table"
 )
 
-_DATABRICKS_PARENTHESIZED_EXPECTED_URN: str = (
+_DATABRICKS_EXPECTED_URN: str = (
     "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
 )
 
@@ -290,7 +290,7 @@ def test_databricks_parenthesized_navigation_step():
     data_platform_tables = combine_upstreams_from_lineage(lineages)
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].urn == _DATABRICKS_PARENTHESIZED_EXPECTED_URN
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
 
 
 @pytest.mark.integration
@@ -319,7 +319,7 @@ def test_databricks_parenthesized_navigation_step_in_if_branch():
     data_platform_tables = combine_upstreams_from_lineage(lineages)
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].urn == _DATABRICKS_PARENTHESIZED_EXPECTED_URN
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
 
 
 # Leaf navigation step written without Kind="Table". Valid M that Power BI
@@ -363,7 +363,7 @@ def test_databricks_navigation_step_without_kind():
     data_platform_tables = combine_upstreams_from_lineage(lineages)
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].urn == _DATABRICKS_PARENTHESIZED_EXPECTED_URN
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
     assert reporter.m_query_resolver_errors == 0
 
 
@@ -1358,6 +1358,33 @@ def test_databricks_native_query():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:databricks,sales_db.public.slae_history,PROD)"
     )
+
+
+# Native SQL on the plain Databricks.Catalogs connector. The MultiCloud variant
+# is covered by test_databricks_native_query above.
+_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY: str = (
+    "let\n"
+    "    Source = Value.NativeQuery(Databricks.Catalogs("
+    '"adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", '
+    '[Catalog="my_catalog", Database=null])'
+    '{[Name="my_catalog",Kind="Database"]}[Data], '
+    '"select a, b from my_schema.my_table", null, [EnableFolding=true])\n'
+    "in\n"
+    "    Source"
+)
+
+
+def test_databricks_catalogs_native_query():
+    """Value.NativeQuery against Databricks.Catalogs resolves to a 3-part URN,
+    taking the catalog from the connector's Catalog argument."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
 
 
 def test_snowflake_multi_function_call():

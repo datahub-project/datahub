@@ -1504,11 +1504,22 @@ class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
         )
 
 
+# Both Databricks connectors are called as (host, http path, [Database=…,
+# Catalog=…]), so a native query's database resolves identically for either.
+_DATABRICKS_NATIVE_QUERY_FUNCTIONS = frozenset(
+    {
+        FunctionName.DATABRICK_DATA_ACCESS.value,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value,
+    }
+)
+
+
 class NativeQueryLineage(AbstractLineage):
     # Maps the full data-access function name (e.g. "Snowflake.Databases") to its platform.
     SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
+        FunctionName.DATABRICK_DATA_ACCESS.value: SupportedDataPlatform.DATABRICKS_SQL,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
         FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
         FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
@@ -1561,10 +1572,7 @@ class NativeQueryLineage(AbstractLineage):
         return Lineage(upstreams=dataplatform_tables, column_lineage=column_lineage)
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
-        if (
-            data_access_tokens[0]
-            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
-        ):
+        if data_access_tokens[0] in _DATABRICKS_NATIVE_QUERY_FUNCTIONS:
             database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
             if (
