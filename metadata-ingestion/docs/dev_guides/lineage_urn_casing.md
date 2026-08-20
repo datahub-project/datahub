@@ -74,7 +74,7 @@ Column-level casing is corrected the same way, using the schema DataHub stores f
 | `dataJobInputOutput` **inputs** (dbt / Airflow / Spark) | ✅ table-level **and** column-name casing |
 | `chartInfo` upstream datasets                           | ✅ table-level                            |
 | `dataJobInputOutput` **outputs**                        | ❌ left unchanged (the job's own outputs) |
-| `chartInfo` / `dataJob` column-level field lists        | ❌ not yet covered                        |
+| `dataJobInputOutput` `inputDatasetFields`               | ❌ not yet covered                        |
 | `dataProcessInstance` run lineage                       | ❌ not yet covered                        |
 
 A DataJob's **outputs** are its own declared products, so they are deliberately left untouched — the
@@ -130,12 +130,12 @@ The two settings answer different questions. `upstream_platforms` is a **preload
 warehouses this source names so often that reading their catalogs once beats asking table by table.
 `resolve_all_platforms` is the **scope** — whether references to anything else are reconciled at all.
 
-| `upstream_platforms` | `resolve_all_platforms` | Read at startup | Reconciled                    | How                                        |
-| -------------------- | ----------------------- | --------------- | ----------------------------- | ------------------------------------------ |
-| `[snowflake]`        | `false` (default)       | snowflake       | snowflake only                | from the preloaded catalog                 |
-| `[snowflake]`        | `true`                  | snowflake       | snowflake and everything else | snowflake locally; the rest one query each |
-| `[]`                 | `true`                  | nothing         | everything                    | one query per distinct reference           |
-| `[]`                 | `false`                 | —               | —                             | rejected at config parse                   |
+| `upstream_platforms` | `resolve_all_platforms` | Read at startup | Reconciled                    | How                                                   |
+| -------------------- | ----------------------- | --------------- | ----------------------------- | ----------------------------------------------------- |
+| `[snowflake]`        | `false` (default)       | snowflake       | snowflake only                | from the preloaded catalog; a miss is asked           |
+| `[snowflake]`        | `true`                  | snowflake       | snowflake and everything else | snowflake from its catalog; every other miss is asked |
+| `[]`                 | `true`                  | nothing         | everything                    | one query per distinct table                          |
+| `[]`                 | `false`                 | —               | —                             | rejected at config parse                              |
 
 Reach for `resolve_all_platforms` when a source references several warehouses of which only one is
 hot: preload that one, and let the occasional reference to the others cost a query rather than a
@@ -196,9 +196,13 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   versions maintain is what lets one lookup cover every casing of a name. On an older server the feature
   turns itself off with a warning and lineage is emitted unchanged; it is not approximated, since a
   partial answer would report healthy lineage as broken.
-- **The marker means the aliases were emitted, not yet written.** GMS writes them asynchronously, so for
-  a short window after the backfill completes a reference can still miss and be reported `UNRESOLVED`. It
-  heals on the source's next run.
+- **Datasets last written before the upgrade need the alias backfill.** GMS computes the aspect when a
+  dataset is written, so a dataset untouched since the upgrade has no alias — and a reference to it is
+  reported `UNRESOLVED` even when it is cased exactly right. Run the dataset alias backfill, or
+  re-ingest the platform, before relying on the feature. Datasets whose name is already lowercase are
+  unaffected: they are matched on their URN directly, and GMS stores no alias for them.
+- **Aliases are written asynchronously.** For a short window after a backfill or an ingestion, a
+  reference can still miss and be reported `UNRESOLVED`. It heals on the source's next run.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it (the normal order for scheduled pipelines). A
   reference whose target doesn't yet exist is left unchanged and self-heals once the warehouse is ingested
