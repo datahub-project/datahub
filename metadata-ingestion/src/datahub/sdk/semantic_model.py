@@ -504,23 +504,23 @@ class SemanticModel(
         if prev is not None and curr is not None and curr == prev:
             # Hydrated, user did not touch semanticModelInfo. Skip emit so stored
             # datasets is preserved for migration read-back.
-            popped = self._aspects.pop(aspect_name)
+            popped = self._aspects.pop(aspect_name)  # type: ignore[misc]
             try:
                 return super().as_mcps(change_type=change_type)
             finally:
-                self._aspects[aspect_name] = popped
+                self._aspects[aspect_name] = popped  # type: ignore[literal-required]
 
-        if curr is not None and (curr.datasets or []):
+        if isinstance(curr, SemanticModelInfoClass) and (curr.datasets or []):
             # Touched (or authored from scratch with stale datasets): strip
             # datasets on the emit copy so we do not write to the deprecated
             # field. Do not mutate the persistent aspect.
             emit_copy = copy.deepcopy(curr)
             emit_copy.datasets = []
-            self._aspects[aspect_name] = emit_copy
+            self._aspects[aspect_name] = emit_copy  # type: ignore[literal-required]
             try:
                 return super().as_mcps(change_type=change_type)
             finally:
-                self._aspects[aspect_name] = curr
+                self._aspects[aspect_name] = curr  # type: ignore[literal-required]
 
         return super().as_mcps(change_type=change_type)
 
