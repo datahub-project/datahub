@@ -32,6 +32,7 @@ export interface ColumnAsset extends LineageAssetBase {
     type: LineageAssetType.Column;
     dataType?: SchemaFieldDataType;
     nativeDataType?: string | null;
+    description?: string | null;
 }
 
 interface EntityAsset extends LineageAssetBase {

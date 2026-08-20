@@ -758,6 +758,7 @@ fragment lineageSchemaField on SchemaField {
     fieldPath
     type
     nativeDataType
+    description
 }
 
 fragment entityLineageV2 on Entity {
