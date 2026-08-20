@@ -328,5 +328,10 @@
     "user.teamLabel": "Team",
     "user.teamsHeading": "Team",
     "user.titleRoleLabel": "Titel/Roll",
-    "dataProduct.parentLabel": "Överordnat Data Product"
+    "dataProduct.parentLabel": "Överordnat Data Product",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.subProductsCountTitle": "Sub-products ({{count}})",
+    "dataProduct.lineageCounts": "{{upstream}} upstream · {{downstream}} downstream",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }
