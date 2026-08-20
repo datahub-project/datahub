@@ -973,7 +973,6 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),RowNumber-11111111-1111-1111-1111-111111111111)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)"
                     ],
                     "downstreamType": "FIELD",
@@ -986,7 +985,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787214162339,
+        "lastObserved": 1787218313699,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }

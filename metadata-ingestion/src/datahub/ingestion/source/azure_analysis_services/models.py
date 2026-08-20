@@ -90,9 +90,9 @@ class AasColumnRow(AasRow):
 
     @property
     def resolved_data_type(self) -> Optional[int]:
-        # ExplicitDataType is authoritative for regular columns, but calculated
-        # columns report Automatic (1) there and carry the real type in
-        # InferredDataType, so fall through to inferred in that case.
+        # ExplicitDataType is authoritative for regular and calculated columns,
+        # but calculated-table columns report Automatic (1) there and carry the
+        # real type in InferredDataType, so fall through to inferred in that case.
         if (
             self.explicit_data_type is not None
             and self.explicit_data_type != constants.TomDataType.AUTOMATIC
