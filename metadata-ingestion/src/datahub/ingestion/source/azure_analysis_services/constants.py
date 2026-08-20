@@ -119,11 +119,13 @@ DATABASE_ID_RESTRICTION = "DatabaseID"
 
 class TomDataType(IntEnum):
     # TMSCHEMA_COLUMNS.ExplicitDataType / InferredDataType (Tabular Object Model
-    # DataType enumeration).
-    STRING = 1
+    # DataType enumeration). AUTOMATIC is what calculated columns report for
+    # ExplicitDataType; their real type lives in InferredDataType.
+    AUTOMATIC = 1
+    STRING = 2
     INT64 = 6
-    DATETIME = 9
     DOUBLE = 8
+    DATETIME = 9
     DECIMAL = 10
     BOOLEAN = 11
 
