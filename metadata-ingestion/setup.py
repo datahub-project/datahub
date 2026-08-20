@@ -453,8 +453,11 @@ databricks = {
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
     "pandas<2.2.0",
-    # Volume-file schema inference reuses the data-lake inferrers; pyarrow/avro/ijson
-    # are already in base requirements, tableschema (csv/tsv inference) is not.
+    # Volume-file schema inference reuses the data-lake inferrers. avro/ijson are in
+    # base requirements; pyarrow (parquet), ujson (json/jsonl) and tableschema
+    # (csv/tsv) are not, so declare them here to match the s3 extra.
+    *pyarrow_common,
+    "ujson>=5.12.1,<6.0.0",
     "tableschema>=1.20.2,<2.0.0",
 }
 

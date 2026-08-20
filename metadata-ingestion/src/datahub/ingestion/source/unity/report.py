@@ -84,8 +84,10 @@ class UnityCatalogReport(SQLSourceReport):
     num_volume_folders_emitted: int = 0
     num_volume_file_schemas_inferred: int = 0
     num_volume_file_schema_inference_failed: int = 0
-    # Files skipped for schema inference (unsupported extension or over the byte cap).
+    # Files skipped for schema inference because their extension is unsupported.
     num_volume_file_schema_skipped: int = 0
+    # Files skipped for schema inference because they exceed volume_file_schema_max_bytes.
+    num_volume_file_schema_too_large: int = 0
     num_federation_connections_list_failed: int = 0
     num_foreign_catalogs: int = 0
     num_federation_links_emitted: int = 0

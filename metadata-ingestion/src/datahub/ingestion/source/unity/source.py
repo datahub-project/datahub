@@ -212,25 +212,23 @@ def _bounded_dataset_name(name: str) -> str:
     return f"{name[:prefix_len]}.{digest}"
 
 
+def _make_timestamp(
+    ts: Optional[datetime], actor: Optional[str] = None
+) -> Optional[TimeStampClass]:
+    if ts is None:
+        return None
+    return TimeStampClass(make_ts_millis(ts), make_user_urn(actor) if actor else None)
+
+
 def _build_timestamps(
     created_at: Optional[datetime],
     created_by: Optional[str],
     updated_at: Optional[datetime],
     updated_by: Optional[str],
 ) -> Tuple[Optional[TimeStampClass], Optional[TimeStampClass]]:
+    created = _make_timestamp(created_at, created_by)
     # lastModified falls back to created when there is no update timestamp.
-    created: Optional[TimeStampClass] = None
-    if created_at is not None:
-        created = TimeStampClass(
-            make_ts_millis(created_at),
-            make_user_urn(created_by) if created_by else None,
-        )
-    last_modified = created
-    if updated_at is not None:
-        last_modified = TimeStampClass(
-            make_ts_millis(updated_at),
-            make_user_urn(updated_by) if updated_by else None,
-        )
+    last_modified = _make_timestamp(updated_at, updated_by) or created
     return created, last_modified
 
 
@@ -940,7 +938,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.volumes.dropped(volume.id)
                 continue
             yield from self.process_volume(volume, schema)
-            yield from self.process_volume_files(volume, schema)
+            yield from self.process_volume_files(volume)
             self.report.volumes.processed(volume.id)
 
     def process_volume(
@@ -986,9 +984,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             last_modified=last_modified_ms,
         )
 
-    def process_volume_files(
-        self, volume: Volume, schema: Schema
-    ) -> Iterable[MetadataWorkUnit]:
+    def process_volume_files(self, volume: Volume) -> Iterable[MetadataWorkUnit]:
         if not self.config.include_volume_files:
             return
 
@@ -1011,8 +1007,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             for segment in volume_file.relative_path.split("/")[:-1]:
                 cumulative = f"{cumulative}/{segment}" if cumulative else segment
                 folder_key = self.gen_volume_folder_key(volume, cumulative)
-                if cumulative not in seen_folders:
-                    seen_folders.add(cumulative)
+                # Dedup on the container's own identity, matching ContainerWUCreator.
+                folder_guid = folder_key.guid()
+                if folder_guid not in seen_folders:
+                    seen_folders.add(folder_guid)
                     self.report.num_volume_folders_emitted += 1
                     yield from gen_containers(
                         container_key=folder_key,
@@ -1041,9 +1039,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if volume_file.file_size is not None:
             custom_properties["file_size"] = str(volume_file.file_size)
 
-        _, last_modified = _build_timestamps(
-            None, None, volume_file.last_modified, None
-        )
+        last_modified = _make_timestamp(volume_file.last_modified)
 
         aspects: List[Any] = [
             DatasetPropertiesClass(
@@ -1132,7 +1128,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             volume_file.file_size is not None
             and volume_file.file_size > self.config.volume_file_schema_max_bytes
         ):
-            self.report.num_volume_file_schema_skipped += 1
+            self.report.num_volume_file_schema_too_large += 1
             return None
         # Read one byte past the cap so an unknown/misreported file_size can't slip a
         # file through that is larger than we're willing to buffer — inferring from a
@@ -1147,7 +1143,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         downloaded_bytes = contents.tell()
         contents.seek(0)
         if downloaded_bytes > self.config.volume_file_schema_max_bytes:
-            self.report.num_volume_file_schema_skipped += 1
+            self.report.num_volume_file_schema_too_large += 1
             return None
         try:
             fields = inferrer.infer_schema(contents)
@@ -1575,28 +1571,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def gen_volume_folder_key(self, volume: Volume, folder_path: str) -> ContainerKey:
-        schema = volume.schema
-        if self.config.include_metastore:
-            assert schema.catalog.metastore
+        # Derive from the volume key plus folder_path so the shared fields (and the
+        # parent GUID lineage) can't drift between the two key types.
+        base = self.gen_volume_key(volume)
+        if isinstance(base, UnityVolumeKeyWithMetastore):
             return UnityVolumeFolderKeyWithMetastore(
-                folder_path=folder_path,
-                volume=volume.name,
-                unity_schema=schema.name,
-                platform=self.platform,
-                instance=self.config.platform_instance,
-                catalog=schema.catalog.name,
-                metastore=schema.catalog.metastore.name,
-                env=self.config.env,
+                **base.model_dump(), folder_path=folder_path
             )
-        return UnityVolumeFolderKey(
-            folder_path=folder_path,
-            volume=volume.name,
-            unity_schema=schema.name,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            catalog=schema.catalog.name,
-            env=self.config.env,
-        )
+        return UnityVolumeFolderKey(**base.model_dump(), folder_path=folder_path)
 
     def gen_volume_file_urn(self, volume_file: VolumeFile) -> str:
         return self._gen_dataset_urn(
@@ -2319,23 +2301,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             externalUrl=f"{self.external_url_base}/{table.ref.external_path}",
         )
 
-    def _create_ownership_aspect(
-        self, owner: Optional[str]
-    ) -> Optional[OwnershipClass]:
-        owner_urn = self.get_owner_urn(owner)
-        if owner_urn is not None:
-            return OwnershipClass(
-                owners=[
-                    OwnerClass(
-                        owner=owner_urn,
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-            )
-        return None
-
     def _create_table_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
-        return self._create_ownership_aspect(table.owner)
+        owner_urn = self.get_owner_urn(table.owner)
+        if owner_urn is None:
+            return None
+        return OwnershipClass(
+            owners=[OwnerClass(owner=owner_urn, type=OwnershipTypeClass.DATAOWNER)]
+        )
 
     def _create_data_platform_instance_aspect(
         self,

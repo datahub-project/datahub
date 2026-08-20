@@ -688,12 +688,31 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
             return
         try:
+            # volumes.list() returns a lazy generator: the HTTP request (and any
+            # permission/network error) only fires while iterating, so the loop must
+            # stay inside this try or a real 403 escapes uncaught.
             response = self._workspace_client.volumes.list(
                 catalog_name=schema.catalog.name,
                 schema_name=schema.name,
                 include_browse=True,
                 max_results=self.databricks_api_page_size,
             )
+            for volume in response or []:
+                try:
+                    optional_volume = self._create_volume(schema, volume)
+                    if optional_volume:
+                        yield optional_volume
+                except Exception as e:
+                    self.report.num_volumes_parse_failed += 1
+                    volume_name = getattr(volume, "name", None)
+                    logger.warning(f"Error parsing volume {volume_name}: {e}")
+                    self.report.warning(
+                        title="Failed to parse Unity Catalog volume",
+                        message="A volume could not be parsed and was skipped.",
+                        context=f"{schema.id}.{volume_name}",
+                        exc=e,
+                        log=False,
+                    )
         except Exception as e:
             self.report.num_volumes_list_failed += 1
             # A whole schema's volumes are skipped, so log live, not just in the report.
@@ -720,25 +739,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 exc=e,
                 log=False,
             )
-            return
-        if not response:
-            return
-        for volume in response:
-            try:
-                optional_volume = self._create_volume(schema, volume)
-                if optional_volume:
-                    yield optional_volume
-            except Exception as e:
-                self.report.num_volumes_parse_failed += 1
-                volume_name = getattr(volume, "name", None)
-                logger.warning(f"Error parsing volume {volume_name}: {e}")
-                self.report.warning(
-                    title="Failed to parse Unity Catalog volume",
-                    message="A volume could not be parsed and was skipped.",
-                    context=f"{schema.id}.{volume_name}",
-                    exc=e,
-                    log=False,
-                )
 
     def volume_files(
         self,
@@ -777,6 +777,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                             # Pathless directory can't be walked; count the
                             # dropped subtree rather than losing it silently.
                             self.report.num_volume_file_entries_unresolvable += 1
+                            logger.warning(
+                                f"Skipping pathless directory entry under "
+                                f"{directory_path} in volume {volume.ref.qualified_name}"
+                            )
                         continue
                     relative = (
                         path[len(root) :].lstrip("/")
@@ -786,6 +790,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     if not relative:
                         # File with no resolvable path or name; count the drop.
                         self.report.num_volume_file_entries_unresolvable += 1
+                        logger.warning(
+                            f"Skipping unresolvable file entry (path={path!r}, "
+                            f"name={entry.name!r}) under {directory_path} in volume "
+                            f"{volume.ref.qualified_name}"
+                        )
                         continue
                     qualified_name = f"{volume.ref.qualified_name}/{relative}"
                     if allowed is not None and not allowed(qualified_name):

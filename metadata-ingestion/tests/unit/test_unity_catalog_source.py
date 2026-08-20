@@ -3,6 +3,8 @@ from io import BytesIO
 from typing import Optional
 from unittest.mock import ANY, patch
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 from databricks.sdk.service.catalog import TableType, VolumeType
 
@@ -3380,7 +3382,7 @@ class TestUnityCatalogVolumes:
         source = self._build_source(include_volume_files=False)
         volume, schema = self._build_volume()
         with patch.object(source.unity_catalog_api_proxy, "volume_files") as mock_files:
-            assert list(source.process_volume_files(volume, schema)) == []
+            assert list(source.process_volume_files(volume)) == []
         mock_files.assert_not_called()
 
     def test_process_volume_file_emits_dataset_under_container(self) -> None:
@@ -3447,7 +3449,7 @@ class TestUnityCatalogVolumes:
             yield file_b
 
         source.unity_catalog_api_proxy.volume_files = _files  # type: ignore[assignment]
-        wus = list(source.process_volume_files(volume, schema))
+        wus = list(source.process_volume_files(volume))
 
         # The shared "raw" folder container is emitted exactly once across both files.
         folder_subtype_count = sum(
@@ -3485,6 +3487,66 @@ class TestUnityCatalogVolumes:
         csv_bytes = b"id,name\n1,alice\n2,bob\n"
         source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
             lambda dbfs_path, max_bytes: BytesIO(csv_bytes)
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in source.process_volume_file(volume_file, folder_key):
+            found = wu.get_aspect_of_type(SchemaMetadataClass)
+            if found is not None:
+                schema_metadata = found
+                break
+        assert schema_metadata is not None
+        assert {f.fieldPath for f in schema_metadata.fields} == {"id", "name"}
+        assert source.report.num_volume_file_schemas_inferred == 1
+
+    def test_process_volume_file_infers_parquet_schema(self) -> None:
+        # Exercises the ParquetInferrer import path so a missing pyarrow dependency
+        # is caught in CI rather than at runtime on the first .parquet file.
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/events.parquet",
+            file_size=None,
+            last_modified=None,
+        )
+        buf = BytesIO()
+        pq.write_table(pa.table({"id": [1, 2], "name": ["alice", "bob"]}), buf)
+        parquet_bytes = buf.getvalue()
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(parquet_bytes)
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in source.process_volume_file(volume_file, folder_key):
+            found = wu.get_aspect_of_type(SchemaMetadataClass)
+            if found is not None:
+                schema_metadata = found
+                break
+        assert schema_metadata is not None
+        assert {f.fieldPath for f in schema_metadata.fields} == {"id", "name"}
+        assert source.report.num_volume_file_schemas_inferred == 1
+
+    def test_process_volume_file_infers_json_schema(self) -> None:
+        # Exercises the JsonInferrer import path (ujson) so a missing dependency is
+        # caught in CI rather than at runtime on the first .json file.
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.json",
+            dbfs_path="/Volumes/c/s/landing/raw/events.json",
+            file_size=None,
+            last_modified=None,
+        )
+        json_bytes = b'[{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]'
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(json_bytes)
         )
         folder_key = source.gen_volume_folder_key(volume, "raw")
         schema_metadata: Optional[SchemaMetadataClass] = None
@@ -3537,7 +3599,7 @@ class TestUnityCatalogVolumes:
         folder_key = source.gen_volume_folder_key(volume, "raw")
         for wu in source.process_volume_file(volume_file, folder_key):
             assert wu.get_aspect_of_type(SchemaMetadataClass) is None
-        assert source.report.num_volume_file_schema_skipped == 1
+        assert source.report.num_volume_file_schema_too_large == 1
         assert source.report.num_volume_file_schemas_inferred == 0
 
     def test_process_volume_file_schema_download_failure_counts(self) -> None:
@@ -3685,7 +3747,7 @@ class TestUnityCatalogVolumes:
                 yield volume_file
 
         source.unity_catalog_api_proxy.volume_files = _files  # type: ignore[assignment]
-        assert list(source.process_volume_files(volume, schema)) == []
+        assert list(source.process_volume_files(volume)) == []
         assert list(source.report.volume_files.dropped_entities) == [
             volume_file.qualified_name
         ]
