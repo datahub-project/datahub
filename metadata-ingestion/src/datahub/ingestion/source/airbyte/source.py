@@ -25,6 +25,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.airbyte.client import (
+    AirbyteApiError,
     AirbyteAuthenticationError,
     AirbyteBaseClient,
     create_airbyte_client,
@@ -549,17 +550,43 @@ class AirbyteSource(StatefulIngestionSourceBase):
         # A source is read once and cached, so at most one of these can apply.
         if source_id not in self._warned_streams_namespace_source_ids:
             if connection.streams_api_unavailable:
+                status_code = connection.streams_api_unavailable_status_code
+                error_message = connection.streams_api_unavailable_message
+                if status_code == 404:
+                    cause = (
+                        "HTTP 404: source inaccessible to these credentials, "
+                        "or Airbyte has no /streams endpoint"
+                    )
+                elif status_code is not None and status_code >= 500:
+                    cause = (
+                        f"HTTP {status_code}: Airbyte failed while describing "
+                        "the source"
+                    )
+                elif status_code is None:
+                    cause = "no HTTP status (network or connection error)"
+                else:
+                    cause = f"HTTP {status_code}"
+
+                status_context = (
+                    f"status={status_code}"
+                    if status_code is not None
+                    else "status=none (network/connection error)"
+                )
                 self.report.warning(
                     title="Stream Metadata Unavailable",
                     message=(
                         "Airbyte /streams could not be read, so per-stream "
-                        "namespaces and column-level lineage are unavailable. "
-                        "Older Airbyte versions have no such endpoint; on "
-                        "versions that do, a 404 means the source is not "
-                        "accessible to these credentials, and a 5xx means "
-                        "Airbyte failed while describing the source"
+                        "namespaces and column-level lineage are unavailable"
                     ),
-                    context=f"source_id={source_id}, {connection_context}",
+                    context=(
+                        f"source_id={source_id}, {status_context}, "
+                        f"cause={cause}, {connection_context}"
+                    ),
+                    exc=(
+                        AirbyteApiError(error_message, status_code=status_code)
+                        if error_message
+                        else None
+                    ),
                 )
                 self._warned_streams_namespace_source_ids.add(source_id)
             elif connection.streams_api_namespaces_absent and streams_without_namespace:

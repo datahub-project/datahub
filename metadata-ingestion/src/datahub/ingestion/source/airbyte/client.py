@@ -60,6 +60,7 @@ from datahub.ingestion.source.airbyte.constants import (
     API_RESPONSE_KEY_TAGS,
     API_STATUS_INACTIVE,
     DEFAULT_TOKEN_EXPIRY_SECONDS,
+    HTTP_AUTH_STATUS_CODES,
     HTTP_CONTENT_TYPE_FORM_URLENCODED,
     HTTP_CONTENT_TYPE_JSON,
     HTTP_HEADER_AUTHORIZATION,
@@ -185,9 +186,12 @@ class AirbyteBaseClient(ABC):
                 error_message += f" - {e.response.text}"
 
             logger.error(error_message)
-            raise AirbyteApiError(
-                error_message, status_code=e.response.status_code
-            ) from e
+            status_code = e.response.status_code
+            if status_code in HTTP_AUTH_STATUS_CODES:
+                raise AirbyteAuthenticationError(
+                    error_message, status_code=status_code
+                ) from e
+            raise AirbyteApiError(error_message, status_code=status_code) from e
         except requests.RequestException as e:
             error_message = f"Error connecting to Airbyte API: {str(e)}"
             logger.error(error_message)
@@ -404,6 +408,12 @@ class AirbyteBaseClient(ABC):
         connection.ambiguous_stream_namespaces = build_result.ambiguous
         connection.skipped_stream_payloads = build_result.skipped_stream_payloads
         connection.streams_api_unavailable = build_result.streams_api_unavailable
+        connection.streams_api_unavailable_status_code = (
+            build_result.streams_api_unavailable_status_code
+        )
+        connection.streams_api_unavailable_message = (
+            build_result.streams_api_unavailable_message
+        )
         connection.streams_api_namespaces_absent = (
             build_result.streams_api_namespaces_absent
         )
@@ -431,16 +441,17 @@ class AirbyteBaseClient(ABC):
         except AirbyteAuthenticationError:
             raise
         except AirbyteApiError as e:
-            if e.status_code in (401, 403):
-                raise AirbyteAuthenticationError(
-                    str(e), status_code=e.status_code
-                ) from e
             # 404 (no /streams, or inaccessible source), 5xx, and retry
             # exhaustion all mean namespaces and column-level lineage are
             # unavailable for this source. Raising would fail the whole
             # connection and, via report.failure, skip stale-entity removal
-            # for every other connection on the run.
-            return AirbyteStreamApiMetadata(unavailable=True)
+            # for every other connection on the run. Auth failures are
+            # AirbyteAuthenticationError from _make_request and re-raise above.
+            return AirbyteStreamApiMetadata(
+                unavailable=True,
+                unavailable_status_code=e.status_code,
+                unavailable_message=str(e),
+            )
 
         property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
         namespaces_by_name: Dict[str, List[str]] = {}
@@ -540,6 +551,10 @@ class AirbyteBaseClient(ABC):
             ambiguous=queue_result.ambiguous,
             skipped_stream_payloads=skipped,
             streams_api_unavailable=stream_api_metadata.unavailable,
+            streams_api_unavailable_status_code=(
+                stream_api_metadata.unavailable_status_code
+            ),
+            streams_api_unavailable_message=stream_api_metadata.unavailable_message,
             streams_api_namespaces_absent=stream_api_metadata.namespaces_absent,
         )
 
@@ -833,7 +848,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
         try:
             return super()._do_get(url, params=params)
         except requests.HTTPError as e:
-            if e.response.status_code not in (401, 403):
+            if e.response.status_code not in HTTP_AUTH_STATUS_CODES:
                 raise
             logger.warning(
                 "Received %s from Airbyte Cloud, attempting token refresh",

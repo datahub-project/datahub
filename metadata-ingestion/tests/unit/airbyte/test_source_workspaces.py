@@ -4,6 +4,7 @@ import pytest
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.airbyte.client import AirbyteAuthenticationError
 from datahub.ingestion.source.airbyte.config import (
     AirbyteDeploymentType,
     AirbyteSourceConfig,
@@ -400,6 +401,79 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
     assert pipelines[0].connection.connection_id == "connection-2"
     assert len(source.report.failures) == 1
     assert not source.report.warnings
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_authentication_error_stops_get_pipelines(
+    mock_create_client, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    mock_client.list_workspaces.return_value = [
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
+    ]
+    mock_client.list_connections.return_value = [
+        AirbyteConnectionPartial(
+            connection_id="connection-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+            status="active",
+        )
+    ]
+    mock_client.get_connection.side_effect = AirbyteAuthenticationError(
+        "Airbyte API request failed: 401", status_code=401
+    )
+
+    with pytest.raises(AirbyteAuthenticationError):
+        list(source._get_pipelines())
+
+    assert not source.report.failures
+    assert not source.report.warnings
+
+
+@patch(
+    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
+)
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_authentication_error_stops_get_workunits_internal(
+    mock_create_client, mock_create_lineage, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    mock_client.list_workspaces.return_value = [
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
+    ]
+    mock_client.list_connections.return_value = [
+        AirbyteConnectionPartial(
+            connection_id="connection-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+            status="active",
+        )
+    ]
+    mock_client.get_connection.side_effect = AirbyteAuthenticationError(
+        "Airbyte API request failed: 403", status_code=403
+    )
+
+    with pytest.raises(AirbyteAuthenticationError):
+        list(source.get_workunits_internal())
+
+    mock_create_lineage.assert_not_called()
+    assert not source.report.failures
 
 
 @patch(
