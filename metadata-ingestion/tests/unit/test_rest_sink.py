@@ -14,6 +14,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
+    _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS,
     DatahubRestSink,
     DatahubRestSinkConfig,
     DataHubRestSinkReport,
@@ -503,6 +504,9 @@ def _make_sink(mock_emitter: MagicMock) -> DatahubRestSink:
     sink._emitter_thread_local.emitter = mock_emitter
     sink._gms_emit_mode = EmitMode.ASYNC
     sink.report = DataHubRestSinkReport()
+    sink._isolation_lock = threading.Lock()
+    sink._consecutive_zero_recovery_isolations = 0
+    sink._isolation_suppressed = False
     return sink
 
 
@@ -620,3 +624,61 @@ def test_emit_batch_wrapper_isolation_keeps_an_mce_record_whole():
     # Two isolation calls: the MCE's two MCPs together, then the lone MCP.
     assert [len(call) for call in single_record_calls] == [2, 1]
     assert sink.report.records_recovered_after_batch_rejection == 2
+
+
+def test_isolation_stops_after_consecutive_zero_recovery_batches(caplog):
+    """A systemic failure (e.g. an expired token) must not turn one rejected batch
+    into max_per_batch sequential failures forever; isolation should give up."""
+    records = [_status_mcp(f"rec{i}") for i in range(3)]
+    error = OperationalError("forbidden", {"message": "403 Client Error: Forbidden"})
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = error
+    sink = _make_sink(mock_emitter)
+
+    for _ in range(_MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS):
+        with pytest.raises(BatchItemFailures):
+            sink._emit_batch_wrapper([(record,) for record in records])
+
+    assert sink.report.batches_rejected == _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS
+    assert sink.report.batches_rejected_while_isolation_suppressed == 0
+
+    mock_emitter.emit_mcps.reset_mock()
+    with caplog.at_level("WARNING"):
+        with pytest.raises(OperationalError):
+            sink._emit_batch_wrapper([(record,) for record in records])
+
+    # Only the single failed batch call — no per-record isolation attempts.
+    assert mock_emitter.emit_mcps.call_count == 1
+    assert sink.report.batches_rejected == _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS
+    assert sink.report.batches_rejected_while_isolation_suppressed == 1
+    assert "disabling per-record isolation" in caplog.text
+
+
+def test_isolation_continues_when_a_pass_recovers_at_least_one_record():
+    """One recovered record per pass must reset the zero-recovery streak, so an
+    unlucky run of partial failures never trips the circuit breaker."""
+    poison = _status_mcp("poison")
+    good = _status_mcp("good")
+    poison_error = OperationalError("record rejected", {"status": 422})
+
+    def emit_mcps(events, emit_mode=None):
+        if len(events) > 1:
+            raise OperationalError("batch rejected", {"status": 422})
+        if events[0] is poison:
+            raise poison_error
+        return [MagicMock()]
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = emit_mcps
+    sink = _make_sink(mock_emitter)
+
+    passes = _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS + 2
+    for _ in range(passes):
+        with pytest.raises(BatchItemFailures):
+            sink._emit_batch_wrapper([(poison,), (good,)])
+
+    # Isolation ran on every pass — it was never suppressed, because `good` was
+    # recovered each time.
+    assert sink.report.batches_rejected == passes
+    assert sink.report.batches_rejected_while_isolation_suppressed == 0
