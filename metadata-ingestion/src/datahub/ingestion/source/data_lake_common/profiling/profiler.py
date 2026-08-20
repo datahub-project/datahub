@@ -205,6 +205,15 @@ class FileProfiler:
         extension = os.path.splitext(table_data.full_path)[1]
         table_path = table_data.table_path
 
+        def _is_data_file(key: str) -> bool:
+            # With default_extension the representative file has no extension, so
+            # ``endswith("")`` would otherwise match Spark/Hadoop side-car files
+            # (``_SUCCESS``, ``_committed_*``, ``.crc``, hidden files) and read
+            # them as the default type. Skip anything whose basename starts with
+            # ``_`` or ``.``.
+            base = key.rsplit("/", 1)[-1]
+            return key.endswith(extension) and not base.startswith(("_", "."))
+
         if is_s3_uri(table_path):
             if self.aws_config is None:
                 raise ValueError("AWS config is required to profile S3/GCS files")
@@ -213,7 +222,7 @@ class FileProfiler:
             # Reuse the shared lister (paged, structured, GCS-cursor aware)
             # rather than hand-rolling list_objects_v2 pagination here.
             for obj in list_objects_recursive(bucket, prefix, self.aws_config):
-                if obj.key.endswith(extension):
+                if _is_data_file(obj.key):
                     yield f"s3://{obj.bucket_name}/{obj.key}"
         elif is_abs_uri(table_path):
             if self.azure_config is None:
@@ -227,12 +236,12 @@ class FileProfiler:
                 )
             )
             for blob in container_client.list_blobs(name_starts_with=prefix):
-                if blob.name.endswith(extension):
+                if _is_data_file(blob.name):
                     yield f"{abs_prefix}{container}/{blob.name}"
         else:
             for root, _dirs, files in os.walk(table_path):
                 for name in files:
-                    if name.endswith(extension):
+                    if _is_data_file(name):
                         yield os.path.join(root, name)
 
     def _read_source(

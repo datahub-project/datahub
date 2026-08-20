@@ -53,7 +53,6 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
     SUPPORTED_COMPRESSIONS,
-    SUPPORTED_FILE_TYPES,
 )
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -78,6 +77,11 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 1000
+
+# Upper bound on the uncompressed size of a single zip entry we will read into
+# memory for schema inference. A crafted archive can otherwise decompress a tiny
+# file into gigabytes and exhaust the ingestion process (zip bomb).
+MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 GiB
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
@@ -289,7 +293,10 @@ class ABSSource(StatefulIngestionSourceBase):
             return None, ""
 
         members = zf.namelist()
-        accepted = set(SUPPORTED_FILE_TYPES) | set(path_spec.extension_map.keys())
+        # Restrict candidate members to the inner types this path_spec accepts
+        # (file_types plus any custom-mapped extensions), so an archive holding
+        # several formats does not select one the user excluded.
+        accepted = set(path_spec.file_types) | set(path_spec.extension_map.keys())
         supported = [
             m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
         ]
@@ -312,9 +319,19 @@ class ABSSource(StatefulIngestionSourceBase):
 
         entry_name = supported[0]
         inner_extension = pathlib.Path(entry_name).suffix
-        entry_bytes = zf.read(entry_name)
-        zf.close()
-        zip_file.close()
+        try:
+            if zf.getinfo(entry_name).file_size > MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES:
+                self.report.report_warning(
+                    table_data.full_path,
+                    f"zip entry {entry_name} uncompressed size "
+                    f"{zf.getinfo(entry_name).file_size} exceeds the "
+                    f"{MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES} byte limit; skipping",
+                )
+                return None, ""
+            entry_bytes = zf.read(entry_name)
+        finally:
+            zf.close()
+            zip_file.close()
         return io.BytesIO(entry_bytes), inner_extension
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:

@@ -433,13 +433,24 @@ class PathSpec(ConfigModel):
     @field_validator("extension_map", mode="after")
     @classmethod
     def validate_extension_map(cls, v: Dict[str, str]) -> Dict[str, str]:
+        # Normalize keys to the bare, leading-dot-free form so lookups in
+        # resolve_extension() and the zip entry filters (which strip dots from
+        # the file suffix) match consistently. A leading-dot or empty key would
+        # otherwise be accepted here but silently never resolve.
+        normalized: Dict[str, str] = {}
         for ext, target in v.items():
+            key = ext.lstrip(".")
+            if not key:
+                raise ValueError(
+                    f"extension_map key '{ext}' is empty; specify a bare extension like 'js'"
+                )
             if target not in SUPPORTED_FILE_TYPES:
                 raise ValueError(
                     f"extension_map value '{target}' for key '{ext}' is not a supported file type. "
                     f"Please specify one from {SUPPORTED_FILE_TYPES}"
                 )
-        return v
+            normalized[key] = target
+        return normalized
 
     def resolve_extension(self, ext: str) -> str:
         """Resolve a raw file extension through extension_map.

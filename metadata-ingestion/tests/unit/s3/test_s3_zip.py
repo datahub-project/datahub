@@ -194,6 +194,36 @@ class TestOpenZipEntry:
         assert file is None
         assert source.report.warnings
 
+    def test_entry_exceeding_size_limit_is_skipped(self, tmp_path, monkeypatch):
+        zip_path = tmp_path / "big.csv.zip"
+        zip_path.write_bytes(_make_zip({"data.csv": b"name,age\nAlice,30\n"}))
+
+        monkeypatch.setattr(
+            "datahub.ingestion.source.s3.source.MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES", 1
+        )
+        source = _make_local_source()
+        file, ext = source._open_zip_entry(
+            str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
+        )
+
+        assert file is None
+        assert source.report.warnings
+
+    def test_file_types_restricts_selected_entry(self, tmp_path):
+        zip_path = tmp_path / "data.zip"
+        zip_path.write_bytes(_make_zip({"data.csv": b"x,y\n1,2\n"}))
+
+        source = _make_local_source()
+        # Only JSON is accepted, so the CSV member must not be selected.
+        file, ext = source._open_zip_entry(
+            str(zip_path),
+            None,
+            PathSpec(include="s3://bucket/*.zip", file_types=["json"]),
+        )
+
+        assert file is None
+        assert source.report.warnings
+
 
 class TestGetFieldsZip:
     def _table_data(self, path: str) -> TableData:

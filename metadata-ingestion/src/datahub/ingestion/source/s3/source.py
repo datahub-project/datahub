@@ -55,7 +55,6 @@ from datahub.ingestion.source.data_lake_common.object_store import (
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
     SUPPORTED_COMPRESSIONS,
-    SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
 )
@@ -165,6 +164,11 @@ profiling_flags_to_report = [
 ]
 
 URI_SCHEME_REGEX = re.compile(r"^[a-z0-9]+://")
+
+# Upper bound on the uncompressed size of a single zip entry we will read into
+# memory for schema inference. A crafted archive can otherwise decompress a tiny
+# file into gigabytes and exhaust the ingestion process (zip bomb).
+MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES = 1 * 1024 * 1024 * 1024  # 1 GiB
 
 
 def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
@@ -397,7 +401,10 @@ class S3Source(StatefulIngestionSourceBase):
             return None, ""
 
         members = zf.namelist()
-        accepted = set(SUPPORTED_FILE_TYPES) | set(path_spec.extension_map.keys())
+        # Restrict candidate members to the inner types this path_spec accepts
+        # (file_types plus any custom-mapped extensions), so an archive holding
+        # several formats does not select one the user excluded.
+        accepted = set(path_spec.file_types) | set(path_spec.extension_map.keys())
         supported = [
             m for m in members if pathlib.Path(m).suffix.lstrip(".") in accepted
         ]
@@ -420,9 +427,19 @@ class S3Source(StatefulIngestionSourceBase):
 
         entry_name = supported[0]
         inner_extension = pathlib.Path(entry_name).suffix
-        entry_bytes = zf.read(entry_name)
-        zf.close()
-        zip_file.close()
+        try:
+            if zf.getinfo(entry_name).file_size > MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES:
+                self.report.report_warning(
+                    full_path,
+                    f"zip entry {entry_name} uncompressed size "
+                    f"{zf.getinfo(entry_name).file_size} exceeds the "
+                    f"{MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES} byte limit; skipping",
+                )
+                return None, ""
+            entry_bytes = zf.read(entry_name)
+        finally:
+            zf.close()
+            zip_file.close()
         return io.BytesIO(entry_bytes), inner_extension
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:

@@ -672,9 +672,29 @@ def test_validate_path_spec_zip_extension() -> None:
         "s3://bucket/{table}/*.avro.zip",
     ],
 )
-def test_validate_path_spec_zip_with_all_supported_inner_types(include: str) -> None:
+def test_validate_path_spec_zip_outer_extension_accepted(include: str) -> None:
+    # PathSpec validation only inspects the outer `.zip` extension against
+    # SUPPORTED_COMPRESSIONS; the inner type is not validated here (it is enforced
+    # when the archive is opened, in the s3/abs sources). So every inner type is
+    # accepted at construction as long as the outer extension is a supported
+    # compression.
     path_spec = PathSpec(include=include, enable_compression=True)
-    assert path_spec.include == include
+    assert path_spec.enable_compression is True
+
+
+def test_extension_map_normalizes_leading_dot_keys() -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.js", extension_map={".js": "json"}
+    )
+    # Keys are stored without the leading dot so resolve_extension and the zip
+    # entry filters (which strip dots from the suffix) match consistently.
+    assert path_spec.extension_map == {"js": "json"}
+    assert path_spec.resolve_extension(".js") == ".json"
+
+
+def test_extension_map_rejects_empty_key() -> None:
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.js", extension_map={".": "json"})
 
 
 # Tests for partition extraction
