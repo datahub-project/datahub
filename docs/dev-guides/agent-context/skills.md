@@ -189,4 +189,4 @@ For full installation options and manual setup, see the [datahub-skills reposito
 - Set up the [MCP Server](../../features/feature-guides/mcp.md) if you haven't already — skills need tools to work
 - Explore the [Agent Context Kit](./agent-context.md) for building custom agents with the Python SDK
 - Browse the [datahub-skills repo](https://github.com/datahub-project/datahub-skills) to see skill definitions and contribute new ones
-- Join the [DataHub community](https://datahub.com/slack/) — 14,000+ members building in the open
+- Join the [DataHub community](https://datahub.com/slack/) — 16,000+ members building in the open
