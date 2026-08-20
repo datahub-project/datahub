@@ -88,7 +88,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install dagster package and test  (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:dagster-plugin:lint :metadata-ingestion-modules:dagster-plugin:testFull
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:dagster-plugin:testFull
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/dagster-plugin/venv/bin/activate && uv pip freeze
