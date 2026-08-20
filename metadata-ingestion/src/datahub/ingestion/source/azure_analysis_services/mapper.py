@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.emitter import mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -197,10 +197,18 @@ class AasMapper:
         # upstream (M/Power Query) lineage written for the same entity.
         intra_model_fgl = self._intra_model_fgl_by_dataset(model, dataset_urn_by_table)
 
+        emitted_keys: Set[str] = set()
         for table in model.tables:
             if not self.config.table_pattern.allowed(table.name):
                 self.report.report_table_filtered(table.name)
                 continue
+            key = table.name.lower()
+            if key in emitted_keys:
+                # A case-collision duplicate was already emitted under the first
+                # table's URN (warned about during indexing above); re-emitting it
+                # would clobber that dataset's aspects with the duplicate's.
+                continue
+            emitted_keys.add(key)
             try:
                 yield from self._map_table(
                     model, table, model_key, dataset_urn_by_table, intra_model_fgl
@@ -320,23 +328,37 @@ class AasMapper:
                         viewLanguage=constants.VIEW_LANGUAGE_DAX,
                     )
             return None
-        # An import table can have several query partitions (e.g. incremental
-        # refresh); concatenate each partition's M so the stored view definition
-        # does not silently drop logic from partitions after the first.
-        partition_queries = [
-            partition.query_definition
-            for partition in table.partitions
-            if partition.query_definition
-        ]
-        if partition_queries:
+        view_logic = self._import_view_logic(table)
+        if view_logic is not None:
             return ViewPropertiesClass(
                 materialized=False,
-                viewLogic=constants.VIEW_LOGIC_PARTITION_SEPARATOR.join(
-                    partition_queries
-                ),
+                viewLogic=view_logic,
                 viewLanguage=constants.VIEW_LANGUAGE_M,
             )
         return None
+
+    @staticmethod
+    def _import_view_logic(table: AasTable) -> Optional[str]:
+        # An import table can have several query partitions (e.g. incremental
+        # refresh), each a complete M expression. A single partition is emitted
+        # as-is. Multiple partitions must not be concatenated — two `let ... in`
+        # blocks in a row is not valid M — so they are wrapped as fields of a
+        # single M record literal, which is one valid M expression that preserves
+        # every partition's logic.
+        partitions = [(p.name, p.query_definition) for p in table.partitions]
+        queries = [(name, q) for name, q in partitions if q]
+        if not queries:
+            return None
+        if len(queries) == 1:
+            return queries[0][1]
+        fields: List[str] = []
+        for idx, (name, query) in enumerate(queries):
+            field_name = name or f"{constants.PARTITION_FIELD_NAME_PREFIX}{idx + 1}"
+            # Quote the field with #"..." so arbitrary partition names are valid
+            # M identifiers; escape embedded quotes per M's "" convention.
+            escaped = field_name.replace('"', '""')
+            fields.append(f'    #"{escaped}" = (\n{query}\n    )')
+        return "[\n" + ",\n".join(fields) + "\n]"
 
     # Schema
 

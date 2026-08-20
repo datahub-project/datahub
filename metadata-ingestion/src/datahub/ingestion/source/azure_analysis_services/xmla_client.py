@@ -461,16 +461,29 @@ class XmlaClient:
             return []
 
         parsed: List[_RowT] = []
+        invalid_rows = 0
         for raw in raw_rows:
             try:
                 parsed.append(model_cls.model_validate(raw))
             except ValidationError as e:
+                invalid_rows += 1
                 self.report.warning(
                     title="Malformed DMV row",
                     message="Skipped a metadata row that failed validation.",
                     context=f"dmv={dmv}, catalog={catalog}",
                     exc=e,
                 )
+        if required and not parsed:
+            # A required structural DMV that yields no usable rows — whether it
+            # returned nothing or every row failed validation — must not produce
+            # an empty model: under stateful ingestion that soft-deletes the
+            # catalog's real tables. Fail the catalog instead (same outcome as a
+            # DMV query error above).
+            raise XmlaClientError(
+                f"Required DMV returned no valid rows "
+                f"(raw={len(raw_rows)}, invalid={invalid_rows}): "
+                f"dmv={dmv}, catalog={catalog}"
+            )
         return parsed
 
     def _build_columns(self, column_rows: List[AasColumnRow]) -> _ColumnBuild:

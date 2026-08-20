@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
@@ -88,7 +88,8 @@ class AasLineageExtractor:
         if not query_partitions:
             return result
 
-        seen_upstreams: set = set()
+        seen_upstreams: Set[str] = set()
+        seen_fine_grained: Set[Tuple[object, ...]] = set()
         for partition in query_partitions:
             partition_table = table.model_copy(update={"partitions": [partition]})
             for lineage in self._parse_table(partition_table):
@@ -103,9 +104,22 @@ class AasLineageExtractor:
                         )
                     )
                 if self.config.extract_column_level_lineage:
-                    result.fine_grained.extend(
-                        self._column_lineage(lineage.column_lineage, dataset_urn)
-                    )
+                    for fgl in self._column_lineage(
+                        lineage.column_lineage, dataset_urn
+                    ):
+                        # Different partitions of the same table often resolve the
+                        # same column edge; dedupe so identical FineGrained edges
+                        # are not emitted repeatedly (mirrors seen_upstreams).
+                        key = (
+                            fgl.downstreamType,
+                            tuple(fgl.downstreams or []),
+                            fgl.upstreamType,
+                            tuple(fgl.upstreams or []),
+                        )
+                        if key in seen_fine_grained:
+                            continue
+                        seen_fine_grained.add(key)
+                        result.fine_grained.append(fgl)
 
         if result.upstreams:
             self.report.tables_with_upstream_lineage += 1

@@ -210,6 +210,30 @@ def test_fetch_tabular_model_assembly(client: XmlaClient) -> None:
     assert model.definition == "{}"
 
 
+def test_fetch_rows_required_all_invalid_raises(client: XmlaClient) -> None:
+    # A required structural DMV that returns rows which all fail validation must
+    # fail the catalog, not silently return []. Returning [] would let the mapper
+    # emit an empty model and stateful ingestion would soft-delete real tables.
+    client._query_dmv = lambda dmv, catalog=None: [{"garbage": "x"}]  # type: ignore[method-assign,assignment]
+    with pytest.raises(XmlaClientError, match="no valid rows"):
+        client._fetch_rows(constants.DMV_TABLES, AasTableRow, "cat", required=True)
+
+
+def test_fetch_rows_required_empty_raises(client: XmlaClient) -> None:
+    client._query_dmv = lambda dmv, catalog=None: []  # type: ignore[method-assign,assignment]
+    with pytest.raises(XmlaClientError, match="no valid rows"):
+        client._fetch_rows(constants.DMV_TABLES, AasTableRow, "cat", required=True)
+
+
+def test_fetch_rows_optional_all_invalid_returns_empty(client: XmlaClient) -> None:
+    # An optional DMV degrades to a warning and an empty list — ingestion
+    # continues with partial metadata rather than failing.
+    client._query_dmv = lambda dmv, catalog=None: [{"garbage": "x"}]  # type: ignore[method-assign,assignment]
+    rows = client._fetch_rows(constants.DMV_TABLES, AasTableRow, "cat")
+    assert rows == []
+    assert client.report.warnings
+
+
 # --- Endpoint resolution --------------------------------------------------
 
 

@@ -103,6 +103,66 @@ def test_view_properties_language() -> None:
     assert calc_vp.viewLanguage == "DAX"
 
 
+def test_view_properties_multiple_partitions_valid_m() -> None:
+    mapper = _mapper()
+    table = AasTable(
+        name="Sales",
+        partitions=[
+            AasPartition(name="2023", query_definition="let Source = 2023 in Source"),
+            AasPartition(name="2024", query_definition="let Source = 2024 in Source"),
+        ],
+    )
+    vp = mapper._table_view_properties(table)
+    assert isinstance(vp, ViewPropertiesClass)
+    assert vp.viewLanguage == "M"
+    # Both partition definitions must be preserved (no logic dropped)...
+    assert "let Source = 2023 in Source" in vp.viewLogic
+    assert "let Source = 2024 in Source" in vp.viewLogic
+    # ...wrapped as a single valid M record literal, not two concatenated
+    # `let ... in` blocks (which is not valid M).
+    assert vp.viewLogic.startswith("[")
+    assert vp.viewLogic.rstrip().endswith("]")
+    assert '#"2023"' in vp.viewLogic
+    assert '#"2024"' in vp.viewLogic
+
+
+def test_view_properties_single_partition_emitted_as_is() -> None:
+    mapper = _mapper()
+    table = AasTable(
+        name="Sales",
+        partitions=[
+            AasPartition(name="p", query_definition="let Source = 1 in Source")
+        ],
+    )
+    vp = mapper._table_view_properties(table)
+    assert isinstance(vp, ViewPropertiesClass)
+    # A single partition is not record-wrapped — its M is stored verbatim.
+    assert vp.viewLogic == "let Source = 1 in Source"
+
+
+def test_map_model_skips_case_duplicate_and_filtered_tables() -> None:
+    mapper = _mapper(table_pattern={"deny": ["Ignored"]})
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Sales Model",
+        tables=[
+            AasTable(name="Sales"),
+            # Collides case-insensitively with "Sales" — must not be re-emitted.
+            AasTable(name="SALES"),
+            # Filtered out by table_pattern — must not be emitted at all.
+            AasTable(name="Ignored"),
+        ],
+    )
+    urns = [wu.get_urn() for wu in mapper.map_model(model)]
+    sales_urn = mapper._table_dataset_urn("SalesModel", "Sales")
+    ignored_urn = mapper._table_dataset_urn("SalesModel", "Ignored")
+    # The case-collision is emitted exactly once, under the first table's URN.
+    dataset_urns = [u for u in urns if u == sales_urn]
+    assert dataset_urns, urns
+    assert ignored_urn not in urns
+    assert list(mapper.report.filtered_tables) == ["Ignored"]
+
+
 def test_powerbi_urn_alignment() -> None:
     aas_mapper = _mapper()
     assert (

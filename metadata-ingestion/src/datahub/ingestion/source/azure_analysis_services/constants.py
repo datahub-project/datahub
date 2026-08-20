@@ -164,8 +164,9 @@ NATIVE_TYPE_CALCULATED_COLUMN = "calculated_column"
 
 VIEW_LANGUAGE_M = "M"
 VIEW_LANGUAGE_DAX = "DAX"
-# Separates the M of multiple query partitions in a single stored view definition.
-VIEW_LOGIC_PARTITION_SEPARATOR = "\n\n// --- next partition ---\n\n"
+# Fallback field name for an unnamed query partition when multiple partitions are
+# wrapped into a single M record literal for the stored view definition.
+PARTITION_FIELD_NAME_PREFIX = "Partition"
 VIEW_LANGUAGE_TMSL = "TMSL"
 
 # customProperties keys.
