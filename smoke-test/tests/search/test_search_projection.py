@@ -7,8 +7,8 @@ import pytest
 from datahub.cli.search_cli import _build_search_query
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import DatasetPropertiesClass
-from tests.utils import unique_dataset_urn, wait_for_writes_to_sync, with_test_retry
 from tests.utilities.domains import Domain
+from tests.utils import unique_dataset_urn, wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
 
