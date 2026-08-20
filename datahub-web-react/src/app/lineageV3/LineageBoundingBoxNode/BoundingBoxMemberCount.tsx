@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { CONTAINER_MEMBER_PAGE_SIZE, LineageNodesContext } from '@app/lineageV3/common';
+import { BOUNDING_BOX_MEMBER_PAGE_SIZE, LineageNodesContext } from '@app/lineageV3/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 
 import { useGetDataProductEntitiesForLineageQuery } from '@graphql/dataProduct.generated';
@@ -46,10 +46,10 @@ interface Props {
 }
 
 /**
- * Member counter shown on the right of a container bounding box header (DataProduct or
- * SemanticModel). The home container shows "x / y entities shown" with a "Show more" control
- * that pages in more members; other containers show how many of their assets are connected to
- * the home container, and are not paginated.
+ * Member counter shown on the right of a bounding-box header (DataProduct or
+ * SemanticModel). The home box shows "x / y entities shown" with a "Show more" control
+ * that pages in more members; other boxes show how many of their assets are connected to
+ * the home box, and are not paginated.
  */
 export default function BoundingBoxMemberCount(props: Props) {
     const { rootType } = useContext(LineageNodesContext);
@@ -84,13 +84,13 @@ function SemanticModelBoundingBoxMemberCount({ urn, memberCount }: Props) {
 
 function BoundingBoxMemberCountView({ urn, memberCount, total }: Props & { total: number | undefined }) {
     const { t } = useTranslation('lineage');
-    const { rootUrn, nodes, containerEntities, setDisplayVersion } = useContext(LineageNodesContext);
+    const { rootUrn, nodes, boundingBoxEntities, setDisplayVersion } = useContext(LineageNodesContext);
 
     if (total === undefined) return null;
 
     if (urn === rootUrn) {
         const node = nodes.get(urn);
-        const limit = node?.boundingBoxLimit ?? CONTAINER_MEMBER_PAGE_SIZE;
+        const limit = node?.boundingBoxLimit ?? BOUNDING_BOX_MEMBER_PAGE_SIZE;
         // "Shown" tracks pagination progress, not raw displayed nodes (which include sibling copies
         // and so can exceed the container's entity count).
         const shown = Math.min(limit, total);
@@ -103,12 +103,12 @@ function BoundingBoxMemberCountView({ urn, memberCount, total }: Props & { total
                             if (!node) return;
                             // Mutate + bump displayVersion, as in the lineage filter ShowMoreButton; this
                             // both re-seeds the graph and lets the fetch hook page in more members.
-                            node.boundingBoxLimit = limit + CONTAINER_MEMBER_PAGE_SIZE;
+                            node.boundingBoxLimit = limit + BOUNDING_BOX_MEMBER_PAGE_SIZE;
                             setDisplayVersion(([version, urns]) => [version + 1, urns]);
                         }}
                         data-testid="container-show-more"
                     >
-                        {t('dataProduct.showMore', { count: CONTAINER_MEMBER_PAGE_SIZE })}
+                        {t('dataProduct.showMore', { count: BOUNDING_BOX_MEMBER_PAGE_SIZE })}
                     </ShowMoreButton>
                 )}
             </StackedWrapper>
@@ -116,7 +116,7 @@ function BoundingBoxMemberCountView({ urn, memberCount, total }: Props & { total
     }
 
     const shown = Math.min(memberCount, total);
-    const homeName = nodes.get(rootUrn)?.entity?.name ?? containerEntities.get(rootUrn)?.name ?? rootUrn;
+    const homeName = nodes.get(rootUrn)?.entity?.name ?? boundingBoxEntities.get(rootUrn)?.name ?? rootUrn;
     return (
         <Wrapper>
             <span>{t('dataProduct.assetCount', { shown, total })}</span>

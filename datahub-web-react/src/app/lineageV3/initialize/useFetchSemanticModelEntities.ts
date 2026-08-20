@@ -1,25 +1,28 @@
 import { useContext } from 'react';
 
-import { CONTAINER_MEMBER_PAGE_SIZE, LineageNodesContext, setDefault } from '@app/lineageV3/common';
-import { createContainerMemberNode, useContainerMemberPagination } from '@app/lineageV3/initialize/initialize.utils';
+import { BOUNDING_BOX_MEMBER_PAGE_SIZE, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import {
+    createBoundingBoxMemberNode,
+    useBoundingBoxMemberPagination,
+} from '@app/lineageV3/initialize/initialize.utils';
 
 import { useGetSemanticModelEntitiesForLineageQuery } from '@graphql/semanticModel.generated';
 
 /**
  * Fetches the entities belonging to a SemanticModel (logical datasets + metrics) and
- * registers them as lineage nodes, in pages of `CONTAINER_MEMBER_PAGE_SIZE`. Marks
- * each member with `containers: [{ urn: rootUrn }]` so the shared bounding-box compute
- * path (computeLineageContainerGraph) groups them inside the home SemanticModel box.
+ * registers them as lineage nodes, in pages of `BOUNDING_BOX_MEMBER_PAGE_SIZE`. Marks
+ * each member with `boundingBoxes: [{ urn: rootUrn }]` so the shared bounding-box compute
+ * path (computeBoundingBoxGraph) groups them inside the home SemanticModel box.
  */
 export default function useFetchSemanticModelEntities(): boolean {
-    const { rootUrn, nodes, containerEntities, setNodeVersion } = useContext(LineageNodesContext);
-    const { start, setTotal, initialized, setInitialized } = useContainerMemberPagination(rootUrn, nodes);
+    const { rootUrn, nodes, boundingBoxEntities, setNodeVersion } = useContext(LineageNodesContext);
+    const { start, setTotal, initialized, setInitialized } = useBoundingBoxMemberPagination(rootUrn, nodes);
 
     useGetSemanticModelEntitiesForLineageQuery({
         variables: {
             urn: rootUrn,
             start,
-            count: CONTAINER_MEMBER_PAGE_SIZE,
+            count: BOUNDING_BOX_MEMBER_PAGE_SIZE,
         },
         onCompleted: (data) => {
             let addedNode = false;
@@ -28,10 +31,10 @@ export default function useFetchSemanticModelEntities(): boolean {
             entities?.searchResults?.forEach((result) => {
                 if (!result?.entity) return;
                 addedNode = addedNode || !nodes.has(result.entity.urn);
-                const node = setDefault(nodes, result.entity.urn, createContainerMemberNode(result.entity, rootUrn));
+                const node = setDefault(nodes, result.entity.urn, createBoundingBoxMemberNode(result.entity, rootUrn));
                 // Ensure home-membership is recorded even if the node was created earlier.
-                if (!node.containers?.some((c) => c.urn === rootUrn)) {
-                    node.containers = [{ urn: rootUrn, isOutputPort: false }, ...(node.containers ?? [])];
+                if (!node.boundingBoxes?.some((c) => c.urn === rootUrn)) {
+                    node.boundingBoxes = [{ urn: rootUrn, isOutputPort: false }, ...(node.boundingBoxes ?? [])];
                 }
             });
 
@@ -46,8 +49,8 @@ export default function useFetchSemanticModelEntities(): boolean {
                     icon: data.semanticModel.platform?.properties?.logoUrl || undefined,
                     platform: data.semanticModel.platform ?? undefined,
                 };
-                if (!containerEntities.has(rootUrn)) {
-                    containerEntities.set(rootUrn, displayEntity);
+                if (!boundingBoxEntities.has(rootUrn)) {
+                    boundingBoxEntities.set(rootUrn, displayEntity);
                 }
                 const rootNode = nodes.get(rootUrn);
                 if (rootNode && !rootNode.entity) {

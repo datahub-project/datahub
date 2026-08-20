@@ -4,11 +4,11 @@ import { Edge } from 'reactflow';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import { LineageFilter, LineageNodesContext, NodeContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
+import computeBoundingBoxGraph from '@app/lineageV3/useComputeGraph/boundingBoxes/computeBoundingBoxGraph';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
-import computeLineageContainerGraph from '@app/lineageV3/useComputeGraph/lineageContainer/computeLineageContainerGraph';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { EntityType } from '@types';
@@ -49,7 +49,7 @@ export default function useComputeGraph(): ProcessedData {
         showDataProcessInstances,
         showGhostEntities,
         outputPortsOnly,
-        containerEntities,
+        boundingBoxEntities,
     } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
     const { isModuleView } = useContext(LineageGraphContext);
@@ -82,7 +82,7 @@ export default function useComputeGraph(): ProcessedData {
                 showDataProcessInstances,
                 showGhostEntities,
                 outputPortsOnly,
-                containerEntities,
+                boundingBoxEntities,
             };
 
             if (rootType === EntityType.DataFlow) {
@@ -101,7 +101,7 @@ export default function useComputeGraph(): ProcessedData {
             }
 
             if (rootType === EntityType.DataProduct || rootType === EntityType.SemanticModel) {
-                const result = computeLineageContainerGraph(
+                const result = computeBoundingBoxGraph(
                     rootUrn,
                     context,
                     ignoreSchemaFieldStatus,

@@ -15,31 +15,31 @@ import {
     isTransformational,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
-import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
-import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 import {
+    BoundingBoxGroup,
     BoxLayout,
     GraphStore,
-    LineageContainerGroup,
-} from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
-import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.utils';
+} from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
+import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
+import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
+import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 
 import { LineageDirection } from '@types';
 
-// Vertical gap between separate connected components within a container bounding box: one node
+// Vertical gap between separate connected components within a bounding box: one node
 // height (to clear the component above) plus a small gap.
 const COMPONENT_SEPARATION = 24 + LINEAGE_NODE_HEIGHT;
 
 /**
- * Lays out the displayed members of one lineage container via NodeBuilder, as in the standard
- * impact-analysis view but with layers computed from intra-container topology (members lack a
+ * Lays out the displayed members of one bounding box via NodeBuilder, as in the standard
+ * impact-analysis view but with layers computed from intra-box topology (members lack a
  * shared home node).
  * Members with revealed lineage to each other are placed horizontally; disconnected components are
  * stacked vertically.
  * Returns member nodes positioned relative to the resulting bounding box, and the box's dimensions.
  */
-export default function layoutLineageContainerInterior(
-    group: LineageContainerGroup,
+export default function layoutBoundingBoxInterior(
+    group: BoundingBoxGroup,
     graphStore: GraphStore,
     ignoreSchemaFieldStatus: boolean,
 ): BoxLayout | undefined {
@@ -67,7 +67,7 @@ export default function layoutLineageContainerInterior(
                 [LineageDirection.Upstream, offset],
                 [LineageDirection.Downstream, offset],
             ]);
-            // A member's `direction` is relative to the home container and would mirror
+            // A member's `direction` is relative to the home box and would mirror
             // NodeBuilder's layering for upstream boxes (children placed left of their parents).
             // The interior layout is purely topological, left to right, so lay out direction-less
             // copies; the original direction is restored on the rendered member data below.

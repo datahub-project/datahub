@@ -26,7 +26,7 @@ export default function LineageExplorer(props: Props) {
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     });
-    const [containerEntities] = useState(new Map<string, FetchedEntityV2>());
+    const [boundingBoxEntities] = useState(new Map<string, FetchedEntityV2>());
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
@@ -44,7 +44,7 @@ export default function LineageExplorer(props: Props) {
         nodes,
         edges,
         adjacencyList,
-        containerEntities,
+        boundingBoxEntities,
         nodeVersion,
         setNodeVersion,
         dataVersion,

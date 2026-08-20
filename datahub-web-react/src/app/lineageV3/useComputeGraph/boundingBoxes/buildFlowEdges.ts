@@ -11,8 +11,8 @@ import {
     parseEdgeId,
 } from '@app/lineageV3/common';
 import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
-import { GraphStore } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
-import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.utils';
+import { GraphStore } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
+import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 
 import { LineageDirection } from '@types';
 
@@ -21,13 +21,13 @@ type Urn = string;
 interface EdgeEndpoint {
     id: string;
     urn: Urn;
-    container?: Urn;
+    boundingBoxUrn?: Urn;
 }
 
 /**
  * Creates all flow edges: the graph store's entity-level edges between displayed nodes, plus an
  * edge attaching each lineage filter node to its parent. Member endpoints map to all of their
- * displayed nodes (an entity in multiple containers has one node per container), and edges
+ * displayed nodes (an entity in multiple bounding boxes has one node per box), and edges
  * through displayed query nodes are split into two segments, as in NodeBuilder.createEdges.
  */
 export default function buildFlowEdges(
@@ -39,12 +39,12 @@ export default function buildFlowEdges(
     const flowEdges = new Map<string, Edge<LineageEdgeData>>();
 
     const endpointsFor = (urn: Urn): EdgeEndpoint[] => {
-        const containers = displayedMembership.get(urn);
-        if (containers) {
-            return containers.map((container) => ({
-                id: createMemberNodeId(container, urn),
+        const boxUrns = displayedMembership.get(urn);
+        if (boxUrns) {
+            return boxUrns.map((boundingBoxUrn) => ({
+                id: createMemberNodeId(boundingBoxUrn, urn),
                 urn,
-                container,
+                boundingBoxUrn,
             }));
         }
         if (displayedFreeIds.has(urn)) return [{ id: urn, urn }];

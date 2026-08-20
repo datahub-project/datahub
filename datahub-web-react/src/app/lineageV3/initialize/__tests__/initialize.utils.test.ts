@@ -1,8 +1,11 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it } from 'vitest';
 
-import { CONTAINER_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
-import { createContainerMemberNode, useContainerMemberPagination } from '@app/lineageV3/initialize/initialize.utils';
+import { BOUNDING_BOX_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
+import {
+    createBoundingBoxMemberNode,
+    useBoundingBoxMemberPagination,
+} from '@app/lineageV3/initialize/initialize.utils';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -21,55 +24,55 @@ function makeNodes(rootUrn: string, boundingBoxLimit?: number): NodeContext['nod
     return nodes;
 }
 
-describe('useContainerMemberPagination', () => {
+describe('useBoundingBoxMemberPagination', () => {
     it('starts at zero and is not initialized', () => {
-        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, makeNodes(ROOT_URN)));
+        const { result } = renderHook(() => useBoundingBoxMemberPagination(ROOT_URN, makeNodes(ROOT_URN)));
 
         expect(result.current.start).toBe(0);
         expect(result.current.initialized).toBe(false);
     });
 
     it('advances start by page size until target is reached', () => {
-        const nodes = makeNodes(ROOT_URN, CONTAINER_MEMBER_PAGE_SIZE * 3);
-        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, nodes));
+        const nodes = makeNodes(ROOT_URN, BOUNDING_BOX_MEMBER_PAGE_SIZE * 3);
+        const { result } = renderHook(() => useBoundingBoxMemberPagination(ROOT_URN, nodes));
 
         act(() => {
-            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE * 3);
+            result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE * 3);
         });
 
-        expect(result.current.start).toBe(CONTAINER_MEMBER_PAGE_SIZE * 2);
+        expect(result.current.start).toBe(BOUNDING_BOX_MEMBER_PAGE_SIZE * 2);
     });
 
     it('does not advance start when total fits in one page', () => {
-        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, makeNodes(ROOT_URN)));
+        const { result } = renderHook(() => useBoundingBoxMemberPagination(ROOT_URN, makeNodes(ROOT_URN)));
 
         act(() => {
-            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE - 10);
+            result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE - 10);
         });
 
         expect(result.current.start).toBe(0);
     });
 
     it('caps paging at boundingBoxLimit when total is larger', () => {
-        const limit = CONTAINER_MEMBER_PAGE_SIZE + 25;
+        const limit = BOUNDING_BOX_MEMBER_PAGE_SIZE + 25;
         const nodes = makeNodes(ROOT_URN, limit);
-        const { result } = renderHook(() => useContainerMemberPagination(ROOT_URN, nodes));
+        const { result } = renderHook(() => useBoundingBoxMemberPagination(ROOT_URN, nodes));
 
         act(() => {
-            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE * 5);
+            result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE * 5);
         });
 
-        expect(result.current.start).toBe(CONTAINER_MEMBER_PAGE_SIZE);
+        expect(result.current.start).toBe(BOUNDING_BOX_MEMBER_PAGE_SIZE);
     });
 
     it('resets start and initialized when rootUrn changes', () => {
         const { result, rerender } = renderHook(
-            ({ rootUrn }) => useContainerMemberPagination(rootUrn, makeNodes(rootUrn)),
+            ({ rootUrn }) => useBoundingBoxMemberPagination(rootUrn, makeNodes(rootUrn)),
             { initialProps: { rootUrn: ROOT_URN } },
         );
 
         act(() => {
-            result.current.setTotal(CONTAINER_MEMBER_PAGE_SIZE * 3);
+            result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE * 3);
             result.current.setInitialized(true);
         });
 
@@ -80,23 +83,23 @@ describe('useContainerMemberPagination', () => {
     });
 });
 
-describe('createContainerMemberNode', () => {
+describe('createBoundingBoxMemberNode', () => {
     const entity = { urn: MEMBER_URN, type: EntityType.Dataset };
 
-    it('attaches root container membership when rootContainerUrn is provided', () => {
-        const node = createContainerMemberNode(entity, ROOT_URN);
+    it('attaches root bounding-box membership when rootBoundingBoxUrn is provided', () => {
+        const node = createBoundingBoxMemberNode(entity, ROOT_URN);
 
-        expect(node.containers).toEqual([{ urn: ROOT_URN, isOutputPort: false }]);
+        expect(node.boundingBoxes).toEqual([{ urn: ROOT_URN, isOutputPort: false }]);
     });
 
-    it('leaves containers undefined without a root container urn', () => {
-        const node = createContainerMemberNode(entity);
+    it('leaves boundingBoxes undefined without a root bounding-box urn', () => {
+        const node = createBoundingBoxMemberNode(entity);
 
-        expect(node.containers).toBeUndefined();
+        expect(node.boundingBoxes).toBeUndefined();
     });
 
     it('marks member nodes as fully expanded with complete fetch status and empty filters', () => {
-        const node = createContainerMemberNode(entity, ROOT_URN);
+        const node = createBoundingBoxMemberNode(entity, ROOT_URN);
 
         expect(node.id).toBe(MEMBER_URN);
         expect(node.urn).toBe(MEMBER_URN);

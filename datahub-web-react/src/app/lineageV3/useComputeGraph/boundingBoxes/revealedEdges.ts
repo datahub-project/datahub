@@ -1,5 +1,5 @@
 import { NodeContext, addToAdjacencyList, isTransformational, parseEdgeId, setDefault } from '@app/lineageV3/common';
-import { GraphStore } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
+import { GraphStore } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
 
 import { LineageDirection } from '@types';
 

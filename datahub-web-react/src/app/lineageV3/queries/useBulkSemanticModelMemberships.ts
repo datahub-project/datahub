@@ -5,8 +5,8 @@ import { LineageNodesContext } from '@app/lineageV3/common';
 import { EntityType } from '@types';
 
 /**
- * For the SemanticModel lineage graph, marks every node whose container membership is
- * still unknown with an empty `containers` array so the shared bounding-box compute
+ * For the SemanticModel lineage graph, marks every node whose bounding-box membership is
+ * still unknown with an empty `boundingBoxes` array so the shared bounding-box compute
  * path can render it as a free (non-boxed) node. Home members already have membership
  * set by `useFetchSemanticModelEntities`.
  *
@@ -21,10 +21,10 @@ export default function useBulkSemanticModelMemberships() {
         if (skip) return;
         let changed = false;
         nodes.forEach((node) => {
-            if (node.containers === undefined && node.type !== EntityType.Query) {
+            if (node.boundingBoxes === undefined && node.type !== EntityType.Query) {
                 // Mutate in place — matches useBulkDataProductMemberships.
                 // eslint-disable-next-line no-param-reassign
-                node.containers = [];
+                node.boundingBoxes = [];
                 changed = true;
             }
         });

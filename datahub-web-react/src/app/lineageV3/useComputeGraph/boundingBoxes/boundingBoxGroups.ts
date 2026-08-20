@@ -1,6 +1,6 @@
 import { LineageEntity, NodeContext, setDefault } from '@app/lineageV3/common';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
-import { LineageContainerGroup } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.types';
+import { BoundingBoxGroup } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
 
 import { EntityType } from '@types';
 
@@ -10,21 +10,21 @@ const colorOf = (entity?: FetchedEntityV2): string | undefined =>
     entity?.genericEntityProperties?.domain?.domain?.displayProperties?.colorHex ?? undefined;
 
 /**
- * Groups displayed entities by the lineage containers they belong to (DataProduct or SemanticModel),
- * using the membership on each entity's `containers` field (fetched by
- * `useBulkDataProductMemberships` / `useFetchSemanticModelEntities`). Each container's display
- * entity comes from `containerEntities`; the home container's comes from its own fetched node.
+ * Groups displayed entities by the bounding boxes they belong to (DataProduct or SemanticModel),
+ * using the membership on each entity's `boundingBoxes` field (fetched by
+ * `useBulkDataProductMemberships` / `useFetchSemanticModelEntities`). Each box's display
+ * entity comes from `boundingBoxEntities`; the home box's comes from its own fetched node.
  */
-export function collectLineageContainerGroups(
+export function collectBoundingBoxGroups(
     rootUrn: Urn,
     rootType: EntityType,
     allNodes: NodeContext['nodes'],
     displayedNodes: Map<Urn, LineageEntity>,
-    containerEntities: Map<Urn, FetchedEntityV2>,
-): Map<Urn, LineageContainerGroup> {
-    const groups = new Map<Urn, LineageContainerGroup>();
+    boundingBoxEntities: Map<Urn, FetchedEntityV2>,
+): Map<Urn, BoundingBoxGroup> {
+    const groups = new Map<Urn, BoundingBoxGroup>();
 
-    const rootEntity = allNodes.get(rootUrn)?.entity ?? containerEntities.get(rootUrn);
+    const rootEntity = allNodes.get(rootUrn)?.entity ?? boundingBoxEntities.get(rootUrn);
     groups.set(rootUrn, {
         urn: rootUrn,
         type: rootType,
@@ -34,15 +34,15 @@ export function collectLineageContainerGroups(
     });
 
     displayedNodes.forEach((node) => {
-        node.containers?.forEach(({ urn }) => {
+        node.boundingBoxes?.forEach(({ urn }) => {
             const group = setDefault(groups, urn, {
                 urn,
-                type: urn === rootUrn ? rootType : (containerEntities.get(urn)?.type ?? EntityType.DataProduct),
+                type: urn === rootUrn ? rootType : (boundingBoxEntities.get(urn)?.type ?? EntityType.DataProduct),
                 memberUrns: new Set<Urn>(),
             });
             group.memberUrns.add(node.urn);
             if (!group.entity && urn !== rootUrn) {
-                group.entity = containerEntities.get(urn);
+                group.entity = boundingBoxEntities.get(urn);
                 group.colorHex = colorOf(group.entity);
                 if (group.entity?.type) group.type = group.entity.type;
             }
@@ -52,8 +52,8 @@ export function collectLineageContainerGroups(
     return groups;
 }
 
-/** Inverts container groups into a map of each member entity to its containers. */
-export function computeMembership(groups: Map<Urn, LineageContainerGroup>): Map<Urn, Urn[]> {
+/** Inverts bounding-box groups into a map of each member entity to its boxes. */
+export function computeMembership(groups: Map<Urn, BoundingBoxGroup>): Map<Urn, Urn[]> {
     const membership = new Map<Urn, Urn[]>();
     groups.forEach((group) => {
         group.memberUrns.forEach((memberUrn) => setDefault(membership, memberUrn, []).push(group.urn));

@@ -15,7 +15,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import useRefetchLineage from '@app/lineageV3/queries/useRefetchLineage';
-import { getMemberContainerUrn } from '@app/lineageV3/useComputeGraph/lineageContainer/lineageContainer.utils';
+import { getMemberBoundingBoxUrn } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 
 import { LineageDirection } from '@types';
 
@@ -24,11 +24,11 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, containers } = data;
-    // Members render one node per container; the box's urn is encoded in the (qualified) node id.
-    // Resolve the boolean here (rather than passing `containers`) to avoid re-memoizing NodeContents.
-    const parentContainer = getMemberContainerUrn(id);
-    const isOutputPort = !!containers?.find((container) => container.urn === parentContainer)?.isOutputPort;
+    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, boundingBoxes } = data;
+    // Members render one node per bounding box; the box's urn is encoded in the (qualified) node id.
+    // Resolve the boolean here (rather than passing `boundingBoxes`) to avoid re-memoizing NodeContents.
+    const parentBoundingBoxUrn = getMemberBoundingBoxUrn(id);
+    const isOutputPort = !!boundingBoxes?.find((box) => box.urn === parentBoundingBoxUrn)?.isOutputPort;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn, rootType, nodes, adjacencyList, collapseColumnsVersion } = useContext(LineageNodesContext);
     const {

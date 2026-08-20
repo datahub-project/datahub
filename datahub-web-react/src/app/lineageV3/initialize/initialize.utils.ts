@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 
-import { CONTAINER_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
+import { BOUNDING_BOX_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
 
 import { Entity, LineageDirection } from '@types';
 
-export function useContainerMemberPagination(rootUrn: string, nodes: NodeContext['nodes']) {
+export function useBoundingBoxMemberPagination(rootUrn: string, nodes: NodeContext['nodes']) {
     const [start, setStart] = useState(0);
     const [total, setTotal] = useState<number | undefined>(undefined);
     const [initialized, setInitialized] = useState(false);
-    const limit = nodes.get(rootUrn)?.boundingBoxLimit ?? CONTAINER_MEMBER_PAGE_SIZE;
+    const limit = nodes.get(rootUrn)?.boundingBoxLimit ?? BOUNDING_BOX_MEMBER_PAGE_SIZE;
 
     useEffect(() => {
         setStart(0);
@@ -18,8 +18,8 @@ export function useContainerMemberPagination(rootUrn: string, nodes: NodeContext
 
     const target = Math.min(limit, total ?? limit);
     useEffect(() => {
-        if (start + CONTAINER_MEMBER_PAGE_SIZE < target) {
-            setStart((prev) => prev + CONTAINER_MEMBER_PAGE_SIZE);
+        if (start + BOUNDING_BOX_MEMBER_PAGE_SIZE < target) {
+            setStart((prev) => prev + BOUNDING_BOX_MEMBER_PAGE_SIZE);
         }
     }, [start, target]);
 
@@ -31,12 +31,12 @@ export function useContainerMemberPagination(rootUrn: string, nodes: NodeContext
     };
 }
 
-export function createContainerMemberNode({ urn, type }: Entity, rootContainerUrn?: string): LineageEntity {
+export function createBoundingBoxMemberNode({ urn, type }: Entity, rootBoundingBoxUrn?: string): LineageEntity {
     return {
         id: urn,
         urn,
         type,
-        containers: rootContainerUrn ? [{ urn: rootContainerUrn, isOutputPort: false }] : undefined,
+        boundingBoxes: rootBoundingBoxUrn ? [{ urn: rootBoundingBoxUrn, isOutputPort: false }] : undefined,
         isExpanded: {
             [LineageDirection.Upstream]: true,
             [LineageDirection.Downstream]: true,

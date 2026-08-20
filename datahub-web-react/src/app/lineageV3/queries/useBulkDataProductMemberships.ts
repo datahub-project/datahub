@@ -14,12 +14,12 @@ type DataProductResult =
 
 /**
  * Fetches the data products containing each node in the graph, in batches. Stores minimal membership
- * (`node.containers`) on each node and the data products' display entities in
- * `containerEntities`, for the bounding boxes. Only active for the data product lineage graph,
+ * (`node.boundingBoxes`) on each node and the data products' display entities in
+ * `boundingBoxEntities`, for the bounding boxes. Only active for the data product lineage graph,
  * where membership determines how a node is rendered; nodes are not displayed until it is known.
  */
 export default function useBulkDataProductMemberships() {
-    const { rootUrn, rootType, nodes, containerEntities, nodeVersion, dataVersion, setDataVersion } =
+    const { rootUrn, rootType, nodes, boundingBoxEntities, nodeVersion, dataVersion, setDataVersion } =
         useContext(LineageNodesContext);
     const skip = rootType !== EntityType.DataProduct;
 
@@ -29,7 +29,7 @@ export default function useBulkDataProductMemberships() {
         setUrnsToFetch((oldUrnsToFetch) => {
             const newUrnsToFetch = Array.from(nodes.values())
                 // Query nodes cannot be in data products
-                .filter((node) => node.containers === undefined && node.type !== EntityType.Query)
+                .filter((node) => node.boundingBoxes === undefined && node.type !== EntityType.Query)
                 .map((node) => node.urn)
                 .slice(0, BATCH_SIZE);
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
@@ -47,21 +47,21 @@ export default function useBulkDataProductMemberships() {
             let changed = false;
             data?.bulkEntityDataProducts?.entities?.forEach((result) => {
                 const node = nodes.get(result.urn);
-                if (node && node.containers === undefined) {
-                    node.containers = result.dataProductAssociations.map((association) => ({
+                if (node && node.boundingBoxes === undefined) {
+                    node.boundingBoxes = result.dataProductAssociations.map((association) => ({
                         urn: association.dataProduct.urn,
                         isOutputPort: association.isOutputPort,
                     }));
                     // Store each data product's display entity once, for its bounding box.
                     result.dataProductAssociations.forEach(({ dataProduct }) => {
-                        if (!containerEntities.has(dataProduct.urn)) {
+                        if (!boundingBoxEntities.has(dataProduct.urn)) {
                             const entity = makeDataProductEntity(dataProduct);
-                            if (entity) containerEntities.set(dataProduct.urn, entity);
+                            if (entity) boundingBoxEntities.set(dataProduct.urn, entity);
                         }
                     });
                     // Members of the home data product — directly or via a sibling — are shown
                     // expanded, so their lineage renders without a manual expand.
-                    if (node.containers.some((container) => container.urn === rootUrn)) {
+                    if (node.boundingBoxes.some((box) => box.urn === rootUrn)) {
                         node.isExpanded = {
                             [LineageDirection.Upstream]: true,
                             [LineageDirection.Downstream]: true,

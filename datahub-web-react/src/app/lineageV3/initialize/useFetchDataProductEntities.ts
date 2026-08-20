@@ -1,13 +1,16 @@
 import { useContext } from 'react';
 
-import { CONTAINER_MEMBER_PAGE_SIZE, LineageNodesContext, setDefault } from '@app/lineageV3/common';
-import { createContainerMemberNode, useContainerMemberPagination } from '@app/lineageV3/initialize/initialize.utils';
+import { BOUNDING_BOX_MEMBER_PAGE_SIZE, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import {
+    createBoundingBoxMemberNode,
+    useBoundingBoxMemberPagination,
+} from '@app/lineageV3/initialize/initialize.utils';
 
 import { useGetDataProductEntitiesForLineageQuery } from '@graphql/dataProduct.generated';
 
 /**
  * Fetches the entities belonging to a DataProduct and registers them as lineage nodes, in pages of
- * `CONTAINER_MEMBER_PAGE_SIZE`. Only fetches up to the home box's `boundingBoxLimit`, which the
+ * `BOUNDING_BOX_MEMBER_PAGE_SIZE`. Only fetches up to the home box's `boundingBoxLimit`, which the
  * "Show more" control raises a page at a time — so large data products aren't loaded eagerly. Each
  * entity node is initialised as expanded and fetched: their first-hop lineage is loaded by
  * `useBulkEntityLineage` (via the upstream/downstream fields in entityLineageV2), so no separate
@@ -15,13 +18,13 @@ import { useGetDataProductEntitiesForLineageQuery } from '@graphql/dataProduct.g
  */
 export default function useFetchDataProductEntities(): boolean {
     const { rootUrn, nodes, setNodeVersion } = useContext(LineageNodesContext);
-    const { start, setTotal, initialized, setInitialized } = useContainerMemberPagination(rootUrn, nodes);
+    const { start, setTotal, initialized, setInitialized } = useBoundingBoxMemberPagination(rootUrn, nodes);
 
     useGetDataProductEntitiesForLineageQuery({
         variables: {
             urn: rootUrn,
             start,
-            count: CONTAINER_MEMBER_PAGE_SIZE,
+            count: BOUNDING_BOX_MEMBER_PAGE_SIZE,
         },
         onCompleted: (data) => {
             let addedNode = false;
@@ -31,7 +34,7 @@ export default function useFetchDataProductEntities(): boolean {
                 if (!result?.entity) return;
                 addedNode = addedNode || !nodes.has(result.entity.urn);
                 // Membership (including the home product) is resolved by useBulkDataProductMemberships
-                setDefault(nodes, result.entity.urn, createContainerMemberNode(result.entity));
+                setDefault(nodes, result.entity.urn, createBoundingBoxMemberNode(result.entity));
             });
 
             if (entities?.total !== undefined) setTotal(entities.total);

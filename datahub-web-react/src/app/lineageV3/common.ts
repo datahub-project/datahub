@@ -18,8 +18,8 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
-// Page size for fetching/displaying a lineage container's members, and the initial home member limit.
-export const CONTAINER_MEMBER_PAGE_SIZE = 50;
+// Page size for fetching/displaying a bounding box's members, and the initial home member limit.
+export const BOUNDING_BOX_MEMBER_PAGE_SIZE = 50;
 
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
@@ -62,15 +62,15 @@ export interface LineageEntity extends NodeBase {
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
-    /** Lineage containers (DataProducts, SemanticModels) this entity belongs to, with whether it is
+    /** Bounding boxes (DataProducts, SemanticModels) this entity belongs to, with whether it is
      * an output port of each (DataProduct-only concept; SemanticModel members always set false).
-     * Undefined means membership is not yet known; fetched for the container lineage graph by
+     * Undefined means membership is not yet known; fetched for the bounding-box lineage graph by
      * `useBulkDataProductMemberships` / `useBulkSemanticModelMemberships`. Not fetched as part of
-     * `entity` because container lookup requires querying the graph index. */
-    containers?: { urn: Urn; isOutputPort: boolean }[];
-    /** For a lineage container rendered as a bounding box: how many of its members to fetch and
-     * display, raised a page at a time by the box header's "Show more" control. Currently set on
-     * the home container only; other boxes show all their connected members. */
+     * `entity` because membership lookup requires querying the graph index. */
+    boundingBoxes?: { urn: Urn; isOutputPort: boolean }[];
+    /** For a DataProduct or SemanticModel rendered as a bounding box: how many of its members to
+     * fetch and display, raised a page at a time by the box header's "Show more" control.
+     * Currently set on the home box only; other boxes show all their connected members. */
     boundingBoxLimit?: number;
 }
 
@@ -309,9 +309,8 @@ export interface NodeContext {
     setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
-    /** Lineage Container display entities (DataProduct or SemanticModel) keyed by urn, for
-     * rendering bounding boxes. */
-    containerEntities: Map<Urn, FetchedEntityV2>;
+    /** Display entities (DataProduct or SemanticModel) keyed by urn, for rendering bounding boxes. */
+    boundingBoxEntities: Map<Urn, FetchedEntityV2>;
     outputPortsOnly: boolean; // Restrict the graph to the home product's output ports and their adjacent nodes
     setOutputPortsOnly: (only: boolean) => void;
 }
@@ -325,7 +324,7 @@ export const LineageNodesContext = React.createContext<NodeContext>({
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     },
-    containerEntities: new Map(),
+    boundingBoxEntities: new Map(),
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
