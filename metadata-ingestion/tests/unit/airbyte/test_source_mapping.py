@@ -261,7 +261,9 @@ def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
         if "Stream Metadata Unavailable" in str(warning)
     ]
     assert len(matching) == 1
-    assert "status=500" in matching[0].context[0]
+    assert "HTTP 500" in matching[0].context[0]
+    assert "detail=500 Internal Server Error" in matching[0].context[0]
+    assert "fallback-schema URNs" in matching[0].message
     assert not source.report.failures
 
 
@@ -281,7 +283,8 @@ def test_fetch_streams_warns_with_no_status_for_connection_error(source):
         if "Stream Metadata Unavailable" in str(warning)
     ]
     assert len(matching) == 1
-    assert "status=none (network/connection error)" in matching[0].context[0]
+    assert "no HTTP status (network or connection error)" in matching[0].context[0]
+    assert "detail=Error connecting to Airbyte API" in matching[0].context[0]
     assert not source.report.failures
 
 

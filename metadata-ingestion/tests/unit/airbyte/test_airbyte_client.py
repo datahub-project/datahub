@@ -1485,12 +1485,6 @@ class TestFetchStreamApiMetadata:
                 ),
                 None,
             ),
-            (
-                AirbyteApiError(
-                    "Airbyte API request failed: 400 - bad request", status_code=400
-                ),
-                400,
-            ),
         ],
     )
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
@@ -1513,6 +1507,28 @@ class TestFetchStreamApiMetadata:
         assert metadata.property_fields_by_stream == {}
         assert metadata.namespaces_by_name == {}
         assert metadata.namespaces_absent is False
+
+    @pytest.mark.parametrize("status_code", [400, 422])
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_client_error_reraises(
+        self, mock_list_streams, status_code
+    ):
+        mock_list_streams.side_effect = AirbyteApiError(
+            f"Airbyte API request failed: {status_code} - bad request",
+            status_code=status_code,
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._fetch_stream_api_metadata("source-id-123")
+
+        assert exc_info.value.status_code == status_code
+        assert client._stream_api_metadata_cache.get("source-id-123") is None
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_flags_namespaceless_response(

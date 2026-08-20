@@ -25,7 +25,6 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.airbyte.client import (
-    AirbyteApiError,
     AirbyteAuthenticationError,
     AirbyteBaseClient,
     create_airbyte_client,
@@ -328,7 +327,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             source=source,
                             destination=destination,
                         )
-                    except AirbyteAuthenticationError:
+                    except AirbyteAuthenticationError as e:
+                        # 403 can be per-resource (RBAC); fail this connection
+                        # and keep siblings. 401 means credentials are dead.
+                        if e.status_code == 403:
+                            conn_id = getattr(connection, "connection_id", "unknown")
+                            conn_name = getattr(connection, "name", "unknown")
+                            ws_id = getattr(workspace, "workspace_id", "unknown")
+                            self.report.failure(
+                                message="Failed to process connection",
+                                context=(
+                                    f"workspace-{ws_id}/connection-{conn_id}/"
+                                    f"{conn_name}"
+                                ),
+                                exc=e,
+                            )
+                            continue
                         logger.error("Authentication failed. Stopping ingestion.")
                         raise
                     except Exception as e:
@@ -340,7 +354,15 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             context=f"workspace-{ws_id}/connection-{conn_id}/{conn_name}",
                             exc=e,
                         )
-            except AirbyteAuthenticationError:
+            except AirbyteAuthenticationError as e:
+                if e.status_code == 403:
+                    workspace_id = getattr(workspace, "workspace_id", "unknown")
+                    self.report.failure(
+                        message="Failed to process workspace",
+                        context=f"workspace-{workspace_id}",
+                        exc=e,
+                    )
+                    continue
                 logger.error("Authentication failed. Stopping ingestion.")
                 raise
             except Exception as e:
@@ -567,26 +589,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 else:
                     cause = f"HTTP {status_code}"
 
-                status_context = (
-                    f"status={status_code}"
-                    if status_code is not None
-                    else "status=none (network/connection error)"
-                )
+                context = f"source_id={source_id}, {cause}, {connection_context}"
+                if error_message:
+                    context = f"{context}, detail={error_message}"
                 self.report.warning(
                     title="Stream Metadata Unavailable",
                     message=(
                         "Airbyte /streams could not be read, so per-stream "
-                        "namespaces and column-level lineage are unavailable"
+                        "namespaces and column-level lineage are unavailable. "
+                        "Dataset lineage is skipped for streams without a "
+                        "catalog or per-table namespace rather than emitting "
+                        "fallback-schema URNs that would not match a later "
+                        "successful /streams response"
                     ),
-                    context=(
-                        f"source_id={source_id}, {status_context}, "
-                        f"cause={cause}, {connection_context}"
-                    ),
-                    exc=(
-                        AirbyteApiError(error_message, status_code=status_code)
-                        if error_message
-                        else None
-                    ),
+                    context=context,
                 )
                 self._warned_streams_namespace_source_ids.add(source_id)
             elif connection.streams_api_namespaces_absent and streams_without_namespace:
@@ -931,8 +947,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         connection_dataflow: DataFlow,
         pipeline_info: AirbytePipelineInfo,
         stream: AirbyteStreamDetails,
-        source_urn: str,
-        destination_urn: str,
+        source_urn: Optional[str],
+        destination_urn: Optional[str],
         tags: List[str],
     ) -> DataJob:
         connection = pipeline_info.connection
@@ -971,8 +987,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
             f"/connections/{connection_id}"
         )
 
-        fine_grained_lineages = self._build_fine_grained_lineages(
-            pipeline_info, stream, source_urn, destination_urn
+        fine_grained_lineages = (
+            self._build_fine_grained_lineages(
+                pipeline_info, stream, source_urn, destination_urn
+            )
+            if source_urn and destination_urn
+            else []
         )
 
         return DataJob(
@@ -985,8 +1005,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
             ),
             external_url=external_url,
             custom_properties=custom_props,
-            inlets=[source_urn],
-            outlets=[destination_urn],
+            inlets=[source_urn] if source_urn else [],
+            outlets=[destination_urn] if destination_urn else [],
             fine_grained_lineages=fine_grained_lineages or None,
             tags=tags or None,
         )
@@ -1210,6 +1230,33 @@ class AirbyteSource(StatefulIngestionSourceBase):
             return f"{database}.{schema}.{table}"
         return f"{database}.{table}"
 
+    def _has_stable_per_stream_namespace(
+        self,
+        stream_config: AirbyteStreamConfig,
+        source: AirbyteSourcePartial,
+        stream_name: Optional[str],
+    ) -> bool:
+        # Catalog namespace (configurations.streams or /streams backfill) and
+        # per-table schema from the connector config are stable across runs.
+        # default_schema / source.get_schema are not — they churn vs a later
+        # successful /streams response.
+        if stream_config.stream and stream_config.stream.namespace:
+            return True
+        if stream_name and source.get_schema_for_table(stream_name):
+            return True
+        return False
+
+    def _should_skip_fallback_dataset_lineage(
+        self,
+        connection: AirbyteConnectionPartial,
+        stream_config: AirbyteStreamConfig,
+        source: AirbyteSourcePartial,
+        stream_name: Optional[str],
+    ) -> bool:
+        return connection.streams_api_unavailable and not (
+            self._has_stable_per_stream_namespace(stream_config, source, stream_name)
+        )
+
     def _create_lineage_workunits(
         self, pipeline_info: AirbytePipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
@@ -1239,6 +1286,32 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         for stream_info in streams:
             try:
+                if self._should_skip_fallback_dataset_lineage(
+                    pipeline_info.connection,
+                    stream_info.config,
+                    pipeline_info.source,
+                    stream_info.details.stream_name,
+                ):
+                    # Still emit DataFlow/DataJob (URNs are namespace-free) and
+                    # job history; skip dataset edges that would use a
+                    # fallback-schema URN stale-entity removal never cleans up.
+                    datajob = self._build_stream_datajob(
+                        connection_dataflow,
+                        pipeline_info,
+                        stream_info.details,
+                        None,
+                        None,
+                        tags,
+                    )
+                    yield from datajob.as_workunits()
+                    if self.source_config.include_statuses:
+                        yield from self._create_job_executions_workunits(
+                            pipeline_info=pipeline_info,
+                            datajob_urn=datajob.urn,
+                            stream_name=stream_info.details.stream_name,
+                        )
+                    continue
+
                 dataset_urns = self._create_dataset_urns(
                     pipeline_info,
                     stream_info.config,

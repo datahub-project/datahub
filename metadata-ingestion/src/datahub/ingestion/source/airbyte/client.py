@@ -435,18 +435,29 @@ class AirbyteBaseClient(ABC):
         self._stream_api_metadata_cache[source_id] = metadata
         return metadata
 
+    @staticmethod
+    def _is_streams_api_unavailable_error(error: AirbyteApiError) -> bool:
+        # 404: no /streams, or inaccessible source. 5xx / no status: transient
+        # server or connection failure after retries. Other 4xx (400/422/…) are
+        # client bugs and must surface — not degrade to a per-run warning.
+        if error.status_code is None:
+            return True
+        if error.status_code == 404:
+            return True
+        return error.status_code >= 500
+
     def _collect_stream_api_metadata(self, source_id: str) -> AirbyteStreamApiMetadata:
         try:
             detailed_streams = self.list_streams(source_id=source_id)
         except AirbyteAuthenticationError:
             raise
         except AirbyteApiError as e:
-            # 404 (no /streams, or inaccessible source), 5xx, and retry
-            # exhaustion all mean namespaces and column-level lineage are
-            # unavailable for this source. Raising would fail the whole
-            # connection and, via report.failure, skip stale-entity removal
-            # for every other connection on the run. Auth failures are
-            # AirbyteAuthenticationError from _make_request and re-raise above.
+            if not self._is_streams_api_unavailable_error(e):
+                raise
+            # Raising would fail the whole connection and, via report.failure,
+            # skip stale-entity removal for every other connection on the run.
+            # Auth failures are AirbyteAuthenticationError from _make_request
+            # and re-raise above.
             return AirbyteStreamApiMetadata(
                 unavailable=True,
                 unavailable_status_code=e.status_code,

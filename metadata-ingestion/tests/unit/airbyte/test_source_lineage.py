@@ -15,6 +15,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
+    AirbyteStream,
     AirbyteStreamConfig,
     AirbyteStreamDetails,
     AirbyteStreamInfo,
@@ -285,6 +286,79 @@ def test_create_lineage_workunits_end_to_end(source, pipeline_info, stream):
     # Regression guard: cross-platform pairs must emit UpstreamLineage on
     # the destination, not just the DataJob's inlets/outlets.
     assert "UpstreamLineageClass" in aspect_types
+
+
+def test_create_lineage_skips_fallback_dataset_urns_when_streams_unavailable(
+    source, pipeline_info, stream
+):
+    # Transient /streams loss + no catalog namespace must not invent
+    # fallback-schema dataset URNs (stale-entity removal never cleans them).
+    pipeline_info.connection.streams_api_unavailable = True
+    stream_info = AirbyteStreamInfo(
+        config=AirbyteStreamConfig(
+            stream=AirbyteStream(name="customers", namespace=None)
+        ),
+        details=stream,
+    )
+
+    with (
+        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
+        patch.object(
+            source,
+            "_create_dataset_urns",
+            side_effect=AssertionError("must not build fallback dataset URNs"),
+        ) as mock_create_urns,
+        patch.object(
+            source,
+            "_emit_destination_upstream_lineage",
+            side_effect=AssertionError("must not emit destination lineage"),
+        ) as mock_emit,
+    ):
+        workunits = list(source._create_lineage_workunits(pipeline_info))
+
+    mock_create_urns.assert_not_called()
+    mock_emit.assert_not_called()
+    aspect_types = {type(wu.metadata.aspect).__name__ for wu in workunits}
+    assert "DataFlowInfoClass" in aspect_types
+    assert "DataJobInfoClass" in aspect_types
+    assert "UpstreamLineageClass" not in aspect_types
+    # Empty inlets/outlets: SDK may omit DataJobInputOutput entirely.
+    assert "DataJobInputOutputClass" not in aspect_types
+    assert not source.report.failures
+
+
+def test_create_lineage_keeps_datasets_when_catalog_namespace_present(
+    source, pipeline_info, stream
+):
+    pipeline_info.connection.streams_api_unavailable = True
+    stream_info = AirbyteStreamInfo(
+        config=AirbyteStreamConfig(
+            stream=AirbyteStream(name="customers", namespace="public")
+        ),
+        details=stream,
+    )
+    source_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.customers,PROD)"
+    )
+    destination_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,dest_db.public.customers,PROD)"
+    )
+
+    with (
+        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
+        patch.object(
+            source,
+            "_create_dataset_urns",
+            return_value=AirbyteDatasetUrns(
+                source_urn=source_urn,
+                destination_urn=destination_urn,
+            ),
+        ) as mock_create_urns,
+    ):
+        workunits = list(source._create_lineage_workunits(pipeline_info))
+
+    mock_create_urns.assert_called_once()
+    assert any(isinstance(wu.metadata.aspect, UpstreamLineageClass) for wu in workunits)
 
 
 def test_snowflake_destination_lowercases_columns(source, pipeline_info, stream):

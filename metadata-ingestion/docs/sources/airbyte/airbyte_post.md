@@ -46,10 +46,13 @@ Verify that your OAuth2 client credentials are correct and have not expired. For
 #### Missing or Ambiguous Stream Namespaces
 
 A `Stream Metadata Unavailable` warning means the `/streams` endpoint could not be read (404,
-5xx after retries, a connection error, or another HTTP failure), so stream namespaces and
-column-level lineage are skipped for that source. The connection itself is still ingested.
-The warning's context carries the HTTP status when Airbyte returned one, or notes a
-network/connection error when there was no status. On versions that expose `/streams`, a
+5xx after retries, or a connection error), so stream namespaces and column-level lineage are
+skipped for that source. The connection itself is still ingested. For streams without a
+namespace already present in the connection catalog (or a per-table schema in the connector
+config), dataset lineage is also skipped — emitting fallback-schema URNs from a transient
+`/streams` blip would leave phantom datasets and edges that stale-entity removal never
+reconciles. The warning's context carries the HTTP status when Airbyte returned one, or notes
+a network/connection error when there was no status. On versions that expose `/streams`, a
 404 usually means the source is not accessible to the credentials in the recipe, and a 5xx
 means Airbyte failed while describing the source.
 

@@ -466,7 +466,7 @@ def test_authentication_error_stops_get_workunits_internal(
         )
     ]
     mock_client.get_connection.side_effect = AirbyteAuthenticationError(
-        "Airbyte API request failed: 403", status_code=403
+        "Airbyte API request failed: 401", status_code=401
     )
 
     with pytest.raises(AirbyteAuthenticationError):
@@ -474,6 +474,72 @@ def test_authentication_error_stops_get_workunits_internal(
 
     mock_create_lineage.assert_not_called()
     assert not source.report.failures
+
+
+@patch(
+    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
+)
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_per_connection_403_fails_connection_not_whole_run(
+    mock_create_client, mock_create_lineage, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    mock_client.list_workspaces.return_value = [
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
+    ]
+    mock_client.list_connections.return_value = [
+        AirbyteConnectionPartial(
+            connection_id="connection-forbidden",
+            name="Forbidden Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+            status="active",
+        ),
+        AirbyteConnectionPartial(
+            connection_id="connection-ok",
+            name="Ok Connection",
+            source_id="source-2",
+            destination_id="destination-2",
+            status="active",
+        ),
+    ]
+
+    def get_connection(connection_id):
+        if connection_id == "connection-forbidden":
+            raise AirbyteAuthenticationError(
+                "Airbyte API request failed: 403", status_code=403
+            )
+        return AirbyteConnectionPartial(
+            connection_id=connection_id,
+            name="Ok Connection",
+            source_id="source-2",
+            destination_id="destination-2",
+            status="active",
+        )
+
+    mock_client.get_connection.side_effect = get_connection
+    mock_client.get_source.return_value = AirbyteSourcePartial(
+        source_id="source-2", name="Source 2", source_type="postgres"
+    )
+    mock_client.get_destination.return_value = AirbyteDestinationPartial(
+        destination_id="destination-2", name="Dest 2", destination_type="snowflake"
+    )
+    mock_create_lineage.return_value = iter([])
+
+    list(source.get_workunits_internal())
+
+    assert any(
+        "connection-forbidden" in failure.context[0]
+        for failure in source.report.failures
+    )
+    mock_create_lineage.assert_called_once()
 
 
 @patch(
