@@ -73,16 +73,16 @@ query listEntityIncidents(
                 ...entityIncidentsResultFields
             }
         }
-        ... on MLModel {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
-        ... on MLFeature {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
+        ... on MLModel {                                                #[NEWER_GMS]
+            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
+                ...entityIncidentsResultFields                         #[NEWER_GMS]
+            }                                                          #[NEWER_GMS]
+        }                                                              #[NEWER_GMS]
+        ... on MLFeature {                                              #[NEWER_GMS]
+            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
+                ...entityIncidentsResultFields                         #[NEWER_GMS]
+            }                                                          #[NEWER_GMS]
+        }                                                              #[NEWER_GMS]
     }
 }
 
@@ -146,7 +146,9 @@ def _require_non_empty(value: Optional[str], name: str) -> None:
 
 def _validate_choice(value: str, name: str, valid: tuple) -> None:
     if value not in valid:
-        raise ValueError(f"Invalid {name} '{value}'. Must be one of: {', '.join(valid)}")
+        raise ValueError(
+            f"Invalid {name} '{value}'. Must be one of: {', '.join(valid)}"
+        )
 
 
 def _build_incident_summary(incident: dict[str, Any]) -> dict[str, Any]:
@@ -217,6 +219,8 @@ def list_incidents(
     graph = get_graph()
 
     _require_non_empty(urn, "urn")
+    if state is not None:
+        _validate_choice(state, "state", get_args(IncidentState))
 
     start = max(0, start)
     count = max(1, min(count, MAX_PAGE_SIZE))
