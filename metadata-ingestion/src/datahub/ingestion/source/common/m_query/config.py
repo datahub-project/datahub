@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Final, Optional
 
 import pydantic
 from pydantic import field_validator, model_validator
+from typing_extensions import LiteralString
 
 from datahub.configuration.source_common import PlatformDetail
 
@@ -13,7 +14,7 @@ M_QUERY_NULL = '"null"'
 
 # Marker attached to an upstream URN when native SQL parsing of an M-Query
 # NativeQuery expression fails; downstream code surfaces it in the report.
-SQL_PARSING_FAILURE = "SQL Parsing Failure"
+SQL_PARSING_FAILURE: Final[LiteralString] = "SQL Parsing Failure"
 
 
 @dataclass
