@@ -175,7 +175,7 @@ def test_slow_help_probe_does_not_fall_back_to_cli_mode(
 ) -> None:
     """Regression guard: a slow but successful --help probe must NOT trigger CLI fallback.
 
-    The original bug (acryl-executor ≥ 0.3.0, fixed in #89/#90) used timeout=10 on the
+    The original bug (present in acryl-executor ≥ 0.3.0) used timeout=10 on the
     subprocess.run call in check_report_to_support(). On cold container starts, datahub
     ingest run --help could exceed 10 seconds, raising TimeoutExpired and silently falling
     back to CLI_INGESTION_SOURCE instead of SCHEDULED_INGESTION_SOURCE.

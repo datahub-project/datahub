@@ -31,8 +31,8 @@ class TestFormatSubprocessError:
         error.stderr = (
             "Command failed with captured output:\n"
             "× No solution found when resolving dependencies:\n"
-            "╰─▶ Because acryl-datahub==1.3.1 is required\n"
-            "    and acryl-datahub-cloud requires acryl-datahub==1.3.1.2,\n"
+            "╰─▶ Because example-lib==1.0.0 is required\n"
+            "    and example-private-plugins requires example-lib==1.0.1,\n"
             "    we can conclude that your requirements are unsatisfiable."
         )
 
@@ -48,7 +48,7 @@ class TestFormatSubprocessError:
         captured_output = (
             "Using Python 3.11.14 environment\n"
             "× No solution found when resolving dependencies:\n"
-            "╰─▶ Because only acryl-datahub-cloud==1!0.0.0.dev0 is available"
+            "╰─▶ Because only example-private-plugins==1.0.0 is available"
         )
         error = subprocess.CalledProcessError(
             returncode=1,
@@ -140,21 +140,21 @@ class TestFormatSubprocessError:
                 "pip",
                 "install",
                 "-r",
-                "/tmp/datahub/ingest/fcb4d7f1/venv-datahub-action-request-owner-f0aa7939eada5d10/requirements.txt",
+                "/tmp/datahub/ingest/exec-id/venv-example-plugin-0123456789abcdef/requirements.txt",
             ],
         )
         error.stderr = """Command failed with captured output:
-Using Python 3.11.14 environment at: /tmp/datahub/ingest/fcb4d7f1/venv-datahub-action-request-owner-f0aa7939eada5d10
+Using Python 3.11.14 environment at: /tmp/datahub/ingest/exec-id/venv-example-plugin-0123456789abcdef
   × No solution found when resolving dependencies:
   ╰─▶ Because only
-      acryl-datahub-cloud[datahub-action-request-owner]==1!0.0.0.dev0
-      is available and acryl-datahub-cloud==1!0.0.0.dev0 depends on
-      acryl-datahub==1.3.1.2, we can conclude that all versions of
-      acryl-datahub-cloud[datahub-action-request-owner] depend on
-      acryl-datahub==1.3.1.2.
+      example-private-plugins[example-plugin]==1.0.0
+      is available and example-private-plugins==1.0.0 depends on
+      example-lib==1.0.1, we can conclude that all versions of
+      example-private-plugins[example-plugin] depend on
+      example-lib==1.0.1.
       And because you require
-      acryl-datahub[datahub-action-request-owner]==1.3.1 and
-      acryl-datahub-cloud[datahub-action-request-owner], we can conclude that
+      example-lib[example-plugin]==1.0.0 and
+      example-private-plugins[example-plugin], we can conclude that
       your requirements are unsatisfiable."""
 
         result = SubProcessTaskUtil.format_subprocess_error(error)
@@ -163,8 +163,8 @@ Using Python 3.11.14 environment at: /tmp/datahub/ingest/fcb4d7f1/venv-datahub-a
         assert "returned non-zero exit status 1" in result
         assert "Command failed with captured output:" in result
         assert "No solution found when resolving dependencies:" in result
-        assert "acryl-datahub==1.3.1.2" in result
-        assert "acryl-datahub[datahub-action-request-owner]==1.3.1" in result
+        assert "example-lib==1.0.1" in result
+        assert "example-lib[example-plugin]==1.0.0" in result
         assert "your requirements are unsatisfiable" in result
 
 
