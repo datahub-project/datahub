@@ -348,7 +348,7 @@ class _GenericConnector(BaseConnector):
 
         if self.generic_config.target_dataset and self.generic_config.target_platform:
             # Explicit sink mapping: kafka topic → target dataset
-            for topic in self.connector_manifest.topic_names or [
+            for topic in self.available_topics() or [
                 self.generic_config.source_dataset
             ]:
                 lineages.append(
@@ -361,7 +361,7 @@ class _GenericConnector(BaseConnector):
                 )
         else:
             # Source mapping: source dataset → kafka topic
-            for topic in self.connector_manifest.topic_names:
+            for topic in self.available_topics():
                 lineages.append(
                     KafkaConnectLineage(
                         source_platform=self.generic_config.source_platform,
