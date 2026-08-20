@@ -567,6 +567,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.lineageSearchCacheEnabled",
           "featureFlags.logicalModelsEnabled",
           "featureFlags.metricsEnabled",
+          "featureFlags.dataProductMarketplaceEnabled",
           "featureFlags.nestedDomainsEnabled",
           "featureFlags.platformBrowseV2",
           "elasticsearch.search.pointInTimeCreationEnabled",

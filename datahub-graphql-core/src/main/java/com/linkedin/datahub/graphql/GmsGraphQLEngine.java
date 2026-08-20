@@ -172,6 +172,8 @@ import com.linkedin.datahub.graphql.resolvers.logical.LinkPhysicalChildResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.UnlinkPhysicalChildResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.UpdateLogicalModelSchemaResolver;
+import com.linkedin.datahub.graphql.resolvers.marketplace.DataProductChildrenResolver;
+import com.linkedin.datahub.graphql.resolvers.marketplace.GetRootDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
@@ -945,6 +947,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(METRICS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(MARKETPLACE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE));
@@ -1242,6 +1245,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("semanticModel", getResolver(semanticModelType))
                 .dataFetcher("getRootMetrics", new GetRootMetricsResolver(this.entityClient))
                 .dataFetcher("getSemanticModels", new GetSemanticModelsResolver(this.entityClient))
+                .dataFetcher(
+                    "getRootDataProducts", new GetRootDataProductsResolver(this.entityClient))
                 .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
                 .dataFetcher("entity", getEntityResolver())
                 .dataFetcher("entities", getEntitiesResolver())
@@ -1895,6 +1900,18 @@ public class GmsGraphQLEngine {
                             ((GetRootMetricsResult) env.getSource())
                                 .getMetrics().stream()
                                     .map(Metric::getUrn)
+                                    .collect(Collectors.toList()))))
+        .type(
+            "GetRootDataProductsResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "dataProducts",
+                    new LoadableTypeBatchResolver<>(
+                        dataProductType,
+                        (env) ->
+                            ((GetRootDataProductsResult) env.getSource())
+                                .getDataProducts().stream()
+                                    .map(DataProduct::getUrn)
                                     .collect(Collectors.toList()))))
         .type(
             "GetSemanticModelsResult",
@@ -3406,6 +3423,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
                 .dataFetcher(
                     "parentDataProducts", new ParentDataProductsResolver(this.entityClient))
+                .dataFetcher(
+                    "childDataProducts", new DataProductChildrenResolver(entityClient, viewService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))

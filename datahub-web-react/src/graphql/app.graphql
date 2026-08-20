@@ -120,6 +120,7 @@ query appConfig {
             assetSummaryPageV1
             datasetSummaryPageV1
             metricsEnabled
+            dataProductMarketplaceEnabled
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled

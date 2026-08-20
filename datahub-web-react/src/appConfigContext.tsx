@@ -100,6 +100,7 @@ export const DEFAULT_APP_CONFIG = {
         assetSummaryPageV1: false,
         datasetSummaryPageV1: false,
         metricsEnabled: false,
+        dataProductMarketplaceEnabled: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
         hideLineageInSearchCards: false,
