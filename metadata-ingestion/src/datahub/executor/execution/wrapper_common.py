@@ -13,7 +13,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -177,20 +177,18 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
     registry = SecretRegistry.get_instance()
     masking_filter = SecretMaskingFilter(secret_registry=registry)
 
-    process = subprocess.Popen(
-        cmd,
-        env=os.environ.copy(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
+    process: Optional[subprocess.Popen] = None
 
     def _reap_and_exit(signum: int, _frame: Any) -> None:
         # Our process group got a termination signal -- stop and REAP the datahub
         # child so it cannot orphan into a zombie under PID 1.
-        if process.poll() is None:
+        #
+        # Installed BEFORE the child is spawned. Registering it afterwards leaves a
+        # window where the default disposition applies: a signal arriving there kills
+        # this wrapper outright and the child it just spawned is never reaped.
+        # `process` is still None for the part of that window before Popen returns,
+        # hence the guard.
+        if process is not None and process.poll() is None:
             process.terminate()
             try:
                 process.wait(timeout=30)
@@ -200,6 +198,16 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
         sys.exit(128 + signum)
 
     signal.signal(signal.SIGTERM, _reap_and_exit)
+
+    process = subprocess.Popen(
+        cmd,
+        env=os.environ.copy(),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
 
     try:
         assert process.stdin is not None

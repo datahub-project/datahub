@@ -7,8 +7,10 @@ exercised here directly rather than through a task.
 import io
 import json
 import resource
+import signal
 import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -117,6 +119,42 @@ class TestWrapperStdinContent:
         parsed = yaml.safe_load(result)
         assert parsed["host"] == "localhost"
         assert parsed["port"] == 5432
+
+    def test_sigterm_handler_is_installed_before_the_child_is_spawned(self) -> None:
+        """A cancellation arriving in the startup window must not orphan the child.
+
+        If the handler is registered after Popen, a SIGTERM in between hits the
+        default disposition: the wrapper dies and the datahub process it just
+        spawned keeps running. Pinning the ORDER rather than the handler's body,
+        since the body is only reachable via a real signal.
+        """
+        order: list[str] = []
+
+        def fake_signal(sig: int, _handler: Any) -> None:
+            if sig == signal.SIGTERM:
+                order.append("handler")
+
+        def fake_popen(*_args: Any, **_kwargs: Any) -> MagicMock:
+            order.append("popen")
+            proc = MagicMock()
+            proc.stdin = MagicMock()
+            proc.stdout = iter([])
+            proc.wait.return_value = 0
+            return proc
+
+        with (
+            patch(
+                "datahub.executor.execution.wrapper_common.signal.signal",
+                side_effect=fake_signal,
+            ),
+            patch(
+                "datahub.executor.execution.wrapper_common.subprocess.Popen",
+                side_effect=fake_popen,
+            ),
+        ):
+            wrapper_common.run_datahub_subprocess(["/bin/true"], "recipe: {}")
+
+        assert order == ["handler", "popen"]
 
     def test_ingestion_wrapper_pipes_resolved_yaml_to_subprocess(
         self, tmp_path: Path
