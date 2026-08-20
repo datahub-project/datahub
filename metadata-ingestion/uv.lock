@@ -3,20 +3,20 @@ revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.15' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version >= '3.15' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version >= '3.15' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
-    "(python_full_version < '3.11' and platform_machine != 'arm64') or (python_full_version < '3.11' and sys_platform != 'darwin')",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
+    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
     "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
     "python_full_version == '3.12.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version < '3.11' and platform_machine != 'arm64') or (python_full_version < '3.11' and sys_platform != 'darwin')",
     "python_full_version < '3.11' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 
@@ -35,6 +35,7 @@ name = "acryl-datahub"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
+    { name = "anyio" },
     { name = "avro" },
     { name = "avro-gen3" },
     { name = "cached-property" },
@@ -49,6 +50,7 @@ dependencies = [
     { name = "ijson" },
     { name = "jsonref" },
     { name = "jsonschema" },
+    { name = "loguru" },
     { name = "mixpanel" },
     { name = "packaging" },
     { name = "pip" },
@@ -466,6 +468,7 @@ dev = [
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
     { name = "aerospike" },
     { name = "aiohttp" },
+    { name = "anyio" },
     { name = "atlassian-python-api" },
     { name = "authlib" },
     { name = "avro" },
@@ -536,6 +539,7 @@ dev = [
     { name = "jsonschema" },
     { name = "kerberos" },
     { name = "lkml" },
+    { name = "loguru" },
     { name = "looker-sdk" },
     { name = "markdownify" },
     { name = "mini-racer" },
@@ -660,6 +664,7 @@ docs = [
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
     { name = "aerospike" },
     { name = "aiohttp" },
+    { name = "anyio" },
     { name = "atlassian-python-api" },
     { name = "authlib" },
     { name = "avro" },
@@ -730,6 +735,7 @@ docs = [
     { name = "jsonschema" },
     { name = "kerberos" },
     { name = "lkml" },
+    { name = "loguru" },
     { name = "looker-sdk" },
     { name = "markdownify" },
     { name = "mini-racer" },
@@ -1605,6 +1611,9 @@ requires-dist = [
     { name = "aiohttp", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'dev'", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'docs'", specifier = "<4" },
+    { name = "anyio", specifier = ">=3.0.0,<5.0.0" },
+    { name = "anyio", marker = "extra == 'dev'", specifier = ">=3.0.0,<5.0.0" },
+    { name = "anyio", marker = "extra == 'docs'", specifier = ">=3.0.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'all'", specifier = ">=3.41.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'confluence'", specifier = ">=3.41.0,<5.0.0" },
     { name = "atlassian-python-api", marker = "extra == 'dev'", specifier = ">=3.41.0,<5.0.0" },
@@ -2115,6 +2124,9 @@ requires-dist = [
     { name = "lkml", marker = "extra == 'docs'", specifier = ">=1.3.4,<2.0.0" },
     { name = "lkml", marker = "extra == 'looker'", specifier = ">=1.3.4,<2.0.0" },
     { name = "lkml", marker = "extra == 'lookml'", specifier = ">=1.3.4,<2.0.0" },
+    { name = "loguru", specifier = ">=0.5.0,<1.0.0" },
+    { name = "loguru", marker = "extra == 'dev'", specifier = ">=0.5.0,<1.0.0" },
+    { name = "loguru", marker = "extra == 'docs'", specifier = ">=0.5.0,<1.0.0" },
     { name = "looker-sdk", marker = "extra == 'all'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'dev'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'docs'", specifier = ">=23.0.0,<26.0.0" },
@@ -2182,13 +2194,13 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'docs'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kafka'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kinesis'", specifier = ">=2.6.2,<4.0.0" },
-    { name = "nltk", marker = "extra == 'all'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'confluence'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'datahub-documents'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'dev'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'docs'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'notion'", specifier = "<3.10.1" },
-    { name = "nltk", marker = "extra == 'unstructured'", specifier = "<3.10.1" },
+    { name = "nltk", marker = "extra == 'all'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'confluence'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'datahub-documents'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'dev'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'docs'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'notion'", specifier = "!=3.10.1" },
+    { name = "nltk", marker = "extra == 'unstructured'", specifier = "!=3.10.1" },
     { name = "numpy", marker = "extra == 'all'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'cassandra'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'dev'", specifier = "<2" },
@@ -6669,6 +6681,19 @@ wheels = [
 ]
 
 [[package]]
+name = "loguru"
+version = "0.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c", size = 61595, upload-time = "2024-12-06T11:20:54.538Z" },
+]
+
+[[package]]
 name = "looker-sdk"
 version = "25.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -7661,18 +7686,18 @@ version = "3.6.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.15' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
     "(python_full_version >= '3.15' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version >= '3.15' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version >= '3.15' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
-    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
-    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
-    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version >= '3.15' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin' and sys_platform != 'emscripten')",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_python_implementation == 'PyPy') or (python_full_version == '3.14.*' and platform_python_implementation == 'PyPy' and sys_platform != 'darwin') or (python_full_version == '3.14.*' and sys_platform == 'emscripten')",
+    "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and platform_python_implementation == 'PyPy' and sys_platform == 'darwin'",
+    "(python_full_version == '3.13.*' and platform_machine != 'arm64') or (python_full_version == '3.13.*' and sys_platform != 'darwin')",
     "python_full_version == '3.13.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.12.*' and platform_machine != 'arm64') or (python_full_version == '3.12.*' and sys_platform != 'darwin')",
     "python_full_version == '3.12.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "(python_full_version == '3.11.*' and platform_machine != 'arm64') or (python_full_version == '3.11.*' and sys_platform != 'darwin')",
     "python_full_version == '3.11.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }
@@ -7716,17 +7741,18 @@ wheels = [
 
 [[package]]
 name = "nltk"
-version = "3.9.3"
+version = "3.10.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
+    { name = "defusedxml" },
     { name = "joblib" },
     { name = "regex" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/8f/915e1c12df07c70ed779d18ab83d065718a926e70d3ea33eb0cd66ffb7c0/nltk-3.9.3.tar.gz", hash = "sha256:cb5945d6424a98d694c2b9a0264519fab4363711065a46aa0ae7a2195b92e71f", size = 2923673, upload-time = "2026-02-24T12:05:53.833Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/e6/fe51d2bb1a3b446f59c5c8165999a9fee208bc346af90a7cbf7657bc0d75/nltk-3.10.3.tar.gz", hash = "sha256:bb9327a461c3811c2fa4900e03840401f2126adfb30c0072827c433bd2444ea4", size = 5137152, upload-time = "2026-08-12T23:46:37.258Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/7e/9af5a710a1236e4772de8dfcc6af942a561327bb9f42b5b4a24d0cf100fd/nltk-3.9.3-py3-none-any.whl", hash = "sha256:60b3db6e9995b3dd976b1f0fa7dec22069b2677e759c28eb69b62ddd44870522", size = 1525385, upload-time = "2026-02-24T12:05:46.54Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/6d/ebd2af4640b12168fdf0cb74b6118df2f32a2f62ec7e0c06fbfd80706639/nltk-3.10.3-py3-none-any.whl", hash = "sha256:ff9598a8e20518ee0d557745890cc4435b9578489e2dcbc69c4f81fa060caf7c", size = 1798643, upload-time = "2026-08-12T23:44:13.478Z" },
 ]
 
 [[package]]
@@ -11934,6 +11960,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/9c/46d69220d468c82ca2044284c5a8089705c5eb66be416abcbba156365a14/win_precise_time-1.4.2-cp311-cp311-win_amd64.whl", hash = "sha256:0897bb055f19f3b4336e2ba6bee0115ac20fd7ec615a6d736632e2df77f8851a", size = 14912, upload-time = "2023-10-08T17:08:07.896Z" },
     { url = "https://files.pythonhosted.org/packages/2e/96/55a14b5c0e90439951f4a72672223bba81a5f882033c5850f8a6c7f4308b/win_precise_time-1.4.2-cp312-cp312-win32.whl", hash = "sha256:0210dcea88a520c91de1708ae4c881e3c0ddc956daa08b9eabf2b7c35f3109f5", size = 14694, upload-time = "2023-10-08T17:08:09.275Z" },
     { url = "https://files.pythonhosted.org/packages/17/19/7ea9a22a69fc23d5ca02e8edf65e4a335a210497794af1af0ef8fda91fa0/win_precise_time-1.4.2-cp312-cp312-win_amd64.whl", hash = "sha256:85670f77cc8accd8f1e6d05073999f77561c23012a9ee988cbd44bb7ce655062", size = 14913, upload-time = "2023-10-08T17:08:10.677Z" },
+]
+
+[[package]]
+name = "win32-setctime"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
 ]
 
 [[package]]

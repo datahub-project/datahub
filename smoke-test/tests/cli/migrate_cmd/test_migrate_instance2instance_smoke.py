@@ -32,9 +32,12 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 PLATFORM = "snowflake"
 ENV = "PROD"

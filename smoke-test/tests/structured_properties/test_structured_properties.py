@@ -27,6 +27,7 @@ from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.structured_properties_urn import StructuredPropertyUrn
 from datahub.utilities.urns.urn import Urn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utilities.file_emitter import FileEmitter
 from tests.utils import (
     delete_urns,
@@ -36,6 +37,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 start_index = randint(10, 10000)
 dataset_urns = [

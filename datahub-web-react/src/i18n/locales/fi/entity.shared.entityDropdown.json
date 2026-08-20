@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Oletko varma?",
     "unlinkVersion.error": "Linkityksen poisto epäonnistui: \n {{errorMessage}}",
     "unlinkVersion.loading": "Poistetaan linkitystä...",
-    "unlinkVersion.success": "{{entityName}} irrotettu!"
+    "unlinkVersion.success": "{{entityName}} irrotettu!",
+    "dataProductSelect.notFound": "Data Producteja ei löytynyt",
+    "dataProductSelect.placeholder": "Valitse ylätason Data Product",
+    "moveDataProduct.title": "Siirrä Data Product"
 }

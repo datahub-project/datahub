@@ -12,6 +12,7 @@ on:
       - "!.github/**"
       - ".github/workflows/build-and-test.yml"
       - ".github/actions/ensure-codegen-updated"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/send_failed_tests_to_posthog.py"
   pull_request:
     branches:
@@ -23,6 +24,7 @@ on:
       - "!.github/**"
       - ".github/workflows/build-and-test.yml"
       - ".github/actions/ensure-codegen-updated"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/send_failed_tests_to_posthog.py"
   workflow_dispatch:
   schedule:
@@ -125,6 +127,9 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
           restore-keys: |
             ${{ runner.os }}-uv-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 25
@@ -292,6 +297,9 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 25
@@ -507,6 +515,9 @@ jobs:
             echo "::error::Only $count backend test modules discovered (<20) — globs/excludes likely broken; refusing near-empty sharded run."
             exit 1
           fi
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 25
@@ -534,7 +545,7 @@ jobs:
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
-      - name: Build + non-test checks once (assemble, spotless, etc.)
+      - name: Build + non-test checks once (assemble, compile, etc.)
         # Compile main + test + non-test checks (no tests) to warm the shard cache.
         # Keep yarnGenerate / generateLazyIconStubs (codegen + graphqlUsageRegistryCheck need them);
         # drop yarnBuild via -x :datahub-frontend:testClasses / :datahub-web-react:jar (frontend-build
@@ -592,6 +603,9 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 25
@@ -721,6 +735,9 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5

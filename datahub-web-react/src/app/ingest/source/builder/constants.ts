@@ -56,6 +56,7 @@ import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import snowplowLogo from '@images/snowplowlogo.png';
+import sqlmeshLogo from '@images/sqlmeshlogo.png';
 import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -219,6 +220,8 @@ export const FABRIC_ONELAKE = 'fabric-onelake';
 export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const STREAMLIT = 'streamlit';
 export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
+export const SQLMESH = 'sqlmesh';
+export const SQLMESH_URN = `urn:li:dataPlatform:${SQLMESH}`;
 export const OMNI = 'omni';
 export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
@@ -291,6 +294,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
+    [SQLMESH_URN]: sqlmeshLogo,
     [OMNI_URN]: omniLogo,
 };
 
