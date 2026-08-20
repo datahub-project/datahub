@@ -6444,6 +6444,11 @@
       },
       "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
       "optional" : true
+    }, {
+      "name" : "minScore",
+      "type" : "float",
+      "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.query.SliceOptions", {
     "type" : "enum",
