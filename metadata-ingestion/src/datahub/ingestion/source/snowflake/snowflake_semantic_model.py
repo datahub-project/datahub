@@ -969,12 +969,26 @@ class SnowflakeSemanticModelMapper:
         # Metric → SMD edges, unless TABLE.NAME is itself a table-bound metric
         # (those are derivedFrom edges). Unqualified refs are metric-to-metric
         # or ambiguous, so they are skipped here.
+        # Fold identifiers the same way _derived_from_metrics does: an unquoted
+        # identifier folds to uppercase, a quoted one is already the stored
+        # spelling. table_bound_metrics / logical_dataset_urns are keyed by that
+        # stored spelling (and by column_identity_key for the name half).
         upstream_urns: Dict[str, EdgeClass] = {}
         for column in parsed.find_all(sqlglot.expressions.Column):
             if not column.table:
                 continue
-            ref_table = column.table.upper()
-            if (ref_table, column.name.upper()) in table_bound_metrics:
+            stored_name = (
+                column.name
+                if getattr(column.this, "quoted", False)
+                else column.name.upper()
+            )
+            name_key = self.identifiers.column_identity_key(stored_name)
+            ref_table = (
+                column.table
+                if getattr(column.args.get("table"), "quoted", False)
+                else column.table.upper()
+            )
+            if (ref_table, name_key) in table_bound_metrics:
                 continue
             dataset_urn = logical_dataset_urns.get(ref_table)
             if dataset_urn:

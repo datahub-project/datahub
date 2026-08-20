@@ -660,6 +660,114 @@ def test_quoted_and_unquoted_refs_resolve_to_different_members_of_a_case_pair():
     assert derived_from("FROM_UNQUOTED") == [urn_of("ORDER_COUNT")]
 
 
+def test_view_scoped_metric_qualified_by_mixed_case_metric_ref_does_not_emit_smd_upstream():
+    # With preserve_column_case, table_bound_metrics is keyed by the stored
+    # spelling. A quoted metric-to-metric ref must hit that skip check; folding
+    # both halves to upper would miss and fall through to a bogus Metric → SMD
+    # edge for ORDERS.
+    mapper = _make_mapper(preserve_column_case=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "Total_Amount": [
+                _col(
+                    "Total_Amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(orders.amt)",
+                    preserve=True,
+                )
+            ],
+            "DOUBLE_TOTAL": [
+                _col(
+                    "DOUBLE_TOTAL",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression='ORDERS."Total_Amount" * 2',
+                    preserve=True,
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS_TBL")},
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    total_urn = mapper.identifiers.gen_metric_urn(
+        "Total_Amount",
+        semantic_view.name,
+        _SCHEMA,
+        _DB,
+        logical_table="ORDERS",
+    )
+    derived_urn = mapper.identifiers.gen_metric_urn(
+        "DOUBLE_TOTAL", semantic_view.name, _SCHEMA, _DB
+    )
+
+    relationships = _aspects_for(workunits, derived_urn, MetricRelationshipsClass)[0]
+    assert [d.destinationUrn for d in relationships.derivedFrom] == [total_urn]
+
+    upstreams = _aspects_for(workunits, derived_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert upstreams[0].datasetUpstreams == []
+
+
+def test_view_scoped_metric_qualified_by_quoted_table_emits_smd_upstream():
+    # Quoted logical table "Orders" is stored with that spelling in
+    # logical_dataset_urns. Looking up ORDERS (unconditional upper) would miss
+    # and drop a real Metric → SMD edge for a fact/dimension column ref.
+    mapper = _make_mapper(preserve_column_case=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "amount": [
+                _col(
+                    "amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.FACT,
+                    table_name="Orders",
+                    preserve=True,
+                )
+            ],
+            "AMOUNT_PLUS_ONE": [
+                _col(
+                    "AMOUNT_PLUS_ONE",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression='"Orders".amount + 1',
+                    preserve=True,
+                )
+            ],
+        },
+        logical_to_physical_table={"Orders": (_DB, _SCHEMA, "ORDERS_TBL")},
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    orders_urn = _logical_dataset_urn(mapper, "Orders")
+    derived_urn = mapper.identifiers.gen_metric_urn(
+        "AMOUNT_PLUS_ONE", semantic_view.name, _SCHEMA, _DB
+    )
+
+    upstreams = _aspects_for(workunits, derived_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert upstreams[0].datasetUpstreams is not None
+    assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
+
+
 def test_case_only_metric_pair_stays_one_metric_without_preserve_column_case():
     # preserve_column_case off means case-only spellings are the same metric, and
     # that must hold however convert_urns_to_lowercase is set. When both are off
