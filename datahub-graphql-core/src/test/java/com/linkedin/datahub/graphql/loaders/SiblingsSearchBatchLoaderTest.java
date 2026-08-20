@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.loaders;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.SIBLINGS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
@@ -12,8 +11,8 @@ import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.entity.Aspect;
@@ -27,19 +26,15 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.AggregationMetadata;
-import com.linkedin.metadata.search.AggregationMetadataArray;
-import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,38 +102,41 @@ public class SiblingsSearchBatchLoaderTest {
     final ArgumentCaptor<List> names = ArgumentCaptor.forClass(List.class);
     final ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
     Mockito.verify(_entityClient, Mockito.atLeastOnce())
-        .searchAcrossEntities(
+        .scrollAcrossEntities(
             any(),
             names.capture(),
             any(),
             filter.capture(),
-            anyInt(),
-            nullable(Integer.class),
+            nullable(String.class),
+            nullable(String.class),
             any(),
+            nullable(Integer.class),
             any());
     return new SearchAcrossEntitiesCall(names.getValue(), filter.getValue());
   }
 
   private record SearchAcrossEntitiesCall(List<String> entityNames, Filter filter) {}
 
-  /** Search response carrying the hits plus a {@code siblings} facet keyed by the queried urn. */
-  private static SearchResult searchResult(
-      final List<String> hitUrns, final Map<String, Long> totalsBySiblingUrn) {
+  /** A complete chunk page: every matching document was returned. */
+  private static ScrollResult searchResult(final List<String> hitUrns) {
+    return searchResult(hitUrns, hitUrns.size());
+  }
+
+  /** A chunk page reporting {@code matched} total matches, which may exceed the hits returned. */
+  private static ScrollResult searchResult(final List<String> hitUrns, final int matched) {
     final SearchEntityArray entities = new SearchEntityArray();
     for (String urn : hitUrns) {
-      entities.add(new SearchEntity().setEntity(UrnUtils.getUrn(urn)));
+      // SearchRequestHandler stamps every hit with its own cursor; the loader reads it.
+      entities.add(
+          new SearchEntity()
+              .setEntity(UrnUtils.getUrn(urn))
+              .setExtraFields(new StringMap(Map.of("scrollId", "cursor-for-" + urn))));
     }
-    final AggregationMetadata agg =
-        new AggregationMetadata()
-            .setName(SIBLINGS_FACET)
-            .setAggregations(new LongMap(totalsBySiblingUrn))
-            .setFilterValues(new FilterValueArray());
-    return new SearchResult()
+    return new ScrollResult()
         .setEntities(entities)
-        .setNumEntities(hitUrns.size())
-        .setFrom(0)
+        .setNumEntities(matched)
         .setPageSize(hitUrns.size())
-        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray(agg)));
+        .setMetadata(new SearchResultMetadata());
   }
 
   /** Wires each hit urn to the sibling urns its {@code siblings} aspect lists. */
@@ -162,37 +160,38 @@ public class SiblingsSearchBatchLoaderTest {
     Mockito.when(_entityClient.batchGetV2(any(), any(), any(), any(), any())).thenReturn(responses);
   }
 
-  private void stubSearch(final SearchResult result) throws Exception {
+  private void stubSearch(final ScrollResult result) throws Exception {
     Mockito.when(
-            _entityClient.searchAcrossEntities(
+            _entityClient.scrollAcrossEntities(
                 any(),
                 any(),
                 any(),
                 nullable(Filter.class),
-                anyInt(),
-                nullable(Integer.class),
+                nullable(String.class),
+                nullable(String.class),
                 any(),
+                nullable(Integer.class),
                 any()))
         .thenReturn(result);
   }
 
   private void verifySearchCount(final int times) throws Exception {
     Mockito.verify(_entityClient, Mockito.times(times))
-        .searchAcrossEntities(
+        .scrollAcrossEntities(
             any(),
             any(),
             any(),
             nullable(Filter.class),
-            anyInt(),
-            nullable(Integer.class),
+            nullable(String.class),
+            nullable(String.class),
             any(),
+            nullable(Integer.class),
             any());
   }
 
   @Test
   public void testHitsAttributedToTheirOwnRequestingUrn() throws Exception {
-    stubSearch(
-        searchResult(List.of(SNOW_ORDERS, SNOW_USERS), Map.of(DBT_ORDERS, 1L, DBT_USERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS, SNOW_USERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_USERS)));
 
     final List<ScrollResults> results =
@@ -206,17 +205,23 @@ public class SiblingsSearchBatchLoaderTest {
     verifySearchCount(1);
   }
 
+  /** total counts every attributed hit; the requested count only bounds what is returned. */
   @Test
-  public void testPerKeyTotalReadFromAggregation() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 3L)));
-    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+  public void testPerKeyTotalCountedFromAttributedHits() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS, SNOW_USERS, SNOW_ORDERS_B)));
+    stubSiblingAspects(
+        Map.of(
+            SNOW_ORDERS, List.of(DBT_ORDERS),
+            SNOW_USERS, List.of(DBT_ORDERS),
+            SNOW_ORDERS_B, List.of(DBT_ORDERS)));
 
     final List<ScrollResults> results =
         SiblingsSearchBatchLoader.batchLoad(
             List.of(key(DBT_ORDERS, 1)), _context, _entityClient, _viewService);
 
-    // The window returned one hit, but the facet reports the true sibling count.
     assertEquals(results.get(0).getTotal(), 3);
+    assertEquals(results.get(0).getCount(), 1);
+    verifySearchCount(1);
   }
 
   /**
@@ -225,7 +230,7 @@ public class SiblingsSearchBatchLoaderTest {
    */
   @Test
   public void testSameUrnWithDifferentInputDoesNotShareAResult() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
 
     SiblingsSearchBatchLoader.batchLoad(
@@ -241,8 +246,7 @@ public class SiblingsSearchBatchLoaderTest {
    */
   @Test
   public void testValueEqualInputsShareASingleSearch() throws Exception {
-    stubSearch(
-        searchResult(List.of(SNOW_ORDERS, SNOW_USERS), Map.of(DBT_ORDERS, 1L, DBT_USERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS, SNOW_USERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_USERS)));
 
     SiblingsSearchBatchLoader.batchLoad(
@@ -253,7 +257,7 @@ public class SiblingsSearchBatchLoaderTest {
 
   @Test
   public void testResultsReturnedInKeyOrderWithUnmatchedKeyEmpty() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
 
     final List<ScrollResults> results =
@@ -271,39 +275,128 @@ public class SiblingsSearchBatchLoaderTest {
   }
 
   /**
-   * Hits are shared across the chunk, so a urn with many siblings can crowd out its neighbours. A
-   * key whose facet total exceeds the hits it was attributed must be re-queried on its own rather
-   * than returning short.
+   * A short page means some key's siblings did not all fit, and the response cannot say which. When
+   * the whole match set fits the ceiling, one resized retry answers the chunk — the per-key
+   * fallback would cost a query per key instead.
    */
   @Test
-  public void testStarvedKeyIsRequeriedOnItsOwn() throws Exception {
-    final Map<String, SearchResult> byCallCount = new HashMap<>();
-    byCallCount.put(
-        "batch", searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L, DBT_USERS, 1L)));
-    byCallCount.put("single", searchResult(List.of(SNOW_USERS), Map.of(DBT_USERS, 1L)));
-
+  public void testTruncatedWindowRetriesTheChunkOnce() throws Exception {
     Mockito.when(
-            _entityClient.searchAcrossEntities(
+            _entityClient.scrollAcrossEntities(
                 any(),
                 any(),
                 any(),
                 nullable(Filter.class),
-                anyInt(),
-                nullable(Integer.class),
+                nullable(String.class),
+                nullable(String.class),
                 any(),
+                nullable(Integer.class),
                 any()))
-        .thenReturn(byCallCount.get("batch"), byCallCount.get("single"));
-
-    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+        // 300 matched but only one hit returned, then the retry returns all of them.
+        .thenReturn(searchResult(List.of(SNOW_ORDERS), 300))
+        .thenReturn(searchResult(List.of(SNOW_ORDERS, SNOW_USERS), 2));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_USERS)));
 
     final List<ScrollResults> results =
         SiblingsSearchBatchLoader.batchLoad(
             List.of(key(DBT_ORDERS, 1), key(DBT_USERS, 1)), _context, _entityClient, _viewService);
 
-    // DBT_USERS was starved out of the shared window, so it gets its own search.
+    // Two searches for the chunk, not one per key, and the retry's hits are what got attributed.
     verifySearchCount(2);
-    assertEquals(results.get(1).getSearchResults().size(), 1);
+    assertEquals(results.get(0).getSearchResults().get(0).getEntity().getUrn(), SNOW_ORDERS);
     assertEquals(results.get(1).getSearchResults().get(0).getEntity().getUrn(), SNOW_USERS);
+  }
+
+  /** The retry is sized to the reported match count so the second page holds everything. */
+  @Test
+  public void testRetryRequestsTheFullMatchCount() throws Exception {
+    Mockito.when(
+            _entityClient.scrollAcrossEntities(
+                any(),
+                any(),
+                any(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                any(),
+                nullable(Integer.class),
+                any()))
+        .thenReturn(searchResult(List.of(SNOW_ORDERS), 300))
+        .thenReturn(searchResult(List.of(SNOW_ORDERS), 1));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+
+    SiblingsSearchBatchLoader.batchLoad(
+        List.of(key(DBT_ORDERS, 1)), _context, _entityClient, _viewService);
+
+    final ArgumentCaptor<Integer> sizes = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(_entityClient, Mockito.times(2))
+        .scrollAcrossEntities(
+            any(),
+            any(),
+            any(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            any(),
+            sizes.capture(),
+            any());
+    // First the floor for a single-urn chunk, then exactly the matched count.
+    assertEquals(sizes.getAllValues(), List.of(100, 300));
+  }
+
+  /**
+   * Beyond the ceiling a retry could not hold the match set either, so the chunk is redone per key
+   * rather than reporting an undercount.
+   */
+  @Test
+  public void testTruncationBeyondCeilingFallsBackToPerKeyQueries() throws Exception {
+    Mockito.when(
+            _entityClient.scrollAcrossEntities(
+                any(),
+                any(),
+                any(),
+                nullable(Filter.class),
+                nullable(String.class),
+                nullable(String.class),
+                any(),
+                nullable(Integer.class),
+                any()))
+        // More matches than MAX_WINDOW can return, so no retry is attempted.
+        .thenReturn(searchResult(List.of(SNOW_ORDERS), 501))
+        .thenReturn(searchResult(List.of(SNOW_ORDERS)))
+        .thenReturn(searchResult(List.of(SNOW_USERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_USERS)));
+
+    SiblingsSearchBatchLoader.batchLoad(
+        List.of(key(DBT_ORDERS, 1), key(DBT_USERS, 1)), _context, _entityClient, _viewService);
+
+    // One chunk search that truncated, then one query per key.
+    verifySearchCount(3);
+  }
+
+  /** A page size larger than the per-urn floor has to widen the window, or it cannot be filled. */
+  @Test
+  public void testLargePageWidensTheWindow() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+
+    SiblingsSearchBatchLoader.batchLoad(
+        List.of(key(DBT_ORDERS, 60)), _context, _entityClient, _viewService);
+
+    final ArgumentCaptor<Integer> size = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            any(),
+            any(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            any(),
+            size.capture(),
+            any());
+    // count 60 * headroom 3 beats both the per-urn floor and MIN_WINDOW.
+    assertEquals(size.getValue().intValue(), 180);
   }
 
   private static SiblingsSearchBatchLoader.Key keyWith(
@@ -319,7 +412,7 @@ public class SiblingsSearchBatchLoaderTest {
   /** A view narrows both the entity types searched and the filter applied. */
   @Test
   public void testViewNarrowsEntityTypesAndFilter() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
     stubView(List.of("dataset"), filterOn("origin", "PROD"));
 
@@ -341,7 +434,7 @@ public class SiblingsSearchBatchLoaderTest {
   /** A dangling view urn resolves to null; the request must still run on its own types. */
   @Test
   public void testMissingViewFallsBackToRequestedTypes() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
     Mockito.when(_viewService.getViewInfo(any(), any())).thenReturn(null);
 
@@ -372,21 +465,22 @@ public class SiblingsSearchBatchLoaderTest {
     assertEquals(results.get(0).getCount(), 0);
     assertTrue(results.get(0).getSearchResults().isEmpty());
     Mockito.verify(_entityClient, Mockito.never())
-        .searchAcrossEntities(
+        .scrollAcrossEntities(
             any(),
             any(),
             any(),
             nullable(Filter.class),
-            anyInt(),
-            nullable(Integer.class),
+            nullable(String.class),
+            nullable(String.class),
             any(),
+            nullable(Integer.class),
             any());
   }
 
   /** A caller-supplied orFilters predicate must be ANDed with the siblings filter, not dropped. */
   @Test
   public void testCallerFilterIsCombinedWithSiblingsFilter() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
 
     SiblingsSearchBatchLoader.batchLoad(
@@ -404,7 +498,7 @@ public class SiblingsSearchBatchLoaderTest {
   /** Caller search flags are honoured, and the key's own instance is never mutated. */
   @Test
   public void testCallerSearchFlagsArePreservedAndKeyIsNotMutated() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
 
     final SearchFlags flags = new SearchFlags().setSkipCache(true);
@@ -424,14 +518,15 @@ public class SiblingsSearchBatchLoaderTest {
   @Test
   public void testSearchFailurePropagates() throws Exception {
     Mockito.when(
-            _entityClient.searchAcrossEntities(
+            _entityClient.scrollAcrossEntities(
                 any(),
                 any(),
                 any(),
                 nullable(Filter.class),
-                anyInt(),
-                nullable(Integer.class),
+                nullable(String.class),
+                nullable(String.class),
                 any(),
+                nullable(Integer.class),
                 any()))
         .thenThrow(new RuntimeException("elasticsearch unavailable"));
 
@@ -442,13 +537,12 @@ public class SiblingsSearchBatchLoaderTest {
                 List.of(key(DBT_ORDERS, 1)), _context, _entityClient, _viewService));
   }
 
-  /** Facet buckets for urns outside the chunk belong to other datasets and must be ignored. */
+  /** A hit may name siblings outside the chunk; only in-chunk urns may be credited. */
   @Test
-  public void testOffChunkFacetBucketsAreIgnored() throws Exception {
-    stubSearch(
-        searchResult(
-            List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L, "urn:li:dataset:(x,other,PROD)", 9L)));
-    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+  public void testSiblingsOutsideTheChunkAreNotAttributed() throws Exception {
+    // The hit is a sibling of DBT_ORDERS (in chunk) and of a dataset outside the chunk.
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS, DBT_USERS)));
 
     final List<ScrollResults> results =
         SiblingsSearchBatchLoader.batchLoad(
@@ -460,7 +554,7 @@ public class SiblingsSearchBatchLoaderTest {
   /** A hit whose siblings aspect is absent cannot be attributed and must not be invented. */
   @Test
   public void testHitWithoutSiblingsAspectIsNotAttributed() throws Exception {
-    stubSearch(searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 0L)));
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     Mockito.when(_entityClient.batchGetV2(any(), any(), any(), any(), any()))
         .thenReturn(
             Map.of(
@@ -493,7 +587,7 @@ public class SiblingsSearchBatchLoaderTest {
   @Test
   public void testHitsKeepSearchOrderRegardlessOfAspectResponseOrder() throws Exception {
     final List<String> searchOrder = List.of(SNOW_ORDERS, SNOW_ORDERS_B, SNOW_ORDERS_C);
-    stubSearch(searchResult(searchOrder, Map.of(DBT_ORDERS, 3L)));
+    stubSearch(searchResult(searchOrder));
 
     // Reversed on purpose: the loader must not inherit this ordering.
     final Map<Urn, EntityResponse> reversed = new LinkedHashMap<>();
@@ -526,38 +620,76 @@ public class SiblingsSearchBatchLoaderTest {
   }
 
   /**
-   * Regression: a dropped facet bucket must not yield total 0 next to populated results.
-   *
-   * <p>The terms aggregation is capped, and its bucket space is every distinct sibling urn across
-   * the matched documents — so a chunk urn's bucket can be dropped even though its rows came back.
-   * The original starvation guard could not catch this: {@code hits.size() < min(count, 0)} is
-   * never true. Callers gate the siblings tab on {@code !!total}, so it would vanish.
+   * No facet is requested: DataHub returns a filtered field's buckets at count 0, so they are
+   * useless for per-key totals.
    */
   @Test
-  public void testMissingFacetBucketIsRequeriedRatherThanReportedAsZero() throws Exception {
-    // First call: hits present, but the facet has no bucket for DBT_ORDERS. Second call is the
-    // per-key requery, whose total comes from numEntities rather than the facet.
-    Mockito.when(
-            _entityClient.searchAcrossEntities(
-                any(),
-                any(),
-                any(),
-                nullable(Filter.class),
-                anyInt(),
-                nullable(Integer.class),
-                any(),
-                any()))
-        .thenReturn(
-            searchResult(List.of(SNOW_ORDERS), Map.of()),
-            searchResult(List.of(SNOW_ORDERS), Map.of(DBT_ORDERS, 1L)));
+  public void testChunkSearchRequestsNoFacets() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
+
+    SiblingsSearchBatchLoader.batchLoad(
+        List.of(key(DBT_ORDERS, 1)), _context, _entityClient, _viewService);
+
+    final ArgumentCaptor<List> facets = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(_entityClient)
+        .scrollAcrossEntities(
+            any(),
+            any(),
+            any(),
+            nullable(Filter.class),
+            nullable(String.class),
+            nullable(String.class),
+            any(),
+            nullable(Integer.class),
+            facets.capture());
+    assertTrue(facets.getValue().isEmpty(), "chunk search must not request facets");
+  }
+
+  /**
+   * A full page must carry the cursor of its last hit, so paging works the same as unbatched.
+   *
+   * <p>Each hit already carries a cursor built from its own sort values ([_score, urn]). Filter
+   * context does not score, so that value is what the single-key query would have produced too.
+   */
+  @Test
+  public void testFullPageReturnsTheLastHitsCursor() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS, SNOW_USERS)));
+    stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS), SNOW_USERS, List.of(DBT_ORDERS)));
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_ORDERS, 2)), _context, _entityClient, _viewService);
+
+    // Two hits requested, two returned — a full page, so the last hit's cursor is the resume point.
+    assertEquals(results.get(0).getCount(), 2);
+    assertEquals(results.get(0).getNextScrollId(), "cursor-for-" + SNOW_USERS);
+  }
+
+  /** A short page means there is nothing after it, so no cursor — matching SearchRequestHandler. */
+  @Test
+  public void testShortPageReturnsNoCursor() throws Exception {
+    stubSearch(searchResult(List.of(SNOW_ORDERS)));
     stubSiblingAspects(Map.of(SNOW_ORDERS, List.of(DBT_ORDERS)));
 
     final List<ScrollResults> results =
         SiblingsSearchBatchLoader.batchLoad(
-            List.of(key(DBT_ORDERS, 1)), _context, _entityClient, _viewService);
+            List.of(key(DBT_ORDERS, 5)), _context, _entityClient, _viewService);
 
-    assertEquals(results.get(0).getTotal(), 1, "total must not be 0 while results are populated");
-    assertEquals(results.get(0).getSearchResults().size(), 1);
-    verifySearchCount(2);
+    assertEquals(results.get(0).getCount(), 1);
+    assertNull(results.get(0).getNextScrollId(), "short page must not offer a resume point");
+  }
+
+  /** A key with no siblings has no page and no cursor. */
+  @Test
+  public void testEmptyResultHasNoCursor() throws Exception {
+    stubSearch(searchResult(List.of()));
+
+    final List<ScrollResults> results =
+        SiblingsSearchBatchLoader.batchLoad(
+            List.of(key(DBT_USERS, 1)), _context, _entityClient, _viewService);
+
+    assertEquals(results.get(0).getCount(), 0);
+    assertNull(results.get(0).getNextScrollId());
   }
 }

@@ -17,6 +17,9 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
+import graphql.execution.MergedField;
+import graphql.language.Field;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
 import java.util.List;
@@ -81,6 +84,9 @@ public class SiblingsSearchResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(context);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(input);
     Mockito.when(mockEnv.getDataLoaderRegistry()).thenReturn(_registry);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(mergedSiblingsField("total", "count", "searchResults"));
+    Mockito.when(mockEnv.getFragmentsByName()).thenReturn(Map.of());
     return mockEnv;
   }
 
@@ -193,5 +199,31 @@ public class SiblingsSearchResolverTest {
             nullable(Integer.class),
             any());
     return names.getValue();
+  }
+
+  /** Builds the merged field for `siblingsSearch` with the given sub-selections. */
+  private static MergedField mergedSiblingsField(final String... selectedFields) {
+    final SelectionSet.Builder selectionSet = SelectionSet.newSelectionSet();
+    for (String name : selectedFields) {
+      selectionSet.selection(Field.newField(name).build());
+    }
+    return MergedField.newMergedField(
+            Field.newField("siblingsSearch").selectionSet(selectionSet.build()).build())
+        .build();
+  }
+
+  /**
+   * A chunk's aggregations describe every urn in the chunk, so they cannot be attributed to one
+   * dataset. Selecting facets must therefore fall back to the unbatched path, which aggregates over
+   * this dataset's siblings alone.
+   */
+  @Test
+  public void testSelectingFacetsFallsBackToDirectSearch() throws Exception {
+    final DataFetchingEnvironment env = env(input(null));
+    Mockito.when(env.getMergedField()).thenReturn(mergedSiblingsField("total", "facets"));
+
+    new SiblingsSearchResolver(_entityClient, _viewService, flags(true)).get(env).get();
+
+    verifyTookDirectPath();
   }
 }

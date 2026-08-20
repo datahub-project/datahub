@@ -337,3 +337,132 @@ def test_siblings_search_same_urn_with_different_input_not_shared(auth_session):
         assert small["total"] == large["total"] == _MULTI_SIBLING_COUNT
 
     check()
+
+
+# --- Ordering and scroll continuation -------------------------------------------------------
+#
+# Review feedback on the batching PR: the batched and unbatched paths originally used different
+# search APIs (searchAcrossEntities from/size vs scrollAcrossEntities search_after), so first-page
+# ranking could differ — and several UI paths read searchResults[0]. Both paths now use
+# scrollAcrossEntities, and these tests assert the properties that were previously only compared
+# as unordered sets.
+#
+# A request carrying a scrollId is deliberately routed to the unbatched path, so paging from a
+# batched first page exercises BOTH paths in one run without touching the feature flag.
+
+_SIBLINGS_PAGE = """
+query siblingsPage($urn: String!, $count: Int!, $scrollId: String) {
+  dataset(urn: $urn) {
+    siblingsSearch(
+      input: {
+        query: "*"
+        count: $count
+        scrollId: $scrollId
+      }
+    ) {
+      nextScrollId
+      total
+      count
+      searchResults { entity { urn } }
+    }
+  }
+}
+"""
+
+
+def _page(auth_session, urn: str, count: int, scroll_id=None) -> Dict[str, Any]:
+    variables: Dict[str, Any] = {"urn": urn, "count": count, "scrollId": scroll_id}
+    res = execute_graphql(auth_session, _SIBLINGS_PAGE, variables)
+    return res["data"]["dataset"]["siblingsSearch"]
+
+
+def _urns_of(page: Dict[str, Any]) -> List[str]:
+    return [r["entity"]["urn"] for r in page["searchResults"]]
+
+
+def test_sibling_hit_order_is_stable_across_identical_requests(auth_session):
+    """Identical requests must return siblings in identical order.
+
+    Ordering used to depend on an unordered map's iteration order, which made
+    `searchResults[0]` vary between byte-identical requests — invisible to any comparison that
+    sorts before asserting.
+    """
+    multi_urn = _urn(_DBT, _MULTI)
+
+    @with_test_retry()
+    def check() -> None:
+        first = _urns_of(_page(auth_session, multi_urn, _MULTI_SIBLING_COUNT))
+        assert len(first) == _MULTI_SIBLING_COUNT
+        for _ in range(4):
+            assert (
+                _urns_of(_page(auth_session, multi_urn, _MULTI_SIBLING_COUNT)) == first
+            )
+
+    check()
+
+
+def test_full_page_returns_a_cursor_and_short_page_does_not(auth_session):
+    """A cursor is offered only when the page filled, matching the unbatched contract."""
+    multi_urn = _urn(_DBT, _MULTI)
+
+    @with_test_retry()
+    def check() -> None:
+        full = _page(auth_session, multi_urn, 1)
+        assert full["count"] == 1
+        assert full["nextScrollId"], "a full page must offer a resume point"
+
+        short = _page(auth_session, multi_urn, _MULTI_SIBLING_COUNT + 5)
+        assert short["count"] == _MULTI_SIBLING_COUNT
+        assert short["nextScrollId"] is None, "a short page has nothing to resume from"
+
+    check()
+
+
+def test_cursor_from_first_page_continues_on_the_unbatched_path(auth_session):
+    """Page 1 (no scrollId, batched) hands a cursor that page 2 (scrollId, unbatched) can use.
+
+    This is the cross-path check: the cursor is built from the hit's own sort values, so it has to
+    be valid for a query the batched path never issued.
+    """
+    multi_urn = _urn(_DBT, _MULTI)
+
+    @with_test_retry()
+    def check() -> None:
+        first = _page(auth_session, multi_urn, 1)
+        assert first["nextScrollId"]
+        first_urns = _urns_of(first)
+
+        second = _page(auth_session, multi_urn, 1, scroll_id=first["nextScrollId"])
+        second_urns = _urns_of(second)
+
+        assert second_urns, "continuing from the cursor returned nothing"
+        assert not set(first_urns) & set(second_urns), (
+            f"cursor replayed a row already returned: {first_urns} then {second_urns}"
+        )
+
+    check()
+
+
+def test_paging_by_cursor_yields_every_sibling_exactly_once(auth_session):
+    """Walking the cursor must enumerate the full sibling set with no gaps or repeats."""
+    multi_urn = _urn(_DBT, _MULTI)
+
+    @with_test_retry()
+    def check() -> None:
+        expected = _urns_of(_page(auth_session, multi_urn, _MULTI_SIBLING_COUNT))
+        assert len(expected) == _MULTI_SIBLING_COUNT
+
+        seen: List[str] = []
+        scroll_id = None
+        # Bounded so a cursor that fails to advance fails the test rather than hanging.
+        for _ in range(_MULTI_SIBLING_COUNT + 2):
+            page = _page(auth_session, multi_urn, 1, scroll_id=scroll_id)
+            seen += _urns_of(page)
+            scroll_id = page["nextScrollId"]
+            if not scroll_id:
+                break
+
+        assert seen == expected, f"paged {seen}, single request gave {expected}"
+        assert len(set(seen)) == len(seen), "a sibling was returned twice while paging"
+
+    check()

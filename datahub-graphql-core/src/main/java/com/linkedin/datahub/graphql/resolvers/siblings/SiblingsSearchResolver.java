@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.loaders.SiblingsSearchBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
+import com.linkedin.datahub.graphql.util.SelectionSetUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -36,6 +37,7 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
 
   private static final String SIBLINGS_FIELD_NAME = "siblings";
   private static final String MATCH_ALL_QUERY = "*";
+  private static final String FACETS_FIELD_NAME = "facets";
 
   // Mirrors SearchUtils#DEFAULT_SCROLL_COUNT, which the unbatched path applies.
   private static final int DEFAULT_COUNT = 10;
@@ -74,7 +76,7 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
 
     final List<EntityType> entityTypes = resolveEntityTypes(input);
 
-    if (canBatch(input)) {
+    if (canBatch(input, environment)) {
       final DataLoader<SiblingsSearchBatchLoader.Key, ScrollResults> loader =
           environment.getDataLoaderRegistry().getDataLoader(SiblingsSearchBatchLoader.LOADER_NAME);
       return loader.load(toKey(context, entity, input, entityTypes));
@@ -116,10 +118,21 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
    * A scroll cursor is per-query state that a grouped search cannot produce, so any request that
    * carries one continues on the unbatched path.
    */
-  private boolean canBatch(final ScrollAcrossEntitiesInput input) {
+  private boolean canBatch(
+      final ScrollAcrossEntitiesInput input, final DataFetchingEnvironment environment) {
     return _featureFlags != null
         && _featureFlags.isSiblingsSearchBatchLoadEnabled()
-        && input.getScrollId() == null;
+        && input.getScrollId() == null
+        && !selectsFacets(environment);
+  }
+
+  /**
+   * A batched chunk's aggregations describe every urn in the chunk, not one key, so they cannot be
+   * attributed per dataset. Callers that ask for facets take the unbatched path, which aggregates
+   * over that dataset's siblings alone.
+   */
+  private static boolean selectsFacets(final DataFetchingEnvironment environment) {
+    return SelectionSetUtils.selectedSubFieldNames(environment).contains(FACETS_FIELD_NAME);
   }
 
   private static SiblingsSearchBatchLoader.Key toKey(

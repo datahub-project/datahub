@@ -7,6 +7,7 @@ import com.linkedin.common.Siblings;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
@@ -21,9 +22,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import io.datahubproject.metadata.context.OperationContext;
@@ -55,9 +55,9 @@ import org.dataloader.DataLoaderOptions;
  * siblings} aspect, which records only the forward direction and is not guaranteed symmetric, so it
  * has to be a search.
  *
- * <p>Each chunk runs one search filtered to the chunk's urns and faceted on {@code siblings}. The
- * facet supplies each urn's total; hits are attributed by reading their own {@code siblings}
- * aspect, which the search response does not carry.
+ * <p>Each chunk runs one search filtered to the chunk's urns. Hits are attributed by reading their
+ * own {@code siblings} aspect, which the search response does not carry, and each urn's total is
+ * the number of hits attributed to it.
  */
 @Slf4j
 public final class SiblingsSearchBatchLoader {
@@ -66,13 +66,17 @@ public final class SiblingsSearchBatchLoader {
 
   private static final String SIBLINGS_FIELD = "siblings";
 
-  // Terms buckets are capped at min(maxAggValues, maxTermBucketSize), default 60. An entity may
-  // list several siblings, so matched docs add buckets beyond the chunk — keep well under.
+  // Keys per batched search. Bounded so one chunk's siblings comfortably fit the hit window.
   private static final int MAX_URNS_PER_AGG = 25;
-  private static final int MAX_AGG_VALUES = 1000;
 
-  // Hits are shared across the chunk, so over-fetch to reduce per-key re-queries.
+  // Totals are counted from the returned hits, so the window has to hold every matched document.
+  // Two terms, because either can dominate: chunk width sets a floor per urn, and a caller asking
+  // for a large page needs at least that many hits per urn to fill it. MIN_WINDOW keeps narrow
+  // chunks — a profile page resolves one urn — from truncating on a modest sibling count. `size`
+  // is a cap rather than a fetch count, so a wider window costs nothing when few documents match.
+  private static final int WINDOW_PER_URN = 8;
   private static final int WINDOW_HEADROOM_FACTOR = 3;
+  private static final int MIN_WINDOW = 100;
   private static final int MAX_WINDOW = 500;
 
   private SiblingsSearchBatchLoader() {}
@@ -258,9 +262,6 @@ public final class SiblingsSearchBatchLoader {
     }
 
     final List<String> urns = chunk.stream().map(Key::getUrn).collect(Collectors.toList());
-    // long: a large caller-supplied `count` would overflow the product.
-    final int window =
-        (int) Math.min(MAX_WINDOW, (long) urns.size() * group.count * WINDOW_HEADROOM_FACTOR);
 
     final OperationContext opContext =
         queryContext
@@ -268,44 +269,99 @@ public final class SiblingsSearchBatchLoader {
             .withSearchFlags(
                 flags -> {
                   // Copy: the group's flags are part of the key, so mutating them breaks its
-                  // hash. `flags` is already a copy. Default facets would be computed and dropped.
+                  // hash. `flags` is already a copy. Default facets stay suppressed — a chunk's
+                  // aggregations describe every urn in it, so they are never returned; callers
+                  // that select facets take the unbatched path instead.
                   final SearchFlags base =
                       group.searchFlags != null ? copyFlags(group.searchFlags) : flags;
-                  return base.setMaxAggValues(MAX_AGG_VALUES).setIncludeDefaultFacets(false);
+                  return base.setIncludeDefaultFacets(false);
                 });
 
-    final SearchResult searchResult =
-        entityClient.searchAcrossEntities(
-            opContext,
-            resolved.entityNames,
-            group.query,
-            combineWithSiblingsFilter(resolved.baseFilter, urns),
-            0,
-            window,
-            Collections.emptyList(),
-            Collections.singletonList(SIBLINGS_FIELD));
+    ScrollResult searchResult =
+        runChunkSearch(
+            opContext, resolved, group, urns, windowFor(urns.size(), group.count), entityClient);
 
-    final Map<String, Long> totalsByUrn = extractTotals(searchResult, urns);
+    // Every matched document is returned unless the window cut the page short, so a full page means
+    // the attributed hits are the complete sibling set and their counts are exact.
+    long matched = numEntities(searchResult);
+    boolean windowTruncated = searchResult.getEntities().size() < matched;
+
+    // A short page undercounts some key and the response cannot say which. The response does say
+    // how many documents matched, so when they all fit the ceiling one resized retry answers the
+    // whole chunk — cheaper than the per-key fallback, which costs a query per key.
+    if (windowTruncated && matched <= MAX_WINDOW) {
+      searchResult = runChunkSearch(opContext, resolved, group, urns, (int) matched, entityClient);
+      // Recompute rather than assume: concurrent indexing can grow the match set between queries.
+      matched = numEntities(searchResult);
+      windowTruncated = searchResult.getEntities().size() < matched;
+    }
+
+    if (windowTruncated) {
+      log.warn(
+          "siblings window held {} of {} matching documents for {} urns; falling back to per-key"
+              + " queries. Raising MAX_WINDOW would avoid this.",
+          searchResult.getEntities().size(),
+          matched,
+          urns.size());
+      final Map<Key, ScrollResults> perKey = new HashMap<>(chunk.size());
+      for (Key key : chunk) {
+        perKey.put(key, loadSingle(key, group, resolved, queryContext, entityClient));
+      }
+      return perKey;
+    }
+
     final Map<String, List<SearchEntity>> hitsByUrn =
         attributeHits(searchResult, urns, opContext, entityClient);
 
     final Map<Key, ScrollResults> results = new HashMap<>(chunk.size());
     for (Key key : chunk) {
-      final long total = totalsByUrn.getOrDefault(key.urn, 0L);
+      final List<SearchEntity> attributed =
+          hitsByUrn.getOrDefault(key.urn, Collections.emptyList());
       final List<SearchEntity> hits =
-          hitsByUrn.getOrDefault(key.urn, Collections.emptyList()).stream()
-              .limit(group.count)
-              .collect(Collectors.toList());
-
-      // Re-query alone if the shared window starved this key, or if its facet bucket was
-      // dropped (total 0 beside populated rows would hide the siblings tab).
-      if (hits.size() < Math.min(group.count, total) || (total == 0 && !hits.isEmpty())) {
-        results.put(key, loadSingle(key, group, resolved, queryContext, entityClient));
-        continue;
-      }
-      results.put(key, toScrollResults(queryContext, hits, total));
+          attributed.stream().limit(group.count).collect(Collectors.toList());
+      results.put(
+          key, toScrollResults(queryContext, hits, attributed.size(), hits.size() == group.count));
     }
     return results;
+  }
+
+  /**
+   * The window must hold every document the chunk matches, so it takes the larger of the two things
+   * that drive that: how many urns share the search, and how large a page each one asked for.
+   */
+  private static int windowFor(final int urnCount, final int count) {
+    // long: a large caller-supplied `count` would overflow the product.
+    final long perUrn = Math.max(WINDOW_PER_URN, (long) count * WINDOW_HEADROOM_FACTOR);
+    return (int) Math.min(MAX_WINDOW, Math.max(MIN_WINDOW, urnCount * perUrn));
+  }
+
+  private static long numEntities(final ScrollResult result) {
+    return result.hasNumEntities() ? result.getNumEntities() : 0L;
+  }
+
+  /**
+   * Same search API as the unbatched resolver, so first-page ranking matches by construction rather
+   * than by measurement. keepAlive is null: this never continues a scroll, and a non-null value
+   * would open a point-in-time snapshot per chunk (ESSearchDAO#usePIT).
+   */
+  private static ScrollResult runChunkSearch(
+      final OperationContext opContext,
+      final ResolvedQuery resolved,
+      final GroupKey group,
+      final List<String> urns,
+      final int window,
+      final EntityClient entityClient)
+      throws Exception {
+    return entityClient.scrollAcrossEntities(
+        opContext,
+        resolved.entityNames,
+        group.query,
+        combineWithSiblingsFilter(resolved.baseFilter, urns),
+        null,
+        null,
+        Collections.emptyList(),
+        window,
+        Collections.emptyList());
   }
 
   private static ScrollResults loadSingle(
@@ -325,24 +381,32 @@ public final class SiblingsSearchBatchLoader {
                     (group.searchFlags != null ? copyFlags(group.searchFlags) : flags)
                         .setIncludeDefaultFacets(false));
 
-    final SearchResult result =
-        entityClient.searchAcrossEntities(
+    final ScrollResult result =
+        entityClient.scrollAcrossEntities(
             opContext,
             resolved.entityNames,
             group.query,
             combineWithSiblingsFilter(resolved.baseFilter, List.of(key.urn)),
-            0,
-            group.count,
+            null,
+            null,
             Collections.emptyList(),
+            group.count,
             Collections.emptyList());
 
-    return toScrollResults(
-        queryContext, result.getEntities(), result.hasNumEntities() ? result.getNumEntities() : 0);
+    final ScrollResults single =
+        toScrollResults(
+            queryContext,
+            result.getEntities(),
+            result.hasNumEntities() ? result.getNumEntities() : 0,
+            false);
+    // This came from a real single-key scroll, so use its own cursor verbatim.
+    single.setNextScrollId(result.getScrollId());
+    return single;
   }
 
   /** Maps each hit to the chunk urns it is a sibling of, read from the hit's own aspect. */
   private static Map<String, List<SearchEntity>> attributeHits(
-      @Nullable final SearchResult searchResult,
+      @Nullable final ScrollResult searchResult,
       final List<String> chunkUrns,
       final OperationContext opContext,
       final EntityClient entityClient)
@@ -402,28 +466,6 @@ public final class SiblingsSearchBatchLoader {
     return siblings.getSiblings().stream().map(Urn::toString).collect(Collectors.toList());
   }
 
-  private static Map<String, Long> extractTotals(
-      @Nullable final SearchResult searchResult, final List<String> chunkUrns) {
-    final Map<String, Long> totals = new HashMap<>();
-    if (searchResult == null) {
-      return totals;
-    }
-    final Set<String> chunkUrnSet = new HashSet<>(chunkUrns);
-    for (AggregationMetadata agg : searchResult.getMetadata().getAggregations()) {
-      if (!SIBLINGS_FIELD.equals(agg.getName())) {
-        continue;
-      }
-      agg.getAggregations()
-          .forEach(
-              (siblingUrn, count) -> {
-                if (chunkUrnSet.contains(siblingUrn)) {
-                  totals.merge(siblingUrn, count, Long::sum);
-                }
-              });
-    }
-    return totals;
-  }
-
   private static ResolvedQuery resolveQuery(
       final GroupKey group, final QueryContext queryContext, final ViewService viewService) {
 
@@ -461,10 +503,16 @@ public final class SiblingsSearchBatchLoader {
   }
 
   private static ScrollResults toScrollResults(
-      final QueryContext queryContext, final List<SearchEntity> hits, final long total) {
+      final QueryContext queryContext,
+      final List<SearchEntity> hits,
+      final long total,
+      final boolean pageIsFull) {
     final ScrollResults results = new ScrollResults();
-    // A grouped query has no per-key cursor. Requests with a scrollId take the unbatched path.
-    results.setNextScrollId(null);
+    // Each hit carries its own cursor (SearchRequestHandler stamps extraFields.scrollId from that
+    // hit's sort values). Sort is [_score, urn] and filter context does not score, so the value is
+    // the same one the unbatched query would have produced for this row. Only emit it on a full
+    // page, matching SearchRequestHandler's "there may be more" rule.
+    results.setNextScrollId(pageIsFull ? cursorOf(hits.get(hits.size() - 1)) : null);
     // Entities returned, not the requested page size — matches UrnScrollResultsMapper.
     results.setCount(hits.size());
     results.setTotal((int) Math.min(total, Integer.MAX_VALUE));
@@ -477,7 +525,14 @@ public final class SiblingsSearchBatchLoader {
   }
 
   private static ScrollResults emptyResults() {
-    return toScrollResults(null, Collections.emptyList(), 0);
+    return toScrollResults(null, Collections.emptyList(), 0, false);
+  }
+
+  /** The per-hit cursor stamped by SearchRequestHandler, or null if absent. */
+  @Nullable
+  private static String cursorOf(final SearchEntity hit) {
+    final StringMap extra = hit.getExtraFields();
+    return extra == null ? null : extra.get("scrollId");
   }
 
   private static SearchFlags copyFlags(final SearchFlags flags) {
