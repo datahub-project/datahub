@@ -5,6 +5,7 @@ import logging
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import (
     get_search_results,
     scroll_across_lineage,
@@ -13,6 +14,8 @@ from tests.utilities.metadata_operations import (
 from tests.utils import execute_graphql
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 def _find_urn_with_lineage(auth_session) -> str:

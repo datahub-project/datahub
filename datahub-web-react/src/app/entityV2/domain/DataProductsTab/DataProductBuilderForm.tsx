@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
+import DataProductParentSelect from '@app/entityV2/shared/EntityDropdown/DataProductParentSelect';
 
 const StyledEditor = styled(Editor)`
     border: 1px solid ${(props) => props.theme.colors.bgHover};
@@ -24,10 +25,13 @@ const FieldLabel = styled.div`
 type Props = {
     builderState: DataProductBuilderState;
     updateBuilderState: (newState: DataProductBuilderState) => void;
+    /** When editing, exclude this data product from the parent picker. */
+    excludeUrn?: string;
 };
 
-export default function DataProductBuilderForm({ builderState, updateBuilderState }: Props) {
+export default function DataProductBuilderForm({ builderState, updateBuilderState, excludeUrn }: Props) {
     const { t: tl } = useTranslation('common.labels');
+    const { t } = useTranslation('entity.types');
 
     function updateName(name: string) {
         updateBuilderState({
@@ -40,6 +44,16 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
         updateBuilderState({
             ...builderState,
             description,
+        });
+    }
+
+    function setSelectedParentUrn(parentDataProductUrn: string, parentDataProductName?: string) {
+        updateBuilderState({
+            ...builderState,
+            parentDataProductUrn: parentDataProductUrn || undefined,
+            parentDataProductName: parentDataProductUrn
+                ? (parentDataProductName ?? builderState.parentDataProductName)
+                : undefined,
         });
     }
 
@@ -59,6 +73,17 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             <div>
                 <FieldLabel>{tl('description')}</FieldLabel>
                 <StyledEditor doNotFocus content={builderState.description} onChange={updateDescription} />
+            </div>
+            <div>
+                <FieldLabel>
+                    {t('dataProduct.parentLabel')} {tl('optional')}
+                </FieldLabel>
+                <DataProductParentSelect
+                    selectedParentUrn={builderState.parentDataProductUrn || ''}
+                    setSelectedParentUrn={setSelectedParentUrn}
+                    excludeUrn={excludeUrn}
+                    initialParentName={builderState.parentDataProductName}
+                />
             </div>
         </FieldGroup>
     );

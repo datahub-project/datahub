@@ -15,8 +15,11 @@ from typing import Any, Dict, List, Optional, Set
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 # Test configuration
 TEST_ENTITY_NAME = "dataset"

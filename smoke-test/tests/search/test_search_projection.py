@@ -2,10 +2,15 @@ import json
 import logging
 from typing import Any, Dict
 
+import pytest
+
 from datahub.cli.search_cli import _build_search_query
+from tests.utilities.domains import Domain
 from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Shared variables for all search queries
 _BASE_VARIABLES = {

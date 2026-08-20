@@ -118,6 +118,26 @@ public interface AspectDao {
   }
 
   /**
+   * Whether the OL persist loop batches version-0 CAS UPDATEs into one JDBC {@code executeBatch}.
+   * Off by default.
+   *
+   * <p>Contract for implementations: this must return {@code true} ONLY when BOTH {@link
+   * #isOptimisticLockingEnabled()} and {@link #isScopedRetryEnabled()} are true. Batching's
+   * per-item conflict handling only works on the scoped-retry compute path, so returning {@code
+   * true} without scoped retry would let a caller batch on a path that cannot honor the results.
+   */
+  @OperationContextExempt(reason = "Returns static DAO mode flag, no request context needed")
+  default boolean isOptimisticWriteBatchEnabled() {
+    return false;
+  }
+
+  /** Minimum number of eligible CAS updates to batch; below this the loop stays sequential. */
+  @OperationContextExempt(reason = "Returns static DAO config value, no request context needed")
+  default int getOptimisticWriteBatchMinSize() {
+    return 0;
+  }
+
+  /**
    * Whether this DAO, when optimistic locking is enabled, retries only the conflicted URN's branch
    * within the transaction (scoped retry) instead of re-running the whole batch. Default {@code
    * false} keeps the full-batch retry behavior of the optimistic-locking base.
@@ -135,6 +155,32 @@ public interface AspectDao {
       @Nullable String expectedSystemMetadataVersion) {
     throw new UnsupportedOperationException(
         "Optimistic locking conditional update is not supported by this AspectDao");
+  }
+
+  /**
+   * Batch CAS updates. Result ordering matches input ordering exactly. Implementation wraps in
+   * {@code txnFactory.runInScope(...)} for routing parity with single-row {@link
+   * #updateAspectConditional}.
+   *
+   * @param opContext operation context
+   * @param txContext transaction context
+   * @param updates list of CAS updates
+   * @return list of per-item outcomes (UPDATED / CONFLICT), same length as input, ordering
+   *     preserved
+   * @throws jakarta.persistence.PersistenceException on any non-1/0 JDBC batch result (a thrown
+   *     BatchUpdateException, -3 EXECUTE_FAILED, or -2 SUCCESS_NO_INFO). In all of these the
+   *     per-row outcome is unknown and rows may already have applied, so an in-txn sequential
+   *     re-CAS is unsafe (it would false-conflict an already-applied row). The caller must NOT
+   *     catch-and- continue: the outer transaction rolls back and retries on the sequential
+   *     (non-batched) path.
+   */
+  @Nonnull
+  default List<ConditionalUpdateResult> updateAspectsConditionalBatch(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull List<ConditionalAspectUpdate> updates) {
+    throw new UnsupportedOperationException(
+        "Optimistic locking batch conditional update is not supported by this AspectDao");
   }
 
   /**
@@ -229,6 +275,75 @@ public interface AspectDao {
       @Nonnull SystemAspect newAspect,
       int maxVersionsToKeep) {
 
+    ConditionalWritePlan plan =
+        planConditionalWrite(opContext, latestAspect, newAspect, maxVersionsToKeep);
+    return executePlannedWrite(
+        opContext, txContext, latestAspect, newAspect, maxVersionsToKeep, plan);
+  }
+
+  /**
+   * Execute a {@link ConditionalWritePlan} produced by {@link #planConditionalWrite}. Split out so
+   * the OL batch path can run the version-0 CAS of many {@link
+   * ConditionalWritePlan.Kind#ELIGIBLE_CAS} plans as one JDBC {@code executeBatch}, while executing
+   * NOOP / INSERT_NEW / LEGACY_UNCONDITIONAL plans inline through this same code — the sequential
+   * and batched flows share one execute path, so they cannot drift.
+   */
+  default ConditionalSaveResult executePlannedWrite(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep,
+      @Nonnull ConditionalWritePlan plan) {
+    switch (plan.getKind()) {
+      case NOOP:
+        return new ConditionalSaveResult(
+            ConditionalWriteOutcome.SKIPPED_NOOP, Optional.empty(), Optional.empty());
+      case LEGACY_UNCONDITIONAL:
+        {
+          Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
+              saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
+          return new ConditionalSaveResult(
+              ConditionalWriteOutcome.UPDATED, legacy.getFirst(), legacy.getSecond());
+        }
+      case INSERT_NEW:
+        {
+          Optional<EntityAspect> inserted =
+              insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
+          return new ConditionalSaveResult(
+              ConditionalWriteOutcome.UPDATED, Optional.empty(), inserted);
+        }
+      case ELIGIBLE_CAS:
+      default:
+        {
+          Optional<EntityAspect> updated =
+              updateAspectConditional(opContext, txContext, newAspect, plan.getExpectedVersion());
+          if (updated.isEmpty()) {
+            return new ConditionalSaveResult(
+                ConditionalWriteOutcome.CONFLICT, Optional.empty(), Optional.empty());
+          }
+          Optional<EntityAspect> inserted = applyConditionalHistory(opContext, txContext, plan);
+          return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, inserted, updated);
+        }
+    }
+  }
+
+  /**
+   * Decide how a version-0 write should proceed WITHOUT executing it, so the OL persist loop can
+   * batch the CAS UPDATEs of many aspects into one JDBC {@code executeBatch} while keeping inserts
+   * / legacy / no-op writes sequential. This is the single source of truth shared by the sequential
+   * {@link #saveLatestAspectConditional} and the batched persist path — they cannot drift.
+   *
+   * <p>MUTATES {@code newAspect}'s systemMetadata (traceId + no-op flag) exactly as the write path
+   * requires, so an {@link ConditionalWritePlan.Kind#ELIGIBLE_CAS} plan's CAS and an {@link
+   * ConditionalWritePlan.Kind#INSERT_NEW} plan's insert can run {@code newAspect} as-is.
+   */
+  default ConditionalWritePlan planConditionalWrite(
+      @Nonnull OperationContext opContext,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect newAspect,
+      int maxVersionsToKeep) {
+
     if (newAspect.getSystemMetadataVersion().isEmpty()) {
       throw new IllegalArgumentException(
           String.format("Expected a version in systemMetadata.%s", newAspect.getSystemMetadata()));
@@ -248,10 +363,7 @@ public interface AspectDao {
         // stamps a version. The write gate (when enabled) still serializes them; with no gate,
         // legacy rows behave exactly as they did before OL. One-time, self-healing: the next write
         // stamps a version and subsequent writes take the CAS path below.
-        Pair<Optional<EntityAspect>, Optional<EntityAspect>> legacy =
-            saveLatestAspect(opContext, txContext, latestAspect, newAspect, maxVersionsToKeep);
-        return new ConditionalSaveResult(
-            ConditionalWriteOutcome.UPDATED, legacy.getFirst(), legacy.getSecond());
+        return ConditionalWritePlan.of(ConditionalWritePlan.Kind.LEGACY_UNCONDITIONAL);
       }
 
       long targetVersion =
@@ -264,35 +376,39 @@ public interface AspectDao {
       if (Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
           && isNoOp) {
         incrementOptimisticLockMetric("optimistic_lock_skipped_noop");
-        return new ConditionalSaveResult(
-            ConditionalWriteOutcome.SKIPPED_NOOP, Optional.empty(), Optional.empty());
+        return ConditionalWritePlan.of(ConditionalWritePlan.Kind.NOOP);
       }
 
       SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
-      Optional<EntityAspect> updated =
-          updateAspectConditional(opContext, txContext, newAspect, expectedVersion);
-      if (updated.isEmpty()) {
-        return new ConditionalSaveResult(
-            ConditionalWriteOutcome.CONFLICT, Optional.empty(), Optional.empty());
-      }
-
-      Optional<EntityAspect> inserted = Optional.empty();
-      if (maxVersionsToKeep > 1
-          && !newAspect
-              .getSystemMetadataVersion()
-              .equals(currentVersion0.getSystemMetadataVersion())) {
-        inserted =
-            insertAspect(
-                opContext, txContext, latestAspect.getDatabaseAspect().get(), targetVersion);
-      }
-
-      return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, inserted, updated);
+      boolean needsHistory =
+          maxVersionsToKeep > 1
+              && !newAspect
+                  .getSystemMetadataVersion()
+                  .equals(currentVersion0.getSystemMetadataVersion());
+      return ConditionalWritePlan.eligibleCas(
+          expectedVersion, currentVersion0, targetVersion, needsHistory);
     }
 
     newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
-    Optional<EntityAspect> inserted =
-        insertAspect(opContext, txContext, newAspect, ASPECT_LATEST_VERSION);
-    return new ConditionalSaveResult(ConditionalWriteOutcome.UPDATED, Optional.empty(), inserted);
+    return ConditionalWritePlan.of(ConditionalWritePlan.Kind.INSERT_NEW);
+  }
+
+  /**
+   * Apply the deferred version-N history row after a WINNING conditional update. A no-op unless the
+   * plan is an {@link ConditionalWritePlan.Kind#ELIGIBLE_CAS} that needs history. Uses the pre-CAS
+   * {@code oldDbAspect} captured on the plan, so the archived content is correct even though the
+   * CAS has already overwritten version 0. Shared by the sequential and batched flows.
+   */
+  default Optional<EntityAspect> applyConditionalHistory(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull ConditionalWritePlan plan) {
+    if (plan.getKind() == ConditionalWritePlan.Kind.ELIGIBLE_CAS
+        && plan.isNeedsHistory()
+        && plan.getOldDbAspect() != null) {
+      return insertAspect(opContext, txContext, plan.getOldDbAspect(), plan.getTargetVersion());
+    }
+    return Optional.empty();
   }
 
   private long nextVersionResolution(

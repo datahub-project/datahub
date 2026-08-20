@@ -6,7 +6,10 @@ import pathlib
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.host_mounts import worktree_mount_env
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _make_worktree(root: pathlib.Path, side: str) -> pathlib.Path:

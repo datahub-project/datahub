@@ -34,6 +34,7 @@ import requests
 
 from tests.privileges.utils import create_user, remove_user
 from tests.tokens.token_utils import assert_graphql_mutation_succeeded
+from tests.utilities.domains import Domain
 from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
@@ -45,7 +46,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 
 # Test constants

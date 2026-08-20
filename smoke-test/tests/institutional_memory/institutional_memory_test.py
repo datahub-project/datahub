@@ -1,7 +1,10 @@
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, get_admin_username
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="function", autouse=True)

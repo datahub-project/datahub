@@ -1,7 +1,17 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Final, FrozenSet, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Final,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 from sqlalchemy.engine.url import make_url
 
@@ -237,6 +247,10 @@ class JdbcParserFactory:
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
+    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only — Cloud
+    # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
+    needs_cluster_topics: ClassVar[bool] = True
+
     # Use imported constants from connector_constants module
     REGEXROUTER = REGEXROUTER_TRANSFORM
     KNOWN_TOPICROUTING_TRANSFORMS = KNOWN_TOPIC_ROUTING_TRANSFORMS
@@ -572,14 +586,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         This method implements a hybrid approach that properly handles transforms while
         working within Cloud environment constraints.
         """
-        # Get all available topics from cluster (if available)
-        # For Cloud, use all_cluster_topics (populated separately) if available,
-        # otherwise fall back to connector_manifest.topic_names
-        all_topics = (
-            list(self.all_cluster_topics)
-            if self.all_cluster_topics
-            else list(self.connector_manifest.topic_names)
-        )
+        all_topics = self.available_topics()
 
         # If we have topics and transforms, try the transform-aware approach
         if all_topics and parser.transforms:
@@ -2179,6 +2186,11 @@ class DebeziumSourceConnector(BaseConnector):
         DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER
     )
 
+    def requires_cluster_topics(self) -> bool:
+        # Only EventRouter needs the live list to discover post-SMT topic names.
+        # Plain Debezium derives topics from table.include.list / SchemaResolver.
+        return self._has_event_router_transform()
+
     @dataclass
     class DebeziumParser:
         source_platform: str
@@ -3043,12 +3055,7 @@ class DebeziumSourceConnector(BaseConnector):
         EventRouter often works with RegexRouter to rename output topics. We can use
         the RegexRouter replacement pattern to identify which topics belong to this connector.
         """
-        # Use all_cluster_topics for Cloud (contains all topics), otherwise use topic_names (OSS)
-        available_topics = (
-            list(self.all_cluster_topics)
-            if self.all_cluster_topics
-            else list(self.connector_manifest.topic_names)
-        )
+        available_topics = self.available_topics()
 
         # Look for RegexRouter transform configuration
         transforms_config = self.connector_manifest.config.get("transforms", "")

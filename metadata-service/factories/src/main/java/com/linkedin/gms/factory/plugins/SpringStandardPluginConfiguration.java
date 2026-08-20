@@ -466,6 +466,18 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_GROUP_ENTITY_NAME)
                             .aspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
                             .build()))
                 .build());
   }
