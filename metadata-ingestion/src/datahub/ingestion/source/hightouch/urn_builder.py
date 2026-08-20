@@ -18,7 +18,8 @@ from datahub.ingestion.source.hightouch.protocols import (
     GetPlatformForDestination,
     GetPlatformForSource,
 )
-from datahub.metadata.urns import DatasetUrn, InvalidUrnError
+from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 class HightouchUrnBuilder:
