@@ -22,9 +22,9 @@ from tests.knowledge.document_helpers import (
     delete_unique_dataset,
     fetch_related_documents,
 )
-
+from tests.utilities.domains import Domain
 logger = logging.getLogger(__name__)
-
+pytestmark = pytest.mark.domain(Domain.AI)
 
 def execute_graphql(
     auth_session, query: str, variables: dict | None = None, no_sync_wait: bool = False

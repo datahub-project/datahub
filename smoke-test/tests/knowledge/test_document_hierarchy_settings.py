@@ -11,8 +11,11 @@ from tests.knowledge.document_helpers import (
     fetch_related_documents,
     unique_id,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 
 class TestDocumentHierarchyAndSettings:

@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Navn",
     "groups.createModal.name.placeholder": "Et navn for gruppen din",
     "groups.createModal.name.validationError.empty": "Angi et gruppenavn.",
-    "groups.createModal.name.validationError.tooLong": "Navnet må være 50 tegn eller kortere.",
+    "groups.createModal.name.validationError.tooLong": "Navnet må være 250 tegn eller kortere.",
     "groups.createModal.title": "Opprett ny gruppe",
     "groups.createOwnerError": "Kunne ikke automatisk legge deg til som eier av gruppen. Legg deg til som eier manuelt.",
     "groups.createSuccess": "Gruppe opprettet!",
