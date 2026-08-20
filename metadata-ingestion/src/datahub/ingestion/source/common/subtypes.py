@@ -55,7 +55,6 @@ class DatasetSubTypes(StrEnum):
     SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
-    DATABRICKS_VOLUME = "Volume"
     DATABRICKS_VOLUME_FILE = "Volume File"
     CUBE = "Cube"
 
@@ -83,6 +82,7 @@ class DatasetContainerSubTypes(StrEnum):
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
     DATABRICKS_METASTORE = "Metastore"
+    DATABRICKS_VOLUME = "Volume"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"

@@ -49,6 +49,10 @@ from datahub.emitter.mcp_builder import (
     NotebookKey,
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
+    UnityVolumeFolderKey,
+    UnityVolumeFolderKeyWithMetastore,
+    UnityVolumeKey,
+    UnityVolumeKeyWithMetastore,
     add_dataset_to_container,
     add_entity_to_container,
     gen_containers,
@@ -77,6 +81,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -151,6 +156,7 @@ from datahub.metadata.schema_classes import (
     MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -940,56 +946,43 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_volume(
         self, volume: Volume, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = self.gen_volume_urn(volume.ref)
-        yield from self.add_table_to_dataset_container(dataset_urn, schema)
-
-        custom_properties: Dict[str, str] = {}
+        extra_properties: Dict[str, str] = {}
         if volume.storage_location is not None:
-            custom_properties["storage_location"] = volume.storage_location
+            extra_properties["storage_location"] = volume.storage_location
         if volume.volume_type is not None:
-            custom_properties["volume_type"] = volume.volume_type.value
+            extra_properties["volume_type"] = volume.volume_type.value
         if volume.volume_id:
-            custom_properties["volume_id"] = volume.volume_id
+            extra_properties["volume_id"] = volume.volume_id
         if volume.owner:
-            custom_properties["owner"] = volume.owner
+            extra_properties["owner"] = volume.owner
         if volume.created_by:
-            custom_properties["created_by"] = volume.created_by
+            extra_properties["created_by"] = volume.created_by
         if volume.updated_by:
-            custom_properties["updated_by"] = volume.updated_by
+            extra_properties["updated_by"] = volume.updated_by
         if volume.created_at:
-            custom_properties["created_at"] = str(volume.created_at)
+            extra_properties["created_at"] = str(volume.created_at)
         if volume.updated_at:
-            custom_properties["updated_at"] = str(volume.updated_at)
+            extra_properties["updated_at"] = str(volume.updated_at)
 
-        created, last_modified = _build_timestamps(
-            volume.created_at,
-            volume.created_by,
-            volume.updated_at,
-            volume.updated_by,
+        created_ms = make_ts_millis(volume.created_at) if volume.created_at else None
+        last_modified_ms = (
+            make_ts_millis(volume.updated_at) if volume.updated_at else created_ms
         )
 
-        ownership = self._create_ownership_aspect(volume.owner)
-
-        mcps = MetadataChangeProposalWrapper.construct_many(
-            entityUrn=dataset_urn,
-            aspects=[
-                DatasetPropertiesClass(
-                    name=volume.name,
-                    qualifiedName=volume.ref.qualified_name,
-                    description=volume.comment,
-                    customProperties=custom_properties,
-                    created=created,
-                    lastModified=last_modified,
-                    externalUrl=f"{self.external_url_base}/{volume.ref.external_path}",
-                ),
-                SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME]),
-                self._create_data_platform_instance_aspect(),
-                self._get_domain_aspect(dataset_name=volume.ref.qualified_name),
-                ownership,
-            ],
+        yield from gen_containers(
+            container_key=self.gen_volume_key(volume),
+            name=volume.name,
+            sub_types=[DatasetContainerSubTypes.DATABRICKS_VOLUME],
+            parent_container_key=self.gen_schema_key(schema),
+            domain_urn=self._gen_domain_urn(volume.ref.qualified_name),
+            description=volume.comment,
+            owner_urn=self.get_owner_urn(volume.owner),
+            external_url=f"{self.external_url_base}/{volume.ref.external_path}",
+            qualified_name=volume.ref.qualified_name,
+            extra_properties=extra_properties or None,
+            created=created_ms,
+            last_modified=last_modified_ms,
         )
-        for mcp in mcps:
-            yield mcp.as_workunit()
 
     def process_volume_files(
         self, volume: Volume, schema: Schema
@@ -1003,19 +996,40 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.volume_files.dropped(name)
             return False
 
+        seen_folders: Set[str] = set()
         for volume_file in self.unity_catalog_api_proxy.volume_files(
             volume,
             max_results=self.config.volume_file_max_results,
             allowed=_allowed,
         ):
-            yield from self.process_volume_file(volume_file, schema)
+            parent_container_key = self.gen_volume_key(volume)
+            # relative_path is "<folder>/.../<file>"; every leading segment is a
+            # folder container nested under the volume (or the folder above it).
+            cumulative = ""
+            for segment in volume_file.relative_path.split("/")[:-1]:
+                cumulative = f"{cumulative}/{segment}" if cumulative else segment
+                folder_key = self.gen_volume_folder_key(volume, cumulative)
+                if cumulative not in seen_folders:
+                    seen_folders.add(cumulative)
+                    self.report.num_volume_folders_emitted += 1
+                    yield from gen_containers(
+                        container_key=folder_key,
+                        name=segment,
+                        sub_types=[DatasetContainerSubTypes.FOLDER],
+                        parent_container_key=parent_container_key,
+                    )
+                parent_container_key = folder_key
+            yield from self.process_volume_file(volume_file, parent_container_key)
             self.report.volume_files.processed(volume_file.qualified_name)
 
     def process_volume_file(
-        self, volume_file: VolumeFile, schema: Schema
+        self, volume_file: VolumeFile, parent_container_key: ContainerKey
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_volume_file_urn(volume_file)
-        yield from self.add_table_to_dataset_container(dataset_urn, schema)
+        yield from add_dataset_to_container(
+            container_key=parent_container_key,
+            dataset_urn=dataset_urn,
+        )
 
         custom_properties: Dict[str, str] = {
             "volume": volume_file.volume.ref.qualified_name,
@@ -1029,26 +1043,107 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             None, None, volume_file.last_modified, None
         )
 
+        aspects: List[Any] = [
+            DatasetPropertiesClass(
+                name=volume_file.name,
+                qualifiedName=volume_file.qualified_name,
+                customProperties=custom_properties,
+                lastModified=last_modified,
+                externalUrl=(
+                    f"{self.external_url_base}/{volume_file.volume.ref.external_path}"
+                    f"/{volume_file.relative_path}"
+                ),
+            ),
+            SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME_FILE]),
+            self._create_data_platform_instance_aspect(),
+            self._get_domain_aspect(dataset_name=volume_file.qualified_name),
+        ]
+        schema_metadata = self._infer_volume_file_schema(volume_file)
+        if schema_metadata is not None:
+            aspects.append(schema_metadata)
+
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=dataset_urn,
-            aspects=[
-                DatasetPropertiesClass(
-                    name=volume_file.name,
-                    qualifiedName=volume_file.qualified_name,
-                    customProperties=custom_properties,
-                    lastModified=last_modified,
-                    externalUrl=(
-                        f"{self.external_url_base}/{volume_file.volume.ref.external_path}"
-                        f"/{volume_file.relative_path}"
-                    ),
-                ),
-                SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME_FILE]),
-                self._create_data_platform_instance_aspect(),
-                self._get_domain_aspect(dataset_name=volume_file.qualified_name),
-            ],
+            aspects=aspects,
         )
         for mcp in mcps:
             yield mcp.as_workunit()
+
+    def _volume_file_schema_inferrer(self, name: str) -> Optional[SchemaInferenceBase]:
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        max_rows = self.config.volume_file_schema_max_rows
+        # Inferrers pull in optional heavy deps (pyarrow/tableschema/ijson/avro),
+        # so import lazily on the opt-in schema-inference path.
+        if ext == "parquet":
+            from datahub.ingestion.source.schema_inference.parquet import (
+                ParquetInferrer,
+            )
+
+            return ParquetInferrer()
+        if ext == "csv":
+            from datahub.ingestion.source.schema_inference.csv_tsv import CsvInferrer
+
+            return CsvInferrer(max_rows=max_rows)
+        if ext == "tsv":
+            from datahub.ingestion.source.schema_inference.csv_tsv import TsvInferrer
+
+            return TsvInferrer(max_rows=max_rows)
+        if ext == "json":
+            from datahub.ingestion.source.schema_inference.json import JsonInferrer
+
+            return JsonInferrer(max_rows=max_rows)
+        if ext == "jsonl":
+            from datahub.ingestion.source.schema_inference.json import JsonInferrer
+
+            return JsonInferrer(max_rows=max_rows, format="jsonl")
+        if ext == "avro":
+            from datahub.ingestion.source.schema_inference.avro import AvroInferrer
+
+            return AvroInferrer()
+        return None
+
+    def _infer_volume_file_schema(
+        self, volume_file: VolumeFile
+    ) -> Optional[SchemaMetadataClass]:
+        if not self.config.include_volume_file_schemas:
+            return None
+        inferrer = self._volume_file_schema_inferrer(volume_file.name)
+        if inferrer is None:
+            self.report.num_volume_file_schema_skipped += 1
+            return None
+        if (
+            volume_file.file_size is not None
+            and volume_file.file_size > self.config.volume_file_schema_max_bytes
+        ):
+            self.report.num_volume_file_schema_skipped += 1
+            return None
+        contents = self.unity_catalog_api_proxy.download_volume_file(
+            volume_file.dbfs_path, self.config.volume_file_schema_max_bytes
+        )
+        if contents is None:
+            self.report.num_volume_file_schema_inference_failed += 1
+            return None
+        try:
+            fields = inferrer.infer_schema(contents)
+        except Exception as e:
+            self.report.num_volume_file_schema_inference_failed += 1
+            self.report.warning(
+                title="Failed to infer schema for Unity Catalog volume file",
+                message="The file dataset was emitted without a schema.",
+                context=volume_file.qualified_name,
+                exc=e,
+                log=False,
+            )
+            return None
+        self.report.num_volume_file_schemas_inferred += 1
+        return SchemaMetadataClass(
+            schemaName=volume_file.qualified_name,
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            fields=fields,
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
@@ -1431,8 +1526,51 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def gen_dataset_urn(self, table_ref: TableReference) -> str:
         return self._gen_dataset_urn(str(table_ref))
 
-    def gen_volume_urn(self, volume_ref: unity_proxy_types.VolumeReference) -> str:
-        return self._gen_dataset_urn(str(volume_ref))
+    def gen_volume_key(self, volume: Volume) -> ContainerKey:
+        schema = volume.schema
+        if self.config.include_metastore:
+            assert schema.catalog.metastore
+            return UnityVolumeKeyWithMetastore(
+                volume=volume.name,
+                unity_schema=schema.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                catalog=schema.catalog.name,
+                metastore=schema.catalog.metastore.name,
+                env=self.config.env,
+            )
+        return UnityVolumeKey(
+            volume=volume.name,
+            unity_schema=schema.name,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            catalog=schema.catalog.name,
+            env=self.config.env,
+        )
+
+    def gen_volume_folder_key(self, volume: Volume, folder_path: str) -> ContainerKey:
+        schema = volume.schema
+        if self.config.include_metastore:
+            assert schema.catalog.metastore
+            return UnityVolumeFolderKeyWithMetastore(
+                folder_path=folder_path,
+                volume=volume.name,
+                unity_schema=schema.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                catalog=schema.catalog.name,
+                metastore=schema.catalog.metastore.name,
+                env=self.config.env,
+            )
+        return UnityVolumeFolderKey(
+            folder_path=folder_path,
+            volume=volume.name,
+            unity_schema=schema.name,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            catalog=schema.catalog.name,
+            env=self.config.env,
+        )
 
     def gen_volume_file_urn(self, volume_file: VolumeFile) -> str:
         return self._gen_dataset_urn(

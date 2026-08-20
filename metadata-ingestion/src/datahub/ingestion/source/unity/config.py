@@ -339,8 +339,8 @@ class UnityCatalogSourceConfig(
         default=False,
         description=(
             "Ingest files inside Unity Catalog Volumes as DataHub datasets with "
-            "subtype Volume File. Files are nested under the parent schema "
-            "(same browse path as tables and views). Off by default because a "
+            "subtype Volume File, nested under their volume (and any subfolder "
+            "containers derived from the file path). Off by default because a "
             "volume can contain a large number of objects. Requires "
             "`include_volumes: true`. Listing uses the Databricks Files API "
             "(`READ VOLUME`)."
@@ -364,6 +364,35 @@ class UnityCatalogSourceConfig(
             "`include_volume_files` is True, counted after `volume_file_pattern` "
             "filtering. Extra files are skipped and counted in the report. "
             "Set to 0 to ingest none."
+        ),
+    )
+
+    include_volume_file_schemas: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Infer and attach a schema to each volume-file dataset for supported "
+            "formats (parquet, csv, tsv, json, jsonl, avro) by downloading the "
+            "file contents via the Databricks Files API. Off by default because it "
+            "pulls file bytes. Requires `include_volume_files: true`."
+        ),
+    )
+
+    volume_file_schema_max_rows: int = pydantic.Field(
+        default=100,
+        ge=1,
+        description=(
+            "Number of rows sampled per file when inferring csv/tsv/json schemas. "
+            "Only applies when `include_volume_file_schemas` is True."
+        ),
+    )
+
+    volume_file_schema_max_bytes: int = pydantic.Field(
+        default=100 * 1024 * 1024,
+        ge=1,
+        description=(
+            "Files larger than this (bytes) are skipped for schema inference and "
+            "counted in the report, since the content is buffered in memory. Only "
+            "applies when `include_volume_file_schemas` is True."
         ),
     )
 
@@ -734,6 +763,10 @@ class UnityCatalogSourceConfig(
     def volume_files_require_volumes(self) -> "UnityCatalogSourceConfig":
         if self.include_volume_files and not self.include_volumes:
             raise ValueError("include_volume_files requires include_volumes to be true")
+        if self.include_volume_file_schemas and not self.include_volume_files:
+            raise ValueError(
+                "include_volume_file_schemas requires include_volume_files to be true"
+            )
         return self
 
     @model_validator(mode="after")

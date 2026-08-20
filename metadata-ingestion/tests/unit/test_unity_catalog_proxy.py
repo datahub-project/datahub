@@ -1210,6 +1210,40 @@ class TestUnityCatalogProxy:
         # One pathless directory + one pathless file were dropped but counted.
         assert proxy.report.num_volume_file_entries_unresolvable == 2
 
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_download_volume_file_reads_contents(self, mock_workspace_client):
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        response = MagicMock()
+        response.contents.read.return_value = b"id,name\n1,a\n"
+        proxy._files_api.download = MagicMock(return_value=response)  # type: ignore[assignment]
+
+        buffer = proxy.download_volume_file("/Volumes/c/s/landing/events.csv", 1024)
+        assert buffer is not None
+        assert buffer.read() == b"id,name\n1,a\n"
+        # The byte cap is passed through to the streamed read.
+        response.contents.read.assert_called_once_with(1024)
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_download_volume_file_error_warns(self, mock_workspace_client):
+        mock_client = mock_workspace_client.return_value
+        mock_client.config.warehouse_id = "test_warehouse"
+        proxy = UnityCatalogApiProxy(
+            workspace_client=mock_client,
+            report=UnityCatalogReport(),
+        )
+        proxy._files_api.download = MagicMock(  # type: ignore[assignment]
+            side_effect=RuntimeError("boom")
+        )
+        assert (
+            proxy.download_volume_file("/Volumes/c/s/landing/events.csv", 1024) is None
+        )
+        assert proxy.report.warnings
+
     @staticmethod
     def _file_test_volume():
         metastore = Metastore(

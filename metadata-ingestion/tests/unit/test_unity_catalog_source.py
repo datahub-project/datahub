@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from io import BytesIO
 from typing import Optional
 from unittest.mock import ANY, patch
 
@@ -8,7 +9,10 @@ from databricks.sdk.service.catalog import TableType, VolumeType
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
@@ -26,8 +30,10 @@ from datahub.ingestion.source.unity.source import (
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    ContainerPropertiesClass,
     DatasetPropertiesClass,
     OwnershipClass,
+    SchemaMetadataClass,
     SubTypesClass,
 )
 
@@ -3277,12 +3283,13 @@ class TestUnityCatalogVolumes:
         assert list(source.process_volumes(schema)) == []
         assert list(source.report.volumes.dropped_entities) == [volume.id]
 
-    def test_process_volume_emits_dataset(self) -> None:
+    def test_process_volume_emits_container(self) -> None:
         source = self._build_source(include_ownership=True)
         volume, schema = self._build_volume()
         wus = list(source.process_volume(volume, schema))
-        urns = {wu.get_urn() for wu in wus}
-        assert any("dataset:" in u and "c.s.landing" in u for u in urns)
+        container_urn = source.gen_volume_key(volume).as_urn()
+        assert any(wu.get_urn() == container_urn for wu in wus)
+        assert not any("dataset:" in wu.get_urn() for wu in wus)
 
         subtype: Optional[SubTypesClass] = None
         for wu in wus:
@@ -3291,11 +3298,11 @@ class TestUnityCatalogVolumes:
                 subtype = found_subtype
                 break
         assert subtype is not None
-        assert subtype.typeNames == [DatasetSubTypes.DATABRICKS_VOLUME]
+        assert subtype.typeNames == [DatasetContainerSubTypes.DATABRICKS_VOLUME]
 
-        props: Optional[DatasetPropertiesClass] = None
+        props: Optional[ContainerPropertiesClass] = None
         for wu in wus:
-            found_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+            found_props = wu.get_aspect_of_type(ContainerPropertiesClass)
             if found_props is not None:
                 props = found_props
                 break
@@ -3354,21 +3361,17 @@ class TestUnityCatalogVolumes:
             updated_at=updated_at,
             updated_by="bob",
         )
-        props: Optional[DatasetPropertiesClass] = None
+        props: Optional[ContainerPropertiesClass] = None
         for wu in source.process_volume(volume, schema):
-            found = wu.get_aspect_of_type(DatasetPropertiesClass)
+            found = wu.get_aspect_of_type(ContainerPropertiesClass)
             if found is not None:
                 props = found
                 break
         assert props is not None
         assert props.created is not None
         assert props.created.time == int(created_at.timestamp() * 1000)
-        assert props.created.actor is not None and "alice" in props.created.actor
         assert props.lastModified is not None
         assert props.lastModified.time == int(updated_at.timestamp() * 1000)
-        assert (
-            props.lastModified.actor is not None and "bob" in props.lastModified.actor
-        )
         # Both timestamps also mirrored into custom properties.
         assert props.customProperties["created_at"] == str(created_at)
         assert props.customProperties["updated_at"] == str(updated_at)
@@ -3380,7 +3383,7 @@ class TestUnityCatalogVolumes:
             assert list(source.process_volume_files(volume, schema)) == []
         mock_files.assert_not_called()
 
-    def test_process_volume_file_emits_dataset_under_schema(self) -> None:
+    def test_process_volume_file_emits_dataset_under_container(self) -> None:
         source = self._build_source(include_volume_files=True)
         volume, schema = self._build_volume()
         volume_file = VolumeFile(
@@ -3390,14 +3393,15 @@ class TestUnityCatalogVolumes:
             file_size=128,
             last_modified=None,
         )
-        wus = list(source.process_volume_file(volume_file, schema))
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        wus = list(source.process_volume_file(volume_file, folder_key))
         urns = {wu.get_urn() for wu in wus}
         assert any("c.s.landing/raw/events.parquet" in u for u in urns)
         assert any("metastore.c.s.landing/raw/events.parquet" in u for u in urns)
 
         subtype: Optional[SubTypesClass] = None
         props: Optional[DatasetPropertiesClass] = None
-        containers: list = []
+        container: Optional[ContainerClass] = None
         for wu in wus:
             found_subtype = wu.get_aspect_of_type(SubTypesClass)
             if found_subtype is not None:
@@ -3407,7 +3411,7 @@ class TestUnityCatalogVolumes:
                 props = found_props
             found_container = wu.get_aspect_of_type(ContainerClass)
             if found_container is not None:
-                containers.append(found_container)
+                container = found_container
         assert subtype is not None
         assert subtype.typeNames == [DatasetSubTypes.DATABRICKS_VOLUME_FILE]
         assert props is not None
@@ -3416,7 +3420,99 @@ class TestUnityCatalogVolumes:
         assert props.externalUrl and props.externalUrl.endswith(
             "/c/s/landing/raw/events.parquet"
         )
-        assert containers
+        # The file dataset is nested under the folder container it was passed.
+        assert container is not None
+        assert container.container == folder_key.as_urn()
+
+    def test_process_volume_files_nests_folders(self) -> None:
+        source = self._build_source(include_volume_files=True)
+        volume, schema = self._build_volume()
+        file_a = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/events.parquet",
+            file_size=1,
+            last_modified=None,
+        )
+        file_b = VolumeFile(
+            volume=volume,
+            relative_path="raw/more.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/more.parquet",
+            file_size=1,
+            last_modified=None,
+        )
+
+        def _files(volume, max_results, allowed=None):
+            yield file_a
+            yield file_b
+
+        source.unity_catalog_api_proxy.volume_files = _files  # type: ignore[assignment]
+        wus = list(source.process_volume_files(volume, schema))
+
+        # The shared "raw" folder container is emitted exactly once across both files.
+        folder_subtype_count = sum(
+            1
+            for wu in wus
+            if (st := wu.get_aspect_of_type(SubTypesClass)) is not None
+            and st.typeNames == [DatasetContainerSubTypes.FOLDER]
+        )
+        assert folder_subtype_count == 1
+        assert source.report.num_volume_folders_emitted == 1
+
+        folder_urn = source.gen_volume_folder_key(volume, "raw").as_urn()
+        file_urn = source.gen_volume_file_urn(file_a)
+        file_container: Optional[ContainerClass] = None
+        for wu in wus:
+            if wu.get_urn() == file_urn:
+                found = wu.get_aspect_of_type(ContainerClass)
+                if found is not None:
+                    file_container = found
+        assert file_container is not None
+        assert file_container.container == folder_urn
+
+    def test_process_volume_file_infers_schema(self) -> None:
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, schema = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=32,
+            last_modified=None,
+        )
+        csv_bytes = b"id,name\n1,alice\n2,bob\n"
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(csv_bytes)
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in source.process_volume_file(volume_file, folder_key):
+            found = wu.get_aspect_of_type(SchemaMetadataClass)
+            if found is not None:
+                schema_metadata = found
+                break
+        assert schema_metadata is not None
+        assert {f.fieldPath for f in schema_metadata.fields} == {"id", "name"}
+        assert source.report.num_volume_file_schemas_inferred == 1
+
+    def test_process_volume_file_schema_skipped_for_unsupported_extension(self) -> None:
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/notes.bin",
+            dbfs_path="/Volumes/c/s/landing/raw/notes.bin",
+            file_size=8,
+            last_modified=None,
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        for wu in source.process_volume_file(volume_file, folder_key):
+            assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+        assert source.report.num_volume_file_schema_skipped == 1
 
     def test_volume_file_urn_bounded_to_dataset_name_limit(self) -> None:
 
@@ -3449,7 +3545,9 @@ class TestUnityCatalogVolumes:
         assert collide_a != collide_b
         assert bounded in source.gen_volume_file_urn(volume_file)
         props = None
-        for wu in source.process_volume_file(volume_file, schema):
+        for wu in source.process_volume_file(
+            volume_file, source.gen_volume_key(volume)
+        ):
             found = wu.get_aspect_of_type(DatasetPropertiesClass)
             if found is not None:
                 props = found

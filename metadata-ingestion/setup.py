@@ -453,6 +453,9 @@ databricks = {
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
     "pandas<2.2.0",
+    # Volume-file schema inference reuses the data-lake inferrers; pyarrow/avro/ijson
+    # are already in base requirements, tableschema (csv/tsv inference) is not.
+    "tableschema>=1.20.2,<2.0.0",
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}

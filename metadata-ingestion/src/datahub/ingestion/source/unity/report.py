@@ -81,6 +81,11 @@ class UnityCatalogReport(SQLSourceReport):
     # Volumes whose file walk stopped at volume_file_max_results (counts volumes,
     # not skipped files).
     num_volumes_file_limit_reached: int = 0
+    num_volume_folders_emitted: int = 0
+    num_volume_file_schemas_inferred: int = 0
+    num_volume_file_schema_inference_failed: int = 0
+    # Files skipped for schema inference (unsupported extension or over the byte cap).
+    num_volume_file_schema_skipped: int = 0
     num_federation_connections_list_failed: int = 0
     num_foreign_catalogs: int = 0
     num_federation_links_emitted: int = 0

@@ -9,7 +9,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
+from io import BytesIO
 from typing import (
+    IO,
     Any,
     Callable,
     Dict,
@@ -833,6 +835,29 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         # The cap stopped the walk with files still unvisited.
         if limit_reached or pending:
             self.report.num_volumes_file_limit_reached += 1
+
+    def download_volume_file(
+        self, dbfs_path: str, max_bytes: int
+    ) -> Optional[IO[bytes]]:
+        try:
+            download_response: DownloadResponse = self._files_api.download(
+                file_path=dbfs_path
+            )
+            contents = download_response.contents if download_response else None
+            if contents is None:
+                return None
+            # Schema inferrers need seekable input (parquet reads the footer, json
+            # seeks back to 0), so buffer the download in memory bounded by max_bytes.
+            return BytesIO(contents.read(max_bytes))
+        except Exception as e:
+            self.report.warning(
+                title="Failed to download Unity Catalog volume file",
+                message="Schema inference was skipped for this file.",
+                context=dbfs_path,
+                exc=e,
+                log=False,
+            )
+            return None
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
