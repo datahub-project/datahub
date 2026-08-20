@@ -7,6 +7,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
+from datahub.ingestion.recording.redaction import (
+    scrub_request_for_recording,
+    scrub_response_for_recording,
+)
+
 logger = logging.getLogger(__name__)
 
 # Request headers that VCR strips from recordings. Note that VCR's
@@ -148,11 +153,6 @@ class HTTPRecorder:
         self.cassette_path = cassette_path
         self._request_count = 0
         self._total_requests_recorded = 0
-
-        from datahub.ingestion.recording.redaction import (
-            scrub_request_for_recording,
-            scrub_response_for_recording,
-        )
 
         def _process_request(request: Any) -> Any:
             """Log and scrub each request as it's being recorded."""
@@ -553,16 +553,15 @@ class HTTPReplayerForLiveSink:
             body2 = _normalize_json_body(r2.body)
             return body1 == body2
 
-        from datahub.ingestion.recording.redaction import (
-            scrub_response_for_recording,
-        )
-
         self.vcr = vcr.VCR(
             # Use YAML serializer to match recording format (handles binary data)
             serializer="yaml",
             record_mode="none",
             # This replayer records new episodes for non-live hosts, so it
-            # needs the same secret scrubbing as HTTPRecorder
+            # needs the same secret scrubbing as HTTPRecorder. Compressed
+            # responses must be decoded before scrubbing - a gzip body would
+            # fail the scrubber's utf-8 decode and be recorded verbatim.
+            decode_compressed_response=True,
             filter_headers=FILTERED_HEADERS,
             before_record_request=self._before_record_request,
             before_record_response=scrub_response_for_recording,
@@ -573,10 +572,6 @@ class HTTPReplayerForLiveSink:
     def _before_record_request(self, request: Any) -> Optional[Any]:
         """Drop requests to live hosts and scrub secrets from the rest."""
         from urllib.parse import urlparse
-
-        from datahub.ingestion.recording.redaction import (
-            scrub_request_for_recording,
-        )
 
         parsed = urlparse(request.uri)
         host = parsed.netloc

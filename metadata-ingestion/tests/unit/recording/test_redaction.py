@@ -64,6 +64,20 @@ class TestScrubBody:
         assert data["connection"]["password"] == REPLAY_DUMMY_MARKER
         assert data["connection"]["host"] == "db.example.com"
 
+    def test_secret_list_values_redacted(self) -> None:
+        body = json.dumps({"access_tokens": ["tok-1", "tok-2"], "names": ["a", "b"]})
+        scrubbed = scrub_body(body)
+        assert isinstance(scrubbed, str)
+        data = json.loads(scrubbed)
+        assert data["access_tokens"] == [REPLAY_DUMMY_MARKER, REPLAY_DUMMY_MARKER]
+        assert data["names"] == ["a", "b"]
+
+    def test_freeform_text_with_equals_not_mangled(self) -> None:
+        # Not form-encoded: keys with spaces fail the field-name check, so
+        # the body must pass through byte-identical
+        body = "the client_secret = something & more prose here"
+        assert scrub_body(body) is body
+
     def test_body_without_secrets_unchanged(self) -> None:
         # Replay matches on exact body, so bodies without secrets must keep
         # their original serialization byte-for-byte
@@ -136,8 +150,22 @@ class TestScrubResponse:
         data = json.loads(scrubbed["body"]["string"])
         assert data["access_token"] == REPLAY_DUMMY_MARKER
         assert data["token_type"] == "Bearer"
-        assert scrubbed["headers"]["Set-Cookie"] == [REPLAY_DUMMY_MARKER]
+        # Cookie name is preserved so replayed clients can still parse it
+        assert scrubbed["headers"]["Set-Cookie"] == [f"session={REPLAY_DUMMY_MARKER}"]
         assert scrubbed["headers"]["Content-Type"] == ["application/json"]
+
+    def test_set_cookie_attributes_preserved(self) -> None:
+        response = {
+            "status": {"code": 200, "message": "OK"},
+            "headers": {
+                "Set-Cookie": ["session=abc123; Path=/; HttpOnly; SameSite=Lax"]
+            },
+            "body": {"string": ""},
+        }
+        scrubbed = scrub_response_for_recording(response)
+        assert scrubbed["headers"]["Set-Cookie"] == [
+            f"session={REPLAY_DUMMY_MARKER}; Path=/; HttpOnly; SameSite=Lax"
+        ]
 
     def test_content_length_updated_when_body_scrubbed(self) -> None:
         # Replay serves the recorded body with the recorded headers; a stale

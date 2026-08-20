@@ -45,6 +45,17 @@ _SECRET_PATTERNS_COMPILED = [
     re.compile(pattern, re.IGNORECASE) for pattern in SECRET_PATTERNS
 ]
 
+# Plausible form-field names, used to decide whether a body is really
+# form-encoded before re-encoding it
+_FORM_FIELD_NAME_RE = re.compile(r"^[A-Za-z0-9_.\[\]-]+$")
+
+# First name=value pair of a Set-Cookie header (everything before the
+# attribute list)
+_SET_COOKIE_VALUE_RE = re.compile(r"^\s*([^=;]+)=[^;]*")
+
+# Every name=value pair of a Cookie header
+_COOKIE_PAIR_RE = re.compile(r"([^=;]+)=[^;]*")
+
 # Fields that contain auth-related words but are NOT secrets
 # These are typically enum values, config options, or metadata
 NON_SECRET_FIELDS = [
@@ -125,6 +136,12 @@ def _redact_recursive(obj: Any, parent_key: str = "") -> Any:
     if isinstance(obj, list):
         return [_redact_recursive(item, parent_key) for item in obj]
 
+    # A string inside a list under a secret key (e.g. {"tokens": ["a", "b"]})
+    # reaches here with the secret parent_key
+    if isinstance(obj, str) and parent_key and is_secret_key(parent_key):
+        logger.debug(f"Redacted secret list item under field: {parent_key}")
+        return REPLAY_DUMMY_MARKER
+
     return obj
 
 
@@ -204,16 +221,21 @@ def _scrub_json_text(text: str) -> Optional[str]:
 def _scrub_form_text(text: str) -> Optional[str]:
     """Scrub a form-encoded body by parameter name.
 
-    Returns None if the body doesn't look form-encoded. The body is only
-    re-encoded when a secret parameter is found (e.g. client_secret in an
-    OAuth token exchange); those requests hit auth endpoints where replay
-    skips body matching, so re-encoding is safe.
+    Returns None if the body doesn't look form-encoded. To avoid mangling
+    freeform text that merely contains "=", the body is only treated as
+    form-encoded when every parsed key looks like a plausible field name.
+    The body is only re-encoded when a secret parameter is found (e.g.
+    client_secret in an OAuth token exchange); those requests hit auth
+    endpoints where replay skips body matching, so re-encoding is safe.
     """
     if "=" not in text or "\n" in text:
         return None
 
     params = parse_qsl(text, keep_blank_values=True)
     if not params:
+        return None
+
+    if not all(_FORM_FIELD_NAME_RE.match(key) for key, _ in params):
         return None
 
     changed = False
@@ -230,6 +252,26 @@ def _scrub_form_text(text: str) -> Optional[str]:
     return urlencode(scrubbed)
 
 
+def _scrub_header_value(name: str, value: str) -> str:
+    """Scrub one sensitive header value.
+
+    Cookie-carrying headers keep their structure (cookie names and, for
+    Set-Cookie, attributes like Path/HttpOnly) so that replayed clients can
+    still parse them; only the cookie values become the marker. Other
+    sensitive headers are replaced wholesale.
+    """
+    name_lower = name.lower()
+    if name_lower == "set-cookie":
+        return _SET_COOKIE_VALUE_RE.sub(
+            lambda m: f"{m.group(1)}={REPLAY_DUMMY_MARKER}", value
+        )
+    if name_lower == "cookie":
+        return _COOKIE_PAIR_RE.sub(
+            lambda m: f"{m.group(1)}={REPLAY_DUMMY_MARKER}", value
+        )
+    return REPLAY_DUMMY_MARKER
+
+
 def _scrub_headers(headers: "MutableMapping[str, Any]") -> None:
     """Scrub sensitive headers in place.
 
@@ -239,18 +281,23 @@ def _scrub_headers(headers: "MutableMapping[str, Any]") -> None:
     for name in list(headers):
         if not _is_sensitive_header(name):
             continue
-        if isinstance(headers[name], list):
-            headers[name] = [REPLAY_DUMMY_MARKER]
+        value = headers[name]
+        if isinstance(value, list):
+            headers[name] = [_scrub_header_value(name, str(item)) for item in value]
         else:
-            headers[name] = REPLAY_DUMMY_MARKER
+            headers[name] = _scrub_header_value(name, str(value))
 
 
 def scrub_request_for_recording(request: Any) -> Any:
     """Scrub secrets from a VCR request before it is written to the cassette.
 
-    VCR deep-copies the request before invoking before_record_request hooks,
-    so mutating it here only affects what is persisted, never the live
-    request.
+    Mutating the request here is safe: vcrpy's composed before_record_request
+    hook (VCR._build_before_record_request) deep-copies the request before
+    running any filter functions, so this never touches the live request.
+    Note that the same hook chain also runs on incoming requests during
+    playback matching (Cassette._responses), so on VCR instances that both
+    record and replay (the live-sink replayer), incoming requests are
+    scrubbed identically before being compared against the cassette.
 
     Args:
         request: A vcr.request.Request object.
