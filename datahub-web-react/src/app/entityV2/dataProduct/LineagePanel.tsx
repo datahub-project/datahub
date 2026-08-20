@@ -1,5 +1,5 @@
+import { Button } from '@components';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
-import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -64,7 +64,7 @@ export const LineagePanel = () => {
                     icon={<TreeStructure size={16} color={theme.colors.textSecondary} />}
                     title={t('tab.lineage')}
                 />
-                <Button type="link" onClick={() => routeToTab({ tabName: t('tab.lineage') })}>
+                <Button variant="link" onClick={() => routeToTab({ tabName: t('tab.lineage') })}>
                     {tc('viewAll')}
                 </Button>
             </StyledHeaderWrapper>

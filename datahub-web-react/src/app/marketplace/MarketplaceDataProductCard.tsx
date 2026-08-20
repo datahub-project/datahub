@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 
 import { GetRootDataProductsBrowseQuery } from '@graphql/marketplaceBrowse.generated';
@@ -118,7 +118,7 @@ const Meta = styled.div`
 
 export default function MarketplaceDataProductCard({ dataProduct }: Props) {
     const { t } = useTranslation('misc');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
 
     const name = dataProduct.properties?.name ?? dataProduct.urn;
     const description = dataProduct.properties?.description?.trim() || null;

@@ -168,9 +168,7 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
                 showClear={false}
                 selectLabelProps={{
                     variant: 'labeled',
-                    label: useApplicationFilter
-                        ? t('marketplace.filterApplication')
-                        : t('marketplace.filterDomain'),
+                    label: useApplicationFilter ? t('marketplace.filterApplication') : t('marketplace.filterDomain'),
                 }}
                 options={[{ value: ALL_OPTION, label: t('marketplace.filterAll') }, ...filterOptions]}
                 values={[sidebarFilter]}
