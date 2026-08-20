@@ -70,7 +70,8 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (metadataValidationException != null) {
       // Log the full per-entity/aspect breakdown (which urn/aspect failed, useful when a batch
       // has multiple items) separately from the exception's own message, which is intentionally
-      // just the clean validator text now - see ValidationExceptionCollection.getCollectiveMessage().
+      // just the clean validator text now - see
+      // ValidationExceptionCollection.getCollectiveMessage().
       log.error(
           "Failed to execute: {}",
           metadataValidationException.getValidationExceptionCollection(),

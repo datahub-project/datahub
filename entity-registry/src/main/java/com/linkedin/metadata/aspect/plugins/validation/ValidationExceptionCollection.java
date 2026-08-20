@@ -102,8 +102,8 @@ public class ValidationExceptionCollection
   }
 
   /**
-   * The validators' own messages, without the EntityAspect/collection wrapper that toString()
-   * adds for logging. Intended for surfacing to end users (e.g. as a GraphQL/REST error message);
+   * The validators' own messages, without the EntityAspect/collection wrapper that toString() adds
+   * for logging. Intended for surfacing to end users (e.g. as a GraphQL/REST error message);
    * toString() remains unchanged for existing log/diagnostic callers.
    */
   public String getCollectiveMessage() {
