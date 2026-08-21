@@ -155,6 +155,8 @@ DATAHUB_GMS_URL=http://your-datahub-host:8080
 DATAHUB_GMS_TOKEN=your-token-here
 ```
 
+To create this token, see [Personal Access Tokens](../../authentication/personal-access-tokens.md).
+
   </TabItem>
 </Tabs>
 
