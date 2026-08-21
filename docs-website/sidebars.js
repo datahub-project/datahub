@@ -405,6 +405,12 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Ontology Graph",
+          type: "doc",
+          id: "docs/managed-datahub/ontology-graph",
+          className: "saasOnly",
+        },
+        {
           label: "Compliance Forms",
           type: "category",
           collapsed: true,
