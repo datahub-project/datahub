@@ -88,7 +88,10 @@
        push path; VictoriaLogs users should set LOG_AGGREGATOR_ENDPOINT to their base URL
        plus "/insert" (e.g. http://<host>:9428/insert), since VictoriaLogs serves the Loki
        push API under that prefix rather than at the bare path. -->
-  <if condition='!property("LOG_AGGREGATOR_ENDPOINT").isEmpty()'>
+  <condition class="ch.qos.logback.core.boolex.ExpressionPropertyCondition">
+    <expression>isDefined("LOG_AGGREGATOR_ENDPOINT") &amp;&amp; !propertyEquals("LOG_AGGREGATOR_ENDPOINT", "")</expression>
+  </condition>
+  <if>
     <then>
       <appender name="AGGREGATOR" class="com.github.loki4j.logback.Loki4jAppender">
         <http>
