@@ -2055,3 +2055,78 @@ def test_known_parameter_is_not_reported_as_unresolved():
     )
 
     assert list(reporter.m_query_unresolved_identifiers) == []
+
+
+@pytest.mark.integration
+def test_value_leaf_is_not_reported_as_unhandled_kind():
+    """An unsupported source's argument literal is a value, not an M shape the
+    resolver cannot model, so it must not dilute the unhandled-kind tally."""
+    reporter = _resolve_and_report(
+        'let Source = Web.Contents("https://example.com/data.json") in Source',
+        "MyDataSet.web_table",
+    )
+
+    assert "LiteralExpression" not in reporter.m_query_unhandled_node_kinds
+
+
+@pytest.mark.integration
+def test_undefined_argument_of_recognized_function_is_reported():
+    """A recognized data-access call whose argument is undefined still loses its
+    lineage, so the undefined name must be named."""
+    reporter = _resolve_and_report(
+        'let Source = Snowflake.Databases(MissingServer, "wh") in Source',
+        "MyDataSet.snowflake_table",
+    )
+
+    unresolved = list(reporter.m_query_unresolved_identifiers)
+    assert any("MissingServer" in entry for entry in unresolved), (
+        f"Expected the undefined argument to be reported; got: {unresolved}"
+    )
+
+
+@pytest.mark.integration
+def test_outer_scope_name_is_not_reported_as_unresolved():
+    """A name the expression binds in an enclosing let is in scope for the model
+    even when this walk cannot reach it, so reporting it as a missing reference
+    would point at a query that does not exist."""
+    reporter = _resolve_and_report(
+        "let"
+        '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net",'
+        ' "/sql/1.0/endpoints/abc", [Database=null, Catalog="c"]),'
+        '    db = Source{[Name="c",Kind="Database"]}[Data],'
+        '    sch = db{[Name="s",Kind="Schema"]}[Data],'
+        '    out = let t = sch{[Name="t",Kind="Table"]}[Data] in t'
+        " in out",
+        "MyDataSet.nested_table",
+    )
+
+    unresolved = list(reporter.m_query_unresolved_identifiers)
+    assert not any("-> sch" in entry for entry in unresolved), (
+        f"`sch` is bound by the enclosing let and must not be reported; got: {unresolved}"
+    )
+
+
+@pytest.mark.integration
+def test_parameter_matched_case_insensitively_is_not_reported():
+    """Parameter lookup is case-insensitive, so the exclusion must be too."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = Web.Contents(#"SERVER HOSTNAME") in Source',
+        name="param_table",
+        full_name="MyDataSet.param_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={"Server Hostname": "adb-123.azuredatabricks.net"},
+    )
+
+    assert list(reporter.m_query_unresolved_identifiers) == []

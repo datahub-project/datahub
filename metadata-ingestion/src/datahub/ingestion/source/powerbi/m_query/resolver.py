@@ -10,6 +10,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
     get_record_field_values,
     resolve_identifier,
+    resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
@@ -21,6 +22,11 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 logger = logging.getLogger(__name__)
 
 _RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
+
+# Where the walk ends on a plain value rather than on a shape it cannot model.
+# An unrecognized source recurses into its first argument, so its URL or path
+# literal would otherwise dominate the unhandled-kind tally.
+_VALUE_LEAF_NODE_KINDS: FrozenSet[str] = frozenset({"LiteralExpression"})
 
 
 def resolve_to_data_access_functions(
@@ -37,6 +43,8 @@ def resolve_to_data_access_functions(
     let_nodes = [
         (k, v) for k, v in node_map.items() if v.get("kind") == "LetExpression"
     ]
+    for _, let_node in let_nodes:
+        resolution.let_bound_names.update(_let_variable_names(let_node))
     if not let_nodes:
         logger.debug("No LetExpression found in node map")
         return resolution
@@ -211,7 +219,8 @@ def _walk(
         )
         return
 
-    resolution.unhandled_node_kinds.add(kind)
+    if kind not in _VALUE_LEAF_NODE_KINDS:
+        resolution.unhandled_node_kinds.add(kind)
     logger.debug("Unhandled node kind '%s', returning empty for this branch", kind)
 
 
@@ -321,6 +330,14 @@ def _walk_invoke(
                 parameters=parameters or {},
             )
         )
+        # The handler still needs a server and database out of these arguments,
+        # so an argument naming something the expression never defines loses the
+        # lineage even though the function itself was recognized. Only identifier
+        # arguments are examined -- walking the whole argument list would file
+        # option records as unmodelled shapes.
+        _record_unresolved_arguments(
+            node_map, invoke_node, current_let, resolution, parameters
+        )
         return
 
     # Unrecognized wrapper (Table.RenameColumns, Table.AddColumn, etc.)
@@ -341,6 +358,73 @@ def _walk_invoke(
                     parameters,
                 )
                 return  # only first arg
+
+
+def _record_unresolved_arguments(
+    node_map: NodeIdMap,
+    invoke_node: dict,
+    current_let: dict,
+    resolution: DataAccessResolution,
+    parameters: Optional[Dict[str, str]],
+) -> None:
+    """Note identifier arguments of a recognized call that resolve to nothing."""
+    content = invoke_node.get("content", {})
+    if not isinstance(content, dict) or content.get("kind") != "ArrayWrapper":
+        return
+
+    for elem in content.get("elements", []):
+        inner = _unwrap_csv(elem)
+        if not isinstance(inner, dict) or inner.get("kind") != "IdentifierExpression":
+            continue
+        name = inner.get("identifier", {}).get("literal", "")
+        if name.startswith('#"') and name.endswith('"'):
+            name = name[2:-1]
+        if not name:
+            continue
+        if resolve_identifier(node_map, current_let, name) is None:
+            _record_unresolved(resolution, name, parameters)
+
+
+def _let_variable_names(let_node: dict) -> Set[str]:
+    """Names bound by one LetExpression, with any #"..." quoting stripped."""
+    names: Set[str] = set()
+    var_list = let_node.get("variableList", {})
+    if not isinstance(var_list, dict):
+        return names
+
+    for elem in var_list.get("elements", []):
+        inner = _unwrap_csv(elem)
+        if not isinstance(inner, dict):
+            continue
+        key = inner.get("key", {})
+        if not isinstance(key, dict):
+            continue
+        literal = key.get("literal", "")
+        if literal.startswith('#"') and literal.endswith('"'):
+            literal = literal[2:-1]
+        if literal:
+            names.add(literal)
+
+    return names
+
+
+def _record_unresolved(
+    resolution: DataAccessResolution,
+    name: str,
+    parameters: Optional[Dict[str, str]],
+) -> None:
+    """Note a name the walk could not resolve to anything.
+
+    Skips dataset parameters, which are values rather than tables, and names the
+    expression binds in another let -- those are in scope for the model even when
+    this walk cannot reach them, so reporting them would point at a query that
+    does not exist.
+    """
+    if name in resolution.let_bound_names:
+        return
+    if resolve_parameter_value(parameters, name) is not None:
+        return
+    resolution.unresolved_identifiers.add(name)
 
 
 def _unwrap_csv(elem: object) -> Optional[dict]:
@@ -373,10 +457,8 @@ def _walk_identifier_name(
     seen.add(guard_key)
 
     resolved = resolve_identifier(node_map, current_let, name)
-    if resolved is None and name not in (parameters or {}):
-        # Not a variable in this scope and not a dataset parameter, so the walk
-        # ends here without reaching an unhandled node kind.
-        resolution.unresolved_identifiers.add(name)
+    if resolved is None:
+        _record_unresolved(resolution, name, parameters)
 
     _walk(
         node_map,
