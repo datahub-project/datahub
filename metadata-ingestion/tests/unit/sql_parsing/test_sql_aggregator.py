@@ -14,7 +14,9 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
+    QueryPropertiesClass,
     QueryUsageStatisticsClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -1066,6 +1068,77 @@ def test_preparsed_query_count_only_emits_usage_but_no_query_entity() -> None:
     assert query_usage_mcps == [], (
         "query_count_only must skip per-Query URN usage counters — those "
         "would reference a Query that was never emitted"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_preparsed_query_count_only_still_emits_operation_and_lineage() -> None:
+    # Redacted DML queries (INSERT/CREATE TABLE AS/...) must still populate the
+    # downstream table's UpstreamLineage and Operation aspects — the lineage/
+    # timestamp/actor come from system.access.table_lineage, not the SQL text.
+    # The Query URN references in both aspects must be None to avoid dangling
+    # pointers to a Query entity we intentionally didn't emit.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    upstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
+    downstream_urn = DatasetUrn("redshift", "dev.public.bar").urn()
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_query_usage_statistics=False,
+        generate_operations=True,
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="<REDACTED>",
+            upstreams=[upstream_urn],
+            downstream=downstream_urn,
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+            query_type=QueryType.INSERT,
+            query_count_only=True,
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    op_mcps = [
+        mcp
+        for mcp in mcps
+        if mcp.entityUrn == downstream_urn and isinstance(mcp.aspect, OperationClass)
+    ]
+    assert len(op_mcps) == 1, (
+        "operation MCP must be emitted for redacted DML so users still see "
+        "table-write activity"
+    )
+    op_aspect = op_mcps[0].aspect
+    assert isinstance(op_aspect, OperationClass)
+    assert op_aspect.queries is None, (
+        "operation must not reference a Query URN that was never emitted"
+    )
+
+    upstream_lineage_mcps = [
+        mcp
+        for mcp in mcps
+        if mcp.entityUrn == downstream_urn
+        and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(upstream_lineage_mcps) == 1
+    upstream_aspect = upstream_lineage_mcps[0].aspect
+    assert isinstance(upstream_aspect, UpstreamLineageClass)
+    assert all(u.query is None for u in upstream_aspect.upstreams), (
+        "upstream edges must not reference a Query URN that was never emitted"
+    )
+
+    query_entity_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert query_entity_mcps == [], (
+        "Query entity must not be emitted for count_only queries"
     )
 
 

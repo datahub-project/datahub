@@ -387,6 +387,13 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
+            # System-table lineage was present but produced no resolvable
+            # dataset URNs. For redacted queries we can't run sqlglot either,
+            # so drop silently — bumping num_queries_preparsed_fallback_to_sqlglot
+            # would produce a "parsed with sqlglot" warning that isn't true.
+            if query.is_query_text_redacted:
+                return
+
             self.report.num_queries_preparsed_fallback_to_sqlglot += 1
             logger.debug(
                 "Usage query fell back to sqlglot: system-table lineage present but "
@@ -412,6 +419,11 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
+            # Same rationale as the preparsed branch above: don't misreport
+            # dropped redacted queries as sqlglot fallbacks.
+            if query.is_query_text_redacted:
+                return
+
             self.report.num_queries_without_system_table_lineage += 1
             logger.debug(
                 "Usage query routed to sqlglot: no system.access.table_lineage rows "
@@ -421,11 +433,9 @@ class UnityCatalogUsageExtractor:
                 self._statement_type_label(query),
                 self._query_preview(query),
             )
-
-        # Sqlglot/observed fallback needs real SQL text; redacted queries were
-        # already counted at the top of this method, so drop them here rather
-        # than feeding "<REDACTED>" to sqlglot as a no-op.
-        if query.is_query_text_redacted:
+        elif query.is_query_text_redacted:
+            # Neither preparsed nor system-tables path is available (REST API
+            # path). Redacted queries can't be parsed by sqlglot; drop silently.
             return
 
         self._add_observed_query(aggregator, query, default_db)
