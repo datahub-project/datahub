@@ -70,9 +70,9 @@ export interface LineageEntity extends NodeBase {
     parentDataJob?: Urn;
     /** Bounding boxes (DataProducts, SemanticModels) this entity belongs to, with whether it is
      * an output port of each (DataProduct-only concept; SemanticModel members always set false).
-     * Undefined means membership is not yet known; fetched for the DataProduct lineage graph by
-     * `useBulkDataProductMemberships`. For SemanticModel lineage, home members are marked by
-     * `useFetchSemanticModelEntities` and other nodes are treated as free (no membership gate).
+     * Undefined means membership is not yet known; filled for bounding-box lineage graphs by
+     * `useBulkBoundingBoxMemberships` (DataProduct: real bulk fetch; SemanticModel: home members
+     * via `useFetchSemanticModelEntities`, other nodes marked `[]` until a bulk SM API exists).
      * Not fetched as part of `entity` because membership lookup requires querying the graph index. */
     boundingBoxes?: { urn: Urn; isOutputPort: boolean }[];
     /** For a DataProduct or SemanticModel rendered as a bounding box: how many of its members to

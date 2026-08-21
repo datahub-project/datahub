@@ -15,8 +15,8 @@ type DataProductResult =
 /**
  * Fetches the data products containing each node in the graph, in batches. Stores minimal membership
  * (`node.boundingBoxes`) on each node and the data products' display entities in
- * `boundingBoxEntities`, for the bounding boxes. Only active for the data product lineage graph,
- * where membership determines how a node is rendered; nodes are not displayed until it is known.
+ * `boundingBoxEntities`, for the bounding boxes. Invoked via `useBulkBoundingBoxMemberships` when
+ * the root is a DataProduct; nodes are not displayed until membership is known.
  */
 export default function useBulkDataProductMemberships() {
     const { rootUrn, rootType, nodes, boundingBoxEntities, nodeVersion, dataVersion, setDataVersion } =

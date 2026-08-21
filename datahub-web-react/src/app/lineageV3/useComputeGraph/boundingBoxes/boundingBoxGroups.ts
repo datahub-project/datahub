@@ -11,8 +11,8 @@ const colorOf = (entity?: FetchedEntityV2): string | undefined =>
 
 /**
  * Groups displayed entities by the bounding boxes they belong to (DataProduct or SemanticModel),
- * using the membership on each entity's `boundingBoxes` field (fetched by
- * `useBulkDataProductMemberships` / `useFetchSemanticModelEntities`). Each box's display
+ * using the membership on each entity's `boundingBoxes` field (filled by
+ * `useBulkBoundingBoxMemberships` / home-member fetch hooks). Each box's display
  * entity comes from `boundingBoxEntities`; the home box's comes from its own fetched node.
  */
 export function collectBoundingBoxGroups(
