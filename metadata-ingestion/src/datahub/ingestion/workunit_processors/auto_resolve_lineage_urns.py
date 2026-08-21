@@ -50,15 +50,15 @@ from datahub.metadata.schema_classes import (
     _Aspect,
 )
 from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, SchemaFieldUrn
-from datahub.utilities.dataset_aliases.provider import (
+from datahub.utilities.lossy_collections import LossySet
+from datahub.utilities.urn_aliases.provider import (
     graph_urn_alias_resolver,
     provide_urn_alias_resolver,
 )
-from datahub.utilities.dataset_aliases.resolver import (
+from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
     maintains_dataset_aliases,
 )
-from datahub.utilities.lossy_collections import LossySet
 from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
