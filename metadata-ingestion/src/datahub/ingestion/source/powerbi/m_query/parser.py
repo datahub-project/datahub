@@ -123,7 +123,7 @@ def get_upstream_tables(
             reporter.m_query_non_mquery_expressions += 1
             logger.info(
                 "Non-M-Query expression in table %s — skipping lineage extraction "
-                "(expression does not contain 'let'). Expression: %s. Error: %s",
+                "(no M-Query 'let' keyword). Expression: %s. Error: %s",
                 table.full_name,
                 expression,
                 e,
