@@ -554,8 +554,10 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
-        # In gql v4, the execute() method's signature changed. Since we've updated
-        # our code to use the new signature, we need to pin to gql v4.
+        # Unused: the circuit breakers now query GMS through DataHubGraph, and
+        # nothing in the repo imports gql. Kept only so the extra stays
+        # installable for anyone who pins it; drop it (and empty this extra) in
+        # a pass that also regenerates uv.lock + constraints.txt.
         "gql[requests]>=4.0.0",
     },
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
