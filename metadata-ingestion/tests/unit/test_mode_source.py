@@ -770,10 +770,16 @@ class TestChartFetchGating:
             "data_source_id": 1,
             "last_run_id": 1,
             "explorations_count": explorations_count,
-            "chart_count": chart_count,
             "_links": {"creator": {"href": "/api/modeuser"}},
         }
-        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
+        # chart_count is a report-level field in the Mode API, not a query field.
+        report = {
+            "token": "rtok",
+            "id": 1,
+            "name": "r",
+            "chart_count": chart_count,
+            "_links": {},
+        }
 
         chart_calls: List[tuple] = []
 
