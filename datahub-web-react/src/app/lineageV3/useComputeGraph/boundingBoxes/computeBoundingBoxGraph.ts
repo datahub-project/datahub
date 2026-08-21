@@ -1,4 +1,5 @@
 import {
+    BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES,
     BOUNDING_BOX_MEMBER_PAGE_SIZE,
     GraphStoreFields,
     LINEAGE_FILTER_TYPE,
@@ -30,20 +31,24 @@ import { EntityType, LineageDirection } from '@types';
 type Urn = string;
 
 /**
- * Builds the node filter for the bounding-box graph: nodes are hidden until their bounding-box
- * membership is known (since membership determines how they are rendered), and data process
- * instances are hidden unless `showDataProcessInstances` is set.
- *
- * Membership is filled by `useBulkBoundingBoxMemberships` for every bounding-box root type —
- * same `undefined` / `[]` / populated contract for DataProduct and SemanticModel.
+ * Builds the node filter for the bounding-box graph. Data process instances are hidden unless
+ * `showDataProcessInstances` is set. For root types in
+ * {@link BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES}, nodes are also hidden until their
+ * bounding-box membership is known (filled by `useBulkBoundingBoxMemberships`). Other root
+ * types treat unknown membership as free and show the node outside all boxes.
  */
 function createBoundingBoxNodeFilter(
     rootUrn: Urn,
+    rootType: EntityType,
     showDataProcessInstances: boolean,
 ): (node: LineageEntity) => boolean {
+    const requiresResolvedMembership = BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES.has(rootType);
     return (node: LineageEntity) =>
         (showDataProcessInstances || node.type !== EntityType.DataProcessInstance) &&
-        (node.urn === rootUrn || node.type === EntityType.Query || node.boundingBoxes !== undefined);
+        (node.urn === rootUrn ||
+            node.type === EntityType.Query ||
+            node.boundingBoxes !== undefined ||
+            !requiresResolvedMembership);
 }
 
 /**
@@ -101,7 +106,7 @@ export default function computeBoundingBoxGraph(
         hideGhostEntities: !showGhostEntities,
         ignoreSchemaFieldStatus,
     };
-    const nodeFilter = createBoundingBoxNodeFilter(urn, showDataProcessInstances);
+    const nodeFilter = createBoundingBoxNodeFilter(urn, rootType, showDataProcessInstances);
     const graphStore: GraphStore = {
         ...hideNodes(urn, rootType, config, { nodes, edges, adjacencyList }, nodeFilter),
         rootType,

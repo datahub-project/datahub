@@ -27,6 +27,17 @@ export const BOUNDING_BOX_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
     EntityType.SemanticModel,
 ]);
 
+/**
+ * Root types whose non-home node membership is populated by a real bulk lookup hook
+ * (see useBulkBoundingBoxMemberships). Nodes are hidden by the shared bounding-box filter
+ * until their membership is known. Types not listed here treat unknown membership as
+ * "free" and render outside all boxes.
+ *
+ * To add neighbor SemanticModel boxes later: implement useBulkSemanticModelMemberships,
+ * call it from useBulkBoundingBoxMemberships, and add EntityType.SemanticModel here.
+ */
+export const BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES: ReadonlySet<EntityType> = new Set([EntityType.DataProduct]);
+
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
 export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
@@ -70,10 +81,13 @@ export interface LineageEntity extends NodeBase {
     parentDataJob?: Urn;
     /** Bounding boxes (DataProducts, SemanticModels) this entity belongs to, with whether it is
      * an output port of each (DataProduct-only concept; SemanticModel members always set false).
-     * Undefined means membership is not yet known; filled for bounding-box lineage graphs by
-     * `useBulkBoundingBoxMemberships` (DataProduct: real bulk fetch; SemanticModel: home members
-     * via `useFetchSemanticModelEntities`, other nodes marked `[]` until a bulk SM API exists).
-     * Not fetched as part of `entity` because membership lookup requires querying the graph index. */
+     * - `undefined` — membership not resolved yet (hidden for
+     *   {@link BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES}, shown as free otherwise)
+     * - `[]` — known free (not in any box)
+     * - populated — known member of those boxes
+     * Home members are stamped at init; for resolved root types, non-home membership is filled
+     * by `useBulkBoundingBoxMemberships`. Not fetched as part of `entity` because membership
+     * lookup requires querying the graph index. */
     boundingBoxes?: { urn: Urn; isOutputPort: boolean }[];
     /** For a DataProduct or SemanticModel rendered as a bounding box: how many of its members to
      * fetch and display, raised a page at a time by the box header's "Show more" control.
