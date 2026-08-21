@@ -175,6 +175,15 @@ class QueryMetadata:
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
+    # When true, this query's lineage/operations are still recorded (so downstream
+    # tables get UpstreamLineage aspects and Operation aspects), but the Query
+    # entity itself is not emitted and per-Query URN references (in
+    # UpstreamClass.query and OperationClass.queries) are suppressed. Used for
+    # queries whose SQL text isn't meaningful (e.g. Databricks masks it to
+    # "<REDACTED>" for non-account-admins) to avoid polluting the catalog with
+    # placeholder Query entities while preserving lineage and operation signals.
+    count_only: bool = False
+
     @property
     def usage_query_id(self) -> QueryId:
         """Usage counts are keyed by raw statement fingerprint. For a composite
@@ -1042,14 +1051,17 @@ class SqlParsingAggregator(Closeable):
                     count=parsed.query_count,
                 )
 
-        # For query_count_only entries we still want table-level usage stats
-        # (already recorded above via aggregate_event), but no Query entity and
-        # no per-Query URN usage counts — those would reference a Query that
-        # was never emitted.
-        if parsed.query_count_only:
-            return
-
-        if self._query_usage_counts is not None and parsed.timestamp is not None:
+        # For query_count_only entries, skip per-Query URN usage counters (those
+        # would reference a Query entity we won't emit) but still register the
+        # query in _query_map and _lineage_map below so lineage aspects and
+        # operation MCPs can be generated for the downstream table. Query-entity
+        # emission and dangling Query URN references are suppressed downstream
+        # via QueryMetadata.count_only.
+        if (
+            not parsed.query_count_only
+            and self._query_usage_counts is not None
+            and parsed.timestamp is not None
+        ):
             assert self.usage_config is not None
             bucket = get_time_bucket(
                 parsed.timestamp, self.usage_config.bucket_duration
@@ -1074,6 +1086,7 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
                 extra_info=parsed.extra_info,
                 origin=parsed.origin,
+                count_only=parsed.query_count_only,
             )
         )
 
@@ -1557,6 +1570,7 @@ class SqlParsingAggregator(Closeable):
                     query=(
                         self._query_urn(query_id)
                         if self.can_generate_query(query_id)
+                        and not queries_map[query_id].count_only
                         else None
                     ),
                     created=query.make_created_audit_stamp(),
@@ -1597,6 +1611,7 @@ class SqlParsingAggregator(Closeable):
                         query=(
                             self._query_urn(query_id)
                             if self.can_generate_query(query_id)
+                            and not queries_map[query_id].count_only
                             else None
                         ),
                         confidenceScore=query.confidence_score,
@@ -1702,6 +1717,11 @@ class SqlParsingAggregator(Closeable):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_id = query.query_id
         if not self.can_generate_query(query_id):
+            return
+        if query.count_only:
+            # This query is only tracked to bump table-level lineage/usage; we
+            # don't emit a Query entity or its per-Query usage counters because
+            # the SQL text isn't meaningful (e.g. "<REDACTED>").
             return
 
         # If a query doesn't involve any allowed tables, skip it.
@@ -2026,7 +2046,7 @@ class SqlParsingAggregator(Closeable):
             sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
             queries=(
                 [self._query_urn(query.query_id)]
-                if self.can_generate_query(query.query_id)
+                if self.can_generate_query(query.query_id) and not query.count_only
                 else None
             ),
         )

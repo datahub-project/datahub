@@ -1540,6 +1540,11 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
     aggregator.add_observed_query.assert_not_called()
     aggregator.add_preparsed_query.assert_not_called()
     assert ex.report.num_queries_with_redacted_text == 1
+    # Dropped redacted queries must NOT bump the sqlglot-fallback counters —
+    # those warnings claim "queries were parsed with sqlglot" and would mislead
+    # operators about routing behavior.
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+    assert ex.report.num_queries_without_system_table_lineage == 0
     redaction_warnings = [
         warning
         for warning in ex.report.warnings
@@ -1547,6 +1552,33 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
     ]
     assert len(redaction_warnings) == 1
     assert "databricks_pii_access" in redaction_warnings[0].message
+
+
+def test_redacted_preparsed_without_resolvable_urns_not_counted_as_sqlglot() -> None:
+    """When preparsed lineage is present in system.access.table_lineage but its
+    references can't be resolved to dataset URNs (e.g. tables not ingested), a
+    non-redacted query correctly falls back to sqlglot. A redacted query on the
+    same branch cannot fall back — it must be dropped silently rather than
+    misreported as a sqlglot-fallback query.
+    """
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage("<REDACTED>", "s1", sources=["unregistered.s.t"]),
+        default_db=None,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
 
 
 def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
