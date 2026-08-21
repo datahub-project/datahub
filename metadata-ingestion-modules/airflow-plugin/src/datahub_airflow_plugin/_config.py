@@ -1,13 +1,19 @@
+import json
 import logging
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from airflow.configuration import conf
 from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import (
+    LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.emitter.rest_emitter import EmitMode
+from datahub_airflow_plugin._platform_schemes import platform_for_scheme
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,130 @@ if TYPE_CHECKING:
 class DatajobUrl(Enum):
     GRID = "grid"
     TASKS = "tasks"  # /dags/{dag_id}/tasks/{task_id}
+
+
+class AssetConnectionDetail(
+    PlatformInstanceConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
+    """How to turn one connection's Airflow Asset URIs and OpenLineage namespaces into
+    URNs that match what that platform's own DataHub connector emits.
+
+    Keyed by connection identity (`<scheme>://<authority>`, e.g. `snowflake://myacct`,
+    `postgres://db.host:5432`) — the same key Spark's `metadata.dataset.connections` and
+    the OpenLineage converter's `connectionInstanceMap` use, so the three stay
+    interchangeable. Mirrors Fivetran's `sources_to_platform_instance` shape.
+
+    Optional: the authority, separator and casing rules come from each platform's own
+    naming convention, so URNs are derived without any configuration. This supplies the
+    one thing a URI cannot carry — `platform_instance` — plus overrides for the rest.
+    """
+
+    # Both of these narrow their inherited type to Optional so that "unset" is
+    # distinguishable from a value, letting the platform's own default apply.
+    #
+    # convert_urns_to_lowercase comes from LowerCaseDatasetUrnConfigMixin (default
+    # False). Casing here is per-platform, derived from the same
+    # PLATFORMS_WITH_CASE_SENSITIVE_TABLES constant the SQL parser uses, so all three of
+    # the plugin's writers agree — see _connection_mapping.resolve_lowercase.
+    convert_urns_to_lowercase: Optional[bool] = Field(  # type: ignore[assignment]
+        default=None,
+        description="Lowercase the whole dataset name. Unset follows the same per-platform "
+        "rule DataHub's SQL parser uses: case-insensitive platforms (snowflake, postgres, "
+        "mysql) are lowercased, case-sensitive ones (bigquery) are not. Set explicitly "
+        "only to override that. Applies to Airflow Asset URIs and OpenLineage datasets; "
+        "SQL-parsed lineage settles casing by resolving against the datasets already in "
+        "DataHub, so this override does not apply there.",
+    )
+
+    # Deliberately built on PlatformInstanceConfigMixin rather than PlatformDetail, so
+    # there is no `env` field at all. OpenLineage datasets carry no environment, so the
+    # synthetic OL round trip in the SQL-parsing path cannot propagate a per-connection
+    # one; applying it to any single writer splits a table reachable by two writers into
+    # two URNs differing only by env — the duplicate-entity failure this mapping exists to
+    # remove. Every writer uses the plugin-wide `cluster`. ConfigModel forbids extra keys,
+    # so a stray `env` is a loud validation error rather than a silent no-op.
+
+    platform: Optional[str] = Field(
+        default=None,
+        description="Override the platform inferred from the URI scheme.",
+    )
+
+    database: Optional[str] = Field(
+        default=None,
+        description="For Airflow Asset URIs, prepended as the leading name segment when "
+        "the URI omits it — for example a Postgres URI written without its database. For "
+        "SQL parsing, used as the default database when the operator and connection "
+        "report none, since without one the parser cannot fully qualify table names.",
+    )
+
+
+def parse_asset_connections(raw: Optional[str]) -> Dict[str, AssetConnectionDetail]:
+    """Parse the `asset_connections` JSON blob from airflow.cfg.
+
+    airflow.cfg is INI, so nested config arrives as a JSON string — the same approach
+    the existing `dag_filter_str` option uses. A malformed blob is reported and treated
+    as empty rather than breaking task execution: losing the mapping degrades lineage,
+    whereas raising here would fail the task.
+    """
+    if not raw or not raw.strip():
+        return {}
+
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.warning(
+            "Could not parse [datahub] asset_connections as JSON (%s); connection "
+            "mapping is disabled. URNs are still derived from each platform's naming "
+            "convention, but without this mapping's platform_instance they will not "
+            "match a warehouse ingested with one.",
+            e,
+        )
+        return {}
+
+    if not isinstance(decoded, dict):
+        logger.warning(
+            "[datahub] asset_connections must be a JSON object of "
+            "connection -> settings; got %s. Connection mapping is disabled.",
+            type(decoded).__name__,
+        )
+        return {}
+
+    connections: Dict[str, AssetConnectionDetail] = {}
+    for key, value in decoded.items():
+        try:
+            connections[canonical_connection_key(key)] = (
+                AssetConnectionDetail.model_validate(value)
+            )
+        except Exception as e:
+            logger.warning(
+                "Ignoring invalid [datahub] asset_connections entry %r: %s", key, e
+            )
+    return connections
+
+
+def normalize_connection_key(key: str) -> str:
+    """Case/slash normalisation for a connection key.
+
+    Hosts and schemes are case-insensitive, and Airflow's URI sanitiser can leave a
+    trailing slash on authority-only URIs, so neither should decide whether a mapping
+    applies.
+    """
+    return key.strip().rstrip("/").lower()
+
+
+def canonical_connection_key(key: str) -> str:
+    """A config key in the same canonical form lookups use.
+
+    Config keys must go through the scheme -> platform map too, otherwise an entry written
+    with the URI's own scheme (`postgresql://host`, which is what a user copies off an
+    Airflow Asset) would never match a lookup built from the platform (`postgres://host`)
+    — and the docs promise the two forms share one entry.
+    """
+    normalized = normalize_connection_key(key)
+    scheme, separator, rest = normalized.partition("://")
+    if not separator:
+        return normalized
+    return f"{platform_for_scheme(scheme)}://{rest}"
 
 
 class DatahubLineageConfig(ConfigModel):
@@ -83,6 +213,17 @@ class DatahubLineageConfig(ConfigModel):
 
     dag_filter_pattern: AllowDenyPattern = Field(
         description="regex patterns for DAGs to ingest",
+    )
+
+    # Connection identity -> how to name that connection's datasets, so Airflow Asset
+    # URIs, OpenLineage namespaces and SQL-parsed tables produce the same URNs the
+    # platform's own DataHub connector emits. Empty by default: names are still derived
+    # from each platform's own convention, just without a platform_instance.
+    asset_connections: Dict[str, AssetConnectionDetail] = Field(
+        default_factory=dict,
+        description="Mapping of `<scheme>://<authority>` to the platform_instance and "
+        "naming settings for that connection. Environment is not settable here — every "
+        "writer uses the plugin-wide `cluster`.",
     )
 
     log_level: Optional[str]
@@ -188,9 +329,13 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
+    asset_connections = parse_asset_connections(
+        conf.get("datahub", "asset_connections", fallback=None)
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
+        asset_connections=asset_connections,
         datahub_conn_id=datahub_conn_id,
         cluster=cluster,
         platform_instance=platform_instance,

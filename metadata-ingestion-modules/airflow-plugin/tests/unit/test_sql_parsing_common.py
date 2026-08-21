@@ -147,3 +147,68 @@ class TestParseSqlWithDatahub:
 
         mock_multi.assert_called_once()
         assert mock_multi.call_args.kwargs["queries"] == sql_list
+
+
+class TestParseSqlWithDatahubPlatformInstance:
+    """platform_instance was hardcoded to None here, so SQL-parsed lineage could not match
+    a warehouse ingested with one — even though the Asset and OpenLineage writers could.
+    Graph-based schema resolution does not rescue it: candidate URNs are generated *from*
+    the platform_instance, so an instanced URN is never among the candidates tried.
+    """
+
+    @mock.patch(
+        "datahub_airflow_plugin._sql_parsing_common.create_lineage_sql_parsed_result"
+    )
+    def test_single_statement_forwards_platform_instance(self, mock_single):
+        mock_single.return_value = SqlParsingResult(in_tables=[], out_tables=[])
+
+        parse_sql_with_datahub(
+            sql="SELECT 1",
+            default_database="db",
+            platform="snowflake",
+            env="PROD",
+            default_schema="public",
+            graph=None,
+            enable_multi_statement=False,
+            platform_instance="prod_acct",
+        )
+
+        assert mock_single.call_args.kwargs["platform_instance"] == "prod_acct"
+
+    @mock.patch(
+        "datahub_airflow_plugin._sql_parsing_common.create_lineage_from_sql_statements"
+    )
+    def test_multi_statement_forwards_platform_instance(self, mock_multi):
+        mock_multi.return_value = SqlParsingResult(in_tables=[], out_tables=[])
+
+        parse_sql_with_datahub(
+            sql=["SELECT 1", "SELECT 2"],
+            default_database="db",
+            platform="snowflake",
+            env="PROD",
+            default_schema="public",
+            graph=None,
+            enable_multi_statement=True,
+            platform_instance="prod_acct",
+        )
+
+        assert mock_multi.call_args.kwargs["platform_instance"] == "prod_acct"
+
+    @mock.patch(
+        "datahub_airflow_plugin._sql_parsing_common.create_lineage_sql_parsed_result"
+    )
+    def test_platform_instance_defaults_to_none(self, mock_single):
+        """Unmapped connections keep today's behaviour."""
+        mock_single.return_value = SqlParsingResult(in_tables=[], out_tables=[])
+
+        parse_sql_with_datahub(
+            sql="SELECT 1",
+            default_database="db",
+            platform="snowflake",
+            env="PROD",
+            default_schema="public",
+            graph=None,
+            enable_multi_statement=False,
+        )
+
+        assert mock_single.call_args.kwargs["platform_instance"] is None
