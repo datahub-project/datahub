@@ -44,19 +44,18 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean)
     // On the very first render, Apollo initialises loading=false synchronously before
     // the network tick, so !structuralLoading would be true immediately and both
     // queries would fire at the same time, defeating the intended sequencing.
-    const [structuralDataLoaded, setStructuralDataLoaded] = useState(false);
+    // Keyed by URN (not a boolean plus a reset effect): on navigation the previous
+    // dataset's flag would otherwise stay true for the render(s) before the reset
+    // effect runs, starting the full query against the NEW urn before its structural
+    // query has completed.
+    const [structuralLoadedUrn, setStructuralLoadedUrn] = useState<string | null>(null);
+    const structuralDataLoaded = !!urn && structuralLoadedUrn === urn;
 
-    // Reset when the entity changes so the full metadata query does not fire immediately
-    // on navigation -- the new dataset's structural query must complete first.
     useEffect(() => {
-        setStructuralDataLoaded(false);
-    }, [urn]);
-
-    useEffect(() => {
-        if (!structuralLoading && structuralData) {
-            setStructuralDataLoaded(true);
+        if (!structuralLoading && structuralData && urn) {
+            setStructuralLoadedUrn(urn);
         }
-    }, [structuralLoading, structuralData]);
+    }, [structuralLoading, structuralData, urn]);
 
     // Full metadata query: tags, glossary terms, descriptions, editable metadata.
     // Skipped until the structural query has delivered data so the table is visible first.
@@ -103,7 +102,14 @@ export const useGetEntityWithSchema = (skip?: boolean, structuralOnly?: boolean)
         loading: structuralLoading,
         // True after Phase 1 resolves but before Phase 2 (tags/terms/descriptions)
         // completes. SchemaTable shows skeleton placeholders in metadata columns.
-        fullMetadataLoading: structuralDataLoaded && fullLoading,
+        // Includes the render gap between Phase 1 resolving and Phase 2 mounting
+        // (fullLoading is still false there): pending until the full query has
+        // actually produced data or an error, so SchemaTab never sees a spurious
+        // "metadata done" frame and clears valid metadata filters.
+        fullMetadataLoading:
+            shouldLoad && !structuralOnly && structuralDataLoaded && !fullData && !fullError
+                ? true
+                : structuralDataLoaded && fullLoading,
         // Set when the full metadata query fails. SchemaTab shows an inline error banner.
         fullMetadataError: fullError,
         // Set when the structural query fails. SchemaTab shows an error instead of a
