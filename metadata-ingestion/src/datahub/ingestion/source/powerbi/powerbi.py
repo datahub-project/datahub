@@ -353,6 +353,7 @@ class Mapper:
         # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
+        expressions = table.dataset.expressions if table.dataset else {}
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
@@ -370,11 +371,17 @@ class Mapper:
             ctx=self.__ctx,
             config=self.__config,
             parameters=parameters,
+            expressions=expressions,
         )
 
         logger.debug(
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
+
+        # One table can reach the same upstream by more than one route -- two
+        # queries filtering a common source, or both branches of a conditional --
+        # and the aspect should name it once.
+        emitted_upstream_urns: Set[str] = set()
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
@@ -387,8 +394,13 @@ class Mapper:
                     )
                     continue
 
+                upstream_urn = self.lineage_urn_to_lowercase(upstream_dpt.urn)
+                if upstream_urn in emitted_upstream_urns:
+                    continue
+                emitted_upstream_urns.add(upstream_urn)
+
                 upstream_table_class = UpstreamClass(
-                    self.lineage_urn_to_lowercase(upstream_dpt.urn),
+                    upstream_urn,
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
 
