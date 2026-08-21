@@ -81,7 +81,7 @@ Don't set `GOOGLE_API_KEY` — ADK falls back to Application Default Credentials
 
 ## Troubleshooting
 
-- **Tool execution errors?** Verify your DataHub connection (`client.config`) and token permissions.
+- **Tool execution errors?** Verify your DataHub connection (`client.test_connection()`) and token permissions.
 - **Agent not using tools?** Strengthen the `instruction` prompt, or try a model with better tool-calling (Gemini 2.0+).
 - **`AsyncExitStack` / task errors with `McpToolset`?** Call `await toolset.get_tools()` in the same async task that owns the toolset, and `await toolset.close()` in a `finally` block.
 - **Import errors?** Run `pip install datahub-agent-context[google-adk] google-adk`.
