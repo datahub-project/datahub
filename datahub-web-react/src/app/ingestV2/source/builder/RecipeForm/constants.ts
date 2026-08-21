@@ -366,6 +366,8 @@ import {
     INCLUDE_POWERBI_LINEAGE,
     INCLUDE_REPORTS,
     INCLUDE_WORKSPACES,
+    POWERBI_CERTIFICATE_DATA,
+    POWERBI_CERTIFICATE_PASSWORD,
     POWERBI_CLIENT_ID,
     POWERBI_CLIENT_SECRET,
     POWERBI_TENANT_ID,
@@ -907,7 +909,13 @@ export const RECIPE_FIELDS: RecipeFields = {
             'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
     },
     [POWER_BI]: {
-        fields: [POWERBI_TENANT_ID, POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET],
+        fields: [
+            POWERBI_TENANT_ID,
+            POWERBI_CLIENT_ID,
+            POWERBI_CLIENT_SECRET,
+            POWERBI_CERTIFICATE_DATA,
+            POWERBI_CERTIFICATE_PASSWORD,
+        ],
         filterFields: [WORKSPACE_ID_ALLOW, WORKSPACE_ID_DENY],
         advancedFields: [
             INCLUDE_WORKSPACES,

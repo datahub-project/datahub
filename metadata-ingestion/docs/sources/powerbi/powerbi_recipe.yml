@@ -8,6 +8,12 @@ source:
     client_id: 12345678-abcd-abcd-abcd-123456789012
     # Microsoft Entra Application client secret value
     client_secret: Abc12d~efg3hijkl_45Abcdefg67aBcdef89
+    # Alternatively, authenticate with a certificate registered on the Entra Application
+    # instead of a client secret. The PEM must contain both the private key and the
+    # certificate. Set only one of client_secret / certificate_path / certificate_data.
+    # certificate_path: /path/to/powerbi.pem
+    # certificate_data: "${POWERBI_CERTIFICATE_PEM}"
+    # certificate_password: "${POWERBI_CERTIFICATE_PASSWORD}"  # only if the key is encrypted
     
     # Ingest elements of below PowerBi Workspace into Datahub
     workspace_name_pattern:

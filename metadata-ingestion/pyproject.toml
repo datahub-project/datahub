@@ -805,6 +805,7 @@ postgres = [
 ]
 
 powerbi = [
+    "cryptography>=49.0.0,<51.0.0",
     "mini-racer==0.14.1",
     "more-itertools<11.0.0",
     "msal>=1.31.1,<2.0.0",
