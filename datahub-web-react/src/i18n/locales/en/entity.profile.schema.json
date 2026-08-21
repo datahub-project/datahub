@@ -103,6 +103,8 @@
     "queriesSidebarTab.noQueriesFound": "No queries for this column found",
     "queriesSidebarTab.sectionTitle": "Queries",
     "queriesSidebarTab.seeAllQueries": "See All Queries",
+    "schemaTab.fullMetadataLoadError": "Could not load field metadata (tags and descriptions).",
+    "schemaTab.structuralLoadError": "Could not load schema.",
     "schemaTable.businessAttributeColumn": "Business Attribute",
     "schemaTable.descriptionColumn": "Description",
     "schemaTable.glossaryTermsColumn": "Glossary Terms",
