@@ -54,7 +54,7 @@ describe('getDefaultSummaryPageTemplate', () => {
                 surface: {
                     surfaceType: PageTemplateSurfaceType.AssetSummary,
                 },
-                rows: [{ modules: expect.any(Array) }],
+                rows: [{ modules: expect.any(Array) }, { modules: expect.any(Array) }],
                 assetSummary: {
                     summaryElements: [
                         { elementType: SummaryElementType.Created },
@@ -68,6 +68,7 @@ describe('getDefaultSummaryPageTemplate', () => {
         });
 
         expect(result.properties.rows[0].modules).toHaveLength(2);
+        expect(result.properties.rows[1].modules).toHaveLength(1);
     });
 
     it('should return correct template for GlossaryTerm entity type', () => {
@@ -222,7 +223,11 @@ describe('getDefaultSummaryPageTemplate', () => {
             expect(result.type).toBe(EntityType.DatahubPageTemplate);
             expect(result.properties.visibility.scope).toBe(PageTemplateScope.Personal);
             expect(result.properties.surface.surfaceType).toBe(PageTemplateSurfaceType.AssetSummary);
-            if (entityType === EntityType.Domain || entityType === EntityType.Dataset) {
+            if (
+                entityType === EntityType.Domain ||
+                entityType === EntityType.Dataset ||
+                entityType === EntityType.DataProduct
+            ) {
                 expect(result.properties.rows).toHaveLength(2);
             } else {
                 expect(result.properties.rows).toHaveLength(1);
