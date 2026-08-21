@@ -147,11 +147,12 @@ class DynamoDBConfig(
         ),
     )
     include_s3_export_column_lineage: bool = Field(
-        default=True,
+        default=False,
         description=(
             "When `include_s3_export_lineage` is enabled, also emit column-level COPY lineage "
             "using identity field-path mapping from the inferred DynamoDB schema onto the S3 dataset. "
-            "Nested map attributes use dotted field paths."
+            "Off by default: native Export to S3 writes DynamoDB JSON/Ion, whose field paths often "
+            "differ from the connector's flattened schema. Nested map attributes use dotted field paths."
         ),
     )
     # Custom Stateful Ingestion settings

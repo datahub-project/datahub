@@ -3034,6 +3034,28 @@ def test_process_dataflow_node_dynamodb_table_arn() -> None:
     )
 
 
+def test_process_dataflow_node_dynamodb_rejects_malformed_table_arn() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.tableArn": (
+                "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+            ),
+            "dynamodb.region": "us-east-1",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(node, flow_urn)
+
+    # Trailing path segments invalidate the ARN; without tableName the node is skipped.
+    assert result is None
+    assert source.report.warnings
+
+
 def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
     pipeline_context = PipelineContext(run_id="glue-dynamodb-tes")
     source = GlueSource(

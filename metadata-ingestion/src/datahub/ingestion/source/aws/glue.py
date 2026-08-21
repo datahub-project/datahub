@@ -215,7 +215,7 @@ DYNAMODB_REGION = "dynamodb.region"
 DYNAMODB_STS_REGION = "dynamodb.sts.region"
 # arn:{partition}:dynamodb:{region}:{account}:table/{table}
 DYNAMODB_TABLE_ARN_PATTERN = re.compile(
-    r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)"
+    r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)$"
 )
 
 

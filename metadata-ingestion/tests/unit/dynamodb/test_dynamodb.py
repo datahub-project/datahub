@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -255,17 +255,24 @@ class TestDynamoDBS3ExportLineage:
         )
 
     def test_collect_and_emit_s3_export_lineage(self, mock_context, lineage_config):
+        lineage_config.include_s3_export_column_lineage = True
         source = DynamoDBSource(
             ctx=mock_context, config=lineage_config, platform="dynamodb"
         )
         mock_client = MagicMock()
         table_arn = "arn:aws:dynamodb:us-west-2:123456789012:table/orders"
         dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.orders,PROD)"
+        completed_export_a = (
+            "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/abc"
+        )
+        completed_export_b = (
+            "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/ghi"
+        )
 
         mock_client.list_exports.return_value = {
             "ExportSummaries": [
                 {
-                    "ExportArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/abc",
+                    "ExportArn": completed_export_a,
                     "ExportStatus": "COMPLETED",
                 },
                 {
@@ -273,7 +280,7 @@ class TestDynamoDBS3ExportLineage:
                     "ExportStatus": "FAILED",
                 },
                 {
-                    "ExportArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/ghi",
+                    "ExportArn": completed_export_b,
                     "ExportStatus": "COMPLETED",
                 },
             ]
@@ -305,6 +312,7 @@ class TestDynamoDBS3ExportLineage:
         assert len(workunits) == 1
         assert source.report.s3_export_locations_found == 1
         assert source.report.s3_export_lineage_edges == 1
+        assert not source.report.warnings
 
         mcp = workunits[0].metadata
         assert isinstance(mcp, MetadataChangeProposalWrapper)
@@ -322,11 +330,18 @@ class TestDynamoDBS3ExportLineage:
             mcp.entityUrn
             == "urn:li:dataset:(urn:li:dataPlatform:s3,export-bucket/dynamo/orders,PROD)"
         )
-        mock_client.describe_export.assert_called()
+        mock_client.describe_export.assert_has_calls(
+            [
+                call(ExportArn=completed_export_a),
+                call(ExportArn=completed_export_b),
+            ]
+        )
+        assert mock_client.describe_export.call_count == 2
 
     def test_aggregates_multiple_tables_to_same_s3_prefix(
         self, mock_context, lineage_config
     ):
+        lineage_config.include_s3_export_column_lineage = True
         source = DynamoDBSource(
             ctx=mock_context, config=lineage_config, platform="dynamodb"
         )
@@ -413,10 +428,11 @@ class TestDynamoDBS3ExportLineage:
         mock_client.describe_export.return_value = {
             "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
         }
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)"
         source._collect_s3_export_lineage(
             dynamodb_client=mock_client,
             table_arn="arn:table/x",
-            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_urn=dataset_urn,
             dataset_name="us-west-2.x",
             field_paths=["id"],
         )
@@ -425,3 +441,5 @@ class TestDynamoDBS3ExportLineage:
         assert isinstance(mcp, MetadataChangeProposalWrapper)
         assert isinstance(mcp.aspect, UpstreamLineageClass)
         assert not mcp.aspect.fineGrainedLineages
+        assert len(mcp.aspect.upstreams) == 1
+        assert mcp.aspect.upstreams[0].dataset == dataset_urn

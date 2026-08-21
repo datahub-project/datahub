@@ -40,13 +40,13 @@ include_table_item:
 
 Set `include_s3_export_lineage: true` to discover existing [DynamoDB Export to S3](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/S3DataExport.HowItWorks.html) jobs and emit COPY lineage from each DynamoDB table to its S3 destination (`s3://bucket/prefix`).
 
-By default this also emits column-level lineage (`include_s3_export_column_lineage: true`) using identity mapping from the inferred DynamoDB schema field paths onto the S3 dataset. Set `include_s3_export_column_lineage: false` for table-level edges only.
+By default this emits table-level COPY edges only. Set `include_s3_export_column_lineage: true` to also emit column-level lineage using identity mapping from the inferred DynamoDB schema field paths onto the S3 dataset. Leave it off unless you know the S3 export layout matches those flattened paths — native Export to S3 writes DynamoDB JSON or Amazon Ion, which often does not.
 
 The connector only calls `ListExports` and `DescribeExport`. It does not create exports. AWS retains export task metadata for about 90 days, so older exports will not appear until a newer export exists for that destination.
 
 ```yml
 include_s3_export_lineage: true
-# include_s3_export_column_lineage: false
+# include_s3_export_column_lineage: true
 ```
 
 ### Limitations
