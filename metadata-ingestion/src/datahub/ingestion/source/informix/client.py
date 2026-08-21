@@ -49,6 +49,10 @@ class InformixClientProtocol(Protocol):
     def close(self) -> None: ...
 
 
+def _opt_str(value: object) -> Optional[str]:
+    return str(value).strip() if value is not None else None
+
+
 def _safe_close(closeable: object) -> None:
     try:
         closeable.close()  # type: ignore[attr-defined]
@@ -152,6 +156,9 @@ class InformixClient:
                 length=int(str(r[2])),
                 colno=int(str(r[3])),
                 is_pk=str(r[0]).strip() in pk_names,
+                # NULL for a column with no extended type (extended_id = 0).
+                extended_name=_opt_str(r[4]),
+                extended_mode=_opt_str(r[5]),
             )
             for r in rows
         ]

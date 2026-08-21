@@ -86,11 +86,32 @@ def test_get_columns_marks_primary_keys():
     client = _client_with_rows(
         {
             SQL_PK: [["id"]],
-            SQL_COLUMNS: [["id", 258, 4, 1], ["email", 13, 100, 2]],
+            SQL_COLUMNS: [
+                ["id", 258, 4, 1, None, None],
+                ["email", 13, 100, 2, None, None],
+            ],
         }
     )
     columns = client.get_columns(_table())
     assert [(c.name, c.is_pk) for c in columns] == [("id", True), ("email", False)]
+
+
+def test_get_columns_carries_extended_type_columns():
+    # extended_id = 0 yields SQL NULLs from the outer join; an extended type
+    # yields its sysxtdtypes name and mode.
+    client = _client_with_rows(
+        {
+            SQL_COLUMNS: [
+                ["plain", 258, 4, 1, None, None],
+                ["flag", 41, 1, 2, "  boolean  ", "B"],
+            ],
+        }
+    )
+    columns = client.get_columns(_table())
+    assert [(c.extended_name, c.extended_mode) for c in columns] == [
+        (None, None),
+        ("boolean", "B"),
+    ]
 
 
 def test_get_foreign_keys_pairs_single_column_key():

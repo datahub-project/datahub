@@ -67,7 +67,17 @@ skipped rather than emitted misaligned. Skipped constraints are counted as
 
 #### Extended type mapping
 
-Informix extended types (`JSON`, `BSON`, time series, and spatial types such as `ST_Geometry`) are not in the base `syscolumns.coltype` map and fall back to an unknown/null DataHub type. The native type name is still preserved for display.
+`syscolumns.coltype` cannot identify an extended type on its own — `LVARCHAR` is type 40, and
+`BOOLEAN`, `BLOB` and `CLOB` all share type 41 — so the column's `extended_id` is resolved
+against `sysxtdtypes` to recover the real type name.
+
+`LVARCHAR`, `BOOLEAN`, `BLOB` and `CLOB` map to their DataHub equivalents. A `DISTINCT` type
+reports its own name (for example `MONEY_USD`) and takes its DataHub type from the built-in it
+was defined over. A named `ROW` type maps to a record.
+
+User-defined opaque types (`JSON`, `BSON`, time series, and spatial types such as
+`ST_Geometry`) have no DataHub equivalent and still map to a null type, but the native type name
+is reported rather than a placeholder. Each one is counted as a warning in the ingestion report.
 
 ### Troubleshooting
 

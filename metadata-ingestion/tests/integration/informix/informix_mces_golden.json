@@ -633,6 +633,126 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:informix"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554598,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:informix",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "doc_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "body",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "LVARCHAR(4000)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "archived",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "BOOLEAN",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "payload",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BytesType": {}
+                        }
+                    },
+                    "nativeDataType": "BLOB",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "summary",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "CLOB",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "price",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "MONEY_USD",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554599,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.active_customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -705,6 +825,24 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "documents",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554599,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.active_customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -718,6 +856,22 @@
     "systemMetadata": {
         "lastObserved": 1784882571226,
         "runId": "informix-2026_07_24-10_42_50-rnmkrm",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bf206720da8d6f00abc4200f14303780"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554599,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -739,6 +893,24 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554599,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.active_customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -752,6 +924,57 @@
     "systemMetadata": {
         "lastObserved": 1784882571226,
         "runId": "informix-2026_07_24-10_42_50-rnmkrm",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:informix",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554599,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:db06006ca0cdab7bcb66fd0e0b672606",
+                    "urn": "urn:li:container:db06006ca0cdab7bcb66fd0e0b672606"
+                },
+                {
+                    "id": "urn:li:container:bf206720da8d6f00abc4200f14303780",
+                    "urn": "urn:li:container:bf206720da8d6f00abc4200f14303780"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554599,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1262,6 +1485,22 @@
     "systemMetadata": {
         "lastObserved": 1784892553265,
         "runId": "informix-2026_07_24-13_29_10-by4mtf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787307554752,
+        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
         "lastRunId": "no-run-id-provided"
     }
 }

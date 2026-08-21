@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import (
     INFORMIX_TYPE_MAP,
+    SQL_COLUMNS,
     SQL_FK,
     SQL_PK,
     map_coltype,
@@ -127,6 +128,58 @@ def test_informix_type_map_keys_match_parametrized_coverage():
         52,
         53,
     }
+
+
+@pytest.mark.parametrize(
+    "coltype,xtdname,xtdmode,native,type_cls",
+    [
+        # Every row measured against Informix 15.0.1 (see the integration
+        # fixture). Base coltype 40/41 carries no type information on its own.
+        (40, "lvarchar", "B", "LVARCHAR", StringTypeClass),
+        (41, "boolean", "B", "BOOLEAN", BooleanTypeClass),
+        (41, "blob", "B", "BLOB", BytesTypeClass),
+        (41, "clob", "B", "CLOB", StringTypeClass),
+        # An internal built-in should never be a user column; keep its name but
+        # do not invent a DataHub type for it.
+        (41, "pointer", "B", "POINTER", NullTypeClass),
+        # DISTINCT keeps its source built-in in the low byte of coltype:
+        # 2053 = 2048 | 5 (DECIMAL), 2050 = 2048 | 2 (INTEGER).
+        (2053, "money_usd", "D", "MONEY_USD", NumberTypeClass),
+        (2050, "cust_id", "D", "CUST_ID", NumberTypeClass),
+        # ROW types are structs; base code 22 has no mapping of its own.
+        (20502, "addr_t", "R", "ADDR_T", RecordTypeClass),
+        # Opaque types (mode 'O') have no DataHub equivalent, but the real name
+        # still beats UNKNOWN(40).
+        (40, "json", "O", "JSON", NullTypeClass),
+        # Collections store an empty name; the base coltype already resolves.
+        (19, "", "C", "SET", RecordTypeClass),
+        (21, "", "C", "LIST", RecordTypeClass),
+        # extended_id 0 -> no sysxtdtypes row at all.
+        (2, None, None, "INTEGER", NumberTypeClass),
+    ],
+)
+def test_map_coltype_resolves_extended_types(
+    coltype: int,
+    xtdname: str,
+    xtdmode: str,
+    native: str,
+    type_cls: type,
+) -> None:
+    mapped = map_coltype(coltype, xtdname, xtdmode)
+    assert mapped.native == native
+    assert isinstance(mapped.data_type.type, type_cls)
+
+
+def test_map_coltype_extended_resolution_preserves_not_null_bit():
+    mapped = map_coltype(41 + 256, "boolean", "B")
+    assert mapped.native == "BOOLEAN"
+    assert mapped.nullable is False
+
+
+def test_sql_columns_outer_joins_sysxtdtypes():
+    # extended_id is 0 for ordinary types, so an inner join would silently drop
+    # every non-extended column.
+    assert "LEFT JOIN sysxtdtypes" in SQL_COLUMNS
 
 
 def test_every_sysindexes_join_is_scoped_by_tabid():

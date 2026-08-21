@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 
 from datahub.ingestion.source.informix.models import InformixType, MappedColumn
 from datahub.metadata.schema_classes import (
@@ -58,15 +58,72 @@ INFORMIX_TYPE_MAP: Dict[int, InformixType] = {
 }
 
 
-def map_coltype(coltype: int) -> MappedColumn:
+# sysxtdtypes.mode says what kind of extended type an extended_id refers to.
+_XTD_BUILTIN = "B"  # server built-in: lvarchar, boolean, blob, clob, ...
+_XTD_DISTINCT = "D"  # CREATE DISTINCT TYPE
+_XTD_ROW = "R"  # CREATE ROW TYPE
+_XTD_COLLECTION = "C"  # SET/LIST/MULTISET; sysxtdtypes.name is empty for these
+
+# Built-in extended types that can legitimately be a user column. Their base
+# coltype is 40 or 41, which says only "some opaque type" -- without the
+# sysxtdtypes name, LVARCHAR, BOOLEAN, BLOB and CLOB are indistinguishable.
+_XTD_BUILTIN_TYPE_MAP: Dict[str, type] = {
+    "LVARCHAR": StringTypeClass,
+    "BOOLEAN": BooleanTypeClass,
+    "BLOB": BytesTypeClass,
+    "CLOB": StringTypeClass,
+}
+
+
+def _resolve_extended_type(
+    mapped: InformixType,
+    extended_name: Optional[str],
+    extended_mode: Optional[str],
+) -> InformixType:
+    """Recover a real type name from sysxtdtypes, falling back to the base type.
+
+    Verified against Informix 15.0.1: LVARCHAR is coltype 40 with extended_id 1,
+    while BOOLEAN/BLOB/CLOB all share coltype 41, so the base code alone resolves
+    every one of them to UNKNOWN. DISTINCT and ROW types carry a user-defined
+    name that is more informative than their base code, and a DISTINCT keeps its
+    source built-in in the low byte of coltype -- so ``mapped`` already holds the
+    right DataHub type for it.
+    """
+    if not extended_name or extended_mode == _XTD_COLLECTION:
+        # Collections store an empty name, and their base coltype (SET, LIST,
+        # MULTISET) is already correct.
+        return mapped
+    native = extended_name.upper()
+    if extended_mode == _XTD_BUILTIN:
+        builtin = _XTD_BUILTIN_TYPE_MAP.get(native)
+        if builtin is not None:
+            return InformixType(builtin, native)
+        # An internal built-in (pointer, sendrecv, ...) that should never surface
+        # as a user column. Keep the real name; leave the type unresolved.
+        return InformixType(NullTypeClass, native)
+    if extended_mode == _XTD_ROW:
+        return InformixType(RecordTypeClass, native)
+    if extended_mode == _XTD_DISTINCT:
+        return InformixType(mapped.datahub_type, native)
+    # Opaque (mode 'O': JSON, BSON, spatial, user-defined UDTs) and anything
+    # else. The real type name still beats UNKNOWN(40).
+    return InformixType(NullTypeClass, native)
+
+
+def map_coltype(
+    coltype: int,
+    extended_name: Optional[str] = None,
+    extended_mode: Optional[str] = None,
+) -> MappedColumn:
     base = coltype & _BASE_TYPE_MASK
     mapped = INFORMIX_TYPE_MAP.get(
         base, InformixType(NullTypeClass, f"UNKNOWN({base})")
     )
+    resolved = _resolve_extended_type(mapped, extended_name, extended_mode)
     return MappedColumn(
-        data_type=SchemaFieldDataTypeClass(type=mapped.datahub_type()),
+        data_type=SchemaFieldDataTypeClass(type=resolved.datahub_type()),
         nullable=(coltype & _NOT_NULL_BIT) == 0,
-        native=mapped.native_name,
+        native=resolved.native_name,
     )
 
 
@@ -83,9 +140,14 @@ SQL_TABLES = (
     "SELECT TRIM(tabname) AS tabname, TRIM(owner) AS owner, tabtype, nrows "
     f"FROM systables WHERE tabid >= 100 AND tabtype IN ('{TABTYPE_TABLE}', '{TABTYPE_VIEW}')"
 )
+# syscolumns.extended_id is 0 for ordinary types, so the sysxtdtypes lookup has
+# to be an outer join. sysxtdtypes.name/mode recover LVARCHAR, BOOLEAN, BLOB,
+# CLOB, DISTINCT, ROW and opaque types, all of which base coltype cannot express.
 SQL_COLUMNS = (
-    "SELECT TRIM(c.colname) AS colname, c.coltype, c.collength, c.colno "
+    "SELECT TRIM(c.colname) AS colname, c.coltype, c.collength, c.colno, "
+    "TRIM(x.name) AS xtdname, x.mode AS xtdmode "
     "FROM syscolumns c JOIN systables t ON c.tabid = t.tabid "
+    "LEFT JOIN sysxtdtypes x ON c.extended_id = x.extended_id "
     "WHERE TRIM(t.tabname) = ? AND TRIM(t.owner) = ? ORDER BY c.colno"
 )
 # A constraint's backing index is looked up by (tabid, idxname), not idxname

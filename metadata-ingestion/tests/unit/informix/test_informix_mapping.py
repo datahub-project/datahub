@@ -108,6 +108,52 @@ def test_columns_to_schema_fields_decodes_declared_length(
     assert fields[0].nativeDataType == expected
 
 
+def test_columns_to_schema_fields_uses_extended_type_name():
+    # LVARCHAR/BOOLEAN/BLOB share base coltypes 40 and 41, so before the
+    # sysxtdtypes lookup all three resolved to UNKNOWN + NullType.
+    cols = [
+        InformixColumn(
+            name="body",
+            coltype=40,
+            length=4000,
+            colno=1,
+            extended_name="lvarchar",
+            extended_mode="B",
+        ),
+        InformixColumn(
+            name="flag",
+            coltype=41,
+            length=1,
+            colno=2,
+            extended_name="boolean",
+            extended_mode="B",
+        ),
+    ]
+    report = InformixSourceReport()
+    fields = columns_to_schema_fields(cols, report)
+    assert [f.nativeDataType for f in fields] == ["LVARCHAR(4000)", "BOOLEAN"]
+    assert len(report.warnings) == 0
+
+
+def test_columns_to_schema_fields_warns_for_opaque_type_but_keeps_its_name():
+    # An opaque type has no DataHub equivalent, so it still warns -- but the
+    # recovered name is more useful than UNKNOWN(40).
+    cols = [
+        InformixColumn(
+            name="doc",
+            coltype=40,
+            length=0,
+            colno=1,
+            extended_name="json",
+            extended_mode="O",
+        )
+    ]
+    report = InformixSourceReport()
+    fields = columns_to_schema_fields(cols, report)
+    assert fields[0].nativeDataType == "JSON"
+    assert len(report.warnings) == 1
+
+
 def test_columns_to_schema_fields_warns_on_unknown_type():
     cols = [InformixColumn(name="weird", coltype=99, length=1, colno=1, is_pk=False)]
     report = InformixSourceReport()

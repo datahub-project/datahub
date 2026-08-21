@@ -15,6 +15,20 @@ CREATE TABLE orders (
   amount DECIMAL(10,2)
 );
 
+-- Extended types: LVARCHAR is coltype 40 and BOOLEAN/BLOB/CLOB all share
+-- coltype 41, so none of them can be identified without the sysxtdtypes join.
+-- A DISTINCT type keeps its source built-in in the low byte of coltype.
+CREATE DISTINCT TYPE money_usd AS DECIMAL(12,2);
+
+CREATE TABLE documents (
+  doc_id INTEGER PRIMARY KEY,
+  body LVARCHAR(4000),
+  archived BOOLEAN,
+  payload BLOB,
+  summary CLOB,
+  price money_usd
+);
+
 CREATE VIEW active_customers AS SELECT id, name FROM customers;
 
 CREATE VIEW customer_orders AS

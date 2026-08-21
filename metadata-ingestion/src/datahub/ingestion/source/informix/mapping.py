@@ -11,6 +11,7 @@ from datahub.ingestion.source.informix.constants import PLATFORM, map_coltype
 from datahub.ingestion.source.informix.models import InformixColumn, InformixForeignKey
 from datahub.metadata.schema_classes import (
     ForeignKeyConstraintClass,
+    NullTypeClass,
     OwnerClass,
     OwnershipTypeClass,
     SchemaFieldClass,
@@ -71,16 +72,19 @@ def columns_to_schema_fields(
 ) -> List[SchemaFieldClass]:
     fields: List[SchemaFieldClass] = []
     for col in columns:
-        mapped = map_coltype(col.coltype)
+        mapped = map_coltype(col.coltype, col.extended_name, col.extended_mode)
         native = mapped.native
         length = _declared_length(native, col.length)
         if native in _LENGTH_TYPES and length > 0:
             native = f"{native}({length})"
-        if native.startswith("UNKNOWN"):
+        if isinstance(mapped.data_type.type, NullTypeClass):
+            # Checked on the resolved DataHub type rather than an "UNKNOWN" name
+            # prefix: an opaque type recovered from sysxtdtypes has a real name
+            # but still no DataHub equivalent, and is worth reporting.
             report.warning(
                 title="Unmapped Informix column type",
                 message="Column type has no DataHub mapping; using NullType.",
-                context=f"{col.name} coltype={col.coltype}",
+                context=f"{col.name} coltype={col.coltype} native={native}",
             )
         fields.append(
             SchemaFieldClass(

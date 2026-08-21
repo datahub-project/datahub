@@ -26,6 +26,10 @@ class InformixColumn(BaseModel):
     length: int
     colno: int
     is_pk: bool = False
+    # sysxtdtypes.name/mode for the column's extended_id, absent for ordinary
+    # types. See constants._resolve_extended_type.
+    extended_name: Optional[str] = None
+    extended_mode: Optional[str] = None
 
 
 class InformixTable(BaseModel):
