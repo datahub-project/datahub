@@ -1458,21 +1458,45 @@ def get_sorted_entity_names(
     return sorted_entities
 
 
-# Incident support is declared independently in three backend files, and they do not
+# Incident support is declared independently in four backend files, and they do not
 # all agree. Deriving the table means the docs cannot drift from the code the way a
 # hand-maintained list does; see https://github.com/datahub-project/datahub/pull/18685.
+#
+# Declaring the incidents field in the SDL is not enough on its own. A type with the
+# field but no entry in entitiesWithIncidents has no resolver attached to it, so the
+# field resolves to null rather than failing, which is why the last two columns are
+# reported separately instead of being folded into one "readable" claim.
 _REPO_ROOT = Path(__file__).parent.parent.parent
 _INCIDENT_PDL = (
     _REPO_ROOT
     / "metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl"
 )
 _INCIDENT_SDL = _REPO_ROOT / "datahub-graphql-core/src/main/resources/incident.graphql"
+_INCIDENT_ENGINE = (
+    _REPO_ROOT
+    / "datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java"
+)
 
 # Entity names whose GraphQL type is not just the capitalised entity name. A decoy
 # type named SchemaField also exists, so matching on the entity name alone is wrong.
 _INCIDENT_GRAPHQL_TYPE_OVERRIDES: Dict[str, str] = {
     "schemaField": "SchemaFieldEntity",
 }
+
+
+def _incident_graphql_type(entity: str) -> str:
+    """The GraphQL type name for an entity name in the write gate.
+
+    Capitalising the first letter is right for most entities and wrong for the ml
+    family, whose types spell the prefix ML: mlFeatureTable is MLFeatureTable, not
+    MlFeatureTable. Getting this wrong reports a supported entity as unsupported,
+    which is a quiet failure rather than a loud one.
+    """
+    if entity in _INCIDENT_GRAPHQL_TYPE_OVERRIDES:
+        return _INCIDENT_GRAPHQL_TYPE_OVERRIDES[entity]
+    if entity.startswith("ml") and len(entity) > 2 and entity[2].isupper():
+        return "ML" + entity[2:]
+    return entity[0:1].upper() + entity[1:]
 
 
 def _strip_line_comments(text: str) -> str:
@@ -1543,25 +1567,40 @@ def _incident_graphql_types() -> Set[str]:
     return found
 
 
+def _incident_resolver_types() -> Set[str]:
+    """GraphQL types the engine attaches an incidents data fetcher to.
+
+    The list is declared once, as the entitiesWithIncidents literal that
+    configureIncidentResolvers loops over, so read it up to the end of its statement
+    rather than guessing at the surrounding formatting.
+    """
+    text = _strip_line_comments(_INCIDENT_ENGINE.read_text(encoding="utf-8"))
+    match = re.search(r"entitiesWithIncidents\s*=(.*?);", text, re.DOTALL)
+    if not match:
+        return set()
+    return set(re.findall(r'"([A-Za-z][A-Za-z0-9_]*)"', match.group(1)))
+
+
 def generate_incident_support_table(registry_file: str) -> str:
     summaries = _incident_summary_entities(
         Path(registry_file).read_text(encoding="utf-8")
     )
     graphql_types = _incident_graphql_types()
+    resolver_types = _incident_resolver_types()
 
     tick = {True: "Yes", False: "No"}
     rows = [
-        "| Entity type | Incident can be raised | `incidentsSummary` aspect | Readable in GraphQL |",
-        "| --- | --- | --- | --- |",
+        "| Entity type | Incident can be raised | `incidentsSummary` aspect"
+        " | `incidents` field in the SDL | `incidents` resolver wired |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for entity in _incident_write_gate():
-        gql = _INCIDENT_GRAPHQL_TYPE_OVERRIDES.get(
-            entity, entity[0:1].upper() + entity[1:]
-        )
+        gql = _incident_graphql_type(entity)
         rows.append(
             f"| `{entity}` | Yes"
             f" | {tick[entity in summaries]}"
-            f" | {tick[gql in graphql_types]} |"
+            f" | {tick[gql in graphql_types]}"
+            f" | {tick[gql in resolver_types]} |"
         )
     return "\n".join(rows) + "\n"
 
