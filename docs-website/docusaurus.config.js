@@ -11,6 +11,7 @@ const EXTERNAL_LINK_ICON =
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
 const ARCHIVED_VERSIONS = [
+  ["1.6.0", "1.6.0/features"],
   ["1.5.0", "1.5.0/features"],
   ["1.3.0", "1.3.0/features"],
   ["1.1.0", "1.1.0/features"],
@@ -125,7 +126,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-4",
       content:
-        '<div class="shimmer-banner"><span>Build with DataHub: The Agent Hackathon is live</span><a href="https://datahub.devpost.com/" target="_blank" class="button"><div>Learn More<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>CONTEXT 2026: Join the virtual summit on context management, November 4</span><a href="https://datahub.com/context/" target="_blank" class="button"><div>Save my spot<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -179,7 +180,7 @@ module.exports = {
           ],
         },
         {
-          href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+          href: "https://datahub.com/slack",
           html: `
             <style>
               .slack-logo:hover {
@@ -233,7 +234,7 @@ module.exports = {
             },
             {
               label: "Blog",
-              href: "https://medium.com/datahub-project",
+              href: "https://datahub.com/blog/",
             },
             {
               label: "Town Halls",
@@ -305,7 +306,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.6.0",
+              label: "1.7.0",
               banner: 'none',
             },
           },
@@ -335,8 +336,10 @@ module.exports = {
             '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
-            // Our additions
-            'metadata-ingestion/**/CLAUDE.md',
+            // Agent context files — not public docs (see generateDocsDir.ts filter_patterns)
+            '**/CLAUDE.md',
+            '**/CLAUDE.MD',
+            '**/AGENTS.md',
           ],
         },
         blog: {

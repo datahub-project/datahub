@@ -170,7 +170,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # Filtering configuration
         filtering:
           skip_empty_documents: true
-          min_text_length: 50  # Skip pages with < 50 chars
+          min_text_length: 50  # optional; default 0 embeds all non-empty pages
 
         # Advanced options
         advanced:
@@ -780,11 +780,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                         "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
                         "Pages will be ingested but synced block content will be missing."
                     )
-                    report.report_warning(
+                    report.warning(
                         title="Synced Blocks Limitation",
                         message="Pages with synced blocks were encountered during ingestion. "
                         "The pages were ingested successfully, but synced block content is missing. "
                         "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
+                        log=False,
                     )
                     synced_blocks_encountered = True
 
@@ -1356,7 +1357,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
-            self.report.report_failure(str(e))
+            self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
             if self.config.advanced.raise_on_error:
                 raise
 
@@ -1830,11 +1831,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # those roots, so any document it emits is in-scope by construction —
         # no extra filtering is needed here.
 
-        # Check for empty documents
+        total_text_length = sum(len(elem.get("text", "")) for elem in elements)
+
+        # Check for empty documents: no elements, or elements that carry no text
+        # at all. The total_text_length == 0 check matters now that
+        # min_text_length defaults to 0 -- otherwise a page whose elements have no
+        # text (e.g. image-only) would slip past the length check below.
         if self.config.filtering.skip_empty_documents:
-            if not elements:
+            if not elements or total_text_length == 0:
                 self.report.report_file_skipped(
-                    metadata.get("filename", "unknown"), "No elements extracted"
+                    metadata.get("filename", "unknown"), "No text content"
                 )
                 return True
 
@@ -1845,7 +1851,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             and current_page_id in parent_page_ids
         )
 
-        total_text_length = sum(len(elem.get("text", "")) for elem in elements)
         if total_text_length < self.config.filtering.min_text_length:
             if is_parent_page:
                 logger.info(

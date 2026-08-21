@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search.filter;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.search.elasticsearch.query.filter.ContainerExpansionRewriter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.DocumentExpansionRewriter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.DomainExpansionRewriter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriter;
@@ -53,6 +54,24 @@ public class QueryFilterRewriterChainFactory {
                     .getSearchService()
                     .getQueryFilterRewriter()
                     .getDomainExpansion())
+            .build();
+    rewriter.setMetricUtils(metricUtils);
+    return rewriter;
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "searchService.queryFilterRewriter.documentExpansion.enabled",
+      havingValue = "true")
+  public QueryFilterRewriter documentExpansionRewriter(
+      final ConfigurationProvider configurationProvider) {
+    DocumentExpansionRewriter rewriter =
+        DocumentExpansionRewriter.builder()
+            .config(
+                configurationProvider
+                    .getSearchService()
+                    .getQueryFilterRewriter()
+                    .getDocumentExpansion())
             .build();
     rewriter.setMetricUtils(metricUtils);
     return rewriter;

@@ -166,6 +166,23 @@ def _description_to_str(
     return "\n\n".join(parts) or None
 
 
+def odcs_to_logical_dataset_name(
+    contract: ODCSContract,
+    schema_entry: ODCSSchemaObject,
+    config: ODCSSourceConfig,
+) -> str:
+    """Compose the logical `odcs` dataset name for a `schema[]` entry.
+
+    Derived from `logical_dataset_name_template`; this is the identifier
+    `dataset_pattern` matches against and the URN's name segment.
+    """
+    return config.logical_dataset_name_template.format(
+        contract_id=contract.id,
+        schema_name=schema_entry.name,
+        contract_version=contract.version or "",
+    )
+
+
 def odcs_to_logical_dataset_urn(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -176,11 +193,7 @@ def odcs_to_logical_dataset_urn(
     The name is derived from `logical_dataset_name_template`; the platform is
     always `odcs`. This URN is the platform-of-record identity ODCS owns.
     """
-    name = config.logical_dataset_name_template.format(
-        contract_id=contract.id,
-        schema_name=schema_entry.name,
-        contract_version=contract.version or "",
-    )
+    name = odcs_to_logical_dataset_name(contract, schema_entry, config)
     return make_dataset_urn_with_platform_instance(
         platform=ODCS_PLATFORM,
         name=name,

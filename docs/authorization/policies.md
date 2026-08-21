@@ -81,8 +81,164 @@ When you target a policy by domain, the policy applies recursively to any asset 
 
 **Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
 
+##### Domain-separated writers vs elevated ingestion
+
+Write policies usually fall into one of two patterns:
+
+| Pattern                                           | Typical privileges                                     | Domain filter                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| **Elevated writer** (platform / shared ingestion) | Unscoped **Create Entity** + **Edit Entity**           | Optional; domains are not required for auth                                           |
+| **Domain-separated writer**                       | **Create Entity** + **Edit Entity** scoped to Domain X | Required: writers must establish Domain X on create (or on the first `domains` write) |
+
+The elevated writer pattern is more common: an asset’s domain is often inherent to the **source**
+(platform, database, schema, or pipeline) rather than to the principal that creates the metadata.
+Platform or shared ingestion jobs therefore usually get unscoped create/edit, and domain membership
+is applied as metadata (or derived from the source) instead of being used as the write-authorization
+boundary. Use domain-separated writers when you need hard isolation between writers that must only
+create into a specific domain.
+
+###### How to authorize CREATE_ENTITY with a domain-scoped policy
+
+There are two halves: the **policy** (which domains are allowed) and the **create write** (which
+domain the new asset proposes). Both must agree.
+
+**1. Policy: list the allowed domain(s) as a resource filter**
+
+Create a **Metadata** policy (UI: **Settings → Permissions → Policies → Create Policy**, or GraphQL
+`createPolicy`). The domain allowlist is the policy **Resources → Domains** filter — not an unscoped
+“all resources” policy, and not `privilegeConstraints` (that experimental field is for tag
+sub-resources only).
+
+| Field                               | Value                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Type                                | Metadata                                                                                                   |
+| Resources → Domains                 | Domain X (and any other domains this writer may create into). Child domains of X are included recursively. |
+| Resources → Entity types (optional) | e.g. Dataset only                                                                                          |
+| Privileges                          | **Create Entity** (`CREATE_ENTITY`) and **Edit Entity** (`EDIT_ENTITY`)                                    |
+| Actors                              | The writer user or group                                                                                   |
+
+Do **not** also grant those actors an unscoped **Create Entity** policy (resources = all assets /
+no domain filter) — that bypasses domain isolation.
+
+GraphQL example — policy whose resources are Domain `engineering` only:
+
+```graphql
+mutation {
+  createPolicy(
+    input: {
+      type: METADATA
+      name: "Engineering domain writers"
+      state: ACTIVE
+      description: "Create and edit assets only inside the Engineering domain"
+      privileges: ["CREATE_ENTITY", "EDIT_ENTITY"]
+      actors: {
+        allUsers: false
+        allGroups: false
+        resourceOwners: false
+        users: []
+        groups: ["urn:li:corpGroup:engineering-ingestion"]
+      }
+      resources: {
+        allResources: false
+        resources: []
+        filter: {
+          criteria: [
+            {
+              field: "DOMAIN"
+              condition: EQUALS
+              values: ["urn:li:domain:engineering"]
+            }
+          ]
+        }
+      }
+    }
+  )
+}
+```
+
+To allow more than one domain, add those URNs to `values` (or create separate policies). Optional
+`TYPE` criteria can further restrict entity types (AND with the domain filter).
+
+**2. Write: propose a domain from that allowlist on create**
+
+On create, include the `domains` aspect in the **same request**, set to a domain listed on the
+policy (for example `urn:li:domain:engineering`). DataHub matches the policy against the
+**proposed** domain because the entity has no persisted domain yet. Omitting `domains`, or proposing
+a domain that is not on the policy filter, fails authorization for domain-scoped writers.
+
+After `domains` is persisted, later edits match against the stored domain. Using `CREATE_ENTITY`
+against an entity that already exists is denied for create-only principals (OpenAPI and Rest.li
+authorize each URN with existence-aware create vs edit checks). Moving domains via a `domains`
+**PATCH** requires Edit Entity on both the before and after domains — see [Domain-scoped Edit
+Entity and `domains` PATCH](#domain-scoped-edit-entity-and-domains-patch).
+
+###### Domain-scoped Edit Entity and `domains` PATCH
+
+`ChangeType.PATCH` always requires **Edit Entity** (`EDIT_ENTITY`) — never **Create Entity**, even when
+the target entity is missing. Domain-scoped writers that PATCH the `domains` aspect are authorized
+as follows:
+
+| Before `domains` | After (resolved patch) | Policy match                                                                             |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| Present          | Present                | Actor must be allowed for **both** before and after domain sets                          |
+| Absent           | Present                | Actor must be allowed for the **after** domains only (first-domains / establish pattern) |
+
+Authorization runs on the request thread in `validateProposed` (with an early apply of the JSON
+patch against current or in-batch prior domains). On **sync** writes, the same before/after Edit
+check runs again inside the DB transaction after the pipeline converts PATCH → UPSERT
+(`validatePreCommit`). On **async** ingest, the MCE consumer uses the system principal: user
+domain auth is **not** re-evaluated there — the API/`validateProposed` check before Kafka is the
+authoritative user authorization (same pattern as other aspect auth plugins).
+
+Elevated writers with unscoped Edit Entity continue to pass both checks without a domain filter.
+
+###### Example: create a dataset in Domain X (Python SDK)
+
+Emit the entity with `changeType=CREATE_ENTITY` and include `domains` in the same emit (same batch /
+same create call). Other aspects (key, properties, and so on) can sit alongside `domains`. The
+domain URN must be one listed on the writer’s policy resource filter above.
+
+```python
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    DomainsClass,
+)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+import datahub.emitter.mce_builder as builder
+
+dataset_urn = builder.make_dataset_urn("hive", "db.table", "PROD")
+domain_urn = "urn:li:domain:engineering"
+
+emitter = DatahubRestEmitter("http://localhost:8080", token="<token>")
+
+# CREATE_ENTITY + domains in one batch — required for domain-scoped Create Entity
+emitter.emit_mcps(
+    [
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            changeType=ChangeTypeClass.CREATE_ENTITY,
+            aspect=DatasetPropertiesClass(name="table", description="Owned by Engineering"),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            changeType=ChangeTypeClass.CREATE_ENTITY,
+            aspect=DomainsClass(domains=[domain_urn]),
+        ),
+    ]
+)
+```
+
+OpenAPI `createEntity` / `createGenericEntities` works the same way: put a `domains` aspect on the
+entity payload in the create body (same batch as the other create aspects), using a domain URN from
+the policy’s Domains resource filter. Aspect-only create of `domains` on an existing entity that has
+no domains yet is authorized via **Edit Entity** against the proposed domain.
+
+Elevated writers with unscoped create/edit continue to work without proposing a domain.
+
 :::caution View-based access control performance
-When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
+When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access when possible, and keep domain hierarchies shallow when using domain-separated writers.
 :::
 
 ##### Container-Based Policy Targeting
@@ -188,6 +344,16 @@ This section covers how to design access policies when **view-based access contr
 | --------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
 | **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
+
+When VBAC is enabled (`VIEW_AUTHORIZATION_ENABLED` on OSS, or Cloud Search Access Controls), entity types are
+**restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
+`VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
+[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` does **not** include
+`document`, `schemaField`, or `container` — those types are under view policy by default (`container` is no longer
+`viewUnrestricted` in the registry). For `schemaField`, **View Entity Page** inherits from the parent dataset
+encoded in the schemaField URN (then a direct column grant). GraphQL container loads use field-strip redaction.
+On OSS the unrestricted list only affects entity-page / masking behavior — query-time search pushdown remains
+**DataHub Cloud–only**.
 
 ### Performance considerations
 
@@ -313,25 +479,25 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### Product Features
 
-| Platform Privileges             | Description                                                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                   |
-| Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                           |
-| Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                 |
-| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                              |
-| Manage Features                 | Umbrella privilege to manage all features.                                                                         |
-| View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                               |
-| Manage Public Views             | Allow actor to create, update, and delete any Public (shared) Views.                                               |
-| Manage Ownership Types          | Allow actor to create, update and delete Ownership Types.                                                          |
-| Create Business Attribute       | Allow actor to create new Business Attribute.                                                                      |
-| Manage Structured Properties    | Manage structured properties in your instance.                                                                     |
-| View Tests                      | View Asset Tests.                                                                                                  |
-| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                      |
-| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                        |
-| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
-| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
-| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                      |
+| Platform Privileges             | Description                                                                                                                                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                                                                                                                                      |
+| Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                                                                                                                                              |
+| Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                                                                                                                                    |
+| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources. Recipes run as Python on the ingestion executor — grant only to trusted operators. See [Ingestion executor security](../docker/ingestion-executor-security.md). |
+| Manage Features                 | Umbrella privilege to manage all features.                                                                                                                                                                                            |
+| View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                                                                                                                                  |
+| Manage Public Views             | Allow actor to create, update, and delete any Public (shared) Views.                                                                                                                                                                  |
+| Manage Ownership Types          | Allow actor to create, update and delete Ownership Types.                                                                                                                                                                             |
+| Create Business Attribute       | Allow actor to create new Business Attribute.                                                                                                                                                                                         |
+| Manage Structured Properties    | Manage structured properties in your instance.                                                                                                                                                                                        |
+| View Tests                      | View Asset Tests.                                                                                                                                                                                                                     |
+| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                                                                                                                                         |
+| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                                                                                                                                                  |
+| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                                                                                                                                           |
+| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                                                                                                                                            |
+| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.                                                                                                                    |
+| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                                                                                                                                         |
 
 #### Entity Management
 
@@ -343,18 +509,19 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### System Management
 
-| Platform Privileges                           | Description                                                                                              |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- |
-| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                              |     |
-| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                  |
-| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                               |
-| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                    |
-| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                   |
-| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                            |
-| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                |
-| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                  |
-| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                    |
-| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges. |
+| Platform Privileges                           | Description                                                                                                                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                                                                                                   |     |
+| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                                                                                       |
+| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                                                                                                    |
+| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                                                                                         |
+| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                                                                                        |
+| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                                                                                                 |
+| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                                                                                     |
+| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                                                                                       |
+| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                                                                                         |
+| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges.                                                                      |
+| View System Status                            | Allow actor to view non-sensitive system status (consumer lag, messaging transport). Does not include system information, full system configuration, or operational controls. |
 
 ### Common Metadata Privileges
 
@@ -369,7 +536,7 @@ These privileges are to view & modify any entity within DataHub.
 | Delete                             | Allow actor to delete this entity.                                                                                                                   |
 | Create Entity                      | Allow actor to create an entity if it doesn't exist.                                                                                                 |
 | Entity Exists                      | Allow actor to determine whether the entity exists.                                                                                                  |
-| Execute Entity                     | Allow actor to execute entity ingestion.                                                                                                             |
+| Execute Entity                     | Allow actor to run ingestion for an entity. Together with Edit on an ingestion source, this runs that source's recipe as Python on the executor.     |
 | Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                                                                             |
 | Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                                                                             |
 | Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                                                                                 |
@@ -449,6 +616,15 @@ Domain URNs are read from the product's `domains` aspect, preferring `domainAsso
 | Read Query metadata (GraphQL, Rest.li, search when view auth is on) | **View Entity Page** **or** **Edit Dataset Queries** | **Every** subject dataset in `querySubjects` |
 
 Query entities with **no subjects** are not readable when view authorization is enabled (fail-closed). Schema field subjects are resolved to their parent dataset for authorization. **Edit Entity** on a subject dataset also grants read access (same disjunction as write).
+
+#### Schema field entities (view)
+
+When `schemaField` is view-restricted, **View Entity Page** on a schema field succeeds if the actor
+can view the containing parent URN in the schemaField key (typically a dataset) **or** has a direct
+grant on the schemaField URN. This uses the same parent-candidate order as logical-parent writes.
+
+Entity-page VIEW for schema fields uses parent-dataset inheritance (then a direct column grant). Query-time
+search filtering of columns is a **DataHub Cloud** Search Access Controls concern and is not part of OSS VBAC.
 
 View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
 

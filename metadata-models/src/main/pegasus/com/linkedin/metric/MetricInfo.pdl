@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 3
+  "schemaVersion": 5
 }
 record MetricInfo includes ExternalReference {
 
@@ -64,11 +64,12 @@ record MetricInfo includes ExternalReference {
 
   /**
    * The semantic model that defines this metric.
+   * Authoritative non-lineage membership pointer (`ModeledBy`). Drives search /
+   * filter / facet and bounding-box membership in the lineage explorer.
    */
   @Relationship = {
     "name": "ModeledBy",
-    "entityTypes": [ "semanticModel" ],
-    "isLineage": true
+    "entityTypes": [ "semanticModel" ]
   }
   @Searchable = {
     "fieldName": "semanticModel",
@@ -81,10 +82,5 @@ record MetricInfo includes ExternalReference {
    * The SQL expression used to compute this metric, in one or more dialects.
    */
   expression: optional MetricExpression
-
-  /**
-   * AI-specific context for improved disambiguation and retrieval.
-   */
-  aiContext: optional AiContext
 
 }

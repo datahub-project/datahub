@@ -20,6 +20,13 @@ export function useInfiniteScroll<T>({
     const [hasMore, setHasMore] = useState(true);
     const startIndex = useRef(0);
 
+    // Refs so sequential await loadMore() calls (document-tree reveal) see fresh
+    // gates/offsets without waiting for a React re-render of the callback closure.
+    const loadingRef = useRef(false);
+    const hasMoreRef = useRef(true);
+    const fetchDataRef = useRef(fetchData);
+    fetchDataRef.current = fetchData;
+
     // Ref element to be observed by IntersectionObserver
     const observerRef = useRef<HTMLDivElement | null>(null);
 
@@ -29,34 +36,31 @@ export function useInfiniteScroll<T>({
     // Track prepended keys to avoid duplicates across resets
     const prependedKeysRef = useRef<Set<string | number>>(new Set());
 
-    // Function to fetch the next batch of items, invoked when observer comes into view
-    const loadMore = useCallback(() => {
-        if (loading || !hasMore) return;
+    // Function to fetch the next batch of items, invoked when observer comes into view.
+    // Returns the fetched page so callers (e.g. document-tree reveal) can wait on the batch.
+    const loadMore = useCallback(async (): Promise<T[]> => {
+        if (loadingRef.current || !hasMoreRef.current) return [];
 
+        loadingRef.current = true;
         setLoading(true);
 
-        fetchData(startIndex.current, pageSize)
-            .then((newItems) => {
-                if (!Array.isArray(newItems)) return;
+        try {
+            const newItems = await fetchDataRef.current(startIndex.current, pageSize);
+            if (!Array.isArray(newItems)) return [];
 
-                setItems((prev) => {
-                    // Append newly fetched items to updated list
-                    const updated = [...prev, ...newItems];
-                    startIndex.current = updated.length;
+            startIndex.current += newItems.length;
+            const nextHasMore = totalItemCount ? startIndex.current < totalItemCount : newItems.length === pageSize;
+            hasMoreRef.current = nextHasMore;
+            setHasMore(nextHasMore);
 
-                    if (totalItemCount) {
-                        setHasMore(updated.length < totalItemCount);
-                    } else {
-                        setHasMore(newItems.length === pageSize);
-                    }
+            setItems((prev) => [...prev, ...newItems]);
 
-                    return updated;
-                });
-            })
-            .finally(() => {
-                setLoading(false);
-            });
-    }, [fetchData, loading, hasMore, pageSize, totalItemCount]);
+            return newItems;
+        } finally {
+            loadingRef.current = false;
+            setLoading(false);
+        }
+    }, [pageSize, totalItemCount]);
 
     // Update items to show immediate feedback on the UI after operations
 
@@ -90,27 +94,34 @@ export function useInfiniteScroll<T>({
         setItems((prev) => prev.map((item) => (shouldUpdate(item) ? updatedItem : item)));
     }, []);
 
-    // Reset items and startIndex when resetTrigger changes
+    // Reset and reload when resetTrigger changes (e.g. document sidebar sort).
     useEffect(() => {
         setItems([]);
         startIndex.current = 0;
+        hasMoreRef.current = true;
+        setHasMore(true);
+        loadingRef.current = false;
+        setLoading(false);
+        initialLoadedRef.current = false;
+        prependedKeysRef.current = new Set();
     }, [resetTrigger]);
 
-    // Initial load
+    // Initial load + reload after resetTrigger clears the list
     useEffect(() => {
         if (!initialLoadedRef.current) {
             initialLoadedRef.current = true;
             loadMore();
         }
-    }, [loadMore]);
+    }, [loadMore, resetTrigger]);
 
-    // Intersection Observer
+    // Intersection Observer — re-bind when loading settles so a late-assigned
+    // observerRef (tests / deferred mount) still gets observed.
     useEffect(() => {
         if (!observerRef.current || !hasMore) return undefined;
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && !loading) {
+                if (entries[0].isIntersecting && !loadingRef.current) {
                     loadMore();
                 }
             },
@@ -126,5 +137,5 @@ export function useInfiniteScroll<T>({
         };
     }, [loadMore, hasMore, loading]);
 
-    return { items, loading, observerRef, hasMore, prependItem, removeItem, updateItem };
+    return { items, loading, observerRef, hasMore, loadMore, prependItem, removeItem, updateItem };
 }

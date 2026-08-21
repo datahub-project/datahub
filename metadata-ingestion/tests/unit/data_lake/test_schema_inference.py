@@ -1,5 +1,5 @@
 import tempfile
-from typing import List, Type
+from typing import Dict, List, Type
 
 import pandas as pd
 import ujson
@@ -128,6 +128,73 @@ def test_infer_schema_json_single_object():
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
+
+
+def test_bounded_json_value_truncates_arrays():
+    """A single JSON object with a huge array must not be fully materialized:
+    arrays are truncated to max_rows while structure and native types survive."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            ujson.dumps(
+                {"big": list(range(1000)), "meta": {"n": 3}, "flag": True}
+            ).encode("utf-8")
+        )
+        file.seek(0)
+
+        result = json._bounded_json_value(file, max_rows=10)
+
+    assert isinstance(result, dict)
+    assert result["big"] == list(range(10))
+    assert isinstance(result["big"][0], int)  # native int, not ijson's Decimal
+    assert result["meta"] == {"n": 3}
+    assert result["flag"] is True
+
+
+def test_bounded_json_value_truncates_array_of_objects():
+    """Array elements beyond max_rows that are themselves objects are skipped
+    without being materialized (exercises the nested-container skip path)."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(ujson.dumps({"rows": [{"a": i} for i in range(50)]}).encode("utf-8"))
+        file.seek(0)
+
+        result = json._bounded_json_value(file, max_rows=3)
+
+    assert result == {"rows": [{"a": 0}, {"a": 1}, {"a": 2}]}
+
+
+def test_bounded_json_value_skips_nested_containers_past_limit():
+    """Skipped array items may themselves contain nested containers, so the skip
+    bookkeeping has to unwind to exactly the right depth. The trailing key proves
+    parsing resumed at the top level."""
+    rows = [{"a": {"b": [i, i + 1]}} for i in range(10)]
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(ujson.dumps({"rows": rows, "tail": "sentinel"}).encode("utf-8"))
+        file.seek(0)
+
+        result = json._bounded_json_value(file, max_rows=2)
+
+    assert result == {
+        "rows": [{"a": {"b": [0, 1]}}, {"a": {"b": [1, 2]}}],
+        "tail": "sentinel",
+    }
+
+
+def test_infer_schema_json_single_object_is_sampled():
+    """A single JSON object is sampled rather than read whole, so a field that
+    first appears past max_rows is not reported. This fails against the old
+    ujson.load fallback, which saw every record."""
+    records: List[Dict[str, int]] = [{"integer_field": i} for i in range(200)]
+    records[150]["late_field"] = 1
+
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(ujson.dumps({"rows": records}).encode("utf-8"))
+        file.seek(0)
+
+        fields = json.JsonInferrer(max_rows=100).infer_schema(file)
+
+    field_paths = [f.fieldPath for f in fields]
+    assert "rows.integer_field" in field_paths
+    assert "rows.late_field" not in field_paths
 
 
 def test_infer_schema_json_fallback_to_jsonlines():

@@ -42,6 +42,15 @@ repos:
         stages:
           - pre-push
 
+      - id: datahub-web-react-graphqlPrettierWriteChanged
+        name: graphqlPrettierWriteChanged
+        entry: ./gradlew :datahub-web-react:graphqlPrettierWriteChanged -x generateGitPropertiesGlobal
+        language: system
+        files: ^datahub-graphql-core/src/main/resources/.*\.graphql$
+        pass_filenames: false
+        stages:
+          - pre-push
+
       - id: contrib-metadata-model-extensions-datahub-demo-dataset-governance-validator-spotless
         name: contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator
           Spotless Apply
@@ -615,15 +624,6 @@ repos:
         stages:
           - pre-push
 
-      - id: smoke-test-cypress-lint-fix
-        name: smoke-test cypress Lint Fix
-        entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
-        language: system
-        files: ^smoke-test/tests/cypress/.*\.tsx$
-        pass_filenames: false
-        stages:
-          - pre-push
-
       - id: update-lineage-file
         name: update-lineage-file
         entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
@@ -694,10 +694,20 @@ repos:
         stages:
           - pre-push
 
+      - id: docs-website-prettier
+        name: docs-website Prettier
+        entry: ./gradlew :docs-website:yarnLintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^docs-website/(generateDocsDir\.ts|sidebars\.js|src/pages/index\.js)$
+        pass_filenames: false
+        stages:
+          - pre-push
+
       - id: bump-schema-versions
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py
         language: python
+        files: ^metadata-models/src/main/pegasus/.*\.pdl$
         pass_filenames: false
         stages:
           - pre-commit

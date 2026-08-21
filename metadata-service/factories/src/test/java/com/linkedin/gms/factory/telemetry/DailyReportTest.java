@@ -3,13 +3,19 @@ package com.linkedin.gms.factory.telemetry;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
+import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
+import java.util.List;
+import java.util.Map;
+import org.json.JSONObject;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
@@ -25,6 +31,9 @@ import org.testng.annotations.Test;
  * is not tested as it requires external services (Mixpanel).
  */
 public class DailyReportTest {
+
+  /** Size of DailyReport.REPORTING_ENTITY_TYPES. */
+  private static final int REPORTED_ENTITY_TYPE_COUNT = 19;
 
   private OperationContext mockOperationContext;
   private SearchClientShim<?> mockElasticClient;
@@ -47,7 +56,11 @@ public class DailyReportTest {
     // Set up the operation context chain
     when(mockOperationContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
-    when(mockIndexConvention.getEntityIndexName(anyString())).thenReturn("corpuserindex_v2");
+    // A distinct index per entity name, mirroring the real convention. AnalyticsService
+    // de-duplicates the batch's target indices, so stubbing one shared name for every type would
+    // collapse the batch to a single index and hide whether it spans all reported types.
+    when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), anyString()))
+        .thenAnswer(invocation -> invocation.getArgument(1) + "index_v2");
     when(mockGitVersion.getVersion()).thenReturn("test-version");
   }
 
@@ -386,5 +399,294 @@ public class DailyReportTest {
     assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 100001), "100K-1M");
     assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 1000000), "100K-1M");
     assertEquals(anonymizeToBucketMethod.invoke(dailyReport, 1000001), "1M+");
+  }
+
+  /**
+   * The whole point of batching: one aggregation covering every reported entity type, rather than
+   * one count query per type.
+   */
+  @Test
+  public void testCollectEntityCountsIssuesSingleSearch() throws Exception {
+    org.opensearch.search.aggregations.bucket.filter.Filters byEntity =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.class);
+    // Nested mocks must be fully built before being handed to thenReturn().
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket empty = entityBucket(0L);
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket datasets = entityBucket(100L);
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket tags = entityBucket(7L);
+    when(byEntity.getBucketByKey(anyString())).thenReturn(empty);
+    when(byEntity.getBucketByKey("DATASET")).thenReturn(datasets);
+    when(byEntity.getBucketByKey("TAG")).thenReturn(tags);
+    stubAggregationResponse(byEntity);
+
+    DailyReport dailyReport = createDailyReportForTesting();
+    Map<String, Integer> counts =
+        dailyReport.collectEntityCounts(
+            new AnalyticsService(mockElasticClient, mockIndexConvention));
+
+    org.mockito.ArgumentCaptor<SearchRequest> captor =
+        org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockElasticClient, times(1))
+        .search(any(OperationContext.class), captor.capture(), any(RequestOptions.class));
+    // One request spanning every reported entity type, not one request per type.
+    assertEquals(captor.getValue().indices().length, REPORTED_ENTITY_TYPE_COUNT);
+
+    assertEquals(counts.get("DATASET"), Integer.valueOf(100));
+    assertEquals(counts.get("TAG"), Integer.valueOf(7));
+  }
+
+  /** Zero-count types are dropped so the telemetry payload stays concise. */
+  @Test
+  public void testCollectEntityCountsOmitsZeroCounts() throws Exception {
+    org.opensearch.search.aggregations.bucket.filter.Filters byEntity =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.class);
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket empty = entityBucket(0L);
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket datasets = entityBucket(5L);
+    when(byEntity.getBucketByKey(anyString())).thenReturn(empty);
+    when(byEntity.getBucketByKey("DATASET")).thenReturn(datasets);
+    stubAggregationResponse(byEntity);
+
+    DailyReport dailyReport = createDailyReportForTesting();
+    Map<String, Integer> counts =
+        dailyReport.collectEntityCounts(
+            new AnalyticsService(mockElasticClient, mockIndexConvention));
+
+    assertEquals(counts.size(), 1, "only the non-zero type should be reported");
+    assertTrue(counts.containsKey("DATASET"));
+  }
+
+  /**
+   * A type whose index name cannot be resolved is dropped before the batch is built. Batched, it
+   * would otherwise throw and take every other entity count with it, where the per-type queries it
+   * replaced simply skipped that one type.
+   */
+  @Test
+  public void testCollectEntityCountsSkipsUnresolvableTypes() throws Exception {
+    when(mockIndexConvention.getEntityIndexName(
+            any(OperationFingerprint.class), eq(Constants.DATASET_ENTITY_NAME)))
+        .thenThrow(new IllegalArgumentException("no index configured for dataset"));
+
+    org.opensearch.search.aggregations.bucket.filter.Filters byEntity =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.class);
+    // Nested mocks must be fully built before being handed to thenReturn().
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket populated = entityBucket(3L);
+    when(byEntity.getBucketByKey(anyString())).thenReturn(populated);
+    stubAggregationResponse(byEntity);
+
+    DailyReport dailyReport = createDailyReportForTesting();
+    Map<String, Integer> counts =
+        dailyReport.collectEntityCounts(
+            new AnalyticsService(mockElasticClient, mockIndexConvention));
+
+    org.mockito.ArgumentCaptor<SearchRequest> captor =
+        org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockElasticClient, times(1))
+        .search(any(OperationContext.class), captor.capture(), any(RequestOptions.class));
+
+    // The batch still goes out, one index short, rather than failing outright.
+    assertEquals(captor.getValue().indices().length, REPORTED_ENTITY_TYPE_COUNT - 1);
+    assertFalse(counts.containsKey("DATASET"), "unresolvable type must not be reported");
+    assertEquals(counts.size(), REPORTED_ENTITY_TYPE_COUNT - 1);
+  }
+
+  private org.opensearch.search.aggregations.bucket.filter.Filters.Bucket entityBucket(
+      long docCount) {
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket bucket =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.Bucket.class);
+    when(bucket.getDocCount()).thenReturn(docCount);
+    return bucket;
+  }
+
+  /** Wraps the by_entity aggregation in the filtered wrapper AnalyticsService reads back. */
+  private void stubAggregationResponse(
+      org.opensearch.search.aggregations.bucket.filter.Filters byEntity) throws Exception {
+    org.opensearch.search.aggregations.Aggregations filteredAggs =
+        mock(org.opensearch.search.aggregations.Aggregations.class);
+    when(filteredAggs.get("by_entity")).thenReturn(byEntity);
+    org.opensearch.search.aggregations.bucket.filter.Filter filtered =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filter.class);
+    when(filtered.getAggregations()).thenReturn(filteredAggs);
+    org.opensearch.search.aggregations.Aggregations topLevel =
+        mock(org.opensearch.search.aggregations.Aggregations.class);
+    when(topLevel.get("filtered")).thenReturn(filtered);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(topLevel);
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenReturn(response);
+  }
+
+  /**
+   * Captures the telemetry payload through ping(), which is the only externally observable output
+   * of dailyReport(). Uses nothing but the public entry point, so it runs unchanged against the
+   * pre-batching implementation for a like-for-like payload comparison.
+   */
+  @Test
+  public void testDailyReportPayload() throws Exception {
+    stubEverything();
+
+    DailyReport spy = org.mockito.Mockito.spy(createDailyReportForTesting());
+    org.mockito.Mockito.doNothing().when(spy).ping(anyString(), any(JSONObject.class));
+
+    spy.dailyReport();
+
+    org.mockito.ArgumentCaptor<JSONObject> payload =
+        org.mockito.ArgumentCaptor.forClass(JSONObject.class);
+    verify(spy).ping(eq("service-daily"), payload.capture());
+
+    org.mockito.ArgumentCaptor<SearchRequest> requests =
+        org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockElasticClient, atLeast(0))
+        .search(any(OperationContext.class), requests.capture(), any(RequestOptions.class));
+
+    // Pre-batching this was 25 searches: 3 active-user windows plus one per reported entity type.
+    List<SearchRequest> issued = requests.getAllValues();
+    assertEquals(issued.size(), 5, "expected one search per concern, not one per entity type");
+
+    List<SearchRequest> multiIndex =
+        issued.stream()
+            .filter(r -> r.indices().length > 1)
+            .collect(java.util.stream.Collectors.toList());
+    assertEquals(multiIndex.size(), 1, "entity counts should collapse into a single search");
+    assertEquals(
+        multiIndex.get(0).indices().length,
+        REPORTED_ENTITY_TYPE_COUNT,
+        "the batch must span every reported entity type");
+
+    // The remaining four are the usage index, total users, service accounts and platform chart.
+    assertEquals(issued.size() - multiIndex.size(), 4);
+
+    // Payload must be unchanged by the batching - these values are what the per-query
+    // implementation produced from the same stubbed counts.
+    JSONObject report = payload.getValue();
+    assertEquals(report.get("dau"), 8);
+    assertEquals(report.get("wau"), 8);
+    assertEquals(report.get("mau"), 8);
+    assertEquals(report.get("total_assets"), "1K-10K");
+    assertEquals(report.get("total_user_count"), 32);
+    assertEquals(report.get("total_service_account_count"), 32);
+    assertEquals(report.get("server_type"), "test");
+
+    long entityCountKeys =
+        keysOf(report).stream().filter(k -> k.startsWith("entity_count_")).count();
+    assertEquals(
+        entityCountKeys,
+        (long) REPORTED_ENTITY_TYPE_COUNT,
+        "every reported entity type should carry a count");
+  }
+
+  /**
+   * Batching made one query carry all 19 entity counts, so its failure must not also cost the
+   * platform statistics, which are independent and were still collected before batching.
+   */
+  @Test
+  public void testPlatformStatsSurviveEntityCountFailure() throws Exception {
+    stubEverything();
+    // Nested mocks must be fully built before being handed to the answer.
+    SearchResponse ok = stubResponse();
+    // The entity batch is the only multi-index search; fail just that one.
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenAnswer(
+            invocation -> {
+              SearchRequest request = invocation.getArgument(1);
+              if (request.indices().length > 1) {
+                throw new RuntimeException("Search query failed:");
+              }
+              return ok;
+            });
+
+    DailyReport spy = org.mockito.Mockito.spy(createDailyReportForTesting());
+    org.mockito.Mockito.doNothing().when(spy).ping(anyString(), any(JSONObject.class));
+    spy.dailyReport();
+
+    org.mockito.ArgumentCaptor<JSONObject> payload =
+        org.mockito.ArgumentCaptor.forClass(JSONObject.class);
+    verify(spy).ping(eq("service-daily"), payload.capture());
+    JSONObject report = payload.getValue();
+
+    assertTrue(keysOf(report).contains("platform_count"), "platform stats must still be collected");
+    // Omitted rather than reported as a fabricated zero.
+    assertFalse(keysOf(report).contains("total_assets"));
+    assertTrue(
+        keysOf(report).stream().noneMatch(k -> k.startsWith("entity_count_")),
+        "entity counts should be absent when their batch failed");
+  }
+
+  private static java.util.List<String> keysOf(JSONObject o) {
+    java.util.List<String> keys = new java.util.ArrayList<>();
+    java.util.Iterator<String> it = o.keys();
+    while (it.hasNext()) {
+      keys.add(it.next());
+    }
+    return keys;
+  }
+
+  /** Stubs the client to answer every search with {@link #stubResponse()}, plus config mocks. */
+  private void stubEverything() throws Exception {
+    // Nested mocks must be fully built before being handed to thenReturn().
+    SearchResponse response = stubResponse();
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenReturn(response);
+
+    when(mockIndexConvention.getIndexName(any(OperationFingerprint.class), anyString()))
+        .thenReturn("datahub_usage_event");
+
+    com.linkedin.metadata.config.DataHubConfiguration dataHub =
+        mock(com.linkedin.metadata.config.DataHubConfiguration.class);
+    when(dataHub.getServerType()).thenReturn("test");
+    when(mockConfigurationProvider.getDatahub()).thenReturn(dataHub);
+    when(mockGitVersion.getVersion()).thenReturn("1.0.0-test");
+  }
+
+  /** Response usable by both the batched and the per-query implementations. */
+  private SearchResponse stubResponse() throws Exception {
+    org.opensearch.search.aggregations.metrics.Cardinality cardinality =
+        mock(org.opensearch.search.aggregations.metrics.Cardinality.class);
+    when(cardinality.getValue()).thenReturn(8L);
+
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket rangeBucket =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.Bucket.class);
+    org.opensearch.search.aggregations.Aggregations rangeAggs =
+        mock(org.opensearch.search.aggregations.Aggregations.class);
+    when(rangeAggs.get("unique")).thenReturn(cardinality);
+    when(rangeBucket.getAggregations()).thenReturn(rangeAggs);
+    org.opensearch.search.aggregations.bucket.filter.Filters byRange =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.class);
+    when(byRange.getBucketByKey(anyString())).thenReturn(rangeBucket);
+
+    org.opensearch.search.aggregations.bucket.filter.Filters.Bucket entityBucket =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.Bucket.class);
+    when(entityBucket.getDocCount()).thenReturn(100L);
+    org.opensearch.search.aggregations.bucket.filter.Filters byEntity =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filters.class);
+    when(byEntity.getBucketByKey(anyString())).thenReturn(entityBucket);
+
+    // One filtered wrapper serving both shapes: the batched sub-aggregations, and the
+    // doc count / cardinality the per-query implementation reads straight off it.
+    org.opensearch.search.aggregations.Aggregations filteredAggs =
+        mock(org.opensearch.search.aggregations.Aggregations.class);
+    when(filteredAggs.get("by_range")).thenReturn(byRange);
+    when(filteredAggs.get("by_entity")).thenReturn(byEntity);
+    when(filteredAggs.get("unique")).thenReturn(cardinality);
+    org.opensearch.search.aggregations.bucket.filter.Filter filtered =
+        mock(org.opensearch.search.aggregations.bucket.filter.Filter.class);
+    when(filtered.getAggregations()).thenReturn(filteredAggs);
+    when(filtered.getDocCount()).thenReturn(100L);
+
+    org.opensearch.search.aggregations.Aggregations topLevel =
+        mock(org.opensearch.search.aggregations.Aggregations.class);
+    when(topLevel.get("filtered")).thenReturn(filtered);
+
+    org.apache.lucene.search.TotalHits totalHits =
+        new org.apache.lucene.search.TotalHits(
+            42, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO);
+    org.opensearch.search.SearchHits hits = mock(org.opensearch.search.SearchHits.class);
+    when(hits.getTotalHits()).thenReturn(totalHits);
+
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(topLevel);
+    when(response.getHits()).thenReturn(hits);
+    return response;
   }
 }

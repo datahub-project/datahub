@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.metric.mappers.MetricMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -50,6 +51,7 @@ public class MetricType implements SearchableEntityType<Metric, String> {
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           Constants.SUB_TYPES_ASPECT_NAME,
           Constants.DOCUMENTATION_ASPECT_NAME,
+          Constants.AI_CONTEXT_ASPECT_NAME,
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,
           Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
 
@@ -80,6 +82,10 @@ public class MetricType implements SearchableEntityType<Metric, String> {
     final List<Urn> metricUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, Constants.METRIC_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
@@ -87,7 +93,7 @@ public class MetricType implements SearchableEntityType<Metric, String> {
               metricUrns.stream()
                   .filter(urn -> canView(context.getOperationContext(), urn))
                   .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH,
+              aspectsToResolve,
               true);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());

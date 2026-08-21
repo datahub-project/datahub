@@ -42,6 +42,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     odcs_to_assertion_mcps,
     odcs_to_logical_dataset_mcps,
+    odcs_to_logical_dataset_name,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
@@ -78,6 +79,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +174,10 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     schema_type_fallbacks: List[str] = field(default_factory=list)
     owners_role_defaulted: List[str] = field(default_factory=list)
     spec_fields_ignored: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
+
+    def report_dropped(self, ent_name: str) -> None:
+        self.filtered.append(ent_name)
 
 
 @platform_name("Open Data Contract Standard", id="odcs")
@@ -242,6 +248,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
+
+        if self.config.http_connection and not self.config.http_connection.verify_ssl:
+            self.report.warning(
+                title="HTTP TLS verification disabled",
+                message="http_connection.verify_ssl is false; ODCS files fetched over "
+                "https:// will not have their server certificate verified. Only use "
+                "this for trusted hosts with self-signed certificates.",
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
@@ -542,11 +556,10 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS file exceeds max_input_file_bytes",
                 message=(
-                    f"File size {file_size} bytes exceeds configured limit "
-                    f"{self.config.max_input_file_bytes}; skipping. Raise "
-                    "max_input_file_bytes to ingest larger files."
+                    "File size exceeds configured limit; skipping. "
+                    "Raise max_input_file_bytes to ingest larger files."
                 ),
-                context=str(file_path),
+                context=f"{file_path} (size={file_size}, limit={self.config.max_input_file_bytes})",
             )
             self.report.files_skipped.append(str(file_path))
             return None
@@ -582,16 +595,16 @@ class ODCSSource(StatefulIngestionSourceBase):
                 self.config.aws_connection,
                 self.config.gcs_connection,
                 max_bytes=self.config.max_input_file_bytes,
+                http_connection=self.config.http_connection,
             )
         except FileSizeExceededError as e:
             self.report.warning(
                 title="ODCS file exceeds max_input_file_bytes",
                 message=(
-                    "Remote file exceeds the configured "
-                    f"max_input_file_bytes ({self.config.max_input_file_bytes}); "
+                    "Remote file exceeds the configured limit; "
                     "skipping. Raise max_input_file_bytes to ingest larger files."
                 ),
-                context=uri,
+                context=f"{uri} (limit={self.config.max_input_file_bytes})",
                 exc=e,
             )
             self.report.files_skipped.append(uri)
@@ -655,11 +668,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                     self.report.unknown_fields_count += 1
                     self.report.warning(
                         title="Unknown ODCS field",
-                        message=(
-                            f"Field '{key}' on {model_cls.__name__} is not "
-                            "recognized; check spelling or version compatibility."
-                        ),
-                        context=f"{source_uri}: {path_hint}.{key}",
+                        message="Field is not recognized; check spelling or version compatibility",
+                        context=f"{source_uri}: {path_hint}.{key} (model={model_cls.__name__})",
                     )
                     continue
                 if (
@@ -867,6 +877,12 @@ class ODCSSource(StatefulIngestionSourceBase):
         # helper; the physical-binding helper is last because it depends on the
         # logical dataset the first helper emits.
         for binding in bindings:
+            logical_name = odcs_to_logical_dataset_name(
+                contract, binding.schema_entry, self.config
+            )
+            if not self.config.dataset_pattern.allowed(logical_name):
+                self.report.report_dropped(logical_name)
+                continue
             yield from self._emit_logical_dataset(
                 contract, binding, source_uri, source_file
             )
@@ -1035,11 +1051,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         if prior_claim is not None:
             self.report.warning(
                 title="Physical dataset bound by multiple ODCS schema entries",
-                message=(
-                    "logicalParent is single-valued; the last writer wins "
-                    f"(already bound by {prior_claim})."
-                ),
-                context=f"file={source_uri} urn={physical_urn}",
+                message="logicalParent is single-valued; the last writer wins",
+                context=f"file={source_uri} urn={physical_urn} prior_claim={prior_claim}",
             )
         self._seen_physical_urns[physical_urn] = f"{contract.id}/{schema_entry.name}"
 

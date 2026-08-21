@@ -48,7 +48,9 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = alignedStore(sink, clock, 3600L, 3600);
 
-    AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 30, clock, false);
+    AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 30, clock, false);
     try {
       store.recordRequest(session("urn:li:corpuser:pre-boundary", "metadata_read", null));
       clock.advance(Duration.ofMinutes(9).plusSeconds(30));
@@ -78,7 +80,9 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = alignedStore(sink, clock, 900L, 3600);
 
-    AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 30, clock, false);
+    AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 30, clock, false);
     try {
       store.recordRequest(session("urn:li:corpuser:fifteen", "metadata_read", null));
       clock.advance(Duration.ofMinutes(1));
@@ -104,7 +108,9 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
     MutableClock clock = new MutableClock(Instant.parse("2026-07-10T00:00:00Z"));
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = alignedStore(sink, clock, 3600L, 3600);
-    AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 30, clock, false);
+    AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 30, clock, false);
     Random random = new Random(42);
 
     try {
@@ -129,13 +135,19 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
   }
 
   @Test
-  public void testAlignmentOffPreservesExistingScheduledBehavior() throws Exception {
+  public void testAlignmentOffPreservesExistingScheduledBehavior() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:50:00Z"));
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = store(sink, 300);
-    try (AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 1)) {
-      Thread.sleep(1500);
+    AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 1, clock, false);
+    try {
+      coordinator.tick();
       Assert.assertTrue(
           sink.batches().stream().anyMatch(batch -> batch.trigger() == FlushTrigger.SCHEDULED));
+    } finally {
+      coordinator.shutdown();
     }
   }
 

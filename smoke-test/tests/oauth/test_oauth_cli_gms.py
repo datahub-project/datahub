@@ -28,6 +28,7 @@ from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -285,3 +286,17 @@ def test_bare_emitter_explicit_host_uses_env_auth(monkeypatch):
     # The session carries the OAuth AuthBase, not a baked header — this is what
     # makes graph.session safe to reuse for raw authenticated requests.
     assert isinstance(graph2.session.auth, TokenProviderAuth)
+
+
+@requires_env_auth
+def test_version_check_config_fetch_uses_env_auth(monkeypatch):
+    # The CLI version check fetches /config through DataHubGraph
+    # (upgrade.fetch_server_config_via_graph), minting a real token from the
+    # env-configured provider on the way. GMS serves /config unauthenticated
+    # (it's in authentication.excludedPaths), so this does NOT prove GMS
+    # accepted the token — it gates that the version-check path itself
+    # (env auth -> load_client_config -> DataHubGraph -> token mint -> /config)
+    # works when auth= replaces a static token, instead of crashing or hanging.
+    _set_env_auth(monkeypatch)
+    server_config = upgrade.fetch_server_config_via_graph()
+    assert server_config.service_version

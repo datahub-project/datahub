@@ -248,6 +248,24 @@ Optional overlay merged **after** the config file — typical for raising domain
 
 Set `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED=false` to supply graphs JSON-only. Invalid JSON fails startup when cache is enabled.
 
+Disable a bundled graph (call sites use live aspect / graph-scroll fallback) or switch its `buildSource`. Changing `buildSource` changes the Hazelcast cache key (`domain@search` → `domain@graph`); the previous key is unused after restart.
+
+```json
+{
+  "graphs": {
+    "domain": { "enabled": false }
+  }
+}
+```
+
+```json
+{
+  "graphs": {
+    "domain": { "buildSource": "graph" }
+  }
+}
+```
+
 Example overlay to raise glossary depth or component bounds:
 
 ```json
@@ -263,20 +281,20 @@ Example overlay to raise glossary depth or component bounds:
 
 ### Graph fields
 
-| Field                              | Required                     | Notes                                                                                                                                                                |
-| ---------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                          | Yes                          | Disabled graphs are ignored                                                                                                                                          |
-| `buildSource`                      | **Yes**                      | `primary`, `graph`, or `search` — sole build path (see [Terminology — buildSource](#buildsource-required-on-every-graph))                                            |
-| `edges[]` or `lineage`             | One mode                     | Mutually exclusive triplet vs lineage edge discovery                                                                                                                 |
-| `scope.mode`                       | Yes                          | `FULL` or `PARTIAL`                                                                                                                                                  |
-| `scope.maxDepth`                   | **Required > 0 for PARTIAL** | Per-direction BFS cap during **PARTIAL build** and in-memory read traversal (explicit in config only — **no default**). **Invalid for FULL** — use `bounds` instead. |
-| `population.strategy`              | **Yes**                      | `LAZY` or `SCHEDULED`                                                                                                                                                |
-| `population.rebuildExecution`      | No                           | `SYNC` (default), `BACKGROUND` (LAZY + FULL only — async rebuild, expand fail-closed until fresh)                                                                    |
-| `population.intervalSeconds`       | No                           | Staleness / COOLDOWN retry / SCHEDULED interval (default 300; bundled `domain` uses 600; bundled `glossary` uses 1200)                                               |
-| `bounds.maxVertices` / `maxEdges`  | No                           | Build caps (defaults 10000 / 15000; bundled `domain` uses 500 / 750; bundled `glossary` uses 30000 / 45000)                                                          |
-| `bindings.*`                       | No                           | Custom call-site wiring — see [Known graphs and bindings](#known-graphs-and-bindings)                                                                                |
-| `scroll.batchSize`                 | No                           | Build scroll page size (default 500)                                                                                                                                 |
-| `entityTypes` + `relationshipType` | No                           | Triplet shorthand — mutually exclusive with `lineage`                                                                                                                |
+| Field                              | Required                     | Notes                                                                                                                                                                  |
+| ---------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                          | Yes                          | Disabled graphs are omitted from the registry (no snapshot, no scheduler). Built-in graphs may be disabled via overlay without failing startup. Live fallbacks remain. |
+| `buildSource`                      | **Yes**                      | `primary`, `graph`, or `search` — sole build path (see [Terminology — buildSource](#buildsource-required-on-every-graph))                                              |
+| `edges[]` or `lineage`             | One mode                     | Mutually exclusive triplet vs lineage edge discovery                                                                                                                   |
+| `scope.mode`                       | Yes                          | `FULL` or `PARTIAL`                                                                                                                                                    |
+| `scope.maxDepth`                   | **Required > 0 for PARTIAL** | Per-direction BFS cap during **PARTIAL build** and in-memory read traversal (explicit in config only — **no default**). **Invalid for FULL** — use `bounds` instead.   |
+| `population.strategy`              | **Yes**                      | `LAZY` or `SCHEDULED`                                                                                                                                                  |
+| `population.rebuildExecution`      | No                           | `SYNC` (default), `BACKGROUND` (LAZY + FULL only — async rebuild, expand fail-closed until fresh)                                                                      |
+| `population.intervalSeconds`       | No                           | Staleness / COOLDOWN retry / SCHEDULED interval (default 300; bundled `domain` uses 600; bundled `glossary` uses 1200)                                                 |
+| `bounds.maxVertices` / `maxEdges`  | No                           | Build caps (defaults 10000 / 15000; bundled `domain` uses 500 / 750; bundled `glossary` uses 30000 / 45000)                                                            |
+| `bindings.*`                       | No                           | Custom call-site wiring — see [Known graphs and bindings](#known-graphs-and-bindings)                                                                                  |
+| `scroll.batchSize`                 | No                           | Build scroll page size (default 500)                                                                                                                                   |
+| `entityTypes` + `relationshipType` | No                           | Triplet shorthand — mutually exclusive with `lineage`                                                                                                                  |
 
 #### Lineage graph examples
 
@@ -498,13 +516,16 @@ Bundled `domain` uses `SCHEDULED` with `intervalSeconds: 600` (proactive rebuild
 
 ### Known graphs and bindings
 
-| Enum / binding               | Config / API            | Notes                                                             |
-| ---------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| `KnownEntityGraph.DOMAIN`    | `graphs.domain`         | Required when cache enabled; `search` + FULL                      |
-| `KnownEntityGraph.GLOSSARY`  | `graphs.glossary`       | Required when cache enabled; `graph` + PARTIAL                    |
-| `KnownEntityGraph.CONTAINER` | `graphs.container`      | Required when cache enabled; `graph` + PARTIAL                    |
-| `bindings.filterFields`      | `bindingForFilterField` | Requires `search` + FULL                                          |
-| `bindings.policyFieldTypes`  | `bindingForPolicyField` | `primary`, or `search` with `scope.mode: FULL` (bundled `domain`) |
+| Enum / binding                | Config / API            | Default when enabled                                                      |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `KnownEntityGraph.DOMAIN`     | `graphs.domain`         | `search` + FULL; overlay may set `buildSource: graph` or `enabled: false` |
+| `KnownEntityGraph.GLOSSARY`   | `graphs.glossary`       | `graph` + PARTIAL; overlay may set `enabled: false`                       |
+| `KnownEntityGraph.CONTAINER`  | `graphs.container`      | `graph` + PARTIAL; overlay may set `enabled: false`                       |
+| `KnownEntityGraph.MEMBERSHIP` | `graphs.membership`     | `graph` + FULL; overlay may set `enabled: false`                          |
+| `bindings.filterFields`       | `bindingForFilterField` | Requires `search` or `graph` with `scope.mode: FULL`                      |
+| `bindings.policyFieldTypes`   | `bindingForPolicyField` | `primary`, or `search`/`graph` with `scope.mode: FULL`                    |
+
+Known graphs are **not required** when the cache is enabled. `enabled: false` (or omitting the graph) skips snapshot build and scheduled rebuild; GraphQL / VBAC / filter rewriters use live aspect walks or `GraphRetriever` scroll. `scope.mode` cannot be changed for an enabled known graph (FULL vs PARTIAL). Overlaying `buildSource` for FULL known graphs is limited to `graph` or `search` (not `primary`).
 
 Bundled domain, glossary, and container graphs use `KnownEntityGraph` in Java; container and glossary call sites resolve specs via `HierarchyBindings` (not YAML `bindings.*`).
 
