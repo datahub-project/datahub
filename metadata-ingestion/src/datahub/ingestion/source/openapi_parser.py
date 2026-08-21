@@ -611,8 +611,7 @@ def merge_allof_schemas(
             )
 
         # Merge other schema attributes (type, format, description, etc.)
-        # Only merge if not already present in merged_schema. Includes the JSON-Schema
-        # validation keywords so collapsing colliding value schemas doesn't drop them.
+        # Only merge if not already present in merged_schema.
         for key in [
             "type",
             "format",
@@ -621,22 +620,13 @@ def merge_allof_schemas(
             "enum",
             "default",
             "example",
-            "minLength",
-            "maxLength",
-            "pattern",
-            "minimum",
-            "maximum",
-            "exclusiveMinimum",
-            "exclusiveMaximum",
-            "multipleOf",
-            "minItems",
-            "maxItems",
-            "uniqueItems",
-            "minProperties",
-            "maxProperties",
         ]:
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
+
+        # Merge JSON-Schema validation keywords with allOf semantics (most
+        # restrictive wins) so repeated contributors don't drop constraints.
+        _merge_allof_validation_keywords(merged_schema, resolved_allof)
 
         # Merge items (for arrays)
         if "items" in resolved_allof:
@@ -702,6 +692,50 @@ def _merge_allof_map_keywords(
             merged_schema["propertyNames"] = _combine_under_allof(
                 merged_schema["propertyNames"], resolved_allof["propertyNames"]
             )
+
+
+# Lower-bound keywords: the most restrictive value is the largest.
+_ALLOF_MIN_KEYWORDS = (
+    "minLength",
+    "minimum",
+    "exclusiveMinimum",
+    "minItems",
+    "minProperties",
+)
+# Upper-bound keywords: the most restrictive value is the smallest.
+_ALLOF_MAX_KEYWORDS = (
+    "maxLength",
+    "maximum",
+    "exclusiveMaximum",
+    "maxItems",
+    "maxProperties",
+)
+
+
+def _merge_allof_validation_keywords(merged_schema: Dict, resolved_allof: Dict) -> None:
+    for key in _ALLOF_MIN_KEYWORDS:
+        if key in resolved_allof:
+            merged_schema[key] = (
+                max(merged_schema[key], resolved_allof[key])
+                if key in merged_schema
+                else resolved_allof[key]
+            )
+    for key in _ALLOF_MAX_KEYWORDS:
+        if key in resolved_allof:
+            merged_schema[key] = (
+                min(merged_schema[key], resolved_allof[key])
+                if key in merged_schema
+                else resolved_allof[key]
+            )
+    if "uniqueItems" in resolved_allof:
+        merged_schema["uniqueItems"] = (
+            merged_schema.get("uniqueItems", False) or resolved_allof["uniqueItems"]
+        )
+    # pattern and multipleOf can't collapse to a single value under allOf (a name must
+    # match every pattern / be a multiple of every value); keep the first as best-effort.
+    for key in ("pattern", "multipleOf"):
+        if key in resolved_allof and key not in merged_schema:
+            merged_schema[key] = resolved_allof[key]
 
 
 def _combine_under_allof(existing: Dict, addition: Dict) -> Dict:
@@ -825,6 +859,23 @@ def enhance_schema_with_titles(
     return enhanced_schema
 
 
+def _resolve_siblings_preserving_ref_constraints(
+    siblings: Dict, sw_dict: Dict, max_depth: int
+) -> Dict:
+    # resolve_schema_references returns the ref target early on a bare $ref, which would
+    # drop sibling constraints (minLength, ...). Expand the $ref first, then merge the
+    # remaining siblings on top before resolving the rest.
+    if not siblings:
+        return {}
+    if "$ref" in siblings:
+        resolved_ref = resolve_schema_references(
+            {"$ref": siblings["$ref"]}, sw_dict, max_depth=max_depth - 1
+        )
+        merged = {**resolved_ref, **{k: v for k, v in siblings.items() if k != "$ref"}}
+        return resolve_schema_references(merged, sw_dict, max_depth=max_depth - 1)
+    return resolve_schema_references(siblings, sw_dict, max_depth=max_depth - 1)
+
+
 def _resolve_pattern_and_property_names(
     resolved_schema: Dict, sw_dict: Dict, max_depth: int
 ) -> None:
@@ -844,10 +895,8 @@ def _resolve_pattern_and_property_names(
             # resolve their $refs — resolve the siblings without their (uncollapsed)
             # allOf, then re-attach the member-resolved allOf list.
             siblings = {k: v for k, v in property_names.items() if k != "allOf"}
-            resolved_names = (
-                resolve_schema_references(siblings, sw_dict, max_depth=max_depth - 1)
-                if siblings
-                else {}
+            resolved_names = _resolve_siblings_preserving_ref_constraints(
+                siblings, sw_dict, max_depth
             )
             resolved_names["allOf"] = [
                 resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
