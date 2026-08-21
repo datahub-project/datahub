@@ -17,6 +17,9 @@ source:
     profiling:
       enabled: true
       profile_table_level_only: true
+    # BigQuery Sharing (Analytics Hub linked datasets)
+    # include_linked_datasets: false
+    # include_linked_dataset_lineage: true
 
 sink:
   # sink configs

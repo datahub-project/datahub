@@ -200,3 +200,16 @@ class BigQueryV2Report(
     num_biglake_datasets_skipped_for_region_autodetect: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
+
+    # Linked datasets (BigQuery Sharing / Analytics Hub)
+    include_linked_datasets: Optional[bool] = None
+    include_linked_dataset_lineage: Optional[bool] = None
+    num_linked_datasets_scanned: int = 0
+    num_linked_dataset_location_errors: int = 0
+    num_linked_dataset_lineage_emitted: int = 0
+    num_linked_dataset_get_dataset_errors: int = 0
+    num_linked_dataset_project_resolve_errors: int = 0
+    num_linked_dataset_source_unresolved: int = 0
+    linked_dataset_lineage_emission_errors: LossyList[str] = field(
+        default_factory=LossyList
+    )

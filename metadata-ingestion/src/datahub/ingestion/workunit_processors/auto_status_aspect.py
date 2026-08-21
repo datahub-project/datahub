@@ -63,39 +63,26 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """
-        For all entities that don't have a status aspect, add one with removed set to false.
+        For all primary-source entities without a status aspect, add one with removed
+        set to false.
         """
-        all_urns: Set[str] = set()
+        primary_urns: Set[str] = set()
         status_urns: Set[str] = set()
         for wu in stream:
             urn = wu.get_urn()
-            all_urns.add(urn)
-            if not wu.is_primary_source:
-                # If this is a non-primary source, we pretend like we've seen the status
-                # aspect so that we don't try to emit a removal for it.
+            # An entity can have both primary and non-primary workunits (e.g. a
+            # same-platform sibling); only the former is owed a status aspect.
+            if wu.is_primary_source:
+                primary_urns.add(urn)
+            if self._has_status_aspect(wu):
                 status_urns.add(urn)
-            elif isinstance(wu.metadata, MetadataChangeEventClass):
-                if any(
-                    isinstance(aspect, StatusClass)
-                    for aspect in wu.metadata.proposedSnapshot.aspects
-                ):
-                    status_urns.add(urn)
-            elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
-                if isinstance(wu.metadata.aspect, StatusClass):
-                    status_urns.add(urn)
-            elif isinstance(wu.metadata, MetadataChangeProposalClass):
-                if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
-                    status_urns.add(urn)
-            else:
-                self.report.num_errors += 1
-                raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
             yield wu
 
         use_patch = _gms_supports_status_patch()
         self.report.status_patch_mode = use_patch
 
-        for urn in sorted(all_urns - status_urns):
+        for urn in sorted(primary_urns - status_urns):
             entity_type = guess_entity_type(urn)
             if not entity_supports_aspect(entity_type, StatusClass):
                 # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
@@ -117,3 +104,17 @@ class AutoStatusAspectProcessor(WorkunitProcessor[AutoStatusAspectProcessorRepor
                     entityUrn=urn,
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
+
+    def _has_status_aspect(self, wu: MetadataWorkUnit) -> bool:
+        if isinstance(wu.metadata, MetadataChangeEventClass):
+            return any(
+                isinstance(aspect, StatusClass)
+                for aspect in wu.metadata.proposedSnapshot.aspects
+            )
+        elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            return isinstance(wu.metadata.aspect, StatusClass)
+        elif isinstance(wu.metadata, MetadataChangeProposalClass):
+            return wu.metadata.aspectName == StatusClass.ASPECT_NAME
+        else:
+            self.report.num_errors += 1
+            raise ValueError(f"Unexpected type {type(wu.metadata)}")
