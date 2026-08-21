@@ -83,6 +83,8 @@ public class GetSecretValuesResolverTest {
   public void testGetPartialDecryptionFailure() throws Exception {
     final String decryptedSecretValue = "mysecretvalue";
     final Urn brokenSecretUrn = Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "BROKEN_SECRET");
+    final Urn noAspectSecretUrn =
+        Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "NO_ASPECT_SECRET");
 
     DataHubSecretValue brokenValue = new DataHubSecretValue();
     brokenValue.setName(brokenSecretUrn.getId());
@@ -102,7 +104,9 @@ public class GetSecretValuesResolverTest {
             mockClient.batchGetV2(
                 any(),
                 Mockito.eq(Constants.SECRETS_ENTITY_NAME),
-                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_SECRET_URN, brokenSecretUrn))),
+                Mockito.eq(
+                    new HashSet<>(
+                        ImmutableSet.of(TEST_SECRET_URN, brokenSecretUrn, noAspectSecretUrn))),
                 Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
@@ -124,7 +128,12 @@ public class GetSecretValuesResolverTest {
                         new EnvelopedAspectMap(
                             ImmutableMap.of(
                                 Constants.SECRET_VALUE_ASPECT_NAME,
-                                new EnvelopedAspect().setValue(new Aspect(brokenValue.data())))))));
+                                new EnvelopedAspect().setValue(new Aspect(brokenValue.data()))))),
+                noAspectSecretUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(noAspectSecretUrn)
+                    .setAspects(new EnvelopedAspectMap(ImmutableMap.of()))));
 
     GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
 
@@ -133,10 +142,13 @@ public class GetSecretValuesResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
         .thenReturn(
             new GetSecretValuesInput(
-                ImmutableList.of(getTestSecretValue().getName(), brokenSecretUrn.getId())));
+                ImmutableList.of(
+                    getTestSecretValue().getName(),
+                    brokenSecretUrn.getId(),
+                    noAspectSecretUrn.getId())));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    // The undecryptable secret is omitted; the healthy one still resolves.
+    // The undecryptable and aspect-less secrets are omitted; the healthy one still resolves.
     List<SecretValue> values = resolver.get(mockEnv).get();
     assertEquals(values.size(), 1);
     assertEquals(values.get(0).getName(), getTestSecretValue().getName());
