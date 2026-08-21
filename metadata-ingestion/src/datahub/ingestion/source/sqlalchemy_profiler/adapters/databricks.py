@@ -1,11 +1,20 @@
 """Databricks-specific profiling adapter."""
 
 import logging
-from typing import Any, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Type
 
 import sqlalchemy as sa
+from databricks.sqlalchemy import DatabricksDialect
+from databricks.sqlalchemy.dialect import (
+    DatabricksDate,
+    DatabricksDecimal,
+    DatabricksTimestamp,
+)
 from sqlalchemy.engine import Connection
+from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.type_api import TypeEngine
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -13,6 +22,75 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Vendor get_columns _type_map has no VARIANT; KeyError aborts the whole table.
+_DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[TypeEngine]] = {
+    "boolean": sqltypes.Boolean,
+    "smallint": sqltypes.SmallInteger,
+    "int": sqltypes.Integer,
+    "bigint": sqltypes.BigInteger,
+    "float": sqltypes.Float,
+    "double": sqltypes.Float,
+    "string": sqltypes.String,
+    "varchar": sqltypes.String,
+    "char": sqltypes.String,
+    "binary": sqltypes.String,
+    "array": sqltypes.String,
+    "map": sqltypes.String,
+    "struct": sqltypes.String,
+    "uniontype": sqltypes.String,
+    "decimal": DatabricksDecimal,
+    "timestamp": DatabricksTimestamp,
+    "timestamp_ntz": DatabricksTimestamp,
+    "timestamp_ltz": DatabricksTimestamp,
+    "date": DatabricksDate,
+    "variant": sqltypes.NullType,
+}
+
+
+def map_databricks_column_type(type_name: str) -> Type[TypeEngine]:
+    match = re.search(r"^\w+", type_name or "")
+    if not match:
+        return sqltypes.NullType
+    return _DATABRICKS_COLUMN_TYPE_MAP.get(match.group(0).lower(), sqltypes.NullType)
+
+
+def _patched_get_columns(
+    self: DatabricksDialect,
+    connection: Any,
+    table_name: str,
+    schema: Optional[str] = None,
+    **kwargs: Any,
+) -> List[Dict[str, Any]]:
+    with self.get_connection_cursor(connection) as cur:
+        resp = cur.columns(
+            catalog_name=self.catalog,
+            schema_name=schema or self.schema,
+            table_name=table_name,
+        ).fetchall()
+
+    columns: List[Dict[str, Any]] = []
+    for col in resp:
+        columns.append(
+            {
+                "name": col.COLUMN_NAME,
+                "type": map_databricks_column_type(col.TYPE_NAME),
+                "nullable": bool(col.NULLABLE),
+                "default": col.COLUMN_DEF,
+                "autoincrement": col.IS_AUTO_INCREMENT != "NO",
+            }
+        )
+    return columns
+
+
+def _patch_databricks_get_columns() -> None:
+    if getattr(DatabricksDialect.get_columns, "_datahub_unknown_types_patched", False):
+        return
+    _patched_get_columns._datahub_unknown_types_patched = True  # type: ignore[attr-defined]
+    DatabricksDialect.get_columns = _patched_get_columns  # type: ignore[method-assign]
+
+
+_patch_databricks_get_columns()
 
 
 class DatabricksAdapter(PlatformAdapter):
