@@ -810,6 +810,39 @@ public class OpenAPIV3GeneratorTest {
     }
   }
 
+  @Test
+  public void testStructuredPropertyValueAssignmentUnionType() {
+    Schema schema = openAPI.getComponents().getSchemas().get("StructuredPropertyValueAssignment");
+    assertNotNull(schema, "StructuredPropertyValueAssignment schema must exist");
+
+    Map<String, Schema> properties = schema.getProperties();
+    assertNotNull(properties, "StructuredPropertyValueAssignment must have properties");
+
+    Schema valuesProp = properties.get("values");
+    assertNotNull(valuesProp, "StructuredPropertyValueAssignment must have 'values' property");
+    assertEquals(valuesProp.getType(), "array", "'values' must be an array");
+
+    Schema items = valuesProp.getItems();
+    assertNotNull(items, "'values' must have items schema");
+
+    // The items should be a oneOf of union-member objects (not a plain string type)
+    assertNull(items.getType(), "'values' items must not have a scalar type (should be oneOf)");
+    assertNotNull(items.getOneOf(), "'values' items must have oneOf for union type");
+    assertEquals(items.getOneOf().size(), 2, "oneOf should have 2 alternatives (string, double)");
+
+    // Verify both union members are object schemas with the correct property
+    for (Schema<?> option : items.getOneOf()) {
+      assertEquals(option.getType(), "object", "Each oneOf option must be an object");
+      Map<String, Schema> optionProps = option.getProperties();
+      assertNotNull(optionProps, "Each oneOf option must have properties");
+      assertEquals(optionProps.size(), 1, "Each oneOf option must have exactly 1 property");
+      String key = optionProps.keySet().iterator().next();
+      assertTrue(
+          key.equals("string") || key.equals("double"),
+          "Union member key must be 'string' or 'double', got: " + key);
+    }
+  }
+
   private JsonSchema loadOpenAPI31Schema(JsonSchemaFactory schemaFactory) throws Exception {
     URL schemaUrl = new URL("https://spec.openapis.org/oas/3.1/schema/2022-10-07");
     return schemaFactory.getSchema(schemaUrl.openStream());
