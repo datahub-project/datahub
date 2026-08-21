@@ -315,20 +315,28 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 default_emit_mode=emitter._default_emit_mode,
             ),
         )
-        if emitter._session.auth is not None:
-            # The declarative AuthConfig is not recoverable from a live emitter,
-            # so carry the resolved requests auth object onto the new session —
-            # otherwise a graph built from an OAuth-authenticated emitter would
-            # silently lose its credentials.
-            #
-            # Known edge: the derived graph's config.auth stays None, so anything
-            # that re-derives a client from this graph's CONFIG (rather than its
-            # session) — e.g. emit_all()/make_rest_sink() via
-            # _make_rest_sink_config() — only picks up env-based OAuth
-            # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
-            # TODO(oauth): retain the declarative AuthConfig alongside the
-            # resolved auth so derived configs keep it.
-            graph._session.auth = emitter._session.auth
+        # Carry the source emitter's resolved auth verbatim — including None.
+        #
+        # The declarative AuthConfig is not recoverable from a live emitter, so
+        # copying the resolved object is what stops a graph built from an
+        # OAuth-authenticated emitter from silently losing its credentials.
+        # Assigning None matters just as much: DatahubClientConfig cannot express
+        # "these absent credentials are deliberate", so the constructor above
+        # re-resolves DATAHUB_AUTH_TYPE for a tokenless server. For an emitter
+        # that deliberately holds no credentials — the datahub-rest sink after
+        # its origin guard declines env OAuth — that would mint bearer tokens for
+        # the very host the guard refused. Only session.auth can carry an OAuth
+        # provider; static tokens and system auth are baked headers and are
+        # re-derived from `token` above, so this never clears those.
+        #
+        # Known edge: the derived graph's config.auth stays None, so anything
+        # that re-derives a client from this graph's CONFIG (rather than its
+        # session) — e.g. emit_all()/make_rest_sink() via
+        # _make_rest_sink_config() — only picks up env-based OAuth
+        # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
+        # TODO(oauth): retain the declarative AuthConfig alongside the
+        # resolved auth so derived configs keep it.
+        graph._session.auth = emitter._session.auth
         return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
