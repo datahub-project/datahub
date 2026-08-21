@@ -361,3 +361,41 @@ async def test_cancellation_terminates_the_subprocess(
             await pending
 
     mock_process.terminate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_exec_out_dir_exists_before_venv_setup(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """The connection report is written into exec_out_dir, so the task must create it.
+
+    setup_venv only creates that directory as a side effect of `uv venv`, which the
+    "bundled" and "native" versions skip entirely -- they return early without touching
+    tmp_dir. When the directory is missing, the CLI's --report-to write raises inside
+    _test_source_connection, whose single `except Exception` also wraps the connection
+    test, so it returns 1 and a healthy connection is reported as FAILURE.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    observed: dict[str, bool] = {}
+
+    async def stop_after_recording(*_args: Any, **kwargs: Any) -> None:
+        # tmp_dir is exec_out_dir; record whether it exists at the moment a bundled or
+        # native run would have returned without creating anything.
+        observed["exec_out_dir_exists"] = Path(kwargs["tmp_dir"]).is_dir()
+        raise RuntimeError("stop the test here; the directory is all we care about")
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.setup_venv",
+            side_effect=stop_after_recording,
+        ),
+        pytest.raises(TaskError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert observed["exec_out_dir_exists"]

@@ -75,6 +75,15 @@ class SubProcessTestConnectionTask(Task):
 
         exec_out_dir = f"{self.tmp_dir}/{exec_id}"
 
+        # The connection report is written in here, and nothing else creates it:
+        # setup_venv only makes this directory as a side effect of `uv venv`, which the
+        # "bundled" and "native" versions skip entirely. Without it the CLI's
+        # `--report-to` write raises inside _test_source_connection, whose single
+        # `except Exception` also covers the connection test itself -- so it returns 1
+        # and a perfectly healthy connection is reported as FAILURE.
+        # Mirrors _setup_directories in SubProcessIngestionTask.
+        Path(exec_out_dir).mkdir(0o755, parents=True, exist_ok=True)
+
         # 0. Validate arguments
         validated_args = SubProcessTestConnectionTaskArgs.model_validate(args)
 
