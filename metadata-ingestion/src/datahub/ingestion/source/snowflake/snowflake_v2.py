@@ -738,7 +738,7 @@ class SnowflakeV2Source(
                 yield from auto_workunit(self.aggregator.gen_metadata())
 
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
-                schema_resolver = self.aggregator._schema_resolver
+                schema_resolver = self.aggregator.schema_resolver
 
                 redundant_queries_run_skip_handler: Optional[
                     RedundantQueriesRunSkipHandler

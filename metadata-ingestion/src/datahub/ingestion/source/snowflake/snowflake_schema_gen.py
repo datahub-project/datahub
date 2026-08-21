@@ -2075,18 +2075,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
         table_urn = self.identifiers.gen_dataset_urn(table_identifier)
 
-        # Access aggregator's internal schema resolver to verify column existence.
-        # NOTE: This uses private members (_schema_resolver, _resolve_schema_info) which
-        # creates coupling to SqlParsingAggregator internals. Consider exposing a public
-        # method if this pattern is needed more broadly.
-        try:
-            schema_info = self.aggregator._schema_resolver._resolve_schema_info(
-                table_urn
-            )
-        except AttributeError:
-            # Schema resolver API changed - fail open (assume column exists)
-            return fallback
-
+        _, schema_info = self.aggregator.schema_resolver.resolve_urn(table_urn)
         if not schema_info:
             # Schema not found - assume column exists (may not be ingested yet)
             return fallback
@@ -3140,7 +3129,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     db_name, snowflake_schema.name
                 ),
                 schema_resolver=(
-                    self.aggregator._schema_resolver if self.aggregator else None
+                    self.aggregator.schema_resolver if self.aggregator else None
                 ),
             )
         except Exception as e:

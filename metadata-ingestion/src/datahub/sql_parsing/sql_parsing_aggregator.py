@@ -638,6 +638,17 @@ class SqlParsingAggregator(Closeable):
         self._exit_stack.close()
 
     @property
+    def schema_resolver(self) -> SchemaResolver:
+        """The resolver backing this aggregator's SQL parsing.
+
+        Borrowed, not given: when the aggregator created the resolver it also
+        closes it (via ``_exit_stack``), so callers must not close it themselves.
+        """
+        if self._closed:
+            raise AssertionError("SqlParsingAggregator is closed")
+        return self._schema_resolver
+
+    @property
     def _need_schemas(self) -> bool:
         # Unless the aggregator is totally disabled, we will need schema information.
         return (
