@@ -1,7 +1,9 @@
+import contextlib
 import logging
 import re
 import uuid
-from typing import Callable, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import sqlglot
 from sqlglot.dialects.dialect import Dialect
@@ -10,7 +12,10 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, make_data_job_urn
 from datahub.ingestion.source.sql.stored_procedures.constants import (
     STORED_PROCEDURES_CONTAINER,
 )
-from datahub.ingestion.source.sql.stored_procedures.models import ProcedureCall
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    ProcedureCall,
+    ProcedureReference,
+)
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
 from datahub.sql_parsing.query_types import get_query_type_of_sql
@@ -65,6 +70,44 @@ _BLOCK_CLOSER_RE = re.compile(
 )
 
 
+def _count_call_arguments(literal: str) -> Optional[int]:
+    """Count top-level arguments in the first parenthesised group of ``literal``.
+
+    Returns ``None`` if no argument list is present or the parens are unbalanced.
+    Commas inside nested calls and string literals don't count.
+    """
+    start = literal.find("(")
+    if start == -1:
+        return None
+
+    depth = 0
+    commas = 0
+    has_content = False
+    quote: Optional[str] = None
+    for char in literal[start:]:
+        if quote is not None:
+            if char == quote:
+                quote = None
+            continue
+        if char in ("'", '"', "`"):
+            quote = char
+            has_content = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return commas + 1 if has_content else 0
+            if depth < 0:
+                return None
+        elif char == "," and depth == 1:
+            commas += 1
+        elif depth >= 1 and not char.isspace():
+            has_content = True
+
+    return None
+
+
 def _strip_identifier_quotes(ident: str) -> str:
     """Drop surrounding ``[]``, ``""``, or backtick quoting from an identifier."""
     if len(ident) >= 2 and ident[0] == ident[-1] and ident[0] in ('"', "`"):
@@ -89,14 +132,27 @@ def _parse_call_target(literal: str) -> Optional[ProcedureCall]:
         for p in (match.group("part1"), match.group("part2"), match.group("part3"))
         if p is not None
     ]
+    argument_count = _count_call_arguments(literal[match.end() :])
 
     if len(parts) == 1:
-        return ProcedureCall(database=None, db_schema=None, name=parts[0])
+        return ProcedureCall(
+            database=None, db_schema=None, name=parts[0], argument_count=argument_count
+        )
     if len(parts) == 2:
         # Caller resolves the leading qualifier against default_db / default_schema
         # based on whether the source is two-tier or three-tier.
-        return ProcedureCall(database=None, db_schema=parts[0], name=parts[1])
-    return ProcedureCall(database=parts[0], db_schema=parts[1], name=parts[2])
+        return ProcedureCall(
+            database=None,
+            db_schema=parts[0],
+            name=parts[1],
+            argument_count=argument_count,
+        )
+    return ProcedureCall(
+        database=parts[0],
+        db_schema=parts[1],
+        name=parts[2],
+        argument_count=argument_count,
+    )
 
 
 def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[ProcedureCall]:
@@ -129,6 +185,14 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[Procedur
         # Rebuild the surface form sqlglot saw so the regex sees the keyword too.
         expression = parsed.args.get("expression")
         literal = expression.name if expression is not None else ""
+        if keyword in {"EXEC", "EXECUTE"} and literal.lstrip().upper().startswith(
+            "IMMEDIATE"
+        ):
+            # ``EXECUTE IMMEDIATE '<sql>'`` (Snowflake, Oracle) runs SQL assembled
+            # at runtime — there is no static call target. Without this guard the
+            # regex reads the ``IMMEDIATE`` keyword as the procedure name and we
+            # emit an edge to a DataJob that cannot exist.
+            return None
         return _parse_call_target(f"{keyword} {literal}")
 
     return None
@@ -140,6 +204,9 @@ def _build_call_datajob_urn(
     schema_resolver: SchemaResolver,
     default_db: Optional[str],
     default_schema: Optional[str],
+    resolve_procedure_urn: Optional[
+        Callable[[ProcedureReference], Optional[str]]
+    ] = None,
 ) -> Optional[str]:
     """Compose a DataJob URN for ``call`` using caller defaults to fill gaps.
 
@@ -148,13 +215,22 @@ def _build_call_datajob_urn(
     treated as the database rather than the schema, matching how table URNs
     are composed for the same sources.
 
-    Note: the called procedure's argument signature is unavailable at the call
-    site, so the resulting URN never carries the ``_<hash>`` suffix that
-    ``BaseProcedure.get_procedure_identifier`` adds for procedures with
-    arguments. For sources that emit argument-hashed procedure URNs (Oracle,
-    MSSQL), call-site lineage will only match procedures whose URNs are
-    unhashed. Two-tier sources (MySQL/MariaDB) never hash, so this caveat is
-    only relevant for three-tier sources that populate ``argument_signature``.
+    Without ``resolve_procedure_urn`` the target URN is composed from the call
+    text, which cannot carry the ``_<hash>`` suffix that
+    ``BaseProcedure.get_procedure_identifier`` adds, nor any identifier casing the
+    source applies. The hash covers the *declared* signature — parameter names and
+    type spellings included, so ``(arg1 VARCHAR)`` and ``(a VARCHAR)`` differ — and
+    a call site sees neither, so no amount of argument parsing recovers it.
+    Composition is therefore only correct for sources that pass
+    ``argument_signature=None`` (MySQL, MariaDB, DB2, MSSQL) and don't normalise
+    identifiers.
+
+    TODO: Oracle and Postgres populate ``argument_signature`` and still rely on
+    composition here, so their call-site edges dangle whenever a signature is
+    present. Both should supply a ``resolve_procedure_urn`` the way
+    ``SnowflakeTasksExtractor`` does. Snowflake's own procedure-to-procedure path
+    (``snowflake_schema_gen`` -> ``generate_procedure_lineage``) needs the same
+    treatment; only the task path resolves today.
     """
     is_two_tier = default_schema is None
 
@@ -166,6 +242,24 @@ def _build_call_datajob_urn(
     else:
         database = call.database or default_db
         schema = call.db_schema or default_schema
+
+    if resolve_procedure_urn is not None:
+        if not database:
+            # ProcedureReference promises the caller's defaults are already
+            # applied; without a database there is nothing to resolve against.
+            return None
+        # The source can map this onto a procedure it actually ingested, which is
+        # the only way to recover the argument-signature hash and the source's own
+        # identifier casing. Returning None means "no such procedure here", so we
+        # emit no edge rather than a composed urn that would dangle.
+        return resolve_procedure_urn(
+            ProcedureReference(
+                database=database,
+                db_schema=schema,
+                name=call.name,
+                argument_count=call.argument_count,
+            )
+        )
 
     if not database and not schema:
         # Can't compose a flow URN with nothing — skip silently.
@@ -234,12 +328,39 @@ def _is_tsql_control_flow_statement(stmt_upper: str) -> bool:
     return False
 
 
+@dataclass
+class ProcedureParseReport:
+    """What went wrong while parsing a procedure body, for callers that warn on it.
+
+    ``parse_procedure_code`` returns ``None`` both for a body with nothing
+    lineage-bearing in it (``TRUNCATE``, ``COPY INTO``, ``ALTER TASK``) and for
+    one whose statements all failed to parse. Only the caller knows how loudly to
+    say so, so the counts are handed back rather than logged here.
+    """
+
+    statements_failed: int = 0
+    queries_failed: int = 0
+    queries_column_failed: int = 0
+    # First error seen, for the caller's warning context.
+    first_error: Optional[str] = None
+
+    @property
+    def failed(self) -> bool:
+        """Whether anything lineage-bearing was lost to a parse error."""
+        return bool(self.statements_failed or self.queries_failed)
+
+    def record_error(self, message: str) -> None:
+        if self.first_error is None:
+            self.first_error = message
+
+
 def _classify_statements(
     *,
     statements: List[str],
     dialect: Dialect,
     platform: str,
     procedure_name: Optional[str],
+    parse_report: ProcedureParseReport,
 ) -> Tuple[List[str], List[ProcedureCall]]:
     """Classify each statement as DML, a procedure call, or neither.
 
@@ -281,7 +402,9 @@ def _classify_statements(
         try:
             parsed = parse_statement(stmt_stripped, dialect=dialect)
         except Exception as e:
-            logger.debug(f"Skipping statement in {procedure_name}: {type(e).__name__}")
+            parse_report.statements_failed += 1
+            parse_report.record_error(f"{type(e).__name__}: {e}")
+            logger.debug(f"Skipping statement in {procedure_name}: {e}")
             continue
 
         # Procedure calls produce datajob-to-datajob lineage. Detect them
@@ -301,7 +424,9 @@ def _classify_statements(
         try:
             query_type, _ = get_query_type_of_sql(parsed, dialect=platform)
         except Exception as e:
-            logger.debug(f"Skipping statement in {procedure_name}: {type(e).__name__}")
+            parse_report.statements_failed += 1
+            parse_report.record_error(f"{type(e).__name__}: {e}")
+            logger.debug(f"Skipping statement in {procedure_name}: {e}")
             continue
 
         # Skip non-DML statements that don't produce lineage
@@ -331,6 +456,11 @@ def parse_procedure_code(
     raise_: bool = False,
     procedure_name: Optional[str] = None,
     session_id: Optional[str] = None,
+    additional_input_jobs: Sequence[str] = (),
+    resolve_procedure_urn: Optional[
+        Callable[[ProcedureReference], Optional[str]]
+    ] = None,
+    parse_report: Optional[ProcedureParseReport] = None,
 ) -> Optional[DataJobInputOutputClass]:
     """
     Parse stored procedure code and extract lineage.
@@ -349,7 +479,26 @@ def parse_procedure_code(
         procedure_name: Name of the procedure for logging
         session_id: Optional session ID for deterministic temp table resolution.
             If not provided, generates a random UUID. Useful for testing.
+        additional_input_jobs: DataJob urns the caller already knows to be inputs,
+            from a source the code can't reveal — a system catalogue of procedure
+            dependencies (Oracle's ALL_DEPENDENCIES) or Snowflake's task
+            predecessor list. Merged into the CALL-derived ``inputDatajobs``,
+            deduplicated, CALL-derived first. Dropped when the body has neither
+            DML nor calls in it.
+        resolve_procedure_urn: Maps a CALL target onto a procedure the source
+            actually ingested. Without it the target urn is composed from the
+            call text, which carries neither the argument-signature hash nor the
+            source's identifier casing — so for any source that hashes
+            (Snowflake always; Oracle and Postgres when a signature is present)
+            the composed urn cannot match the procedure that was emitted.
+            Returning None from the callback means "not ingested here", and no
+            edge is emitted.
+        parse_report: Filled in with the statement- and query-level parse
+            failures, so a caller can tell "this body failed to parse" from
+            "this body carries no lineage" — both of which return None.
     """
+    report = parse_report if parse_report is not None else ProcedureParseReport()
+
     # Derive dialect from schema_resolver's platform to support multiple databases
     platform = schema_resolver.platform
     dialect = get_dialect(platform)
@@ -363,23 +512,22 @@ def parse_procedure_code(
         dialect=dialect,
         platform=platform,
         procedure_name=procedure_name,
+        parse_report=report,
     )
 
     # Resolve procedure calls to DataJob URNs. Deduplicate while preserving
     # first-call order so the output is deterministic for golden files.
-    input_datajobs: List[str] = []
-    seen_input_datajobs: Set[str] = set()
-    for call in procedure_calls:
-        urn = _build_call_datajob_urn(
+    call_urns = [
+        _build_call_datajob_urn(
             call=call,
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            resolve_procedure_urn=resolve_procedure_urn,
         )
-        if urn is None or urn in seen_input_datajobs:
-            continue
-        seen_input_datajobs.add(urn)
-        input_datajobs.append(urn)
+        for call in procedure_calls
+    ]
+    input_datajobs: List[str] = list(dict.fromkeys(urn for urn in call_urns if urn))
 
     if not dml_statements and not input_datajobs:
         logger.debug(
@@ -395,57 +543,70 @@ def parse_procedure_code(
         if session_id is None:
             session_id = str(uuid.uuid4())
 
-        aggregator = SqlParsingAggregator(
-            platform=schema_resolver.platform,
-            platform_instance=schema_resolver.platform_instance,
-            env=schema_resolver.env,
-            schema_resolver=schema_resolver,
-            generate_lineage=True,
-            generate_queries=False,
-            generate_usage_statistics=False,
-            generate_operations=False,
-            generate_query_subject_fields=False,
-            generate_query_usage_statistics=False,
-            is_temp_table=is_temp_table,
-        )
-
-        # Add each DML statement as a separate ObservedQuery
-        # All share the same session_id to enable temp table resolution
-        for query in dml_statements:
-            aggregator.add_observed_query(
-                observed=ObservedQuery(
-                    default_db=default_db,
-                    default_schema=default_schema,
-                    query=query,
-                    session_id=session_id,
+        # Closed on the way out: the aggregator opens a sqlite connection and a
+        # temp directory per file-backed store, and this runs once per procedure
+        # or task body. The schema_resolver is injected, so the aggregator never
+        # took ownership of it and leaves it alone.
+        with contextlib.closing(
+            SqlParsingAggregator(
+                platform=schema_resolver.platform,
+                platform_instance=schema_resolver.platform_instance,
+                env=schema_resolver.env,
+                schema_resolver=schema_resolver,
+                generate_lineage=True,
+                generate_queries=False,
+                generate_usage_statistics=False,
+                generate_operations=False,
+                generate_query_subject_fields=False,
+                generate_query_usage_statistics=False,
+                is_temp_table=is_temp_table,
+            )
+        ) as aggregator:
+            # Add each DML statement as a separate ObservedQuery
+            # All share the same session_id to enable temp table resolution
+            for query in dml_statements:
+                aggregator.add_observed_query(
+                    observed=ObservedQuery(
+                        default_db=default_db,
+                        default_schema=default_schema,
+                        query=query,
+                        session_id=session_id,
+                    )
                 )
+
+            if aggregator.report.num_observed_queries_failed and raise_:
+                logger.info(aggregator.report.as_string())
+                raise ValueError(
+                    f"Failed to parse {aggregator.report.num_observed_queries_failed} queries."
+                )
+
+            # The aggregator is discarded here, so anything the caller might want
+            # to warn about has to be copied out first.
+            report.queries_failed += aggregator.report.num_observed_queries_failed
+            report.queries_column_failed += (
+                aggregator.report.num_observed_queries_column_failed
+            )
+            for failure in aggregator.report.observed_query_parse_failures:
+                report.record_error(failure)
+
+            result = to_datajob_input_output(
+                mcps=list(aggregator.gen_metadata()),
+                ignore_extra_mcps=True,
             )
 
-        if aggregator.report.num_observed_queries_failed and raise_:
-            logger.info(aggregator.report.as_string())
-            raise ValueError(
-                f"Failed to parse {aggregator.report.num_observed_queries_failed} queries."
-            )
+    # CALL-derived edges first, then the caller's, deduplicated.
+    all_input_jobs = list(dict.fromkeys([*input_datajobs, *additional_input_jobs]))
 
-        mcps = list(aggregator.gen_metadata())
-
-        result = to_datajob_input_output(
-            mcps=mcps,
-            ignore_extra_mcps=True,
-        )
-
-    if input_datajobs:
+    if all_input_jobs:
         if result is None:
             result = DataJobInputOutputClass(
                 inputDatasets=[],
                 outputDatasets=[],
-                inputDatajobs=list(input_datajobs),
+                inputDatajobs=all_input_jobs,
             )
-        elif result.inputDatajobs:
-            for urn in input_datajobs:
-                if urn not in result.inputDatajobs:
-                    result.inputDatajobs.append(urn)
         else:
-            result.inputDatajobs = list(input_datajobs)
+            # to_datajob_input_output only ever builds dataset lineage, so there
+            # is nothing here to merge with.
+            result.inputDatajobs = all_input_jobs
 
     return result

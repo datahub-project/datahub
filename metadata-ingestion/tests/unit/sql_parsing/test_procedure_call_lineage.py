@@ -21,7 +21,11 @@ These are the same composition rules used by ``BaseProcedure.to_urn`` /
 DataJob URNs emitted for the called procedures elsewhere in ingestion.
 """
 
-from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from datahub.ingestion.source.sql.stored_procedures.lineage import (
+    ProcedureParseReport,
+    _count_call_arguments,
+    parse_procedure_code,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
@@ -375,3 +379,77 @@ def test_begin_end_wrapped_body_recovers_first_dml_and_call():
     assert result.outputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
     ]
+
+
+def test_execute_immediate_is_not_a_call_target():
+    """``EXECUTE IMMEDIATE '<sql>'`` builds its SQL at runtime, so there is no
+    static call target. Without the guard the regex reads ``IMMEDIATE`` as the
+    procedure name, and sources that compose the target urn (rather than
+    resolving it) emit an edge to a DataJob that cannot exist."""
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    code = """
+    EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src';
+    INSERT INTO real_target (id) SELECT id FROM real_source;
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    # The static INSERT still produces lineage; the dynamic one contributes nothing.
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,test_db.test_schema.real_target,PROD)"
+    ]
+    assert not result.inputDatajobs
+    assert not any("immediate" in urn.lower() for urn in result.inputDatajobs or [])
+
+
+def test_unparseable_body_is_reported_as_a_failure_not_as_empty():
+    """A body whose statements fail to parse returns None, exactly like a body
+    with nothing lineage-bearing in it. The parse report is what tells a caller
+    which of the two it got."""
+    schema_resolver = SchemaResolver(platform="snowflake", env="PROD")
+
+    parse_report = ProcedureParseReport()
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="INSERT INTO tgt SELECT FROM WHERE ((",
+        is_temp_table=lambda _: False,
+        parse_report=parse_report,
+    )
+
+    assert result is None
+    assert parse_report.failed
+    assert parse_report.first_error
+
+    quiet_report = ProcedureParseReport()
+    assert (
+        parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code="TRUNCATE TABLE tgt",
+            is_temp_table=lambda _: False,
+            parse_report=quiet_report,
+        )
+        is None
+    )
+    assert not quiet_report.failed
+
+
+def test_count_call_arguments_counts_top_level_arguments_only():
+    """Overload disambiguation rests on this count, so pin the awkward cases:
+    commas inside string literals and nested calls don't separate arguments."""
+    assert _count_call_arguments("('a,b')") == 1
+    assert _count_call_arguments("(f(a,b), c)") == 2
+    assert _count_call_arguments("()") == 0
+    assert _count_call_arguments("(  )") == 0
+    assert _count_call_arguments("(a, b") is None
+    assert _count_call_arguments("") is None

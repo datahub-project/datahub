@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -82,9 +82,38 @@ def get_procedure_flow_name(
 class ProcedureCall(BaseModel):
     """A reference to a stored procedure invoked from another procedure body."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     database: Optional[str]
     # Named ``db_schema`` because ``schema`` shadows a BaseModel attribute.
     db_schema: Optional[str]
     name: str
+    # Number of arguments passed at the call site, or None when the argument list
+    # couldn't be read. Narrows overloads; see ProcedureReference.
+    argument_count: Optional[int] = Field(default=None, ge=0)
+
+
+class ProcedureReference(BaseModel):
+    """A call target, with the caller's database/schema defaults already applied.
+
+    Handed to a ``resolve_procedure_urn`` callback so a source can map the
+    reference onto a procedure it actually ingested. That lookup is the only way
+    to name the target correctly: the urn's job id ends in a hash of the
+    *declared* argument signature — parameter names and type spellings included,
+    so ``(arg1 VARCHAR)`` and ``(a VARCHAR)`` differ — and a call site carries
+    neither, so no amount of argument parsing reconstructs it.
+
+    ``argument_count`` narrows overloads but cannot identify one alone: two
+    overloads taking the same number of arguments stay ambiguous.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # Always populated: the caller applies its own default before constructing
+    # this, and gives up rather than handing over a reference with no database.
+    database: str
+    # Named ``db_schema`` for the same reason as ProcedureCall. None only for
+    # two-tier sources, which have no schema tier to resolve against.
+    db_schema: Optional[str]
+    name: str
+    argument_count: Optional[int] = Field(default=None, ge=0)
