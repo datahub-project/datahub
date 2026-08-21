@@ -42,6 +42,8 @@ import jakarta.json.JsonReader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -163,33 +165,68 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
       return List.of();
     }
 
-    final AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
-    final List<AspectValidationException> failures = new ArrayList<>();
+    // Narrow to the items that need a current-state read before fetching, so a batch of unrelated
+    // aspects costs nothing.
+    final List<BatchItem> guarded =
+        items.stream()
+            .filter(item -> RULES.containsKey(item.getAspectName()))
+            .filter(item -> !ChangeType.DELETE.equals(item.getChangeType()))
+            .filter(item -> !isTrustedInternalWrite(item))
+            .collect(Collectors.toList());
+    if (guarded.isEmpty()) {
+      return List.of();
+    }
 
-    for (BatchItem item : items) {
-      if (isTrustedInternalWrite(item)) {
-        continue;
-      }
-      validateItem(operationContext, item, aspectRetriever, session)
+    final Map<Urn, Map<String, Aspect>> currentAspects =
+        loadCurrentAspects(operationContext, retrieverContext.getAspectRetriever(), guarded);
+
+    final List<AspectValidationException> failures = new ArrayList<>();
+    for (BatchItem item : guarded) {
+      validateGrant(
+              RULES.get(item.getAspectName()),
+              item.getAspectName(),
+              operationContext,
+              item,
+              currentAspects,
+              session)
           .ifPresent(message -> failures.add(authFailure(item, message)));
     }
 
     return failures;
   }
 
+  /**
+   * One read per entity type rather than one per item, so a batched membership sync does not pay a
+   * serial read for every user.
+   *
+   * <p>URNs must be grouped by entity type: {@code
+   * EntityServiceAspectRetriever.getLatestAspectObjects} scopes the query to the first URN's entity
+   * type, so a single mixed call would silently return nothing for the rest — making unchanged
+   * membership look like a fresh grant and denying legitimate writes.
+   */
   @Nonnull
-  private Optional<String> validateItem(
+  private static Map<Urn, Map<String, Aspect>> loadCurrentAspects(
       @Nonnull OperationFingerprint operationContext,
-      @Nonnull BatchItem item,
       @Nonnull AspectRetriever aspectRetriever,
-      @Nonnull AuthorizationSession session) {
+      @Nonnull List<BatchItem> items) {
 
-    final GrantRule<?> rule = RULES.get(item.getAspectName());
-    if (rule == null) {
-      return Optional.empty();
+    final Map<String, Set<Urn>> urnsByEntityType = new HashMap<>();
+    final Map<String, Set<String>> aspectNamesByEntityType = new HashMap<>();
+    for (BatchItem item : items) {
+      final String entityType = item.getUrn().getEntityType();
+      urnsByEntityType.computeIfAbsent(entityType, key -> new HashSet<>()).add(item.getUrn());
+      aspectNamesByEntityType
+          .computeIfAbsent(entityType, key -> new HashSet<>())
+          .add(item.getAspectName());
     }
-    return validateGrant(
-        rule, item.getAspectName(), operationContext, item, aspectRetriever, session);
+
+    final Map<Urn, Map<String, Aspect>> current = new HashMap<>();
+    urnsByEntityType.forEach(
+        (entityType, urns) ->
+            current.putAll(
+                aspectRetriever.getLatestAspectObjects(
+                    operationContext, urns, aspectNamesByEntityType.get(entityType))));
+    return current;
   }
 
   @Nonnull
@@ -198,16 +235,10 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
       @Nonnull String aspectName,
       @Nonnull OperationFingerprint operationContext,
       @Nonnull BatchItem item,
-      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Map<Urn, Map<String, Aspect>> currentAspects,
       @Nonnull AuthorizationSession session) {
 
-    // Deletes do not grant additional privileges and are gated behind DELETE_ENTITY privileges
-    if (ChangeType.DELETE.equals(item.getChangeType())) {
-      return Optional.empty();
-    }
-
-    final T current =
-        loadAspect(operationContext, aspectRetriever, item.getUrn(), aspectName, rule);
+    final T current = currentAspect(currentAspects, item.getUrn(), aspectName, rule);
     final ResolvedAspect<T> proposed = resolveProposed(item, current, rule.aspectClass());
 
     // A proposal we cannot read must not skip the check. Assume the worst payload and demand the
@@ -322,13 +353,12 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
   }
 
   @Nullable
-  private static <T extends RecordTemplate> T loadAspect(
-      @Nonnull OperationFingerprint operationContext,
-      @Nonnull AspectRetriever aspectRetriever,
+  private static <T extends RecordTemplate> T currentAspect(
+      @Nonnull Map<Urn, Map<String, Aspect>> currentAspects,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       @Nonnull GrantRule<T> rule) {
-    final Aspect aspect = aspectRetriever.getLatestAspectObject(operationContext, urn, aspectName);
+    final Aspect aspect = currentAspects.getOrDefault(urn, Map.of()).get(aspectName);
     if (aspect == null) {
       return null;
     }

@@ -7,8 +7,12 @@ import static com.linkedin.metadata.Constants.ROLE_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -124,12 +128,15 @@ public class PrivilegeGrantAuthorizationValidatorTest {
   }
 
   private void existingAspect(Urn urn, String aspectName, RecordTemplate aspect) {
-    when(aspectRetriever.getLatestAspectObject(any(), any(Urn.class), anyString()))
+    when(aspectRetriever.getLatestAspectObjects(any(), anySet(), anySet()))
         .thenAnswer(
-            args ->
-                urn.equals(args.getArgument(1)) && aspectName.equals(args.getArgument(2))
-                    ? new Aspect(aspect.data())
-                    : null);
+            args -> {
+              final Set<Urn> urns = args.getArgument(1);
+              final Set<String> aspectNames = args.getArgument(2);
+              return urns.contains(urn) && aspectNames.contains(aspectName)
+                  ? Map.of(urn, Map.of(aspectName, new Aspect(aspect.data())))
+                  : Map.of();
+            });
   }
 
   private BatchItem upsert(Urn urn, String aspectName, RecordTemplate aspect, Urn actor) {
@@ -154,9 +161,9 @@ public class PrivilegeGrantAuthorizationValidatorTest {
         .build();
   }
 
-  private List<AspectValidationException> validate(BatchItem item) {
-    return validator.validateItems(
-        operationContext, List.of(item), List.of(item), retrieverContext, session);
+  private List<AspectValidationException> validate(BatchItem... items) {
+    final List<BatchItem> batch = List.of(items);
+    return validator.validateItems(operationContext, batch, batch, retrieverContext, session);
   }
 
   private static RoleMembership roles(Urn... roleUrns) {
@@ -346,6 +353,36 @@ public class PrivilegeGrantAuthorizationValidatorTest {
     assertTrue(
         validate(item(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, null, ACTOR, ChangeType.DELETE))
             .isEmpty());
+  }
+
+  // --- current state is read in one call per entity type, not one per item ---
+
+  /**
+   * A batched membership sync must not pay a serial read per user. Entity types are fetched
+   * separately because the retriever scopes the query to the first URN's entity type.
+   */
+  @Test
+  public void testCurrentStateReadIsBatchedPerEntityType() {
+    grantPrivileges(MANAGE_POLICIES);
+    when(aspectRetriever.getLatestAspectObjects(any(), anySet(), anySet())).thenReturn(Map.of());
+
+    assertTrue(
+        validate(
+                upsert(ACTOR, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE), ACTOR),
+                upsert(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE), ACTOR),
+                upsert(GROUP, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE), ACTOR))
+            .isEmpty());
+
+    // two corpusers collapse into one read; the corpGroup needs its own
+    verify(aspectRetriever, times(2)).getLatestAspectObjects(any(), anySet(), anySet());
+    verify(aspectRetriever, never()).getLatestAspectObject(any(), any(Urn.class), anyString());
+  }
+
+  /** Items for aspects with no rule must not trigger a read at all. */
+  @Test
+  public void testUnguardedAspectsTriggerNoRead() {
+    assertTrue(validate(upsert(ACTOR, "corpUserInfo", roles(ADMIN_ROLE), ACTOR)).isEmpty());
+    verify(aspectRetriever, never()).getLatestAspectObjects(any(), anySet(), anySet());
   }
 
   // --- trusted internal writes ---
