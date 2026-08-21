@@ -1,9 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
@@ -23,7 +20,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
-import com.linkedin.mxe.SystemMetadata;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
@@ -84,14 +80,11 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
         continue;
       }
 
-      if (isTrustedInternalWrite(item)) {
+      if (isTrustedInternalWrite(operationContext)) {
         continue;
       }
 
       Urn authActor = resolveAuthorizingActor(item, operationContext);
-      if (isIntrinsicSystemActor(authActor)) {
-        continue;
-      }
 
       CorpUserInfo actorInfo = loadCorpUserInfo(operationContext, aspectRetriever, authActor);
       if (actorInfo == null) {
@@ -131,11 +124,6 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
       return contextAudit.getActor();
     }
     return operationContext.getActor();
-  }
-
-  /** Service principal {@link Constants#SYSTEM_ACTOR} has no {@link CorpUserInfo} aspect. */
-  private static boolean isIntrinsicSystemActor(@Nonnull Urn authActor) {
-    return SYSTEM_ACTOR.equals(authActor.toString());
   }
 
   @Override
@@ -215,17 +203,13 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
         && Boolean.TRUE.equals(info.data().getBoolean(IS_SUPPORT_USER_FIELD));
   }
 
-  private static boolean isTrustedInternalWrite(@Nonnull BatchItem item) {
-    SystemMetadata systemMetadata = item.getSystemMetadata();
-    if (systemMetadata != null
-        && systemMetadata.hasProperties()
-        && SYSTEM_UPDATE_SOURCE.equals(systemMetadata.getProperties().get(APP_SOURCE))) {
-      return true;
-    }
-    AuditStamp auditStamp = item.getAuditStamp();
-    return auditStamp != null
-        && auditStamp.hasActor()
-        && SYSTEM_ACTOR.equals(auditStamp.getActor().toString());
+  /**
+   * Bootstrap, upgrade steps, and other system-mediated writes are trusted via {@link
+   * OperationFingerprint#isSystemAuth()}, never via client-writable {@code appSource} or a
+   * hardcoded system URN.
+   */
+  private static boolean isTrustedInternalWrite(@Nonnull OperationFingerprint operationContext) {
+    return operationContext.isSystemAuth();
   }
 
   private static AspectValidationException authFailure(
