@@ -352,6 +352,7 @@ project.ext.externalDependency = [
     'nettyCore': "io.projectreactor.netty:reactor-netty-core:${reactorNettyVersion}",
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
+    'openFeatureSdk': 'dev.openfeature:sdk:1.14.0',
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetrySdk': 'io.opentelemetry:opentelemetry-sdk:' + openTelemetryVersion,
     'opentelemetrySdkTrace': 'io.opentelemetry:opentelemetry-sdk-trace:' + openTelemetryVersion,
