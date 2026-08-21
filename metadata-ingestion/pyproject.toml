@@ -270,10 +270,13 @@ databricks = [
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "greenlet<4.0.0",
     "pandas<2.2.0",
+    "pyarrow>14.0.0,<24.0.0",
     "requests<3.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.12.1,<6.0.0",
 ]
 
 datahub = [
@@ -1125,10 +1128,13 @@ unity-catalog = [
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "greenlet<4.0.0",
     "pandas<2.2.0",
+    "pyarrow>14.0.0,<24.0.0",
     "requests<3.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse<0.6.0",
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.12.1,<6.0.0",
 ]
 
 unstructured = [

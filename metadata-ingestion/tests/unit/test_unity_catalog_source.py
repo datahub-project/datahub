@@ -1,13 +1,43 @@
+from datetime import datetime, timezone
+from io import BytesIO
+from typing import Optional
 from unittest.mock import ANY, patch
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
-from databricks.sdk.service.catalog import TableType
+from databricks.sdk.service.catalog import TableType, VolumeType
 
+from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
-from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.ingestion.source.unity.proxy_types import (
+    Catalog,
+    Column,
+    Metastore,
+    Schema,
+    Table,
+    Volume,
+    VolumeFile,
+)
+from datahub.ingestion.source.unity.source import (
+    _DATASET_URN_NAME_MAX_LENGTH,
+    UnityCatalogSource,
+    _bounded_dataset_name,
+)
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
+    DatasetPropertiesClass,
+    OwnershipClass,
+    SchemaMetadataClass,
+    SubTypesClass,
+)
 
 
 class TestUnityCatalogSource:
@@ -3177,3 +3207,547 @@ class TestUnityCatalogViewFiltering:
         assert dropped == [table.id]
         assert view.ref in source.view_refs
         assert metric_view.ref in source.table_refs
+
+
+class TestUnityCatalogVolumes:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        return UnityCatalogSource.create(config, PipelineContext(run_id="test_run"))
+
+    @staticmethod
+    def _build_volume(name: str = "landing") -> tuple:
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        volume = Volume(
+            id=f"c.s.{name}",
+            name=name,
+            comment="landing files",
+            schema=schema,
+            owner="data-eng",
+            volume_type=VolumeType.MANAGED,
+            storage_location="s3://bucket/vols/landing",
+            volume_id="vol-1",
+            created_at=None,
+            created_by="alice",
+            updated_at=None,
+            updated_by=None,
+        )
+        return volume, schema
+
+    def test_include_volumes_false_skips_api(self) -> None:
+        source = self._build_source(include_volumes=False)
+        _, schema = self._build_volume()
+        with patch.object(source.unity_catalog_api_proxy, "volumes") as mock_volumes:
+            assert list(source.process_volumes(schema)) == []
+        mock_volumes.assert_not_called()
+
+    def test_volume_pattern_drops(self) -> None:
+        source = self._build_source(volume_pattern={"deny": [r"c\.s\.landing"]})
+        volume, schema = self._build_volume()
+        source.unity_catalog_api_proxy.volumes = lambda schema: iter([volume])  # type: ignore[assignment]
+        assert list(source.process_volumes(schema)) == []
+        assert list(source.report.volumes.dropped_entities) == [volume.id]
+
+    def test_process_volume_emits_container(self) -> None:
+        source = self._build_source(include_ownership=True)
+        volume, schema = self._build_volume()
+        wus = list(source.process_volume(volume, schema))
+        container_urn = source.gen_volume_key(volume).as_urn()
+        assert any(wu.get_urn() == container_urn for wu in wus)
+        assert not any("dataset:" in wu.get_urn() for wu in wus)
+
+        subtype: Optional[SubTypesClass] = None
+        for wu in wus:
+            found_subtype = wu.get_aspect_of_type(SubTypesClass)
+            if found_subtype is not None:
+                subtype = found_subtype
+                break
+        assert subtype is not None
+        assert subtype.typeNames == [DatasetContainerSubTypes.DATABRICKS_VOLUME]
+
+        props: Optional[ContainerPropertiesClass] = None
+        for wu in wus:
+            found_props = wu.get_aspect_of_type(ContainerPropertiesClass)
+            if found_props is not None:
+                props = found_props
+                break
+        assert props is not None
+        assert props.qualifiedName == "c.s.landing"
+        assert props.customProperties["volume_type"] == "MANAGED"
+        assert props.customProperties["storage_location"] == "s3://bucket/vols/landing"
+        assert props.description == "landing files"
+
+        # include_ownership=True + volume.owner="data-eng" must emit ownership.
+        ownership: Optional[OwnershipClass] = None
+        for wu in wus:
+            found_ownership = wu.get_aspect_of_type(OwnershipClass)
+            if found_ownership is not None:
+                ownership = found_ownership
+                break
+        assert ownership is not None
+        assert len(ownership.owners) == 1
+        assert "data-eng" in ownership.owners[0].owner
+
+    def test_process_volume_without_ownership_emits_none(self) -> None:
+        source = self._build_source(include_ownership=False)
+        volume, schema = self._build_volume()
+        wus = list(source.process_volume(volume, schema))
+        assert all(wu.get_aspect_of_type(OwnershipClass) is None for wu in wus)
+
+    def test_process_volume_emits_timestamps(self) -> None:
+        source = self._build_source(include_ownership=True)
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        created_at = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        updated_at = datetime(2026, 6, 7, 8, 9, 10, tzinfo=timezone.utc)
+        volume = Volume(
+            id="c.s.landing",
+            name="landing",
+            comment=None,
+            schema=schema,
+            owner=None,
+            volume_type=None,
+            storage_location=None,
+            volume_id=None,
+            created_at=created_at,
+            created_by="alice",
+            updated_at=updated_at,
+            updated_by="bob",
+        )
+        props: Optional[ContainerPropertiesClass] = None
+        for wu in source.process_volume(volume, schema):
+            found = wu.get_aspect_of_type(ContainerPropertiesClass)
+            if found is not None:
+                props = found
+                break
+        assert props is not None
+        assert props.created is not None
+        assert props.created.time == int(created_at.timestamp() * 1000)
+        assert props.lastModified is not None
+        assert props.lastModified.time == int(updated_at.timestamp() * 1000)
+        # Both timestamps also mirrored into custom properties.
+        assert props.customProperties["created_at"] == str(created_at)
+        assert props.customProperties["updated_at"] == str(updated_at)
+
+    def test_include_volume_files_false_skips_api(self) -> None:
+        source = self._build_source(include_volume_files=False)
+        volume, schema = self._build_volume()
+        with patch.object(source.unity_catalog_api_proxy, "volume_files") as mock_files:
+            assert list(source.process_volume_files(volume)) == []
+        mock_files.assert_not_called()
+
+    def test_process_volume_file_emits_dataset_under_container(self) -> None:
+        source = self._build_source(include_volume_files=True)
+        volume, schema = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/events.parquet",
+            file_size=128,
+            last_modified=None,
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        wus = list(source.process_volume_file(volume_file, folder_key))
+        urns = {wu.get_urn() for wu in wus}
+        assert any("c.s.landing/raw/events.parquet" in u for u in urns)
+        assert any("metastore.c.s.landing/raw/events.parquet" in u for u in urns)
+
+        subtype: Optional[SubTypesClass] = None
+        props: Optional[DatasetPropertiesClass] = None
+        container: Optional[ContainerClass] = None
+        for wu in wus:
+            found_subtype = wu.get_aspect_of_type(SubTypesClass)
+            if found_subtype is not None:
+                subtype = found_subtype
+            found_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if found_props is not None:
+                props = found_props
+            found_container = wu.get_aspect_of_type(ContainerClass)
+            if found_container is not None:
+                container = found_container
+        assert subtype is not None
+        assert subtype.typeNames == [DatasetSubTypes.DATABRICKS_VOLUME_FILE]
+        assert props is not None
+        assert props.qualifiedName == "c.s.landing/raw/events.parquet"
+        assert props.customProperties["path"] == "raw/events.parquet"
+        assert props.externalUrl and props.externalUrl.endswith(
+            "/c/s/landing/raw/events.parquet"
+        )
+        # The file dataset is nested under the folder container it was passed.
+        assert container is not None
+        assert container.container == folder_key.as_urn()
+
+    def test_process_volume_files_nests_folders(self) -> None:
+        source = self._build_source(include_volume_files=True)
+        volume, schema = self._build_volume()
+        file_a = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/events.parquet",
+            file_size=1,
+            last_modified=None,
+        )
+        file_b = VolumeFile(
+            volume=volume,
+            relative_path="raw/more.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/more.parquet",
+            file_size=1,
+            last_modified=None,
+        )
+
+        def _files(volume, max_results, allowed=None):
+            yield file_a
+            yield file_b
+
+        source.unity_catalog_api_proxy.volume_files = _files  # type: ignore[assignment]
+        wus = list(source.process_volume_files(volume))
+
+        # The shared "raw" folder container is emitted exactly once across both files.
+        folder_subtype_count = sum(
+            1
+            for wu in wus
+            if (st := wu.get_aspect_of_type(SubTypesClass)) is not None
+            and st.typeNames == [DatasetContainerSubTypes.FOLDER]
+        )
+        assert folder_subtype_count == 1
+        assert source.report.num_volume_folders_emitted == 1
+
+        folder_urn = source.gen_volume_folder_key(volume, "raw").as_urn()
+        file_urn = source.gen_volume_file_urn(file_a)
+        file_container: Optional[ContainerClass] = None
+        for wu in wus:
+            if wu.get_urn() == file_urn:
+                found = wu.get_aspect_of_type(ContainerClass)
+                if found is not None:
+                    file_container = found
+        assert file_container is not None
+        assert file_container.container == folder_urn
+
+    def test_process_volume_file_infers_schema(self) -> None:
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, schema = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=32,
+            last_modified=None,
+        )
+        csv_bytes = b"id,name\n1,alice\n2,bob\n"
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(csv_bytes)
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in source.process_volume_file(volume_file, folder_key):
+            found = wu.get_aspect_of_type(SchemaMetadataClass)
+            if found is not None:
+                schema_metadata = found
+                break
+        assert schema_metadata is not None
+        assert {f.fieldPath for f in schema_metadata.fields} == {"id", "name"}
+        assert source.report.num_volume_file_schemas_inferred == 1
+
+    def test_process_volume_file_infers_parquet_schema(self) -> None:
+        # Exercises the ParquetInferrer import path so a missing pyarrow dependency
+        # is caught in CI rather than at runtime on the first .parquet file.
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.parquet",
+            dbfs_path="/Volumes/c/s/landing/raw/events.parquet",
+            file_size=None,
+            last_modified=None,
+        )
+        buf = BytesIO()
+        pq.write_table(pa.table({"id": [1, 2], "name": ["alice", "bob"]}), buf)
+        parquet_bytes = buf.getvalue()
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(parquet_bytes)
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in source.process_volume_file(volume_file, folder_key):
+            found = wu.get_aspect_of_type(SchemaMetadataClass)
+            if found is not None:
+                schema_metadata = found
+                break
+        assert schema_metadata is not None
+        assert {f.fieldPath for f in schema_metadata.fields} == {"id", "name"}
+        assert source.report.num_volume_file_schemas_inferred == 1
+
+    def test_process_volume_file_infers_json_schema(self) -> None:
+        # Exercises the JsonInferrer import path (ujson) so a missing dependency is
+        # caught in CI rather than at runtime on the first .json file.
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.json",
+            dbfs_path="/Volumes/c/s/landing/raw/events.json",
+            file_size=None,
+            last_modified=None,
+        )
+        json_bytes = b'[{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]'
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(json_bytes)
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in source.process_volume_file(volume_file, folder_key):
+            found = wu.get_aspect_of_type(SchemaMetadataClass)
+            if found is not None:
+                schema_metadata = found
+                break
+        assert schema_metadata is not None
+        assert {f.fieldPath for f in schema_metadata.fields} == {"id", "name"}
+        assert source.report.num_volume_file_schemas_inferred == 1
+
+    def test_process_volume_file_schema_skipped_for_unsupported_extension(self) -> None:
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/notes.bin",
+            dbfs_path="/Volumes/c/s/landing/raw/notes.bin",
+            file_size=8,
+            last_modified=None,
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        for wu in source.process_volume_file(volume_file, folder_key):
+            assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+        assert source.report.num_volume_file_schema_skipped == 1
+
+    def test_process_volume_file_schema_skipped_when_download_exceeds_cap(self) -> None:
+        # file_size is unknown, so the byte cap can only be enforced by inspecting the
+        # downloaded content; a file larger than the cap must be skipped, not inferred
+        # from a truncated read.
+        source = self._build_source(
+            include_volume_files=True,
+            include_volume_file_schemas=True,
+            volume_file_schema_max_bytes=4,
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=None,
+            last_modified=None,
+        )
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: BytesIO(b"id,name\n1,alice\n")
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        for wu in source.process_volume_file(volume_file, folder_key):
+            assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+        assert source.report.num_volume_file_schema_too_large == 1
+        assert source.report.num_volume_file_schemas_inferred == 0
+
+    def test_process_volume_file_schema_download_failure_counts(self) -> None:
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=16,
+            last_modified=None,
+        )
+        source.unity_catalog_api_proxy.download_volume_file = (  # type: ignore[assignment]
+            lambda dbfs_path, max_bytes: None
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        emitted_props = False
+        for wu in source.process_volume_file(volume_file, folder_key):
+            assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+            if wu.get_aspect_of_type(DatasetPropertiesClass) is not None:
+                emitted_props = True
+        # The dataset is still emitted; only its schema is missing.
+        assert emitted_props
+        assert source.report.num_volume_file_schema_inference_failed == 1
+
+    def test_process_volume_file_schema_inferrer_load_failure_emits_without_schema(
+        self,
+    ) -> None:
+        # A missing optional format dependency makes inferrer construction raise; the
+        # file dataset must still be emitted (without a schema) rather than aborting.
+        source = self._build_source(
+            include_volume_files=True, include_volume_file_schemas=True
+        )
+        volume, _ = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="raw/events.csv",
+            dbfs_path="/Volumes/c/s/landing/raw/events.csv",
+            file_size=16,
+            last_modified=None,
+        )
+        folder_key = source.gen_volume_folder_key(volume, "raw")
+        emitted_props = False
+        with patch.object(
+            source,
+            "_volume_file_schema_inferrer",
+            side_effect=ImportError("tableschema is not installed"),
+        ):
+            for wu in source.process_volume_file(volume_file, folder_key):
+                assert wu.get_aspect_of_type(SchemaMetadataClass) is None
+                if wu.get_aspect_of_type(DatasetPropertiesClass) is not None:
+                    emitted_props = True
+        assert emitted_props
+        assert source.report.num_volume_file_schema_inference_failed == 1
+
+    def test_include_volume_file_schemas_requires_include_volume_files(self) -> None:
+        with pytest.raises(
+            Exception, match="include_volume_file_schemas requires include_volume_files"
+        ):
+            UnityCatalogSourceConfig.model_validate(
+                {
+                    "token": "test_token",
+                    "workspace_url": "https://test.databricks.com",
+                    "warehouse_id": "test_warehouse",
+                    "include_hive_metastore": False,
+                    "include_volume_file_schemas": True,
+                    "include_volume_files": False,
+                }
+            )
+
+    def test_volume_file_urn_bounded_to_dataset_name_limit(self) -> None:
+
+        source = self._build_source(include_volume_files=True)
+        volume, schema = self._build_volume()
+        relative_path = "dir/" + ("x" * 250) + "/file.parquet"
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path=relative_path,
+            dbfs_path=f"/Volumes/c/s/landing/{relative_path}",
+            file_size=1,
+            last_modified=None,
+        )
+        full_name = f"{volume.ref}/{relative_path}"
+        assert len(full_name) > _DATASET_URN_NAME_MAX_LENGTH
+        bounded = _bounded_dataset_name(full_name)
+        assert len(bounded) == _DATASET_URN_NAME_MAX_LENGTH
+
+        # True collision risk: two names that share the same prefix well past the
+        # truncation point and differ only in a suffix that the prefix slice
+        # discards. The digest (hashed over the full name) must keep them apart.
+        shared_prefix = f"{volume.ref}/dir/" + ("z" * 250)
+        collide_a = _bounded_dataset_name(shared_prefix + "/alpha.parquet")
+        collide_b = _bounded_dataset_name(shared_prefix + "/beta.parquet")
+        prefix_a, digest_a = collide_a.rsplit(".", 1)
+        prefix_b, digest_b = collide_b.rsplit(".", 1)
+        # Truncated prefixes are byte-identical; only the appended digest differs.
+        assert prefix_a == prefix_b
+        assert digest_a != digest_b
+        assert collide_a != collide_b
+        assert bounded in source.gen_volume_file_urn(volume_file)
+        props = None
+        for wu in source.process_volume_file(
+            volume_file, source.gen_volume_key(volume)
+        ):
+            found = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if found is not None:
+                props = found
+                break
+        assert props is not None
+        assert props.qualifiedName == volume_file.qualified_name
+
+    def test_bounded_dataset_name_case_folds_before_hashing(self) -> None:
+        long_path = "c.s.vol/dir/" + ("X" * 250) + "/File.parquet"
+        assert len(long_path) > _DATASET_URN_NAME_MAX_LENGTH
+        # With lower-cased URNs, case-only variants must collapse to one bounded
+        # name; the flag is read on mce_builder at call time, so patch it there.
+        with patch.object(mce_builder, "DATASET_URN_TO_LOWER", True):
+            assert _bounded_dataset_name(long_path) == _bounded_dataset_name(
+                long_path.lower()
+            )
+        # Without lower-casing, the two remain distinct.
+        with patch.object(mce_builder, "DATASET_URN_TO_LOWER", False):
+            assert _bounded_dataset_name(long_path) != _bounded_dataset_name(
+                long_path.lower()
+            )
+
+    def test_volume_file_pattern_drops(self) -> None:
+        source = self._build_source(
+            include_volume_files=True,
+            volume_file_pattern={"deny": [r".*\.tmp"]},
+        )
+        volume, schema = self._build_volume()
+        volume_file = VolumeFile(
+            volume=volume,
+            relative_path="scratch.tmp",
+            dbfs_path="/Volumes/c/s/landing/scratch.tmp",
+            file_size=1,
+            last_modified=None,
+        )
+
+        def _files(volume, max_results, allowed=None):
+            if allowed is None or allowed(volume_file.qualified_name):
+                yield volume_file
+
+        source.unity_catalog_api_proxy.volume_files = _files  # type: ignore[assignment]
+        assert list(source.process_volume_files(volume)) == []
+        assert list(source.report.volume_files.dropped_entities) == [
+            volume_file.qualified_name
+        ]
