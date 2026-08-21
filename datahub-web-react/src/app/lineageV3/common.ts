@@ -72,6 +72,28 @@ export interface LineageEntity extends NodeBase {
     boundingBoxLimit?: number;
 }
 
+/**
+ * Whether a node advertises that it may be hiding lineage in one direction, by rendering either an
+ * expand control -- its lineage is unfetched, loading, or contracted -- or a contract control that
+ * reports only some of its children as shown. A column's lineage can only be hidden if its node's
+ * is, so the column lineage controls follow this.
+ *
+ * Kept in sync with the controls `NodeContents` renders.
+ */
+export function mayHideLineage(
+    direction: LineageDirection,
+    { fetchStatus, isExpanded }: Pick<LineageEntity, 'fetchStatus' | 'isExpanded'>,
+    hasChildren: boolean,
+    hasFilteredChildren: boolean,
+): boolean {
+    if (!hasChildren) return false;
+    const isComplete = fetchStatus[direction] === FetchStatus.COMPLETE;
+    const showsExpandControl =
+        [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[direction]) ||
+        (isComplete && !isExpanded[direction]);
+    return showsExpandControl || (isComplete && hasFilteredChildren);
+}
+
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
 const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
@@ -321,6 +343,21 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setOutputPortsOnly: () => {},
 });
 
+/**
+ * Urns of the entities drawn as a single node with `urn`, i.e. its siblings -- a dbt model and the
+ * warehouse table it produces, say. Both shapes are read, as the lineage query populates
+ * `siblingsSearch` for a combined entity and `siblings` for a separated one.
+ */
+export function getSiblingUrns(urn: Urn, nodes: NodeContext['nodes']): Urn[] {
+    const properties = nodes.get(urn)?.entity?.genericEntityProperties;
+    return [
+        ...(properties?.siblings?.siblings ?? []),
+        ...(properties?.siblingsSearch?.searchResults?.map((result) => result?.entity) ?? []),
+    ]
+        .map((sibling) => sibling?.urn)
+        .filter((siblingUrn): siblingUrn is Urn => !!siblingUrn);
+}
+
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
     if (node.type === LINEAGE_FILTER_TYPE) return [node.parent];
     if (!node.direction) return [];
@@ -380,6 +417,14 @@ export function buildHighlightAdjacencyList(
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
 export type FineGrainedLineage = { downstream: FineGrainedLineageMap; upstream: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
+/**
+ * How many of a column's related columns are rendered on the graph, per direction. A direction is
+ * absent when the column lineage traversal never went that way, i.e. nothing is known about that
+ * side of the column.
+ */
+export type ShownRelatedCounts = Partial<Record<LineageDirection, number>>;
+/** `ShownRelatedCounts` for the hovered / selected column and every column related to it. */
+export type ShownRelatedColumns = Map<ColumnRef, ShownRelatedCounts>;
 
 interface DisplayContext {
     // Params
@@ -399,6 +444,7 @@ interface DisplayContext {
     highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
     cllHighlightedNodes: Map<Urn, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
+    shownRelatedColumns: ShownRelatedColumns;
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
     fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
@@ -419,6 +465,7 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     highlightedNodes: new Set(),
     cllHighlightedNodes: new Map(),
     highlightedColumns: new Map(),
+    shownRelatedColumns: new Map(),
     highlightedEdges: new Set(),
     fineGrainedLineage: {
         downstream: new Map(),
