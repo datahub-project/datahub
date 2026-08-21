@@ -313,7 +313,7 @@ def raise_incident(
     an issue (e.g. a failing assertion, stale data, or a broken pipeline) to
     make the problem visible to the asset's owners and consumers.
 
-    âš ï¸  IMPORTANT: Before calling this tool, you SHOULD confirm with the user
+    ⚠️  IMPORTANT: Before calling this tool, you SHOULD confirm with the user
     that they want to raise this incident. Present the title, description, and
     affected asset, and ask for their approval before proceeding.
 
