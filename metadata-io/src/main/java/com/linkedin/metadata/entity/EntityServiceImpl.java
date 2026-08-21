@@ -3563,11 +3563,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
     }
 
-    // Hard delete wipes all aspects in one shot; capture propertyDefinition before deleteUrn so
-    // PropertyDefinitionDeleteSideEffect can scroll ES and emit PATCH REMOVE MCPs (see
-    // docs/api/tutorials/structured-properties.md).
+    // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
+    // effects before deleteUrn. Structured properties: PropertyDefinitionDeleteSideEffect.
+    // Data products: DataProductAssetsSideEffect scrubs asset-side dataProducts membership.
     final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
         new PropertyDefinitionBeforeHardDelete();
+    final DataProductPropertiesBeforeHardDelete dataProductPropertiesBeforeHardDelete =
+        new DataProductPropertiesBeforeHardDelete();
 
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
@@ -3732,21 +3734,37 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // If this is the key aspect, delete the entity entirely.
                           // If Using CDCs, need to ensure key aspect is the deleted last.
                           if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
-                            try {
-                              SystemAspect definitionAspect =
-                                  aspectDao.getLatestAspect(
-                                      opContext,
-                                      urn,
-                                      STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-                                      false);
+                            SystemAspect definitionAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext,
+                                    urn,
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    false);
+                            if (definitionAspect != null) {
                               propertyDefinitionBeforeHardDelete.definition =
                                   definitionAspect.getRecordTemplate();
                               propertyDefinitionBeforeHardDelete.metadata =
                                   definitionAspect.getSystemMetadata();
-                            } catch (EntityNotFoundException e) {
+                            } else {
                               log.debug(
                                   "No {} aspect to capture before hard delete of {}",
                                   STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                  urn);
+                            }
+                          }
+                          if (DATA_PRODUCT_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+                            SystemAspect propertiesAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext, urn, DATA_PRODUCT_PROPERTIES_ASPECT_NAME, false);
+                            if (propertiesAspect != null) {
+                              dataProductPropertiesBeforeHardDelete.properties =
+                                  propertiesAspect.getRecordTemplate();
+                              dataProductPropertiesBeforeHardDelete.metadata =
+                                  propertiesAspect.getSystemMetadata();
+                            } else {
+                              log.debug(
+                                  "No {} aspect to capture before hard delete of {}",
+                                  DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
                                   urn);
                             }
                           }
@@ -3851,6 +3869,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 null,
                 propertyDefinitionBeforeHardDelete.definition,
                 propertyDefinitionBeforeHardDelete.metadata));
+      }
+      if (dataProductPropertiesBeforeHardDelete.properties != null) {
+        mclsForSideEffects.add(
+            constructMCL(
+                null,
+                urnToEntityName(entityUrn),
+                entityUrn,
+                ChangeType.DELETE,
+                DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                auditStamp,
+                null,
+                null,
+                dataProductPropertiesBeforeHardDelete.properties,
+                dataProductPropertiesBeforeHardDelete.metadata));
       }
       mclsForSideEffects.add(result.toMCL(auditStamp));
       processPostCommitMCLSideEffects(opContext, mclsForSideEffects);
@@ -4891,6 +4923,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /** Mutable holder for propertyDefinition captured inside a transaction lambda. */
   private static final class PropertyDefinitionBeforeHardDelete {
     private RecordTemplate definition;
+    private SystemMetadata metadata;
+  }
+
+  /** Mutable holder for dataProductProperties captured inside a transaction lambda. */
+  private static final class DataProductPropertiesBeforeHardDelete {
+    private RecordTemplate properties;
     private SystemMetadata metadata;
   }
 }
