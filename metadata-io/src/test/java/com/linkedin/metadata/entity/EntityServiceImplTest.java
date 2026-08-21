@@ -4,12 +4,15 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -42,6 +45,8 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -52,6 +57,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -100,6 +106,7 @@ public class EntityServiceImplTest {
   private EntityServiceImpl entityService;
   private MetadataChangeProposal testMCP;
   private AspectDao mockAspectDao;
+  private final MetricUtils metricUtils = mock(MetricUtils.class);
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -111,12 +118,9 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mock(AspectDao.class),
             mockEventProducer,
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            null);
+            testConfig(),
+            metricUtils);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
@@ -519,12 +523,9 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mock(AspectDao.class),
             mockEventProducer,
-            true, // alwaysEmitChangeLog set to true
-            false, // cdcModeChangeLog set to false
             mock(PreProcessHooks.class),
-            0,
-            true,
-            null); // metricUtils
+            testConfig(true, false),
+            metricUtils);
 
     RecordTemplate sameAspect = newAspect;
 
@@ -669,6 +670,46 @@ public class EntityServiceImplTest {
   }
 
   @Test
+  public void testApplyPostCommitMcpSideEffectsDeletesSyncUpsertsAsync() {
+    EntityServiceImpl entityServiceSpy = spy(entityService);
+    doReturn(Stream.empty())
+        .when(entityServiceSpy)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+    doReturn(Optional.empty())
+        .when(entityServiceSpy)
+        .deleteAspect(any(), anyString(), anyString(), any(), anyBoolean());
+
+    Urn fieldUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_a)");
+    MCPItem deleteItem = mock(MCPItem.class);
+    when(deleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteItem.getUrn()).thenReturn(fieldUrn);
+    when(deleteItem.getAspectName()).thenReturn(DOMAINS_ASPECT_NAME);
+
+    MCPItem keyDeleteItem = mock(MCPItem.class);
+    when(keyDeleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(keyDeleteItem.getUrn()).thenReturn(fieldUrn);
+    when(keyDeleteItem.getAspectName()).thenReturn(SCHEMA_FIELD_KEY_ASPECT);
+
+    MCPItem upsertItem = mock(MCPItem.class);
+    when(upsertItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(upsertItem.getUrn()).thenReturn(fieldUrn);
+    when(upsertItem.getAspectName()).thenReturn(STATUS_ASPECT_NAME);
+
+    entityServiceSpy.applyPostCommitMcpSideEffects(
+        opContext, List.of(deleteItem, keyDeleteItem, upsertItem));
+
+    verify(entityServiceSpy, times(1))
+        .deleteAspect(
+            eq(opContext), eq(fieldUrn.toString()), eq(DOMAINS_ASPECT_NAME), any(), eq(false));
+    verify(entityServiceSpy, times(1))
+        .deleteAspect(
+            eq(opContext), eq(fieldUrn.toString()), eq(SCHEMA_FIELD_KEY_ASPECT), any(), eq(true));
+    verify(entityServiceSpy, times(1)).ingestProposalAsync(eq(opContext), any(AspectsBatch.class));
+  }
+
+  @Test
   public void testIngestTimeseriesProposalUnsupported() {
     // Create a spy of the EntityServiceImpl to track method calls
     EntityServiceImpl entityServiceSpy = spy(entityService);
@@ -730,7 +771,12 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -742,7 +788,11 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                mock(PreProcessHooks.class),
+                testConfig(false, false),
+                metricUtils));
 
     // Mock ingestProposalSync to capture default aspects
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
@@ -811,7 +861,12 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -823,7 +878,11 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                mock(PreProcessHooks.class),
+                testConfig(false, false),
+                metricUtils));
 
     // Simply stub the method without capturing
     doReturn(Stream.empty())
@@ -923,7 +982,12 @@ public class EntityServiceImplTest {
                 // Third batch with another success aspect
                 Stream.of(anotherSuccessAspect)));
 
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -937,17 +1001,13 @@ public class EntityServiceImplTest {
             any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
-    // Create EntityServiceImpl with mocks
     EntityServiceImpl entityService =
         new EntityServiceImpl(
             mockAspectDao,
             mockEventProducer,
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            null);
+            testConfig(),
+            metricUtils);
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -990,12 +1050,9 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mockAspectDao,
             mockEventProducer,
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            null);
+            testConfig(),
+            metricUtils);
 
     // Create test inputs
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -1068,12 +1125,9 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mockAspectDao,
             mock(EventProducer.class),
-            false,
-            false,
             mock(PreProcessHooks.class),
-            0,
-            true,
-            null);
+            testConfig(),
+            metricUtils);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
     String aspectName = STATUS_ASPECT_NAME;
@@ -1150,7 +1204,12 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -1162,7 +1221,11 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                mock(PreProcessHooks.class),
+                testConfig(false, false),
+                metricUtils));
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -1399,12 +1462,9 @@ public class EntityServiceImplTest {
             new EntityServiceImpl(
                 mockAspectDao,
                 mockEventProducer,
-                false,
-                false,
                 mock(PreProcessHooks.class),
-                0,
-                true,
-                null));
+                testConfig(),
+                metricUtils));
 
     // Create test data
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
@@ -1475,12 +1535,9 @@ public class EntityServiceImplTest {
             new EntityServiceImpl(
                 mockAspectDao,
                 mock(EventProducer.class),
-                false,
-                false,
                 mock(PreProcessHooks.class),
-                0,
-                true,
-                null));
+                testConfig(),
+                metricUtils));
     doReturn(Stream.empty())
         .when(service)
         .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
@@ -1596,5 +1653,155 @@ public class EntityServiceImplTest {
     inOrder
         .verify(mockAspectDao)
         .deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString()));
+  }
+
+  // Shared setup for the applyRetentionPostCommit tests below — postCommitRetentionEnabled is the
+  // only ctor difference between them; the upsert result and metric-bearing context are identical.
+  private EntityServiceImpl newPostCommitService(boolean postCommitEnabled) {
+    return new EntityServiceImpl(
+        mock(AspectDao.class),
+        mock(EventProducer.class),
+        mock(PreProcessHooks.class),
+        testConfig(false, postCommitEnabled),
+        metricUtils);
+  }
+
+  // Common EntityServiceConfiguration used across most tests: change-log and post-commit retention
+  // off, browse v2 on, no retry. The overload surfaces the two flags that diverge from this
+  // baseline
+  // (alwaysEmitChangeLog / postCommitRetentionEnabled) at the call site.
+  private static EntityServiceConfiguration testConfig() {
+    return testConfig(false, false);
+  }
+
+  private static EntityServiceConfiguration testConfig(
+      boolean alwaysEmitChangeLog, boolean postCommitRetentionEnabled) {
+    return new EntityServiceConfiguration()
+        .setAlwaysEmitChangeLog(alwaysEmitChangeLog)
+        .setCdcModeChangeLog(false)
+        .setRetry(0)
+        .setEnableBrowseV2(true)
+        .setPostCommitRetentionEnabled(postCommitRetentionEnabled);
+  }
+
+  private UpdateAspectResult postCommitUpsertResult() {
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+    return UpdateAspectResult.builder()
+        .urn(TEST_URN)
+        .request(request)
+        .oldValue(oldAspect)
+        .newValue(newAspect)
+        .maxVersion(2L)
+        .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+        .auditStamp(TEST_AUDIT_STAMP)
+        .build();
+  }
+
+  private OperationContext contextWithMetrics(MetricUtils metricUtils) {
+    return opContext.toBuilder()
+        .systemTelemetryContext(
+            SystemTelemetryContext.builder()
+                .tracer(SystemTelemetryContext.TEST.getTracer())
+                .metricUtils(metricUtils)
+                .build())
+        .build(opContext.getSystemActorContext().getAuthentication(), false);
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitFailureDoesNotPropagate() {
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    doThrow(new RuntimeException("retention delete failed"))
+        .when(retentionService)
+        .applyRetentionWithPolicyDefaults(any(), any());
+    entityService.setRetentionService(retentionService);
+
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext = contextWithMetrics(mockMetricUtils);
+
+    entityService.applyRetentionPostCommit(testContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitSkippedWhenFlagDisabled() {
+    EntityServiceImpl entityService = newPostCommitService(false);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitDefersToBufferWhenPresent() {
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
+    when(retentionBuffer.defersApply()).thenReturn(true);
+    entityService.setRetentionBuffer(retentionBuffer);
+
+    entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionBuffer, times(1))
+        .enqueue(eq(opContext), eq(TEST_URN), eq(STATUS_ASPECT_NAME), eq(2L));
+    verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitNullBufferFallsBackToSync() {
+    // Mirrors EntityServiceFactory: setRetentionBuffer(getIfAvailable()) when no bean → null.
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+    entityService.setRetentionBuffer(null);
+
+    entityService.applyRetentionPostCommit(opContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitBufferThrowDoesNotPropagate() {
+    // Outer safety net: a throw from the deferred-buffer path (now the primary prod path) must be
+    // swallowed. The upsert + MCL emit already happened, so an escaping exception here would fail
+    // the ingest call and trigger a full retry -> duplicate MCL emission.
+    EntityServiceImpl entityService = newPostCommitService(true);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
+    when(retentionBuffer.defersApply()).thenReturn(true);
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext = contextWithMetrics(mockMetricUtils);
+    doThrow(new RuntimeException("enqueue exploded"))
+        .when(retentionBuffer)
+        .enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
+    entityService.setRetentionBuffer(retentionBuffer);
+
+    // Must not throw.
+    entityService.applyRetentionPostCommit(testContext, List.of(postCommitUpsertResult()));
+
+    verify(retentionBuffer, times(1)).enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
   }
 }

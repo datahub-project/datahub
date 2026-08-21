@@ -37,7 +37,11 @@ export default function ValueName({ field, value }: Props) {
             return <>{getTextFieldName(field, value)}</>;
         case FieldType.ENTITY:
             return (
-                <>{(value.entity && entityRegistry.getDisplayName(value.entity?.type, value.entity)) || undefined}</>
+                <>
+                    {(value.entity && entityRegistry.getDisplayName(value.entity.type, value.entity)) ||
+                        value.displayName ||
+                        value.value}
+                </>
             );
         case FieldType.ENTITY_TYPE:
         case FieldType.NESTED_ENTITY_TYPE:

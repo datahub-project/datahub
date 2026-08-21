@@ -81,7 +81,8 @@ public class SemanticEntitySearchServiceTest {
     mappingsBuilder = new NoOpMappingsBuilder();
 
     // Setup basic mock behavior
-    when(mockIndexConvention.getEntityIndexName(TEST_ENTITY_NAME)).thenReturn(TEST_BASE_INDEX);
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, TEST_ENTITY_NAME))
+        .thenReturn(TEST_BASE_INDEX);
     when(mockEmbeddingProvider.embed(anyString(), any(), any(EmbeddingTaskType.class)))
         .thenReturn(TEST_EMBEDDING);
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
@@ -224,6 +225,27 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
+  public void testSearchAppliesMinScoreFloor() throws IOException {
+    setupMockKnnResponse(
+        Arrays.asList(
+            "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:test,table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:test,table3,PROD)"),
+        Arrays.asList(0.95, 0.80, 0.50));
+    when(mockSearchFlags.getMinScore()).thenReturn(0.75f);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    // the 0.50 hit is below the 0.75 floor and is dropped; 0.95 and 0.80 remain
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertEquals(result.getEntities().size(), 2);
+    assertTrue(result.getEntities().stream().allMatch(e -> e.getScore() >= 0.75));
+  }
+
+  @Test
   public void testSearchPaginationBeyondResults() throws IOException {
     // Setup mock response with 1 hit
     setupMockKnnResponse(
@@ -295,8 +317,10 @@ public class SemanticEntitySearchServiceTest {
   @Test
   public void testSearchMultipleEntityTypes() throws IOException {
     // Setup multiple entity types
-    when(mockIndexConvention.getEntityIndexName("dataset")).thenReturn("datasetindex_v2");
-    when(mockIndexConvention.getEntityIndexName("chart")).thenReturn("chartindex_v2");
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, "dataset"))
+        .thenReturn("datasetindex_v2");
+    when(mockIndexConvention.getEntityIndexName(mockOpContext, "chart"))
+        .thenReturn("chartindex_v2");
 
     setupMockKnnResponse(
         List.of("urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)"), List.of(0.95));
@@ -358,6 +382,7 @@ public class SemanticEntitySearchServiceTest {
     extraFields.add("name");
     extraFields.add("platform");
     extraFields.add("qualifiedName");
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
 
     SearchResult result =
         service.search(
@@ -368,10 +393,15 @@ public class SemanticEntitySearchServiceTest {
 
     SearchEntity entity = result.getEntities().get(0);
     assertNotNull(entity.getExtraFields());
-    assertTrue(entity.getExtraFields().size() > 0);
     assertTrue(entity.getExtraFields().containsKey("name"));
     assertTrue(entity.getExtraFields().containsKey("platform"));
     assertTrue(entity.getExtraFields().containsKey("qualifiedName"));
+
+    ArgumentCaptor<KnnSearchRequest> requestCaptor =
+        ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
+    assertTrue(requestCaptor.getValue().fieldsToFetch().containsAll(extraFields));
+    assertTrue(requestCaptor.getValue().fieldsToFetch().contains("urn"));
   }
 
   @Test

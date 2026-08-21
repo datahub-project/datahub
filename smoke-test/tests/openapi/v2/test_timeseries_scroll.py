@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Optional, Set
 
 import pytest
 
+from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
+
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 # Test configuration
 TEST_ENTITY_NAME = "dataset"
@@ -41,12 +46,22 @@ def create_dataset_profile(
 def ingest_profile(
     auth_session, timestamp_millis: int, row_count: int, message_id: str
 ) -> None:
-    """Ingest a single dataset profile via OpenAPI v3."""
+    """Ingest a single dataset profile via OpenAPI v3.
+
+    datasetProfile is a timeseries aspect: EntityServiceImpl.ingestTimeseriesProposal
+    always calls produceMCLAsync for it regardless of the async=false param here
+    (that flag only affects the non-timeseries key-aspect path), so this write
+    still goes through Kafka MCL and needs a real wait -- see
+    setup_timeseries_data, which waits once after all profiles are ingested.
+    Uses raw_post to skip TestSessionWrapper's per-call automatic
+    wait_for_writes_to_sync(), since only the combined state after all
+    profiles matters.
+    """
     url = f"{auth_session.gms_url()}/openapi/v3/entity/dataset/{TEST_DATASET_URN.replace(':', '%3A').replace('(', '%28').replace(')', '%29').replace(',', '%2C')}/datasetProfile"
     params = {"createIfNotExists": "false", "async": "false"}
     payload = create_dataset_profile(timestamp_millis, row_count, message_id)
 
-    response = auth_session.post(url, params=params, json=payload)
+    response = auth_session.raw_post(url, params=params, json=payload)
     assert response.status_code in [200, 201, 202], (
         f"Failed to ingest profile: {response.text}"
     )
@@ -103,8 +118,10 @@ def setup_timeseries_data(auth_session):
             f"Created profile {i}: timestamp={timestamp}, messageId={message_id}"
         )
 
-    # Wait for ES to index
-    time.sleep(3)
+    # Each profile's MCL was produced without waiting individually (see
+    # ingest_profile); wait once here for all of them to be consumed and
+    # indexed. No timeseries-only scope exists, so use the default (broadest).
+    wait_for_writes_to_sync()
 
     yield {
         "base_timestamp": base_timestamp,

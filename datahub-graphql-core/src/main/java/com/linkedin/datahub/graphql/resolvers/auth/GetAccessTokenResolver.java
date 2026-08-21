@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.token.StatelessTokenService;
@@ -19,6 +20,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver for generating personal & service principal access tokens */
@@ -26,9 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<AccessToken>> {
 
   private final StatelessTokenService _tokenService;
+  private final AccessTokenConfiguration _accessTokenConfiguration;
 
-  public GetAccessTokenResolver(final StatelessTokenService tokenService) {
+  public GetAccessTokenResolver(
+      final StatelessTokenService tokenService,
+      @Nonnull final AccessTokenConfiguration accessTokenConfiguration) {
     _tokenService = tokenService;
+    _accessTokenConfiguration = accessTokenConfiguration;
   }
 
   @Override
@@ -48,7 +54,9 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
                         .toString()); // warn: if we are out of sync with AccessTokenType there are
             // problems.
             final String actorUrn = input.getActorUrn();
-            final Optional<Long> expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
+            final Optional<Long> expiresInMs =
+                AccessTokenDurationPolicy.resolveExpiresInMs(
+                    _accessTokenConfiguration, input.getDuration(), input.getDurationIso());
             final String accessToken =
                 _tokenService.generateAccessToken(
                     type, createActor(input.getType(), actorUrn), expiresInMs.orElse(null));

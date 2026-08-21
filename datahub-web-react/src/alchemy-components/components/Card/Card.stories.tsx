@@ -99,6 +99,34 @@ const meta = {
                 type: 'boolean',
             },
         },
+        size: {
+            description: 'Compact (`sm`) or default (`md`) card sizing',
+            table: {
+                defaultValue: { summary: `${cardDefaults.size}` },
+            },
+            control: {
+                type: 'select',
+            },
+            options: ['sm', 'md'],
+        },
+        collapsible: {
+            description: 'Whether the card body can expand and collapse',
+            table: {
+                defaultValue: { summary: `${cardDefaults.collapsible}` },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        defaultExpanded: {
+            description: 'Initial expanded state when uncontrolled',
+            table: {
+                defaultValue: { summary: `${cardDefaults.defaultExpanded}` },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
     },
 
     // Define default args
@@ -107,6 +135,9 @@ const meta = {
         subTitle: 'Subtitle',
         iconAlignment: 'horizontal',
         isEmpty: false,
+        size: 'md',
+        collapsible: false,
+        defaultExpanded: true,
     },
 } satisfies Meta<typeof Card>;
 
@@ -152,6 +183,47 @@ export const withButton = () => (
 );
 
 export const withPercentPill = () => <Card title="Title" subTitle="Subtitle" percent={2} />;
+
+export const small = () => (
+    <Card
+        size="sm"
+        title="Judges Reasoning"
+        pillLabel="Judge check — LLM-based"
+        subTitle="The agent's query adds an unwarranted filter that restricts the count to machine-translation events only."
+        width="480px"
+    />
+);
+
+export const sizes = () => (
+    <GridList>
+        <Card size="sm" title="Small" subTitle="Compact card with smaller title and padding" pillLabel="Label" />
+        <Card size="md" title="Medium" subTitle="Default card sizing" pillLabel="Label" />
+    </GridList>
+);
+
+export const collapsible = () => (
+    <GridList>
+        <Card
+            collapsible
+            defaultExpanded
+            title="Judges Reasoning"
+            pillLabel="Judge check — LLM-based"
+            subTitle="The agent's query adds an unwarranted filter that restricts the count to machine-translation events only."
+            width="480px"
+        />
+        <Card
+            collapsible
+            defaultExpanded={false}
+            size="sm"
+            title="Collapsed by default"
+            pillLabel="Details"
+            subTitle="Expand to read the full reasoning."
+            width="480px"
+        >
+            <div style={{ backgroundColor: colors.gray[1000], padding: '8px 16px' }}>Additional details</div>
+        </Card>
+    </GridList>
+);
 
 export const withAllTheElements = () => (
     <Card

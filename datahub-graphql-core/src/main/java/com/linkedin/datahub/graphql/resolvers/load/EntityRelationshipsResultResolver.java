@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME;
@@ -41,6 +42,7 @@ import io.datahubproject.metadata.context.ActorContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -93,6 +95,12 @@ public class EntityRelationshipsResultResolver
     if (context == null) {
       return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
     }
+    // Restricted documents keep urn/type after mapper redaction; do not disclose relationships.
+    final Urn sourceUrn = UrnUtils.getUrn(urn);
+    if (DOCUMENT_ENTITY_NAME.equals(sourceUrn.getEntityType())
+        && !canView(context.getOperationContext(), sourceUrn)) {
+      return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
+    }
     if (context
         .getRelationshipTraversalContext()
         .filter(traversal -> !traversal.tryVisit(urn))
@@ -108,8 +116,14 @@ public class EntityRelationshipsResultResolver
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
     final boolean includeSoftDelete = input.getIncludeSoftDelete();
+    // Normalize case so callers may pass entity types in the GraphQL enum form ("DATASET") or
+    // the entity-registry form ("dataset", "dataHubPolicy"); Urn.getEntityType() is lowercase.
     final Set<String> relatedEntityTypes =
-        input.getRelatedEntityTypes() == null ? null : new HashSet<>(input.getRelatedEntityTypes());
+        input.getRelatedEntityTypes() == null
+            ? null
+            : input.getRelatedEntityTypes().stream()
+                .map(type -> type.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
 
     if (isDomainDirectChildDomainsQuery(urn, relationshipTypes, resolvedDirection)) {
       return GraphQLConcurrencyUtils.supplyAsync(
@@ -607,7 +621,8 @@ public class EntityRelationshipsResultResolver
                 rel ->
                     (existentUrns == null || existentUrns.contains(rel.getEntity()))
                         && (relatedEntityTypes == null
-                            || relatedEntityTypes.contains(rel.getEntity().getEntityType()))
+                            || relatedEntityTypes.contains(
+                                rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
                         && (context == null
                             || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());

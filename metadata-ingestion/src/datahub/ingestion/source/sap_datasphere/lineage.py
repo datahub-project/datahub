@@ -39,6 +39,17 @@ from datahub.ingestion.source.sap_datasphere.models import (
     dedup_preserving_order,
 )
 
+
+def is_qualified(name: str) -> bool:
+    # A dotted target is already space-qualified (cross-space or a built-in
+    # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
+    # Dot-heuristic, not a real parse: a same-space object whose technical name
+    # legitimately contains a dot would be mis-treated as already-qualified, but
+    # Datasphere technical names are effectively alphanumeric/underscore so this
+    # is not observed in practice. Shared by query-FROM and business-layer keys.
+    return "." in name
+
+
 # CDS navigation element types — both name a target entity for lineage purposes.
 _NAVIGATION_TYPES = frozenset({CSN_TYPE_ASSOCIATION, CSN_TYPE_COMPOSITION})
 
@@ -161,7 +172,7 @@ class CsnLineageExtractor:
             if from_clause is not None:
                 self._walk_from(from_clause, names)
         return [
-            UpstreamRef(name=name, qualified=self._is_qualified(name))
+            UpstreamRef(name=name, qualified=is_qualified(name))
             for name in dedup_preserving_order(names)
         ]
 
@@ -278,7 +289,7 @@ class CsnLineageExtractor:
                     target = association_map[alias]
                     out.append(
                         UpstreamColRef(
-                            qname=target, col=col, qualified=self._is_qualified(target)
+                            qname=target, col=col, qualified=is_qualified(target)
                         )
                     )
                 elif alias in alias_map:
@@ -318,16 +329,6 @@ class CsnLineageExtractor:
                     visited,
                     association_map,
                 )
-
-    @staticmethod
-    def _is_qualified(name: str) -> bool:
-        # A dotted target is already space-qualified (cross-space or a built-in
-        # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
-        # Dot-heuristic, not a real parse: a same-space object whose technical name
-        # legitimately contains a dot would be mis-treated as already-qualified, but
-        # Datasphere technical names are effectively alphanumeric/underscore so this
-        # is not observed in practice.
-        return "." in name
 
     def _resolve_projection_ref(
         self,
@@ -590,9 +591,7 @@ class CsnLineageExtractor:
             if target in seen:
                 continue
             seen.add(target)
-            targets.append(
-                UpstreamRef(name=target, qualified=self._is_qualified(target))
-            )
+            targets.append(UpstreamRef(name=target, qualified=is_qualified(target)))
         return targets
 
     def remote_source(self, csn_def: dict) -> Optional[str]:

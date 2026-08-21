@@ -20,7 +20,9 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 
 ```bash
 ./gradlew build           # Build entire project
-./gradlew check           # Run all tests and linting
+./gradlew check           # Run all tests (Python/JS lint lives in lint-jobs.yml / :module:lint)
+./gradlew lintCheck       # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix         # Auto-fix all lint issues
 ./gradlew format          # Format all code (Java, Markdown, GraphQL, YAML)
 
 # Note that each directory typically has a build.gradle file, but the available tasks follow similar conventions.
@@ -56,6 +58,8 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 **Format everything:**
 
 ```bash
+./gradlew lintCheck           # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix             # Auto-fix all lint issues
 ./gradlew format              # Format all code (Java, Markdown, GraphQL, YAML)
 ./gradlew formatChanged       # Format only changed files (faster)
 ```
@@ -89,7 +93,7 @@ If you see CI failures like:
 
 - `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
 - `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
-- `spotlessJavaCheck` - Use `./gradlew spotlessApply`
+- `spotless-check` - Use `./gradlew spotlessApply`
 - Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
 
 **Never do this:**
@@ -164,6 +168,17 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 - **Always implement AspectPayloadValidators** in `metadata-io/src/main/java/com/linkedin/metadata/aspect/validation/`
 - **Register as Spring beans** in `SpringStandardPluginConfiguration.java`
 - **Follow existing patterns**: See `SystemPolicyValidator.java` and `PolicyFieldTypeValidator.java` as examples
+
+### Authorization Architecture
+
+When adding an entity or API:
+
+- Enforce authorization across GraphQL, OpenAPI, and Rest.li
+- Keep basic entity CRUD permissions alongside any higher-level, entity-specific permissions
+- Use `AuthorizationUtils` for GraphQL and `AuthUtil.isAPIAuthorized*` for REST APIs
+- Put shared aspect rules in an `AbstractAspectAuthorizationValidator`
+- Apply view-based access controls by default; only set `viewUnrestricted: true` for intentionally public entities
+- Add allowed and denied access tests
 
 ## Development Flow
 
@@ -249,6 +264,7 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
   - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
+  - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
 
 ### Frontend Theming (Colors)
@@ -277,6 +293,10 @@ const theme = useTheme();
 
 - `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
 - `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
+
+### Frontend Components
+
+Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code. Files that already imported antd on the PR base (`origin/master`) are grandfathered.
 
 ### Code Comments
 
@@ -721,14 +741,6 @@ datahub graphql --agent-context
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
-## Cypress Tests (Deprecated)
-
-Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
-
-- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
-- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
-- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
-
 ## Playwright UI E2E Tests
 
 Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
@@ -773,25 +785,3 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
-
-## Learned User Preferences
-
-- In `metadata-ingestion` connector code, avoid double-quoted string literals: hoist magic strings into module-level constants, and keep all regex in the constants file pre-compiled.
-- Use Pydantic models for structured/internal data; never pass data around as tuples (hard to track).
-- Split connector files by duty (`constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`/`mapper.py`/`usage.py` as needed) and match the quality/patterns of existing connectors (Power BI, Airbyte, Redshift, BigID, Grafana).
-- No "AI slop": no top-of-file docstrings, and keep docstrings/comments only where strictly needed.
-- Never use `TYPE_CHECKING` in connector code since the connector controls its own deps (lazy imports are fine only for opt-in features), and don't use the walrus operator.
-- Prefer `self.report.warning(...)` and report counters over bare `logger` for skips and edge cases — the report also writes to the log and surfaces to operators (e.g. warn when `verify_ssl=False`, or when a referenced object is inaccessible).
-- For SQL lineage, use the central `SqlParsingAggregator` (`create_lineage_from_sql_statements`) with a platform map instead of setting sqlglot dialects per-connector; mirror existing connectors for cross-platform known-URN and platform_instance/env/casing mapping, two- vs three-part names, and temp-table handling.
-- For column-level lineage, don't leave edges coarse: resolve upstream/downstream schemas from the DataHub graph when available (as airbyte/bigid/matillion/informatica do), load known URNs from the platform/platform_instance/env mapping, and match columns case-insensitively. Best-effort is fine, but try everything.
-- In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
-- Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
-- Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
-- When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
-
-## Learned Workspace Facts
-
-- The user is a contributor to the public `datahub-project/datahub` repo and can create and push branches directly on `datahub-public-repo`.
-- A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
-- Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
-- Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.
