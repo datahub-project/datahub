@@ -30,14 +30,15 @@ _LENGTH_TYPES = {"CHAR", "VARCHAR", "NCHAR", "NVARCHAR", "LVARCHAR"}
 _PACKED_LENGTH_TYPES = {"VARCHAR", "NVARCHAR"}
 
 
-def _declared_length(native: str, collength: int) -> int:
-    if native not in _PACKED_LENGTH_TYPES:
-        return collength
-    if collength < 0:
-        collength += 65536
-    # Only the low byte (the declared maximum) is reported; the reserved minimum
-    # is a storage hint, not part of the column's size contract.
-    return collength % 256
+def _native_with_length(native: str, collength: int) -> str:
+    if native not in _LENGTH_TYPES:
+        return native
+    # Only the low byte (the declared maximum) of a packed collength is
+    # reported; the reserved minimum is a storage hint, not part of the column's
+    # size contract. Python's % already normalizes the negative wrap, so the
+    # signed SMALLINT needs no separate unwrapping step.
+    length = collength % 256 if native in _PACKED_LENGTH_TYPES else collength
+    return f"{native}({length})" if length > 0 else native
 
 
 def build_jdbc_url(config: InformixSourceConfig) -> str:
@@ -72,11 +73,8 @@ def columns_to_schema_fields(
 ) -> List[SchemaFieldClass]:
     fields: List[SchemaFieldClass] = []
     for col in columns:
-        mapped = map_coltype(col.coltype, col.extended_name, col.extended_mode)
-        native = mapped.native
-        length = _declared_length(native, col.length)
-        if native in _LENGTH_TYPES and length > 0:
-            native = f"{native}({length})"
+        mapped = map_coltype(coltype=col.coltype, extended=col.extended)
+        native = _native_with_length(mapped.native, col.length)
         if isinstance(mapped.data_type.type, NullTypeClass):
             # Checked on the resolved DataHub type rather than an "UNKNOWN" name
             # prefix: an opaque type recovered from sysxtdtypes has a real name

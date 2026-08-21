@@ -277,13 +277,25 @@
                     "nativeDataType": "VARCHAR(60)",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "bio",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(200)",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787306792341,
-        "runId": "informix-2026_08_21-12_06_31-aki6wq",
+        "lastObserved": 1787315200875,
+        "runId": "informix-2026_08_21-14_26_30-jkpj83",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -741,13 +753,49 @@
                     "nativeDataType": "MONEY_USD",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "published",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "FLAG_TYPE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "abstract",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "DOC_TEXT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "mailing_address",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "ADDRESS_T",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787307554599,
-        "runId": "informix-2026_08_21-12_19_13-a2sjfx",
+        "lastObserved": 1787315200892,
+        "runId": "informix-2026_08_21-14_26_30-jkpj83",
         "lastRunId": "no-run-id-provided"
     }
 },

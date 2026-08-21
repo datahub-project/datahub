@@ -307,6 +307,63 @@ def test_source_fails_when_every_selected_object_fails():
     assert [e for e in entities if isinstance(e, Dataset)] == []
     assert len(source.report.failures) == 1
     assert source.report.tables_scanned == 0
+    assert source.report.objects_selected == 2
+    # The escalation adds a run failure; it must not swallow the per-object
+    # warnings saying which objects failed and why. The report collapses repeats
+    # of one title into a single entry, so both objects show up as contexts.
+    per_object = [
+        w for w in source.report.warnings if "Failed to ingest table" in str(w.title)
+    ]
+    assert len(per_object) == 1
+    assert len(per_object[0].context) == 2
+
+
+class _NoViewDefinitionClient(_ViewLineageClient):
+    def get_tables(self):
+        return super().get_tables() + [
+            InformixTable(name="active_customers", owner="informix", is_view=True),
+        ]
+
+    def get_view_definition(self, table):
+        return None
+
+
+def test_source_warns_when_no_view_definition_could_be_read():
+    # sysviews returning empty for every view only bumped a counter, so a
+    # permissions problem scoped to sysviews produced no diagnostic at all --
+    # the pass 1 escalation does not cover it, the datasets still ingest fine.
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_NoViewDefinitionClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    assert [e for e in entities if isinstance(e, Dataset)]
+    assert source.report.views_without_definition == 2
+    assert len(source.report.failures) == 0
+    assert any(
+        "No view definitions could be read" in str(w.title)
+        for w in source.report.warnings
+    )
+
+
+def test_source_does_not_warn_when_some_view_definitions_are_read():
+    # One view has stored SQL and one does not, which is an ordinary catalog
+    # state rather than a systemic read failure.
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_ViewLineageClient()
+    )
+    list(source.get_workunits_internal())
+
+    assert not any(
+        "No view definitions could be read" in str(w.title)
+        for w in source.report.warnings
+    )
 
 
 def test_source_does_not_fail_when_everything_is_filtered_out():

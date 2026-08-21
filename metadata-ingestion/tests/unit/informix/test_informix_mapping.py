@@ -9,8 +9,13 @@ from datahub.ingestion.source.informix.mapping import (
     columns_to_schema_fields,
     make_table_identifier,
 )
-from datahub.ingestion.source.informix.models import InformixColumn, InformixForeignKey
+from datahub.ingestion.source.informix.models import (
+    ExtendedType,
+    InformixColumn,
+    InformixForeignKey,
+)
 from datahub.ingestion.source.informix.report import InformixSourceReport
+from datahub.metadata.schema_classes import BooleanTypeClass, StringTypeClass
 
 
 def test_build_jdbc_url():
@@ -117,21 +122,46 @@ def test_columns_to_schema_fields_uses_extended_type_name():
             coltype=40,
             length=4000,
             colno=1,
-            extended_name="lvarchar",
-            extended_mode="B",
+            extended=ExtendedType(name="lvarchar", mode="B"),
         ),
         InformixColumn(
             name="flag",
             coltype=41,
             length=1,
             colno=2,
-            extended_name="boolean",
-            extended_mode="B",
+            extended=ExtendedType(name="boolean", mode="B"),
         ),
     ]
     report = InformixSourceReport()
     fields = columns_to_schema_fields(cols, report)
     assert [f.nativeDataType for f in fields] == ["LVARCHAR(4000)", "BOOLEAN"]
+    assert len(report.warnings) == 0
+
+
+def test_columns_to_schema_fields_resolves_distinct_over_opaque_builtin():
+    # coltype's low byte is 41 for a DISTINCT over BOOLEAN and over CLOB alike,
+    # so without sysxtdtypes.source both kept NullType despite a resolved name.
+    cols = [
+        InformixColumn(
+            name="published",
+            coltype=18473,
+            length=1,
+            colno=1,
+            extended=ExtendedType(name="flag_type", mode="D", source_name="boolean"),
+        ),
+        InformixColumn(
+            name="abstract",
+            coltype=2089,
+            length=72,
+            colno=2,
+            extended=ExtendedType(name="doc_text", mode="D", source_name="clob"),
+        ),
+    ]
+    report = InformixSourceReport()
+    fields = columns_to_schema_fields(cols, report)
+    assert [f.nativeDataType for f in fields] == ["FLAG_TYPE", "DOC_TEXT"]
+    assert isinstance(fields[0].type.type, BooleanTypeClass)
+    assert isinstance(fields[1].type.type, StringTypeClass)
     assert len(report.warnings) == 0
 
 
@@ -144,8 +174,7 @@ def test_columns_to_schema_fields_warns_for_opaque_type_but_keeps_its_name():
             coltype=40,
             length=0,
             colno=1,
-            extended_name="json",
-            extended_mode="O",
+            extended=ExtendedType(name="json", mode="O"),
         )
     ]
     report = InformixSourceReport()

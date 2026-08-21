@@ -1,6 +1,10 @@
 from typing import Dict, Optional
 
-from datahub.ingestion.source.informix.models import InformixType, MappedColumn
+from datahub.ingestion.source.informix.models import (
+    ExtendedType,
+    InformixType,
+    MappedColumn,
+)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -64,9 +68,10 @@ _XTD_DISTINCT = "D"  # CREATE DISTINCT TYPE
 _XTD_ROW = "R"  # CREATE ROW TYPE
 _XTD_COLLECTION = "C"  # SET/LIST/MULTISET; sysxtdtypes.name is empty for these
 
-# Built-in extended types that can legitimately be a user column. Their base
-# coltype is 40 or 41, which says only "some opaque type" -- without the
-# sysxtdtypes name, LVARCHAR, BOOLEAN, BLOB and CLOB are indistinguishable.
+# Built-in extended types that can legitimately be a user column, keyed by
+# sysxtdtypes.name. Their base coltype is 40 or 41, which says only "some opaque
+# type" -- without the sysxtdtypes name, LVARCHAR, BOOLEAN, BLOB and CLOB are
+# indistinguishable. The same map resolves a DISTINCT declared over one of them.
 _XTD_BUILTIN_TYPE_MAP: Dict[str, type] = {
     "LVARCHAR": StringTypeClass,
     "BOOLEAN": BooleanTypeClass,
@@ -76,50 +81,53 @@ _XTD_BUILTIN_TYPE_MAP: Dict[str, type] = {
 
 
 def _resolve_extended_type(
-    mapped: InformixType,
-    extended_name: Optional[str],
-    extended_mode: Optional[str],
+    mapped: InformixType, extended: Optional[ExtendedType]
 ) -> InformixType:
     """Recover a real type name from sysxtdtypes, falling back to the base type.
 
     Verified against Informix 15.0.1: LVARCHAR is coltype 40 with extended_id 1,
     while BOOLEAN/BLOB/CLOB all share coltype 41, so the base code alone resolves
     every one of them to UNKNOWN. DISTINCT and ROW types carry a user-defined
-    name that is more informative than their base code, and a DISTINCT keeps its
-    source built-in in the low byte of coltype -- so ``mapped`` already holds the
-    right DataHub type for it.
+    name that is more informative than their base code.
     """
-    if not extended_name or extended_mode == _XTD_COLLECTION:
+    if extended is None or not extended.name or extended.mode == _XTD_COLLECTION:
         # Collections store an empty name, and their base coltype (SET, LIST,
         # MULTISET) is already correct.
         return mapped
-    native = extended_name.upper()
-    if extended_mode == _XTD_BUILTIN:
-        builtin = _XTD_BUILTIN_TYPE_MAP.get(native)
-        if builtin is not None:
-            return InformixType(builtin, native)
-        # An internal built-in (pointer, sendrecv, ...) that should never surface
-        # as a user column. Keep the real name; leave the type unresolved.
-        return InformixType(NullTypeClass, native)
-    if extended_mode == _XTD_ROW:
+    native = extended.name.upper()
+    if extended.mode == _XTD_BUILTIN:
+        # An unmapped built-in is an internal one (pointer, sendrecv, ...) that
+        # should never surface as a user column. Keep the real name; leave the
+        # DataHub type unresolved.
+        return InformixType(_XTD_BUILTIN_TYPE_MAP.get(native, NullTypeClass), native)
+    if extended.mode == _XTD_ROW:
         return InformixType(RecordTypeClass, native)
-    if extended_mode == _XTD_DISTINCT:
-        return InformixType(mapped.datahub_type, native)
+    if extended.mode == _XTD_DISTINCT:
+        # A DISTINCT over an ordinary built-in keeps it in coltype's low byte
+        # (2053 = 2048 | 5, DECIMAL), so `mapped` is already right. A DISTINCT
+        # over an opaque built-in cannot be read that way: measured on 15.0.1,
+        # DISTINCT-of-BLOB and DISTINCT-of-CLOB are *both* coltype 2089 (low
+        # byte 41), so no coltype bit tells them apart. sysxtdtypes.source names
+        # the type it was declared over, which resolves all four.
+        #
+        # A DISTINCT of a DISTINCT reports the intermediate type as its source,
+        # so a chain over an opaque built-in still falls back to NullType. That
+        # would need a recursive walk of sysxtdtypes.source for no known gain.
+        source = (extended.source_name or "").upper()
+        return InformixType(
+            _XTD_BUILTIN_TYPE_MAP.get(source, mapped.datahub_type), native
+        )
     # Opaque (mode 'O': JSON, BSON, spatial, user-defined UDTs) and anything
     # else. The real type name still beats UNKNOWN(40).
     return InformixType(NullTypeClass, native)
 
 
-def map_coltype(
-    coltype: int,
-    extended_name: Optional[str] = None,
-    extended_mode: Optional[str] = None,
-) -> MappedColumn:
+def map_coltype(coltype: int, extended: Optional[ExtendedType] = None) -> MappedColumn:
     base = coltype & _BASE_TYPE_MASK
     mapped = INFORMIX_TYPE_MAP.get(
         base, InformixType(NullTypeClass, f"UNKNOWN({base})")
     )
-    resolved = _resolve_extended_type(mapped, extended_name, extended_mode)
+    resolved = _resolve_extended_type(mapped, extended)
     return MappedColumn(
         data_type=SchemaFieldDataTypeClass(type=resolved.datahub_type()),
         nullable=(coltype & _NOT_NULL_BIT) == 0,
@@ -143,11 +151,15 @@ SQL_TABLES = (
 # syscolumns.extended_id is 0 for ordinary types, so the sysxtdtypes lookup has
 # to be an outer join. sysxtdtypes.name/mode recover LVARCHAR, BOOLEAN, BLOB,
 # CLOB, DISTINCT, ROW and opaque types, all of which base coltype cannot express.
+# The second, self-referential outer join resolves sysxtdtypes.source -- the type
+# a DISTINCT was declared over -- back to its name; it is 0 (and so matches no
+# row, sysxtdtypes has no extended_id 0) for every other mode.
 SQL_COLUMNS = (
     "SELECT TRIM(c.colname) AS colname, c.coltype, c.collength, c.colno, "
-    "TRIM(x.name) AS xtdname, x.mode AS xtdmode "
+    "TRIM(x.name) AS xtdname, x.mode AS xtdmode, TRIM(xs.name) AS xtdsource "
     "FROM syscolumns c JOIN systables t ON c.tabid = t.tabid "
     "LEFT JOIN sysxtdtypes x ON c.extended_id = x.extended_id "
+    "LEFT JOIN sysxtdtypes xs ON x.source = xs.extended_id "
     "WHERE TRIM(t.tabname) = ? AND TRIM(t.owner) = ? ORDER BY c.colno"
 )
 # A constraint's backing index is looked up by (tabid, idxname), not idxname

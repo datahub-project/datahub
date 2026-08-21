@@ -14,6 +14,22 @@ class InformixType:
 
 
 @dataclass(frozen=True)
+class ExtendedType:
+    """A column's ``sysxtdtypes`` row, joined via ``syscolumns.extended_id``.
+
+    ``source_name`` is the name of the type a DISTINCT was declared over
+    (``sysxtdtypes.source`` resolved back through ``sysxtdtypes``), and is None
+    for every other mode -- and for a DISTINCT over an ordinary built-in, whose
+    ``source`` is 0. The three fields always arrive together from one catalog
+    row, so bundling them keeps a half-populated combination unrepresentable.
+    """
+
+    name: str
+    mode: Optional[str]
+    source_name: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class MappedColumn:
     data_type: SchemaFieldDataTypeClass
     nullable: bool
@@ -26,10 +42,9 @@ class InformixColumn(BaseModel):
     length: int
     colno: int
     is_pk: bool = False
-    # sysxtdtypes.name/mode for the column's extended_id, absent for ordinary
-    # types. See constants._resolve_extended_type.
-    extended_name: Optional[str] = None
-    extended_mode: Optional[str] = None
+    # The column's sysxtdtypes row, absent for ordinary types (extended_id = 0).
+    # See constants._resolve_extended_type.
+    extended: Optional[ExtendedType] = None
 
 
 class InformixTable(BaseModel):

@@ -20,6 +20,7 @@ from datahub.ingestion.source.informix.constants import (
 from datahub.ingestion.source.informix.driver import resolve_driver_jars
 from datahub.ingestion.source.informix.mapping import build_jdbc_url
 from datahub.ingestion.source.informix.models import (
+    ExtendedType,
     InformixColumn,
     InformixForeignKey,
     InformixTable,
@@ -51,6 +52,16 @@ class InformixClientProtocol(Protocol):
 
 def _opt_str(value: object) -> Optional[str]:
     return str(value).strip() if value is not None else None
+
+
+def _parse_extended_type(row: List[object]) -> Optional[ExtendedType]:
+    # The sysxtdtypes outer joins yield SQL NULLs for a column with no extended
+    # type (extended_id = 0), and for the source of anything but a DISTINCT
+    # declared over another extended type.
+    name = _opt_str(row[4])
+    if name is None:
+        return None
+    return ExtendedType(name=name, mode=_opt_str(row[5]), source_name=_opt_str(row[6]))
 
 
 def _safe_close(closeable: object) -> None:
@@ -156,9 +167,7 @@ class InformixClient:
                 length=int(str(r[2])),
                 colno=int(str(r[3])),
                 is_pk=str(r[0]).strip() in pk_names,
-                # NULL for a column with no extended type (extended_id = 0).
-                extended_name=_opt_str(r[4]),
-                extended_mode=_opt_str(r[5]),
+                extended=_parse_extended_type(r),
             )
             for r in rows
         ]

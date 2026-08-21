@@ -300,7 +300,6 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
             views: List[_PendingView] = []
 
             seen_owners = set()
-            selected = 0
             for table in client.get_tables():
                 name = make_table_identifier(
                     self.config.database,
@@ -326,7 +325,7 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_dropped(name)
                     continue
 
-                selected += 1
+                self.report.objects_selected += 1
                 schema_key = self._schema_key(table.owner)
                 owners = self._owners(table.owner)
 
@@ -405,14 +404,15 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
             # otherwise finish as a successful run that emitted nothing but
             # containers. Escalate once here instead.
             ingested = self.report.tables_scanned + self.report.views_scanned
-            if selected and not ingested:
+            if self.report.objects_selected and not ingested:
                 self.report.failure(
                     title="No tables or views could be ingested",
                     message="Every table and view selected from the catalog failed "
                     "extraction. This usually indicates a systemic problem such as "
                     "missing privileges on the system catalogs rather than a "
                     "per-object issue; see the preceding warnings.",
-                    context=f"{selected} objects selected, 0 ingested",
+                    context=f"{self.report.objects_selected} objects selected, "
+                    "0 ingested",
                 )
 
             # Pass 2: emit viewProperties for every view with stored SQL, and
@@ -469,6 +469,21 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                         context=f"{pending.table.owner}.{pending.table.name}",
                         exc=e,
                     )
+
+            # The empty-viewtext path above only bumps a counter, so the same
+            # systemic failure the pass 1 escalation catches -- privileges
+            # revoked on sysviews specifically, leaving syscolumns readable --
+            # would emit no diagnostic at all. Every single view coming back
+            # empty is that, not a database of views with no stored SQL.
+            if views and self.report.views_without_definition == len(views):
+                self.report.warning(
+                    title="No view definitions could be read",
+                    message="Every view returned an empty sysviews.viewtext, so "
+                    "no viewProperties or view lineage was emitted. This usually "
+                    "indicates missing privileges on sysviews rather than views "
+                    "without stored SQL.",
+                    context=f"{len(views)} views, 0 definitions read",
+                )
         finally:
             client.close()
 

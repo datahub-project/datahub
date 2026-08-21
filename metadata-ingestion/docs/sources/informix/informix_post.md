@@ -73,7 +73,10 @@ against `sysxtdtypes` to recover the real type name.
 
 `LVARCHAR`, `BOOLEAN`, `BLOB` and `CLOB` map to their DataHub equivalents. A `DISTINCT` type
 reports its own name (for example `MONEY_USD`) and takes its DataHub type from the built-in it
-was defined over. A named `ROW` type maps to a record.
+was defined over — read from `coltype` for an ordinary built-in, and from `sysxtdtypes.source`
+when it was defined over `LVARCHAR`, `BOOLEAN`, `BLOB` or `CLOB`, which `coltype` cannot express.
+A `DISTINCT` type defined over another `DISTINCT` type maps to a null type. A named `ROW` type
+maps to a record.
 
 User-defined opaque types (`JSON`, `BSON`, time series, and spatial types such as
 `ST_Geometry`) have no DataHub equivalent and still map to a null type, but the native type name
