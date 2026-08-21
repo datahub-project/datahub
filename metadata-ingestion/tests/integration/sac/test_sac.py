@@ -3,10 +3,12 @@ from typing import Any, Dict, List
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from requests.exceptions import RetryError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sac.sac import SACSource, SACSourceConfig
+from datahub.ingestion.source.sac.sac_common import ResourceModel
 from datahub.testing import mce_helpers
 
 MOCK_TENANT_URL = "http://tenant"
@@ -117,6 +119,39 @@ def test_query_odata_entities_follows_pagination(requests_mock):
     results = list(source._query_odata_entities("Resources", select="resourceId"))
 
     assert [entity["resourceId"] for entity in results] == ["A", "B"]
+
+
+def test_acquired_model_schema_transport_error_degrades_gracefully(requests_mock):
+    # A per-model Data Export Service failure (here the retry adapter exhausting on
+    # repeated 5xx, surfaced as RetryError) must not abort the run: the schema is
+    # skipped, the failure is counted, and no exception propagates.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-des-error-test"))
+
+    model = ResourceModel(
+        namespace="t.S",
+        model_id="BROKEN_PROVIDER",
+        name="Broken model",
+        description=None,
+        system_type=None,
+        connection_id=None,
+        external_id=None,
+        is_import=False,
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataexport/providers/sac/{model.model_id}/$metadata",
+        exc=RetryError("too many 500 error responses"),
+    )
+
+    assert source._get_data_export_schema(model) is None
+    assert source.report.acquired_model_schema_failed == 1
 
 
 def match_token_url(request, context):

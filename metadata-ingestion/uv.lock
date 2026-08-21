@@ -1397,6 +1397,7 @@ s3-slim = [
 ]
 sac = [
     { name = "authlib" },
+    { name = "defusedxml" },
     { name = "requests" },
 ]
 sagemaker = [
@@ -1892,6 +1893,7 @@ requires-dist = [
     { name = "defusedxml", marker = "extra == 'hana'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'informatica'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'integration-tests'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'sac'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'sap-datasphere'", specifier = ">=0.7.1,<0.8.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'all'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'delta-lake'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
@@ -4978,7 +4980,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -10288,8 +10290,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "jeepney", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -10630,8 +10632,8 @@ name = "sqlalchemy-hana"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "hdbcli" },
-    { name = "sqlalchemy" },
+    { name = "hdbcli", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "sqlalchemy", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/df/02733e868ea8908c921aabd0004c4483cec6985e73e9fa8f6d12434dfe6d/sqlalchemy_hana-3.0.3.tar.gz", hash = "sha256:37ea5033628e1682037dd13dc5b9e4c585dfa28bc2bdbc02f816059147262bae", size = 44273, upload-time = "2025-06-02T10:34:23.183Z" }
 wheels = [
