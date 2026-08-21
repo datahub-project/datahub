@@ -1448,7 +1448,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIsNotNone(resolved)
 
     def test_resolve_schema_references_pattern_properties_anyof_ref(self):
-        """patternProperties with anyOf/$ref must resolve and promote to additionalProperties."""
         sw_dict = {
             "openapi": "3.0.0",
             "components": {
@@ -1489,7 +1488,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".name" in path for path in field_paths))
 
     def test_resolve_schema_references_pattern_properties_keeps_named_properties(self):
-        """Do not promote patternProperties when named properties exist."""
         sw_dict = {
             "openapi": "3.0.0",
             "components": {
@@ -1523,7 +1521,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".fixed" in path for path in field_paths))
 
     def test_resolve_schema_references_pattern_properties_after_allof(self):
-        """Promote only after allOf merge so allOf properties are preserved."""
         sw_dict = {
             "openapi": "3.0.0",
             "components": {
@@ -1535,8 +1532,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 }
             },
         }
-        # patternProperties at parent + named properties via allOf — the old
-        # pre-allOf promotion would turn this into a map and drop `fixed`.
         schema = {
             "type": "object",
             "patternProperties": {
@@ -1563,7 +1558,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".fixed" in path for path in field_paths))
 
     def test_resolve_schema_references_property_names_ref(self):
-        """propertyNames $ref must resolve so jsonref does not fail schema extraction."""
         sw_dict = {
             "openapi": "3.0.0",
             "components": {
