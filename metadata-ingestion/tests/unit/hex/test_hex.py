@@ -2,13 +2,18 @@ import warnings
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.source.hex.api import HexApiConnection
 from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.hex import HexSource
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
 from tests.unit.hex.conftest import load_json_data
 
 
@@ -452,6 +457,88 @@ class TestResolveConnections:
         assert c.default_schema == "public"
 
 
+def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
+    """The pipeline-level ``AutoLowercaseUrnsProcessor`` fires when the recipe
+    exposes a top-level ``convert_urns_to_lowercase`` key on the source config.
+    Hex must never take that on: blanket lowercasing would rewrite every URN
+    in the stream — including BigQuery / db2 connections whose table IDs are
+    case-sensitive — and would also lowercase ``platform_instance`` inside
+    ``DatasetUrn.name``, dangling lineage for instanced connections.
+
+    Casing is instead applied by the shared ``SchemaResolver`` used by both
+    tier-1 (queriedTables) and tier-2 (SQL parsing), which follows each
+    platform's default (lowercase for snowflake/postgres/redshift/mssql;
+    preserve case for bigquery/db2) and, for tables that are in DataHub,
+    picks the exact URN that landed on the warehouse side. Pins that design
+    decision so a future refactor can't quietly opt back into the global
+    processor.
+    """
+    config = HexSourceConfig.model_validate(
+        {
+            "workspace_name": "ws",
+            "token": "t",
+            "connection_platform_map": {
+                "conn-sf": {"platform": "snowflake", "platform_instance": "prod_sf"},
+                "conn-bq": {"platform": "bigquery"},
+            },
+        }
+    )
+    src = HexSource(config, PipelineContext(run_id="pipeline-lower-test"))
+    ctx = WorkunitProcessorContext(
+        source_report=src.report,
+        pipeline_context=src.ctx,
+        source_config=src.source_config,
+        platform="hex",
+    )
+    assert not AutoLowercaseUrnsProcessor.should_enable(ctx)
+
+    # Negative control: HexSourceConfig must not accept
+    # ``convert_urns_to_lowercase`` at the top level either — a recipe that
+    # tries to set it fails validation up front instead of silently enabling
+    # the global processor.
+    with pytest.raises(ValidationError):
+        HexSourceConfig.model_validate(
+            {
+                "workspace_name": "ws",
+                "token": "t",
+                "convert_urns_to_lowercase": True,
+            }
+        )
+
+
+def test_per_connection_convert_urns_to_lowercase_is_soft_removed() -> None:
+    """The short-lived per-connection ``convert_urns_to_lowercase`` field was
+    dropped once both lineage tiers routed through the shared SchemaResolver
+    (which already follows each platform's default casing and matches the
+    warehouse URN in DataHub). Recipes carried over from that version must
+    still parse — the field is silently accepted with a ConfigurationWarning
+    rather than raising an extra-fields error and breaking the run.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        config = HexSourceConfig.model_validate(
+            {
+                "workspace_name": "ws",
+                "token": "t",
+                "connection_platform_map": {
+                    "conn-sf": {
+                        "platform": "snowflake",
+                        "convert_urns_to_lowercase": True,
+                    },
+                },
+            }
+        )
+    # Config parses cleanly and the legacy key doesn't materialise anywhere.
+    detail = config.connection_platform_map["conn-sf"]
+    assert detail.platform == "snowflake"
+    assert not hasattr(detail, "convert_urns_to_lowercase")
+    assert any(
+        issubclass(w.category, ConfigurationWarning)
+        and "convert_urns_to_lowercase" in str(w.message)
+        for w in caught
+    )
+
+
 class TestHexTestConnection:
     """Tests for test_connection() — especially the cells access probe."""
 
@@ -703,3 +790,11 @@ class TestQueriedTablesFallback:
         assert any(
             "Column lineage dropped" in (w.title or "") for w in source.report.warnings
         )
+        # The warning must be backed by real cross-validation signal: the
+        # mismatch counters have to move, otherwise the assertion above could
+        # pass even when build_validated_column_lineage silently produces no
+        # fields for an unrelated reason (a SELECT * on a missing schema,
+        # DDL-only cells, sqlglot parse failures). Locking these in prevents
+        # the warning from regressing to a "always fires on empty result" gate.
+        assert source.report.enterprise_cells_with_mismatch == 1
+        assert source.report.enterprise_column_fields_skipped_mismatch >= 1

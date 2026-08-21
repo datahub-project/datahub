@@ -505,11 +505,12 @@ def test_validated_cll_emits_when_table_matches():
     orders_urn = _make_dataset_urn("db.schema.orders")
     queried = [orders_urn]
     sql = "SELECT order_id, customer_id FROM db.schema.orders"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     assert len(fields) > 0
     assert any("order_id" in f for f in fields)
     assert report.enterprise_column_fields_emitted > 0
     assert report.enterprise_cells_with_mismatch == 0
+    assert saw_mismatch is False
 
 
 def test_validated_cll_skips_when_table_not_in_queried():
@@ -518,10 +519,11 @@ def test_validated_cll_skips_when_table_not_in_queried():
     # queriedTables has no entry for the table SQL parsing finds
     queried = [_make_dataset_urn("db.schema.other_table")]
     sql = "SELECT order_id FROM db.schema.orders"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     assert fields == []
     assert report.enterprise_cells_with_mismatch == 1
     assert report.enterprise_column_fields_skipped_mismatch > 0
+    assert saw_mismatch is True
 
 
 def test_validated_cll_partial_match_emits_matched_columns_only():
@@ -532,13 +534,14 @@ def test_validated_cll_partial_match_emits_matched_columns_only():
     # orders is NOT in queriedTables
     queried = [customers_urn]
     sql = "SELECT a.id, b.name FROM db.s.customers a JOIN db.s.orders b ON a.id = b.cid"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     # columns from customers should be emitted; columns from orders should be skipped
     assert any("customers" in f for f in fields)
     assert not any("orders" in f for f in fields)
     assert report.enterprise_cells_with_mismatch == 1
     assert report.enterprise_column_fields_skipped_mismatch > 0
     assert report.enterprise_column_fields_emitted > 0
+    assert saw_mismatch is True
 
 
 def test_validated_cll_mismatch_sample_stored():
@@ -572,25 +575,32 @@ def test_validated_cll_deduplicates_fields_across_cells():
     queried = [orders_urn]
     sql = "SELECT order_id FROM db.schema.orders"
     # same SQL twice — same field should not be emitted twice
-    fields = b.build_validated_column_lineage([_cell(sql), _cell(sql)], queried)
+    fields, _ = b.build_validated_column_lineage([_cell(sql), _cell(sql)], queried)
     assert len(fields) == len(set(fields))
 
 
 def test_validated_cll_empty_sql_cells_returns_empty():
     b = _builder()
-    fields = b.build_validated_column_lineage([], [_make_dataset_urn("db.s.t")])
+    fields, saw_mismatch = b.build_validated_column_lineage(
+        [], [_make_dataset_urn("db.s.t")]
+    )
     assert fields == []
+    # No cells parsed → no mismatch signal. This is the exact case that would
+    # otherwise trigger the "Column lineage dropped" warning spuriously; the
+    # tuple's second element gates it correctly.
+    assert saw_mismatch is False
 
 
 def test_validated_cll_unknown_connection_skipped_silently():
     report = LineageBuilderReport()
     b = _builder(report=report)
     queried = [_make_dataset_urn("db.s.t")]
-    fields = b.build_validated_column_lineage(
+    fields, saw_mismatch = b.build_validated_column_lineage(
         [_cell("SELECT id FROM db.s.t", conn_id=UNKNOWN_CONN)], queried
     )
     assert fields == []
     assert report.enterprise_cells_with_mismatch == 0  # skipped before parsing
+    assert saw_mismatch is False  # skipped cells never produce mismatch signal
 
 
 # ------------------------------------------------------------------
@@ -784,7 +794,7 @@ def test_validated_cll_instanced_snowflake_matches_between_tiers():
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.ORDERS"}]
     )
     sql = "SELECT order_id FROM DB.SCHEMA.ORDERS"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, _ = b.build_validated_column_lineage([_cell(sql)], queried)
     assert len(fields) == 1
     assert SchemaFieldUrn.from_string(fields[0]).parent == queried[0]
     assert report.enterprise_column_fields_skipped_mismatch == 0
@@ -809,7 +819,7 @@ def test_validated_cll_snowflake_emits_on_case_match():
         )
     ]
     sql = "SELECT order_id, customer_id FROM DB.SCHEMA.ORDERS"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, _ = b.build_validated_column_lineage([_cell(sql)], queried)
     expected_parent = queried[0]
     expected = {
         make_schema_field_urn(expected_parent, "order_id"),
@@ -839,10 +849,11 @@ def test_validated_cll_mismatch_still_reported():
         )
     ]
     sql = "SELECT id FROM DB.SCHEMA.ORDERS"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     assert fields == []
     assert report.enterprise_column_fields_skipped_mismatch > 0
     assert report.enterprise_cells_with_mismatch == 1
+    assert saw_mismatch is True
 
 
 def test_validated_cll_bigquery_matches_by_exact_urn_not_lowercase():
@@ -864,7 +875,7 @@ def test_validated_cll_bigquery_matches_by_exact_urn_not_lowercase():
     ]
     # Same casing → matches.
     sql_match = "SELECT id FROM Proj.DataSet.Tbl"
-    fields_match = b.build_validated_column_lineage(
+    fields_match, _ = b.build_validated_column_lineage(
         [_cell(sql_match, conn_id=BIGQUERY_CONN)], queried
     )
     assert len(fields_match) == 1
@@ -878,9 +889,10 @@ def test_validated_cll_bigquery_matches_by_exact_urn_not_lowercase():
         connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
     )
     sql_nomatch = "SELECT id FROM proj.dataset.tbl"
-    fields_nomatch = b2.build_validated_column_lineage(
+    fields_nomatch, saw_mismatch = b2.build_validated_column_lineage(
         [_cell(sql_nomatch, conn_id=BIGQUERY_CONN)], queried
     )
     assert fields_nomatch == []
     assert report2.enterprise_column_fields_skipped_mismatch > 0
     assert report2.enterprise_cells_with_mismatch == 1
+    assert saw_mismatch is True

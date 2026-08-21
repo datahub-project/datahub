@@ -632,12 +632,18 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if upstream_urns and self.ctx.graph:
                     sql_cells = _extract_sql_cells(all_cells)
                     if sql_cells:
-                        hex_item.input_fields = (
-                            lineage_builder.build_validated_column_lineage(
-                                sql_cells, upstream_urns
-                            )
+                        (
+                            hex_item.input_fields,
+                            saw_mismatch,
+                        ) = lineage_builder.build_validated_column_lineage(
+                            sql_cells, upstream_urns
                         )
-                        if not hex_item.input_fields:
+                        # Only warn when a real cross-validation failure fired.
+                        # Empty input_fields alone is ambiguous — it also
+                        # happens for SELECT * with a missing schema, DDL-only
+                        # cells, or _parse_cell parse failures, none of which
+                        # are queriedTables/SQL disagreements.
+                        if saw_mismatch and not hex_item.input_fields:
                             self.report.warning(
                                 title="Column lineage dropped",
                                 message=(
