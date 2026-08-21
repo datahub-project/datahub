@@ -1390,10 +1390,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self._aws_account_id_loaded = True
         try:
             self._aws_account_id = (
-                self.source_config.get_session()
-                .client("sts")
-                .get_caller_identity()
-                .get("Account")
+                self.source_config.get_sts_client().get_caller_identity().get("Account")
             )
         except Exception as exc:
             logger.debug("Could not resolve AWS account id via STS: %s", exc)
