@@ -1,8 +1,19 @@
+import re
+
 import pytest
 
 from datahub.ingestion.source.informix.config import InformixSourceConfig
-from datahub.ingestion.source.informix.constants import INFORMIX_TYPE_MAP, map_coltype
-from datahub.ingestion.source.informix.models import InformixForeignKey
+from datahub.ingestion.source.informix.constants import (
+    INFORMIX_TYPE_MAP,
+    SQL_COLUMNS,
+    SQL_FK,
+    SQL_PK,
+    map_coltype,
+)
+from datahub.ingestion.source.informix.models import (
+    ExtendedType,
+    InformixForeignKey,
+)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -120,6 +131,101 @@ def test_informix_type_map_keys_match_parametrized_coverage():
         52,
         53,
     }
+
+
+@pytest.mark.parametrize(
+    "coltype,xtdname,xtdmode,xtdsource,native,type_cls",
+    [
+        # Every row measured against Informix 15.0.1 (see the integration
+        # fixture). Base coltype 40/41 carries no type information on its own.
+        (40, "lvarchar", "B", None, "LVARCHAR", StringTypeClass),
+        (41, "boolean", "B", None, "BOOLEAN", BooleanTypeClass),
+        (41, "blob", "B", None, "BLOB", BytesTypeClass),
+        (41, "clob", "B", None, "CLOB", StringTypeClass),
+        # An internal built-in should never be a user column; keep its name but
+        # do not invent a DataHub type for it.
+        (41, "pointer", "B", None, "POINTER", NullTypeClass),
+        # A DISTINCT over an ordinary built-in keeps it in the low byte of
+        # coltype: 2053 = 2048 | 5 (DECIMAL), 2050 = 2048 | 2 (INTEGER). Its
+        # sysxtdtypes.source is 0, so no source name comes back.
+        (2053, "money_usd", "D", None, "MONEY_USD", NumberTypeClass),
+        (2050, "cust_id", "D", None, "CUST_ID", NumberTypeClass),
+        # A DISTINCT over an opaque built-in cannot use the low byte -- it is 40
+        # or 41 there -- so it resolves through sysxtdtypes.source instead.
+        # Measured: DISTINCT-of-BOOLEAN is 18473 and DISTINCT-of-LVARCHAR 10280
+        # (both carry a dedicated coltype bit), but DISTINCT-of-BLOB and
+        # DISTINCT-of-CLOB are *both* 2089, so only the source name tells them
+        # apart.
+        (18473, "flag_type", "D", "boolean", "FLAG_TYPE", BooleanTypeClass),
+        (10280, "long_text", "D", "lvarchar", "LONG_TEXT", StringTypeClass),
+        (2089, "doc_blob", "D", "blob", "DOC_BLOB", BytesTypeClass),
+        (2089, "doc_text", "D", "clob", "DOC_TEXT", StringTypeClass),
+        # A DISTINCT of a DISTINCT reports the intermediate type as its source,
+        # which is not a built-in, so the chain is not walked further.
+        (18473, "flag2_type", "D", "flag_type", "FLAG2_TYPE", NullTypeClass),
+        # ROW types are structs; base code 22 has no mapping of its own.
+        (20502, "addr_t", "R", None, "ADDR_T", RecordTypeClass),
+        # Opaque types (mode 'O') have no DataHub equivalent, but the real name
+        # still beats UNKNOWN(40).
+        (40, "json", "O", None, "JSON", NullTypeClass),
+        # Collections store an empty name; the base coltype already resolves.
+        (19, "", "C", None, "SET", RecordTypeClass),
+        (21, "", "C", None, "LIST", RecordTypeClass),
+    ],
+)
+def test_map_coltype_resolves_extended_types(
+    coltype: int,
+    xtdname: str,
+    xtdmode: str,
+    xtdsource: str,
+    native: str,
+    type_cls: type,
+) -> None:
+    mapped = map_coltype(
+        coltype=coltype,
+        extended=ExtendedType(name=xtdname, mode=xtdmode, source_name=xtdsource),
+    )
+    assert mapped.native == native
+    assert isinstance(mapped.data_type.type, type_cls)
+
+
+def test_map_coltype_without_extended_type_uses_base_coltype():
+    # extended_id 0 -> no sysxtdtypes row at all.
+    mapped = map_coltype(coltype=2)
+    assert mapped.native == "INTEGER"
+    assert isinstance(mapped.data_type.type, NumberTypeClass)
+
+
+def test_map_coltype_extended_resolution_preserves_not_null_bit():
+    mapped = map_coltype(
+        coltype=41 + 256, extended=ExtendedType(name="boolean", mode="B")
+    )
+    assert mapped.native == "BOOLEAN"
+    assert mapped.nullable is False
+
+
+def test_sql_columns_resolves_distinct_source_type():
+    # sysxtdtypes.source is 0 for everything but a DISTINCT over another
+    # extended type, so resolving its name needs a second outer self-join.
+    assert SQL_COLUMNS.count("LEFT JOIN sysxtdtypes") == 2
+    assert "LEFT JOIN sysxtdtypes xs ON x.source = xs.extended_id" in SQL_COLUMNS
+
+
+def test_sql_columns_outer_joins_sysxtdtypes():
+    # extended_id is 0 for ordinary types, so an inner join would silently drop
+    # every non-extended column.
+    assert "LEFT JOIN sysxtdtypes" in SQL_COLUMNS
+
+
+def test_every_sysindexes_join_is_scoped_by_tabid():
+    # A constraint's backing index must be looked up by (tabid, idxname). Joining
+    # on idxname alone can attach another table's index parts, which would flag
+    # the wrong columns as primary keys and mislink foreign key fields.
+    for sql in (SQL_PK, SQL_FK):
+        aliases = re.findall(r"JOIN sysindexes (\w+) ON", sql)
+        assert aliases
+        for alias in aliases:
+            assert f".tabid = {alias}.tabid" in sql
 
 
 def test_foreign_key_rejects_mismatched_column_counts():
