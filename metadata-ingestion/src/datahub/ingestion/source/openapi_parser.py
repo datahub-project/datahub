@@ -611,7 +611,8 @@ def merge_allof_schemas(
             )
 
         # Merge other schema attributes (type, format, description, etc.)
-        # Only merge if not already present in merged_schema
+        # Only merge if not already present in merged_schema. Includes the JSON-Schema
+        # validation keywords so collapsing colliding value schemas doesn't drop them.
         for key in [
             "type",
             "format",
@@ -620,6 +621,19 @@ def merge_allof_schemas(
             "enum",
             "default",
             "example",
+            "minLength",
+            "maxLength",
+            "pattern",
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "multipleOf",
+            "minItems",
+            "maxItems",
+            "uniqueItems",
+            "minProperties",
+            "maxProperties",
         ]:
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
@@ -826,9 +840,15 @@ def _resolve_pattern_and_property_names(
         # Resolve $refs / members without collapsing allOf — constraints like
         # minLength/maxLength are not merged by merge_allof_schemas.
         if "allOf" in property_names:
-            # Preserve any sibling constraints (minLength, pattern, ...) that sit
-            # alongside allOf; only the allOf list is resolved member-by-member.
-            resolved_names = {k: v for k, v in property_names.items() if k != "allOf"}
+            # Keep sibling keys (minLength, anyOf, $ref, ...) alongside allOf, but still
+            # resolve their $refs — resolve the siblings without their (uncollapsed)
+            # allOf, then re-attach the member-resolved allOf list.
+            siblings = {k: v for k, v in property_names.items() if k != "allOf"}
+            resolved_names = (
+                resolve_schema_references(siblings, sw_dict, max_depth=max_depth - 1)
+                if siblings
+                else {}
+            )
             resolved_names["allOf"] = [
                 resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
                 for part in property_names["allOf"]
