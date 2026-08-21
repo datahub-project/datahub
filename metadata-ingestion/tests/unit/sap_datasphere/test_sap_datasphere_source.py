@@ -4484,6 +4484,7 @@ def test_business_layer_keeps_fgl_when_upstreams_match():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4537,6 +4538,7 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
         schema_fields=[],
         custom_properties={},
         query_upstreams=query_upstreams,
+        space_name="finance",
     )
 
     assert result is not None
@@ -4545,6 +4547,138 @@ def test_business_layer_drops_fgl_when_upstreams_mismatch():
     # FGL DROPPED: its upstream parent is the double-prefixed fact, not in the
     # business-layer set -> set to None (not an empty list).
     assert result.fineGrainedLineages is None
+
+
+def test_business_layer_prefixes_bare_same_space_keys():
+    # Same-space BL keys are bare names; without a space prefix they become
+    # ghost lineage URNs that only show as hidden edges.
+    src = _bl_source("bl-bare-same-space")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_dim_region,PROD)",
+    }
+
+
+def test_business_layer_passthrough_qualified_cross_space_keys():
+    src = _bl_source("bl-qualified-passthrough")
+    assert src._business_layer_upstream_urn("MY_SPACE", "OTHER_SPACE.BASE_TABLE") == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "other_space.base_table,PROD)"
+    )
+
+
+def test_business_layer_mixed_bare_and_qualified_keys():
+    # Realistic star schema: same-space fact/dim plus a built-in time dimension.
+    src = _bl_source("bl-mixed-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="SAP.TIME.M_TIME_DIMENSION",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "sap.time.m_time_dimension,PROD)",
+    }
+
+
+def test_business_layer_keeps_fgl_for_bare_same_space_keys():
+    # Before space-prefixing bare BL keys, query FGL parents were already
+    # space-prefixed while BL upstreams were not — retention always failed.
+    src = _bl_source("bl-bare-fgl-keep")
+    fact_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.v_fact_orders,PROD)"
+    )
+    dim_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_dim_region,PROD)"
+    )
+    model_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.am_orders,PROD)"
+    )
+    fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        upstreams=[
+            f"urn:li:schemaField:({fact_urn},total)",
+            f"urn:li:schemaField:({dim_urn},region)",
+        ],
+        downstreams=[f"urn:li:schemaField:({model_urn},total)"],
+    )
+    query_upstreams = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=fact_urn, type=DatasetLineageTypeClass.VIEW),
+        ],
+        fineGrainedLineages=[fgl],
+    )
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="v_fact_orders",
+        dim_key="v_dim_region",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=query_upstreams,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert {u.dataset for u in result.upstreams} == {fact_urn, dim_urn}
+    assert result.fineGrainedLineages, "fineGrainedLineages should be kept"
+    assert len(result.fineGrainedLineages) == 1
+    assert result.fineGrainedLineages[0] is fgl
+
+
+def test_business_layer_dedups_qualified_and_bare_same_object():
+    # Qualified MY_SPACE.V_FACT and bare V_FACT resolve to the same URN after
+    # space-prefixing; emit once.
+    src = _bl_source("bl-dedup-keys")
+    csn = _business_layer_csn(
+        "am_orders",
+        fact_key="MY_SPACE.V_FACT",
+        dim_key="V_FACT",
+    )
+    result = src._apply_business_layer(
+        csn,
+        "am_orders",
+        schema_fields=[],
+        custom_properties={},
+        query_upstreams=None,
+        space_name="MY_SPACE",
+    )
+    assert result is not None
+    assert len(result.upstreams) == 1
+    assert result.upstreams[0].dataset == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_fact,PROD)"
+    )
 
 
 def test_schema_field_parent_extracts_dataset_urn():

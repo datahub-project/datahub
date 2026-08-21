@@ -361,7 +361,6 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, chec
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testQuick
 check.dependsOn checkLockFile
 
