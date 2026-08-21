@@ -148,6 +148,27 @@ function flattenPredicateToFilters(predicate: LogicalPredicate | PropertyPredica
     return (logical.operands || []).flatMap((op) => flattenPredicateToFilters(op, childNegated));
 }
 
+/** True for the `_entityType` row that carries the view's entity-type scope. */
+function isScopeOperand(operand: LogicalPredicate | PropertyPredicate): boolean {
+    return operand?.type === 'property' && (operand as PropertyPredicate).property === ENTITY_FILTER_NAME;
+}
+
+/**
+ * Recovers the group that carries the view's own operator from the
+ * AND(_entityType, <group>) shape `filtersToLogicalPredicate` builds for a
+ * scoped OR view. The flat view model cannot express nesting, so without this
+ * the inner group is flattened into the enclosing AND and an OR view silently
+ * becomes an AND view the moment the editor emits.
+ */
+function scopedOperatorGroup(predicate: LogicalPredicate): LogicalPredicate | undefined {
+    if (predicate.operator !== LogicalOperatorType.AND) return undefined;
+    const rest = (predicate.operands || []).filter((operand) => !isScopeOperand(operand));
+    if (rest.length !== 1 || rest[0]?.type !== 'logical') return undefined;
+    const group = rest[0] as LogicalPredicate;
+    // A NOT group carries negation, not the view operator.
+    return group.operator === LogicalOperatorType.NOT ? undefined : group;
+}
+
 /**
  * Converts a LogicalPredicate from the query builder into flat filter objects.
  * Recursively flattens nested groups and preserves each condition's operator
@@ -159,6 +180,15 @@ export function logicalPredicateToFilters(predicate: LogicalPredicate | null | u
 } {
     if (!predicate || !predicate.operands?.length) {
         return { operator: LogicalOperator.And, filters: [] };
+    }
+
+    const operatorGroup = scopedOperatorGroup(predicate);
+    if (operatorGroup) {
+        const scopeFilters = (predicate.operands || [])
+            .filter(isScopeOperand)
+            .flatMap((operand) => flattenPredicateToFilters(operand, false));
+        const inner = logicalPredicateToFilters(operatorGroup);
+        return { operator: inner.operator, filters: [...scopeFilters, ...inner.filters] };
     }
 
     const operator = predicate.operator === LogicalOperatorType.OR ? LogicalOperator.Or : LogicalOperator.And;
@@ -182,15 +212,14 @@ export function filtersToSelectedUrns(filters: ViewFilter[]): string[] {
  * Build Filters tab. Restores each filter's condition to its UI operator, using
  * the per-row "does not equal" operator for negated filters. The view's
  * top-level entityTypes are surfaced as a leading `_entityType` condition row so
- * they are visible and editable (and lifted back out on save).
+ * they are visible and editable (and lifted back out on save). That row is
+ * always ANDed with the conditions, matching how the backend applies the scope.
  */
 export function filtersToLogicalPredicate(
     operator: LogicalOperator | undefined,
     filters: ViewFilter[],
     entityTypes?: EntityType[] | null,
 ): LogicalPredicate {
-    const operands: (LogicalPredicate | PropertyPredicate)[] = [];
-
     // Entity-type scope can arrive either as the view's top-level entityTypes or,
     // for views written by the redesigned builder before lifting existed, as a
     // plain `_entityType` filter. Merge and normalize both into one row.
@@ -198,14 +227,16 @@ export function filtersToLogicalPredicate(
         ...(entityTypes ?? []),
         ...filters.filter((f) => f.field === ENTITY_FILTER_NAME && !f.negated).flatMap((f) => f.values ?? []),
     ]);
-    if (scopedTypes.length) {
-        operands.push({
-            type: 'property',
-            property: ENTITY_FILTER_NAME,
-            operator: 'equals',
-            values: scopedTypes,
-        });
-    }
+    const scopeRow: PropertyPredicate | undefined = scopedTypes.length
+        ? {
+              type: 'property',
+              property: ENTITY_FILTER_NAME,
+              operator: 'equals',
+              values: scopedTypes,
+          }
+        : undefined;
+
+    const operands: (LogicalPredicate | PropertyPredicate)[] = [];
 
     // Rows whose negation has no per-row operator (exists / within / booleans /
     // string matches) keep the group-level NOT so the flag survives the round-trip.
@@ -239,10 +270,23 @@ export function filtersToLogicalPredicate(
 
     const logicalOperator = operator === LogicalOperator.Or ? LogicalOperatorType.OR : LogicalOperatorType.AND;
 
+    // The scope is a restriction the backend ANDs with the filter expression, so
+    // it must not become an operand of an OR group — the editor would then read
+    // as "entity type is one of ... OR <conditions>", which is not the saved
+    // view. Nest the conditions in their own OR group under an AND instead;
+    // logicalPredicateToFilters unwraps this shape on save.
+    if (scopeRow && logicalOperator === LogicalOperatorType.OR && operands.length) {
+        return {
+            type: 'logical',
+            operator: LogicalOperatorType.AND,
+            operands: [scopeRow, { type: 'logical', operator: LogicalOperatorType.OR, operands }],
+        };
+    }
+
     return {
         type: 'logical',
         operator: logicalOperator,
-        operands,
+        operands: scopeRow ? [scopeRow, ...operands] : operands,
     };
 }
 

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ViewDefinitionBuilder } from '@app/entityV2/view/builder/ViewDefinitionBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
-import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import themeV2 from '@conf/theme/themeV2';
 
 import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types';
@@ -72,6 +72,23 @@ const URN_SCOPED_VIEW: ViewBuilderState = {
     },
 };
 
+// A view that pins assets *and* carries a Build Filters condition. The two tabs
+// are mutually exclusive: the URN belongs to Select Assets and must stay out of
+// the Build Filters predicate and of the state that tab emits.
+const MIXED_VIEW: ViewBuilderState = {
+    name: 'Pinned Assets And Filters',
+    definition: {
+        entityTypes: [EntityType.Dataset],
+        filter: {
+            operator: LogicalOperator.And,
+            filters: [
+                { field: 'urn', values: ['urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)'] },
+                { field: 'tags', values: ['urn:li:tag:private'], condition: FilterOperator.Equal, negated: true },
+            ] as FacetFilter[],
+        },
+    },
+};
+
 describe('ViewDefinitionBuilder wiring', () => {
     it('seeds entity types and per-row negation when opening an existing view', () => {
         render(
@@ -80,14 +97,19 @@ describe('ViewDefinitionBuilder wiring', () => {
             </ThemeProvider>,
         );
 
+        // An OR view's scope is ANDed with the conditions, so the conditions sit
+        // in their own OR group rather than beside the scope row.
         const seeded = captured.filters as LogicalPredicate;
+        expect(seeded.operator).toBe(LogicalOperatorType.AND);
         expect(seeded.operands).toHaveLength(2);
         expect(seeded.operands[0]).toMatchObject({
             property: '_entityType',
             operator: 'equals',
             values: [EntityType.Dataset, EntityType.Dashboard, EntityType.Container],
         });
-        expect(seeded.operands[1]).toMatchObject({ property: 'tags', operator: 'not_equals' });
+        const conditions = seeded.operands[1] as LogicalPredicate;
+        expect(conditions.operator).toBe(LogicalOperatorType.OR);
+        expect(conditions.operands[0]).toMatchObject({ property: 'tags', operator: 'not_equals' });
     });
 
     it('preserves entity types and negation in the state emitted on edit', () => {
@@ -108,6 +130,7 @@ describe('ViewDefinitionBuilder wiring', () => {
             EntityType.Dashboard,
             EntityType.Container,
         ]);
+        expect(emitted.definition?.filter?.operator).toBe(LogicalOperator.Or);
         expect(emitted.definition?.filter?.filters).toHaveLength(1);
         expect(emitted.definition?.filter?.filters?.[0]).toMatchObject({
             field: 'tags',
@@ -132,5 +155,26 @@ describe('ViewDefinitionBuilder wiring', () => {
 
         const emitted = updateState.mock.calls.at(-1)?.[0] as ViewBuilderState;
         expect(emitted.definition?.entityTypes).toEqual([EntityType.Dataset]);
+    });
+
+    it('keeps URN filters out of the Build Filters predicate and the state it emits', () => {
+        const updateState = vi.fn();
+        render(
+            <ThemeProvider theme={themeV2}>
+                <ViewDefinitionBuilder mode={ViewBuilderMode.EDITOR} state={MIXED_VIEW} updateState={updateState} />
+            </ThemeProvider>,
+        );
+
+        // The view pins a URN, so it opens on Select Assets.
+        fireEvent.click(screen.getByText('viewDefinition.tabBuildFilters'));
+
+        const seeded = captured.filters as LogicalPredicate;
+        expect(seeded.operands).toHaveLength(2);
+        expect(seeded.operands[0]).toMatchObject({ property: '_entityType', values: [EntityType.Dataset] });
+        expect(seeded.operands[1]).toMatchObject({ property: 'tags', operator: 'not_equals' });
+
+        const emitted = updateState.mock.calls.at(-1)?.[0] as ViewBuilderState;
+        expect(emitted.definition?.entityTypes).toEqual([EntityType.Dataset]);
+        expect(emitted.definition?.filter?.filters?.map((f) => f.field)).toEqual(['tags']);
     });
 });

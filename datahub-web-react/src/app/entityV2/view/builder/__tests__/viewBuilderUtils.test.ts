@@ -305,6 +305,39 @@ describe('View builder conversion utils', () => {
             expect(entityTypeRow.values).toEqual([EntityType.Dataset, EntityType.Dashboard]);
         });
 
+        it('should AND the _entityType row with an OR group of conditions', () => {
+            // entityTypes is a scope the backend ANDs with the filter expression,
+            // so it must not read as one more alternative in the OR group.
+            const filters = [
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
+                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
+            ];
+
+            const result = filtersToLogicalPredicate(LogicalOperator.Or, filters, [EntityType.Dataset]);
+
+            expect(result.operator).toBe(LogicalOperatorType.AND);
+            expect(result.operands).toHaveLength(2);
+            expect(result.operands[0]).toMatchObject({
+                property: ENTITY_FILTER_NAME,
+                values: [EntityType.Dataset],
+            });
+            const conditions = result.operands[1] as LogicalPredicate;
+            expect(conditions.operator).toBe(LogicalOperatorType.OR);
+            expect(conditions.operands).toHaveLength(2);
+        });
+
+        it('should keep the predicate flat for an OR view with no entity-type scope', () => {
+            const filters = [
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
+                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
+            ];
+
+            const result = filtersToLogicalPredicate(LogicalOperator.Or, filters);
+
+            expect(result.operator).toBe(LogicalOperatorType.OR);
+            expect(result.operands).toHaveLength(2);
+        });
+
         it('should default to equals when condition is undefined', () => {
             const filters = [{ field: 'domains', values: ['urn:li:domain:marketing'] }];
 
@@ -495,12 +528,14 @@ describe('View builder conversion utils', () => {
                 },
             ];
 
-            // Load into the builder.
+            // Load into the builder. The scope is ANDed with the OR group of conditions.
             const predicate = filtersToLogicalPredicate(LogicalOperator.Or, savedFilters, savedEntityTypes);
             const entityTypeRow = predicate.operands[0] as { property?: string; operator?: string; values?: string[] };
-            const tagRow = predicate.operands[1] as { property?: string; operator?: string };
+            const conditions = predicate.operands[1] as LogicalPredicate;
+            const tagRow = conditions.operands[0] as { property?: string; operator?: string };
             expect(entityTypeRow.property).toBe('_entityType');
             expect(entityTypeRow.values).toEqual(savedEntityTypes);
+            expect(conditions.operator).toBe(LogicalOperatorType.OR);
             expect(tagRow.property).toBe('tags');
             expect(tagRow.operator).toBe('not_equals');
 
@@ -516,6 +551,43 @@ describe('View builder conversion utils', () => {
             expect(savedTag?.condition).toBe(FilterOperator.Equal);
             expect(savedTag?.negated).toBe(true);
             expect(savedTag?.values).toEqual(['urn:li:tag:private']);
+        });
+
+        it('should preserve the OR operator of a scoped view across a load → save cycle', () => {
+            // The scope wrapper nests the conditions in an OR group; if the save
+            // path flattened it, the view would silently become an AND view.
+            const savedFilters = [
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
+                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
+            ];
+
+            const predicate = filtersToLogicalPredicate(LogicalOperator.Or, savedFilters, [EntityType.Dataset]);
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.entityTypes).toEqual([EntityType.Dataset]);
+            expect(definition.filter?.operator).toBe(LogicalOperator.Or);
+            expect(definition.filter?.filters?.map((f) => f.field)).toEqual(['tags', 'domains']);
+        });
+
+        it('should keep the OR operator after the scope row is deleted in the editor', () => {
+            const predicate = filtersToLogicalPredicate(
+                LogicalOperator.Or,
+                [
+                    { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
+                    { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
+                ],
+                [EntityType.Dataset],
+            );
+            // Deleting the scope row leaves the AND wrapper holding only the OR group.
+            const withoutScope: LogicalPredicate = { ...predicate, operands: [predicate.operands[1]] };
+
+            const { operator, filters } = logicalPredicateToFilters(withoutScope);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.entityTypes).toEqual([]);
+            expect(definition.filter?.operator).toBe(LogicalOperator.Or);
+            expect(definition.filter?.filters?.map((f) => f.field)).toEqual(['tags', 'domains']);
         });
 
         it('should preserve a mix of negated and non-negated filters across a load → save cycle', () => {
