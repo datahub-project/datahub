@@ -10,6 +10,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.dataproduct.DataProducts;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -24,13 +25,16 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -59,8 +63,10 @@ import lombok.extern.slf4j.Slf4j;
 public class DataProductAssetsSideEffect extends MCPSideEffect {
 
   /**
-   * Default cap on ADD+REMOVE patches emitted for a single Data Product properties commit. Large
-   * CREATE/RESTATE/system-update fan-outs beyond this are truncated with a warning.
+   * Default cap on ADD patches emitted for a single Data Product properties commit. Large
+   * CREATE/RESTATE/system-update fan-outs beyond this are truncated; already-synced members are
+   * skipped so a later reprocess advances. REMOVE patches are never truncated — leftover asset-side
+   * membership after delete cannot be recovered from a re-run.
    */
   public static final int DEFAULT_MAX_FANOUT_PER_COMMIT = 500;
 
@@ -92,15 +98,13 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
 
     if (DATA_PRODUCT_PROPERTIES_ASPECT_NAME.equals(mclItem.getAspectName())) {
       if (ChangeType.DELETE.equals(mclItem.getChangeType())) {
-        return boundFanout(
-            removeAllMembership(
-                mclItem.getUrn(),
-                associationsByAsset(mclItem.getPreviousAspect(DataProductProperties.class)),
-                mclItem,
-                retrieverContext),
-            mclItem.getUrn());
+        return removeAllMembership(
+            mclItem.getUrn(),
+            associationsByAsset(mclItem.getPreviousAspect(DataProductProperties.class)),
+            mclItem,
+            retrieverContext);
       }
-      return boundFanout(syncMembership(mclItem, retrieverContext), mclItem.getUrn());
+      return syncMembership(operationContext, mclItem, retrieverContext);
     }
 
     if (DATA_PRODUCT_KEY_ASPECT_NAME.equals(mclItem.getAspectName())
@@ -135,26 +139,27 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
           mclItem.getUrn());
       return Stream.empty();
     }
-    return boundFanout(
-        removeAllMembership(
-            mclItem.getUrn(), associationsByAsset(previous), mclItem, retrieverContext),
-        mclItem.getUrn());
+    return removeAllMembership(
+        mclItem.getUrn(), associationsByAsset(previous), mclItem, retrieverContext);
   }
 
   private Stream<MCPItem> syncMembership(
-      @Nonnull MCLItem mclItem, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull MCLItem mclItem,
+      @Nonnull RetrieverContext retrieverContext) {
     final Urn dataProductUrn = mclItem.getUrn();
     final Map<Urn, DataProductAssociation> newByAsset =
         associationsByAsset(mclItem.getAspect(DataProductProperties.class));
     final DataProductProperties previous = mclItem.getPreviousAspect(DataProductProperties.class);
 
     // CREATE / CREATE_ENTITY / RESTATE, first write, or ZDU/system-update rewrite: treat every
-    // current member as an ADD (idempotent). MigrateAspects UPSERTs identical payloads, so a
-    // pure before/after diff would emit nothing without this branch.
+    // unsynced member as an ADD (idempotent). MigrateAspects UPSERTs identical payloads, so a
+    // pure before/after diff would emit nothing without this branch. Skip assets that already
+    // mirror this membership so a capped reprocess can advance past the first N.
     if (!ChangeType.UPSERT.equals(mclItem.getChangeType())
         || previous == null
         || isSystemUpdate(mclItem.getSystemMetadata())) {
-      return addAll(newByAsset, dataProductUrn, mclItem, retrieverContext);
+      return addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext);
     }
 
     final Map<Urn, DataProductAssociation> oldByAsset = associationsByAsset(previous);
@@ -191,25 +196,107 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
                         retrieverContext))
             .filter(Objects::nonNull);
 
-    return Stream.concat(adds, removes);
+    return Stream.concat(removes, boundAdds(adds, dataProductUrn));
   }
 
-  private static Stream<MCPItem> addAll(
+  /**
+   * Emits ADD patches for members that do not already carry this Data Product on their asset-side
+   * {@code dataProducts} aspect, up to {@link #maxFanoutPerCommit}. Walking in stable order and
+   * skipping already-synced members lets a later MigrateAspects / reprocess pass finish the rest.
+   */
+  private Stream<MCPItem> addUnsynced(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Map<Urn, DataProductAssociation> byAsset,
       @Nonnull Urn dataProductUrn,
       @Nonnull MCLItem source,
       @Nonnull RetrieverContext retrieverContext) {
-    return byAsset.entrySet().stream()
-        .map(
-            entry ->
-                buildAssetPatch(
-                    entry.getKey(),
-                    dataProductUrn,
-                    entry.getValue(),
-                    PatchOperationType.ADD,
-                    source,
-                    retrieverContext))
-        .filter(Objects::nonNull);
+    if (byAsset.isEmpty()) {
+      return Stream.empty();
+    }
+    List<Urn> assets = new ArrayList<>(byAsset.keySet());
+    List<MCPItem> toEmit = new ArrayList<>();
+    int scanned = 0;
+    while (scanned < assets.size() && toEmit.size() < maxFanoutPerCommit) {
+      int end = Math.min(scanned + maxFanoutPerCommit, assets.size());
+      List<Urn> chunk = assets.subList(scanned, end);
+      Map<Urn, Map<String, Aspect>> existing =
+          latestDataProducts(operationContext, chunk, retrieverContext);
+      for (Urn asset : chunk) {
+        if (toEmit.size() >= maxFanoutPerCommit) {
+          break;
+        }
+        DataProductAssociation wanted = byAsset.get(asset);
+        if (alreadyMirrored(existing.get(asset), dataProductUrn, wanted)) {
+          continue;
+        }
+        MCPItem patch =
+            buildAssetPatch(
+                asset, dataProductUrn, wanted, PatchOperationType.ADD, source, retrieverContext);
+        if (patch != null) {
+          toEmit.add(patch);
+        }
+      }
+      scanned = end;
+    }
+    if (scanned < assets.size()) {
+      log.warn(
+          "Truncating dataProducts ADD fan-out for {}: emitting {} unsynced patches "
+              + "(maxFanoutPerCommit={}); {} member(s) not yet scanned. Re-run system-update "
+              + "migrateAspects or set systemUpdate.dataProductAssets.reprocess.enabled to "
+              + "finish remaining assets.",
+          dataProductUrn,
+          toEmit.size(),
+          maxFanoutPerCommit,
+          assets.size() - scanned);
+    }
+    return toEmit.stream();
+  }
+
+  @Nonnull
+  private static Map<Urn, Map<String, Aspect>> latestDataProducts(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull List<Urn> assets,
+      @Nonnull RetrieverContext retrieverContext) {
+    try {
+      Map<Urn, Map<String, Aspect>> existing =
+          retrieverContext
+              .getAspectRetriever()
+              .getLatestAspectObjects(
+                  operationContext, new HashSet<>(assets), Set.of(DATA_PRODUCTS_ASPECT_NAME));
+      return existing != null ? existing : Map.of();
+    } catch (RuntimeException e) {
+      log.warn(
+          "Unable to read existing dataProducts aspects for {} asset(s); treating as unsynced",
+          assets.size(),
+          e);
+      return Map.of();
+    }
+  }
+
+  private static boolean alreadyMirrored(
+      @Nullable Map<String, Aspect> aspects,
+      @Nonnull Urn dataProductUrn,
+      @Nullable DataProductAssociation wanted) {
+    if (aspects == null || wanted == null) {
+      return false;
+    }
+    Aspect aspect = aspects.get(DATA_PRODUCTS_ASPECT_NAME);
+    if (aspect == null) {
+      return false;
+    }
+    DataProducts dataProducts = new DataProducts(aspect.data());
+    if (dataProducts.getDataProducts() == null) {
+      return false;
+    }
+    for (DataProductAssociation existing : dataProducts.getDataProducts()) {
+      // Asset-side destinationUrn is the Data Product; wanted.destinationUrn is the asset.
+      if (dataProductUrn.equals(existing.getDestinationUrn())
+          && Boolean.TRUE.equals(existing.isOutputPort())
+              == Boolean.TRUE.equals(wanted.isOutputPort())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static Stream<MCPItem> removeAllMembership(
@@ -230,14 +317,13 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
         .filter(Objects::nonNull);
   }
 
-  private Stream<MCPItem> boundFanout(
-      @Nonnull Stream<MCPItem> patches, @Nonnull Urn dataProductUrn) {
-    List<MCPItem> materialised = patches.collect(Collectors.toList());
+  private Stream<MCPItem> boundAdds(@Nonnull Stream<MCPItem> adds, @Nonnull Urn dataProductUrn) {
+    List<MCPItem> materialised = adds.collect(Collectors.toList());
     if (materialised.size() <= maxFanoutPerCommit) {
       return materialised.stream();
     }
     log.warn(
-        "Truncating dataProducts side-effect fan-out for {}: emitting {} of {} patches "
+        "Truncating dataProducts ADD fan-out for {}: emitting {} of {} patches "
             + "(maxFanoutPerCommit={}). Re-run system-update migrateAspects or set "
             + "systemUpdate.dataProductAssets.reprocess.enabled to finish remaining assets.",
         dataProductUrn,

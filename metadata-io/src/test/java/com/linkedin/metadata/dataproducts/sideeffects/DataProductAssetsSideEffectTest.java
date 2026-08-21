@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -18,6 +19,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.dataproduct.DataProducts;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -40,6 +43,7 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -73,6 +77,7 @@ public class DataProductAssetsSideEffectTest {
   public void setup() {
     mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+    when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any())).thenReturn(Map.of());
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
@@ -254,18 +259,7 @@ public class DataProductAssetsSideEffectTest {
 
   @Test
   public void testFanoutBoundTruncates() {
-    DataProductAssociationArray associations = new DataProductAssociationArray();
-    for (int i = 0; i < 10; i++) {
-      DataProductAssociation association = new DataProductAssociation();
-      association.setDestinationUrn(
-          UrnUtils.getUrn(
-              String.format("urn:li:dataset:(urn:li:dataPlatform:hive,table_%d,PROD)", i)));
-      associations.add(association);
-    }
-    DataProductProperties props = new DataProductProperties();
-    props.setAssets(associations);
-
-    ChangeItemImpl change = changeItem(props, ChangeType.CREATE);
+    ChangeItemImpl change = changeItem(propsWith(datasetUrns(10)), ChangeType.CREATE);
     DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
     test.setConfig(CONFIG);
     test.setMaxFanoutPerCommit(3);
@@ -280,5 +274,104 @@ public class DataProductAssetsSideEffectTest {
             .toList();
 
     assertEquals(output.size(), 3, "Fan-out should be capped at maxFanoutPerCommit");
+    assertEquals(output.get(0).getUrn(), datasetUrn(0));
+    assertEquals(output.get(1).getUrn(), datasetUrn(1));
+    assertEquals(output.get(2).getUrn(), datasetUrn(2));
+  }
+
+  @Test
+  public void testFanoutSkipsAlreadySyncedOnReprocess() {
+    Set<Urn> alreadySynced = Set.of(datasetUrn(0), datasetUrn(1), datasetUrn(2));
+    when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> existing = new HashMap<>();
+              for (Urn urn : urns) {
+                if (alreadySynced.contains(urn)) {
+                  existing.put(urn, Map.of(DATA_PRODUCTS_ASPECT_NAME, mirroredAspect()));
+                }
+              }
+              return existing;
+            });
+
+    ChangeItemImpl change = changeItem(propsWith(datasetUrns(10)), ChangeType.CREATE);
+    DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
+    test.setConfig(CONFIG);
+    test.setMaxFanoutPerCommit(3);
+
+    List<MCPItem> output =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(change, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(
+        output.size(), 3, "Should emit the next unsynced members, not the first N: " + output);
+    assertEquals(output.get(0).getUrn(), datasetUrn(3));
+    assertEquals(output.get(1).getUrn(), datasetUrn(4));
+    assertEquals(output.get(2).getUrn(), datasetUrn(5));
+  }
+
+  @Test
+  public void testDeleteDoesNotTruncateFanout() {
+    DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
+    test.setConfig(CONFIG);
+    test.setMaxFanoutPerCommit(3);
+
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setEntityUrn(PRODUCT_URN);
+    mcl.setEntityType(DATA_PRODUCT_ENTITY_NAME);
+    mcl.setAspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.DELETE);
+    mcl.setSystemMetadata(new SystemMetadata());
+
+    List<MCPItem> output =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    TestMCL.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(PRODUCT_URN)
+                        .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+                        .aspectSpec(
+                            TEST_REGISTRY
+                                .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                                .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+                        .previousRecordTemplate(propsWith(datasetUrns(10)))
+                        .metadataChangeLog(mcl)
+                        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                        .build()),
+                retrieverContext)
+            .toList();
+
+    assertEquals(output.size(), 10, "DELETE REMOVE patches must not be fan-out capped");
+  }
+
+  private static Urn datasetUrn(int index) {
+    return UrnUtils.getUrn(
+        String.format("urn:li:dataset:(urn:li:dataPlatform:hive,table_%d,PROD)", index));
+  }
+
+  private static Urn[] datasetUrns(int count) {
+    Urn[] urns = new Urn[count];
+    for (int i = 0; i < count; i++) {
+      urns[i] = datasetUrn(i);
+    }
+    return urns;
+  }
+
+  private static Aspect mirroredAspect() {
+    DataProductAssociation association = new DataProductAssociation();
+    association.setDestinationUrn(PRODUCT_URN);
+    association.setOutputPort(false);
+    DataProductAssociationArray associations = new DataProductAssociationArray();
+    associations.add(association);
+    DataProducts dataProducts = new DataProducts();
+    dataProducts.setDataProducts(associations);
+    return new Aspect(dataProducts.data());
   }
 }

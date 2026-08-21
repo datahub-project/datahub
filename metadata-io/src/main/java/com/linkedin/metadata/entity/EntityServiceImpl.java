@@ -3734,18 +3734,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // If this is the key aspect, delete the entity entirely.
                           // If Using CDCs, need to ensure key aspect is the deleted last.
                           if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
-                            try {
-                              SystemAspect definitionAspect =
-                                  aspectDao.getLatestAspect(
-                                      opContext,
-                                      urn,
-                                      STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-                                      false);
+                            SystemAspect definitionAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext,
+                                    urn,
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    false);
+                            if (definitionAspect != null) {
                               propertyDefinitionBeforeHardDelete.definition =
                                   definitionAspect.getRecordTemplate();
                               propertyDefinitionBeforeHardDelete.metadata =
                                   definitionAspect.getSystemMetadata();
-                            } catch (EntityNotFoundException e) {
+                            } else {
                               log.debug(
                                   "No {} aspect to capture before hard delete of {}",
                                   STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
@@ -3753,15 +3753,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             }
                           }
                           if (DATA_PRODUCT_ENTITY_NAME.equals(entityUrn.getEntityType())) {
-                            try {
-                              SystemAspect propertiesAspect =
-                                  aspectDao.getLatestAspect(
-                                      opContext, urn, DATA_PRODUCT_PROPERTIES_ASPECT_NAME, false);
+                            SystemAspect propertiesAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext, urn, DATA_PRODUCT_PROPERTIES_ASPECT_NAME, false);
+                            if (propertiesAspect != null) {
                               dataProductPropertiesBeforeHardDelete.properties =
                                   propertiesAspect.getRecordTemplate();
                               dataProductPropertiesBeforeHardDelete.metadata =
                                   propertiesAspect.getSystemMetadata();
-                            } catch (EntityNotFoundException e) {
+                            } else {
                               log.debug(
                                   "No {} aspect to capture before hard delete of {}",
                                   DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
