@@ -1407,7 +1407,14 @@ systemUpdate:
   restoreGlossaryIndices:
     enabled: ${RESTORE_GLOSSARY_INDICES_ENABLED:true}
   browsePathsV2:
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
+    # Pre-v1.0.0 backfill (dead migration); dataHubUpgradeResult marker already written on any deploy
+    # that passed through v1.0.0.
+    # Forcing a re-run needs THREE env vars, not just this one — the step also gates on the raw
+    # BACKFILL_BROWSE_PATHS_V2 env var and skips once the marker exists:
+    #   BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED=true  (register the step)
+    #   BACKFILL_BROWSE_PATHS_V2=true                         (BackfillBrowsePathsV2Step.skip)
+    #   REPROCESS_DEFAULT_BROWSE_PATHS_V2=true                (ignore the existing marker)
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
@@ -1430,7 +1437,14 @@ systemUpdate:
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
   lineageIndexFields:
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_ENABLED:true}
+    # Pre-v1.0.0 backfill (dead migration); dataHubUpgradeResult marker
+    # "BackfillDatasetLineageIndexFieldsStep_V1" already written on any deploy that passed through
+    # v1.0.0. Env override kept for emergency reprocess.
+    # NOTE: Helm may set BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_ENABLED explicitly, so this
+    # default mainly governs quickstart / non-helm deploys.
+    # NOTE: bumping the step id (…_V2) yields a fresh marker so the step would re-run — flip this
+    # default back to true in the same change, or the new version silently never runs.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
@@ -1463,7 +1477,11 @@ systemUpdate:
       # Force re-run for the current MCP domain/ownership fingerprint even if already SUCCEEDED
       enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS:false}
   assertionEntityField:
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
+    # Pre-v1.0.0 backfill (dead migration); AbstractMCPStep marker "assertion-entity-field-v3" already
+    # written on any deploy that passed through v1.0.0. Env override kept for emergency reprocess.
+    # NOTE: bumping the step id (…-v4) yields a fresh marker so the step would re-run — flip this
+    # default back to true in the same change, or the new version silently never runs.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT:0}
@@ -1473,7 +1491,11 @@ systemUpdate:
     delayMs: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_DELAY_MS:0}
     limit: ${SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_LIMIT:0}
   assertionFieldPath:
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:true}
+    # Pre-v1.0.0 backfill (dead migration); AbstractMCPStep marker "assertion-field-path-v1" already
+    # written on any deploy that passed through v1.0.0. Env override kept for emergency reprocess.
+    # NOTE: bumping the step id (…-v2) yields a fresh marker so the step would re-run — flip this
+    # default back to true in the same change, or the new version silently never runs.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:false}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_LIMIT:0}
@@ -1483,7 +1505,10 @@ systemUpdate:
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_DELAY_MS:5000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_LIMIT:0}
   processInstanceHasRunEvents:
-    enabled: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_ENABLED:true}
+    # Pre-v1.0.0 backfill (dead migration); dataHubUpgradeResult marker already written on any deploy
+    # that passed through v1.0.0. Env override kept for emergency reprocess (pair with
+    # SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_REPROCESS=true to ignore the existing marker).
+    enabled: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_BATCH_SIZE:100}
     delayMs: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_DELAY_MS:1000}
     totalDays: ${SYSTEM_UPDATE_PROCESS_INSTANCE_HAS_RUN_EVENTS_TOTAL_DAYS:90}
@@ -1557,7 +1582,11 @@ systemUpdate:
   ingestPolicies:
     enabled: ${SYSTEM_UPDATE_INGEST_POLICIES_ENABLED:true}
   ingestDataPlatformInstances:
-    enabled: ${SYSTEM_UPDATE_INGEST_DATA_PLATFORM_INSTANCES_ENABLED:true}
+    # Pre-v1.0.0 backfill (dead migration). Unlike the other disabled backfills this step writes NO
+    # dataHubUpgradeResult marker — it skips when any dataPlatformInstance aspect exists, which is
+    # true of every live DB. Env override kept for emergency reprocess; a DB with zero
+    # dataPlatformInstance aspects (e.g. restored from a pre-v1.0.0 dump) needs it set explicitly.
+    enabled: ${SYSTEM_UPDATE_INGEST_DATA_PLATFORM_INSTANCES_ENABLED:false}
   kubernetesScaleDown:
     enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
     useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
