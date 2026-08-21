@@ -206,6 +206,17 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 }
 
 JDBC_PREFIX = "jdbc:"
+DYNAMODB_CONNECTION_TYPE = "dynamodb"
+DYNAMODB_PLATFORM = "dynamodb"
+DYNAMODB_INPUT_TABLE_NAME = "dynamodb.input.tableName"
+DYNAMODB_OUTPUT_TABLE_NAME = "dynamodb.output.tableName"
+DYNAMODB_TABLE_ARN = "dynamodb.tableArn"
+DYNAMODB_REGION = "dynamodb.region"
+DYNAMODB_STS_REGION = "dynamodb.sts.region"
+# arn:{partition}:dynamodb:{region}:{account}:table/{table}
+DYNAMODB_TABLE_ARN_PATTERN = re.compile(
+    r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)"
+)
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -1370,6 +1381,86 @@ class GlueSource(StatefulIngestionSourceBase):
         )
         return None
 
+    def _process_dynamodb_node(
+        self,
+        node: Dict[str, Any],
+        node_args: Dict[str, Any],
+        flow_urn: str,
+    ) -> Optional[List[str]]:
+        """Resolve a Glue DynamoDB DataSource/DataSink to a DynamoDB dataset URN.
+
+        Matches the DynamoDB source naming convention: ``{region}.{table}`` with
+        platform_instance defaulting to the AWS account id. Supports both the ETL
+        connector (``dynamodb.input.tableName`` / ``dynamodb.output.tableName``) and
+        the export connector (``dynamodb.tableArn``).
+        """
+        connection_options = node_args.get("connection_options") or {}
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        table_name: Optional[str] = None
+        region: Optional[str] = None
+        account_id: Optional[str] = None
+
+        table_arn = connection_options.get(DYNAMODB_TABLE_ARN)
+        if table_arn:
+            match = DYNAMODB_TABLE_ARN_PATTERN.match(str(table_arn))
+            if match:
+                region, account_id, table_name = (
+                    match.group(1),
+                    match.group(2),
+                    match.group(3),
+                )
+            else:
+                self.report.warning(
+                    message="Failed to parse DynamoDB table ARN for node",
+                    context=f"{flow_urn}: {node_label}: {table_arn}",
+                    log=False,
+                )
+
+        if not table_name:
+            table_name = connection_options.get(
+                DYNAMODB_INPUT_TABLE_NAME
+            ) or connection_options.get(DYNAMODB_OUTPUT_TABLE_NAME)
+
+        if not region:
+            region = (
+                connection_options.get(DYNAMODB_REGION)
+                or connection_options.get(DYNAMODB_STS_REGION)
+                or self.source_config.aws_region
+            )
+
+        if not table_name or not region:
+            self.report.warning(
+                message="Missing DynamoDB table name or region for node",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
+            )
+            return None
+
+        dataset_name = f"{region}.{table_name}"
+        target_config = self.source_config.target_platform_configs.get(
+            DYNAMODB_PLATFORM
+        )
+        if target_config and target_config.platform_instance:
+            return [
+                self._make_dataset_urn_for_platform(DYNAMODB_PLATFORM, dataset_name)
+            ]
+
+        # Mirror DynamoDB source: default platform_instance to AWS account id.
+        platform_instance = account_id or self.source_config.catalog_id
+        return [
+            make_dataset_urn_with_platform_instance(
+                platform=DYNAMODB_PLATFORM,
+                name=dataset_name,
+                platform_instance=platform_instance,
+                env=(
+                    target_config.env
+                    if target_config and target_config.env
+                    else self.env
+                ),
+            )
+        ]
+
     def process_dataflow_node(
         self,
         node: Dict[str, Any],
@@ -1431,6 +1522,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 node_urn = _urns[0]
                 if len(_urns) > 1:
                     dataset_urns = _urns
+
+            # if data object is DynamoDB (ETL connector or export connector)
+            elif node_args.get("connection_type") == DYNAMODB_CONNECTION_TYPE:
+                _urns = self._process_dynamodb_node(node, node_args, flow_urn)
+                if not _urns:
+                    return None
+                node_urn = _urns[0]
 
             else:
                 if self.source_config.ignore_unsupported_connectors:

@@ -27,6 +27,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    TargetPlatformConfig,
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
@@ -2938,6 +2939,114 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         result["urn"]
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
     )
+
+
+def _make_dynamodb_node(
+    node_id: str,
+    node_type: str,
+    connection_options: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {"Name": "connection_type", "Value": '"dynamodb"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": json.dumps(connection_options),
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+def test_process_dataflow_node_dynamodb_etl_connector() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert (
+        result["urn"]
+        == "urn:li:dataset:(urn:li:dataPlatform:dynamodb,us-west-2.orders,PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_table_arn() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.export": "ddb",
+            "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+            "dynamodb.s3.bucket": "export-bucket",
+        },
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "123456789012.us-east-1.customers,PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
+    pipeline_context = PipelineContext(run_id="glue-dynamodb-tes")
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=True,
+            target_platform_configs={
+                "dynamodb": TargetPlatformConfig(platform_instance="ddb-prod"),
+            },
+        ),
+    )
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,ddb-prod.us-west-2.orders,PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_missing_table() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={"dynamodb.region": "us-west-2"},
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is None
+    assert source.report.warnings
 
 
 @pytest.mark.parametrize(

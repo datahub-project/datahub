@@ -226,3 +226,155 @@ class TestDynamoDBSchemaSampling:
 
         assert pagination_config["MaxItems"] == 250
         assert pagination_config["PageSize"] == PAGE_SIZE
+
+
+class TestDynamoDBS3ExportLineage:
+    """Test suite for DynamoDB Export to S3 lineage discovery."""
+
+    @pytest.fixture
+    def lineage_config(self):
+        return DynamoDBConfig(
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            aws_region="us-west-2",
+            include_s3_export_lineage=True,
+            env="PROD",
+        )
+
+    def test_build_export_s3_uri(self):
+        assert (
+            DynamoDBSource._build_export_s3_uri("my-bucket", None) == "s3://my-bucket"
+        )
+        assert DynamoDBSource._build_export_s3_uri("my-bucket", "") == "s3://my-bucket"
+        assert DynamoDBSource._build_export_s3_uri("my-bucket", "/") == "s3://my-bucket"
+        assert (
+            DynamoDBSource._build_export_s3_uri("my-bucket", "exports/daily/")
+            == "s3://my-bucket/exports/daily"
+        )
+
+    def test_collect_and_emit_s3_export_lineage(self, mock_context, lineage_config):
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        table_arn = "arn:aws:dynamodb:us-west-2:123456789012:table/orders"
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123456789012.us-west-2.orders,PROD)"
+
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {
+                    "ExportArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/abc",
+                    "ExportStatus": "COMPLETED",
+                },
+                {
+                    "ExportArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/def",
+                    "ExportStatus": "FAILED",
+                },
+                {
+                    "ExportArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders/export/ghi",
+                    "ExportStatus": "COMPLETED",
+                },
+            ]
+        }
+        mock_client.describe_export.side_effect = [
+            {
+                "ExportDescription": {
+                    "S3Bucket": "export-bucket",
+                    "S3Prefix": "dynamo/orders/",
+                }
+            },
+            {
+                "ExportDescription": {
+                    "S3Bucket": "export-bucket",
+                    "S3Prefix": "dynamo/orders/",
+                }
+            },
+        ]
+
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn=table_arn,
+            dataset_urn=dataset_urn,
+            dataset_name="us-west-2.orders",
+        )
+
+        workunits = list(source._emit_s3_export_lineage())
+        assert len(workunits) == 1
+        assert source.report.s3_export_locations_found == 1
+        assert source.report.s3_export_lineage_edges == 1
+
+        aspect = workunits[0].metadata.aspect
+        assert aspect.upstreams[0].dataset == dataset_urn
+        assert (
+            workunits[0].metadata.entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:s3,export-bucket/dynamo/orders,PROD)"
+        )
+        mock_client.describe_export.assert_called()
+
+    def test_aggregates_multiple_tables_to_same_s3_prefix(
+        self, mock_context, lineage_config
+    ):
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {
+                    "ExportArn": "arn:export/1",
+                    "ExportStatus": "COMPLETED",
+                }
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {
+                "S3Bucket": "shared-bucket",
+                "S3Prefix": "exports",
+            }
+        }
+
+        upstream_a = (
+            "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123.a.us-west-2.table_a,PROD)"
+        )
+        upstream_b = (
+            "urn:li:dataset:(urn:li:dataPlatform:dynamodb,123.a.us-west-2.table_b,PROD)"
+        )
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/a",
+            dataset_urn=upstream_a,
+            dataset_name="us-west-2.table_a",
+        )
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/b",
+            dataset_urn=upstream_b,
+            dataset_name="us-west-2.table_b",
+        )
+
+        workunits = list(source._emit_s3_export_lineage())
+        assert len(workunits) == 1
+        upstream_urns = {u.dataset for u in workunits[0].metadata.aspect.upstreams}
+        assert upstream_urns == {upstream_a, upstream_b}
+        assert source.report.s3_export_lineage_edges == 2
+
+    def test_list_exports_error_is_warning(self, mock_context, lineage_config):
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.side_effect = Exception("AccessDenied")
+
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+        )
+
+        assert list(source._emit_s3_export_lineage()) == []
+        assert len(source.report.warnings) >= 1
+        assert any(
+            "Failed to list DynamoDB table exports" in str(w)
+            for w in source.report.warnings
+        )
