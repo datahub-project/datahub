@@ -23,3 +23,21 @@
     border-color: var(--ifm-color-primary);
   }
 }
+
+// Cards plus an optional sticky rail. `align-items: start` is load-bearing:
+// the default `stretch` would give the rail full column height and its
+// `position: sticky` would then have nothing to travel within.
+.withAside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+// Below this width the rail would squeeze the card grid past two across, so
+// it returns to normal flow underneath the cards.
+@media (max-width: 1200px) {
+  .withAside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

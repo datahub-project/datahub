@@ -1,0 +1,97 @@
+// global.scss gives .hero 5vh of vertical padding and then .hero__content
+// another 2rem inside it, so the header carries both before a single card is
+// reached. Drop the inner one.
+//
+// Scoped here rather than fixed in global.scss because the Learn list page
+// uses .hero__content too and is not ours to restyle. The class is doubled to
+// out-specify global.scss's `.hero .hero__content` without resorting to
+// !important or depending on stylesheet order.
+:global(.hero) .heroContent.heroContent {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+// Sticks below the fixed navbar so the legend stays on screen while the cards
+// scroll past it. Sticky only engages while the rail is shorter than its grid
+// column, which is why the card grid sets `align-items: start`.
+.legend {
+  position: sticky;
+  top: calc(var(--ifm-navbar-height) + 1rem);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  background: var(--ifm-background-surface-color);
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+// Once the rail drops back into normal flow under the cards, sticky would pin
+// it to the viewport for the rest of the page with nothing beside it.
+@media (max-width: 1200px) {
+  .legend {
+    position: static;
+    margin-top: 1.5rem;
+  }
+}
+
+.legendGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+
+  h4 {
+    margin-bottom: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--ifm-color-emphasis-800);
+  }
+
+  ul {
+    margin: 0 0 0.35rem;
+    padding-left: 1.1rem;
+  }
+
+  li {
+    margin-bottom: 0.2rem;
+    color: var(--ifm-color-emphasis-700);
+  }
+}
+
+.legendSample {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+// These must stay in step with the real badges in
+// FilterCard/quicklinkcard.module.scss - the legend is only useful if it
+// reproduces what the cards show. Foregrounds are darkened to clear WCAG AA's
+// 4.5:1 for normal text, which applies here because the samples are well under
+// the 18pt large-text threshold.
+.sampleCertified {
+  background: #e6f4ea;
+  color: #136c2e;
+}
+
+.sampleIncubating {
+  background: #fff3e0;
+  color: #b45309;
+}
+
+.sampleTesting {
+  background: #f0f0f5;
+  color: #585d66;
+}
+
+// The cards render this one as an antd Tag with color="blue", so the sample
+// takes antd v5's blue preset rather than an approximation of it.
+.sampleApi {
+  background: #e6f4ff;
+  border: 1px solid #91caff;
+  color: #0958d9;
+}

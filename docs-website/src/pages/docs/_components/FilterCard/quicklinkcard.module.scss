@@ -25,6 +25,20 @@
   }
 }
 
+// Infima pads all three card sections with --ifm-card-vertical-spacing (1rem),
+// which is generous for a logo, a title and a sentence, and is paid on every
+// one of 148 cards. Set the padding directly rather than overriding the
+// variable, so this does not depend on Infima's internal custom property
+// names. Scoped to these cards via a descendant selector so the value wins on
+// specificity rather than on stylesheet order.
+.feature {
+  :global(.card__header),
+  :global(.card__body),
+  :global(.card__footer) {
+    padding: 0.5rem;
+  }
+}
+
 // Support Status Badge
 .supportBadge {
   position: absolute;
@@ -39,9 +53,12 @@
   text-transform: uppercase;
 }
 
+// Mirrored by the legend samples in FilterPage/legend.module.scss; change both
+// together. Foregrounds clear WCAG AA's 4.5:1 for normal text, which applies
+// because the badge is well under the 18pt large-text threshold.
 .badgeCertified {
   background: #e6f4ea;
-  color: #1a7f37;
+  color: #136c2e;
 }
 
 .badgeIncubating {
@@ -51,7 +68,7 @@
 
 .badgeTesting {
   background: #f0f0f5;
-  color: #6b7280;
+  color: #585d66;
 }
 
 .featureImage {
