@@ -665,6 +665,27 @@
         "entityType": "dataJob",
         "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
         "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [],
+                "outputDatasets": [],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
+        "changeType": "UPSERT",
         "aspectName": "browsePathsV2",
         "aspect": {
             "json": {
@@ -1550,6 +1571,27 @@
         "entityType": "dataJob",
         "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
         "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [],
+                "outputDatasets": [],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
+        "changeType": "UPSERT",
         "aspectName": "browsePathsV2",
         "aspect": {
             "json": {
@@ -1643,6 +1685,27 @@
                             "language": "SQL"
                         }
                     }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [],
+                "outputDatasets": [],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
                 ]
             }
         },
