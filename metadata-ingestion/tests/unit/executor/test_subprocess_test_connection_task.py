@@ -370,14 +370,8 @@ async def test_exec_out_dir_exists_before_venv_setup(
     sample_args: dict[str, str],
     tmp_path: Path,
 ) -> None:
-    """The connection report is written into exec_out_dir, so the task must create it.
-
-    setup_venv only creates that directory as a side effect of `uv venv`, which the
-    "bundled" and "native" versions skip entirely -- they return early without touching
-    tmp_dir. When the directory is missing, the CLI's --report-to write raises inside
-    _test_source_connection, whose single `except Exception` also wraps the connection
-    test, so it returns 1 and a healthy connection is reported as FAILURE.
-    """
+    """exec_out_dir must exist before setup_venv, which skips creating it for the
+    "bundled" and "native" versions -- leaving the connection report unwritable."""
     config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
     task = SubProcessTestConnectionTask(config, executor_ctx)
 

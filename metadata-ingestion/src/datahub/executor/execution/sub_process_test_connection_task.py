@@ -85,18 +85,11 @@ class SubProcessTestConnectionTask(Task):
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
         # 2. Prepare or resolve venv
-        #
-        # The connection report is written into exec_out_dir, and nothing else creates
-        # it: setup_venv only makes it as a side effect of `uv venv`, which the
-        # "bundled" and "native" versions skip entirely. Without it the CLI's
-        # `--report-to` write raises inside _test_source_connection, whose single
-        # `except Exception` also covers the connection test itself -- so it returns 1
-        # and a perfectly healthy connection is reported as FAILURE.
-        #
-        # Created here rather than at the top of execute() so argument-validation and
-        # recipe-resolution failures do not leave an empty directory behind: the cleanup
-        # that removes it only runs once the subprocess block below is entered.
-        # Mirrors _setup_directories in SubProcessIngestionTask.
+        # The connection report is written here. Only the dynamic venv path creates this
+        # directory (via `uv venv`); "bundled" and "native" return before that, and the
+        # missing directory makes the CLI's --report-to write fail, which
+        # _test_source_connection reports as a failed connection test. Created after
+        # validation so earlier failures leave no empty directory behind.
         Path(exec_out_dir).mkdir(0o755, parents=True, exist_ok=True)
 
         venv_config = VenvConfig(

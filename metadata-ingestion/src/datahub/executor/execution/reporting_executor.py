@@ -47,12 +47,9 @@ DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult"
 REPORTS_TO_EMIT_MAX_SIZE = 10
 
-# `executorInstanceId` is not declared by the OSS ExecutionRequestResult aspect, but is
-# by some deployments' models (either a fork of metadata-models or a custom models
-# package registered via datahub.custom_packages -- see
-# datahub.utilities._custom_package_loader). Generated aspect classes take explicit
-# keyword arguments with no **kwargs, so passing the field to a build that does not
-# declare it raises TypeError. Probe once at import rather than per-MCP.
+# Only some models builds declare executorInstanceId (a metadata-models fork, or a
+# custom models package). Generated aspect classes take explicit kwargs, so passing it
+# to a build without the field raises TypeError.
 _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID = (
     "executorInstanceId"
     in inspect.signature(ExecutionRequestResultClass.__init__).parameters
@@ -96,8 +93,7 @@ class ReportingExecutor(DefaultExecutor):
             exec_config.executor_instance_id is not None
             and not _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
         ):
-            # Warned once here rather than per aspect: this method builds an MCP on every
-            # progress heartbeat, so warning there floods the log for a whole run.
+            # Warned here, not per aspect: an MCP is built on every progress heartbeat.
             logger.warning(
                 "executor_instance_id is configured but the installed "
                 "ExecutionRequestResult aspect does not declare executorInstanceId; "
@@ -320,11 +316,9 @@ class ReportingExecutor(DefaultExecutor):
             exec_id = exec_request.exec_id if exec_request else "unknown"
             message = f"{exec_id} report exceeded limit of {max_length} chars and was truncated."
             logger.warning(message)
-            # Reserve room for the warning line. Truncating to max_length and *then*
-            # prepending the warning would put the result back over the limit by the
-            # length of the prefix, defeating the guard this block exists for. The outer
-            # slice keeps the guarantee unconditional: if max_length is smaller than the
-            # prefix itself, the warning gets cut rather than blowing the budget.
+            # Reserve room for the prefix, then clamp: prepending after truncating
+            # overshoots by len(prefix), and reserving alone still overshoots when
+            # max_length < len(prefix).
             prefix = f"WARNING: {message}\n"
             report = (prefix + report[: max(0, max_length - len(prefix))])[:max_length]
 
@@ -343,11 +337,7 @@ class ReportingExecutor(DefaultExecutor):
             else None,
         }
 
-        # Included only when configured and supported by the installed models. Without
-        # the guard, a deployment that sets executor_instance_id against the OSS aspect
-        # would raise TypeError here -- and since this method builds every kickoff,
-        # progress and completion MCP, that would fail all reporting for the executor
-        # rather than degrading a single field.
+        # Skipped when the installed models lack the field; warned about at construction.
         if (
             self._config.executor_instance_id is not None
             and _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID

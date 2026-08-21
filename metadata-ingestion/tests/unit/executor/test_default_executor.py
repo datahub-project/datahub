@@ -56,12 +56,7 @@ def _build_store(store_type: str) -> SecretStore:
 
 
 class TestSecretStoreResolution:
-    """`SecretStoreConfig.type` accepts a built-in short name or an import path.
-
-    The import-path form used to be unreachable: `_create_secret_store` pre-registered
-    the path as its own registry key, and SecretStoreRegistry rejects keys containing
-    "." or ":", so it raised KeyError before the class was ever imported.
-    """
+    """`SecretStoreConfig.type` accepts a built-in short name or an import path."""
 
     def test_builtin_short_name_resolves_via_the_registry(self) -> None:
         assert isinstance(_build_store("env"), EnvironmentSecretStore)
@@ -74,8 +69,6 @@ class TestSecretStoreResolution:
         assert isinstance(_build_store(f"{module}:{name}"), DummySecretStore)
 
     def test_unknown_short_name_reports_that_no_class_is_registered(self) -> None:
-        # Not "disabled due to an error in initialization", which is what the old
-        # register-then-import path produced for a name that simply does not exist.
         with pytest.raises(KeyError, match="Did not find a registered class"):
             _build_store("no-such-store")
 

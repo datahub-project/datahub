@@ -18,8 +18,7 @@ MAX_LENGTH = 500
 
 @pytest.fixture(autouse=True)
 def payload_limit(monkeypatch: pytest.MonkeyPatch) -> None:
-    # get_payload_max_length() reads the env var on every call, so a small limit here
-    # keeps the fixtures readable instead of needing multi-megabyte strings.
+    # Read per call, so a small limit keeps fixtures readable.
     monkeypatch.setenv("ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH", str(MAX_LENGTH))
 
 
@@ -40,12 +39,7 @@ def _request() -> ExecutionRequest:
 
 
 class TestResultAspectSizeGuard:
-    """The oversized-payload guard must leave the aspect within `max_length`.
-
-    It previously truncated `report` to exactly max_length and *then* prepended the
-    "WARNING: ..." line, so every truncated report came out over the limit by the
-    length of that prefix.
-    """
+    """The guard must leave the aspect at exactly `max_length`, not over it."""
 
     def test_report_over_the_limit_stays_within_the_limit(
         self, executor: ReportingExecutor
@@ -66,8 +60,7 @@ class TestResultAspectSizeGuard:
     def test_report_stays_within_even_a_limit_smaller_than_the_warning(
         self, executor: ReportingExecutor, monkeypatch: pytest.MonkeyPatch, limit: int
     ) -> None:
-        # The warning prefix is ~75 chars, so for small limits reserving room for it
-        # yields an empty body and the prefix alone would still exceed the budget.
+        # The prefix is ~75 chars: below that, reserving room leaves an empty body.
         monkeypatch.setenv("ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH", str(limit))
 
         aspect = executor._build_execution_request_result_aspect(
@@ -109,8 +102,7 @@ class TestResultAspectSizeGuard:
     def test_both_over_the_limit_stays_within_the_limit(
         self, executor: ReportingExecutor
     ) -> None:
-        # Both guards fire: the structured report is dropped and the report is
-        # truncated, so the report is prefixed with two stacked warning lines.
+        # Both guards fire, so the report carries two stacked warning lines.
         aspect = executor._build_execution_request_result_aspect(
             status="SUCCESS",
             start_time_ms=0,
@@ -126,18 +118,10 @@ class TestResultAspectSizeGuard:
 
 
 class TestExecutorInstanceId:
-    """`executorInstanceId` is only declared by some models builds.
-
-    The OSS `ExecutionRequestResult` aspect does not declare it; forks and custom
-    models packages do. Generated aspect classes take explicit keyword arguments, so
-    passing the field to a build that lacks it raises TypeError -- and because this
-    method builds every kickoff, progress and completion MCP, that would fail all
-    reporting for the executor rather than degrading one field.
-    """
+    """The field must be omitted, not passed, when the installed models lack it."""
 
     def test_configured_instance_id_never_breaks_aspect_construction(self) -> None:
-        # The original failure mode, independent of the guard's internals: against the
-        # OSS aspect this raised TypeError, taking out every MCP for the executor.
+        # The original failure mode: against the OSS aspect this raised TypeError.
         executor = ReportingExecutor(
             ReportingExecutorConfig(
                 id="test-executor",
@@ -155,11 +139,8 @@ class TestExecutorInstanceId:
         assert aspect.status == "SUCCESS"
 
     def test_probe_agrees_with_the_installed_aspect(self) -> None:
-        # Pins the guard to reality in whichever models build is installed, so it stays
-        # correct for OSS (field absent) and for forks/custom packages (field present).
-        # Splatted so the deliberately-unsupported kwarg is a runtime question, not a
-        # static one: mypy would reject it inline against the OSS models, and a
-        # `type: ignore` would go unused against models that do declare the field.
+        # Keeps the probe honest under whichever models build is installed.
+        # Splatted so mypy does not reject the deliberately-unsupported kwarg inline.
         kwargs: Dict[str, Any] = {
             "status": "SUCCESS",
             "startTimeMs": 0,
@@ -179,8 +160,7 @@ class TestExecutorInstanceId:
     def test_unsupported_field_is_omitted_and_warned_about_only_once(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
-        # This method builds an MCP on every progress heartbeat, so warning per build
-        # would flood the log for a whole run. The warning belongs at construction.
+        # An MCP is built on every progress heartbeat, so warn once at construction.
         monkeypatch.setattr(
             reporting_executor, "_RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID", False
         )
