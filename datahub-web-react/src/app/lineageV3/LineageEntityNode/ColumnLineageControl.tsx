@@ -1,7 +1,6 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Spin } from 'antd';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { CountText, SideControlWrapper } from '@app/lineageV3/LineageEntityNode/components';
 import { ShownRelatedCounts } from '@app/lineageV3/common';
@@ -29,9 +28,17 @@ const Counts = styled(CountText)`
     padding: 4px;
 `;
 
-const StyledLoadingIndicator = styled(LoadingOutlined)`
-    display: flex;
-    font-size: inherit;
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+// Sized and colored to match the counts it stands in for, rather than the full-width,
+// brand-colored alchemy `Loader`
+const LoadingIndicator = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    height: 1em;
+    width: 1em;
 `;
 
 interface Props {
@@ -64,7 +71,7 @@ export function ColumnLineageControl({ direction, lineageAsset, shownRelated }: 
             <Counts>
                 {/* Counts are fetched per column, so they can lag behind the graph */}
                 {total === undefined ? numShown : Math.min(numShown, total)} /{' '}
-                {total === undefined ? <Spin indicator={<StyledLoadingIndicator />} /> : total}
+                {total === undefined ? <LoadingIndicator data-testid="column-lineage-count-loading" /> : total}
             </Counts>
         </ControlWrapper>
     );

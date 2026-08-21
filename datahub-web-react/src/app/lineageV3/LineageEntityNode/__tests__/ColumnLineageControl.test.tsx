@@ -30,10 +30,10 @@ function upstream(numShown: number): ShownRelatedCounts {
 
 describe('ColumnLineageControl', () => {
     it('shows a loading indicator in place of the total until counts are fetched', () => {
-        const { getByTestId, container } = renderControl({}, upstream(1));
+        const { getByTestId } = renderControl({}, upstream(1));
 
         expect(getByTestId(TEST_ID).textContent).toEqual('1 / ');
-        expect(container.querySelector('.anticon-loading')).toBeTruthy();
+        expect(getByTestId('column-lineage-count-loading')).toBeTruthy();
     });
 
     it('shows how many related columns are on the graph out of the fetched total', () => {
