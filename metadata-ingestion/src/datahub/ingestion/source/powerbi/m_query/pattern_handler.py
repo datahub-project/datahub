@@ -2,7 +2,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Set, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -113,36 +113,73 @@ def _get_record_args(node_map: Dict[int, dict], invoke_node: dict) -> Dict[str, 
     return result
 
 
+def _resolve_step(
+    node_map: Dict[int, dict], node: dict, seen: Set[str]
+) -> Optional[dict]:
+    """Follow an identifier to the expression the let binds it to.
+
+    Returns None when the name is not a let variable, which is how a connector
+    call such as ``Snowflake.Databases`` is told apart from a step name.
+    """
+    if node.get("kind") != "IdentifierExpression":
+        return None
+    name = node.get("identifier", {}).get("literal", "")
+    if not name or name in seen:
+        return None
+    let_nodes = sorted(
+        find_nodes_by_kind(node_map, "LetExpression"),
+        key=lambda n: n.get("id", 0),
+    )
+    if not let_nodes:
+        return None
+    resolved = resolve_identifier(node_map, let_nodes[0], name)
+    if resolved is not None:
+        seen.add(name)
+    return resolved
+
+
 def _get_data_source_tokens(
     node_map: Dict[int, dict],
     arg_node: dict,
     parameters: Optional[Dict[str, str]] = None,
+    seen: Optional[Set[str]] = None,
 ) -> List[str]:
     """Extract [platform_name, server, ...other_args] from a data source node.
 
-    If arg_node is an IdentifierExpression, resolves it through the let scope.
+    A step may sit any number of navigation steps away from the connector call,
+    e.g. ``Value.NativeQuery(db, ...)`` where ``db = Source{[Name=..]}[Data]``
+    and ``Source`` is the call. Each hop's navigation record is appended after
+    the connector's own arguments, so the platform stays at index 0 and the
+    server at index 1 however deep the chain runs.
     """
-    # Resolve through let scope if identifier
-    if arg_node.get("kind") == "IdentifierExpression":
-        name = arg_node.get("identifier", {}).get("literal", "")
-        let_nodes = sorted(
-            find_nodes_by_kind(node_map, "LetExpression"),
-            key=lambda n: n.get("id", 0),
-        )
-        if let_nodes:
-            resolved = resolve_identifier(node_map, let_nodes[0], name)
-            if resolved is not None:
-                arg_node = resolved
+    seen = seen if seen is not None else set()
+
+    # A step may be a plain alias of another step, so follow the chain rather
+    # than a single hop.
+    while True:
+        resolved = _resolve_step(node_map, arg_node, seen)
+        if resolved is None:
+            break
+        arg_node = resolved
 
     if arg_node.get("kind") != "RecursivePrimaryExpression":
         return []
 
     head = arg_node.get("head", {})
-    platform_name = ""
-    if head.get("kind") == "IdentifierExpression":
-        platform_name = head.get("identifier", {}).get("literal", "")
-
-    tokens: List[str] = [platform_name]
+    resolved_head = _resolve_step(node_map, head, seen)
+    if resolved_head is not None:
+        # The head is another step, so the connector is further back. Its tokens
+        # come first; this level's navigation steps are appended below.
+        tokens = _get_data_source_tokens(
+            node_map, resolved_head, parameters=parameters, seen=seen
+        )
+        if not tokens:
+            return []
+    else:
+        platform_name = ""
+        if head.get("kind") == "IdentifierExpression":
+            platform_name = head.get("identifier", {}).get("literal", "")
+        tokens = [platform_name]
 
     rec_exprs = arg_node.get("recursiveExpressions", {})
     elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
