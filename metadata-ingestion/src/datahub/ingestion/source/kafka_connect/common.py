@@ -1542,7 +1542,7 @@ class BaseConnector:
         """
         matcher = JavaRegexMatcher()
 
-        # Distinguish None (unavailable → try DataHub) from [] (empty cluster).
+        # Distinguish None (unavailable -> try DataHub) from [] (empty cluster).
         if available_topics is not None:
             matched_topics = matcher.filter_matches([topics_regex], available_topics)
             if matched_topics:
