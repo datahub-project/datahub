@@ -66,10 +66,30 @@ def get_upstream_tables(
     caller has opted out of (``native_query_parsing=False``).
     """
     parameters = parameters or {}
+
     # The dataset's other queries, so a reference to one that is not loaded into
-    # the model can still be followed to the data source it holds.
+    # the model can still be followed to the data source it holds. The
+    # native_query_parsing opt-out has to apply here as well: the check below
+    # only sees the table's own expression, so without this a native query one
+    # hop away would be parsed despite the flag.
+    shared_texts = expressions or {}
+    if not config.native_query_parsing:
+        withheld = [
+            name for name, text in shared_texts.items() if "Value.NativeQuery" in text
+        ]
+        if withheld:
+            logger.debug(
+                "Not following %s (native_query_parsing=False)",
+                withheld,
+            )
+        shared_texts = {
+            name: text
+            for name, text in shared_texts.items()
+            if "Value.NativeQuery" not in text
+        }
+
     shared = SharedExpressions(
-        texts=expressions or {},
+        texts=shared_texts,
         parse=lambda text: _parse_with_bridge(text, config.m_query_parse_timeout),
     )
 
@@ -183,6 +203,15 @@ def get_upstream_tables(
             ).create_lineage(f_detail)
             if lineage.upstreams:
                 lineages.append(lineage)
+
+        if shared.failures:
+            reporter.warning(
+                title="Unable to parse a referenced query",
+                message="A query this table is built on could not be parsed, so "
+                'the lineage it holds is missing. Queries with "Enable load" '
+                "switched off are reached this way.",
+                context=f"table-full-name={table.full_name}, queries={shared.failures}",
+            )
 
         if lineages:
             reporter.m_query_resolver_successes += 1

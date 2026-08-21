@@ -395,16 +395,17 @@ class Mapper:
                     continue
 
                 upstream_urn = self.lineage_urn_to_lowercase(upstream_dpt.urn)
-                if upstream_urn in emitted_upstream_urns:
-                    continue
-                emitted_upstream_urns.add(upstream_urn)
-
-                upstream_table_class = UpstreamClass(
-                    upstream_urn,
-                    DatasetLineageTypeClass.TRANSFORMED,
-                )
-
-                upstream.append(upstream_table_class)
+                # Only the upstream itself is deduplicated. Column lineage is
+                # left as it was, so a second route contributing mappings the
+                # first did not have still reaches the aspect.
+                if upstream_urn not in emitted_upstream_urns:
+                    emitted_upstream_urns.add(upstream_urn)
+                    upstream.append(
+                        UpstreamClass(
+                            upstream_urn,
+                            DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    )
 
                 # Add column level lineage if any
                 cll_lineage.extend(

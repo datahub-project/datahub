@@ -2179,3 +2179,76 @@ def test_shared_expression_reference_is_matched_case_insensitively():
 
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+
+
+@pytest.mark.integration
+def test_native_query_opt_out_applies_to_shared_expressions():
+    """native_query_parsing=False has to hold for a native query reached through
+    another query, not just one written on the table itself."""
+    connector = (
+        'Snowflake.Databases("srv.snowflakecomputing.com","wh")'
+        '{[Name="MYDB",Kind="Database"]}[Data]'
+    )
+    hidden = (
+        f"let q = Value.NativeQuery({connector},"
+        ' "select a from MYDB.SCH.TBL", null, [EnableFolding=true]) in q'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = #"Hidden",'
+        " o = Table.SelectRows(Source, each true) in o",
+        name="t",
+        full_name="MyDataSet.t",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": False,
+            "enable_advance_lineage_sql_construct": False,
+            "extract_column_level_lineage": False,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions={"Hidden": hidden},
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_unparseable_shared_expression_is_reported():
+    """A query that cannot be parsed leaves the table short of lineage, so it has
+    to be named rather than dropped at debug level."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = #"Broken" in Source',
+        name="t",
+        full_name="MyDataSet.t",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions={"Broken": "let %%% not valid m ((("},
+    )
+
+    titles = [entry.title for entry in reporter.warnings]
+    assert any("referenced query" in (t or "") for t in titles), (
+        f"Expected the unparseable query to be reported; got: {titles}"
+    )

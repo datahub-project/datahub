@@ -2,10 +2,15 @@ import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional, Tuple
 
+from datahub.ingestion.source.powerbi.m_query._bridge import (
+    MQueryBridgeError,
+    MQueryParseError,
+)
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
     resolve_parameter_value,
 )
+from datahub.utilities.threading_timeout import TimeoutException
 
 logger = logging.getLogger(__name__)
 
@@ -34,16 +39,12 @@ class SharedExpressions:
     texts: Dict[str, str]
     parse: Callable[[str], NodeIdMap]
     chain: Tuple[str, ...] = ()
-    # Parsing is deterministic and a query reached by several routes would
-    # otherwise be sent to the bridge once per route, so the result is kept for
-    # the whole walk rather than per path.
-    _parsed: Dict[str, NodeIdMap] = field(default_factory=dict)
-
-    def parse_once(self, name: str, text: str) -> NodeIdMap:
-        key = name.casefold()
-        if key not in self._parsed:
-            self._parsed[key] = self.parse(text)
-        return self._parsed[key]
+    # Both shared across the whole walk rather than per path: parsing is
+    # deterministic, so a query reached by several routes should be sent to the
+    # bridge once, and a query that failed should not be retried per route --
+    # with a timeout, each retry costs the full timeout again.
+    _parsed: Dict[str, Optional[NodeIdMap]] = field(default_factory=dict)
+    failures: Dict[str, str] = field(default_factory=dict)
 
     def lookup(self, name: str) -> Optional[str]:
         """The M text bound to a name, or None if the dataset has no such query."""
@@ -54,6 +55,26 @@ class SharedExpressions:
             logger.debug("'%s' is a parameter query, not following it", name)
             return None
         return text
+
+    def parsed(self, name: str, text: str) -> Optional[NodeIdMap]:
+        """Parse a query, once per walk however many routes reach it.
+
+        Returns None when the query cannot be parsed, recording why so the caller
+        can report it rather than leaving the table silently short of lineage.
+        Anything other than a parse, bridge or timeout failure is a defect rather
+        than bad input, and is left to propagate.
+        """
+        key = name.casefold()
+        if key in self._parsed:
+            return self._parsed[key]
+
+        try:
+            self._parsed[key] = self.parse(text)
+        except (MQueryParseError, MQueryBridgeError, TimeoutException) as e:
+            self._parsed[key] = None
+            self.failures[name] = f"{type(e).__name__}: {e}"
+
+        return self._parsed[key]
 
     def would_repeat(self, name: str) -> bool:
         return name.casefold() in self.chain
@@ -67,4 +88,5 @@ class SharedExpressions:
             parse=self.parse,
             chain=self.chain + (name.casefold(),),
             _parsed=self._parsed,
+            failures=self.failures,
         )
