@@ -103,6 +103,8 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
+- **(Ingestion SDK / #18924)** DataJobs emitted through the Python SDK now set the parent DataFlow's browse-path entry `id` to the DataFlow URN instead of the raw flow id. This lets Browse (V2) resolve and show the flow's display name rather than an opaque id — most visibly, Airbyte connections that previously appeared as UUID folders now show their connection name. This affects every connector that emits DataJobs via the SDK (for example Airbyte, Fivetran, Azure Data Factory, Flink, Informatica, dlt). The change is to emitted metadata only; there is no model change and no reindex is required. **Action:** none is strictly required, but re-ingest the affected pipelines to refresh their browse paths and pick up the improved navigation.
+
 ## v1.7.0
 
 Requirements:

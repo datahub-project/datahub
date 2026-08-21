@@ -273,6 +273,28 @@ def test_datajob_browse_path_without_container() -> None:
     )
 
 
+def test_datajob_browse_path_entry_uses_flow_urn_as_id() -> None:
+    connection_id = "ede922d9-70ff-411b-a77d-27538f0d4da4"
+    flow = DataFlow(
+        platform="airbyte",
+        name=connection_id,
+        display_name="SourceA → TargetA",
+    )
+    job = DataJob(
+        flow=flow,
+        name=f"{connection_id}_table_one",
+        display_name="table_one",
+    )
+
+    browse_paths = job._get_aspect(models.BrowsePathsV2Class)
+    assert browse_paths is not None
+    assert len(browse_paths.path) == 1
+    entry = browse_paths.path[0]
+    assert entry.id == str(flow.urn)
+    assert entry.urn == str(flow.urn)
+    assert entry.id != connection_id
+
+
 def test_datajob_browse_path_with_container() -> None:
     # Create a container
     container = Container(

@@ -1407,7 +1407,7 @@
                     "urn": "urn:li:container:39d6112cc2788e34a57f0f4d596f21f2"
                 },
                 {
-                    "id": "idmc_test.daily_refresh",
+                    "id": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)",
                     "urn": "urn:li:dataFlow:(informatica,idmc_test.daily_refresh,PROD)"
                 }
             ]
