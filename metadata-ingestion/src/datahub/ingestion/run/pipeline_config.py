@@ -118,7 +118,7 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
     )
 
     @model_validator(mode="after")
-    def _require_something_in_scope_when_enabled(
+    def _require_platforms_or_resolve_all_when_enabled(
         self,
     ) -> "AutoResolveLineageUrnsConfig":
         # Enabled with nothing preloaded and scope not widened has nothing to reconcile

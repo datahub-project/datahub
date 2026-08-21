@@ -58,6 +58,7 @@ from datahub.utilities.urn_aliases.provider import (
 from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
     maintains_dataset_aliases,
+    pick_match,
 )
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -489,13 +490,12 @@ class AutoResolveLineageUrnsProcessor(
     def _resolve_dataset(self, urn: str, *, with_schema: bool = False) -> _Resolution:
         """Resolve `urn` to the casing DataHub already stores, via the URN alias index.
 
-        ``UrnAliasResolver.resolve`` returns the stored URN matching the reference under
-        any casing: a hit under the reference's own casing is EXACT, a hit under a different
-        casing is NORMALIZED, and None is UNRESOLVED. It is called with
-        ``prefer_lowercased=True``, so two stored entities differing only by case heal to
-        the lowercase-named one rather than leaving the lineage broken; None is left for a
-        reference nothing matches, or a collision with no lowercase-named side to prefer. A
-        reference outside scope is never looked up at all, so it abstains rather than
+        ``pick_match`` returns the stored URN matching the reference under any casing: a
+        hit under the reference's own casing is EXACT, a hit under a different casing is
+        NORMALIZED, and None is UNRESOLVED. Two stored entities differing only by case heal
+        to the lowercase-named one rather than leaving the lineage broken; None is left for
+        a reference nothing matches, or a collision with no lowercase-named side to prefer.
+        A reference outside scope is never looked up at all, so it abstains rather than
         reporting an absence.
 
         Matching whole URNs means platform_instance and env are part of the comparison, so a
@@ -546,24 +546,28 @@ class AutoResolveLineageUrnsProcessor(
     def _resolve_alias(self, urn: str, platform: str) -> Optional[str]:
         """The stored casing of `urn`, from a preloaded catalog or by asking DataHub.
 
-        A preload covers one platform_instance / env, so a miss in it is not an absence and
-        has to be asked about. A preload that raises is likewise not an absence: DataHub is
-        asked below either way, and its search is exhaustive, so the reference still heals.
+        A preload's row holds every casing of its key — a load that died part way yields no
+        resolver at all — so a row answers the reference outright, including by declining an
+        ambiguous one. Matches are what is checked for, not the verdict on them: a collision
+        re-asked of DataHub could come back a single match under partial `aliases` coverage
+        and heal the reference to the wrong entity.
+
+        A preload covers one platform_instance / env, so a *missing* row is not an absence
+        and has to be asked about. A preload that raises is likewise not an absence: DataHub
+        is asked below either way, and its search is exhaustive, so the reference still heals.
         """
         for resolver in self._alias_resolvers.get(platform) or []:
             try:
-                resolved = resolver.resolve(urn, prefer_lowercased=True)
+                matches = resolver.find_match(urn)
             except Exception:
                 logger.debug(
                     f"Preloaded URN catalog failed for {urn}; asking DataHub instead",
                     exc_info=True,
                 )
                 continue
-            if resolved is not None:
-                return resolved
-        return graph_urn_alias_resolver(self._graph).resolve(
-            urn, prefer_lowercased=True
-        )
+            if matches:
+                return pick_match(urn, matches)
+        return graph_urn_alias_resolver(self._graph).resolve(urn)
 
     def _schema_of(self, urn: str, platform: str) -> Optional[SchemaInfo]:
         """The columns DataHub stores for `urn`, or None for an entity that has none.

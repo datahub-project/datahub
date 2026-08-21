@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 _TABLE = "urn_aliases"
 
 # Where GMS started maintaining the dataset `aliases` aspect resolution reads.
+# Documented as a prerequisite in docs/dev_guides/lineage_urn_casing.md; keep both in sync.
 _MIN_CLOUD_VERSION = (2, 2, 0)
 _MIN_OSS_VERSION = (1, 8, 0)
 
@@ -32,6 +33,23 @@ def lowercased_urn(urn: str) -> Optional[str]:
 
 def _has_lowercased_name(urn: str) -> bool:
     return lowercased_urn(urn) == urn
+
+
+def pick_match(urn: str, matches: List[str]) -> Optional[str]:
+    """The one URN out of `matches` that `urn` names, or None if none of them settles it.
+
+    A collision between casings settles on the lowercase-named URN — the form GMS
+    normalizes every casing to — rather than leaving the reference unresolved. An exact
+    match always wins: the reference names a real entity whatever else exists.
+    """
+    if len(matches) == 1:
+        return matches[0]
+    if urn in matches:
+        return urn
+    for match in matches:
+        if _has_lowercased_name(match):
+            return match
+    return None
 
 
 class UrnAliasResolver:
@@ -79,21 +97,9 @@ class UrnAliasResolver:
         self._urns_by_key[key] = entry
         return entry
 
-    def resolve(self, urn: str, prefer_lowercased: bool = False) -> Optional[str]:
-        """The dataset URN DataHub stores for `urn`, or None without a single match.
-
-        `prefer_lowercased` settles a collision between casings on the lowercase-named URN.
-        """
-        matches = self.find_match(urn)
-        if len(matches) == 1:
-            return matches[0]
-        if urn in matches:
-            return urn
-        if prefer_lowercased:
-            for match in matches:
-                if _has_lowercased_name(match):
-                    return match
-        return None
+    def resolve(self, urn: str) -> Optional[str]:
+        """The dataset URN DataHub stores for `urn`, or None if nothing settles it."""
+        return pick_match(urn, self.find_match(urn))
 
     def close(self) -> None:
         self._urns_by_key.close()

@@ -1459,7 +1459,7 @@ def test_a_failing_preloaded_urn_catalog_still_lets_datahub_answer():
     ]
     try:
         with mock.patch.object(
-            preloaded, "resolve", side_effect=Exception("sqlite went away")
+            preloaded, "find_match", side_effect=Exception("sqlite went away")
         ):
             [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
     finally:
@@ -1469,6 +1469,27 @@ def test_a_failing_preloaded_urn_catalog_still_lets_datahub_answer():
     assert processor.report.num_dataset_urns_normalized == 1
     assert processor.report.num_refs_lookup_failed == 0
     assert processor.report.num_exceptions == 0
+
+
+def test_a_preloaded_collision_is_not_re_asked_of_datahub():
+    # A preload's row holds every casing of its key, so a collision in it is the answer,
+    # not a miss. Re-asked, DataHub could come back a single match — here only the
+    # uppercase entity carries the `aliases` aspect the search reads — and the reference
+    # would heal to it, silently pointing lineage at the wrong table.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [WH_MIXED, WH_UPPER], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_dataset_urns_ignoring_case.side_effect = lambda key: [WH_UPPER]
+    try:
+        [out] = list(processor.process(iter([_upstream_wu(WH_LOWER)])))
+    finally:
+        patcher.stop()
+
+    assert _stored_upstream(out) == WH_LOWER
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+    )
+    graph.get_dataset_urns_ignoring_case.assert_not_called()
 
 
 def test_a_failing_preloaded_resolver_still_lets_datahub_answer():

@@ -116,25 +116,20 @@ def test_resolve_returns_an_exact_match_even_when_another_casing_exists() -> Non
     assert _loaded(_LOWER, _UPPER).resolve(_UPPER) == _UPPER
 
 
-def test_resolve_returns_none_when_casings_collide() -> None:
-    assert _loaded(_LOWER, _UPPER).resolve(_MIXED) is None
+def test_resolve_settles_a_collision_on_the_lowercased_urn() -> None:
+    # Two entities differ only by case and the reference matches neither exactly. The
+    # lowercase-named one is the form GMS normalizes every casing to, so the reference
+    # settles there rather than being left unresolved.
+    assert _loaded(_LOWER, _UPPER).resolve(_MIXED) == _LOWER
+
+
+def test_resolve_declines_a_collision_with_no_lowercased_urn() -> None:
+    # Both stored casings are non-lowercase, so there is nothing to settle on.
+    assert _loaded(_MIXED, _UPPER).resolve(_LOWER) is None
 
 
 def test_resolve_returns_none_when_nothing_matches() -> None:
     assert _loaded(_LOWER).resolve(_OTHER) is None
-
-
-def test_resolve_prefers_the_lowercased_urn_on_a_collision() -> None:
-    assert _loaded(_LOWER, _UPPER).resolve(_MIXED, prefer_lowercased=True) == _LOWER
-
-
-def test_resolve_prefers_lowercased_still_declines_when_none_is_lowercased() -> None:
-    # Both stored casings are non-lowercase, so the preference has nothing to pick.
-    assert _loaded(_MIXED, _UPPER).resolve(_LOWER, prefer_lowercased=True) is None
-
-
-def test_resolve_prefers_lowercased_does_not_override_an_exact_match() -> None:
-    assert _loaded(_LOWER, _UPPER).resolve(_UPPER, prefer_lowercased=True) == _UPPER
 
 
 # --- a bulk load caches; the graph answers ---------------------------------------------
@@ -220,8 +215,8 @@ def test_a_partial_load_cannot_answer_a_collision_wrongly() -> None:
 
     assert _load(graph) is None
     fetching = UrnAliasResolver(graph)
-    assert fetching.resolve(_MIXED, prefer_lowercased=True) == _LOWER
-    assert fetching.resolve(_UPPER, prefer_lowercased=True) == _UPPER
+    assert fetching.resolve(_MIXED) == _LOWER
+    assert fetching.resolve(_UPPER) == _UPPER
 
 
 def test_one_resolver_is_shared_by_every_consumer_of_a_region() -> None:
@@ -236,7 +231,7 @@ def test_a_load_narrowed_to_an_instance_holds_that_instance_alone() -> None:
     resolver = _load(_server(_IN_A, _IN_B), instance="inst_a")
 
     assert resolver is not None
-    assert resolver.resolve(_IN_A_UPPER, prefer_lowercased=True) == _IN_A
+    assert resolver.resolve(_IN_A_UPPER) == _IN_A
     assert resolver.find_match(_IN_B_UPPER) == []
 
 
@@ -244,7 +239,7 @@ def test_an_unfiltered_load_holds_every_instance() -> None:
     resolver = _load(_server(_IN_A, _IN_B))
 
     assert resolver is not None
-    assert resolver.resolve(_IN_B_UPPER, prefer_lowercased=True) == _IN_B
+    assert resolver.resolve(_IN_B_UPPER) == _IN_B
 
 
 def test_an_empty_instance_filtered_load_still_loads_and_says_so(
