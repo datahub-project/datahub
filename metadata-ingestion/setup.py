@@ -553,11 +553,10 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
-    "circuit-breaker": {
-        # In gql v4, the execute() method's signature changed. Since we've updated
-        # our code to use the new signature, we need to pin to gql v4.
-        "gql[requests]>=4.0.0",
-    },
+    # The circuit breakers query GMS through DataHubGraph, so this needs no
+    # extra dependencies. Kept as an empty extra so existing installs that
+    # pin acryl-datahub[circuit-breaker] keep resolving.
+    "circuit-breaker": set(),
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
     "datahub": sql_common | mysql | kafka_common,

@@ -147,7 +147,6 @@ all = [
     { name = "google-cloud-logging" },
     { name = "google-cloud-resource-manager" },
     { name = "google-cloud-secret-manager" },
-    { name = "gql", extra = ["requests"] },
     { name = "graphql-core" },
     { name = "greenlet" },
     { name = "grpcio" },
@@ -303,9 +302,6 @@ cassandra = [
     { name = "cachetools" },
     { name = "cassandra-driver" },
     { name = "numpy" },
-]
-circuit-breaker = [
-    { name = "gql", extra = ["requests"] },
 ]
 clickhouse = [
     { name = "cachetools" },
@@ -1063,7 +1059,6 @@ integration-tests = [
     { name = "feast" },
     { name = "flask-openid" },
     { name = "google-cloud-aiplatform" },
-    { name = "gql", extra = ["requests"] },
     { name = "greenlet" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "ibm-db-sa", marker = "platform_machine == 'x86_64' or sys_platform == 'darwin'" },
@@ -2015,9 +2010,6 @@ requires-dist = [
     { name = "google-cloud-secret-manager", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-cloud-secret-manager", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-cloud-secret-manager", marker = "extra == 'gcp-secret-manager'", specifier = ">=2.0.0,<3.0.0" },
-    { name = "gql", extras = ["requests"], marker = "extra == 'all'", specifier = ">=4.0.0" },
-    { name = "gql", extras = ["requests"], marker = "extra == 'circuit-breaker'", specifier = ">=4.0.0" },
-    { name = "gql", extras = ["requests"], marker = "extra == 'integration-tests'", specifier = ">=4.0.0" },
     { name = "graphql-core", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'confluence'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
@@ -5692,27 +5684,6 @@ wheels = [
 [package.optional-dependencies]
 grpc = [
     { name = "grpcio" },
-]
-
-[[package]]
-name = "gql"
-version = "4.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "backoff" },
-    { name = "graphql-core" },
-    { name = "yarl" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/06/9f/cf224a88ed71eb223b7aa0b9ff0aa10d7ecc9a4acdca2279eb046c26d5dc/gql-4.0.0.tar.gz", hash = "sha256:f22980844eb6a7c0266ffc70f111b9c7e7c7c13da38c3b439afc7eab3d7c9c8e", size = 215644, upload-time = "2025-08-17T14:32:35.397Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/94/30bbd09e8d45339fa77a48f5778d74d47e9242c11b3cd1093b3d994770a5/gql-4.0.0-py3-none-any.whl", hash = "sha256:f3beed7c531218eb24d97cb7df031b4a84fdb462f4a2beb86e2633d395937479", size = 89900, upload-time = "2025-08-17T14:32:34.029Z" },
-]
-
-[package.optional-dependencies]
-requests = [
-    { name = "requests" },
-    { name = "requests-toolbelt" },
 ]
 
 [[package]]
