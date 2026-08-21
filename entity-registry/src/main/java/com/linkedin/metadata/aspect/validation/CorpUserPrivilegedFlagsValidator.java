@@ -66,7 +66,13 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
         continue;
       }
 
-      CorpUserInfo current = loadCorpUserInfo(operationContext, aspectRetriever, item.getUrn());
+      // AspectRetriever requires a non-null fingerprint for lookups. When the batch was built
+      // without an OperationContext, use EMPTY only for reading current state — never as a trust
+      // signal for authorization.
+      OperationFingerprint lookupContext =
+          operationContext != null ? operationContext : OperationFingerprint.EMPTY;
+
+      CorpUserInfo current = loadCorpUserInfo(lookupContext, aspectRetriever, item.getUrn());
       CorpUserInfo proposed = resolveProposedCorpUserInfo(item, current);
       if (proposed == null) {
         continue;
