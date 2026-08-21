@@ -1550,11 +1550,16 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
 
 
 def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
-    """Redacted queries with system-table lineage still emit table-level usage
-    stats via the preparsed path (upstreams come from system.access.table_lineage,
-    not SQL text), but they must still be counted so the warning fires. The
-    emitted PreparsedQuery must have an empty query_text so the aggregator
-    doesn't leak "<REDACTED>" into Query entities or top-SQL samples."""
+    """Redacted queries with system-table lineage still route through the
+    preparsed path (upstreams come from system.access.table_lineage, not SQL
+    text). The emitted PreparsedQuery must:
+      1. keep the "<REDACTED>" placeholder in query_text so UsageAggregator's
+         QUERY-dim increments — otherwise totalSqlQueries silently drops to
+         zero for buckets whose queries are fully masked;
+      2. set query_count_only=True so the shared aggregator suppresses Query-
+         entity creation and per-Query URN usage counters (they'd point at a
+         Query that was never emitted).
+    Redacted counter must fire so the warning surfaces."""
     config = MagicMock()
     config.usage_uses_system_tables.return_value = True
     config.include_column_usage_stats = False
@@ -1574,7 +1579,8 @@ def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
     aggregator.add_observed_query.assert_not_called()
     assert ex.report.num_queries_with_redacted_text == 1
     emitted = aggregator.add_preparsed_query.call_args.args[0]
-    assert emitted.query_text == ""
+    assert emitted.query_text == "<REDACTED>"
+    assert emitted.query_count_only is True
     assert emitted.upstreams, "preparsed query must carry upstream urns"
 
 

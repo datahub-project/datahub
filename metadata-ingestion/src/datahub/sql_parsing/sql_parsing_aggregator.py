@@ -323,6 +323,14 @@ class PreparsedQuery:
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
+    # When true, feed the usage aggregator so table-level stats (totalSqlQueries,
+    # userCounts, etc.) still land, but skip emitting a Query entity and any
+    # per-Query URN usage counters. Use for sources that know lineage/timestamps
+    # but can't provide meaningful SQL text (e.g. Databricks masks query text to
+    # "<REDACTED>" for non-account-admins outside databricks_pii_access), to
+    # avoid polluting the catalog with placeholder Query entities.
+    query_count_only: bool = False
+
 
 @dataclasses.dataclass
 class SqlAggregatorReport(Report):
@@ -1033,6 +1041,13 @@ class SqlParsingAggregator(Closeable):
                     fields=sorted(upstream_fields.get(upstream_urn, [])),
                     count=parsed.query_count,
                 )
+
+        # For query_count_only entries we still want table-level usage stats
+        # (already recorded above via aggregate_event), but no Query entity and
+        # no per-Query URN usage counts — those would reference a Query that
+        # was never emitted.
+        if parsed.query_count_only:
+            return
 
         if self._query_usage_counts is not None and parsed.timestamp is not None:
             assert self.usage_config is not None
