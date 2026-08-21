@@ -776,7 +776,6 @@ def enhance_schema_with_titles(
 def _resolve_pattern_and_property_names(
     resolved_schema: Dict, sw_dict: Dict, max_depth: int
 ) -> None:
-    """Resolve $refs under patternProperties / propertyNames."""
     pattern_properties = resolved_schema.get("patternProperties")
     if isinstance(pattern_properties, dict):
         for pattern, prop_schema in list(pattern_properties.items()):
@@ -792,12 +791,8 @@ def _resolve_pattern_and_property_names(
 
 
 def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
-    """Promote patternProperties to additionalProperties for map-only schemas.
-
-    json_schema_util treats dict additionalProperties as a map and skips named
-    properties, so only promote when both properties and additionalProperties
-    are absent. Call after allOf merge so properties from allOf are visible.
-    """
+    # json_schema_util treats dict additionalProperties as a map and skips
+    # named properties — only promote on map-only schemas, after allOf merge.
     pattern_properties = resolved_schema.get("patternProperties")
     if not isinstance(pattern_properties, dict):
         return
