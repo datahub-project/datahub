@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils.elasticsearch.canonicalization;
 
+import java.util.Locale;
 import javax.annotation.Nullable;
 
 /** How a time boundary is moved onto a bucket boundary. */
@@ -24,7 +25,7 @@ public enum TimeRoundingMode {
       return EXPAND;
     }
     try {
-      return TimeRoundingMode.valueOf(value.trim().toUpperCase());
+      return TimeRoundingMode.valueOf(value.trim().toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException(
           "Unsupported time rounding mode '" + value + "'. Expected one of: EXPAND, SHRINK.");

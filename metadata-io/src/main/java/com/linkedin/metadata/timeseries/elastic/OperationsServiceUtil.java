@@ -97,7 +97,7 @@ public class OperationsServiceUtil {
         timeseriesAspectService,
         resource,
         duration,
-        TimeseriesUtils.convertRangeToStartTime(range, now.reference()),
+        TimeseriesUtils.convertRangeToStartTime(range, now),
         now.upperBound(),
         timeZone);
   }

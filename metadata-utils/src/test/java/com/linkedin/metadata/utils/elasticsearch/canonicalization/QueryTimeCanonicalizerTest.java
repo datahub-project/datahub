@@ -24,12 +24,16 @@ public class QueryTimeCanonicalizerTest {
   private static final long MINUTE = 60_000L;
   private static final long HOUR = 60 * MINUTE;
 
-  private static QueryTimeCanonicalizer canonicalizer(String bucketSize) {
-    return canonicalizer(bucketSize, "UTC", "EXPAND", null);
+  private static QueryTimeCanonicalizer canonicalizer(int bucketSize, String bucketSizeUnit) {
+    return canonicalizer(bucketSize, bucketSizeUnit, "UTC", "EXPAND", null);
   }
 
   private static QueryTimeCanonicalizer canonicalizer(
-      String bucketSize, String timezone, String rounding, Long fixedNowMillis) {
+      int bucketSize,
+      String bucketSizeUnit,
+      String timezone,
+      String rounding,
+      Long fixedNowMillis) {
     final QueryCanonicalizationConfiguration config =
         QueryCanonicalizationConfiguration.builder()
             .enabled(true)
@@ -37,6 +41,7 @@ public class QueryTimeCanonicalizerTest {
                 TimeCanonicalizationConfiguration.builder()
                     .enabled(true)
                     .bucketSize(bucketSize)
+                    .bucketSizeUnit(bucketSizeUnit)
                     .timezone(timezone)
                     .rounding(rounding)
                     .build())
@@ -49,13 +54,14 @@ public class QueryTimeCanonicalizerTest {
   }
 
   private static QueryCanonicalizationConfiguration enabledConfig(
-      String bucketSize, String timezone, String rounding) {
+      int bucketSize, String bucketSizeUnit, String timezone, String rounding) {
     return QueryCanonicalizationConfiguration.builder()
         .enabled(true)
         .time(
             TimeCanonicalizationConfiguration.builder()
                 .enabled(true)
                 .bucketSize(bucketSize)
+                .bucketSizeUnit(bucketSizeUnit)
                 .timezone(timezone)
                 .rounding(rounding)
                 .build())
@@ -72,7 +78,7 @@ public class QueryTimeCanonicalizerTest {
 
   @Test
   public void testFloorAndCeilAroundBoundary() {
-    final QueryTimeCanonicalizer c = canonicalizer("5m");
+    final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES");
 
     // Everything strictly inside [19:00:00, 19:05:00) floors to the same boundary.
     for (String t :
@@ -103,23 +109,23 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testBucketSizes() {
     final long t = utc("2026-08-16T19:03:42.123Z");
-    assertEquals(canonicalizer("1m").floor(t), utc("2026-08-16T19:03:00Z"));
-    assertEquals(canonicalizer("5m").floor(t), utc("2026-08-16T19:00:00Z"));
-    assertEquals(canonicalizer("10m").floor(t), utc("2026-08-16T19:00:00Z"));
-    assertEquals(canonicalizer("15m").floor(t), utc("2026-08-16T19:00:00Z"));
-    assertEquals(canonicalizer("30m").floor(t), utc("2026-08-16T19:00:00Z"));
-    assertEquals(canonicalizer("1h").floor(t), utc("2026-08-16T19:00:00Z"));
+    assertEquals(canonicalizer(1, "MINUTES").floor(t), utc("2026-08-16T19:03:00Z"));
+    assertEquals(canonicalizer(5, "MINUTES").floor(t), utc("2026-08-16T19:00:00Z"));
+    assertEquals(canonicalizer(10, "MINUTES").floor(t), utc("2026-08-16T19:00:00Z"));
+    assertEquals(canonicalizer(15, "MINUTES").floor(t), utc("2026-08-16T19:00:00Z"));
+    assertEquals(canonicalizer(30, "MINUTES").floor(t), utc("2026-08-16T19:00:00Z"));
+    assertEquals(canonicalizer(1, "HOURS").floor(t), utc("2026-08-16T19:00:00Z"));
 
     final long t2 = utc("2026-08-16T19:47:42Z");
-    assertEquals(canonicalizer("15m").floor(t2), utc("2026-08-16T19:45:00Z"));
-    assertEquals(canonicalizer("30m").floor(t2), utc("2026-08-16T19:30:00Z"));
-    assertEquals(canonicalizer("1h").ceil(t2), utc("2026-08-16T20:00:00Z"));
+    assertEquals(canonicalizer(15, "MINUTES").floor(t2), utc("2026-08-16T19:45:00Z"));
+    assertEquals(canonicalizer(30, "MINUTES").floor(t2), utc("2026-08-16T19:30:00Z"));
+    assertEquals(canonicalizer(1, "HOURS").ceil(t2), utc("2026-08-16T20:00:00Z"));
   }
 
   @Test
   public void testFloorHandlesPreEpochInstants() {
     // floorMod, not %, so negative epoch millis still round downwards.
-    final QueryTimeCanonicalizer c = canonicalizer("5m");
+    final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES");
     assertEquals(c.floor(utc("1969-12-31T23:57:30Z")), utc("1969-12-31T23:55:00Z"));
   }
 
@@ -130,7 +136,7 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testExpandKeepsWindowASuperset() {
     final long raw = utc("2026-08-16T19:03:42Z");
-    final QueryTimeCanonicalizer c = canonicalizer("5m", "UTC", "EXPAND", raw);
+    final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES", "UTC", "EXPAND", raw);
 
     final CanonicalNow now = c.now();
     assertEquals(now.raw(), raw);
@@ -148,7 +154,7 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testShrinkFloorsBothEnds() {
     final long raw = utc("2026-08-16T19:03:42Z");
-    final QueryTimeCanonicalizer c = canonicalizer("5m", "UTC", "SHRINK", raw);
+    final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES", "UTC", "SHRINK", raw);
 
     final CanonicalNow now = c.now();
     assertEquals(now.reference(), utc("2026-08-16T19:00:00Z"));
@@ -159,7 +165,7 @@ public class QueryTimeCanonicalizerTest {
 
   @Test
   public void testBoundsAlwaysMoveOutwards() {
-    final QueryTimeCanonicalizer c = canonicalizer("5m");
+    final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES");
     final long t = utc("2026-08-16T19:03:42Z");
 
     // A lower bound floors and an upper bound ceils, so both move away from the window's interior.
@@ -187,7 +193,7 @@ public class QueryTimeCanonicalizerTest {
     Long sharedReference = null;
     Long sharedUpper = null;
     for (long arrival : arrivals) {
-      final CanonicalNow now = canonicalizer("5m", "UTC", "EXPAND", arrival).now();
+      final CanonicalNow now = canonicalizer(5, "MINUTES", "UTC", "EXPAND", arrival).now();
       if (sharedReference == null) {
         sharedReference = now.reference();
         sharedUpper = now.upperBound();
@@ -199,14 +205,14 @@ public class QueryTimeCanonicalizerTest {
 
     // The next bucket must differ, otherwise the window would never advance.
     final CanonicalNow next =
-        canonicalizer("5m", "UTC", "EXPAND", utc("2026-08-16T19:05:01Z")).now();
+        canonicalizer(5, "MINUTES", "UTC", "EXPAND", utc("2026-08-16T19:05:01Z")).now();
     assertNotEquals(next.reference(), (long) sharedReference);
     assertEquals(next.reference(), utc("2026-08-16T19:05:00Z"));
   }
 
   @Test
   public void testIdempotency() {
-    final QueryTimeCanonicalizer c = canonicalizer("15m");
+    final QueryTimeCanonicalizer c = canonicalizer(15, "MINUTES");
     for (long t :
         new long[] {
           utc("2026-08-16T19:03:42.123Z"),
@@ -249,7 +255,8 @@ public class QueryTimeCanonicalizerTest {
                     .time(
                         TimeCanonicalizationConfiguration.builder()
                             .enabled(true)
-                            .bucketSize("5m")
+                            .bucketSize(5)
+                            .bucketSizeUnit("MINUTES")
                             .build())
                     .build(),
                 null)
@@ -271,38 +278,44 @@ public class QueryTimeCanonicalizerTest {
   // ---------------------------------------------------------------------------------------------
 
   @Test
-  public void testDurationParsing() {
-    assertEquals(QueryTimeCanonicalizer.parseDurationMillis("500ms"), 500L);
-    assertEquals(QueryTimeCanonicalizer.parseDurationMillis("30s"), 30_000L);
-    assertEquals(QueryTimeCanonicalizer.parseDurationMillis("5m"), 5 * MINUTE);
-    assertEquals(QueryTimeCanonicalizer.parseDurationMillis("1h"), HOUR);
-    assertEquals(QueryTimeCanonicalizer.parseDurationMillis("1d"), 24 * HOUR);
-    assertEquals(QueryTimeCanonicalizer.parseDurationMillis(" 5m "), 5 * MINUTE);
+  public void testBucketSizeUnitIsHonored() {
+    assertEquals(canonicalizer(500, "MILLISECONDS").getBucketMillis(), 500L);
+    assertEquals(canonicalizer(30, "SECONDS").getBucketMillis(), 30_000L);
+    assertEquals(canonicalizer(5, "MINUTES").getBucketMillis(), 5 * MINUTE);
+    assertEquals(canonicalizer(1, "HOURS").getBucketMillis(), HOUR);
+    assertEquals(canonicalizer(1, "DAYS").getBucketMillis(), 24 * HOUR);
+    // Omitting the unit means SECONDS, per ParseUtils.
+    assertEquals(canonicalizer(30, null).getBucketMillis(), 30_000L);
   }
 
   @Test
   public void testInvalidConfigurationDisablesRatherThanFailing() {
     // A typo in an optional cache optimization must cost the optimization, not the service. Each of
     // these would previously have thrown out of the Spring bean method and prevented GMS starting.
-    for (String[] bad :
-        new String[][] {
-          {"5 fortnights", "UTC", "EXPAND"},
-          {"0m", "UTC", "EXPAND"},
-          {"2d", "UTC", "EXPAND"},
-          {"", "UTC", "EXPAND"},
-          {null, "UTC", "EXPAND"},
-          {"5m", "Mars/Olympus", "EXPAND"},
-          {"5m", "UTC", "SIDEWAYS"},
+    // MAX_VALUE matters most: an absurd bucket must land out of range rather than wrap into a
+    // plausible small one.
+    for (Object[] bad :
+        new Object[][] {
+          {5, "FORTNIGHTS", "UTC", "EXPAND"},
+          {0, "MINUTES", "UTC", "EXPAND"},
+          {-5, "MINUTES", "UTC", "EXPAND"},
+          {2, "DAYS", "UTC", "EXPAND"},
+          {Integer.MAX_VALUE, "DAYS", "UTC", "EXPAND"},
+          {5, "MINUTES", "Mars/Olympus", "EXPAND"},
+          {5, "MINUTES", "UTC", "SIDEWAYS"},
         }) {
-      final QueryTimeCanonicalizer c = canonicalizer(bad[0], bad[1], bad[2], null);
+      final QueryTimeCanonicalizer c =
+          canonicalizer((int) bad[0], (String) bad[1], (String) bad[2], (String) bad[3], null);
       assertFalse(
           c.isEnabled(),
           "expected disabled fallback for bucketSize="
               + bad[0]
-              + " tz="
+              + " "
               + bad[1]
+              + " tz="
+              + bad[2]
               + " rounding="
-              + bad[2]);
+              + bad[3]);
       // And it must still behave as an exact pass-through.
       final long t = utc("2026-08-16T19:03:42.123Z");
       assertEquals(c.floor(t), t);
@@ -318,7 +331,7 @@ public class QueryTimeCanonicalizerTest {
   public void testNonUtcZoneAnchorsOnLocalMidnight() {
     // Kathmandu is UTC+5:45, so with 30m buckets local-midnight anchoring lands on :15 and :45 UTC
     // while epoch anchoring would land on :00 and :30. This is the case that distinguishes them.
-    final QueryTimeCanonicalizer c = canonicalizer("30m", "Asia/Kathmandu", "EXPAND", null);
+    final QueryTimeCanonicalizer c = canonicalizer(30, "MINUTES", "Asia/Kathmandu", "EXPAND", null);
     final long t = utc("2026-08-16T19:03:42Z"); // 00:48:42 local, next day
 
     assertEquals(c.floor(t), utc("2026-08-16T18:45:00Z")); // 00:30 local
@@ -334,7 +347,7 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testKolkataOffsetZone() {
     // Kolkata is UTC+5:30; with 30m buckets local-midnight and epoch anchoring coincide.
-    final QueryTimeCanonicalizer c = canonicalizer("30m", "Asia/Kolkata", "EXPAND", null);
+    final QueryTimeCanonicalizer c = canonicalizer(30, "MINUTES", "Asia/Kolkata", "EXPAND", null);
     final long t = utc("2026-08-16T19:03:42Z"); // 00:33:42 local, next day
     assertEquals(c.floor(t), utc("2026-08-16T19:00:00Z")); // 00:30 local
     assertEquals(c.ceil(t), utc("2026-08-16T19:30:00Z")); // 01:00 local
@@ -343,7 +356,8 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testDstSpringForwardIsIdempotentAndMonotonic() {
     // US spring-forward 2026: 2026-03-08, local 02:00 -> 03:00 (07:00 UTC).
-    final QueryTimeCanonicalizer c = canonicalizer("15m", "America/New_York", "EXPAND", null);
+    final QueryTimeCanonicalizer c =
+        canonicalizer(15, "MINUTES", "America/New_York", "EXPAND", null);
     final long[] samples = {
       utc("2026-03-08T06:44:00Z"),
       utc("2026-03-08T06:59:59Z"),
@@ -366,7 +380,7 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testDstFallBackIsIdempotentAndMonotonic() {
     // US fall-back 2026: 2026-11-01, local 02:00 -> 01:00 (06:00 UTC); the local day is 25h long.
-    final QueryTimeCanonicalizer c = canonicalizer("1h", "America/New_York", "EXPAND", null);
+    final QueryTimeCanonicalizer c = canonicalizer(1, "HOURS", "America/New_York", "EXPAND", null);
     final long[] samples = {
       utc("2026-11-01T04:30:00Z"),
       utc("2026-11-01T05:30:00Z"),
@@ -389,15 +403,46 @@ public class QueryTimeCanonicalizerTest {
   public void testNonDividingBucketFallsBackToEpochAnchoring() {
     // 7m does not tile an hour, so local-midnight anchoring cannot be proven idempotent and the
     // canonicalizer falls back to UTC/epoch anchoring rather than risking it.
-    final QueryTimeCanonicalizer c = canonicalizer("7m", "America/New_York", "EXPAND", null);
+    final QueryTimeCanonicalizer c =
+        canonicalizer(7, "MINUTES", "America/New_York", "EXPAND", null);
     final long t = utc("2026-08-16T19:03:42Z");
     assertEquals(c.floor(t), t - Math.floorMod(t, 7 * MINUTE));
     assertEquals(c.floor(c.floor(t)), c.floor(t));
   }
 
   @Test
+  public void testSubHourDstShiftFallsBackToEpochAnchoring() {
+    // Lord Howe shifts 30m, so its transition day is 23.5h. A 20m bucket tiles an hour but not that
+    // day, leaving a 10m stub before local midnight where ceil stops being idempotent.
+    final QueryTimeCanonicalizer c =
+        canonicalizer(20, "MINUTES", "Australia/Lord_Howe", "EXPAND", null);
+
+    // Standard time (+10:30), where the two anchorings disagree: epoch gives 13:00Z, local midnight
+    // would give 12:50Z. A DST-time sample proves nothing - at +11:00 they coincide.
+    final long t = utc("2026-06-01T13:03:42Z");
+    assertEquals(c.floor(t), utc("2026-06-01T13:00:00Z"), "expected epoch anchoring");
+    assertEquals(c.floor(t), t - Math.floorMod(t, 20 * MINUTE));
+
+    // 30m divides both the hour and the shift, so local-midnight anchoring is kept. Which anchoring
+    // is in force is unobservable here (every Lord Howe offset is a whole number of 30m), so assert
+    // what matters: rounding stays idempotent across the real transition.
+    final QueryTimeCanonicalizer local =
+        canonicalizer(30, "MINUTES", "Australia/Lord_Howe", "EXPAND", null);
+    for (long sample :
+        new long[] {
+          utc("2026-04-04T13:00:00Z"),
+          utc("2026-04-04T14:59:59Z"),
+          utc("2026-04-04T15:00:00Z"),
+          utc("2026-04-05T02:07:00Z")
+        }) {
+      assertEquals(local.floor(local.floor(sample)), local.floor(sample));
+      assertEquals(local.ceil(local.ceil(sample)), local.ceil(sample));
+    }
+  }
+
+  @Test
   public void testUtcOffsetZonesAreTreatedAsEpochAnchored() {
-    final QueryTimeCanonicalizer c = canonicalizer("5m", "Etc/UTC", "EXPAND", null);
+    final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES", "Etc/UTC", "EXPAND", null);
     final long t = utc("2026-08-16T19:03:42Z");
     assertEquals(c.floor(t), utc("2026-08-16T19:00:00Z"));
     assertEquals(c.getZone(), ZoneId.of("Etc/UTC"));
@@ -414,7 +459,7 @@ public class QueryTimeCanonicalizerTest {
   @Test
   public void testOmittedTimezoneAndRoundingUseDefaults() {
     for (String[] omitted : new String[][] {{null, null}, {"", ""}, {"  ", "  "}}) {
-      final QueryTimeCanonicalizer c = canonicalizer("5m", omitted[0], omitted[1], null);
+      final QueryTimeCanonicalizer c = canonicalizer(5, "MINUTES", omitted[0], omitted[1], null);
       assertTrue(c.isEnabled(), "omitting optional settings must not disable the feature");
       assertEquals(c.getZone(), ZoneOffset.UTC);
       assertEquals(c.getRoundingMode(), TimeRoundingMode.EXPAND);
@@ -441,7 +486,7 @@ public class QueryTimeCanonicalizerTest {
     final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
     final QueryTimeCanonicalizer c =
         QueryTimeCanonicalizer.fromConfig(
-            enabledConfig("5m", "UTC", "EXPAND"),
+            enabledConfig(5, "MINUTES", "UTC", "EXPAND"),
             metricUtils,
             Clock.fixed(Instant.parse("2026-08-16T19:03:42Z"), ZoneOffset.UTC));
 
@@ -470,12 +515,12 @@ public class QueryTimeCanonicalizerTest {
     final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
 
     QueryTimeCanonicalizer.fromConfig(
-            enabledConfig("10m", "UTC", "EXPAND"),
+            enabledConfig(10, "MINUTES", "UTC", "EXPAND"),
             metricUtils,
             Clock.fixed(Instant.parse("2026-08-16T19:03:42Z"), ZoneOffset.UTC))
         .now();
     QueryTimeCanonicalizer.fromConfig(
-            enabledConfig("10m", "UTC", "EXPAND"),
+            enabledConfig(10, "MINUTES", "UTC", "EXPAND"),
             metricUtils,
             Clock.fixed(Instant.parse("2026-08-16T19:10:00Z"), ZoneOffset.UTC))
         .now();
@@ -535,7 +580,7 @@ public class QueryTimeCanonicalizerTest {
     final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
     final QueryTimeCanonicalizer c =
         QueryTimeCanonicalizer.fromConfig(
-            enabledConfig("5 fortnights", "UTC", "EXPAND"), metricUtils);
+            enabledConfig(5, "FORTNIGHTS", "UTC", "EXPAND"), metricUtils);
 
     c.now();
 

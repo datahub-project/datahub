@@ -771,6 +771,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.pathPrefix",
           "elasticsearch.port",
           "elasticsearch.search.canonicalization.time.bucketSize",
+          "elasticsearch.search.canonicalization.time.bucketSizeUnit",
           "elasticsearch.search.canonicalization.time.rounding",
           "elasticsearch.search.canonicalization.time.timezone",
           "elasticsearch.search.custom.autoCompleteFieldConfigDefault",
