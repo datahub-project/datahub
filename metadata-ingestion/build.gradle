@@ -145,6 +145,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
   def incidentSupportOutput = "${datahubRoot}/docs/generated/incidents/entity-support.md.snippet"
   def incidentPdl = "${datahubRoot}/metadata-models/src/main/pegasus/com/linkedin/incident/IncidentInfo.pdl"
   def incidentSdl = "${datahubRoot}/datahub-graphql-core/src/main/resources/incident.graphql"
+  def incidentEngine = "${datahubRoot}/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java"
 
   inputs.files(
     file('scripts/modeldocgen.py'),
@@ -154,7 +155,8 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc"),
     file(entityRegistry),
     file(incidentPdl),
-    file(incidentSdl)
+    file(incidentSdl),
+    file(incidentEngine)
   )
   outputs.dir('../docs/generated/metamodel')
   outputs.file(incidentSupportOutput)
