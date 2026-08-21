@@ -384,6 +384,19 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
+/** Deep copies an adjacency list, so that it can be modified without affecting the original. */
+export function cloneAdjacencyList(adjacencyList: NodeContext['adjacencyList']): NodeContext['adjacencyList'] {
+    return {
+        [LineageDirection.Upstream]: cloneNeighbors(adjacencyList[LineageDirection.Upstream]),
+        [LineageDirection.Downstream]: cloneNeighbors(adjacencyList[LineageDirection.Downstream]),
+    };
+}
+
+/** Deep copies one direction of an adjacency list. */
+export function cloneNeighbors(neighbors: NeighborMap): NeighborMap {
+    return new Map(Array.from(neighbors, ([urn, children]) => [urn, new Set(children)]));
+}
+
 /**
  * Builds the adjacency list used for hover highlighting from `edges`, restricted to `keepIds` on
  * both sides. Edges through a query/via node are routed *through* it (`upstream -> via -> downstream`)

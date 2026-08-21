@@ -14,6 +14,7 @@ import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGr
 import buildFlowEdges from '@app/lineageV3/useComputeGraph/dataProduct/buildFlowEdges';
 import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
 import {
+    assignQueriesToGroups,
     collectDataProductGroups,
     computeMembership,
 } from '@app/lineageV3/useComputeGraph/dataProduct/dataProductGroups';
@@ -50,10 +51,11 @@ function createDataProductNodeFilter(
  *    lineage of its own), using the standard impact analysis display rules (per-node filters,
  *    expansion state, lineage filter nodes). Members of data products sort before other children,
  *    so they're prioritized by pagination.
- * 2. Displayed entities are grouped by data product membership. Displayed members of each data
- *    product are laid out horizontally via NodeBuilder, determining the size of the data product's
- *    bounding box. An entity in multiple data products gets one node per data product.
- * 3. Bounding boxes and free entities (displayed entities not in any data product) are positioned
+ * 2. Displayed entities are grouped by data product membership, along with query nodes connecting
+ *    two members of the same data product. Displayed members of each data product are laid out
+ *    horizontally via NodeBuilder, determining the size of the data product's bounding box. An
+ *    entity in multiple data products gets one node per data product.
+ * 3. Bounding boxes and free entities (displayed entities not rendered in a box) are positioned
  *    together via BoundingBoxNodeBuilder, in a single graph rooted at the home data product's
  *    bounding box: lineage between two data products' members becomes an edge between their boxes,
  *    and lineage between a member and a free entity becomes an edge between the box and the free
@@ -156,7 +158,8 @@ export default function computeDataProductGraph(
         : displayedNodes;
     const displayedIds = new Set(shownNodes.map((node) => node.id));
 
-    // Step 2 (+ 4): Lay out the displayed members within each data product, sizing its bounding box
+    // Step 2: Lay out the displayed members within each data product, sizing its bounding box
+    assignQueriesToGroups(groups, revealedGraphStore, displayedIds);
     const boxes = new Map<Urn, BoxLayout>();
     groups.forEach((group) => {
         const displayedMemberUrns = new Set(Array.from(group.memberUrns).filter((member) => displayedIds.has(member)));
@@ -199,9 +202,10 @@ export default function computeDataProductGraph(
 
     // Nodes rendered inside a bounding box; all other displayed nodes are free nodes
     const displayedMembership = new Map<Urn, Urn[]>();
-    boxes.forEach((box) =>
-        box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn)),
-    );
+    boxes.forEach((box) => {
+        box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn));
+        box.group.queryUrns.forEach((query) => setDefault(displayedMembership, query, []).push(box.group.urn));
+    });
     const freeNodes = shownNodes.filter((node) => node.id !== urn && !displayedMembership.has(node.id));
     const displayedFreeIds = new Set(freeNodes.map((node) => node.id));
 

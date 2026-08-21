@@ -27,9 +27,9 @@ import { EntityType, LineageDirection } from '@types';
 const COMPONENT_SEPARATION = 24 + LINEAGE_NODE_HEIGHT;
 
 /**
- * Lays out the displayed members of one data product via NodeBuilder, as in the standard
- * impact-analysis view but with layers computed from intra-product topology (members lack a shared
- * home node).
+ * Lays out one data product's displayed members, plus the query nodes placed in its box, via
+ * NodeBuilder, as in the standard impact-analysis view but with layers computed from intra-product
+ * topology (members lack a shared home node).
  * Members with revealed lineage to each other are placed horizontally; disconnected components are
  * stacked vertically.
  * Returns member nodes positioned relative to the resulting bounding box, and the box's dimensions.
@@ -46,7 +46,13 @@ export default function layoutDataProductInterior(
         ignoreSchemaFieldStatus,
     };
     const subStore = {
-        ...hideNodes(group.urn, graphStore.rootType, config, graphStore, (node) => group.memberUrns.has(node.urn)),
+        ...hideNodes(
+            group.urn,
+            graphStore.rootType,
+            config,
+            graphStore,
+            (node) => group.memberUrns.has(node.urn) || group.queryUrns.has(node.urn),
+        ),
         rootType: graphStore.rootType,
     };
 
@@ -119,7 +125,10 @@ export default function layoutDataProductInterior(
         };
     });
 
-    return { group, memberNodes, width, height };
+    // Don't include query nodes in count
+    const memberCount = memberNodes.filter((node) => group.memberUrns.has((node.data as LineageEntity).urn)).length;
+
+    return { group, memberNodes, memberCount, width, height };
 }
 
 export function createBoundingBoxNode(box: BoxLayout, position: XYPosition | undefined): Node<LineageBoundingBox> {
@@ -133,7 +142,7 @@ export function createBoundingBoxNode(box: BoxLayout, position: XYPosition | und
             type: EntityType.DataProduct,
             entity: group.entity,
             colorHex: group.colorHex,
-            memberCount: box.memberNodes.length,
+            memberCount: box.memberCount,
         },
         selectable: true,
         draggable: true,

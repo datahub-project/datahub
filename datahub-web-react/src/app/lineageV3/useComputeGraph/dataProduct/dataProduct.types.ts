@@ -13,12 +13,16 @@ export interface DataProductGroup {
     entity?: FetchedEntityV2;
     colorHex?: string;
     memberUrns: Set<Urn>;
+    /** Query nodes rendered in this product's bounding box; see `assignQueriesToGroups`. */
+    queryUrns: Set<Urn>;
 }
 
 export interface BoxLayout {
     group: DataProductGroup;
-    /** Member nodes with data-product-qualified ids, positioned relative to the bounding box. */
+    /** Member and query nodes with data-product-qualified ids, positioned relative to the box. */
     memberNodes: LineageVisualizationNode[];
+    /** Number of members shown, excluding query nodes. */
+    memberCount: number;
     width: number;
     height: number;
 }
