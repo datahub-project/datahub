@@ -1677,6 +1677,44 @@ def test_dax_expression_with_let_substring_column_is_info_not_warning():
     assert len(reporter.warnings) == 0
 
 
+def test_dax_var_return_with_let_substring_is_info_via_real_parser():
+    # Parser-backed companion to the isolated classification test above. Unlike
+    # `_parse_unparseable`, this drives the real M parser end to end: `VAR ...
+    # RETURN` is DAX-only syntax the parser genuinely rejects, so it proves the
+    # production parse-error -> classifier path actually fires. The only `let`
+    # substring lives inside the `filetype` identifier, so the word-boundary
+    # check must keep this an INFO rather than a warning.
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+    )
+    reporter = PowerBiDashboardSourceReport()
+    table = Table(
+        name="t",
+        full_name="db.schema.t",
+        expression=(
+            "VAR filetype_max = MAX(files[filetype]) "
+            'RETURN SELECTCOLUMNS(files, "t", filetype_max)'
+        ),
+    )
+
+    result = mquery_parser.get_upstream_tables(
+        table=table,
+        reporter=reporter,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+
+    assert result == []
+    assert reporter.m_query_non_mquery_expressions == 1
+    assert reporter.m_query_parse_unknown_errors == 0
+    assert len(reporter.warnings) == 0
+
+
 def test_genuine_mquery_parse_failure_is_warning():
     # A real M-Query (starts with the `let` keyword) that fails to parse should
     # still surface as a warning so lineage gaps are visible to operators.

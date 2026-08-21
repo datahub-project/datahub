@@ -29,11 +29,13 @@ from datahub.utilities.threading_timeout import TimeoutException, threading_time
 
 logger = logging.getLogger(__name__)
 
-# Every M-Query expression begins with the `let` keyword. We use this to tell a
-# genuine (but unparseable) M-Query from a non-M expression such as a DAX
-# computed-table definition (SELECTCOLUMNS/CALCULATETABLE/FILTER/...). A word
-# boundary is required so identifiers that merely contain the substring "let"
-# (e.g. a column named `filetype`) are not mistaken for the keyword.
+# A `let ... in` wrapper is a heuristic that a failed expression was intended to
+# be M-Query rather than a DAX computed-table definition
+# (SELECTCOLUMNS/CALCULATETABLE/FILTER/...). It is not exhaustive — bare
+# expressions such as `Sql.Database("server", "db")` are valid M without `let` —
+# but those parse successfully and never reach this classification. A word
+# boundary prevents identifiers that merely contain the substring "let" (e.g. a
+# column named `filetype`) from being mistaken for the keyword.
 _M_QUERY_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
 
 
