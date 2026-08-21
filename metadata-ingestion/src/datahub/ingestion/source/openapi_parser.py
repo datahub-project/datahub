@@ -725,9 +725,9 @@ def _merge_allof_validation_keywords(merged_schema: Dict, resolved_allof: Dict) 
                 if key in merged_schema
                 else resolved_allof[key]
             )
-    # exclusiveMinimum/Maximum are booleans in OpenAPI 3.0 (draft-4) but numeric bounds
-    # in draft-6+. Never feed them to min()/max() blindly — that drops the stricter
-    # boolean flag and TypeErrors on mixed boolean/numeric values.
+    # exclusiveMinimum/Maximum are booleans in OpenAPI 3.0 but numeric bounds in JSON
+    # Schema draft-6+, so they can't go through the numeric min()/max() merge above:
+    # that drops the stricter boolean flag and TypeErrors on mixed boolean/numeric values.
     _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMinimum", max)
     _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMaximum", min)
     if "uniqueItems" in resolved_allof:
@@ -755,17 +755,15 @@ def _merge_exclusive_bound(
         return
     incoming = resolved_allof[key]
     current = merged_schema.get(key)
-    # draft-6+: numeric exclusive bound — keep the most restrictive value.
     if _is_number(incoming):
         merged_schema[key] = (
             numeric_more_restrictive(current, incoming)
             if _is_number(current)
             else incoming
         )
-    # draft-4: boolean flag — the bound is exclusive if any member makes it exclusive.
-    # If a numeric bound was already merged (draft-6+), keep it so a mixed-type spec
-    # stays order-independent and doesn't collapse the numeric bound to a boolean.
     elif isinstance(incoming, bool):
+        # A boolean flag must not clobber an already-merged numeric bound, so a
+        # mixed-version spec stays order-independent.
         merged_schema[key] = (
             current if _is_number(current) else bool(current) or incoming
         )
