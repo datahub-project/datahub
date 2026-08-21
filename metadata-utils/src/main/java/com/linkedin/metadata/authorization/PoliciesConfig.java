@@ -35,7 +35,7 @@ public class PoliciesConfig {
 
   // Platform Privileges //
 
-  static final Privilege MANAGE_POLICIES_PRIVILEGE =
+  public static final Privilege MANAGE_POLICIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_POLICIES",
           "Manage Policies",
@@ -51,7 +51,7 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_SECRETS", "Manage Secrets", "Create & remove Secrets stored inside DataHub.");
 
-  static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
+  public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
       Privilege.of(
           "MANAGE_USERS_AND_GROUPS",
           "Manage Users & Groups",

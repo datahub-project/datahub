@@ -103,6 +103,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private ExecutorService graphQLWorkerPool;
 
   @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
+
+  @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider configurationProvider;
 
@@ -408,7 +412,11 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     // When
     GraphQLEngine engineWithAnalytics =
         factoryWithAnalytics.graphQLEngine(
-            entityClient, systemEntityClient, entityVersioningService, metricUtils);
+            entityClient,
+            systemEntityClient,
+            systemOperationContext,
+            entityVersioningService,
+            metricUtils);
 
     // Then
     assertNotNull(engineWithAnalytics);
