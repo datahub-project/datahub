@@ -1,3 +1,4 @@
+import { Skeleton } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
@@ -162,6 +163,7 @@ type Props = {
     }[];
     refetch?: () => void;
     visibleColumns?: string[];
+    fullMetadataLoading?: boolean;
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -183,6 +185,7 @@ export default function SchemaTable({
     setOpenTimelineDrawer,
     refetch,
     visibleColumns,
+    fullMetadataLoading,
 }: Props): JSX.Element {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.labels');
@@ -232,7 +235,7 @@ export default function SchemaTable({
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
-    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps, fullMetadataLoading);
 
     const fieldColumn = useMemo(
         () => ({
@@ -269,12 +272,17 @@ export default function SchemaTable({
             title: tc('description'),
             dataIndex: 'description',
             key: 'description',
-            render: descriptionRender,
+            render: (description, record, index) =>
+                fullMetadataLoading ? (
+                    <Skeleton.Input active size="small" style={{ width: 120, height: 20 }} />
+                ) : (
+                    descriptionRender(description, record, index)
+                ),
             sorter: (sourceA, sourceB) =>
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
         }),
-        [descriptionRender, extractFieldDescription, tc],
+        [descriptionRender, extractFieldDescription, tc, fullMetadataLoading],
     );
 
     const tagColumn = useMemo(
@@ -283,11 +291,16 @@ export default function SchemaTable({
             title: tc('tags'),
             dataIndex: 'globalTags',
             key: 'tag',
-            render: tagRenderer,
+            render: (tags, record) =>
+                fullMetadataLoading ? (
+                    <Skeleton.Input active size="small" style={{ width: 80, height: 20 }} />
+                ) : (
+                    tagRenderer(tags, record)
+                ),
             sorter: (sourceA, sourceB) =>
                 extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
         }),
-        [tagRenderer, extractFieldTagsInfo, tc],
+        [tagRenderer, extractFieldTagsInfo, tc, fullMetadataLoading],
     );
 
     const termColumn = useMemo(
@@ -296,12 +309,17 @@ export default function SchemaTable({
             title: t('schemaTable.glossaryTermsColumn'),
             dataIndex: 'globalTags',
             key: 'term',
-            render: termRenderer,
+            render: (tags, record) =>
+                fullMetadataLoading ? (
+                    <Skeleton.Input active size="small" style={{ width: 80, height: 20 }} />
+                ) : (
+                    termRenderer(tags, record)
+                ),
             sorter: (sourceA, sourceB) =>
                 extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
                 extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
         }),
-        [termRenderer, extractFieldGlossaryTermsInfo, t],
+        [termRenderer, extractFieldGlossaryTermsInfo, t, fullMetadataLoading],
     );
 
     const businessAttributeColumn = useMemo(
