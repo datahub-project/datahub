@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 
 # A `let ... in` wrapper is a heuristic that a failed expression was intended to
 # be M-Query rather than a DAX computed-table definition
-# (SELECTCOLUMNS/CALCULATETABLE/FILTER/...). It is not exhaustive — bare
-# expressions such as `Sql.Database("server", "db")` are valid M without `let` —
-# but those parse successfully and never reach this classification. A word
+# (SELECTCOLUMNS/CALCULATETABLE/FILTER/...). It is not exhaustive: bare
+# expressions such as `Sql.Database("server", "db")` are valid M without `let`,
+# and a broken one reaching this branch is misclassified as non-M. A word
 # boundary prevents identifiers that merely contain the substring "let" (e.g. a
 # column named `filetype`) from being mistaken for the keyword.
 _M_QUERY_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
