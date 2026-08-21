@@ -483,8 +483,9 @@ def parse_procedure_code(
             from a source the code can't reveal — a system catalogue of procedure
             dependencies (Oracle's ALL_DEPENDENCIES) or Snowflake's task
             predecessor list. Merged into the CALL-derived ``inputDatajobs``,
-            deduplicated, CALL-derived first. Dropped when the body has neither
-            DML nor calls in it.
+            deduplicated, CALL-derived first. Kept even when the body yields no
+            lineage of its own — the caller learned these from somewhere the code
+            cannot show.
         resolve_procedure_urn: Maps a CALL target onto a procedure the source
             actually ingested. Without it the target urn is composed from the
             call text, which carries neither the argument-signature hash nor the
@@ -529,7 +530,7 @@ def parse_procedure_code(
     ]
     input_datajobs: List[str] = list(dict.fromkeys(urn for urn in call_urns if urn))
 
-    if not dml_statements and not input_datajobs:
+    if not dml_statements and not input_datajobs and not additional_input_jobs:
         logger.debug(
             f"No DML statements or procedure calls found in procedure {procedure_name}, "
             "skipping lineage extraction"

@@ -453,3 +453,42 @@ def test_count_call_arguments_counts_top_level_arguments_only():
     assert _count_call_arguments("(  )") == 0
     assert _count_call_arguments("(a, b") is None
     assert _count_call_arguments("") is None
+
+
+def test_catalogue_input_jobs_survive_a_body_with_no_lineage():
+    """`additional_input_jobs` comes from a system catalogue (Oracle's
+    ALL_DEPENDENCIES), not from the code. A body the parser finds nothing in —
+    an `EXECUTE IMMEDIATE`, a bare `BEGIN NULL; END` — must not take those edges
+    down with it, or the caller silently loses dependencies it knows about."""
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+    catalogue_edge = (
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(oracle,test_db.test_schema.stored_procedures,PROD),upstream_proc)"
+    )
+
+    for code in (
+        "EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'",
+        "BEGIN NULL; END;",
+    ):
+        result = parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code=code,
+            is_temp_table=lambda _: False,
+            additional_input_jobs=[catalogue_edge],
+        )
+        assert result is not None, code
+        assert result.inputDatajobs == [catalogue_edge], code
+
+    # With nothing from either source there is still no aspect to emit.
+    assert (
+        parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code="BEGIN NULL; END;",
+            is_temp_table=lambda _: False,
+        )
+        is None
+    )
