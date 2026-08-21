@@ -378,7 +378,10 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL>=26.0.0,<27.0.0",
+    # >=26.4.0: pyOpenSSL 26.0-26.3 crash on import against cryptography>=49
+    # (AttributeError: module 'lib' has no attribute 'GEN_EMAIL'), which the
+    # cryptography>=49.0.0,<51.0.0 range above can resolve to.
+    "pyOpenSSL>=26.4.0,<27.0.0",
 }
 
 postgres_common = {
