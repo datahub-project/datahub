@@ -46,11 +46,11 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.utilities.dataset_aliases.resolver import (
+from datahub.utilities.server_config_util import RestServiceConfig
+from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
     lowercased_urn,
 )
-from datahub.utilities.server_config_util import RestServiceConfig
 
 # Snowflake convention: uppercase. BI-tool convention: lowercase.
 UPPER = make_dataset_urn("snowflake", "DB.SCHEMA.TABLE")

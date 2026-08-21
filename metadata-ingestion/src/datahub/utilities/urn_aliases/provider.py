@@ -2,8 +2,8 @@ import functools
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from datahub.utilities.dataset_aliases.resolver import UrnAliasResolver
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.urn_aliases.resolver import UrnAliasResolver
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph

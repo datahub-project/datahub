@@ -3,16 +3,16 @@ from unittest import mock
 
 import pytest
 
-from datahub.utilities.dataset_aliases.provider import (
+from datahub.utilities.server_config_util import RestServiceConfig
+from datahub.utilities.urn_aliases.provider import (
     graph_urn_alias_resolver,
     provide_urn_alias_resolver,
 )
-from datahub.utilities.dataset_aliases.resolver import (
+from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
     lowercased_urn,
     maintains_dataset_aliases,
 )
-from datahub.utilities.server_config_util import RestServiceConfig
 
 _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
 _UPPER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,MY_DB.MY_SCHEMA.EVENTS,PROD)"
