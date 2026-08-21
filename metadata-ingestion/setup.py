@@ -307,9 +307,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
-    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
-    "cryptography>=49.0.0,<51.0.0",
+    # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
+    # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
+    "cryptography>=50.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
