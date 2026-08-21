@@ -10,6 +10,7 @@ from databricks.sdk.service.sql import QueryStatementType
 
 import datahub.ingestion.source.unity.usage as usage_mod
 from datahub.configuration.time_window_config import BucketDuration
+from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -1614,11 +1615,7 @@ def _connection_test(
     *,
     uses_system_tables: bool,
     include_column_usage_stats: bool,
-) -> object:
-    from datahub.ingestion.source.unity.connection_test import (
-        UnityCatalogConnectionTest,
-    )
-
+) -> UnityCatalogConnectionTest:
     config = MagicMock()
     config.include_usage_statistics = True
     config.warehouse_id = "wh1" if uses_system_tables else None
