@@ -55,6 +55,13 @@ This product includes/uses TestNG (http://testng.org/)
 Copyright (c) 2004 Cedric Beust
 License: Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0
 
+This product includes the Azure Storage Account icon from
+Microsoft Azure Storage for Visual Studio Code
+(https://github.com/microsoft/vscode-azurestorage), derived from
+resources/light/AzureStorageAccount.svg.
+Copyright (c) Microsoft Corporation. All rights reserved.
+License: MIT - http://www.opensource.org/licenses/mit-license.php
+
 This product includes/uses Mockito (http://mockito.org/)
 Copyright (c) 2007 Mockito contributors
 License: MIT - http://www.opensource.org/licenses/mit-license.php
