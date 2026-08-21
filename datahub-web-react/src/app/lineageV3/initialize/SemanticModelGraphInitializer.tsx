@@ -3,7 +3,7 @@ import { ReactFlowProvider } from 'reactflow';
 
 import LineageDisplay from '@app/lineageV3/LineageDisplay';
 import { BOUNDING_BOX_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
-import useFetchDataProductEntities from '@app/lineageV3/initialize/useFetchDataProductEntities';
+import useFetchSemanticModelEntities from '@app/lineageV3/initialize/useFetchSemanticModelEntities';
 import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph';
 
 import { EntityType, LineageDirection } from '@types';
@@ -14,15 +14,12 @@ interface Props {
 }
 
 /**
- * Initializes the lineage graph for a DataProduct by fetching its member entities
- * (datasets, dashboards, etc.) and registering them as nodes.  Each member's own
- * upstream/downstream lineage is then fetched on demand by the standard expansion
- * mechanism, giving a "pass-through" view similar to DataFlow → DataJob → Dataset.
- *
- * A dataset that belongs to multiple data products will only appear once in the
- * graph (the nodes map is keyed by URN), so no duplication occurs.
+ * Initializes the lineage graph for a SemanticModel by fetching its member entities
+ * (Semantic Model Datasets and Metrics) and registering them as nodes. Each member's own
+ * upstream/downstream lineage is then fetched on demand, giving a container / bounding-box
+ * view. The SemanticModel itself is not a lineage hop.
  */
-export default function DataProductGraphInitializer({ urn, type }: Props) {
+export default function SemanticModelGraphInitializer({ urn, type }: Props) {
     const initialized = useInitializeNodes(urn, type);
 
     return (
@@ -36,7 +33,7 @@ function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
     useResetLineageGraph(context, urn, type, () => makeRootNode(urn, type));
 
-    return useFetchDataProductEntities();
+    return useFetchSemanticModelEntities();
 }
 
 function makeRootNode(urn: string, type: EntityType): LineageEntity {
@@ -49,7 +46,7 @@ function makeRootNode(urn: string, type: EntityType): LineageEntity {
             [LineageDirection.Downstream]: true,
         },
         fetchStatus: {
-            // The DataProduct root node has no direct lineage of its own;
+            // The SemanticModel root node has no direct lineage of its own;
             // lineage is derived from its member entities.
             [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
             [LineageDirection.Downstream]: FetchStatus.UNNEEDED,

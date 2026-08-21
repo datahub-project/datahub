@@ -8,7 +8,7 @@ import {
     setDefault,
 } from '@app/lineageV3/common';
 import { computeSingleColumnHighlights } from '@app/lineageV3/useColumnHighlighting';
-import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
+import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 
 import { EntityType, LineageDirection } from '@types';
 
