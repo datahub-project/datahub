@@ -4,7 +4,10 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.domains import Domain
 from tests.utils import delete_entity, execute_graphql
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 
 @pytest.fixture(scope="module", autouse=True)

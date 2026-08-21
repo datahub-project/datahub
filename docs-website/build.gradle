@@ -121,13 +121,21 @@ task fastReload(type: YarnTask) {
   args = ['run', 'generate-rsync']
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  inputs.files(projectMdFiles)
+def yarnLintInputs = [
+  file('generateDocsDir.ts'),
+  file('sidebars.js'),
+  file('src/pages/index.js'),
+  file('package.json'),
+  file('yarn.lock'),
+]
+
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-check']
 }
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
-  inputs.files(projectMdFiles)
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-fix']
 }
 
@@ -136,7 +144,7 @@ task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
 }
 
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)

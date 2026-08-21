@@ -6,6 +6,7 @@ import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -333,7 +334,20 @@ public class GraphQLEngineFactory {
     args.setSemanticSearchConfiguration(
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
 
-    return new GmsGraphQLEngine(args).builder().build();
+    // Create the GmsGraphQLEngine and build the GraphQL schema
+    GmsGraphQLEngine gmsGraphQLEngine = new GmsGraphQLEngine(args);
+    return gmsGraphQLEngine.builder().build();
+  }
+
+  /**
+   * Builds AspectMappingRegistry from the GraphQLEngine schema. Takes an explicit engine dependency
+   * so Spring creates the registry after the schema exists (no config-field side effect).
+   */
+  @Bean(name = "aspectMappingRegistry")
+  @Nonnull
+  protected AspectMappingRegistry aspectMappingRegistry(
+      @Qualifier("graphQLEngine") final GraphQLEngine engine) {
+    return new AspectMappingRegistry(engine.getGraphQL().getGraphQLSchema());
   }
 
   @Bean(name = "graphQLWorkerPool")

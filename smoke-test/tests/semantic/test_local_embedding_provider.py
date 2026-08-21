@@ -46,8 +46,11 @@ from tests.semantic.test_semantic_search import (
     search_documents_semantic,
     verify_semantic_content,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 # ---------------------------------------------------------------------------
 # Environment gates
