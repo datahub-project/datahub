@@ -282,12 +282,18 @@ class UnityCatalogUsageExtractor:
         ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
+        # For redacted queries, omit the "<REDACTED>" placeholder so the
+        # aggregator doesn't emit Query entities with the placeholder as SQL
+        # text or store it in top-SQL samples. Upstreams/downstreams still come
+        # from system.access.table_lineage, so table-level usage stats are
+        # preserved.
+        query_text = "" if query.is_query_text_redacted else query.query_text
 
         if not targets:
             return [
                 PreparsedQuery(
                     query_id=self._query_fingerprint(query),
-                    query_text=query.query_text,
+                    query_text=query_text,
                     upstreams=upstreams,
                     downstream=None,
                     confidence_score=1.0,
@@ -304,7 +310,7 @@ class UnityCatalogUsageExtractor:
             preparsed.append(
                 PreparsedQuery(
                     query_id=self._query_fingerprint(query, secondary_id=secondary_id),
-                    query_text=query.query_text,
+                    query_text=query_text,
                     upstreams=upstreams,
                     downstream=downstream,
                     confidence_score=1.0,
@@ -339,18 +345,22 @@ class UnityCatalogUsageExtractor:
         query: Query,
         default_db: Optional[str],
     ) -> None:
+        # Count every redacted query at the top so the warning fires regardless
+        # of which branch below handles it. The preparsed branch still emits
+        # table-level usage for redacted queries (upstreams/downstreams come
+        # from system.access.table_lineage, not SQL text); the other branches
+        # need SQL text and drop the query.
+        if query.is_query_text_redacted:
+            self.report.num_queries_with_redacted_text += 1
+
         if self.config.include_column_usage_stats:
             # Column usage stats require parsing the SQL text, so redacted
-            # queries can't contribute and are skipped here.
+            # queries can't contribute and are dropped here.
             if query.is_query_text_redacted:
-                self.report.num_queries_with_redacted_text += 1
                 return
             self._add_observed_query(aggregator, query, default_db)
             return
 
-        # The preparsed path derives upstreams/downstreams from
-        # system.access.table_lineage and never reads the SQL text, so redacted
-        # queries still contribute table-level usage stats through this branch.
         if self._can_use_preparsed_query(query):
             preparsed_queries = self._to_preparsed_queries(query)
             if preparsed_queries and (
@@ -409,11 +419,10 @@ class UnityCatalogUsageExtractor:
                 self._query_preview(query),
             )
 
-        # The sqlglot/observed path below needs real SQL text; redacted queries
-        # can't be parsed, so count and skip them here rather than feeding
-        # "<REDACTED>" to sqlglot as a no-op.
+        # Sqlglot/observed fallback needs real SQL text; redacted queries were
+        # already counted at the top of this method, so drop them here rather
+        # than feeding "<REDACTED>" to sqlglot as a no-op.
         if query.is_query_text_redacted:
-            self.report.num_queries_with_redacted_text += 1
             return
 
         self._add_observed_query(aggregator, query, default_db)
@@ -456,14 +465,17 @@ class UnityCatalogUsageExtractor:
             self.report.warning(
                 title="Databricks query text is redacted",
                 message=(
-                    "Databricks returned <REDACTED> instead of SQL statement text, "
-                    "so Query entities, column-level usage statistics, operational "
-                    "statistics, and the top-SQL sample may be incomplete for those "
-                    "queries. Table-level usage statistics from "
-                    "system.access.table_lineage are unaffected. Add the ingestion "
-                    "principal to the account-level databricks_pii_access group "
-                    "while retaining its existing query history permissions. See "
-                    "the DataHub Databricks connector prerequisites for details."
+                    "Databricks returned <REDACTED> instead of SQL statement text. "
+                    "Query entities, column-level usage statistics, operational "
+                    "statistics, and the top-SQL sample are incomplete for those "
+                    "queries. Table-level usage statistics are preserved only on "
+                    "the default system-tables path (usage_data_source=AUTO with "
+                    "warehouse_id set, or SYSTEM_TABLES) with "
+                    "include_column_usage_stats=false; other paths drop the query "
+                    "entirely. Add the ingestion principal to the account-level "
+                    "databricks_pii_access group while retaining its existing "
+                    "query history permissions. See the DataHub Databricks "
+                    "connector prerequisites for details."
                 ),
                 context=f"count={self.report.num_queries_with_redacted_text}",
             )

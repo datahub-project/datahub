@@ -1548,12 +1548,15 @@ def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
     assert "databricks_pii_access" in redaction_warnings[0].message
 
 
-def test_redacted_query_with_lineage_uses_preparsed_path() -> None:
+def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
     """Redacted queries with system-table lineage still emit table-level usage
-    stats via the preparsed path (which reads system.access.table_lineage, not
-    the SQL text), so they are NOT counted as redacted-and-skipped."""
+    stats via the preparsed path (upstreams come from system.access.table_lineage,
+    not SQL text), but they must still be counted so the warning fires. The
+    emitted PreparsedQuery must have an empty query_text so the aggregator
+    doesn't leak "<REDACTED>" into Query entities or top-SQL samples."""
     config = MagicMock()
     config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
     proxy = MagicMock()
     proxy.warehouse_id = "wh1"
     ex = _extractor(config, proxy)
@@ -1568,7 +1571,31 @@ def test_redacted_query_with_lineage_uses_preparsed_path() -> None:
 
     aggregator.add_preparsed_query.assert_called_once()
     aggregator.add_observed_query.assert_not_called()
-    assert ex.report.num_queries_with_redacted_text == 0
+    assert ex.report.num_queries_with_redacted_text == 1
+    emitted = aggregator.add_preparsed_query.call_args.args[0]
+    assert emitted.query_text == ""
+    assert emitted.upstreams, "preparsed query must carry upstream urns"
+
+
+def test_redacted_query_skipped_without_lineage_still_counted() -> None:
+    """When skip_sqlglot_when_system_table_lineage_missing=True, a redacted
+    query without lineage returns early via the skip branch. It must still
+    be counted as redacted so the warning fires."""
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
+    config.skip_sqlglot_when_system_table_lineage_missing = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(aggregator, _query("<REDACTED>"), default_db=None)
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    assert ex.report.num_queries_skipped_without_system_table_lineage == 1
 
 
 def test_redacted_query_text_detection_is_case_insensitive() -> None:
@@ -1583,26 +1610,62 @@ def test_redacted_query_text_detection_is_case_insensitive() -> None:
     assert ex.report.num_queries_with_redacted_text == 1
 
 
-def test_usage_connectivity_reports_redacted_mitigation() -> None:
+def _connection_test(
+    *,
+    uses_system_tables: bool,
+    include_column_usage_stats: bool,
+) -> object:
     from datahub.ingestion.source.unity.connection_test import (
         UnityCatalogConnectionTest,
     )
 
     config = MagicMock()
     config.include_usage_statistics = True
+    config.warehouse_id = "wh1" if uses_system_tables else None
+    config.usage_uses_system_tables.return_value = uses_system_tables
+    config.include_column_usage_stats = include_column_usage_stats
     test = UnityCatalogConnectionTest.__new__(UnityCatalogConnectionTest)
     test.config = config
     test.proxy = MagicMock()
     test.proxy.query_history.return_value = iter([_query("<REDACTED>")])
+    return test
 
-    report = test.usage_connectivity()
+
+def test_usage_connectivity_capable_on_system_tables_preparsed_path() -> None:
+    """System-tables path with include_column_usage_stats=false still emits
+    table-level usage for redacted queries via system.access.table_lineage.
+    Surface the redaction as a mitigation, not a hard failure."""
+    report = _connection_test(
+        uses_system_tables=True, include_column_usage_stats=False
+    ).usage_connectivity()
     assert report is not None
-    # Usage still works at table level via system.access.table_lineage, so the
-    # capability is present; the redaction is surfaced as a mitigation, not a
-    # hard failure.
     assert report.capable is True
     assert report.mitigation_message is not None
     assert "databricks_pii_access" in report.mitigation_message
+
+
+def test_usage_connectivity_fails_on_rest_api_path_when_redacted() -> None:
+    """REST-API path (no system.access.table_lineage) can't emit any usage
+    for redacted queries — every redacted query is dropped."""
+    report = _connection_test(
+        uses_system_tables=False, include_column_usage_stats=False
+    ).usage_connectivity()
+    assert report is not None
+    assert report.capable is False
+    assert report.failure_reason is not None
+    assert "databricks_pii_access" in report.failure_reason
+
+
+def test_usage_connectivity_fails_when_column_usage_stats_and_redacted() -> None:
+    """include_column_usage_stats=true forces full sqlglot parsing which needs
+    SQL text — redacted queries are dropped even on the system-tables path."""
+    report = _connection_test(
+        uses_system_tables=True, include_column_usage_stats=True
+    ).usage_connectivity()
+    assert report is not None
+    assert report.capable is False
+    assert report.failure_reason is not None
+    assert "databricks_pii_access" in report.failure_reason
 
 
 def test_fallback_to_observed_when_lineage_unresolvable(
