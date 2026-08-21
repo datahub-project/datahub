@@ -29,8 +29,10 @@ export default function handleGraphQLError({
             toast.error(permissionMessage);
             return;
         }
-        if (errorCode === ErrorCodes.BadRequest && badRequestMessage) {
-            toast.error(badRequestMessage);
+        if (errorCode === ErrorCodes.BadRequest) {
+            // Prefer the caller's override, but fall back to the server's own message (e.g. a
+            // validator plugin's rejection reason) rather than the generic defaultMessage below.
+            toast.error(badRequestMessage || graphQLErrors[0].message || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {

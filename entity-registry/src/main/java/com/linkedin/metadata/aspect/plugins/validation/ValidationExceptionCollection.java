@@ -100,4 +100,19 @@ public class ValidationExceptionCollection
                         "EntityAspect:%s Exceptions: %s", e.getKey().toString(), e.getValue()))
             .collect(Collectors.joining("; ")));
   }
+
+  /**
+   * The validators' own messages, without the EntityAspect/collection wrapper that toString()
+   * adds for logging. Intended for surfacing to end users (e.g. as a GraphQL/REST error message);
+   * toString() remains unchanged for existing log/diagnostic callers.
+   */
+  public String getCollectiveMessage() {
+    return entrySet().stream()
+        // sort by entity/aspect, matching toString()'s ordering
+        .sorted(Comparator.comparing(p -> p.getKey().toString()))
+        .flatMap(e -> e.getValue().stream())
+        .map(AspectValidationException::getMsg)
+        .filter(msg -> msg != null && !msg.isEmpty())
+        .collect(Collectors.joining("; "));
+  }
 }
