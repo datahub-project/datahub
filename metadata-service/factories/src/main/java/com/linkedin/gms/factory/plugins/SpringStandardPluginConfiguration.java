@@ -26,6 +26,7 @@ import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
@@ -452,6 +453,57 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_USER_ENTITY_NAME)
                             .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  /**
+   * Aspect-level privilege floor on role, group membership, and group ownership writes. API
+   * authorization keys on entity type alone, so without this an entity-level edit privilege is
+   * enough to write a role grant on any user or group.
+   */
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator privilegeGrantAuthorizationValidator() {
+    return new PrivilegeGrantAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PrivilegeGrantAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                // Entity names and aspect names are matched in two independent passes, so these
+                // entries select the cartesian product rather than the listed pairs. That is fine
+                // and intended here: the extra combinations are aspects the entity does not carry
+                // (no ownership on corpuser, no group membership on corpGroup), so they are
+                // unreachable, and should one ever become reachable, guarding it is what we want.
+                // Do not narrow this to exact pairs - it would only shrink a security control.
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(ROLE_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(ROLE_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(GROUP_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        // corpGroup only: the Asset Owners policy grants EDIT_ENTITY and
+                        // EDIT_GROUP_MEMBERS on owned resources, and corpGroup is the only
+                        // privilege-bearing entity with an ownership aspect.
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(OWNERSHIP_ASPECT_NAME)
                             .build()))
                 .build());
   }

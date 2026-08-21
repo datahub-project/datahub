@@ -44,6 +44,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import lombok.Data;
@@ -53,6 +54,7 @@ public class GmsGraphQLEngineArgs {
 
   EntityClient entityClient;
   SystemEntityClient systemEntityClient;
+  OperationContext systemOperationContext;
   GraphClient graphClient;
   UsageStatsJavaClient usageClient;
   AnalyticsService analyticsService;

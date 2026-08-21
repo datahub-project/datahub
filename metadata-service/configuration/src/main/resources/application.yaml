@@ -1407,6 +1407,9 @@ metadataChangeProposal:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
+    aspectAuthorization:
+      privilegeGrant:
+        enabled: ${MCP_VALIDATION_PRIVILEGE_GRANT:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:
