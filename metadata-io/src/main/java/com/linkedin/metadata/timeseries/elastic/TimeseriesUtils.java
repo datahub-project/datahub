@@ -5,6 +5,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.usage.UsageTimeRange;
 import java.util.ArrayList;
@@ -28,6 +29,17 @@ public class TimeseriesUtils {
       default:
         throw new IllegalArgumentException("Unsupported duration value" + duration);
     }
+  }
+
+  /**
+   * Start of a trailing window from a canonical clock read. Pair with {@link
+   * CanonicalNow#upperBound()} as the end; swapping the two narrows the window instead of widening
+   * it.
+   */
+  @Nonnull
+  public static Long convertRangeToStartTime(
+      @Nonnull UsageTimeRange range, @Nonnull CanonicalNow now) {
+    return convertRangeToStartTime(range, now.reference());
   }
 
   @Nonnull

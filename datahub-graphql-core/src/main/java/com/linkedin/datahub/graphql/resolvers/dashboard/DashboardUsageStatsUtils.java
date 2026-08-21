@@ -24,6 +24,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.CalendarInterval;
@@ -324,6 +325,15 @@ public class DashboardUsageStatsUtils {
   public static Filter createUsageFilter(
       String dashboardUrn, Long startTime, Long endTime, boolean byBucket) {
     return buildUsageFilter(dashboardUrn, startTime, endTime, byBucket);
+  }
+
+  /**
+   * Start of the trailing month from a canonical clock read. Pair with {@link
+   * CanonicalNow#upperBound()} as the end; swapping the two narrows the window instead of widening
+   * it.
+   */
+  public static Long timeMinusOneMonth(@Nonnull CanonicalNow now) {
+    return timeMinusOneMonth(now.reference());
   }
 
   public static Long timeMinusOneMonth(long time) {
