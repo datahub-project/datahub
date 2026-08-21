@@ -391,12 +391,10 @@ def _walk_shared_expression(
         logger.debug("Nothing in this dataset defines '%s'", name)
         return
 
-    try:
-        sub_map = shared.parse_once(name, text)
-    except Exception as e:
-        # A query that will not parse is no different from one we cannot follow;
-        # the table simply keeps whatever lineage the rest of the walk found.
-        logger.debug("Could not parse query '%s': %s", name, e)
+    sub_map = shared.parsed(name, text)
+    if sub_map is None:
+        # Recorded on `shared` so the caller can report it rather than the table
+        # quietly ending up short of lineage.
         return
 
     sub_lets = [(k, v) for k, v in sub_map.items() if v.get("kind") == "LetExpression"]

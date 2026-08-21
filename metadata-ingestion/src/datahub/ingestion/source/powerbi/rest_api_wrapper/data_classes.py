@@ -226,14 +226,14 @@ class PowerBIDataset:
     tags: List[str]
     configuredBy: Optional[str] = None
 
+    # DirectLake support: artifact ID this dataset depends on (Lakehouse/Warehouse)
+    # From relations[].dependentOnArtifactId
+    dependent_on_artifact_id: Optional[str] = None
+
     # Queries the model holds but does not load as tables -- "Enable load"
     # switched off. Name -> M expression. A table referencing one of these has no
     # entity to point an edge at, so the chain is followed inline instead.
     expressions: Dict[str, str] = dataclasses.field(default_factory=dict)
-
-    # DirectLake support: artifact ID this dataset depends on (Lakehouse/Warehouse)
-    # From relations[].dependentOnArtifactId
-    dependent_on_artifact_id: Optional[str] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
