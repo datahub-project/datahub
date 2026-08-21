@@ -59,6 +59,11 @@ class UpstreamPlatformCasing(PlatformInstanceConfigMixin, EnvConfigMixin):
     Inherits ``platform_instance`` and ``env`` (with its FabricType validator) from the
     shared config mixins, so `env` is validated/normalized rather than under-resolving
     silently on a typo.
+
+    ``platform_instance`` narrows the catalog read through DataHub's search filter, which
+    matches the ``dataPlatformInstance`` aspect rather than the URN. A connector that puts
+    the instance in the URN without emitting that aspect therefore reads nothing; leave it
+    unset to read the whole platform / env. See docs/dev_guides/lineage_urn_casing.md.
     """
 
     platform: str = Field(
@@ -94,22 +99,42 @@ class AutoResolveLineageUrnsConfig(ConfigModel):
     )
     upstream_platforms: List[UpstreamPlatformCasing] = Field(
         default_factory=list,
-        description="The upstream warehouse platform(s) to bulk-load and reconcile "
-        "lineage references against. References to platforms not listed here are "
-        "left unchanged.",
+        description="The upstream warehouse platform(s) this source references heavily. "
+        "Their catalogs are read from DataHub once at startup, which is worth it when a "
+        "source names the same warehouse across many dashboards or models. By default "
+        "these are also the only platforms reconciled — set `resolve_all_platforms` to "
+        "cover the rest.",
+    )
+    resolve_all_platforms: bool = Field(
+        default=False,
+        description="Also reconcile references to platforms not listed in "
+        "`upstream_platforms`, looking each one up in DataHub as it is encountered. Use "
+        "it when this source references several warehouses but only one or two are "
+        "referenced often enough to be worth reading in full, or — with no "
+        "`upstream_platforms` at all — when it references only a handful of warehouse "
+        "tables, or a warehouse too large to read. Keep the platforms this source "
+        "references heavily in `upstream_platforms`: a catalog read once beats looking "
+        "the same tables up over and over.",
     )
 
     @model_validator(mode="after")
-    def _require_upstream_platforms_when_enabled(
+    def _require_platforms_or_resolve_all_when_enabled(
         self,
     ) -> "AutoResolveLineageUrnsConfig":
-        # Enabled with no upstream_platforms has nothing to reconcile against — every
-        # reference would no-op. Fail fast rather than silently doing nothing.
-        if self.enabled and not self.upstream_platforms:
+        # Enabled with nothing preloaded and scope not widened has nothing to reconcile
+        # against — every reference would no-op. Fail fast rather than silently doing
+        # nothing.
+        if (
+            self.enabled
+            and not self.upstream_platforms
+            and not self.resolve_all_platforms
+        ):
             raise ValueError(
                 "auto_resolve_lineage_urns is enabled but no upstream_platforms are "
-                "configured; there is nothing to reconcile against. List the upstream "
-                "warehouse platform(s) this source references, or set enabled: false."
+                "configured and resolve_all_platforms is false; there is nothing to "
+                "reconcile. List the upstream warehouse platform(s) this source "
+                "references, or set resolve_all_platforms: true to reconcile every "
+                "platform a reference points at, or set enabled: false."
             )
         return self
 
@@ -171,8 +196,9 @@ class FlagsConfig(ConfigModel):
             "which lowercases every URN, this resolves references to the casing of the "
             "entity that already exists, preserving the warehouse's original casing. "
             "Requires a DataHub backend connection (no-op for offline/file-only "
-            "ingestion) and the upstream platform(s) to be configured. Enable on BI-tool "
-            "ingestions, not on the warehouse ingestion itself."
+            "ingestion), and either the upstream platform(s) to be configured or "
+            "`resolve_all_platforms`. Enable on BI-tool ingestions, not on the "
+            "warehouse ingestion itself."
         ),
     )
 
