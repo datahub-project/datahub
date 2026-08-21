@@ -6,12 +6,12 @@ entries (recognized data-source function calls with their navigation chain).
 import logging
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
-from datahub.ingestion.source.powerbi.m_query.ast_utils import (
+from datahub.ingestion.source.common.m_query.ast_utils import (
     NodeIdMap,
     get_record_field_values,
     resolve_identifier,
 )
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
+from datahub.ingestion.source.common.m_query.data_classes import (
     DataAccessFunctionDetail,
     FunctionName,
     IdentifierAccessor,
