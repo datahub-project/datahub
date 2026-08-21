@@ -1864,6 +1864,23 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         pattern_schema = resolved["patternProperties"]["^x"]
         self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
 
+    def test_merge_allof_mixed_exclusive_bounds_no_error(self):
+        # A numeric (draft-6+) exclusive bound in one member and a boolean (draft-4)
+        # flag in another must not raise and must keep the numeric bound, regardless
+        # of member order.
+        sw_dict = {"openapi": "3.1.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"exclusiveMinimum": 5}}},
+                {"patternProperties": {"^x": {"minimum": 5, "exclusiveMinimum": True}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
+
     def test_property_names_allof_ref_with_sibling_constraints(self):
         # $ref alongside sibling constraints next to allOf: the ref is expanded and the
         # sibling constraint is kept (not dropped by the bare-$ref early return).

@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import requests
 import yaml
@@ -746,7 +746,10 @@ def _is_number(value: object) -> bool:
 
 
 def _merge_exclusive_bound(
-    merged_schema: Dict, resolved_allof: Dict, key: str, numeric_more_restrictive
+    merged_schema: Dict,
+    resolved_allof: Dict,
+    key: str,
+    numeric_more_restrictive: Callable[[Any, Any], Any],
 ) -> None:
     if key not in resolved_allof:
         return
@@ -760,8 +763,12 @@ def _merge_exclusive_bound(
             else incoming
         )
     # draft-4: boolean flag — the bound is exclusive if any member makes it exclusive.
+    # If a numeric bound was already merged (draft-6+), keep it so a mixed-type spec
+    # stays order-independent and doesn't collapse the numeric bound to a boolean.
     elif isinstance(incoming, bool):
-        merged_schema[key] = bool(current) or incoming
+        merged_schema[key] = (
+            current if _is_number(current) else bool(current) or incoming
+        )
 
 
 def _combine_under_allof(existing: Dict, addition: Dict) -> Dict:
