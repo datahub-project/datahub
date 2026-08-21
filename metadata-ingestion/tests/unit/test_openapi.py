@@ -1667,8 +1667,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(parts[1].get("maxLength"), 10)
 
     def test_merge_allof_same_pattern_three_members_keeps_all_fields(self):
-        # Three allOf members share a pattern: the generated allOf must stay flat so
-        # none of the earlier value schemas are dropped during resolution.
+        # 3+ members sharing a pattern must not nest, or earlier schemas get dropped.
         sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
         schema = {
             "allOf": [
@@ -1700,8 +1699,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             self.assertIn(field, pattern_schema["properties"])
 
     def test_merge_allof_property_names_three_members_flat(self):
-        # Three propertyNames contributors must flatten into a single allOf list
-        # (not nest), so every constraint survives resolution.
+        # 3+ propertyNames contributors flatten into one allOf list, not nested.
         sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
         schema = {
             "propertyNames": {"type": "string", "minLength": 1},
@@ -1720,8 +1718,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(parts[2].get("pattern"), "^x")
 
     def test_property_names_allof_preserves_sibling_constraints(self):
-        # A propertyNames carrying allOf alongside sibling keys must keep those
-        # siblings when its $refs are resolved.
+        # allOf alongside sibling keys (minLength) must keep the siblings on resolve.
         sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
         schema = {
             "type": "object",

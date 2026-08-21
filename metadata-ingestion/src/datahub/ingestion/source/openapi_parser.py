@@ -691,15 +691,9 @@ def _merge_allof_map_keywords(
 
 
 def _combine_under_allof(existing: Dict, addition: Dict) -> Dict:
-    """Combine two colliding same-key schemas under a single flattened allOf.
-
-    Flatten a pure ``{"allOf": [...]}`` wrapper we generated on an earlier merge so a
-    third (or later) contributor is appended as a sibling instead of being nested.
-    merge_allof_schemas(resolving_refs=True) does not expand nested member allOf, so a
-    nested wrapper would drop the earlier schemas' fields/constraints during resolution.
-    A wrapper carrying sibling keys is left intact (not flattened) so its constraints
-    are preserved.
-    """
+    # Flatten a pure allOf wrapper from an earlier merge before appending, so a 3rd+
+    # contributor is a sibling not a nested member — merge_allof_schemas(resolving_refs)
+    # does not expand nested member allOf and would drop the earlier schemas.
     members: List[Dict] = []
     for part in (existing, addition):
         if (
