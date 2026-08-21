@@ -183,25 +183,6 @@ acryl-datahub-cloud evals history urn:li:eval:my-eval --limit 50
 Returns `--limit` run events (default 10). Add `--include-proposal-runs`, or `--action-request-urn`
 for one change proposal, but not both.
 
-## Output and Exit Codes
-
-`list`, `get`, `run`, and `history` accept `--format json|table`, defaulting to a table on a terminal
-and JSON otherwise, so piping into `jq` works without extra flags. `upsert`, `delete`, and `report`
-always emit JSON.
-
-| Exit code | Meaning                                                          |
-| --------- | ---------------------------------------------------------------- |
-| `0`       | Success.                                                         |
-| `1`       | Command failed, or `--fail-on-fail` saw a failed run.            |
-| `2`       | Invalid command input or an invalid eval definition.             |
-| `5`       | Could not reach DataHub, or the instance does not support evals. |
-
-Errors the command raises print as text on a terminal and as `{"error": ..., "message": ...}` on
-stderr otherwise. Argument-parsing errors stay plain-text usage messages and exit `2`.
-
-`acryl-datahub-cloud evals --agent-context` prints a condensed reference for coding agents, and the
-same text is appended to `--help` when stdout is not a terminal.
-
 ## CI Example
 
 ```shell
