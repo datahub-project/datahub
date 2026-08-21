@@ -1,3 +1,4 @@
+import { getExternalUrlCandidates } from '@app/embed/lookup/utils';
 import { urlEncodeUrn } from '@app/entity/shared/utils';
 import { UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
@@ -11,6 +12,7 @@ const URL_FIELDS = ['externalUrl', 'chartUrl', 'dashboardUrl'] as const;
 
 const useGetEntityByUrl = (externalUrl: string) => {
     const registry = useEntityRegistry();
+    const externalUrlCandidates = getExternalUrlCandidates(externalUrl);
     const { data, error } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
@@ -21,7 +23,7 @@ const useGetEntityByUrl = (externalUrl: string) => {
                     UnionType.OR,
                     URL_FIELDS.map((field) => ({
                         field,
-                        values: [externalUrl],
+                        values: externalUrlCandidates,
                         condition: FilterOperator.Equal,
                     })),
                 ),

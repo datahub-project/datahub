@@ -6,9 +6,12 @@ import pytest
 
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
 
 
 def generate_test_email() -> str:

@@ -1,10 +1,13 @@
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import (
     get_analytics_charts,
     get_highlights,
     get_metadata_analytics_charts,
 )
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 @pytest.mark.read_only

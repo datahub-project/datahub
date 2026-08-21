@@ -547,6 +547,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
+          "featureFlags.graphQLAspectOptimizationEnabled",
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
           "featureFlags.assetSummaryPageV1",
@@ -630,6 +631,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ebean.entityWriteLockLeaseSeconds",
           "ebean.optimisticLockingEnabled",
           "ebean.scopedRetryEnabled",
+          "ebean.optimisticWriteBatchEnabled",
+          "ebean.optimisticWriteBatchMinSize",
           "ebean.cloudProvider",
           "ebean.driver",
           "ebean.leakTimeMinutes",

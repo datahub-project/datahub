@@ -2211,6 +2211,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "For multiple Kafka clusters, use the platform_instance configuration",
           "subtype_modifier": null,
@@ -2245,6 +2251,12 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4499,6 +4511,38 @@
       "classname": "datahub.ingestion.source.sql.sql_generic.SQLAlchemyGenericSource",
       "platform_id": "sqlalchemy",
       "platform_name": "SQLAlchemy",
+      "support_status": "INCUBATING"
+    },
+    "sqlmesh": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Supported when model descriptions are defined",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshSource",
+      "platform_id": "sqlmesh",
+      "platform_name": "SQLMesh",
       "support_status": "INCUBATING"
     },
     "starburst-trino-usage": {

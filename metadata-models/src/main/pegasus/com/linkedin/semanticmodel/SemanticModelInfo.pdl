@@ -9,7 +9,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "semanticModelInfo",
-  "schemaVersion": 5
+  "schemaVersion": 6
 }
 record SemanticModelInfo includes ExternalReference {
 
@@ -71,28 +71,7 @@ record SemanticModelInfo includes ExternalReference {
    */
   nativeDefinition: optional string
 
-  /**
-   * The logical datasets that this semantic model exposes. Each is a `dataset` entity in its
-   * own right, carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect
-   * (alias + back-reference to this semantic model). Field-level projection and semantics live
-   * on that Dataset's `schemaMetadata` (structural) and per-field `semanticFieldAnnotation`
-   * (semantic) aspects.
-   */
-  @Relationship = {
-    "/*": {
-      "name": "Contains",
-      "entityTypes": [ "dataset" ],
-      "isLineage": true
-    }
-  }
-  @Searchable = {
-    "/*": {
-      "fieldName": "datasets",
-      "fieldType": "URN",
-      "hasValuesFieldName": "hasDatasets",
-      "queryByDefault": false
-    }
-  }
+  @deprecated = "Use semanticModelProperties.semanticModel on member datasets. Field retained for backwards-read of already-ingested data; new writes should not populate."
   datasets: array[Urn] = [ ]
 
   /**
