@@ -547,6 +547,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
+          "featureFlags.graphQLAspectOptimizationEnabled",
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
           "featureFlags.assetSummaryPageV1",
