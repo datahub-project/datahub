@@ -416,6 +416,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "file.encoding",
           "file.separator",
           "stderr.encoding",
+          "stdin.encoding",
           "stdout.encoding",
           "java.awt.headless",
           "java.class.path",
@@ -1252,6 +1253,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "bootstrap.async.workerThreads",
           // GMS HTTP service rate limiting (under datahub.gms)
           "datahub.gms.rateLimits.enabled",
+          "datahub.gms.rateLimits.configFile.path",
+          "datahub.gms.rateLimits.configJson",
           "datahub.gms.rateLimits.failOpen",
           "datahub.gms.rateLimits.clientClassEnabled",
           "datahub.gms.rateLimits.minRetryAfterSeconds",
