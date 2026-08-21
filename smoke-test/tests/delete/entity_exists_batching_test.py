@@ -13,7 +13,7 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import DatasetPropertiesClass, StatusClass
-from tests.utils import execute_graphql, with_test_retry
+from tests.utils import execute_graphql, wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -91,16 +91,11 @@ def _build_test_data(filename: str) -> None:
         )
 
     # Soft-deleted, not hard-deleted: the aspect row still exists, so `exists` must stay true.
+    # The removal itself is applied after ingest, not here — see `ingest_cleanup_data`.
     mcps.append(
         MetadataChangeProposalWrapper(
             entityUrn=_soft_deleted_urn(),
             aspect=DatasetPropertiesClass(name=f"exists_softdeleted_{_RUN_ID}"),
-        )
-    )
-    mcps.append(
-        MetadataChangeProposalWrapper(
-            entityUrn=_soft_deleted_urn(),
-            aspect=StatusClass(removed=True),
         )
     )
 
@@ -115,9 +110,28 @@ def ingest_cleanup_data(auth_session, graph_client):
     _, filename = tempfile.mkstemp(suffix=".json")
     try:
         _build_test_data(filename)
-        yield from _ingest_cleanup_data_impl(
+        ingest = _ingest_cleanup_data_impl(
             auth_session, graph_client, filename, "entity_exists_batching"
         )
+        next(ingest)
+
+        # Applied after ingest rather than in the ingest file: ingest gates on every dataset
+        # becoming searchable, and search excludes soft-deleted entities, so a removed=true
+        # entity in the file would never satisfy that wait.
+        logger.info(f"soft-deleting {_soft_deleted_urn()}")
+        graph_client.emit(
+            MetadataChangeProposalWrapper(
+                entityUrn=_soft_deleted_urn(),
+                aspect=StatusClass(removed=True),
+            )
+        )
+        wait_for_writes_to_sync()
+
+        yield
+
+        # Drives the helper through its cleanup half.
+        for _ in ingest:
+            pass
     finally:
         os.remove(filename)
 
