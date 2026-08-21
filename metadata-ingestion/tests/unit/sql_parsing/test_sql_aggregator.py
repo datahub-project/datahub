@@ -1159,6 +1159,23 @@ def test_table_swap_id() -> None:
     )
 
 
+def test_schema_resolver_rejected_after_close():
+    """The resolver's backing store is gone once the aggregator is closed, so
+    handing it out afterwards would be handing out something unusable. Raised
+    rather than asserted, so the guard survives `python -O`."""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    assert aggregator.schema_resolver is not None
+
+    aggregator.close()
+    with pytest.raises(AssertionError):
+        _ = aggregator.schema_resolver
+
+
 def test_sql_aggreator_close_cleans_tmp(tmp_path):
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     with patch("tempfile.tempdir", str(tmp_path)):
