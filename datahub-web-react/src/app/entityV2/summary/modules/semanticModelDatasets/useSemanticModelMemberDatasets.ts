@@ -105,30 +105,35 @@ export function useAllSemanticModelMemberDatasets(): {
             let start = 0;
             let reportedTotal = 0;
 
-            do {
-                // Sequential pages — each start depends on the previous page's total.
-                // eslint-disable-next-line no-await-in-loop
-                const result = await fetchPageRef.current({
-                    variables: { urn: modelUrn, start, count: MEMBER_DATASETS_PAGE_SIZE },
-                });
-                if (cancelled) {
-                    return;
-                }
+            try {
+                do {
+                    // Sequential pages — each start depends on the previous page's total.
+                    // eslint-disable-next-line no-await-in-loop
+                    const result = await fetchPageRef.current({
+                        variables: { urn: modelUrn, start, count: MEMBER_DATASETS_PAGE_SIZE },
+                    });
+                    if (cancelled) {
+                        return;
+                    }
 
-                const page = result.data?.semanticModel?.entities;
-                reportedTotal = page?.total ?? 0;
-                const pageDatasets = extractDatasets(page?.searchResults);
-                if (!pageDatasets.length) {
-                    break;
+                    const page = result.data?.semanticModel?.entities;
+                    reportedTotal = page?.total ?? 0;
+                    const pageDatasets = extractDatasets(page?.searchResults);
+                    if (!pageDatasets.length) {
+                        break;
+                    }
+                    accumulated.push(...pageDatasets);
+                    start += MEMBER_DATASETS_PAGE_SIZE;
+                } while (!cancelled && accumulated.length < reportedTotal);
+            } catch (error) {
+                // Surface for observability; downstream modules render whatever we accumulated.
+                console.error('useAllSemanticModelMemberDatasets: page fetch failed', error);
+            } finally {
+                if (!cancelled) {
+                    setDatasets(accumulated);
+                    setTotal(reportedTotal);
+                    setLoading(false);
                 }
-                accumulated.push(...pageDatasets);
-                start += MEMBER_DATASETS_PAGE_SIZE;
-            } while (!cancelled && accumulated.length < reportedTotal);
-
-            if (!cancelled) {
-                setDatasets(accumulated);
-                setTotal(reportedTotal);
-                setLoading(false);
             }
         }
 
