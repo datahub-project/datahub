@@ -84,6 +84,12 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
         continue;
       }
 
+      if (operationContext == null) {
+        exceptions.addException(
+            authFailure(item, "Unauthorized to modify privileged CorpUserInfo flags."));
+        continue;
+      }
+
       Urn authActor = resolveAuthorizingActor(item, operationContext);
 
       CorpUserInfo actorInfo = loadCorpUserInfo(operationContext, aspectRetriever, authActor);
@@ -206,10 +212,10 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
   /**
    * Bootstrap, upgrade steps, and other system-mediated writes are trusted via {@link
    * OperationFingerprint#isSystemAuth()}, never via client-writable {@code appSource} or a
-   * hardcoded system URN.
+   * hardcoded system URN. A null fingerprint is untrusted (fail closed).
    */
-  private static boolean isTrustedInternalWrite(@Nonnull OperationFingerprint operationContext) {
-    return operationContext.isSystemAuth();
+  private static boolean isTrustedInternalWrite(@Nullable OperationFingerprint operationContext) {
+    return operationContext != null && operationContext.isSystemAuth();
   }
 
   private static AspectValidationException authFailure(

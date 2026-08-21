@@ -140,6 +140,14 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   }
 
   @Test
+  public void testNullFingerprintDoesNotBypassOrThrow() {
+    CorpUserInfo proposed = corpUserInfo(true, false);
+
+    long violations = validate(proposed, null, null, null).count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
   public void testSystemActorAuditStampAloneDoesNotBypass() {
     // Hardcoded SYSTEM_ACTOR on the audit stamp is not a trust signal without isSystemAuth().
     CorpUserInfo proposed = corpUserInfo(true, false);

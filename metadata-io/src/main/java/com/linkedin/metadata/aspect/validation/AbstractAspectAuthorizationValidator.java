@@ -55,11 +55,12 @@ public abstract class AbstractAspectAuthorizationValidator extends AspectPayload
 
   /**
    * Trusted when the operation fingerprint or authorization session is the configured system
-   * principal. Client-writable provenance (e.g. {@code appSource}) must never gate this decision.
+   * principal. Client-writable provenance (e.g. {@code appSource}) must never gate this decision. A
+   * null fingerprint (e.g. {@code AspectsBatchImpl.build(null)}) is untrusted.
    */
   protected static boolean isTrustedSystemOperation(
-      @Nonnull OperationFingerprint operationContext, @Nullable AuthorizationSession session) {
-    if (operationContext.isSystemAuth()) {
+      @Nullable OperationFingerprint operationContext, @Nullable AuthorizationSession session) {
+    if (operationContext != null && operationContext.isSystemAuth()) {
       return true;
     }
     return session instanceof OperationContext && ((OperationContext) session).isSystemAuth();

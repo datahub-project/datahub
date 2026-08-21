@@ -169,6 +169,26 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(exception.getMessage().contains("No authentication details found"));
   }
 
+  /** Null fingerprint (AspectsBatchImpl.build(null)) must fail closed, not NPE. */
+  @Test
+  public void testValidateGlobalTagsWithNullFingerprintFailsClosed() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    BatchItem item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .findFirst()
+            .get();
+
+    AspectValidationException exception =
+        validator
+            .validateProposedAspectsWithAuth(
+                null, Collections.singletonList(item), retrieverContext, null)
+            .findFirst()
+            .orElse(null);
+
+    Assert.assertNotNull(exception);
+    Assert.assertTrue(exception.getMessage().contains("No authentication details found"));
+  }
+
   @Test
   public void testValidateGlobalTagsAuthorized() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
