@@ -15,7 +15,7 @@ import { useGetSemanticModelEntitiesForLineageQuery } from '@graphql/semanticMod
  * path (computeBoundingBoxGraph) groups them inside the home SemanticModel box.
  */
 export default function useFetchSemanticModelEntities(): boolean {
-    const { rootUrn, nodes, boundingBoxEntities, setNodeVersion } = useContext(LineageNodesContext);
+    const { rootUrn, nodes, boundingBoxEntities, setNodeVersion, setDataVersion } = useContext(LineageNodesContext);
     const { start, setTotal, initialized, setInitialized } = useBoundingBoxMemberPagination(rootUrn, nodes);
 
     useGetSemanticModelEntitiesForLineageQuery({
@@ -26,15 +26,22 @@ export default function useFetchSemanticModelEntities(): boolean {
         },
         onCompleted: (data) => {
             let addedNode = false;
+            // Track membership upgrades on already-known nodes separately; adding a node bumps
+            // nodeVersion (which invalidates useComputeGraph), but re-hydrating a lineage-neighbor's
+            // home membership after it was marked free needs its own dataVersion bump — otherwise
+            // the recompute never runs and the node stays visually outside the SM box.
+            let membershipChanged = false;
 
             const entities = data.semanticModel?.entities;
             entities?.searchResults?.forEach((result) => {
                 if (!result?.entity) return;
-                addedNode = addedNode || !nodes.has(result.entity.urn);
+                const isNew = !nodes.has(result.entity.urn);
+                addedNode = addedNode || isNew;
                 const node = setDefault(nodes, result.entity.urn, createBoundingBoxMemberNode(result.entity, rootUrn));
                 // Ensure home-membership is recorded even if the node was created earlier.
                 if (!node.boundingBoxes?.some((c) => c.urn === rootUrn)) {
                     node.boundingBoxes = [{ urn: rootUrn, isOutputPort: false }, ...(node.boundingBoxes ?? [])];
+                    if (!isNew) membershipChanged = true;
                 }
             });
 
@@ -63,6 +70,7 @@ export default function useFetchSemanticModelEntities(): boolean {
             setInitialized(true);
 
             if (addedNode) setNodeVersion((version) => version + 1);
+            if (membershipChanged) setDataVersion((version) => version + 1);
         },
     });
 
