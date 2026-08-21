@@ -7,7 +7,12 @@ import pydantic
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    HiddenFromDocs,
+    SupportedSources,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
 from datahub.utilities.str_enum import StrEnum
@@ -16,6 +21,7 @@ _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
     "profile_table_level_only",
     "query_combiner_enabled",
+    "query_combiner_flatten_enabled",
     # all include_field_ flags are reported.
 }
 
@@ -185,6 +191,31 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     query_combiner_enabled: bool = Field(
         default=True,
         description="*This feature is still experimental and can be disabled if it causes issues.* Reduces the total number of queries issued and speeds up profiling by dynamically combining SQL queries where possible.",
+    )
+
+    # When enabled, the combiner flattens same-shape aggregate queries (no
+    # WHERE/GROUP BY/ORDER BY/LIMIT/DISTINCT, same FROM) into a single flat
+    # SELECT per FROM group, instead of one CTE per query. Each CTE in the
+    # legacy path is an independent aggregate over the same table, so the DB
+    # scans the table once per CTE; flattening collapses those into one scan.
+    # COUNT(DISTINCT) futures are capped at max_distinct_per_statement per
+    # flat statement to avoid coexisting distinct-value trees (server memory).
+    # Off by default — flip in a separate follow-up PR after validation.
+    query_combiner_flatten_enabled: bool = Field(
+        default=False,
+        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/STDDEV) coexist freely; COUNT(DISTINCT) is capped per statement to bound server memory.",
+    )
+
+    # Hidden option - starting cap on COUNT(DISTINCT) futures per flat statement.
+    # Exposed so the right value can be measured without a release
+    # cycle. The module default lives at DEFAULT_MAX_DISTINCT_PER_STATEMENT in
+    # datahub.utilities.sqlalchemy_query_combiner (kept here as a literal so
+    # this config module does not import sqlalchemy/greenlet at module scope —
+    # kafka, cassandra, and excel configs import this module and none of those
+    # extras ship sqlalchemy).
+    max_distinct_per_statement: HiddenFromDocs[pydantic.PositiveInt] = Field(
+        default=5,
+        description="",
     )
 
     # Hidden option - used for debugging purposes.

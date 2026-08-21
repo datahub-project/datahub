@@ -1,3 +1,7 @@
+import subprocess
+import sys
+import textwrap
+
 import pytest
 
 from datahub.configuration.common import ConfigurationWarning
@@ -106,3 +110,63 @@ def test_profiling_isolation_level_json_schema_has_default():
     # Field(default=None) emits that key; default_factory does not.
     schema = GEProfilingConfig.model_json_schema()
     assert "default" in schema["properties"]["profiling_isolation_level"]
+
+
+def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
+    # Drift guard: the config's literal default must stay in lockstep with
+    # the combiner's module-level constant. The config inlines the literal
+    # (it cannot import the combiner — kafka/cassandra/excel configs import
+    # this module and none of those extras ship sqlalchemy). This test fires
+    # if either side changes without the other.
+    from datahub.utilities.sqlalchemy_query_combiner import (
+        DEFAULT_MAX_DISTINCT_PER_STATEMENT,
+    )
+
+    config = GEProfilingConfig()
+    assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
+
+
+def test_ge_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
+    # kafka, cassandra, and excel configs import ge_profiling_config at module
+    # scope, and none of those extras ship sqlalchemy. Importing either module
+    # must not pull sqlalchemy or greenlet at module scope. Running in a
+    # subprocess gives a cold interpreter — what a `pip install
+    # acryl-datahub[kafka]` user actually hits — and avoids mutating this
+    # process's sys.modules, which previously left a stale duplicate of
+    # kafka_config reachable by attribute traversal and broke order-dependent
+    # tests that patched it.
+    script = textwrap.dedent(
+        """
+        import sys
+
+
+        class _BlockFinder:
+            def find_spec(self, name, path, target=None):
+                if name.split(".")[0] in ("sqlalchemy", "greenlet"):
+                    raise ImportError(
+                        f"import of {name!r} is blocked for this test"
+                    )
+                return None
+
+
+        sys.meta_path.insert(0, _BlockFinder())
+
+        import datahub.ingestion.source.ge_profiling_config  # noqa: F401
+        import datahub.ingestion.source.kafka.kafka_config  # noqa: F401
+
+        for blocked in ("sqlalchemy", "greenlet"):
+            assert blocked not in sys.modules, (
+                f"{blocked} was imported at module scope"
+            )
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"subprocess exited {result.returncode}\n"
+        f"stdout: {result.stdout.decode()}\n"
+        f"stderr: {result.stderr.decode()}"
+    )
