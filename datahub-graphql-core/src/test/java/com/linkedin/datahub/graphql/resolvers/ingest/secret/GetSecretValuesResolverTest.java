@@ -156,6 +156,45 @@ public class GetSecretValuesResolverTest {
   }
 
   @Test
+  public void testGetAllDecryptionFailuresThrows() throws Exception {
+    // Every stored value failing to decrypt points at a systemic problem (e.g. an
+    // encryption-key change) and must fail loudly rather than return an empty list.
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    Mockito.when(
+            mockSecretService.decrypt(Mockito.any(), Mockito.eq(getTestSecretValue().getValue())))
+        .thenThrow(new RuntimeException("Failed to decrypt value using AES-GCM!"));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.SECRETS_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_SECRET_URN))),
+                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_SECRET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(TEST_SECRET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestSecretValue().data())))))));
+
+    GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);

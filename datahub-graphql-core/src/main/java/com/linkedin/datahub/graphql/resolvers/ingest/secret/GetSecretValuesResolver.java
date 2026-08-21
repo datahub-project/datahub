@@ -18,6 +18,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,41 +74,59 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
               // stored value cannot be decrypted, it is omitted from the list so that the
               // remaining secrets in the batch still resolve.
               // There is no ordering guarantee for the list.
-              return entities.values().stream()
-                  .map(
-                      entity -> {
-                        EnvelopedAspect aspect =
-                            entity.getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME);
-                        if (aspect == null) {
-                          // No secret exists
-                          return null;
-                        }
-                        final DataHubSecretValue secretValue =
-                            new DataHubSecretValue(aspect.getValue().data());
-                        try {
-                          // Now decrypt the encrypted secret.
-                          final String decryptedSecretValue =
-                              _secretService.decrypt(
-                                  context.getOperationContext(), secretValue.getValue());
-                          return new SecretValue(secretValue.getName(), decryptedSecretValue);
-                        } catch (Exception e) {
-                          // A stored value encrypted with a different SECRET_SERVICE_ENCRYPTION_KEY
-                          // (e.g. after a migration) or with corrupted encoding is undecryptable;
-                          // failing the whole batch for it would also break every healthy secret
-                          // requested alongside it.
-                          log.error(
-                              "Failed to decrypt secret '{}' (urn: {}). The stored value is likely "
-                                  + "corrupted or was encrypted with a different encryption key; "
-                                  + "delete and re-create the secret to fix it. Omitting it from "
-                                  + "the response. Reason: {}",
-                              secretValue.getName(),
-                              entity.getUrn(),
-                              e.getMessage());
-                          return null;
-                        }
-                      })
-                  .filter(Objects::nonNull)
-                  .collect(Collectors.toList());
+              final List<String> undecryptableSecrets = new ArrayList<>();
+              final List<SecretValue> values =
+                  entities.values().stream()
+                      .map(
+                          entity -> {
+                            EnvelopedAspect aspect =
+                                entity.getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME);
+                            if (aspect == null) {
+                              // No secret exists
+                              return null;
+                            }
+                            final DataHubSecretValue secretValue =
+                                new DataHubSecretValue(aspect.getValue().data());
+                            try {
+                              // Now decrypt the encrypted secret.
+                              final String decryptedSecretValue =
+                                  _secretService.decrypt(
+                                      context.getOperationContext(), secretValue.getValue());
+                              return new SecretValue(secretValue.getName(), decryptedSecretValue);
+                            } catch (Exception e) {
+                              // A stored value encrypted with a different
+                              // SECRET_SERVICE_ENCRYPTION_KEY (e.g. after a migration) or with
+                              // corrupted encoding is undecryptable; failing the whole batch for it
+                              // would also break every healthy secret requested alongside it.
+                              log.error(
+                                  "Failed to decrypt secret '{}' (urn: {}). The stored value is "
+                                      + "likely corrupted or was encrypted with a different "
+                                      + "encryption key; delete and re-create the secret to fix "
+                                      + "it. Omitting it from the response.",
+                                  secretValue.getName(),
+                                  entity.getUrn(),
+                                  e);
+                              undecryptableSecrets.add(secretValue.getName());
+                              return null;
+                            }
+                          })
+                      .filter(Objects::nonNull)
+                      .collect(Collectors.toList());
+
+              // A batch where every stored value failed to decrypt points at a systemic problem
+              // (typically a SECRET_SERVICE_ENCRYPTION_KEY change) rather than one bad secret —
+              // fail loudly instead of returning an empty list that reads as "no secrets exist".
+              if (values.isEmpty() && !undecryptableSecrets.isEmpty()) {
+                throw new IllegalStateException(
+                    String.format(
+                        "Failed to decrypt all %d stored secret value(s): %s. The values were "
+                            + "likely encrypted with a different SECRET_SERVICE_ENCRYPTION_KEY "
+                            + "(e.g. the key changed during a migration); delete and re-create "
+                            + "the secrets to fix them.",
+                        undecryptableSecrets.size(), undecryptableSecrets));
+              }
+
+              return values;
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);
