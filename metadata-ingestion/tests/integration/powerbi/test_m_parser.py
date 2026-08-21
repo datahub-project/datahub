@@ -1958,3 +1958,194 @@ def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
 
     assert lineage[0].column_lineage
     assert lineage[0].column_lineage[0].downstream.column == "CustomerId"
+
+
+# Resolver observability. A table whose expression parses but yields no lineage
+# is otherwise invisible: the reason is only ever logged at debug level.
+
+
+def _resolve_and_report(q: str, full_name: str) -> PowerBiDashboardSourceReport:
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name=full_name.split(".")[-1],
+        full_name=full_name,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    return reporter
+
+
+@pytest.mark.integration
+def test_unhandled_node_kind_is_reported():
+    """An M shape the resolver walk cannot follow is named in the report, so an
+    unsupported expression form is visible without enabling debug logging."""
+    reporter = _resolve_and_report(
+        "let Source = 1 + 2 in Source", "MyDataSet.arithmetic_table"
+    )
+
+    assert "ArithmeticExpression" in reporter.m_query_unhandled_node_kinds
+
+
+@pytest.mark.integration
+def test_table_without_lineage_is_sampled():
+    """A table that parses but produces no lineage is sampled by name, so the
+    resolver_no_lineage count has something behind it."""
+    reporter = _resolve_and_report(
+        'let Source = Web.Contents("https://example.com/data.json") in Source',
+        "MyDataSet.web_table",
+    )
+
+    assert reporter.m_query_resolver_no_lineage == 1
+    assert "MyDataSet.web_table" in reporter.m_query_tables_without_lineage
+
+
+@pytest.mark.integration
+def test_unresolved_identifier_is_reported():
+    """A reference to a name the expression does not define -- another query, or
+    an outer-scope name seen from a nested let -- is named in the report."""
+    reporter = _resolve_and_report(
+        'let Source = #"Hidden Base Query",'
+        " out = Table.SelectRows(Source, each true) in out",
+        "MyDataSet.combined_table",
+    )
+
+    unresolved = list(reporter.m_query_unresolved_identifiers)
+    assert any("Hidden Base Query" in entry for entry in unresolved), (
+        f"Expected the unresolved query name to be reported; got: {unresolved}"
+    )
+    assert any("MyDataSet.combined_table" in entry for entry in unresolved), (
+        f"Expected the referencing table to be reported; got: {unresolved}"
+    )
+
+
+@pytest.mark.integration
+def test_known_parameter_is_not_reported_as_unresolved():
+    """A dataset parameter is not a missing query reference, so it must not be
+    reported as one -- otherwise every unsupported source produces noise."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression="let Source = Web.Contents(BaseUrl) in Source",
+        name="param_table",
+        full_name="MyDataSet.param_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={"BaseUrl": "https://example.com"},
+    )
+
+    assert list(reporter.m_query_unresolved_identifiers) == []
+
+
+@pytest.mark.integration
+def test_value_leaf_is_not_reported_as_unhandled_kind():
+    """An unsupported source's argument literal is a value, not an M shape the
+    resolver cannot model, so it must not dilute the unhandled-kind tally."""
+    reporter = _resolve_and_report(
+        'let Source = Web.Contents("https://example.com/data.json") in Source',
+        "MyDataSet.web_table",
+    )
+
+    assert "LiteralExpression" not in reporter.m_query_unhandled_node_kinds
+
+
+@pytest.mark.integration
+def test_undefined_argument_of_recognized_function_is_reported():
+    """A recognized data-access call whose argument is undefined still loses its
+    lineage, so the undefined name must be named."""
+    reporter = _resolve_and_report(
+        'let Source = Snowflake.Databases(MissingServer, "wh") in Source',
+        "MyDataSet.snowflake_table",
+    )
+
+    unresolved = list(reporter.m_query_unresolved_identifiers)
+    assert any("MissingServer" in entry for entry in unresolved), (
+        f"Expected the undefined argument to be reported; got: {unresolved}"
+    )
+
+
+@pytest.mark.integration
+def test_outer_scope_name_is_not_reported_as_unresolved():
+    """A name the expression binds in an enclosing let is in scope for the model
+    even when this walk cannot reach it, so reporting it as a missing reference
+    would point at a query that does not exist."""
+    reporter = _resolve_and_report(
+        "let"
+        '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net",'
+        ' "/sql/1.0/endpoints/abc", [Database=null, Catalog="c"]),'
+        '    db = Source{[Name="c",Kind="Database"]}[Data],'
+        '    sch = db{[Name="s",Kind="Schema"]}[Data],'
+        '    out = let t = sch{[Name="t",Kind="Table"]}[Data] in t'
+        " in out",
+        "MyDataSet.nested_table",
+    )
+
+    unresolved = list(reporter.m_query_unresolved_identifiers)
+    assert not any("-> sch" in entry for entry in unresolved), (
+        f"`sch` is bound by the enclosing let and must not be reported; got: {unresolved}"
+    )
+
+
+@pytest.mark.integration
+def test_parameter_matched_case_insensitively_is_not_reported():
+    """Parameter lookup is case-insensitive, so the exclusion must be too."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = Web.Contents(#"SERVER HOSTNAME") in Source',
+        name="param_table",
+        full_name="MyDataSet.param_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={"Server Hostname": "adb-123.azuredatabricks.net"},
+    )
+
+    assert list(reporter.m_query_unresolved_identifiers) == []
+
+
+@pytest.mark.integration
+def test_outer_scope_name_differing_only_by_case_is_not_reported():
+    """Identifier lookup folds case, so the in-scope check must too -- otherwise
+    an outer binding spelled `Sch` and referenced as `sch` is reported as a
+    missing query."""
+    reporter = _resolve_and_report(
+        "let"
+        '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net",'
+        ' "/sql/1.0/endpoints/abc", [Database=null, Catalog="c"]),'
+        '    db = Source{[Name="c",Kind="Database"]}[Data],'
+        '    Sch = db{[Name="s",Kind="Schema"]}[Data],'
+        '    out = let t = sch{[Name="t",Kind="Table"]}[Data] in t'
+        " in out",
+        "MyDataSet.cased_table",
+    )
+
+    assert list(reporter.m_query_unresolved_identifiers) == []
