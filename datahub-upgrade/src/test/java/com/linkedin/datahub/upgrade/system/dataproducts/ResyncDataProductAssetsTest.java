@@ -11,7 +11,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class BackfillDataProductAssetsTest {
+public class ResyncDataProductAssetsTest {
 
   private OperationContext opContext;
   private EntityService<?> entityService;
@@ -25,19 +25,19 @@ public class BackfillDataProductAssetsTest {
   }
 
   @Test
-  public void testEnabledRegistersStep() {
-    BackfillDataProductAssets upgrade =
-        new BackfillDataProductAssets(opContext, entityService, searchService, true, 100);
+  public void testReprocessEnabledRegistersStep() {
+    ResyncDataProductAssets upgrade =
+        new ResyncDataProductAssets(opContext, entityService, searchService, true, 100);
 
-    assertEquals(upgrade.id(), "BackfillDataProductAssets");
+    assertEquals(upgrade.id(), "ResyncDataProductAssets");
     assertEquals(upgrade.steps().size(), 1);
-    assertTrue(upgrade.steps().get(0) instanceof BackfillDataProductAssetsStep);
+    assertTrue(upgrade.steps().get(0) instanceof ResyncDataProductAssetsStep);
   }
 
   @Test
-  public void testDisabledRegistersNoSteps() {
-    BackfillDataProductAssets upgrade =
-        new BackfillDataProductAssets(opContext, entityService, searchService, false, 100);
+  public void testReprocessDisabledRegistersNoSteps() {
+    ResyncDataProductAssets upgrade =
+        new ResyncDataProductAssets(opContext, entityService, searchService, false, 100);
 
     assertTrue(upgrade.steps().isEmpty());
   }

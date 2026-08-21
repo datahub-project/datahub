@@ -9,25 +9,28 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 
 /**
- * Backfills the asset-side {@code dataProducts} aspect from existing Data Product membership. Gated
- * by {@code systemUpdate.dataProductAssets.enabled} (bean creation) and the {@code
- * BACKFILL_DATA_PRODUCT_ASSETS} env var (actual execution — see the step's skip()).
+ * Optional reprocess escape hatch that RESTSTEs {@code dataProductProperties} so {@code
+ * DataProductAssetsSideEffect} re-syncs asset-side {@code dataProducts} membership.
+ *
+ * <p>First-time population is driven by {@code dataProductProperties} schemaVersion + {@code
+ * MigrateAspects} / ZDU. This upgrade only runs when {@code
+ * systemUpdate.dataProductAssets.reprocess.enabled=true}.
  */
-public class BackfillDataProductAssets implements NonBlockingSystemUpgrade {
+public class ResyncDataProductAssets implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> steps;
 
-  public BackfillDataProductAssets(
+  public ResyncDataProductAssets(
       OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
-      boolean enabled,
+      boolean reprocessEnabled,
       Integer batchSize) {
-    if (enabled) {
+    if (reprocessEnabled) {
       steps =
           ImmutableList.of(
-              new BackfillDataProductAssetsStep(
-                  opContext, entityService, searchService, batchSize));
+              new ResyncDataProductAssetsStep(
+                  opContext, entityService, searchService, true, batchSize));
     } else {
       steps = ImmutableList.of();
     }
@@ -35,7 +38,7 @@ public class BackfillDataProductAssets implements NonBlockingSystemUpgrade {
 
   @Override
   public String id() {
-    return "BackfillDataProductAssets";
+    return "ResyncDataProductAssets";
   }
 
   @Override
