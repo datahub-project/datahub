@@ -14,6 +14,27 @@ _MAX_COPY_ENTRIES_PER_TABLE = 20
 _PROVISIONED_SEGMENT_SIZE = 200  # STL_QUERYTEXT, SVL_STATEMENTTEXT
 _SERVERLESS_SEGMENT_SIZE = 4000  # SYS_QUERY_TEXT
 
+# Scoping the query-text tables by query id
+#
+# STL_QUERYTEXT (userid/xid/pid/query/sequence/text) and SYS_QUERY_TEXT
+# (query_id/sequence/text) carry no timestamp of their own, so the ingestion window can
+# only reach them through query ids borrowed from a table that has one -- stl_insert,
+# stl_query or SYS_QUERY_DETAIL.
+#
+# Whether a given use needs that scoping written out depends on whether the window can
+# apply before the segments are stitched. Most uses reassemble text with a LISTAGG, so
+# the presence of an aggregate says nothing on its own: what matters is where the time
+# predicate sits relative to it. In the same query block, WHERE runs before GROUP BY,
+# and an inner select feeding the aggregate has already bounded the scan -- both are
+# fine as written.
+#
+# Scoping has to be spelled out when nothing time-bound is in reach of the aggregate:
+# text reassembled in its own CTE that joins no windowed table, or a ROW_NUMBER window
+# de-duplicating the whole table. There the aggregate materializes over everything and
+# only an outer join can filter, which is too late -- so the query reassembles the
+# cluster's entire retained history on every run, however small start_time makes the
+# window.
+
 # TODO: Boundary detection uses LEN(RTRIM(text)) < segment_size to decide whether to
 # add a space when stitching segments. This approach can't distinguish between padding
 # and tokens that exactly fill a segment. Edge case: a 199-char token followed by a
@@ -544,7 +565,25 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-                    WITH query_txt AS (
+                    -- The in-window insert rows are a CTE so the two scans below can be
+                    -- scoped to the query ids that can survive the join on `query`.
+                    WITH target_tables AS (
+                        select
+                            distinct tbl as target_table_id,
+                            sti.schema as target_schema,
+                            sti.table as target_table,
+                            sti.database as cluster,
+                            query,
+                            starttime
+                        from
+                            stl_insert
+                        join SVV_TABLE_INFO sti on
+                            sti.table_id = tbl
+                        where starttime >= '{start_time}'
+                        and starttime < '{end_time}'
+                        and sti.database = '{db_name}'
+                    ),
+                    query_txt AS (
                         SELECT
                             query,
                             userid,
@@ -552,6 +591,8 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                                 WITHIN GROUP (ORDER BY sequence)) AS querytxt
                         FROM STL_QUERYTEXT
                         WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                        -- Scope by query id: the query-text tables carry no timestamp.
+                        AND query IN (SELECT query FROM target_tables)
                         GROUP BY query, userid
                     )
                         select
@@ -564,22 +605,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                             querytxt as ddl,
                             starttime as timestamp
                         from
-                                (
-                            select
-                                distinct tbl as target_table_id,
-                                sti.schema as target_schema,
-                                sti.table as target_table,
-                                sti.database as cluster,
-                                query,
-                                starttime
-                            from
-                                stl_insert
-                            join SVV_TABLE_INFO sti on
-                                sti.table_id = tbl
-                            where starttime >= '{start_time}'
-                            and starttime < '{end_time}'
-                            and cluster = '{db_name}'
-                                ) as target_tables
+                            target_tables
                         join ( (
                             select
                                 sui.usename as username,
@@ -598,6 +624,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                                     type as scan_type
                                 from
                                     stl_scan
+                                where query in (select query from target_tables)
                             ) ss
                             join SVV_TABLE_INFO sti on
                                 sti.table_id = ss.tbl
@@ -658,7 +685,25 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """\
-with query_txt as (
+with target_queries as (
+    select
+        si.query,
+        si.tbl,
+        si.starttime,
+        si.userid,
+        sti.schema as target_schema,
+        sti.table as target_table,
+        sti.database as cluster
+    from
+        stl_insert si
+    join SVV_TABLE_INFO sti on
+        sti.table_id = si.tbl
+    where
+        si.starttime >= '{start_time}'
+        and si.starttime < '{end_time}'
+        and sti.database = '{db_name}'
+),
+query_txt as (
     select
         query,
         pid,
@@ -674,27 +719,25 @@ with query_txt as (
             STL_QUERYTEXT
         where
             sequence < {_QUERY_SEQUENCE_LIMIT}
-        order by
-            sequence
+            -- Scope by query id: the query-text tables carry no timestamp.
+            and query in (select query from target_queries)
     )
     group by
         query,
         pid
 )
 select
-    distinct tbl as target_table_id,
-    sti.schema as target_schema,
-    sti.table as target_table,
-    sti.database as cluster,
-    usename as username,
-    ddl,
+    distinct si.tbl as target_table_id,
+    si.target_schema,
+    si.target_table,
+    si.cluster,
+    sui.usename as username,
+    sq.ddl,
     sq.query as query_id,
     min(si.starttime) as timestamp,
-    ANY_VALUE(pid) as session_id
+    ANY_VALUE(sq.pid) as session_id
 from
-    stl_insert as si
-left join SVV_TABLE_INFO sti on
-    sti.table_id = tbl
+    target_queries si
 left join svl_user_info sui on
     si.userid = sui.usesysid
 left join query_txt sq on
@@ -703,17 +746,14 @@ left join stl_load_commits slc on
     slc.query = si.query
 where
         sui.usename <> 'rdsdb'
-        and cluster = '{db_name}'
         and slc.query IS NULL
-        and si.starttime >= '{start_time}'
-        and si.starttime < '{end_time}'
 group by
     target_table_id,
-    target_schema,
-    target_table,
-    cluster,
+    si.target_schema,
+    si.target_table,
+    si.cluster,
     username,
-    ddl,
+    sq.ddl,
     sq.query
         """.format(
             _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
@@ -828,7 +868,7 @@ where
               JOIN stl_query sq ON ss.query = sq.query
               -- LEFT (enrichment only): svl_user_info supplies the username but must
               -- not gate the row. An INNER join drops any scan whose user has no row
-              -- in the view -- which includes the rdsdb system user (excluded below by
+              -- in the view, which includes the rdsdb system user (excluded below by
               -- userid) and, on Redshift editions that keep the user-info views
               -- superuser/self-only, real users a non-superuser can't resolve.
               LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
@@ -860,7 +900,15 @@ where
         # RedshiftDataDictionary.get_query_result, so config/catalog-derived
         # values never enter the SQL string. Order: start_time, end_time, database.
         return """
-            WITH query_txt AS (
+            WITH in_window_queries AS (
+                SELECT sq.query, sq.pid, sq.userid, sq.starttime
+                FROM stl_query sq
+                WHERE sq.starttime >= %s
+                AND sq.starttime < %s
+                AND sq.database = %s
+                AND sq.aborted = 0
+            ),
+            query_txt AS (
                 SELECT
                     query,
                     pid,
@@ -870,24 +918,27 @@ where
                     SELECT query, pid, text, sequence
                     FROM STL_QUERYTEXT
                     WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
-                    ORDER BY sequence
+                    -- Scope by query id: the query-text tables carry no timestamp.
+                    AND query IN (SELECT query FROM in_window_queries)
                 )
                 GROUP BY query, pid
             )
-            SELECT DISTINCT
+            -- No DISTINCT: in_window_queries is one row per stl_query row, query_txt is
+            -- grouped by (query, pid) so the join matches at most once, and
+            -- svl_user_info is keyed on usesysid, so it would only cost a sort over the
+            -- largest result set here. Should any of those three stop holding, the
+            -- duplicate reaches the aggregator as a second ObservedQuery and inflates
+            -- usage rather than raising, and this feed is the sole producer of usage.
+            SELECT
                 q.query AS query_id,
                 qt.query_text AS query_text,
                 sui.usename AS username,
                 q.starttime AS starttime,
                 q.pid AS session_id
-            FROM stl_query q
+            FROM in_window_queries q
               JOIN query_txt qt ON q.query = qt.query AND q.pid = qt.pid
               LEFT JOIN svl_user_info sui ON q.userid = sui.usesysid
-            WHERE q.starttime >= %s
-            AND q.starttime < %s
-            AND q.aborted = 0
-            AND q.database = %s
-            AND (sui.usename IS NULL OR sui.usename <> 'rdsdb')
+            WHERE (sui.usename IS NULL OR sui.usename <> 'rdsdb')
             ORDER BY q.starttime
         """.format(
             _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
@@ -1022,7 +1073,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     LEFT JOIN
                     SVV_USER_INFO sui ON qs.user_id = sui.user_id
                 WHERE
-                    cluster = '{db_name}' AND
+                    sti.database = '{db_name}' AND
                     qs.user_id <> 1 AND -- this is user 'rdsdb'
                     qs.start_time >= '{start_time}' AND
                     qs.start_time < '{end_time}'
@@ -1042,6 +1093,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         PARTITION BY query_id, sequence
                         ) as rn
                     FROM SYS_QUERY_TEXT
+                    -- Scope by query id: a ROW_NUMBER() window materializes over the
+                    -- whole table before the join to `queries` can filter anything.
+                    WHERE query_id IN (SELECT query_id FROM queries)
                     )
                 WHERE rn = 1
             ),
@@ -1170,11 +1224,11 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     qd.step_name = 'insert' AND
                     -- Exclude rdsdb by its system user_id (1), not by name. SVV_USER_INFO
                     -- has no rdsdb row, so a name-based rdsdb filter relied on NULL
-                    -- propagation to drop it -- which also silently dropped any real
+                    -- propagation to drop it, which also silently dropped any real
                     -- user the view can't resolve. Filtering by user_id excludes rdsdb
                     -- while the LEFT join keeps unresolved real users (username NULL).
                     qd.user_id <> 1 AND
-                    cluster = '{db_name}' AND
+                    sti.database = '{db_name}' AND
                     qd.start_time >= '{start_time}' AND
                     qd.start_time < '{end_time}' AND
                     qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
@@ -1302,6 +1356,11 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
         # — not pre-filtered by table. Reconstructs full text from SYS_QUERY_TEXT
         # (sequence-capped for the LISTAGG size limit). Validated against a live
         # serverless cluster.
+        #
+        # NOTE: unlike provisioned STL_QUERYTEXT (which stores newlines as literal
+        # "\n" escapes, unescaped in _populate_unified_queries), SYS_QUERY_TEXT
+        # strips linebreaks from the reconstructed text. That is a separate failure
+        # surface (stripped breaks can merge adjacent tokens) not addressed here.
         #
         # The time window and database are bound as query parameters (%s) by
         # RedshiftDataDictionary.get_query_result, so config/catalog-derived

@@ -23,17 +23,24 @@ jobs:
     if: github.repository == 'datahub-project/datahub'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      create_pr: ${{ steps.decide.outputs.create_pr }}
+      pr_url: ${{ steps.create-pr.outputs.pr_url }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          # Always base the weight-refresh PR off the default branch, even when
+          # dispatched from a feature branch, so the PR contains only test-weight
+          # changes and not the dispatch branch's local commits.
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Download smoke test artifacts
         env:
@@ -54,6 +61,15 @@ jobs:
             --run-count ${{ github.event.inputs.run_count || '3' }} \
             --workflow build-and-test.yml \
             --artifact-prefix "build-and-test" \
+            --repository ${{ github.repository }}
+
+          echo "Downloading Playwright JUnit artifacts from recent docker-unified runs..."
+          # Named playwright-junit-{shard} by resusable-playwright-tests.yml.
+          bash .github/scripts/download_test_artifacts.sh \
+            --output-dir ./test-artifacts-playwright \
+            --run-count ${{ github.event.inputs.run_count || '3' }} \
+            --workflow docker-unified.yml \
+            --artifact-prefix "playwright-junit" \
             --repository ${{ github.repository }}
       - name: Download ingestion test artifacts
         id: download-ingestion
@@ -84,6 +100,8 @@ jobs:
           cp metadata-ingestion/tests/integration_test_weights.json \
             ./weights-backup/integration_test_weights.json || echo "No existing integration weights"
           cp .github/backend_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
+          cp e2e-test/ui/playwright/playwright_test_weights.json \
+            ./weights-backup/playwright_weights.json || echo "No existing Playwright weights"
 
       - name: Generate smoke test weights
         run: |
@@ -106,6 +124,13 @@ jobs:
           python .github/scripts/generate_test_weights.py \
             --input-dir ./test-artifacts-gradle \
             --gradle-output .github/backend_test_weights.json
+
+      - name: Generate playwright test weights
+        run: |
+          echo "Generating Playwright weights (keyed by spec file path)..."
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-playwright \
+            --playwright-output e2e-test/ui/playwright/playwright_test_weights.json
 
       - name: Compare smoke weights
         id: compare-smoke
@@ -166,10 +191,28 @@ jobs:
             echo "✓ Gradle backend weights unchanged. No PR needed."
           fi
 
+      - name: Compare playwright weights
+        id: compare-playwright
+        run: |
+          # Playwright weights are keyed by spec file path and aren't diffed by
+          # compare_test_weights.py (pytest-only). Trigger a PR whenever the file changed at
+          # all, so its refresh isn't gated on the pytest 5% threshold.
+          if ! cmp -s ./weights-backup/playwright_weights.json e2e-test/ui/playwright/playwright_test_weights.json; then
+            echo "create_pr_playwright=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Playwright weights changed. Will create PR."
+            {
+              echo ""
+              echo "- Playwright test weights (\`e2e-test/ui/playwright/playwright_test_weights.json\`) refreshed."
+            } > ./pr-body-playwright.md
+          else
+            echo "create_pr_playwright=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Playwright weights unchanged. No PR needed."
+          fi
+
       - name: Decide PR creation
         id: decide
         run: |
-          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
+          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ] || [ "${{ steps.compare-playwright.outputs.create_pr_playwright }}" == "true" ]; then
             echo "create_pr=true" >> "$GITHUB_OUTPUT"
             echo "✓ At least one suite exceeded the 5% threshold. Will create PR."
           else
@@ -192,6 +235,7 @@ jobs:
           git add smoke-test/pytest_test_weights.json
           git add metadata-ingestion/tests/integration_test_weights.json
           git add .github/backend_test_weights.json
+          git add e2e-test/ui/playwright/playwright_test_weights.json
 
           git commit -m "chore(test): update test weights from recent CI runs
 
@@ -208,21 +252,26 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
 
       - name: Create pull request
+        id: create-pr
         if: steps.decide.outputs.create_pr == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Concatenate whichever PR body sections were generated (empty files contribute nothing)
-          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md 2>/dev/null)
+          # Concatenate whichever PR body sections were generated. gradle/playwright only
+          # write their file when changed, so cat can hit a missing file -- `|| true` keeps
+          # that from failing this step (errexit) when some other suite is what triggered
+          # create_pr, since $(cat ...)'s exit code would otherwise propagate.
+          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md ./pr-body-playwright.md 2>/dev/null || true)
 
-          # Create PR
-          gh pr create \
+          # Create PR (gh pr create prints the PR URL to stdout)
+          PR_URL=$(gh pr create \
             --title "chore(test): Update test weights from CI runs ($(date +%Y-%m-%d))" \
             --body "$PR_BODY" \
             --head "$BRANCH_NAME" \
-            --base master
+            --base "${{ github.event.repository.default_branch }}")
 
-          echo "✓ Pull request created successfully"
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "✓ Pull request created successfully: $PR_URL"
 
       - name: Summary
         if: always()
@@ -246,6 +295,9 @@ jobs:
               if [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
                 echo "- gradle (backend)"
               fi
+              if [ "${{ steps.compare-playwright.outputs.create_pr_playwright }}" == "true" ]; then
+                echo "- playwright"
+              fi
             else
               echo "ℹ️ **No PR Created**: Changes below 5% threshold"
               echo ""
@@ -260,3 +312,56 @@ jobs:
             echo ""
             echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  notify-slack:
+    name: Notify Slack
+    needs: update-weights
+    if: always() && github.repository == 'datahub-project/datahub'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post Slack notification
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+          CHANNEL: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
+          PR_URL: ${{ needs.update-weights.outputs.pr_url }}
+          CREATE_PR: ${{ needs.update-weights.outputs.create_pr }}
+          JOB_STATUS: ${{ needs.update-weights.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_BOT_TOKEN" ]; then
+            echo "CI_NOTIFIER_SLACK_BOT_TOKEN not set; skipping Slack notification."
+            exit 0
+          fi
+          if [ -z "$CHANNEL" ]; then
+            echo "BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL not set; skipping Slack notification."
+            exit 0
+          fi
+
+          # Decide what (if anything) to post:
+          #   - workflow failed/timed out  -> failure notification with a link to the run
+          #   - workflow succeeded + PR made -> success notification with a link to the PR
+          #   - workflow succeeded, no PR   -> nothing to surface (below threshold); skip
+          if [ "$JOB_STATUS" = "failure" ] || [ "$JOB_STATUS" = "timed_out" ]; then
+            MESSAGE=":x: *Update Test Weights* workflow failed — <${RUN_URL}|view run>"
+          elif [ "$JOB_STATUS" = "success" ] && [ "$CREATE_PR" = "true" ] && [ -n "$PR_URL" ]; then
+            MESSAGE=":white_check_mark: *Update Test Weights* created a test-weight refresh PR — <${PR_URL}|view PR>"
+          else
+            echo "Nothing to notify (status=$JOB_STATUS, create_pr=$CREATE_PR)."
+            exit 0
+          fi
+
+          PAYLOAD=$(jq -n \
+            --arg channel "$CHANNEL" \
+            --arg text "$MESSAGE" \
+            '{channel: $channel, text: $text, mrkdwn: true, unfurl_links: false, unfurl_media: false}')
+
+          RESPONSE=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "$PAYLOAD" \
+            https://slack.com/api/chat.postMessage)
+
+          echo "Slack response: $RESPONSE"
+          echo "$RESPONSE" | jq -e '.ok == true' > /dev/null \
+            || { echo "Slack chat.postMessage call failed"; exit 1; }

@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable, List, Optional
@@ -11,6 +12,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import FileBackedDict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -100,6 +103,14 @@ class StoredProcLineageTracker(Closeable):
             if query.downstream is not None:
                 stored_proc_execution.outputs.append(query.downstream)
             self.report.num_related_queries += 1
+            logger.debug(
+                "Stored proc tracker captured query: root_id=%s, "
+                "downstream=%s, num_upstreams=%d, query_type=%s",
+                snowflake_root_query_id,
+                query.downstream,
+                len(query.upstreams),
+                (query.extra_info or {}).get("snowflake_query_type"),
+            )
             return True
 
         return False
@@ -110,6 +121,13 @@ class StoredProcLineageTracker(Closeable):
         # create dataJobInputOutput lineage instead.
 
         for stored_proc_execution in self._stored_proc_execution_lineage.values():
+            logger.debug(
+                "Stored proc %s: inputs=%d, outputs=%d, call=%.120s",
+                stored_proc_execution.call.snowflake_root_query_id,
+                len(stored_proc_execution.inputs),
+                len(stored_proc_execution.outputs),
+                stored_proc_execution.call.query_text,
+            )
             if not stored_proc_execution.inputs:
                 self.report.num_stored_proc_calls_with_no_inputs += 1
                 continue

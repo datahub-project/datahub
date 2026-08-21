@@ -2,14 +2,14 @@ namespace com.linkedin.semanticmodel
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.ExternalReference
-import com.linkedin.metric.AiContext
+import com.linkedin.common.Urn
 
 /**
  * Core information about a SemanticModel entity.
  */
 @Aspect = {
   "name": "semanticModelInfo",
-  "schemaVersion": 3
+  "schemaVersion": 6
 }
 record SemanticModelInfo includes ExternalReference {
 
@@ -71,15 +71,8 @@ record SemanticModelInfo includes ExternalReference {
    */
   nativeDefinition: optional string
 
-  /**
-   * AI-specific context for improved disambiguation and retrieval.
-   */
-  aiContext: optional AiContext
-
-  /**
-   * The logical datasets that this semantic model exposes.
-   */
-  datasets: array[ModelDataset] = [ ]
+  @deprecated = "Use semanticModelProperties.semanticModel on member datasets. Field retained for backwards-read of already-ingested data; new writes should not populate."
+  datasets: array[Urn] = [ ]
 
   /**
    * Join relationships between the datasets of this semantic model.

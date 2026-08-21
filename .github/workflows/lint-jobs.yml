@@ -35,8 +35,9 @@ jobs:
       # Runs the single python-lint job if ANY Python module's files changed.
       python-lint: ${{ steps.filter.outputs.metadata-ingestion == 'true' || steps.filter.outputs.datahub-actions == 'true' || steps.filter.outputs.datahub-agent-context == 'true' || steps.filter.outputs.airflow-plugin == 'true' || steps.filter.outputs.gx-plugin == 'true' || steps.filter.outputs.dagster-plugin == 'true' || steps.filter.outputs.prefect-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
-      smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      docs-website: ${{ steps.filter.outputs.docs-website == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      spotless: ${{ steps.filter.outputs.spotless == 'true' || steps.filter.outputs.lint-job == 'true' }}
       default-runner: ${{ steps.runners.outputs.default-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
@@ -60,11 +61,27 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
+      # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      - name: Restore yarn cache
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: run markdown checks
         run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
+      - name: Save yarn cache
+        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
   github-actions-format:
     name: github_actions_format_check
@@ -75,11 +92,69 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
+      # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      - name: Restore yarn cache
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: run prettier --check
         run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
+      - name: Save yarn cache
+        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+
+  docs-website-lint:
+    name: docs-website-lint
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.docs-website == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # Restore-only: this workflow is pull_request-only, so a save here would be
+      # ref-scoped to the PR and never shared. The master-scoped entry is written
+      # by ci-cache-warmup.yml warm-docs-website-yarn-cache. Prefix keeps this
+      # small entry out of the '<os>-yarn-' family used by datahub-web-react.
+      - name: Restore yarn cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
+          restore-keys: |
+            docs-website-${{ runner.os }}-yarn-
+            ${{ runner.os }}-yarn-
+      - name: Run docs-website prettier check
+        run: ./gradlew :docs-website:yarnLint
+
+  spotless-check:
+    name: spotless-check
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.spotless == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - name: Run Spotless check
+        run: ./gradlew spotlessCheck
 
   validate-post-workflow-list:
     name: validate_post_workflow_list
@@ -194,27 +269,27 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      # Restore-only: this workflow is pull_request-only, so a save here would be
+      # ref-scoped to the PR and never shared. The master-scoped entry is written by
+      # ci-cache-warmup.yml (push to master) under this exact key.
+      # Key must stay byte-identical with the lookup and save keys in
+      # ci-cache-warmup.yml warm-smoke-test-lint-cache. metadata-ingestion's
+      # manifests are included because requirements.txt installs '-e ../metadata-ingestion[...]'.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
           path: |
             ${{ env.UV_CACHE_DIR }}
-          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+          key: "uv-smoke-test-lint-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml', './metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml') }}"
+          restore-keys: |
+            uv-smoke-test-lint-
 
       - name: Run Python lint
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
           ./gradlew :smoke-test:pythonLint
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save uv cache
-        if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
-        with:
-          path: |
-            ${{ env.UV_CACHE_DIR }}
-          key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
   python-lint:
     name: python-lint
@@ -227,11 +302,11 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -240,8 +315,19 @@ jobs:
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          # Shared across PRs (no base_ref in the key) so every PR reuses the same uv cache.
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          # Restore-only: Actions caches are ref-scoped, so a PR-side save can never be
+          # shared with other PRs — it just mints a per-PR copy against the repo's 10GB
+          # budget. The master-scoped entry every PR restores from is written by
+          # ci-cache-warmup.yml (push to master), which uses this exact key.
+          # Key must stay byte-identical with the lookup and save keys in
+          # ci-cache-warmup.yml warm-python-lint-cache (hashFiles cannot be
+          # deduplicated across workflow files).
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/pyproject.toml', './metadata-ingestion/uv.lock', './metadata-ingestion/constraints.txt', './metadata-ingestion/build-constraints.txt', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+          restore-keys: |
+            uv-python-lint-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install system dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       # Per-module lint steps. Each runs independently (if: always()) so a failure in one
@@ -276,12 +362,6 @@ jobs:
         id: prefect-plugin-lint
         if: always() && needs.setup.outputs.prefect-plugin == 'true'
         run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint
-      - name: Save uv cache
-        if: always()
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
       - name: Report lint results
         if: always()
         env:
@@ -316,7 +396,6 @@ jobs:
       contents: read
       pull-requests: write # post the i18n parity summary as a sticky PR comment
     env:
-      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
       # Warn-only for now: reports missing/stale/placeholder drift without failing the build.
       # Set to "fail" to make errors (stale keys, placeholder drift) block CI.
       I18N_PARITY_MODE: warn
@@ -324,16 +403,32 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Shallow clone has no origin/<base>; the no-antd-imports rule greps that
+      # tree to grandfather files that already imported antd.
+      - name: Fetch PR base for antd-import baseline
+        run: git fetch --no-tags --depth=1 origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+      # Restore-only, from yarn's default cache dir: the master-scoped entry under this
+      # key is written by ci-cache-warmup.yml warm-web-yarn-cache (build-and-test's
+      # frontend jobs run on Depot runners, whose cache writes GitHub-hosted jobs cannot
+      # read). Saving here would only mint a per-PR copy (this workflow is
+      # pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:
           path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       - name: Run lint
+        env:
+          ANTD_IMPORT_BASELINE_REF: origin/${{ github.base_ref }}
         run: |
           ./gradlew :datahub-web-react:yarnLint
+      - name: Check GraphQL prettier
+        run: |
+          ./gradlew :datahub-web-react:graphqlPrettierCheck
       - name: Check i18n locale parity
         run: |
           ./gradlew :datahub-web-react:yarnI18nParityCheck
@@ -352,29 +447,33 @@ jobs:
         with:
           header: i18n-parity
           delete: true
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save yarn cache
-        with:
-          path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./datahub-web-react/yarn.lock') }}"
 
   playwright-e2e-lint:
     name: playwright-e2e-lint
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.playwright-e2e == 'true'
-    env:
-      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Restore-only, from yarn's default cache dir, using the same key family as
+      # resusable-playwright-tests.yml (key must stay byte-identical with it and with
+      # ci-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted save is
+      # what PR jobs here can actually read). The playwright- prefix keeps this small
+      # entry out of the '<os>-yarn-' family, so a web-cache prefix restore can never
+      # land on it; the secondary restore-key still falls back to the datahub-web-react
+      # yarn cache, which contains most of the lint toolchain (eslint, prettier,
+      # typescript). Saving here would only mint a per-PR copy (this workflow is
+      # pull_request-only), so we never save.
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         name: Restore yarn cache
         with:
           path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"
+            ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-yarn-
+            ${{ runner.os }}-yarn-
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -388,9 +487,3 @@ jobs:
       - name: ESLint
         working-directory: e2e-test/ui/playwright
         run: yarn lint
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        name: Save yarn cache
-        with:
-          path: |
-            ${{ env.YARN_CACHE_FOLDER }}
-          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"

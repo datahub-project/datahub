@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSearchEntityNames;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
@@ -52,7 +52,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 
-    final List<String> entityNames = getEntityNames(input.getTypes());
+    final List<String> entityNames =
+        getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
@@ -101,10 +102,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
-            // Add default entity filters that should be applied to all queries
+            // Add default entity filters (e.g. showInGlobalContext for documents).
             combinedFilter =
-                DefaultEntityFiltersUtil.addDefaultEntityFilters(
-                    combinedFilter, finalEntities, true);
+                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+                    combinedFilter, finalEntities, searchFlags, context);
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
@@ -157,7 +158,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
       SearchResult result =
           _entityClient.searchAcrossEntities(
               context.getOperationContext().withSearchFlags(flags -> searchFlags),
-              getEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
+              getSearchEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
               "*",
               createStructuredPropertyFilter(),
               0,

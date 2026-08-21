@@ -1,0 +1,49 @@
+# CI-oriented uv profile: resolves Python packages from Chainguard Libraries
+# (rebuilt from verified source), preferring the REMEDIATED index first, then the
+# python/simple index, with PyPI as the final fallback.
+#
+# This is the CI counterpart to chainguard.toml. chainguard.toml (local dev) omits
+# the remediated index because Chainguard's remediated +cgr versions outrank PyPI's
+# plain versions (the +cgr local-version segment sorts higher), so on a Mac they
+# are preferred, have no macOS wheel, and fall back to a source build that fails
+# (e.g. aiohttp needs llhttp.h, pillow needs jpeg headers). CI runs on Linux where
+# the remediated wheels exist.
+#
+# Select with:
+#   export UV_DOCKER_PROFILE=chainguard-ci
+#   # or: ./gradlew ... -P'datahub.dependencies.python.uvDockerProfile'=chainguard-ci
+# For local non-Gradle `uv` invocations, point UV_CONFIG_FILE at this file.
+#
+# Credentials are read from .netrc — never embedded in URLs:
+#   machine libraries.cgr.dev login <chainguard-python-identity-id> password <chainguard-python-token>
+# The libraries.cgr.dev entry is shared across ecosystems; the pull token must
+# carry a Python entitlement (chainctl libraries entitlements create --ecosystems=PYTHON).
+# See docker/snippets/uv/.netrc.example.
+
+index-strategy = "unsafe-best-match"
+
+# Remediations can list a version as sdist-only (or without a usable platform wheel);
+# unsafe-best-match then prefers that sdist over a wheel from Chainguard main / PyPI.
+# Force wheels for packages known to hit that path
+no-build-package = [
+    "beautifulsoup4",
+    "orjson",
+    "pydantic",
+    "pypdf",
+    "smmap",
+]
+
+[[index]]
+name = "chainguard-remediated"
+url = "https://libraries.cgr.dev/python-remediated/simple/"
+authenticate = "always"
+
+[[index]]
+name = "chainguard"
+url = "https://libraries.cgr.dev/python/simple/"
+authenticate = "always"
+
+[[index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+default = true

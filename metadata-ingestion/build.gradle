@@ -198,7 +198,11 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "ruff format . "
 }
 
-def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed socket
+// PYTHONFAULTHANDLER keeps faulthandler armed through interpreter shutdown. pytest's
+// faulthandler plugin only re-arms it at unconfigure if it was already enabled at
+// startup, so without this a segfault after the test session ends prints nothing.
+// Add "PYTHONDEVMODE=1" here to also warn on unclosed sockets.
+def pytest_default_env = "PYTHONFAULTHANDLER=1"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
@@ -256,7 +260,7 @@ def testFile = hasProperty('testFile') ? testFile : 'unknown'
 task testSingle(dependsOn: [installDevTest]) {
   doLast {
   if (testFile != 'unknown')  {
-    exec {
+    execOps.exec {
       commandLine 'bash', '-c',
         "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
@@ -357,7 +361,6 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, chec
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testQuick
 check.dependsOn checkLockFile
 
@@ -385,6 +388,6 @@ clean.dependsOn(cleanPythonCache, cleanGeneratedFiles)
 idea {
   module {
     sourceDirs += file('src')
-    testSourceDirs += file('tests')
+    testSources.from(file('tests'))
   }
 }

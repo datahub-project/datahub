@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 
-import { EdgeId, LineageEdge, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
+import {
+    BOUNDING_BOX_ENTITY_TYPES,
+    EdgeId,
+    LineageEdge,
+    LineageEntity,
+    LineageNodesContext,
+    NodeContext,
+} from '@app/lineageV3/common';
 import DAGNodeInitializer from '@app/lineageV3/initialize/DataFlowGraphInitializer';
 import DataProductGraphInitializer from '@app/lineageV3/initialize/DataProductGraphInitializer';
 import ImpactAnalysisNodeInitializer from '@app/lineageV3/initialize/ImpactAnalysisNodeInitializer';
+import SemanticModelGraphInitializer from '@app/lineageV3/initialize/SemanticModelGraphInitializer';
 import useShouldHideTransformations from '@app/lineageV3/settings/useShouldHideTransformations';
 import useShouldShowDataProcessInstances from '@app/lineageV3/settings/useShouldShowDataProcessInstances';
 import useShouldShowGhostEntities from '@app/lineageV3/settings/useShouldShowGhostEntities';
@@ -25,10 +33,11 @@ export default function LineageExplorer(props: Props) {
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     });
-    const [dataProductEntities] = useState(new Map<string, FetchedEntityV2>());
+    const [boundingBoxEntities] = useState(new Map<string, FetchedEntityV2>());
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
+    const [collapseColumnsVersion, setCollapseColumnsVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
     const [showDataProcessInstances, setShowDataProcessInstances] = useShouldShowDataProcessInstances();
@@ -42,7 +51,7 @@ export default function LineageExplorer(props: Props) {
         nodes,
         edges,
         adjacencyList,
-        dataProductEntities,
+        boundingBoxEntities,
         nodeVersion,
         setNodeVersion,
         dataVersion,
@@ -51,6 +60,8 @@ export default function LineageExplorer(props: Props) {
         setDisplayVersion,
         columnEdgeVersion,
         setColumnEdgeVersion,
+        collapseColumnsVersion,
+        setCollapseColumnsVersion,
         hideTransformations,
         setHideTransformations,
         showDataProcessInstances,
@@ -65,7 +76,8 @@ export default function LineageExplorer(props: Props) {
         <LineageNodesContext.Provider value={context}>
             {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
             {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
-            {type !== EntityType.DataFlow && type !== EntityType.DataProduct && (
+            {type === EntityType.SemanticModel && <SemanticModelGraphInitializer urn={urn} type={type} />}
+            {type !== EntityType.DataFlow && !BOUNDING_BOX_ENTITY_TYPES.has(type) && (
                 <ImpactAnalysisNodeInitializer urn={urn} type={type} />
             )}
         </LineageNodesContext.Provider>

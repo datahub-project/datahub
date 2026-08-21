@@ -46,11 +46,31 @@ on:
         required: false
         type: string
         default: ${{ vars.DOCKER_REGISTRY }}
+      image_version_env:
+        description: "KEY=VALUE lines of per-service image tag overrides (e.g. DATAHUB_GMS_VERSION=quickstart) for images the caller reused instead of rebuilding. Empty when every image was built for this run."
+        required: false
+        type: string
+        default: ""
+      docker_login:
+        description: "Whether DockerHub credentials are available (callers compute this from their secrets; the secrets context is not usable in step-level if)."
+        required: false
+        type: string
+        default: "true"
+      image_built_repos:
+        description: "Space-separated docker repos the caller built for this run. run-quickstart.sh fails if any resolves to a reused tag instead of datahub_version."
+        required: false
+        type: string
+        default: ""
       send_posthog_metrics:
         description: "Whether to send test failure metrics to PostHog. Should only be true for scheduled/push runs, not workflow_dispatch."
         required: false
         type: boolean
         default: false
+      workers_per_shard:
+        description: "Number of Playwright workers per shard. Defaults to 1; values above 1 share the shard's stack and filesystem."
+        required: false
+        type: string
+        default: "1"
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -60,7 +80,7 @@ jobs:
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           restore-keys: playwright-${{ runner.os }}-yarn-
 
       - name: Check out the repo
@@ -69,11 +89,11 @@ jobs:
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -99,27 +119,58 @@ jobs:
           docker images
 
       # Path 2: Build images in the job
+      - id: uv-creds
+        # An empty build id with per-service overrides set means the caller
+        # reused every image rather than baking any, so there is nothing to
+        # build here -- compose pulls them from the registry. An empty build id
+        # with no overrides is the fork path, which has no shared build at all.
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
       - name: Build images (fork — no depot cache)
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
+        # An empty build id with per-service overrides set means the caller
+        # reused every image rather than baking any, so there is nothing to
+        # build here -- compose pulls them from the registry. An empty build id
+        # with no overrides is the fork path, which has no shared build at all.
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
         timeout-minutes: 60
         env:
           DOCKER_CACHE: GITHUB
           BUILD_TASK: ${{ inputs.image_build_task }}
           DATAHUB_VERSION: ${{ inputs.datahub_version }}
           LOCAL_BUILD_FLAGS: ${{ inputs.local_build_flags }}
+          UV_DOCKER_PROFILE: ${{ steps.uv-creds.outputs.uv_profile }}
         run: |
           echo "Using build task: $BUILD_TASK"
           read -ra extra_flags <<< "$LOCAL_BUILD_FLAGS"
-          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" "${extra_flags[@]}"
+          ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" -Pdatahub.dependencies.python.uvDockerProfile="$UV_DOCKER_PROFILE" "${extra_flags[@]}"
           docker images
 
       # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
+      # Also needed on the other paths whenever image_version_env is non-empty:
+      # those images come from the registry rather than the depot pull, and an
+      # anonymous pull across every shard runs into Docker Hub's rate limit.
       - name: Login to DockerHub
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        # Guarded on credentials being available (as a caller-computed input --
+        # the secrets context is not allowed in step-level if): reused images can
+        # be pulled anonymously as a fallback, and login-action with empty
+        # credentials fails the job.
+        if: ${{ (github.event_name == 'workflow_dispatch' || inputs.image_version_env != '') && inputs.docker_login == 'true' }}
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Pin reused images to their published tag
+        if: ${{ inputs.image_version_env != '' }}
+        env:
+          IMAGE_VERSION_ENV: ${{ inputs.image_version_env }}
+        run: printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
+
       - name: Run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -130,6 +181,7 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           # Must match the profile the images were built for (e.g. smoke:quickstartPg → quickstart-postgres).
           PROFILE_NAME: ${{ inputs.profile_name }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ inputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
@@ -147,22 +199,51 @@ jobs:
               }
             }'
 
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install Playwright dependencies
         working-directory: e2e-test/ui/playwright
         run: |
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Compute this shard's spec files
+        # Individual spec-file args bypass Playwright's fullyParallel worker-hash grouping
+        # (keyed off featureName, used inconsistently across files, not path) entirely, so
+        # duration-balanced file assignment actually controls shard placement here --
+        # --shard=N/M only balances by raw test count.
+        env:
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+        run: |
+          python3 .github/scripts/split_playwright_tests.py \
+            --split-index "$((SHARD - 1))" --split-total "$SHARD_COUNT" \
+            --repo-root . \
+            --test-dir e2e-test/ui/playwright/tests \
+            --weights e2e-test/ui/playwright/playwright_test_weights.json \
+            --output-args e2e-test/ui/playwright/shard-files.txt
+
       - name: Run Playwright tests
         working-directory: e2e-test/ui/playwright
         env:
           BASE_URL: "http://localhost:9002"
           PLAYWRIGHT_REUSE_SERVER: "1"
-          SHARD: ${{ inputs.shard }}
-          SHARD_COUNT: ${{ inputs.shard_count }}
+          WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
+          # Blob reporter's default output filename (report.zip) only gets a shard suffix
+          # when --shard is set (see playwright/lib/runner/index.js _defaultReportName). We
+          # no longer pass --shard, so every shard job would collide on the same filename
+          # once reusable-playwright-report.yml flattens blobs into one directory to merge
+          # them -- set this explicitly instead.
+          PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.shard }}.zip
         run: |
-          npx playwright test \
-            --shard="$SHARD/$SHARD_COUNT"
+          mapfile -t ARGS < shard-files.txt
+          if [ "${#ARGS[@]}" -eq 0 ]; then
+            echo "No spec files assigned to shard ${{ inputs.shard }}/${{ inputs.shard_count }} — skipping."
+            exit 0
+          fi
+          echo "Running Playwright shard ${{ inputs.shard }}/${{ inputs.shard_count }} (${#ARGS[@]} spec files) at $WORKERS_PER_SHARD worker(s)"
+          npx playwright test "${ARGS[@]}" --workers="$WORKERS_PER_SHARD"
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -259,4 +340,4 @@ jobs:
         if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}

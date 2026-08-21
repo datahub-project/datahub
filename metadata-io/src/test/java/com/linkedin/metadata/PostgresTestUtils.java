@@ -4,6 +4,9 @@ import io.ebean.Database;
 import io.ebean.DatabaseFactory;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -114,17 +117,24 @@ public final class PostgresTestUtils {
   @Nonnull
   public static Database createEbeanDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
-    return createEbeanDatabase(container, serverName, false, false);
+    return createEbeanDatabase(container, serverName, false, false, null);
   }
 
   /**
    * Primary Ebean pool for integration tests: runs aspect DDL against the shared Testcontainers
    * PostgreSQL instance.
+   *
+   * <p><b>Not schema-isolated.</b> Only safe for a test class that is the sole user of Ebean entity
+   * DDL ({@code com.linkedin.metadata.entity.ebean}) on the shared container, since {@code ddlRun}
+   * drops and recreates those tables in the default schema. Prefer the {@link
+   * #createEbeanPrimaryDatabase(PostgreSQLContainer, String, IntegrationNamespace)} overload for
+   * any class that runs alongside other Ebean-DDL Postgres IT classes under {@code
+   * parallel="classes"}.
    */
   @Nonnull
   public static Database createEbeanPrimaryDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
-    return createEbeanDatabase(container, serverName, true, false);
+    return createEbeanDatabase(container, serverName, true, false, null);
   }
 
   /**
@@ -133,7 +143,31 @@ public final class PostgresTestUtils {
   @Nonnull
   public static Database createEbeanReadPoolDatabase(
       @Nonnull PostgreSQLContainer<?> container, @Nonnull String serverName) {
-    return createEbeanDatabase(container, serverName, false, true);
+    return createEbeanDatabase(container, serverName, false, true, null);
+  }
+
+  /**
+   * Schema-isolated primary Ebean pool: runs aspect DDL inside {@code namespace}'s own PostgreSQL
+   * schema instead of the shared container's default schema. Use this (paired with the read-pool
+   * overload below on the same namespace) for any test class that runs concurrently with other
+   * Ebean-DDL Postgres IT classes, so one class's DDL can't drop/recreate tables mid-query in
+   * another.
+   */
+  @Nonnull
+  public static Database createEbeanPrimaryDatabase(
+      @Nonnull PostgreSQLContainer<?> container,
+      @Nonnull String serverName,
+      @Nonnull IntegrationNamespace namespace) {
+    return createEbeanDatabase(container, serverName, true, false, namespace.getSchema());
+  }
+
+  /** Schema-isolated read-pool counterpart of {@link #createEbeanPrimaryDatabase}. */
+  @Nonnull
+  public static Database createEbeanReadPoolDatabase(
+      @Nonnull PostgreSQLContainer<?> container,
+      @Nonnull String serverName,
+      @Nonnull IntegrationNamespace namespace) {
+    return createEbeanDatabase(container, serverName, false, true, namespace.getSchema());
   }
 
   @Nonnull
@@ -141,9 +175,16 @@ public final class PostgresTestUtils {
       @Nonnull PostgreSQLContainer<?> container,
       @Nonnull String serverName,
       boolean runAspectDdl,
-      boolean readOnlyPool) {
+      boolean readOnlyPool,
+      @Nullable String schema) {
+    String jdbcUrl = container.getJdbcUrl();
+    if (schema != null) {
+      ensureSchemaExists(container, schema);
+      jdbcUrl = jdbcUrl + (jdbcUrl.contains("?") ? "&" : "?") + "currentSchema=" + schema;
+    }
+
     DataSourceConfig dsc = new DataSourceConfig();
-    dsc.setUrl(container.getJdbcUrl());
+    dsc.setUrl(jdbcUrl);
     dsc.setUsername(container.getUsername());
     dsc.setPassword(container.getPassword());
     dsc.setDriver("org.postgresql.Driver");
@@ -161,6 +202,18 @@ public final class PostgresTestUtils {
     cfg.addPackage("com.linkedin.metadata.entity.ebean");
     cfg.addPackage("com.linkedin.metadata.queue.ebean");
     return DatabaseFactory.create(cfg);
+  }
+
+  private static void ensureSchemaExists(
+      @Nonnull PostgreSQLContainer<?> container, @Nonnull String schema) {
+    try (Connection c =
+            DriverManager.getConnection(
+                container.getJdbcUrl(), container.getUsername(), container.getPassword());
+        Statement st = c.createStatement()) {
+      st.execute("CREATE SCHEMA IF NOT EXISTS " + schema);
+    } catch (java.sql.SQLException e) {
+      throw new RuntimeException("Failed to create isolated schema " + schema, e);
+    }
   }
 
   @Nonnull

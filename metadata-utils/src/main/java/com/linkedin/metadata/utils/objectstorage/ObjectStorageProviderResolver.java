@@ -31,8 +31,9 @@ public final class ObjectStorageProviderResolver {
       case "s3" -> ObjectStorageProvider.S3;
       case "gcs" -> ObjectStorageProvider.GCS;
       case "local" -> ObjectStorageProvider.LOCAL;
-      default -> throw new IllegalArgumentException(
-          "Unsupported object storage provider: " + configuredProvider);
+      default ->
+          throw new IllegalArgumentException(
+              "Unsupported object storage provider: " + configuredProvider);
     };
   }
 }

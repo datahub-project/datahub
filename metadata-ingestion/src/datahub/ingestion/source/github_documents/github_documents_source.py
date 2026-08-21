@@ -7,12 +7,13 @@ import json
 import logging
 import os
 from functools import partial
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -29,6 +30,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
@@ -65,13 +67,19 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DocumentInfoClass,
     DocumentStateClass,
+    StatusClass,
 )
+from datahub.metadata.urns import DocumentUrn
 from datahub.sdk.document import Document
 
 logger = logging.getLogger(__name__)
 
 EXTRACTION_ALGO_VERSION = "1"
 LAST_EXPORTED_CONTENT_HASH_KEY = "last_exported_content_hash"
+PROP_IMPORT_SOURCE_ID = "import_source_id"
+PROP_GITHUB_FILE_PATH = "github_file_path"
+PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
+_DOCUMENT_URN_PREFIX = "urn:li:document:"
 
 
 def compute_file_content_hash(content: str) -> str:
@@ -128,6 +136,9 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             if config.parent_document_urn or not config.create_repo_root_document
             else make_repo_source_id(config.repository)
         )
+        # Cache of import_source_id -> existing document URN (sync-back round-trip).
+        self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
+        self._soft_deleted_cache: Optional[Set[str]] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
@@ -158,7 +169,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="github-tree-truncated",
                 message=(
-                    f"GitHub returned a truncated tree for {owner_repo}@{branch}; "
+                    "GitHub returned a truncated tree; "
                     "only a subset of files will be imported. "
                     "Narrow path_prefix or split across multiple ingestion sources."
                 ),
@@ -175,11 +186,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="github-files-truncated",
                 message=(
-                    f"Found {total_matches} matching files in {owner_repo}@{branch} but "
-                    f"max_files is {self.config.max_files}; only the first "
-                    f"{self.config.max_files} will be imported."
+                    "Found more matching files than max_files allows; "
+                    "only the first batch will be imported."
                 ),
-                context=f"repository={owner_repo}, branch={branch}",
+                context=f"repository={owner_repo}, branch={branch}, "
+                f"total_matches={total_matches}, max_files={self.config.max_files}",
             )
 
         commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
@@ -226,7 +237,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             "github_repo": owner_repo,
             "github_branch": branch,
             "is_repo_root_document": "true",
-            "import_source_id": source_id,
+            PROP_IMPORT_SOURCE_ID: source_id,
         }
 
         doc = self._build_document(
@@ -252,7 +263,12 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         dir_path: str,
         path_prefix: str,
     ) -> Iterable[MetadataWorkUnit]:
-        source_id = make_dir_source_id(owner_repo, dir_path)
+        """Emit a metadata-only folder document for a GitHub directory.
+
+        Folder bodies are not synced from GitHub files. DataHub may hold richer
+        folder content than GitHub (a deliberate DH ⊇ GH split).
+        """
+        dir_source_id = make_dir_source_id(owner_repo, dir_path)
         parent_source_id = resolve_parent_dir_source_id(
             owner_repo,
             dir_path,
@@ -262,29 +278,40 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
         title = os.path.basename(dir_path.rstrip("/")) or dir_path
-        doc_id = normalize_document_id(source_id)
-        custom_properties = {
-            "import_source": "github",
-            "github_repo": owner_repo,
-            "github_branch": branch,
-            "github_directory_path": dir_path,
-            "is_folder_document": "true",
-            "import_source_id": source_id,
-        }
-
-        doc = self._build_document(
-            doc_id=doc_id,
-            title=title,
-            text="",
-            owner_repo=owner_repo,
-            branch=branch,
-            github_path=dir_path,
-            parent_document=parent_urn,
-            custom_properties=custom_properties,
+        doc_id, _document_urn = self._resolve_document_identity(
+            dir_source_id, owner_repo, dir_path, is_directory=True
         )
-        self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
-        self._source_id_to_urn[source_id] = str(doc.urn)
-        self._attach_browse_path(doc, source_id)
+
+        # Folders are metadata-only on import. Re-emitting DocumentInfo for an
+        # existing folder (including DataHub-native URNs stamped by sync-back)
+        # would UPSERT empty text and replace title/status/customProperties.
+        if self._resolved_source_id_urns.get(dir_source_id):
+            doc = Document(urn=DocumentUrn(doc_id))
+            self._attach_platform_instance(doc, owner_repo)
+        else:
+            doc = self._build_document(
+                doc_id=doc_id,
+                title=title,
+                text="",
+                owner_repo=owner_repo,
+                branch=branch,
+                github_path=dir_path,
+                parent_document=parent_urn,
+                custom_properties={
+                    "import_source": "github",
+                    "github_repo": owner_repo,
+                    "github_branch": branch,
+                    "github_directory_path": dir_path,
+                    "is_folder_document": "true",
+                    PROP_IMPORT_SOURCE_ID: dir_source_id,
+                },
+            )
+        doc._set_aspect(StatusClass(removed=False))
+        self._register_hierarchy(
+            dir_source_id, title, parent_source_id=parent_source_id
+        )
+        self._source_id_to_urn[dir_source_id] = str(doc.urn)
+        self._attach_browse_path(doc, dir_source_id)
         self.report.folders_processed += 1
         yield from doc.as_workunits()
 
@@ -303,14 +330,16 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         source_id = make_file_source_id(owner_repo, file_path)
-        doc_id = normalize_document_id(source_id)
-        document_urn = f"urn:li:document:{doc_id}"
+        doc_id, document_urn = self._resolve_document_identity(
+            source_id, owner_repo, file_path
+        )
         content_hash = compute_file_content_hash(content)
 
         if self._should_skip_unchanged_file(document_urn, content_hash):
             logger.info("Skipping unchanged file document: %s", file_path)
             self.report.files_skipped_unchanged += 1
             self._register_document_for_stale_removal(document_urn)
+            yield from self._resurrect_unchanged_document(document_urn, owner_repo)
             return
 
         parent_source_id = resolve_parent_dir_source_id(
@@ -328,7 +357,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             "github_branch": branch,
             "github_file_path": file_path,
             "github_commit_sha": commit_sha,
-            "import_source_id": source_id,
+            PROP_IMPORT_SOURCE_ID: source_id,
             "content_hash": content_hash,
             "extraction_algo_version": EXTRACTION_ALGO_VERSION,
         }
@@ -345,6 +374,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             parent_document=parent_urn,
             custom_properties=custom_properties,
         )
+        # GitHub is source of truth for import: if the file still exists, clear
+        # Status.removed so a previously soft-deleted DataHub doc is resurrected.
+        # The unchanged-file short-circuit above resurrects too, so this does not
+        # depend on whether the content happened to change.
+        doc._set_aspect(StatusClass(removed=False))
         self._register_hierarchy(source_id, title, parent_source_id=parent_source_id)
         self._source_id_to_urn[source_id] = str(doc.urn)
         self._attach_browse_path(doc, source_id)
@@ -372,6 +406,216 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         stored_hash = props.get("content_hash")
         exported_hash = props.get(LAST_EXPORTED_CONTENT_HASH_KEY)
         return content_hash in (stored_hash, exported_hash)
+
+    def _resolve_document_identity(
+        self, source_id: str, owner_repo: str, path: str, *, is_directory: bool = False
+    ) -> Tuple[str, str]:
+        """Return ``(doc_id, document_urn)`` for a GitHub file or directory.
+
+        Prefers an existing document already stamped with this
+        ``import_source_id`` (e.g. created in DataHub and synced back) so
+        re-import does not mint a second URN and soft-delete the original via
+        stale entity removal.
+        """
+        canonical_doc_id = normalize_document_id(source_id)
+        canonical_urn = f"{_DOCUMENT_URN_PREFIX}{canonical_doc_id}"
+        existing_urn = self._find_existing_document_urn(
+            source_id, owner_repo, path, canonical_urn, is_directory=is_directory
+        )
+        if existing_urn and existing_urn.startswith(_DOCUMENT_URN_PREFIX):
+            return existing_urn[len(_DOCUMENT_URN_PREFIX) :], existing_urn
+        return canonical_doc_id, canonical_urn
+
+    def _search_documents_by_properties(
+        self, extra_filters: List[Dict[str, Any]]
+    ) -> List[str]:
+        """Search documents by customProperties, tolerating older servers.
+
+        ``include_hidden_lifecycle_stages`` is what surfaces documents parked in a
+        hideInSearch stage (e.g. ``urn:li:lifecycleStageType:DRAFT``). Servers that
+        predate the flag reject it outright, which is a permanent condition rather
+        than a transient one, so degrade once instead of failing every run.
+        """
+        assert self.ctx.graph is not None
+        if not self.report.hidden_lifecycle_search_unsupported:
+            try:
+                return list(
+                    self.ctx.graph.get_urns_by_filter(
+                        entity_types=["document"],
+                        status=RemovedStatusFilter.ALL,
+                        include_hidden_lifecycle_stages=True,
+                        extraFilters=extra_filters,
+                    )
+                )
+            except ValueError as exc:
+                self.report.hidden_lifecycle_search_unsupported = True
+                self.report.warning(
+                    title="Search flag unsupported by this DataHub server",
+                    message=(
+                        "includeHiddenLifecycleStages is unavailable, so documents "
+                        "in hidden lifecycle stages (for example drafts) cannot be "
+                        "matched when reusing document identity. Upgrade GMS to "
+                        "reuse their URNs instead of minting new ones."
+                    ),
+                    exc=exc,
+                )
+        return list(
+            self.ctx.graph.get_urns_by_filter(
+                entity_types=["document"],
+                status=RemovedStatusFilter.ALL,
+                extraFilters=extra_filters,
+            )
+        )
+
+    def _find_existing_document_urn(
+        self,
+        source_id: str,
+        owner_repo: str,
+        path: str,
+        canonical_urn: str,
+        *,
+        is_directory: bool,
+    ) -> Optional[str]:
+        if source_id in self._resolved_source_id_urns:
+            return self._resolved_source_id_urns[source_id]
+        if not self.ctx.graph:
+            self._resolved_source_id_urns[source_id] = None
+            return None
+
+        # Fast path: classic GitHub imports already live at the canonical URN
+        # with this import_source_id. Avoid a search round-trip per file.
+        try:
+            aspect = self.ctx.graph.get_aspect(canonical_urn, DocumentInfoClass)
+            if (
+                aspect
+                and aspect.customProperties
+                and aspect.customProperties.get(PROP_IMPORT_SOURCE_ID) == source_id
+            ):
+                self._resolved_source_id_urns[source_id] = canonical_urn
+                return canonical_urn
+        except Exception as exc:
+            # Counted, not just logged: a persistent condition here (expired token,
+            # permission denied) silently degrades every file to the slow path, and
+            # operators read the report rather than executor logs.
+            self.report.identity_fast_path_errors += 1
+            logger.debug(
+                "Could not load canonical document %s for identity short-circuit: %s",
+                canonical_urn,
+                exc,
+            )
+
+        # Slow path: DataHub-native URNs stamped by sync-back (import_source_id
+        # on a non-canonical URN). Pure GitHub imports set import_source_id on
+        # first ingest; DataHub-created docs get it on first successful sync-back.
+        try:
+            matches = self._search_documents_by_properties(
+                [
+                    {
+                        "field": "customProperties",
+                        "condition": "EQUAL",
+                        "values": [f"{PROP_IMPORT_SOURCE_ID}={source_id}"],
+                    }
+                ]
+            )
+        except Exception as exc:
+            # Reported as a failure, not a warning: StaleEntityRemovalHandler skips
+            # soft-deletion entirely when the source has failures. Without that,
+            # falling back to the canonical URN would mint a duplicate and reap the
+            # real document (and its children). The URN we would need to pass to
+            # add_urn_to_skip() is exactly what this lookup failed to determine.
+            self.report.failure(
+                title="Document identity lookup failed",
+                message=(
+                    "Could not search for an existing document for this GitHub "
+                    "path. Stale entity removal is skipped for this run so no "
+                    "document is soft-deleted; re-run once search is reachable."
+                ),
+                context=f"path={path}, source_id={source_id}",
+                exc=exc,
+            )
+            self._resolved_source_id_urns[source_id] = None
+            return None
+
+        if not matches:
+            # Fallback for documents whose import_source_id predates this scheme:
+            # match the stamped GitHub path instead. The key differs by kind: a
+            # folder document carries github_directory_path and no
+            # github_file_path, so querying the file key for a directory could
+            # never match.
+            path_property = (
+                PROP_GITHUB_DIRECTORY_PATH if is_directory else PROP_GITHUB_FILE_PATH
+            )
+            try:
+                matches = self._search_documents_by_properties(
+                    [
+                        {
+                            "field": "customProperties",
+                            "condition": "EQUAL",
+                            "values": [f"{path_property}={path}"],
+                        },
+                        {
+                            "field": "customProperties",
+                            "condition": "EQUAL",
+                            "values": [f"github_repo={owner_repo}"],
+                        },
+                    ]
+                )
+            except Exception as exc:
+                self.report.failure(
+                    title="Document identity lookup failed",
+                    message=(
+                        "Fallback github_file_path search failed for this GitHub "
+                        "path. Stale entity removal is skipped for this run so no "
+                        "document is soft-deleted; re-run once search is reachable."
+                    ),
+                    context=f"path={path}, source_id={source_id}",
+                    exc=exc,
+                )
+                self._resolved_source_id_urns[source_id] = None
+                return None
+
+        chosen = self._prefer_existing_document_urn(
+            matches, canonical_urn, path=path, source_id=source_id
+        )
+        if chosen and chosen != canonical_urn:
+            logger.info(
+                "Reusing existing document %s for GitHub path %s (source_id=%s)",
+                chosen,
+                path,
+                source_id,
+            )
+        self._resolved_source_id_urns[source_id] = chosen
+        return chosen
+
+    def _prefer_existing_document_urn(
+        self,
+        matches: List[str],
+        canonical_urn: str,
+        *,
+        path: str,
+        source_id: str,
+    ) -> Optional[str]:
+        """Prefer a DataHub-native (non-canonical) URN so children are preserved."""
+        if not matches:
+            return None
+        unique = sorted(dict.fromkeys(matches))
+        if len(unique) > 1:
+            self.report.warning(
+                title="Ambiguous document identity for GitHub path",
+                message=(
+                    "More than one DataHub document claims this GitHub path. One was "
+                    "reused; the others were left in place this run. Merge or delete "
+                    "the duplicates, or rename them so their titles map to distinct "
+                    "file names."
+                ),
+                context=f"path={path}, source_id={source_id}, candidates={unique}",
+            )
+        non_canonical = [urn for urn in unique if urn != canonical_urn]
+        chosen = non_canonical[0] if non_canonical else unique[0]
+        for urn in unique:
+            if urn != chosen:
+                self._register_document_for_stale_removal(urn)
+        return chosen
 
     def _register_document_for_stale_removal(self, document_urn: str) -> None:
         self.stale_entity_removal_handler.add_entity_to_state("document", document_urn)
@@ -509,6 +753,52 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
         self._attach_platform_instance(doc, owner_repo)
         return doc
+
+    def _soft_deleted_urns(self, owner_repo: str) -> Set[str]:
+        """URNs this repo previously imported that are currently soft-deleted.
+
+        Loaded with a single search so the unchanged-file path can resurrect a
+        document without paying a Status lookup per file.
+        """
+        if self._soft_deleted_cache is not None:
+            return self._soft_deleted_cache
+
+        urns: Set[str] = set()
+        if self.ctx.graph:
+            try:
+                urns = set(
+                    self.ctx.graph.get_urns_by_filter(
+                        entity_types=["document"],
+                        platform=self.platform,
+                        platform_instance=make_dataplatform_instance_urn(
+                            self.platform, owner_repo
+                        ),
+                        status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                    )
+                )
+            except Exception as exc:
+                # Non-fatal: only costs us resurrection of documents whose file came
+                # back to GitHub unchanged. Import itself is unaffected.
+                logger.debug("Could not list soft-deleted documents: %s", exc)
+        self._soft_deleted_cache = urns
+        return urns
+
+    def _resurrect_unchanged_document(
+        self, document_urn: str, owner_repo: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Clear Status.removed for an unchanged file that exists in GitHub again.
+
+        Without this, deleting a file, letting stale removal soft-delete its
+        document, then restoring the file with identical content would leave the
+        document soft-deleted forever, since the unchanged-file short-circuit
+        returns before any Status is emitted.
+        """
+        if document_urn not in self._soft_deleted_urns(owner_repo):
+            return
+        self.report.documents_resurrected += 1
+        yield MetadataChangeProposalWrapper(
+            entityUrn=document_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
 
     def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:
         doc._set_aspect(

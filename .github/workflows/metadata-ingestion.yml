@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -127,11 +127,11 @@ jobs:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
       fail-fast: false
     steps:
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
@@ -139,11 +139,21 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore always; save only from master (below) so PR runs stop minting per-PR
+      # copies of this shared key. Key hashes the manifests that actually determine the
+      # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
+      # none of them.
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        id: uv-cache
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install ODBC driver for mssql tests
@@ -181,6 +191,10 @@ jobs:
           source metadata-ingestion/venv/bin/activate
           python metadata-ingestion/scripts/selective_ci_checks.py --validate
       - name: Run metadata-ingestion tests
+        env:
+          # Covers the selective connector jobs below, which invoke pytest directly and
+          # so never pick up the PYTHONFAULTHANDLER set in metadata-ingestion/build.gradle.
+          PYTHONFAULTHANDLER: "1"
         run: |
           # matrix.command is set for Gradle batch jobs (testQuick, testIntegrationBatch*)
           # For selective connector tests, test_path and connector come from the dynamic matrix
@@ -215,6 +229,34 @@ jobs:
               "$TEST_PATH" \
               --junit-xml="test-results/junit.${CONNECTOR}.xml"
           fi
+      # A lint on the tests, not extra coverage of the source. Flipping the default
+      # and re-running catches a test that reads an exact field path from the
+      # ambient config instead of pinning it -- which passes on its own and then
+      # asserts the wrong spelling for anyone who runs with the flag on. Measured:
+      # it kills no source mutation the explicit tests do not already kill, so do
+      # not read a green leg here as the ON path being covered. The tests that
+      # cover it are the ones that set the flag themselves.
+      - name: Snowflake unit tests with preserve_column_case forced on
+        if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.11' }}
+        env:
+          DATAHUB_TEST_PRESERVE_COLUMN_CASE: "1"
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          cd metadata-ingestion
+          source venv/bin/activate
+          pytest tests/unit/snowflake/ \
+            --junit-xml=test-results/junit.snowflake-preserve-column-case.xml
+      # Success-only, single matrix leg (parallel legs would race to reserve the same
+      # key). On master this workflow usually runs on Depot runners, where this save
+      # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted
+      # master writers for this key are documentation.yml and check-datahub-jars.yml.
+      - name: Save uv cache (master only)
+        if: github.ref == 'refs/heads/master' && matrix.command == 'testQuick' && matrix.python-version == '3.11' && steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
       - name: Debug info
         if: always()
         run: |
@@ -231,6 +273,38 @@ jobs:
           test-results-paths: "metadata-ingestion/test-results/**"
           junit-file-globs: "metadata-ingestion/test-results/*.xml"
           retention-days: 14
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "junit.*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --batch "${{ strategy.job-index }}" \
+            --batch-count "${{ strategy.job-total }}" \
+            --test-strategy "ingestion-pytest" \
+            --command "${{ matrix.command || matrix.connector || 'metadata-ingestion' }}"
+
+          rm -rf "$TEMP_DIR"
       - name: Upload coverage to Codecov with ingestion flag
         if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
@@ -316,18 +390,21 @@ jobs:
               echo "No Python files modified in metadata-ingestion, skipping plugin validation"
             fi
           fi
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         if: steps.check-changes.outputs.should_run == 'true'
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: steps.check-changes.outputs.should_run == 'true'
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.check-changes.outputs.should_run == 'true'
         with:
           python-version: "3.11"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.check-changes.outputs.should_run == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install system dependencies
         if: steps.check-changes.outputs.should_run == 'true'
         run: ./metadata-ingestion/scripts/install_deps.sh
