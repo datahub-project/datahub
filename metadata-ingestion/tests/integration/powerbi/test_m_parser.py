@@ -1958,3 +1958,93 @@ def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
 
     assert lineage[0].column_lineage
     assert lineage[0].column_lineage[0].downstream.column == "CustomerId"
+
+
+# Value.NativeQuery whose first argument is reached through a navigation step
+# rather than being the connector call itself.
+_SNOWFLAKE_MULTI_HOP_NATIVE_QUERY: str = (
+    "let\n"
+    '    Source = Snowflake.Databases("srv.snowflakecomputing.com", "wh"),\n'
+    '    db = Source{[Name="MYDB",Kind="Database"]}[Data],\n'
+    "    q = Value.NativeQuery(db,"
+    ' "select a from myschema.mytable", null, [EnableFolding=true])\n'
+    "in\n"
+    "    q"
+)
+
+_DATABRICKS_MULTI_CLOUD_MULTI_HOP_NATIVE_QUERY: str = (
+    "let\n"
+    "    Source = DatabricksMultiCloud.Catalogs("
+    '"adb-123.azuredatabricks.net", "/sql/1.0/endpoints/abc",'
+    ' [Catalog="my_catalog", Database=null, EnableAutomaticProxyDiscovery=null]),\n'
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    q = Value.NativeQuery(db,"
+    ' "select a, b from my_schema.my_table", null, [EnableFolding=true])\n'
+    "in\n"
+    "    q"
+)
+
+
+@pytest.mark.integration
+def test_snowflake_native_query_with_multi_hop_source():
+    """The source argument may be a navigation step rather than the connector
+    call, so the head has to be followed back to the connector."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_SNOWFLAKE_MULTI_HOP_NATIVE_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.myschema.mytable,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_databricks_multi_cloud_native_query_with_multi_hop_source():
+    """Same shape on a record-first connector, where the catalog comes from the
+    connector arguments rather than the navigation step."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_DATABRICKS_MULTI_CLOUD_MULTI_HOP_NATIVE_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_native_query_source_cycle_does_not_recurse():
+    """Steps defined in terms of each other must not send the head walk into
+    unbounded recursion."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q="let a = b, b = a,"
+        ' q = Value.NativeQuery(a, "select x from s.t", null, [EnableFolding=true])'
+        " in q"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_multi_hop_source_with_unresolved_parameters_yields_no_lineage():
+    """Following the head must not invent a server: when the connector's
+    positional arguments are unresolved parameters, the navigation record shifts
+    into the server position and the query is left alone rather than guessed."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q="let\n"
+        "    Source = Snowflake.Databases(SnowflakeURL, SnowflakeWarehouse),\n"
+        '    db = Source{[Name="MYDB",Kind="Database"]}[Data],\n'
+        '    q = Value.NativeQuery(db, "select a from myschema.mytable",'
+        " null, [EnableFolding=true])\n"
+        "in\n"
+        "    q"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
