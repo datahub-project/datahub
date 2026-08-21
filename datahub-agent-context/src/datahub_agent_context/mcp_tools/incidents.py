@@ -83,6 +83,11 @@ query listEntityIncidents(
                 ...entityIncidentsResultFields                         #[NEWER_GMS]
             }                                                          #[NEWER_GMS]
         }                                                              #[NEWER_GMS]
+        ... on MLFeatureTable {                                         #[NEWER_GMS]
+            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
+                ...entityIncidentsResultFields                         #[NEWER_GMS]
+            }                                                          #[NEWER_GMS]
+        }                                                              #[NEWER_GMS]
         ... on SchemaFieldEntity {                                      #[NEWER_GMS]
             incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
                 ...entityIncidentsResultFields                         #[NEWER_GMS]
@@ -308,7 +313,7 @@ def raise_incident(
     an issue (e.g. a failing assertion, stale data, or a broken pipeline) to
     make the problem visible to the asset's owners and consumers.
 
-    ⚠️  IMPORTANT: Before calling this tool, you SHOULD confirm with the user
+    âš ï¸  IMPORTANT: Before calling this tool, you SHOULD confirm with the user
     that they want to raise this incident. Present the title, description, and
     affected asset, and ask for their approval before proceeding.
 

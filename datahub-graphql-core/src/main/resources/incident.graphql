@@ -818,5 +818,5 @@ extend type MLFeatureTable {
     Optional number of results to return, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
