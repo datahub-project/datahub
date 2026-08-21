@@ -1958,3 +1958,97 @@ def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
 
     assert lineage[0].column_lineage
     assert lineage[0].column_lineage[0].downstream.column == "CustomerId"
+
+
+_DATABRICKS_CONNECTOR: str = (
+    'Databricks.Catalogs("adb-123.azuredatabricks.net",'
+    ' "/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog="my_catalog"])'
+)
+
+# A nested let whose body reaches a step bound by the enclosing let.
+_NESTED_LET_OUTER_SCOPE_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    out = let tbl = sch{[Name="my_table",Kind="Table"]}[Data] in tbl\n'
+    "in\n"
+    "    out"
+)
+
+# A nested let that rebinds a name the enclosing let already uses.
+_NESTED_LET_SHADOWING_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="outer_schema",Kind="Schema"]}[Data],\n'
+    "    out = let\n"
+    '            sch = db{[Name="inner_schema",Kind="Schema"]}[Data],\n'
+    '            tbl = sch{[Name="my_table",Kind="Table"]}[Data]\n'
+    "          in\n"
+    "            tbl\n"
+    "in\n"
+    "    out"
+)
+
+
+@pytest.mark.integration
+def test_nested_let_resolves_outer_scope_name():
+    """A nested let can reach steps bound by the enclosing let, so the walk has
+    to keep the enclosing scopes rather than replacing them."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_LET_OUTER_SCOPE_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_nested_let_binding_shadows_outer_name():
+    """The innermost binding of a name wins, so `sch` inside the nested let must
+    resolve to the schema that let defines, not the enclosing one."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_LET_SHADOWING_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.inner_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_outer_step_cannot_see_a_nested_let_binding():
+    """A step bound by an outer let is evaluated in that let's scope, so it must
+    not resolve names a nested let introduces -- doing so invents an upstream
+    from an expression Power BI itself could not evaluate."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q="let\n"
+        f"    Source = {_DATABRICKS_CONNECTOR},\n"
+        '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+        '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+        '    out = let sch = db{[Name="inner_schema",Kind="Schema"]}[Data] in a\n'
+        "in\n"
+        "    out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_mutually_referencing_steps_do_not_recurse():
+    """Steps defined in terms of each other must stop rather than walk forever."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = b, b = a, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
