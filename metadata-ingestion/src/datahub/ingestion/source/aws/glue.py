@@ -636,6 +636,8 @@ class GlueSource(StatefulIngestionSourceBase):
         # Tracks which structured property definitions have been emitted this run
         # so each key's definition is only upserted once.
         self._seen_column_param_urns: Set[str] = set()
+        self._aws_account_id: Optional[str] = None
+        self._aws_account_id_loaded: bool = False
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -1381,6 +1383,23 @@ class GlueSource(StatefulIngestionSourceBase):
         )
         return None
 
+    def _get_aws_account_id(self) -> Optional[str]:
+        """Caller account id for DynamoDB URN platform_instance when the DAG node has no ARN."""
+        if self._aws_account_id_loaded:
+            return self._aws_account_id
+        self._aws_account_id_loaded = True
+        try:
+            self._aws_account_id = (
+                self.source_config.get_session()
+                .client("sts")
+                .get_caller_identity()
+                .get("Account")
+            )
+        except Exception as exc:
+            logger.debug("Could not resolve AWS account id via STS: %s", exc)
+            self._aws_account_id = None
+        return self._aws_account_id
+
     def _process_dynamodb_node(
         self,
         node: Dict[str, Any],
@@ -1447,7 +1466,10 @@ class GlueSource(StatefulIngestionSourceBase):
             ]
 
         # Mirror DynamoDB source: default platform_instance to AWS account id.
-        platform_instance = account_id or self.source_config.catalog_id
+        # ETL connector nodes often omit tableArn; fall back to catalog_id then STS.
+        platform_instance = (
+            account_id or self.source_config.catalog_id or self._get_aws_account_id()
+        )
         return [
             make_dataset_urn_with_platform_instance(
                 platform=DYNAMODB_PLATFORM,

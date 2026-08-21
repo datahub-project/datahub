@@ -2973,12 +2973,42 @@ def test_process_dataflow_node_dynamodb_etl_connector() -> None:
         },
     )
 
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_etl_uses_catalog_id() -> None:
+    pipeline_context = PipelineContext(run_id="glue-dynamodb-catalog")
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=True,
+            catalog_id="111122223333",
+        ),
+    )
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
     result = source.process_dataflow_node(node, flow_urn)
 
     assert result is not None
-    assert (
-        result["urn"]
-        == "urn:li:dataset:(urn:li:dataPlatform:dynamodb,us-west-2.orders,PROD)"
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "111122223333.us-west-2.orders,PROD)"
     )
 
 
