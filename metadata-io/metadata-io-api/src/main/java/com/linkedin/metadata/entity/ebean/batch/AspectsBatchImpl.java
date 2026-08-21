@@ -15,8 +15,11 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -243,6 +246,20 @@ public class AspectsBatchImpl implements AspectsBatch {
       if (this.items == null) {
         this.items = Collections.emptyList();
       }
+
+      // Defense in depth: non-system writers must not retain reserved appSource=systemUpdate.
+      // Auth validators no longer trust that stamp; stripping prevents other consumers from
+      // treating client-supplied provenance as a system-upgrade signal.
+      if (!(session instanceof OperationContext) || !((OperationContext) session).isSystemAuth()) {
+        for (BatchItem item : this.items) {
+          SystemMetadata systemMetadata = item.getSystemMetadata();
+          if (SystemMetadataUtils.stripReservedAppSource(systemMetadata)
+              && item instanceof MCPItem) {
+            ((MCPItem) item).setSystemMetadata(systemMetadata);
+          }
+        }
+      }
+
       this.nonRepeatedItems = filterRepeats(this.items);
 
       ValidationExceptionCollection exceptions =
