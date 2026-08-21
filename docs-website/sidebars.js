@@ -363,6 +363,12 @@ module.exports = {
               id: "docs/automations/glossary-term-propagation",
             },
             {
+              label: "Hierarchy Propagation",
+              type: "doc",
+              id: "docs/automations/hierarchy-propagation",
+              className: "saasOnly",
+            },
+            {
               label: "BigQuery Metadata Sync",
               type: "doc",
               id: "docs/automations/bigquery-metadata-sync",
