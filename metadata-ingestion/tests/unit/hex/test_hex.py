@@ -614,3 +614,92 @@ class TestQueriedTablesFallback:
         upstream = source.project_registry[project_id].upstream_datasets
         assert upstream and any("db.public.customers" in u for u in upstream)
         assert any("queriedTables" in (w.title or "") for w in source.report.warnings)
+
+    def test_column_lineage_dropped_warns_when_sql_disagrees_with_queried_tables(self):
+        """When queriedTables and SQL cells resolve to different tables, all
+        column lineage is dropped — the run must surface a ``Column lineage
+        dropped`` warning rather than staying green and silent."""
+        project_id = "proj-drop"
+        project = {
+            "id": project_id,
+            "title": "Published",
+            "type": "PROJECT",
+            "lastPublishedAt": "2024-08-22T10:00:00Z",
+        }
+        # queriedTables says the project touched db.schema.orders.
+        sql_cell = {
+            "staticId": "cell-1",
+            "cellType": "SQL",
+            "dataConnectionId": "conn-sf",
+            "contents": {"sqlCell": {"source": "SELECT id FROM db.schema.customers"}},
+        }
+
+        def make_response(status: int, payload: dict) -> MagicMock:
+            response = MagicMock(status_code=status, ok=status < 400)
+            response.json.return_value = payload
+            response.raise_for_status = MagicMock(
+                side_effect=None if status < 400 else Exception(f"HTTP {status}")
+            )
+            return response
+
+        def mock_get(url: str, **_: object) -> MagicMock:
+            if "queriedTables" in url:
+                return make_response(
+                    200,
+                    {
+                        "values": [
+                            {
+                                "dataConnectionId": "conn-sf",
+                                "tableName": "db.schema.orders",
+                            }
+                        ]
+                    },
+                )
+            if url.endswith("/data-connections"):
+                return make_response(
+                    200,
+                    {"values": [{"id": "conn-sf", "name": "SF", "type": "snowflake"}]},
+                )
+            if url.endswith("/cells"):
+                return make_response(200, {"values": [sql_cell], "pagination": {}})
+            if url.endswith("/projects"):
+                return make_response(200, {"values": [project], "pagination": {}})
+            return make_response(404, {})
+
+        def mock_post(_url: str, **_kwargs: object) -> MagicMock:
+            return make_response(200, {"content": "cells: []\n"})
+
+        config = {
+            "workspace_name": "ws",
+            "workspace_id": "ws-uuid",
+            "token": "t",
+            "use_queried_tables_lineage": True,
+            "include_run_history": False,
+            "include_context_documents": False,
+        }
+
+        # A truthy graph gates the column-lineage path; the resolver probes it
+        # and falls back to synthesized URNs when nothing is found.
+        ctx = PipelineContext(run_id="t", graph=MagicMock())
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as factory:
+            session = MagicMock()
+            session.get.side_effect = mock_get
+            session.post.side_effect = mock_post
+            session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            factory.return_value = session
+
+            source = HexSource.create(config, ctx)
+            list(source.get_workunits_internal())
+
+        upstream = source.project_registry[project_id].upstream_datasets
+        assert upstream and any("db.schema.orders" in u for u in upstream)
+        assert any(
+            "Column lineage dropped" in (w.title or "") for w in source.report.warnings
+        )

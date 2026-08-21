@@ -83,4 +83,6 @@ The source report lists every skipped cell with its `dataConnectionId` and a rea
 
 #### Column Lineage Looks Sparse
 
-When `use_queried_tables_lineage` is enabled on a Hex Enterprise workspace, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.
+When `use_queried_tables_lineage` is enabled on a Hex Enterprise workspace, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Both tiers resolve through the same schema resolver, so a mismatch usually means the `queriedTables` entry and the SQL cell genuinely refer to different tables (different `default_database` / `default_schema` scope, or a typo). If column lineage is dropped for *every* cell of an entity, the run logs a `Column lineage dropped` warning pointing at the entity — inspect the mismatch sample to confirm whether the tables are the same.
+
+Casing follows the upstream warehouse: case-insensitive platforms (snowflake, postgres, redshift, mssql, …) are lowercased to match a warehouse ingested with `convert_urns_to_lowercase=true`, and case-sensitive platforms (bigquery, db2) preserve author case. The resolver also folds BigQuery date-shard suffixes (`events_20240101` → `events_yyyymmdd`) so partitioned tables line up.

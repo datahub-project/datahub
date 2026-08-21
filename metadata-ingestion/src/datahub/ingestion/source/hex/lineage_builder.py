@@ -2,10 +2,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
-)
+import sqlglot
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -14,6 +14,7 @@ from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
+
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -147,10 +148,12 @@ class HexLineageBuilder:
         Build upstream URN strings from queriedTables API response.
 
         {dataConnectionId, dataConnectionName, tableName} — tableName's level
-        of qualification is not guaranteed by Hex, so under-qualified names
-        are padded with the connection's default_database / default_schema
-        before URN construction. Only emits URNs for connections whose
-        platform can be confidently resolved.
+        of qualification is not guaranteed by Hex, so under-qualified names are
+        padded with the connection's default_database / default_schema,
+        dialect-normalized, then resolved through the same ``SchemaResolver``
+        the SQL-cell path uses — so tier-1 and tier-2 URNs agree by
+        construction. Only emits URNs for connections whose platform can be
+        confidently resolved.
         """
         seen: Set[str] = set()
         result: List[str] = []
@@ -176,11 +179,16 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
-            urn = make_dataset_urn_with_platform_instance(
-                platform=connection.platform,
-                name=qualified_name,
-                platform_instance=connection.platform_instance,
-                env=self._env,
+            dialect = get_dialect_str(connection.platform)
+            tbl = normalize_identifiers(
+                sqlglot.to_table(qualified_name, dialect=dialect), dialect=dialect
+            )
+            urn, _ = self._get_resolver(
+                connection.platform, connection.platform_instance
+            ).resolve_table_parts(
+                database=tbl.catalog or None,
+                db_schema=tbl.db or None,
+                table=tbl.name,
             )
             if urn not in seen:
                 seen.add(urn)
@@ -252,16 +260,18 @@ class HexLineageBuilder:
         Extract column-level lineage from SQL cells, cross-validated against
         the queriedTables result set.
 
-        For ENTERPRISE workspaces: queriedTables provides runtime-proven dataset
-        URNs. SQL parsing may produce table URNs that differ (unqualified names,
-        view references, dynamic SQL). A column reference is only emitted if its
-        parent dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
-        would dangle (pointing to a dataset that may not exist in DataHub or that
-        represents a different entity than intended).
+        queriedTables provides runtime-proven dataset URNs; SQL parsing may
+        produce table URNs that differ (unqualified names, view references,
+        dynamic SQL). A column reference is only emitted if its parent
+        dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
+        would dangle. Mismatches are recorded in the report with sample cells.
 
-        Mismatches are recorded in the report with sample cells for diagnostics.
+        Both tiers resolve through the same ``SchemaResolver``, so a parsed
+        parent and a queriedTables URN for the same table are identical
+        strings — the comparison is a plain set membership test.
         """
-        queried_set = set(queried_table_urns)
+        queried_set: Set[str] = set(queried_table_urns)
+
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
 
@@ -280,7 +290,9 @@ class HexLineageBuilder:
 
             for furn in field_urns:
                 try:
-                    parent_urn = SchemaFieldUrn.from_string(furn).parent
+                    sf = SchemaFieldUrn.from_string(furn)
+                    parent_urn = sf.parent
+                    field_path = sf.field_path
                 except Exception:
                     logger.warning(
                         "Skipping malformed schema field URN during queriedTables cross-validation: %s",
@@ -288,8 +300,9 @@ class HexLineageBuilder:
                         exc_info=True,
                     )
                     continue
+
                 if parent_urn in queried_set:
-                    matched.append(furn)
+                    matched.append(make_schema_field_urn(parent_urn, field_path))
                 else:
                     unmatched_tables.add(parent_urn)
                     unmatched_field_count += 1
