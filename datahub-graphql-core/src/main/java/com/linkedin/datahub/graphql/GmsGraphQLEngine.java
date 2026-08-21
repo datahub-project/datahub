@@ -176,6 +176,7 @@ import com.linkedin.datahub.graphql.resolvers.marketplace.DataProductChildrenRes
 import com.linkedin.datahub.graphql.resolvers.marketplace.GetRootDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.ListSemanticModelEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.ParentMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.SemanticModelMetricsResolver;
@@ -4294,6 +4295,7 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("metrics", new SemanticModelMetricsResolver(entityClient, viewService))
+                .dataFetcher("entities", new ListSemanticModelEntitiesResolver(entityClient))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
@@ -4316,18 +4318,6 @@ public class GmsGraphQLEngine {
                     "lineage",
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
-    builder.type(
-        "SemanticModelInfo",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "datasets",
-                new LoadableTypeBatchResolver<>(
-                    datasetType,
-                    env ->
-                        ((SemanticModelInfo) env.getSource())
-                            .getDatasets().stream()
-                                .map(Dataset::getUrn)
-                                .collect(Collectors.toList()))));
     builder.type(
         "SemanticModelProperties",
         typeWiring ->
