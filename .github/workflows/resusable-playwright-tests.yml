@@ -46,6 +46,21 @@ on:
         required: false
         type: string
         default: ${{ vars.DOCKER_REGISTRY }}
+      image_version_env:
+        description: "KEY=VALUE lines of per-service image tag overrides (e.g. DATAHUB_GMS_VERSION=quickstart) for images the caller reused instead of rebuilding. Empty when every image was built for this run."
+        required: false
+        type: string
+        default: ""
+      docker_login:
+        description: "Whether DockerHub credentials are available (callers compute this from their secrets; the secrets context is not usable in step-level if)."
+        required: false
+        type: string
+        default: "true"
+      image_built_repos:
+        description: "Space-separated docker repos the caller built for this run. run-quickstart.sh fails if any resolves to a reused tag instead of datahub_version."
+        required: false
+        type: string
+        default: ""
       send_posthog_metrics:
         description: "Whether to send test failure metrics to PostHog. Should only be true for scheduled/push runs, not workflow_dispatch."
         required: false
@@ -74,11 +89,11 @@ jobs:
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "temurin"
-          java-version: 21
+          java-version: 25
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -105,7 +120,11 @@ jobs:
 
       # Path 2: Build images in the job
       - id: uv-creds
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
+        # An empty build id with per-service overrides set means the caller
+        # reused every image rather than baking any, so there is nothing to
+        # build here -- compose pulls them from the registry. An empty build id
+        # with no overrides is the fork path, which has no shared build at all.
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
         uses: ./.github/actions/setup-uv-credentials
         with:
           base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
@@ -113,7 +132,11 @@ jobs:
           chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
 
       - name: Build images (fork — no depot cache)
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
+        # An empty build id with per-service overrides set means the caller
+        # reused every image rather than baking any, so there is nothing to
+        # build here -- compose pulls them from the registry. An empty build id
+        # with no overrides is the fork path, which has no shared build at all.
+        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
         timeout-minutes: 60
         env:
           DOCKER_CACHE: GITHUB
@@ -128,12 +151,26 @@ jobs:
           docker images
 
       # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
+      # Also needed on the other paths whenever image_version_env is non-empty:
+      # those images come from the registry rather than the depot pull, and an
+      # anonymous pull across every shard runs into Docker Hub's rate limit.
       - name: Login to DockerHub
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        # Guarded on credentials being available (as a caller-computed input --
+        # the secrets context is not allowed in step-level if): reused images can
+        # be pulled anonymously as a fallback, and login-action with empty
+        # credentials fails the job.
+        if: ${{ (github.event_name == 'workflow_dispatch' || inputs.image_version_env != '') && inputs.docker_login == 'true' }}
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Pin reused images to their published tag
+        if: ${{ inputs.image_version_env != '' }}
+        env:
+          IMAGE_VERSION_ENV: ${{ inputs.image_version_env }}
+        run: printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
+
       - name: Run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -144,6 +181,7 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           # Must match the profile the images were built for (e.g. smoke:quickstartPg → quickstart-postgres).
           PROFILE_NAME: ${{ inputs.profile_name }}
+          EXPECT_PR_TAGGED_IMAGES: ${{ inputs.image_built_repos }}
         run: |
           echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
@@ -161,6 +199,9 @@ jobs:
               }
             }'
 
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install Playwright dependencies
         working-directory: e2e-test/ui/playwright
         run: |

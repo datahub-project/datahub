@@ -1,7 +1,10 @@
 import pytest
 
 from tests.test_result_msg import add_datahub_stats
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import list_policies
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 @pytest.mark.read_only

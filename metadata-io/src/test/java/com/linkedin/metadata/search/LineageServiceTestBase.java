@@ -1074,16 +1074,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .get(),
         Long.valueOf(200));
 
-    // Set up filters
+    // Test AND filter
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
     Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
-
-    CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
-    conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     Criterion originCrit = buildCriterion("origin", Condition.EQUAL, "DEV");
 
-    conCritArr.add(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+    CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit, originCrit));
+    conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
 
     from = 500;
     size = 10;
@@ -1106,6 +1103,32 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .filter(x -> x.getName().equals("origin") && x.getAggregations().containsKey("PROD"))
             .collect(Collectors.toList())
             .isEmpty());
+
+    // Test OR filter
+    ConjunctiveCriterionArray orCritArr = new ConjunctiveCriterionArray();
+    orCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(platform1Crit))));
+    orCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, new Filter().setOr(orCritArr), from, size, entityNames);
+
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("DEV"))
+            .findFirst()
+            .get(),
+        Long.valueOf(450));
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("PROD"))
+            .findFirst()
+            .get(),
+        Long.valueOf(200));
   }
 
   @Test
@@ -1286,7 +1309,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
@@ -1305,7 +1329,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
   }
 
   @Test

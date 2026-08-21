@@ -192,6 +192,18 @@ public class EntityRelationshipsResultResolverTest {
     assertEquals(result.getRelationships().size(), 2);
   }
 
+  // Callers pass entity types in the GraphQL enum form ("CORPUSER"/"DATASET"); the URN entity type
+  // is lowercase ("corpuser"/"dataset"). The filter must match case-insensitively rather than drop
+  // every edge and return an empty, correct-looking result.
+  @Test
+  public void testFilterByRelatedEntityTypesIsCaseInsensitive()
+      throws ExecutionException, InterruptedException {
+    input.setRelatedEntityTypes(List.of("CORPUSER"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 2);
+  }
+
   /**
    * Reproduces the Settings → Roles page crash. A role's {@code policies} are its incoming {@code
    * IsAssociatedWithRole} edges, but that relationship name is shared: it is emitted toward a role

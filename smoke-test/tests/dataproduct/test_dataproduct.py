@@ -32,9 +32,12 @@ from datahub.metadata.schema_classes import (
     MLModelPropertiesClass,
 )
 from datahub.utilities.urns.urn import Urn
+from tests.utilities.domains import Domain
 from tests.utils import wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 start_index = randint(10, 10000)

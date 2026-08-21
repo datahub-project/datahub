@@ -18,6 +18,12 @@ from datahub.ingestion.graph.client import (
 )
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
+from tests.utilities.domains import (
+    ALL_DOMAINS,
+    domains_of,
+    is_selected,
+    parse_requested_domains,
+)
 from tests.utils import (
     TestSessionWrapper,
     assert_admin_corpuser_info_preserved,
@@ -57,6 +63,11 @@ def build_auth_session():
 
     wait_for_healthcheck_util(requests)
     auth_session = TestSessionWrapper(get_frontend_session())
+    # Lag polls always use DATAHUB_GMS_TOKEN (VIEW_SYSTEM_STATUS or
+    # MANAGE_SYSTEM_OPERATIONS). Publish the bootstrap admin PAT here, before
+    # any wait_for_writes_to_sync() call. Restricted-user TestSessionWrappers
+    # must not overwrite this.
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     wait_for_admin_corpuser_system_bootstrap(auth_session)
     return auth_session
 
@@ -196,6 +207,54 @@ def _ingest_cleanup_unique_dataset_impl(
     yield dataset_urn
     logger.info(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, unique_file)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--domain",
+        action="append",
+        default=[],
+        metavar="DOMAIN",
+        help=(
+            "Only run tests owned by this product domain. Repeatable, e.g. "
+            "--domain catalog --domain ingestion. Valid values: "
+            f"{', '.join(sorted(ALL_DOMAINS))}."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Validate here rather than during collection: a bad value raised from
+    # pytest_collection_modifyitems surfaces as an INTERNALERROR instead of a
+    # readable usage error.
+    try:
+        parse_requested_domains(config.getoption("--domain"))
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+
+
+def _apply_domain_filter(config: pytest.Config, items: List[Item]) -> None:
+    """Deselect tests outside the domains requested with --domain."""
+    requested = parse_requested_domains(config.getoption("--domain"))
+    if not requested:
+        return
+
+    selected: List[Item] = []
+    deselected: List[Item] = []
+    for item in items:
+        declared = domains_of(item.get_closest_marker("domain"))
+        target = selected if is_selected(declared, requested) else deselected
+        target.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    logger.info(
+        "--domain %s: selected %s of %s test(s)",
+        ",".join(sorted(requested)),
+        len(selected),
+        len(items),
+    )
+    items[:] = selected
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -381,6 +440,10 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
+    # Runs before every early return below, and before the weight-based batching,
+    # so batches are packed from the selected tests only.
+    _apply_domain_filter(config, items)
+
     # Check if FILTERED_TESTS is set (for retry logic)
     filtered_tests_file = env_vars.get_filtered_tests_file()
     if filtered_tests_file:
