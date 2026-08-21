@@ -11,6 +11,7 @@ from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.quarantine import QuarantineWriter
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.metadata.schema_classes import SystemMetadataClass
@@ -79,9 +80,11 @@ class DataHubDatabaseReader:
         config: DataHubSourceConfig,
         connection_config: SQLAlchemyConnectionConfig,
         report: DataHubSourceReport,
+        quarantine: Optional[QuarantineWriter] = None,
     ):
         self.config = config
         self.report = report
+        self.quarantine = quarantine
         self.engine = create_engine(
             url=connection_config.get_sql_alchemy_url(),
             **connection_config.options,
@@ -403,4 +406,23 @@ class DataHubDatabaseReader:
             ).setdefault(row["aspect"], LossyList(max_elements=failure_size)).append(
                 row["urn"]
             )
+            if self.quarantine is not None:
+                was_disabled = self.quarantine.disabled
+                self.quarantine.write(row, str(e))
+
+                if self.quarantine.disabled and not was_disabled:
+                    # The writer only disables itself on an unrecoverable (OSError)
+                    # write failure; surface that in the run summary too, not just
+                    # the writer's own log line, so it isn't buried in a long run.
+                    self.report.warning(
+                        message="Parse-error quarantine file disabled after a write failure",
+                        context=self.quarantine.disabled_reason,
+                        log=False,
+                    )
+
+                self.report.num_database_quarantined_rows = (
+                    self.quarantine.records_written
+                )
+                if self.quarantine.records_written:
+                    self.report.database_quarantine_file = self.quarantine.filename
             return None
