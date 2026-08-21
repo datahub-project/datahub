@@ -7,7 +7,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/ContractLineageButton';
-import { Button } from '@app/lineageV3/LineageEntityNode/components';
+import { Button, CountText, SideControlWrapper } from '@app/lineageV3/LineageEntityNode/components';
 import LineageFilterSearch from '@app/lineageV3/LineageFilterNode/LineageFilterSearch';
 import LineageFilterSummary from '@app/lineageV3/LineageFilterNode/LineageFilterSummary';
 import { ShowMoreButton } from '@app/lineageV3/LineageFilterNode/ShowMoreButton';
@@ -22,27 +22,10 @@ import {
 
 import { LineageDirection } from '@types';
 
-const ControlWrapper = styled.div<{ direction: LineageDirection }>`
-    position: absolute;
+const ControlWrapper = styled(SideControlWrapper)<{ direction: LineageDirection }>`
     ${({ direction }) =>
         direction === LineageDirection.Upstream ? 'right: calc(100% + 10px);' : 'left: calc(100% + 10px);'}
-    transform: translateY(-50%);
-
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 4px;
-    box-shadow: ${(props) => props.theme.colors.shadowXs};
-    color: ${(props) => props.theme.colors.iconBrand};
     cursor: pointer;
-    font-size: 18px;
-
-    display: flex;
-    align-items: center;
-`;
-
-const CountText = styled.span`
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
 `;
 
 const Panel = styled.div<{ direction: LineageDirection; visible: boolean }>`
