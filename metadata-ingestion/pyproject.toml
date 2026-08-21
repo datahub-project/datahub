@@ -85,8 +85,8 @@ Releases = "https://github.com/acryldata/datahub/releases"
 
 base = []
 
-# airflow, great-expectations, and sqlmesh excluded from pyproject (circular deps or irreconcilable pins).
-# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly; for sqlmesh use setuptools ``pip install 'acryl-datahub[sqlmesh]'`` until sqlmesh accepts sqlglot 30.12+.
+# airflow, great-expectations, and sqlmesh are excluded from these pyproject extras (circular deps or irreconcilable pins).
+# For airflow / great-expectations install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly. sqlmesh has no pyproject extra because it pins sqlglot below acryl-datahub[all]; install it explicitly alongside acryl-datahub, e.g. `pip install acryl-datahub sqlmesh`, and let pip resolve a compatible sqlglot.
 
 abs = [
     "azure-core>=1.38.0,<2.0.0",
@@ -209,9 +209,7 @@ cassandra = [
     "numpy<2",
 ]
 
-circuit-breaker = [
-    "gql[requests]>=4.0.0",
-]
+circuit-breaker = []
 
 clickhouse = [
     "cachetools<6.0.0",
@@ -1197,7 +1195,6 @@ all = [
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "google-cloud-secret-manager>=2.0.0,<3.0.0",
-    "gql[requests]>=4.0.0",
     "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
@@ -1705,7 +1702,6 @@ integration-tests = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
-    "gql[requests]>=4.0.0",
     "greenlet<4.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",

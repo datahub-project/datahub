@@ -553,13 +553,10 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
-    "circuit-breaker": {
-        # Unused: the circuit breakers now query GMS through DataHubGraph, and
-        # nothing in the repo imports gql. Kept only so the extra stays
-        # installable for anyone who pins it; drop it (and empty this extra) in
-        # a pass that also regenerates uv.lock + constraints.txt.
-        "gql[requests]>=4.0.0",
-    },
+    # The circuit breakers query GMS through DataHubGraph, so this needs no
+    # extra dependencies. Kept as an empty extra so existing installs that
+    # pin acryl-datahub[circuit-breaker] keep resolving.
+    "circuit-breaker": set(),
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
     "datahub": sql_common | mysql | kafka_common,
