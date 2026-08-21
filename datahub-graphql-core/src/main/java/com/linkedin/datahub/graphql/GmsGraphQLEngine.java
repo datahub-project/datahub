@@ -492,6 +492,7 @@ public class GmsGraphQLEngine {
   private final TelemetryConfiguration telemetryConfiguration;
   private final TestsConfiguration testsConfiguration;
   private final DataHubConfiguration datahubConfiguration;
+  private final int mfeLoadTimeoutMs;
   private final ViewsConfiguration viewsConfiguration;
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
@@ -642,6 +643,7 @@ public class GmsGraphQLEngine {
     this.telemetryConfiguration = args.telemetryConfiguration;
     this.testsConfiguration = args.testsConfiguration;
     this.datahubConfiguration = args.datahubConfiguration;
+    this.mfeLoadTimeoutMs = args.mfeLoadTimeoutMs;
     this.viewsConfiguration = args.viewsConfiguration;
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
@@ -1113,6 +1115,7 @@ public class GmsGraphQLEngine {
                         this.telemetryConfiguration,
                         this.testsConfiguration,
                         this.datahubConfiguration,
+                        this.mfeLoadTimeoutMs,
                         this.viewsConfiguration,
                         this.searchBarConfiguration,
                         this.searchCardConfiguration,
