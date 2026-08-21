@@ -31,7 +31,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional
 
 import google.auth
 import google.auth.transport.requests
@@ -42,9 +42,15 @@ from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
     DataplexExportConfig,
 )
-from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
+from datahub.ingestion.source.dataplex.dataplex_helpers import (
+    ExportedEntry,
+    parse_gcs_path,
+)
 from datahub.ingestion.source.dataplex.dataplex_mappers import ENTRY_MAPPERS
-from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
+from datahub.ingestion.source.dataplex.dataplex_report import (
+    DataplexReport,
+    ExportJobInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +62,21 @@ GCP_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 # registry so it automatically stays in sync as new entry types gain support.
 DATAPLEX_TYPES_PREFIX = "projects/dataplex-types/locations/global/entryTypes"
 
-TERMINAL_STATES = ("SUCCEEDED", "FAILED", "CANCELED")
+# metadataJobs wire vocabulary.
+EXPORT_JOB_TYPE = "EXPORT"
+JOB_STATUS_KEY = "status"
+JOB_STATE_KEY = "state"
+JOB_MESSAGE_KEY = "message"
+ENTRY_KEY = "entry"
+STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
+STATE_SUCCEEDED = "SUCCEEDED"
+TERMINAL_STATES = (STATE_SUCCEEDED, "FAILED", "CANCELED")
 
 JSONL_SUFFIX = ".jsonl"
+
+# A persistent poll error (revoked token, 403, deleted job) should surface as
+# such instead of spinning until the deadline and reading as a timeout.
+MAX_CONSECUTIVE_POLL_FAILURES = 5
 
 # Export output object names embed the metadata-job id as a ``job=<id>/`` path
 # segment, e.g. ``metadata/job=my-job/entry_group=@bigquery/part-0.jsonl``.
@@ -170,7 +188,7 @@ def _submit_export_job(
         p if p.startswith("projects/") else f"projects/{p}" for p in project_ids
     ]
     body = {
-        "type": "EXPORT",
+        "type": EXPORT_JOB_TYPE,
         "export_spec": {
             "output_path": output_path,
             "scope": {
@@ -188,11 +206,8 @@ def _submit_export_job(
         scoped_projects,
         output_path,
     )
-    resp = session.post(
-        url,
-        json=body,
-        headers={"Content-Type": "application/json; charset=utf-8"},
-    )
+    # No explicit Content-Type header: requests sets application/json for json=.
+    resp = session.post(url, json=body)
     if resp.status_code >= 400:
         logger.error(
             "metadataJobs.create failed for job '%s': HTTP %s\n%s",
@@ -201,6 +216,14 @@ def _submit_export_job(
             resp.text,
         )
         resp.raise_for_status()
+    try:
+        server_job_name = resp.json().get("name", "")
+    except Exception:
+        server_job_name = ""
+    if server_job_name:
+        logger.info(
+            "metadataJobs.create accepted job '%s' as %s", job_id, server_job_name
+        )
 
 
 def _get_job(
@@ -208,7 +231,7 @@ def _get_job(
     job_project: str,
     location: str,
     job_id: str,
-) -> dict:
+) -> Dict[str, Any]:
     url = (
         f"{DATAPLEX_API_ROOT}/projects/{job_project}/locations/{location}"
         f"/metadataJobs/{job_id}"
@@ -216,6 +239,16 @@ def _get_job(
     resp = session.get(url)
     resp.raise_for_status()
     return resp.json()
+
+
+def _job_state(job: Dict[str, Any]) -> str:
+    status = job.get(JOB_STATUS_KEY) or {}
+    return status.get(JOB_STATE_KEY, STATE_UNSPECIFIED)
+
+
+def _job_error_message(job: Dict[str, Any]) -> str:
+    status = job.get(JOB_STATUS_KEY) or {}
+    return status.get(JOB_MESSAGE_KEY, "")
 
 
 @dataclass
@@ -226,8 +259,128 @@ class _PendingJob:
     job_id: str
     bucket: str
     output_path: str
+    info: ExportJobInfo
     started: float = field(default_factory=time.time)
     last_state: Optional[str] = None
+    consecutive_poll_failures: int = 0
+    last_poll_exc: Optional[Exception] = None
+
+
+def _submit_all_jobs(
+    config: DataplexConfig,
+    export_config: DataplexExportConfig,
+    runner_project: str,
+    project_ids: List[str],
+    session: google.auth.transport.requests.AuthorizedSession,
+    report: DataplexReport,
+) -> List[_PendingJob]:
+    """Submit one EXPORT job per entries location (no waiting)."""
+    entry_types = export_scope_entry_types()
+    pending: List[_PendingJob] = []
+    for location in config.entries_locations:
+        job_id = f"datahub-export-{location}-{uuid.uuid4().hex[:8]}"
+        try:
+            # Bucket resolution stays inside the try so a bad location config
+            # fails just this location instead of aborting all of them.
+            bucket = export_config.bucket_for_location(location)
+            output_path = _output_path(bucket, export_config.prefix)
+            _submit_export_job(
+                session=session,
+                job_project=runner_project,
+                location=location,
+                job_id=job_id,
+                output_path=output_path,
+                project_ids=project_ids,
+                entry_types=entry_types,
+            )
+        except Exception as exc:
+            report.export_jobs_failed += 1
+            report.failure(
+                title="Dataplex export job submission failed",
+                message="Could not submit metadata export job for a location. "
+                "Entities in this location will be missing from this run.",
+                context=f"location={location}",
+                exc=exc,
+            )
+            continue
+        report.export_jobs_submitted += 1
+        info = ExportJobInfo(
+            location=location,
+            job_id=job_id,
+            output_path=output_path,
+            state="SUBMITTED",
+        )
+        report.export_jobs.append(info)
+        pending.append(
+            _PendingJob(
+                location=location,
+                job_id=job_id,
+                bucket=bucket,
+                output_path=output_path,
+                info=info,
+            )
+        )
+    return pending
+
+
+def _evaluate_job(
+    pj: _PendingJob,
+    job: Dict[str, Any],
+    report: DataplexReport,
+    targets: List[ExportTarget],
+) -> bool:
+    """Process one poll result; returns True when the job is still pending."""
+    state = _job_state(job)
+    elapsed = int(time.time() - pj.started)
+    pj.info.state = state
+    pj.info.elapsed_seconds = elapsed
+
+    if state != pj.last_state:
+        logger.info(
+            "Export job '%s' [%s] state: %s -> %s (after %ds)",
+            pj.job_id,
+            pj.location,
+            pj.last_state or "<start>",
+            state,
+            elapsed,
+        )
+        pj.last_state = state
+
+    if state not in TERMINAL_STATES:
+        return True
+
+    if state == STATE_SUCCEEDED:
+        report.export_jobs_succeeded += 1
+        logger.info(
+            "Export job '%s' [%s] SUCCEEDED after %ds.",
+            pj.job_id,
+            pj.location,
+            elapsed,
+        )
+        targets.append(
+            ExportTarget(
+                location=pj.location,
+                bucket=pj.bucket,
+                job_id=pj.job_id,
+                output_path=pj.output_path,
+            )
+        )
+        return False
+
+    error_message = _job_error_message(job)
+    report.export_jobs_failed += 1
+    report.failure(
+        title="Dataplex export job did not succeed",
+        message=(
+            f"Export job ended in state={state}"
+            + (f": {error_message}" if error_message else "")
+            + ". Its output will be skipped and this location's entities will "
+            "be missing from this run. Inspect the metadata job in the "
+            "Dataplex console or with `gcloud dataplex metadata-jobs describe`."
+        ),
+        context=f"location={pj.location}, job_id={pj.job_id}",
+    )
+    return False
 
 
 def run_exports(
@@ -252,42 +405,15 @@ def run_exports(
     assert export_config is not None  # enforced by config validation
     runner_project = export_config.export_job_runner_project
     assert runner_project is not None  # enforced by config validation (submit mode)
-    entry_types = export_scope_entry_types()
 
-    # Phase 1: submit all jobs.
-    pending: List[_PendingJob] = []
-    for location in config.entries_locations:
-        bucket = export_config.bucket_for_location(location)
-        output_path = _output_path(bucket, export_config.prefix)
-        job_id = f"datahub-export-{location}-{uuid.uuid4().hex[:8]}"
-        try:
-            _submit_export_job(
-                session=session,
-                job_project=runner_project,
-                location=location,
-                job_id=job_id,
-                output_path=output_path,
-                project_ids=project_ids,
-                entry_types=entry_types,
-            )
-            report.export_jobs_submitted += 1
-            pending.append(
-                _PendingJob(
-                    location=location,
-                    job_id=job_id,
-                    bucket=bucket,
-                    output_path=output_path,
-                )
-            )
-        except Exception as exc:
-            report.export_jobs_failed += 1
-            report.failure(
-                title="Dataplex export job submission failed",
-                message="Could not submit metadata export job for a location. "
-                "Entities in this location will be missing from this run.",
-                context=f"location={location}, bucket={bucket}",
-                exc=exc,
-            )
+    pending = _submit_all_jobs(
+        config=config,
+        export_config=export_config,
+        runner_project=runner_project,
+        project_ids=project_ids,
+        session=session,
+        report=report,
+    )
 
     if not pending:
         logger.warning("No Dataplex export jobs were submitted successfully.")
@@ -298,7 +424,6 @@ def run_exports(
         len(pending),
     )
 
-    # Phase 2: poll all pending jobs jointly.
     targets: List[ExportTarget] = []
     deadline = time.time() + export_config.export_timeout_seconds
 
@@ -306,75 +431,48 @@ def run_exports(
         still_pending: List[_PendingJob] = []
         for pj in pending:
             try:
-                job = _get_job(
-                    session,
-                    runner_project,
-                    pj.location,
-                    pj.job_id,
-                )
+                job = _get_job(session, runner_project, pj.location, pj.job_id)
             except Exception as exc:
+                pj.consecutive_poll_failures += 1
+                pj.last_poll_exc = exc
+                if pj.consecutive_poll_failures >= MAX_CONSECUTIVE_POLL_FAILURES:
+                    report.export_jobs_failed += 1
+                    pj.info.state = "POLL_FAILED"
+                    report.failure(
+                        title="Dataplex export job polling kept failing",
+                        message=(
+                            f"Gave up after {MAX_CONSECUTIVE_POLL_FAILURES} "
+                            "consecutive poll errors — likely an auth/permission "
+                            "problem rather than a slow job. This location's "
+                            "entities will be missing from this run."
+                        ),
+                        context=f"location={pj.location}, job_id={pj.job_id}",
+                        exc=exc,
+                    )
+                    continue
                 logger.warning(
-                    "Failed to poll export job '%s': %s — retrying next cycle.",
+                    "Failed to poll export job '%s' (%d consecutive): %s — "
+                    "retrying next cycle.",
                     pj.job_id,
+                    pj.consecutive_poll_failures,
                     exc,
                 )
                 still_pending.append(pj)
                 continue
 
-            status = job.get("status") or {}
-            state = status.get("state", "STATE_UNSPECIFIED")
-            elapsed = int(time.time() - pj.started)
-
-            if state != pj.last_state:
-                logger.info(
-                    "Export job '%s' [%s] state: %s -> %s (after %ds)",
-                    pj.job_id,
-                    pj.location,
-                    pj.last_state or "<start>",
-                    state,
-                    elapsed,
-                )
-                pj.last_state = state
-
-            if state not in TERMINAL_STATES:
+            pj.consecutive_poll_failures = 0
+            pj.last_poll_exc = None
+            if _evaluate_job(pj, job, report, targets):
                 still_pending.append(pj)
-                continue
-
-            if state == "SUCCEEDED":
-                report.export_jobs_succeeded += 1
-                logger.info(
-                    "Export job '%s' [%s] SUCCEEDED after %ds.",
-                    pj.job_id,
-                    pj.location,
-                    elapsed,
-                )
-                targets.append(
-                    ExportTarget(
-                        location=pj.location,
-                        bucket=pj.bucket,
-                        job_id=pj.job_id,
-                        output_path=pj.output_path,
-                    )
-                )
-            else:
-                report.export_jobs_failed += 1
-                report.failure(
-                    title="Dataplex export job did not succeed",
-                    message=(
-                        f"Export job ended in state={state}; its output will be "
-                        "skipped and this location's entities will be missing "
-                        "from this run. Inspect the metadata job in the Dataplex "
-                        "console or with `gcloud dataplex metadata-jobs describe`."
-                    ),
-                    context=f"location={pj.location}, job_id={pj.job_id}",
-                )
 
         pending = still_pending
 
         if pending:
-            if time.time() > deadline:
+            now = time.time()
+            if now > deadline:
                 for pj in pending:
                     report.export_jobs_failed += 1
+                    pj.info.state = "TIMED_OUT"
                     report.failure(
                         title="Dataplex export job timed out",
                         message=(
@@ -387,9 +485,14 @@ def run_exports(
                             f"location={pj.location}, job_id={pj.job_id}, "
                             f"last_state={pj.last_state}"
                         ),
+                        # A poll error that never resolved is the likelier root
+                        # cause than slowness; surface it with the timeout.
+                        exc=pj.last_poll_exc,
                     )
                 break
-            time.sleep(export_config.export_poll_seconds)
+            # Cap the sleep so a poll interval longer than the remaining budget
+            # cannot overshoot the configured total timeout.
+            time.sleep(min(export_config.export_poll_seconds, max(0.0, deadline - now)))
 
     logger.info(
         "Export stage complete: submitted=%d, succeeded=%d, failed=%d",
@@ -445,6 +548,18 @@ def _select_latest_partition(
 
     if not partitions:
         return jsonl_blobs
+
+    if unpartitioned:
+        report.warning(
+            title="Unpartitioned objects skipped in export path",
+            message=(
+                ".jsonl objects without a job=<id> path segment were skipped "
+                "because job partitions are present under the same path. Point "
+                "existing_export_paths at those objects directly if they "
+                "should be read."
+            ),
+            context=f"path={target.output_path}, skipped={len(unpartitioned)}",
+        )
 
     selected = max(
         partitions,
@@ -539,8 +654,8 @@ def iter_exported_entries(
     storage_client: storage.Client,
     target: ExportTarget,
     report: DataplexReport,
-) -> Iterable[Tuple[dataplex_v1.Entry, str]]:
-    """Stream ``(entry, location)`` pairs from one export target's GCS output.
+) -> Iterable[ExportedEntry]:
+    """Stream ``ExportedEntry`` items from one export target's GCS output.
 
     Each JSONL line holds ``{"entry": {...}}`` — the JSON form of the
     ``dataplex_v1.Entry`` proto — so it parses back into a real proto via
@@ -553,6 +668,7 @@ def iter_exported_entries(
     and is skipped rather than silently ingested.
     """
     matching = _list_matching_blobs(storage_client, target, report)
+    entries_yielded = 0
 
     for blob in matching:
         report.export_blobs_read += 1
@@ -574,8 +690,21 @@ def iter_exported_entries(
                             exc=exc,
                         )
                         continue
-                    entry_dict = obj.get("entry")
+                    # Valid JSON that is not an ``{"entry": {...}}`` object is
+                    # skipped like a malformed line; guarding here also keeps a
+                    # stray non-object line (e.g. ``[]``) from raising and
+                    # aborting the rest of the blob.
+                    entry_dict = obj.get(ENTRY_KEY) if isinstance(obj, dict) else None
                     if not isinstance(entry_dict, dict):
+                        report.export_malformed_lines_skipped += 1
+                        report.warning(
+                            title="Malformed Dataplex export line",
+                            message=(
+                                "Skipping JSONL line without an object "
+                                f"'{ENTRY_KEY}' field."
+                            ),
+                            context=f"blob={blob.name}",
+                        )
                         continue
                     try:
                         entry = dataplex_v1.Entry.from_json(
@@ -591,7 +720,8 @@ def iter_exported_entries(
                         )
                         continue
                     report.export_entries_read += 1
-                    yield entry, target.location
+                    entries_yielded += 1
+                    yield ExportedEntry(entry=entry, location=target.location)
         except Exception as exc:
             # The remainder of this blob is lost — reported as a failure so
             # stale-entity removal is suppressed (a half-read blob is an
@@ -603,3 +733,9 @@ def iter_exported_entries(
                 context=f"blob={blob.name}",
                 exc=exc,
             )
+
+    if target.job_id is not None:
+        for job_info in report.export_jobs:
+            if job_info.job_id == target.job_id:
+                job_info.entries_read = entries_yielded
+                break

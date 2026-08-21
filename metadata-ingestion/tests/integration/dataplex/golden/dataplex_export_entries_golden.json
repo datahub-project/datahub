@@ -419,7 +419,7 @@
                     "description": "Order total amount",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
                     "nativeDataType": "FLOAT64",
@@ -431,7 +431,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705341600000,
-        "runId": "dataplex-2024_01_15-12_00_00-piinua",
+        "runId": "dataplex-2024_01_15-12_00_00-wit6cv",
         "lastRunId": "no-run-id-provided"
     }
 },

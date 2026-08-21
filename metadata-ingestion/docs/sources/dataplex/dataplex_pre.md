@@ -19,6 +19,8 @@ Notes on `export` mode:
 - `filter_config.entry_groups.pattern` does not apply (the export is scoped by entry type, not entry group); use the entry-level `filter_config.entries.pattern` / `fqn_pattern` filters instead.
 - Lineage and Business Glossary extraction work identically in both methods — they use the live Data Lineage and Business Glossary APIs.
 - If an export job fails or times out, or the exported output cannot be read completely, the run is reported as failed and stale-entity soft-deletion is skipped for that run, so temporarily missing entities are not tombstoned.
+- Exports of large catalogs can take tens of minutes or more. Per-job progress (state, elapsed seconds, entries read) is visible in the ingestion report's `export_jobs` field while the run is waiting, and `export_config.export_timeout_seconds` (default 3600) bounds the total wait.
+- Export buckets are reused across runs and old runs' output accumulates, which slows down the per-run object listing over time. Configure a GCS lifecycle/retention rule on the export buckets (or rotate `export_config.prefix` periodically) to keep them bounded.
 - The connection test verifies metadata-job **read** access and bucket access; it cannot verify permission to **create** metadata jobs (`roles/dataplex.metadataJobOwner`), so a passing test does not guarantee job submission will succeed.
 
 Read-only export mode (`export_config.existing_export_paths`):

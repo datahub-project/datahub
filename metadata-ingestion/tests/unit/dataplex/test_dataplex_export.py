@@ -1,10 +1,11 @@
 """Unit tests for the Dataplex export extraction method."""
 
+import itertools
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, Mock
+from typing import Any, Dict, Iterable, List, Optional
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -21,7 +22,10 @@ from datahub.ingestion.source.dataplex.dataplex_export import (
     iter_exported_entries,
     run_exports,
 )
-from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
+from datahub.ingestion.source.dataplex.dataplex_report import (
+    DataplexReport,
+    ExportJobInfo,
+)
 
 
 def make_export_config(**overrides: Any) -> DataplexConfig:
@@ -114,6 +118,20 @@ class TestExportConfig:
         assert config.extraction_method == "api"
         assert any("will be ignored" in r.message for r in caplog.records)
 
+    def test_blank_bucket_value_rejected(self):
+        with pytest.raises(ValidationError, match="blank"):
+            DataplexConfig.model_validate(
+                {
+                    "project_ids": ["test-project"],
+                    "entries_locations": ["us"],
+                    "extraction_method": "export",
+                    "export_config": {
+                        "export_job_runner_project": "runner-project",
+                        "export_bucket_config": {"us": " "},
+                    },
+                }
+            )
+
 
 def make_readonly_config(**path_overrides: str) -> DataplexConfig:
     """Build a read-only export-mode DataplexConfig (existing_export_paths)."""
@@ -158,6 +176,28 @@ class TestReadOnlyExportConfig:
         assert config.export_config.is_read_only
         assert any("read-only mode" in r.message for r in caplog.records)
 
+    def test_ignored_warning_lists_all_explicitly_set_fields(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            DataplexConfig.model_validate(
+                {
+                    "project_ids": ["test-project"],
+                    "entries_locations": ["us"],
+                    "extraction_method": "export",
+                    "export_config": {
+                        "existing_export_paths": {"us": "gs://my-export-us/exports"},
+                        "prefix": "custom",
+                        "export_poll_seconds": 30,
+                    },
+                }
+            )
+        messages = [
+            r.getMessage() for r in caplog.records if "read-only mode" in r.getMessage()
+        ]
+        assert len(messages) == 1
+        assert "prefix" in messages[0]
+        assert "export_poll_seconds" in messages[0]
+        assert "export_timeout_seconds" not in messages[0]
+
     def test_targets_built_from_paths(self):
         config = make_readonly_config(
             eu="gs://my-export-eu/", us="gs://my-export-us/exports/"
@@ -195,7 +235,7 @@ class TestExportScope:
         assert _output_path("my-bucket", "/exports/") == "gs://my-bucket/exports/"
 
 
-def make_session(job_states):
+def make_session(job_states: Iterable[str]) -> MagicMock:
     """Mock AuthorizedSession: POST accepts jobs, GET walks through job_states."""
     session = MagicMock()
     post_resp = Mock(status_code=200)
@@ -208,6 +248,28 @@ def make_session(job_states):
         resp = Mock(status_code=200)
         resp.json.return_value = {"status": {"state": next(states)}}
         return resp
+
+    session.get.side_effect = get_side_effect
+    return session
+
+
+def make_multi_location_session(states_by_location: Dict[str, List[str]]) -> MagicMock:
+    """Mock AuthorizedSession serving per-location state sequences on GET."""
+    session = MagicMock()
+    post_resp = Mock(status_code=200)
+    post_resp.json.return_value = {"name": "projects/p/locations/x/metadataJobs/j"}
+    session.post.return_value = post_resp
+
+    iters = {loc: iter(states) for loc, states in states_by_location.items()}
+
+    def get_side_effect(url):
+        job_id = url.rsplit("/", 1)[1]
+        for loc, states in iters.items():
+            if job_id.startswith(f"datahub-export-{loc}-"):
+                resp = Mock(status_code=200)
+                resp.json.return_value = {"status": {"state": next(states)}}
+                return resp
+        raise AssertionError(f"poll for unexpected job: {url}")
 
     session.get.side_effect = get_side_effect
     return session
@@ -236,6 +298,9 @@ class TestRunExports:
         assert report.export_jobs_succeeded == 1
         assert report.export_jobs_failed == 0
         assert not report.is_export_partial()
+        assert len(report.export_jobs) == 1
+        assert report.export_jobs[0].state == "SUCCEEDED"
+        assert report.export_jobs[0].job_id == targets[0].job_id
 
         # Submitted body is scoped to configured projects and supported types.
         body = session.post.call_args.kwargs["json"]
@@ -280,6 +345,139 @@ class TestRunExports:
         assert report.export_jobs_submitted == 0
         assert report.export_jobs_failed == 1
         assert report.is_export_partial()
+
+    def test_failed_job_surfaces_server_message(self):
+        config = make_export_config()
+        report = DataplexReport()
+        session = MagicMock()
+        post_resp = Mock(status_code=200)
+        post_resp.json.return_value = {"name": "n"}
+        session.post.return_value = post_resp
+        get_resp = Mock(status_code=200)
+        get_resp.json.return_value = {
+            "status": {"state": "FAILED", "message": "export scope has no projects"}
+        }
+        session.get.return_value = get_resp
+
+        targets = run_exports(
+            config=config,
+            project_ids=["test-project"],
+            session=session,
+            report=report,
+        )
+
+        assert targets == []
+        assert len(report.failures) == 1
+        assert "export scope has no projects" in str(report.as_obj()["failures"])
+
+    def test_timeout_reports_failure(self):
+        config = make_export_config(
+            export_config={
+                "export_job_runner_project": "runner-project",
+                "bucket_base_name": "my-export",
+                "export_poll_seconds": 1,
+                "export_timeout_seconds": 1,
+            }
+        )
+        report = DataplexReport()
+        session = make_session(itertools.repeat("RUNNING"))
+
+        targets = run_exports(
+            config=config,
+            project_ids=["test-project"],
+            session=session,
+            report=report,
+        )
+
+        assert targets == []
+        assert report.export_jobs_failed == 1
+        assert len(report.failures) == 1
+        assert report.is_export_partial()
+        assert report.export_jobs[0].state == "TIMED_OUT"
+
+    def test_persistent_poll_errors_fail_fast(self):
+        config = make_export_config()
+        report = DataplexReport()
+        session = MagicMock()
+        post_resp = Mock(status_code=200)
+        post_resp.json.return_value = {"name": "n"}
+        session.post.return_value = post_resp
+        session.get.side_effect = Exception("403 forbidden")
+
+        with (
+            patch(
+                "datahub.ingestion.source.dataplex.dataplex_export"
+                ".MAX_CONSECUTIVE_POLL_FAILURES",
+                2,
+            ),
+            patch("datahub.ingestion.source.dataplex.dataplex_export.time.sleep"),
+        ):
+            targets = run_exports(
+                config=config,
+                project_ids=["test-project"],
+                session=session,
+                report=report,
+            )
+
+        assert targets == []
+        assert report.export_jobs_failed == 1
+        assert len(report.failures) == 1
+        assert report.export_jobs[0].state == "POLL_FAILED"
+
+    def test_multi_location_joint_polling(self):
+        config = make_export_config(
+            entries_locations=["us", "eu"],
+            export_config={
+                "export_job_runner_project": "runner-project",
+                "bucket_base_name": "my-export",
+                "export_poll_seconds": 1,
+            },
+        )
+        report = DataplexReport()
+        session = make_multi_location_session(
+            {"us": ["RUNNING", "SUCCEEDED"], "eu": ["SUCCEEDED"]}
+        )
+
+        with patch("datahub.ingestion.source.dataplex.dataplex_export.time.sleep"):
+            targets = run_exports(
+                config=config,
+                project_ids=["test-project"],
+                session=session,
+                report=report,
+            )
+
+        assert report.export_jobs_submitted == 2
+        assert report.export_jobs_succeeded == 2
+        assert {t.location for t in targets} == {"us", "eu"}
+        assert {t.bucket for t in targets} == {"my-export-us", "my-export-eu"}
+        assert [j.state for j in report.export_jobs] == ["SUCCEEDED", "SUCCEEDED"]
+        assert report.failures == []
+
+    def test_sleep_capped_to_remaining_deadline(self):
+        config = make_export_config(
+            export_config={
+                "export_job_runner_project": "runner-project",
+                "bucket_base_name": "my-export",
+                "export_poll_seconds": 100,
+                "export_timeout_seconds": 1,
+            }
+        )
+        report = DataplexReport()
+        session = make_session(["RUNNING", "SUCCEEDED"])
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_export.time.sleep"
+        ) as mock_sleep:
+            targets = run_exports(
+                config=config,
+                project_ids=["test-project"],
+                session=session,
+                report=report,
+            )
+
+        assert len(targets) == 1
+        assert mock_sleep.call_count == 1
+        assert mock_sleep.call_args[0][0] <= 1
 
 
 def make_blob(
@@ -351,6 +549,13 @@ class TestIterExportedEntries:
             other_job_blob,
             non_jsonl_blob,
         ]
+        report.export_jobs.append(
+            ExportJobInfo(
+                location="us",
+                job_id="datahub-export-us-abc12345",
+                output_path="gs://my-export-us/",
+            )
+        )
 
         results = list(
             iter_exported_entries(
@@ -361,8 +566,9 @@ class TestIterExportedEntries:
         )
 
         assert len(results) == 2
-        entry, location = results[0]
-        assert location == "us"
+        exported = results[0]
+        assert exported.location == "us"
+        entry = exported.entry
         assert entry.fully_qualified_name == "bigquery:test-project.ds.t1"
         assert entry.entry_source.display_name == "t1"
         assert (
@@ -371,6 +577,7 @@ class TestIterExportedEntries:
         )
         assert report.export_blobs_read == 1
         assert report.export_entries_read == 2
+        assert report.export_jobs[0].entries_read == 2
 
     def test_malformed_line_is_skipped_and_counted(self):
         report = DataplexReport()
@@ -397,6 +604,37 @@ class TestIterExportedEntries:
         assert len(results) == 1
         assert report.export_malformed_lines_skipped == 1
         assert not report.is_export_partial()
+
+    def test_non_entry_lines_skipped_without_aborting_blob(self):
+        # A line that parses as non-dict JSON ("[]") must not raise and lose
+        # the rest of the blob, and a dict line without an object "entry"
+        # field must be counted rather than vanish silently.
+        report = DataplexReport()
+        target = self.make_target()
+
+        blob = make_blob(
+            "job=datahub-export-us-abc12345/part-0.jsonl",
+            [
+                "[]",
+                '{"other": 1}',
+                make_entry_line("bigquery:test-project.ds.t1", "t1"),
+            ],
+        )
+        storage_client = Mock()
+        storage_client.list_blobs.return_value = [blob]
+
+        results = list(
+            iter_exported_entries(
+                storage_client=storage_client,
+                target=target,
+                report=report,
+            )
+        )
+
+        assert len(results) == 1
+        assert report.export_malformed_lines_skipped == 2
+        assert len(report.warnings) >= 1
+        assert report.failures == []
 
     def test_bucket_listing_failure_reports_failure(self):
         report = DataplexReport()
@@ -507,7 +745,7 @@ class TestReadOnlyIteration:
         storage_client.list_blobs.assert_called_once_with(
             "my-export-us", prefix="exports/"
         )
-        assert [entry.entry_source.display_name for entry, _ in results] == ["t1", "t2"]
+        assert [e.entry.entry_source.display_name for e in results] == ["t1", "t2"]
         assert report.failures == []
         assert not report.is_export_partial()
 
@@ -529,7 +767,34 @@ class TestReadOnlyIteration:
         )
 
         assert len(results) == 1
-        assert results[0][1] == "us"
+        assert results[0].location == "us"
+
+    def test_unpartitioned_alongside_partitions_warns(self):
+        # Loose .jsonl files next to job partitions are skipped by design
+        # (only the freshest partition is read) — but visibly, via a warning.
+        report = DataplexReport()
+        target = self.make_target()
+
+        partitioned = make_blob(
+            "exports/job=nightly-01/part-0.jsonl",
+            [make_entry_line("bigquery:test-project.ds.t1", "t1")],
+            time_created=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+        loose = make_blob(
+            "exports/loose.jsonl",
+            [make_entry_line("bigquery:test-project.ds.loose", "loose")],
+        )
+        storage_client = Mock()
+        storage_client.list_blobs.return_value = [partitioned, loose]
+
+        results = list(
+            iter_exported_entries(
+                storage_client=storage_client, target=target, report=report
+            )
+        )
+
+        assert [e.entry.entry_source.display_name for e in results] == ["t1"]
+        assert len(report.warnings) == 1
 
     def test_empty_path_reports_failure(self):
         # A configured pre-existing path with nothing under it is a

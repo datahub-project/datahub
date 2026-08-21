@@ -213,6 +213,38 @@ def test_test_connection_readonly_export_empty_path_fails() -> None:
     assert "No objects found" in report.basic_connectivity.failure_reason
 
 
+def test_test_connection_export_probes_every_location() -> None:
+    config_dict = {
+        "project_ids": ["project-1"],
+        "extraction_method": "export",
+        "entries_locations": ["us", "eu"],
+        "export_config": {
+            "export_job_runner_project": "runner-project",
+            "bucket_base_name": "my-export",
+        },
+    }
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+        ) as build_client,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_authed_session"
+        ) as build_session,
+    ):
+        storage_client = build_client.return_value
+        storage_client.bucket.return_value.exists.return_value = True
+        session = build_session.return_value
+        session.get.return_value = Mock(status_code=200)
+
+        report = DataplexSource.test_connection(config_dict)
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert session.get.call_count == 2
+    probed_buckets = [c.args[0] for c in storage_client.bucket.call_args_list]
+    assert probed_buckets == ["my-export-us", "my-export-eu"]
+
+
 def test_test_connection_handles_google_api_error() -> None:
     with patch(
         "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient",

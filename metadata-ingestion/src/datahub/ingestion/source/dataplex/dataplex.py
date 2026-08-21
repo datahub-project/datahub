@@ -428,29 +428,32 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     return test_report
 
                 # Submit mode exercises the metadataJobs API on the job runner
-                # project and the export bucket instead of Catalog listing. The
-                # listing probe only proves read access — create permission
+                # project and the export bucket instead of Catalog listing —
+                # for every configured entries location, since ingestion will
+                # submit one job per location. The listing probe only proves
+                # read access — create permission
                 # (roles/dataplex.metadataJobOwner) cannot be verified without
                 # actually submitting a job.
                 session = build_authed_session(credentials)
-                location = config.entries_locations[0]
                 runner_project = config.export_config.export_job_runner_project
-                resp = session.get(
-                    f"{DATAPLEX_API_ROOT}/projects/{runner_project}"
-                    f"/locations/{location}/metadataJobs?pageSize=1"
-                )
-                resp.raise_for_status()
-
-                bucket_name = config.export_config.bucket_for_location(location)
-                if not storage_client.bucket(bucket_name).exists():
-                    test_report.basic_connectivity = CapabilityReport(
-                        capable=False,
-                        failure_reason=(
-                            f"Export bucket '{bucket_name}' for location "
-                            f"'{location}' does not exist or is not accessible."
-                        ),
+                for location in config.entries_locations:
+                    resp = session.get(
+                        f"{DATAPLEX_API_ROOT}/projects/{runner_project}"
+                        f"/locations/{location}/metadataJobs?pageSize=1"
                     )
-                    return test_report
+                    resp.raise_for_status()
+
+                    bucket_name = config.export_config.bucket_for_location(location)
+                    if not storage_client.bucket(bucket_name).exists():
+                        test_report.basic_connectivity = CapabilityReport(
+                            capable=False,
+                            failure_reason=(
+                                f"Export bucket '{bucket_name}' for location "
+                                f"'{location}' does not exist or is not "
+                                "accessible."
+                            ),
+                        )
+                        return test_report
 
                 test_report.basic_connectivity = CapabilityReport(capable=True)
                 return test_report

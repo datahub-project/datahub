@@ -6,6 +6,9 @@ export JSONL, and golden file validation. Proves that exported entries flow
 through the same mapper pipeline as the API path. The read-only variant
 (``existing_export_paths``) needs no REST session at all — canned JSONL feeds
 straight through the pipeline, which is why both tests share one golden file.
+
+The stateful test proves the central safety guarantee end to end: an export
+failure suppresses stale-entity soft-deletion, while a clean run deletes.
 """
 
 import json
@@ -17,9 +20,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 import time_machine
 
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.testing import mce_helpers
-from tests.test_helpers.state_helpers import run_and_get_pipeline
+from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
+    run_and_get_pipeline,
+)
 
 FROZEN_TIME = "2024-01-15 12:00:00"
 # uuid.uuid4 is patched so the export job id (which embeds uuid4().hex[:8]) is
@@ -322,3 +329,168 @@ def test_dataplex_readonly_export_integration(
         output_path=str(mcp_output_path),
         golden_path=str(mcp_golden_path),
     )
+
+
+GMS_SERVER = "http://localhost:8080"
+
+
+def dataplex_stateful_export_recipe(mcp_output_path: str) -> Dict[str, Any]:
+    """Export-mode recipe with stateful ingestion (stale-entity removal) on."""
+    return {
+        "run_id": "dataplex-export-stateful-test",
+        "pipeline_name": "dataplex-export-stateful-pipeline",
+        "source": {
+            "type": "dataplex",
+            "config": {
+                "project_ids": ["test-project"],
+                "entries_locations": ["us"],
+                "extraction_method": "export",
+                "export_config": {
+                    "export_job_runner_project": "runner-project",
+                    "bucket_base_name": "export-bucket",
+                    "export_poll_seconds": 1,
+                },
+                "include_lineage": False,
+                "include_schema": False,
+                "include_glossaries": False,
+                "stateful_ingestion": {
+                    "enabled": True,
+                    "remove_stale_metadata": True,
+                    "fail_safe_threshold": 100.0,
+                    "state_provider": {
+                        "type": "datahub",
+                        "config": {"datahub_api": {"server": GMS_SERVER}},
+                    },
+                },
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": mcp_output_path}},
+    }
+
+
+def _table_line(table: str) -> str:
+    return make_export_entry_line(
+        entry_id=(
+            f"bigquery.googleapis.com/projects/test-project/datasets/ds/tables/{table}"
+        ),
+        fqn=f"bigquery:test-project.ds.{table}",
+        entry_type_short_name="bigquery-table",
+    )
+
+
+def _run_stateful_export_pipeline(
+    tmp_path: Path,
+    output_file: str,
+    blobs: List[Mock],
+    mock_datahub_graph: Any,
+    expect_source_failure: bool = False,
+) -> Pipeline:
+    """One stateful export-mode pipeline run against the given canned blobs."""
+    with (
+        patch(
+            "datahub.ingestion.source.state_provider."
+            "datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex_export.uuid.uuid4",
+            return_value=FIXED_UUID,
+        ),
+        patch("google.cloud.storage.Client") as mock_storage_client_class,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_authed_session",
+            return_value=make_export_session(),
+        ),
+        patch("google.auth.default", return_value=(Mock(), "test-project")),
+    ):
+        mock_checkpoint.return_value = mock_datahub_graph
+        mock_storage_client_class.return_value.list_blobs.return_value = blobs
+
+        pipeline = Pipeline.create(
+            dataplex_stateful_export_recipe(str(tmp_path / output_file))
+        )
+        pipeline.run()
+        if not expect_source_failure:
+            pipeline.raise_from_status()
+    return pipeline
+
+
+def _soft_deleted_urns(output_path: Path) -> List[str]:
+    with open(output_path) as f:
+        mcps = json.load(f)
+    return [
+        mcp["entityUrn"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "status"
+        and mcp.get("aspect", {}).get("json", {}).get("removed") is True
+    ]
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dataplex_export_failure_gates_stale_entity_removal(
+    tmp_path, mock_datahub_graph
+):
+    """A reported export failure must block soft-deletion; a clean run deletes.
+
+    Run 1 ingests two tables. Run 2 hits the escalated partial-export failure
+    (bucket has objects, none from this run's job) — nothing may be
+    soft-deleted and the previous state must be preserved. Run 3 exports only
+    one table cleanly — now the missing table must be soft-deleted.
+    """
+    # Run 1: both tables ingested, checkpoint established.
+    run1_blobs = [
+        make_blob(
+            f"metadata/job={JOB_ID}/entry_group=@bigquery/part-0.jsonl",
+            [_table_line("table_a"), _table_line("table_b")],
+        )
+    ]
+    pipeline_run1 = _run_stateful_export_pipeline(
+        tmp_path, "run1_mces.json", run1_blobs, mock_datahub_graph
+    )
+    checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
+    assert checkpoint1
+    assert len(checkpoint1.state.urns) > 0
+    assert _soft_deleted_urns(tmp_path / "run1_mces.json") == []
+
+    # Run 2: the bucket holds only another job's output — the escalated
+    # failure must suppress soft-deletion and carry the old state forward.
+    run2_blobs = [
+        make_blob(
+            "metadata/job=datahub-export-us-99999999/entry_group=@bigquery"
+            "/part-0.jsonl",
+            [_table_line("table_a"), _table_line("table_b")],
+        )
+    ]
+    pipeline_run2 = _run_stateful_export_pipeline(
+        tmp_path,
+        "run2_mces.json",
+        run2_blobs,
+        mock_datahub_graph,
+        expect_source_failure=True,
+    )
+    report2 = pipeline_run2.source.get_report()
+    assert isinstance(report2, DataplexReport)
+    assert len(report2.failures) > 0
+    assert report2.is_export_partial()
+    assert _soft_deleted_urns(tmp_path / "run2_mces.json") == []
+    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
+    assert checkpoint2
+    assert set(checkpoint2.state.urns) == set(checkpoint1.state.urns)
+
+    # Run 3: a clean export containing only table_a — table_b is genuinely
+    # gone, so exactly its dataset must now be soft-deleted.
+    run3_blobs = [
+        make_blob(
+            f"metadata/job={JOB_ID}/entry_group=@bigquery/part-0.jsonl",
+            [_table_line("table_a")],
+        )
+    ]
+    pipeline_run3 = _run_stateful_export_pipeline(
+        tmp_path, "run3_mces.json", run3_blobs, mock_datahub_graph
+    )
+    report3 = pipeline_run3.source.get_report()
+    assert isinstance(report3, DataplexReport)
+    assert report3.failures == []
+    deleted = _soft_deleted_urns(tmp_path / "run3_mces.json")
+    assert len(deleted) == 1
+    assert "table_b" in deleted[0]

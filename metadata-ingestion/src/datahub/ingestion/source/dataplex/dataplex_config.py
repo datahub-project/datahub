@@ -476,17 +476,20 @@ class DataplexConfig(
                         f"existing_export_paths entry for location '{location}' "
                         f"is invalid: {e}"
                     ) from e
+            # Everything job-submission-related is ignored in read-only mode;
+            # flag whichever of those fields the user explicitly set.
             ignored = [
                 name
-                for name, value in (
-                    (
-                        "export_job_runner_project",
-                        self.export_config.export_job_runner_project,
-                    ),
-                    ("export_bucket_config", self.export_config.export_bucket_config),
-                    ("bucket_base_name", self.export_config.bucket_base_name),
+                for name in (
+                    "export_job_runner_project",
+                    "export_bucket_config",
+                    "bucket_base_name",
+                    "prefix",
+                    "export_poll_seconds",
+                    "export_timeout_seconds",
                 )
-                if value
+                if name in self.export_config.model_fields_set
+                and getattr(self.export_config, name)
             ]
             if ignored:
                 logger.warning(
@@ -501,6 +504,18 @@ class DataplexConfig(
                 "export_config.export_job_runner_project must be set when "
                 "extraction_method is 'export' (unless "
                 "'export_config.existing_export_paths' is used)."
+            )
+        # A key that is present but blank would pass the missing-bucket check
+        # below and produce an invalid 'gs:///...' output path at runtime.
+        blank_buckets = [
+            loc
+            for loc, bucket in self.export_config.export_bucket_config.items()
+            if not bucket.strip()
+        ]
+        if blank_buckets:
+            raise ValueError(
+                f"export_bucket_config entries for locations {blank_buckets} are "
+                "blank. Provide a bucket name or remove those entries."
             )
         # Every entries location must resolve to a bucket up front, so a
         # misconfiguration fails at recipe validation rather than mid-run.

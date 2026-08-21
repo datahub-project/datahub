@@ -19,6 +19,7 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_helpers import ExportedEntry
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     EntryMappingContext,
     get_entry_mapper,
@@ -236,11 +237,11 @@ class DataplexEntriesProcessor:
                 yield from self._process_spanner_entries(project_id, location)
 
     def process_exported_entries(
-        self, entries: Iterable[Tuple[dataplex_v1.Entry, str]]
+        self, entries: Iterable[ExportedEntry]
     ) -> Iterable["Entity"]:
         """Build entities from pre-fetched entries (``extraction_method: export``).
 
-        ``entries`` yields ``(entry, location)`` pairs parsed from the metadata
+        ``entries`` yields ``ExportedEntry`` items parsed from the metadata
         export's GCS JSONL output. Exported entries already carry full detail
         (aspects included), so there is no per-entry RPC to parallelise — this
         is a plain sequential pass through the same filter + mapper pipeline as
@@ -248,11 +249,12 @@ class DataplexEntriesProcessor:
         apply here (the export is scoped by entry type, not entry group); use
         the entry-level ``pattern`` / ``fqn_pattern`` filters instead.
         """
-        for entry, location in entries:
+        for exported in entries:
+            entry = exported.entry
             if not self._report_and_should_process_entry(entry):
                 continue
             try:
-                yield from self._build_entities_for_entry(entry, location)
+                yield from self._build_entities_for_entry(entry, exported.location)
             except Exception as exc:
                 self.source_report.warning(
                     title="Dataplex entry processing failed",

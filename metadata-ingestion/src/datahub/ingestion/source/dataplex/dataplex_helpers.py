@@ -5,6 +5,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from google.cloud import dataplex_v1
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +25,14 @@ class EntryDataTuple:
     datahub_platform: str
     datahub_dataset_name: str
     datahub_dataset_urn: str
+
+
+@dataclass(frozen=True)
+class ExportedEntry:
+    """One entry parsed from metadata-export output, with its entries location."""
+
+    entry: dataplex_v1.Entry
+    location: str
 
 
 @dataclass(frozen=True)
