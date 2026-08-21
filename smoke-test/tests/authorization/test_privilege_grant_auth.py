@@ -50,6 +50,8 @@ pytestmark = [
 _UNIQUE = uuid.uuid4().hex[:8]
 ACTOR_EMAIL = f"grant.auth.actor.{_UNIQUE}@smoke.datahub.test"
 ACTOR_URN = f"urn:li:corpuser:{ACTOR_EMAIL}"
+MEMBER_EMAIL = f"grant.auth.member.{_UNIQUE}@smoke.datahub.test"
+MEMBER_URN = f"urn:li:corpuser:{MEMBER_EMAIL}"
 USER_PASSWORD = "user"
 GROUP_NAME = f"grant-auth-group-{_UNIQUE}"
 
@@ -87,6 +89,12 @@ mutation acceptRole($input: AcceptRoleInput!) {
 }
 """
 
+ADD_GROUP_MEMBERS_MUTATION = """
+mutation addGroupMembers($input: AddGroupMembersInput!) {
+  addGroupMembers(input: $input)
+}
+"""
+
 OWNED_GROUP_URN = ""
 
 
@@ -95,6 +103,7 @@ def grant_auth_setup(graph_client, auth_session):
     global OWNED_GROUP_URN
     admin_session = get_frontend_session()
     admin_session = create_user(admin_session, ACTOR_EMAIL, USER_PASSWORD)
+    admin_session = create_user(admin_session, MEMBER_EMAIL, USER_PASSWORD)
     OWNED_GROUP_URN = create_group(admin_session, GROUP_NAME)
 
     # Ownership is what grants the actor EDIT_ENTITY on the group, via the bootstrap
@@ -115,6 +124,7 @@ def grant_auth_setup(graph_client, auth_session):
 
     remove_group(admin_session, OWNED_GROUP_URN)
     remove_user(admin_session, ACTOR_URN)
+    remove_user(admin_session, MEMBER_URN)
 
 
 @with_test_retry(max_attempts=10)
@@ -225,6 +235,56 @@ def test_user_cannot_grant_admin_role_to_self(graph_client):
     result = (res.get("data") or {}).get("patchEntity") or {}
     assert result.get("success") is False, res
     _assert_admin_role_not_granted(graph_client, ACTOR_URN)
+
+
+def test_group_owner_can_add_another_member(graph_client):
+    """A group owner adding someone else to their group must keep working.
+
+    EDIT_GROUP_MEMBERS comes from the Asset Owners policy and is therefore scoped to the group the
+    actor owns - not to the member being added. addGroupMembers authorizes against the group, but
+    the resulting nativeGroupMembership aspect is written on the member's corpuser entity, so a
+    validator that authorizes against the aspect's own URN denies a legitimate owner.
+    """
+    _wait_until_group_edit_effective()
+
+    res = _post_graphql_as_user(
+        ACTOR_EMAIL,
+        USER_PASSWORD,
+        {
+            "query": ADD_GROUP_MEMBERS_MUTATION,
+            "variables": {
+                "input": {"groupUrn": OWNED_GROUP_URN, "userUrns": [MEMBER_URN]}
+            },
+        },
+    )
+
+    assert res.get("data", {}).get("addGroupMembers") is True, res
+
+
+def test_group_owner_cannot_add_self_to_owned_group(graph_client):
+    """A group owner must not be able to add themselves to a group they own.
+
+    Ownership-derived EDIT_GROUP_MEMBERS is enough to manage other members, but adding yourself is
+    a privilege gain when the group carries roles, so it requires Manage Users & Groups.
+
+    The denial surfaces as a 500 rather than a 403 because GroupService wraps the validation
+    exception in a RuntimeException; assert on the outcome rather than the status.
+    """
+    _wait_until_group_edit_effective()
+
+    res = _post_graphql_as_user(
+        ACTOR_EMAIL,
+        USER_PASSWORD,
+        {
+            "query": ADD_GROUP_MEMBERS_MUTATION,
+            "variables": {
+                "input": {"groupUrn": OWNED_GROUP_URN, "userUrns": [ACTOR_URN]}
+            },
+        },
+    )
+
+    assert res.get("data", {}).get("addGroupMembers") is not True, res
+    assert res.get("errors"), res
 
 
 def test_invite_accept_still_assigns_role(graph_client):

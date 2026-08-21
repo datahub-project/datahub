@@ -15,6 +15,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
@@ -37,11 +38,13 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -57,6 +60,10 @@ public class PrivilegeGrantAuthorizationValidatorTest {
   private static final Urn OTHER_USER = UrnUtils.getUrn("urn:li:corpuser:other");
   private static final Urn GROUP = UrnUtils.getUrn("urn:li:corpGroup:privileged");
   private static final Urn ADMIN_ROLE = UrnUtils.getUrn("urn:li:dataHubRole:Admin");
+  private static final Urn OTHER_GROUP = UrnUtils.getUrn("urn:li:corpGroup:other");
+  private static final String ANY_RESOURCE = "*";
+
+  private final Map<String, Set<String>> grantedPrivileges = new HashMap<>();
 
   private AspectRetriever aspectRetriever;
   private RetrieverContext retrieverContext;
@@ -82,21 +89,38 @@ public class PrivilegeGrantAuthorizationValidatorTest {
                     .supportedEntityAspectNames(List.of())
                     .build());
 
-    grantPrivileges();
+    grantedPrivileges.clear();
+    stubAuthorization();
   }
 
-  /** Stubs the session to allow exactly the named privileges. */
-  private void grantPrivileges(String... privileges) {
-    final Set<String> granted = Set.of(privileges);
+  /** Stubs the session from {@link #grantedPrivileges}, honouring the resource the check names. */
+  private void stubAuthorization() {
     when(session.authorize(anyString(), any()))
         .thenAnswer(
-            args ->
-                new AuthorizationResult(
-                    null,
-                    granted.contains(args.getArgument(0).toString())
-                        ? AuthorizationResult.Type.ALLOW
-                        : AuthorizationResult.Type.DENY,
-                    null));
+            args -> {
+              final String privilege = args.getArgument(0);
+              final EntitySpec resource = args.getArgument(1);
+              final Set<String> allowedOn = grantedPrivileges.getOrDefault(privilege, Set.of());
+              final boolean allowed =
+                  allowedOn.contains(ANY_RESOURCE)
+                      || (resource != null && allowedOn.contains(resource.getEntity()));
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+  }
+
+  /** Allow these privileges on any resource, as a platform or unfiltered policy would. */
+  private void grantPrivileges(String... privileges) {
+    for (String privilege : privileges) {
+      grantedPrivileges.computeIfAbsent(privilege, key -> new HashSet<>()).add(ANY_RESOURCE);
+    }
+  }
+
+  /** Allow a privilege on one resource only, as a resource-scoped policy would. */
+  private void grantPrivilegeOn(String privilege, Urn resource) {
+    grantedPrivileges.computeIfAbsent(privilege, key -> new HashSet<>()).add(resource.toString());
   }
 
   private void existingAspect(Urn urn, String aspectName, RecordTemplate aspect) {
@@ -109,14 +133,20 @@ public class PrivilegeGrantAuthorizationValidatorTest {
   }
 
   private BatchItem upsert(Urn urn, String aspectName, RecordTemplate aspect, Urn actor) {
-    final EntitySpec entitySpec = mock(EntitySpec.class);
+    return item(urn, aspectName, aspect, actor, ChangeType.UPSERT);
+  }
+
+  private BatchItem item(
+      Urn urn, String aspectName, RecordTemplate aspect, Urn actor, ChangeType changeType) {
+    final com.linkedin.metadata.models.EntitySpec entitySpec =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
     when(entitySpec.getName()).thenReturn(urn.getEntityType());
     final AspectSpec aspectSpec = mock(AspectSpec.class);
     when(aspectSpec.getName()).thenReturn(aspectName);
 
     return TestMCP.builder()
         .urn(urn)
-        .changeType(ChangeType.UPSERT)
+        .changeType(changeType)
         .entitySpec(entitySpec)
         .aspectSpec(aspectSpec)
         .recordTemplate(aspect)
@@ -216,6 +246,44 @@ public class PrivilegeGrantAuthorizationValidatorTest {
         validate(upsert(ACTOR, GROUP_MEMBERSHIP_ASPECT_NAME, groups(GROUP), ACTOR)).isEmpty());
   }
 
+  /**
+   * EDIT_GROUP_MEMBERS is held on the group - the Asset Owners policy scopes it to owned entities -
+   * while the membership aspect is written on the member's corpuser entity. Authorizing against the
+   * aspect's own URN would deny a legitimate group owner.
+   */
+  @Test
+  public void testGroupGrantAuthorizedAgainstGroupNotMember() {
+    grantPrivilegeOn(EDIT_GROUP_MEMBERS, GROUP);
+    assertTrue(
+        validate(upsert(OTHER_USER, GROUP_MEMBERSHIP_ASPECT_NAME, groups(GROUP), ACTOR)).isEmpty());
+  }
+
+  @Test
+  public void testGroupGrantDeniedWhenOnlyMemberUrnAuthorized() {
+    grantPrivilegeOn(EDIT_GROUP_MEMBERS, OTHER_USER);
+    assertAuthFailure(
+        validate(upsert(OTHER_USER, GROUP_MEMBERSHIP_ASPECT_NAME, groups(GROUP), ACTOR)));
+  }
+
+  /** One editable group must not carry an unauthorized group along in the same write. */
+  @Test
+  public void testMultiGroupGrantRequiresEveryGroup() {
+    grantPrivilegeOn(EDIT_GROUP_MEMBERS, GROUP);
+    assertAuthFailure(
+        validate(
+            upsert(OTHER_USER, GROUP_MEMBERSHIP_ASPECT_NAME, groups(GROUP, OTHER_GROUP), ACTOR)));
+  }
+
+  @Test
+  public void testMultiGroupGrantAllowedWhenEveryGroupAuthorized() {
+    grantPrivilegeOn(EDIT_GROUP_MEMBERS, GROUP);
+    grantPrivilegeOn(EDIT_GROUP_MEMBERS, OTHER_GROUP);
+    assertTrue(
+        validate(
+                upsert(OTHER_USER, GROUP_MEMBERSHIP_ASPECT_NAME, groups(GROUP, OTHER_GROUP), ACTOR))
+            .isEmpty());
+  }
+
   // --- corpGroup ownership: self grant is the entry point to the Asset Owners chain ---
 
   @Test
@@ -228,6 +296,20 @@ public class PrivilegeGrantAuthorizationValidatorTest {
   public void testOwnershipGrantToOtherOnGroupAllowedWithEditOwners() {
     grantPrivileges(EDIT_ENTITY_OWNERS);
     assertTrue(validate(upsert(GROUP, OWNERSHIP_ASPECT_NAME, owners(OTHER_USER), ACTOR)).isEmpty());
+  }
+
+  // --- rules key off the aspect, not the entity type ---
+
+  /**
+   * AspectPluginConfig matches entity names and aspect names in two independent passes, so a rule
+   * reaches any registered entity type carrying its aspect. That breadth is deliberate for a
+   * security control: were corpuser ever to gain an ownership aspect, the self-grant floor should
+   * apply there too rather than silently lapse.
+   */
+  @Test
+  public void testOwnershipRuleAppliesToAnyEntityCarryingTheAspect() {
+    grantPrivileges(EDIT_ENTITY_OWNERS);
+    assertAuthFailure(validate(upsert(OTHER_USER, OWNERSHIP_ASPECT_NAME, owners(ACTOR), ACTOR)));
   }
 
   // --- only additions count as grants ---
@@ -243,6 +325,26 @@ public class PrivilegeGrantAuthorizationValidatorTest {
     existingAspect(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE));
     assertTrue(
         validate(upsert(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE), ACTOR))
+            .isEmpty());
+  }
+
+  /** An unreadable proposal must demand the strictest floor rather than passing unchecked. */
+  @Test
+  public void testUnreadableProposalFailsClosed() {
+    assertAuthFailure(validate(upsert(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, null, ACTOR)));
+  }
+
+  @Test
+  public void testUnreadableProposalAllowedForPrivilegedActor() {
+    grantPrivileges(MANAGE_POLICIES);
+    assertTrue(validate(upsert(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, null, ACTOR)).isEmpty());
+  }
+
+  /** Removing an aspect can only reduce privileges. */
+  @Test
+  public void testDeleteAllowedWithoutPrivileges() {
+    assertTrue(
+        validate(item(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, null, ACTOR, ChangeType.DELETE))
             .isEmpty());
   }
 

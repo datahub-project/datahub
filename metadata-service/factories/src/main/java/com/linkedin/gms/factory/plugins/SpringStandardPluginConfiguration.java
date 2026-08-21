@@ -552,6 +552,12 @@ public class SpringStandardPluginConfiguration {
                 .className(PrivilegeGrantAuthorizationValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                // Entity names and aspect names are matched in two independent passes, so these
+                // entries select the cartesian product rather than the listed pairs. That is fine
+                // and intended here: the extra combinations are aspects the entity does not carry
+                // (no ownership on corpuser, no group membership on corpGroup), so they are
+                // unreachable, and should one ever become reachable, guarding it is what we want.
+                // Do not narrow this to exact pairs - it would only shrink a security control.
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

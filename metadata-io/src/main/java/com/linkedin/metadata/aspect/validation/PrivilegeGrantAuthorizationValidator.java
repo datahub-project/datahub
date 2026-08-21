@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -74,7 +75,15 @@ import lombok.extern.slf4j.Slf4j;
  * An actor holding Manage Policies can already grant Admin to any other account and act as it, so
  * blocking self-assignment would add friction without security.
  *
- * <p>Only additions count as grants; removals and re-ingestion of unchanged state always pass.
+ * <p>The resource a privilege is checked against is not always the aspect's own entity. Group
+ * membership lives on the member's corpuser entity, but {@code EDIT_GROUP_MEMBERS} is held on the
+ * group - so it is authorized against each added group, matching {@code
+ * AuthorizationUtils.canEditGroupMembers}. Every added group must be authorized, so an editable
+ * group cannot carry unauthorized ones along in the same write.
+ *
+ * <p>Only additions count as grants; removals, deletes, and re-ingestion of unchanged state always
+ * pass. A proposal that cannot be read is treated as the worst case and requires the strictest
+ * floor rather than passing unchecked.
  */
 @Setter
 @Getter
@@ -86,11 +95,11 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
   private static final String GROUPS_LABEL = "groups";
   private static final String OWNERS_LABEL = "owners";
 
-  private static final String UNRESOLVABLE_PATCH_MESSAGE =
-      "Unauthorized to modify %s on %s (proposed value could not be resolved from the patch, so %s is required)";
+  private static final String UNRESOLVABLE_MESSAGE =
+      "Unauthorized to modify %s on %s (proposed value could not be resolved, so %s is required)";
   private static final String SELF_GRANT_MESSAGE =
       "Unauthorized to grant %s %s to self on %s (self grants require %s)";
-  private static final String GRANT_MESSAGE = "Unauthorized to grant %s %s on %s (requires %s)";
+  private static final String GRANT_MESSAGE = "Unauthorized to grant %s %s (requires %s on %s)";
 
   /** Raised floor applied when the acting actor is among the beneficiaries of the grant. */
   private static final Privilege SELF_GRANT_FLOOR =
@@ -105,6 +114,7 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
               List.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE),
               null,
               Beneficiary.ENTITY,
+              AuthResource.ENTITY,
               ROLES_LABEL),
           GROUP_MEMBERSHIP_ASPECT_NAME,
           new GrantRule<>(
@@ -113,6 +123,8 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
               List.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE, SELF_GRANT_FLOOR),
               SELF_GRANT_FLOOR,
               Beneficiary.ENTITY,
+              // The privilege is held on the group, not on the member whose aspect this is.
+              AuthResource.GRANTED_URNS,
               GROUPS_LABEL),
           NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
           new GrantRule<>(
@@ -121,6 +133,8 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
               List.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE, SELF_GRANT_FLOOR),
               SELF_GRANT_FLOOR,
               Beneficiary.ENTITY,
+              // The privilege is held on the group, not on the member whose aspect this is.
+              AuthResource.GRANTED_URNS,
               GROUPS_LABEL),
           OWNERSHIP_ASPECT_NAME,
           new GrantRule<>(
@@ -132,6 +146,7 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
                   SELF_GRANT_FLOOR),
               SELF_GRANT_FLOOR,
               Beneficiary.GRANTED_URNS,
+              AuthResource.ENTITY,
               OWNERS_LABEL));
 
   @Nonnull private AspectPluginConfig config;
@@ -186,24 +201,24 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull AuthorizationSession session) {
 
+    // Deletes do not grant additional privileges and are gated behind DELETE_ENTITY privileges
+    if (ChangeType.DELETE.equals(item.getChangeType())) {
+      return Optional.empty();
+    }
+
     final T current =
         loadAspect(operationContext, aspectRetriever, item.getUrn(), aspectName, rule);
     final ResolvedAspect<T> proposed = resolveProposed(item, current, rule.aspectClass());
-    if (proposed.failClosed()) {
-      // Assume the worst payload so the authorization check still runs, rather than denying a
-      // privileged actor outright.
-      if (isAnyAuthorized(session, item.getUrn(), List.of(strictestFloor(rule)))) {
+
+    // A proposal we cannot read must not skip the check. Assume the worst payload and demand the
+    // strictest floor, rather than denying a privileged actor outright.
+    if (proposed.failClosed() || proposed.value() == null) {
+      final Privilege strictest = strictestFloor(rule);
+      if (isAnyAuthorized(session, item.getUrn(), List.of(strictest))) {
         return Optional.empty();
       }
       return Optional.of(
-          String.format(
-              UNRESOLVABLE_PATCH_MESSAGE,
-              rule.label(),
-              item.getUrn(),
-              strictestFloor(rule).getType()));
-    }
-    if (proposed.value() == null) {
-      return Optional.empty();
+          String.format(UNRESOLVABLE_MESSAGE, rule.label(), item.getUrn(), strictest.getType()));
     }
 
     final Set<Urn> granted =
@@ -217,9 +232,16 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
     final Urn actor = resolveAuthorizingActor(item, operationContext);
     final boolean selfGrant =
         rule.selfFloor() != null && rule.beneficiary().includesActor(item.getUrn(), granted, actor);
-
     final List<Privilege> required = selfGrant ? List.of(rule.selfFloor()) : rule.baseFloor();
-    if (isAnyAuthorized(session, item.getUrn(), required)) {
+
+    // Every target must be authorized: one editable group must not carry unauthorized ones along
+    // in the same write.
+
+    final List<Urn> unauthorized =
+        rule.authResource().targets(item.getUrn(), granted).stream()
+            .filter(target -> !isAnyAuthorized(session, target, required))
+            .collect(Collectors.toList());
+    if (unauthorized.isEmpty()) {
       return Optional.empty();
     }
 
@@ -232,11 +254,7 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
                 item.getUrn(),
                 rule.selfFloor().getType())
             : String.format(
-                GRANT_MESSAGE,
-                rule.label(),
-                granted,
-                item.getUrn(),
-                rule.baseFloor().get(0).getType()));
+                GRANT_MESSAGE, rule.label(), granted, required.get(0).getType(), unauthorized));
   }
 
   /** The highest floor a rule can demand, used when the proposed payload cannot be determined. */
@@ -383,6 +401,26 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
     return actor != null && SYSTEM_ACTOR.equals(actor.toString());
   }
 
+  /** Which resource the privilege check names, independent of who benefits from the grant. */
+  private enum AuthResource {
+    /** The entity being written, e.g. the group whose owners are changing. */
+    ENTITY {
+      @Override
+      Collection<Urn> targets(@Nonnull Urn entityUrn, @Nonnull Set<Urn> granted) {
+        return List.of(entityUrn);
+      }
+    },
+    /** Each newly granted URN, e.g. the groups a user is being added to. */
+    GRANTED_URNS {
+      @Override
+      Collection<Urn> targets(@Nonnull Urn entityUrn, @Nonnull Set<Urn> granted) {
+        return granted;
+      }
+    };
+
+    abstract Collection<Urn> targets(@Nonnull Urn entityUrn, @Nonnull Set<Urn> granted);
+  }
+
   /** Where the beneficiaries of a grant are named. */
   private enum Beneficiary {
     /** The entity being written to is the beneficiary, as with membership aspects. */
@@ -407,6 +445,8 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
   /**
    * @param baseFloor privileges that authorize a grant to someone else; any one of them suffices
    * @param selfFloor privilege required when the actor is a beneficiary, or null for no self check
+   * @param authResource which resource the privilege is checked against; note this is orthogonal to
+   *     {@code beneficiary} and inverted for group membership versus ownership
    */
   private record GrantRule<T extends RecordTemplate>(
       @Nonnull Class<T> aspectClass,
@@ -414,6 +454,7 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
       @Nonnull List<Privilege> baseFloor,
       @Nullable Privilege selfFloor,
       @Nonnull Beneficiary beneficiary,
+      @Nonnull AuthResource authResource,
       @Nonnull String label) {}
 
   private record ResolvedAspect<T extends RecordTemplate>(@Nullable T value, boolean failClosed) {}
