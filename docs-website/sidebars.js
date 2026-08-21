@@ -129,10 +129,39 @@ module.exports = {
               id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "AI Coding Assistants",
+              type: "category",
+              collapsible: true,
+              collapsed: true,
+              link: {
+                type: "generated-index",
+                title: "AI Coding Assistants",
+                description: "Connect DataHub to AI coding assistants.",
+              },
+              items: [
+                {
+                  label: "Cursor",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/cursor",
+                },
+                {
+                  label: "Claude",
+                  type: "doc",
+                  id: "docs/dev-guides/agent-context/claude",
+                },
+              ],
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,
               collapsed: true,
+              link: {
+                type: "generated-index",
+                title: "Snowflake",
+                description:
+                  "Connect DataHub to Snowflake Cortex agents and Cortex Code.",
+              },
               items: [
                 {
                   label: "Cortex Agents",
@@ -151,6 +180,12 @@ module.exports = {
               type: "category",
               collapsible: true,
               collapsed: true,
+              link: {
+                type: "generated-index",
+                title: "Google",
+                description:
+                  "Connect DataHub to Google Gemini CLI, Agent Development Kit, and Vertex AI.",
+              },
               items: [
                 {
                   label: "Gemini CLI",
@@ -174,6 +209,12 @@ module.exports = {
               type: "category",
               collapsible: true,
               collapsed: true,
+              link: {
+                type: "generated-index",
+                title: "Databricks",
+                description:
+                  "Connect DataHub to Databricks Genie Code and Agent Bricks.",
+              },
               items: [
                 {
                   label: "Genie Code",
@@ -191,16 +232,6 @@ module.exports = {
               label: "LangChain",
               type: "doc",
               id: "docs/dev-guides/agent-context/langchain",
-            },
-            {
-              label: "Cursor",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/cursor",
-            },
-            {
-              label: "Claude",
-              type: "doc",
-              id: "docs/dev-guides/agent-context/claude",
             },
             {
               label: "Microsoft Copilot Studio",
