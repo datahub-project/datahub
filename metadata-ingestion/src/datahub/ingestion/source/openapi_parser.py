@@ -776,26 +776,38 @@ def enhance_schema_with_titles(
 def _resolve_pattern_and_property_names(
     resolved_schema: Dict, sw_dict: Dict, max_depth: int
 ) -> None:
-    """Resolve $refs under patternProperties / propertyNames; promote maps for field extract."""
+    """Resolve $refs under patternProperties / propertyNames."""
     pattern_properties = resolved_schema.get("patternProperties")
     if isinstance(pattern_properties, dict):
         for pattern, prop_schema in list(pattern_properties.items()):
             pattern_properties[pattern] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
             )
-        # json_schema_util only understands additionalProperties as map values.
-        if "additionalProperties" not in resolved_schema:
-            pattern_schemas = list(pattern_properties.values())
-            if len(pattern_schemas) == 1:
-                resolved_schema["additionalProperties"] = pattern_schemas[0]
-            elif pattern_schemas:
-                resolved_schema["additionalProperties"] = {"anyOf": pattern_schemas}
 
     property_names = resolved_schema.get("propertyNames")
     if isinstance(property_names, dict):
         resolved_schema["propertyNames"] = resolve_schema_references(
             property_names, sw_dict, max_depth=max_depth - 1
         )
+
+
+def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
+    """Promote patternProperties to additionalProperties for map-only schemas.
+
+    json_schema_util treats dict additionalProperties as a map and skips named
+    properties, so only promote when both properties and additionalProperties
+    are absent. Call after allOf merge so properties from allOf are visible.
+    """
+    pattern_properties = resolved_schema.get("patternProperties")
+    if not isinstance(pattern_properties, dict):
+        return
+    if "additionalProperties" in resolved_schema or "properties" in resolved_schema:
+        return
+    pattern_schemas = list(pattern_properties.values())
+    if len(pattern_schemas) == 1:
+        resolved_schema["additionalProperties"] = pattern_schemas[0]
+    elif pattern_schemas:
+        resolved_schema["additionalProperties"] = {"anyOf": pattern_schemas}
 
 
 def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -899,6 +911,8 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 )
                 for union_schema in resolved_schema[union_key]
             ]
+
+    _promote_pattern_properties_to_additional(resolved_schema)
 
     return resolved_schema
 

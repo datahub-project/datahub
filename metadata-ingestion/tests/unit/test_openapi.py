@@ -1488,6 +1488,80 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".id" in path for path in field_paths))
         self.assertTrue(any(".name" in path for path in field_paths))
 
+    def test_resolve_schema_references_pattern_properties_keeps_named_properties(self):
+        """Do not promote patternProperties when named properties exist."""
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "properties": {"fixed": {"type": "string"}},
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertNotIn("additionalProperties", resolved)
+        self.assertIn("fixed", resolved["properties"])
+        self.assertIn("id", resolved["patternProperties"]["^[a-z]+$"]["properties"])
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="named-plus-pattern", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".fixed" in path for path in field_paths))
+
+    def test_resolve_schema_references_pattern_properties_after_allof(self):
+        """Promote only after allOf merge so allOf properties are preserved."""
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    },
+                }
+            },
+        }
+        # patternProperties at parent + named properties via allOf — the old
+        # pre-allOf promotion would turn this into a map and drop `fixed`.
+        schema = {
+            "type": "object",
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+            "allOf": [
+                {
+                    "type": "object",
+                    "properties": {"fixed": {"type": "string"}},
+                }
+            ],
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("fixed", resolved["properties"])
+        self.assertNotIn("additionalProperties", resolved)
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="allof-pattern", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".fixed" in path for path in field_paths))
+
     def test_resolve_schema_references_property_names_ref(self):
         """propertyNames $ref must resolve so jsonref does not fail schema extraction."""
         sw_dict = {
