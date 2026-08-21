@@ -398,3 +398,64 @@ def test_empty_owner_criteria_includes_all_users(
         output_path=f"{tmp_path}/powerbi_empty_criteria_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_shared_expression_lineage_ingest(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """A table built on queries with "Enable load" switched off gets the upstream
+    those queries hold. Those queries are not tables, so there is nothing to
+    point an edge at and the chain has to be followed inline."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+    mock_data_path = (
+        pytestconfig.rootpath
+        / "tests/integration/powerbi/mock_data/shared_expressions_mock_response.json"
+    )
+
+    register_mock_api(
+        request_mock=requests_mock,
+        pytestconfig=pytestconfig,
+        override_data=read_mock_data(mock_data_path),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    "tenant_id": "0b0c960b-fcdf-4d0f-8c45-2e03bb59ddeb",
+                    "client_id": "a8d655a6-f521-477e-8c22-255018583bf4",
+                    "client_secret": "ababa~cdcdcdcdcdcdcdcdcdcd-abcd.defghijk",
+                    "extract_lineage": True,
+                    "extract_column_level_lineage": True,
+                    "workspace_name_pattern": {
+                        "allow": ["^shared-expressions-workspace$"]
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_shared_expressions_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_shared_expressions.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_shared_expressions_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )

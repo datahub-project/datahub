@@ -2052,3 +2052,130 @@ def test_mutually_referencing_steps_do_not_recurse():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
+
+
+# A query with "Enable load" switched off is not a table in the model; it lives
+# only in the dataset's shared expressions. Names below are generic stand-ins for
+# the reported shape: one loaded table over three hidden queries.
+_HIDDEN_BASE_EXPRESSION: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    tbl = sch{[Name="my_table",Kind="Table"]}[Data]\n'
+    "in\n"
+    "    tbl"
+)
+
+_DATABRICKS_EXPECTED_UPSTREAM: str = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+)
+
+
+def _lineage_with_expressions(q: str, expressions: dict) -> List[Lineage]:
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="loaded_table",
+        full_name="MyDataSet.loaded_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    return parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions=expressions,
+    )
+
+
+@pytest.mark.integration
+def test_shared_expression_provides_lineage():
+    """A table whose only reference is a query that is not loaded into the model
+    still resolves, by following that query's own expression."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"Base Query", out = Table.SelectRows(Source, each true) in out',
+        {"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+
+
+@pytest.mark.integration
+def test_shared_expression_chain_resolves_through_diamond():
+    """The reported shape: one loaded table combining two hidden queries that both
+    read a third hidden query, which holds the connector. The shared upstream is
+    reported once, not once per path."""
+    lineages = _lineage_with_expressions(
+        'let Source = Table.Combine({#"Only", #"Excluded"}) in Source',
+        {
+            "Only": 'let s = #"Base Query",'
+            ' f = Table.SelectRows(s, each [c] = "x") in f',
+            "Excluded": 'let s = #"Base Query",'
+            ' f = Table.SelectRows(s, each [c] <> "x") in f',
+            "Base Query": _HIDDEN_BASE_EXPRESSION,
+        },
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    # Both branches legitimately reach the same table, so the walk finds it on
+    # each path; collapsing that into one upstream is the mapper's job and is
+    # covered by the golden test.
+    assert {t.urn for t in data_platform_tables} == {_DATABRICKS_EXPECTED_UPSTREAM}
+
+
+@pytest.mark.integration
+def test_shared_expression_cycle_does_not_recurse():
+    """Two queries referencing each other must stop rather than be followed
+    forever."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"A" in Source',
+        {
+            "A": 'let s = #"B" in s',
+            "B": 'let s = #"A" in s',
+        },
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_parameter_query_is_not_followed_as_a_source():
+    """A shared expression holding a parameter value is not a query, so following
+    it leads to a literal rather than a data source."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"Server Name" in Source',
+        {
+            "Server Name": '"adb-123.azuredatabricks.net"'
+            ' meta [IsParameterQuery=true, Type="Text",'
+            " IsParameterQueryRequired=true]"
+        },
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_shared_expression_reference_is_matched_case_insensitively():
+    """M identifier lookup folds case elsewhere, so a reference whose casing
+    differs from the query name still resolves."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"base query" in Source',
+        {"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM

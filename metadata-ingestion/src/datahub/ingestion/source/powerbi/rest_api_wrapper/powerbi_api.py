@@ -643,6 +643,16 @@ class PowerBiAPI:
             except Exception as e:
                 logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
 
+            # Queries the model holds without loading them as tables. The scan is
+            # already asked for these (datasetExpressions), and a loaded table
+            # referencing one has no entity to point an edge at, so its lineage
+            # has to come from following the query itself.
+            dataset_instance.expressions = {
+                expression[Constant.NAME]: expression[Constant.EXPRESSION]
+                for expression in dataset_dict.get(Constant.EXPRESSIONS) or []
+                if expression.get(Constant.NAME) and expression.get(Constant.EXPRESSION)
+            }
+
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
                     dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
