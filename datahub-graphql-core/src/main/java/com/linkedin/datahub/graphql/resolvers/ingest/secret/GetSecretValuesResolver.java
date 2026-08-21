@@ -18,6 +18,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -25,11 +26,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Retrieves the plaintext values of secrets stored in DataHub. Uses AES symmetric encryption /
  * decryption. Requires the MANAGE_SECRETS privilege.
  */
+@Slf4j
 public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<List<SecretValue>>> {
 
   private final EntityClient _entityClient;
@@ -67,30 +70,63 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
                       new HashSet<>(urns),
                       ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
 
-              // Now for each secret, decrypt and return the value. If no secret was found, then we
-              // will simply omit it from the list.
+              // Now for each secret, decrypt and return the value. If no secret was found, or its
+              // stored value cannot be decrypted, it is omitted from the list so that the
+              // remaining secrets in the batch still resolve.
               // There is no ordering guarantee for the list.
-              return entities.values().stream()
-                  .map(
-                      entity -> {
-                        EnvelopedAspect aspect =
-                            entity.getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME);
-                        if (aspect != null) {
-                          // Aspect is present.
-                          final DataHubSecretValue secretValue =
-                              new DataHubSecretValue(aspect.getValue().data());
-                          // Now decrypt the encrypted secret.
-                          final String decryptedSecretValue =
-                              _secretService.decrypt(
-                                  context.getOperationContext(), secretValue.getValue());
-                          return new SecretValue(secretValue.getName(), decryptedSecretValue);
-                        } else {
-                          // No secret exists
-                          return null;
-                        }
-                      })
-                  .filter(Objects::nonNull)
-                  .collect(Collectors.toList());
+              final List<String> undecryptableSecrets = new ArrayList<>();
+              final List<SecretValue> values =
+                  entities.values().stream()
+                      .map(
+                          entity -> {
+                            EnvelopedAspect aspect =
+                                entity.getAspects().get(Constants.SECRET_VALUE_ASPECT_NAME);
+                            if (aspect == null) {
+                              // No secret exists
+                              return null;
+                            }
+                            final DataHubSecretValue secretValue =
+                                new DataHubSecretValue(aspect.getValue().data());
+                            try {
+                              // Now decrypt the encrypted secret.
+                              final String decryptedSecretValue =
+                                  _secretService.decrypt(
+                                      context.getOperationContext(), secretValue.getValue());
+                              return new SecretValue(secretValue.getName(), decryptedSecretValue);
+                            } catch (Exception e) {
+                              // A stored value encrypted with a different
+                              // SECRET_SERVICE_ENCRYPTION_KEY (e.g. after a migration) or with
+                              // corrupted encoding is undecryptable; failing the whole batch for it
+                              // would also break every healthy secret requested alongside it.
+                              log.error(
+                                  "Failed to decrypt secret '{}' (urn: {}). The stored value is "
+                                      + "likely corrupted or was encrypted with a different "
+                                      + "encryption key; delete and re-create the secret to fix "
+                                      + "it. Omitting it from the response.",
+                                  secretValue.getName(),
+                                  entity.getUrn(),
+                                  e);
+                              undecryptableSecrets.add(secretValue.getName());
+                              return null;
+                            }
+                          })
+                      .filter(Objects::nonNull)
+                      .collect(Collectors.toList());
+
+              // A batch where every stored value failed to decrypt points at a systemic problem
+              // (typically a SECRET_SERVICE_ENCRYPTION_KEY change) rather than one bad secret —
+              // fail loudly instead of returning an empty list that reads as "no secrets exist".
+              if (values.isEmpty() && !undecryptableSecrets.isEmpty()) {
+                throw new IllegalStateException(
+                    String.format(
+                        "Failed to decrypt all %d stored secret value(s): %s. The values were "
+                            + "likely encrypted with a different SECRET_SERVICE_ENCRYPTION_KEY "
+                            + "(e.g. the key changed during a migration); delete and re-create "
+                            + "the secrets to fix them.",
+                        undecryptableSecrets.size(), undecryptableSecrets));
+              }
+
+              return values;
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);
