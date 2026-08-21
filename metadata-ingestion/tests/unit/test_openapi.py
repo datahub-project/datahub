@@ -1617,6 +1617,55 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("additionalProperties", resolved)
         self.assertIn("id", resolved["additionalProperties"]["properties"])
 
+    def test_merge_allof_same_pattern_combines_under_allof(self):
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {
+                            "type": "object",
+                            "properties": {"a": {"type": "string"}},
+                        },
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {
+                            "type": "object",
+                            "properties": {"b": {"type": "string"}},
+                        },
+                    },
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^[a-z]+$"]
+        self.assertIn("a", pattern_schema["properties"])
+        self.assertIn("b", pattern_schema["properties"])
+
+    def test_merge_allof_property_names_combines_under_allof(self):
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "propertyNames": {"type": "string", "minLength": 1},
+            "allOf": [
+                {"propertyNames": {"type": "string", "maxLength": 10}},
+            ],
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertIn("allOf", resolved["propertyNames"])
+        parts = resolved["propertyNames"]["allOf"]
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(parts[0].get("minLength"), 1)
+        self.assertEqual(parts[1].get("maxLength"), 10)
+
     def test_resolve_schema_references_property_names_ref(self):
         sw_dict = {
             "openapi": "3.0.0",

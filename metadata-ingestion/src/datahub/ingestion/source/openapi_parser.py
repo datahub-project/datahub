@@ -675,10 +675,22 @@ def _merge_allof_map_keywords(
     if "patternProperties" in resolved_allof:
         if "patternProperties" not in merged_schema:
             merged_schema["patternProperties"] = {}
-        merged_schema["patternProperties"].update(resolved_allof["patternProperties"])
+        for pattern, prop_schema in resolved_allof["patternProperties"].items():
+            existing = merged_schema["patternProperties"].get(pattern)
+            if existing is not None:
+                prop_schema = {"allOf": [existing, prop_schema]}
+            merged_schema["patternProperties"][pattern] = prop_schema
 
-    if "propertyNames" in resolved_allof and "propertyNames" not in merged_schema:
-        merged_schema["propertyNames"] = resolved_allof["propertyNames"]
+    if "propertyNames" in resolved_allof:
+        if "propertyNames" not in merged_schema:
+            merged_schema["propertyNames"] = resolved_allof["propertyNames"]
+        else:
+            merged_schema["propertyNames"] = {
+                "allOf": [
+                    merged_schema["propertyNames"],
+                    resolved_allof["propertyNames"],
+                ]
+            }
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
@@ -797,9 +809,19 @@ def _resolve_pattern_and_property_names(
 
     property_names = resolved_schema.get("propertyNames")
     if isinstance(property_names, dict):
-        resolved_schema["propertyNames"] = resolve_schema_references(
-            property_names, sw_dict, max_depth=max_depth - 1
-        )
+        # Resolve $refs / members without collapsing allOf — constraints like
+        # minLength/maxLength are not merged by merge_allof_schemas.
+        if "allOf" in property_names:
+            resolved_schema["propertyNames"] = {
+                "allOf": [
+                    resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
+                    for part in property_names["allOf"]
+                ]
+            }
+        else:
+            resolved_schema["propertyNames"] = resolve_schema_references(
+                property_names, sw_dict, max_depth=max_depth - 1
+            )
 
 
 def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
