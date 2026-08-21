@@ -8,7 +8,7 @@ import styled from 'styled-components';
 import { ColorOptions } from '@components/theme/config';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
+import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -164,7 +164,7 @@ function RelationshipEndpoint({ datasetName, columns, platform, source, align }:
 export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
-    const { datasets, loading } = useSemanticModelMemberDatasets();
+    const { datasets, loading } = useAllSemanticModelMemberDatasets();
 
     const typedData = entityData as EntityDataWithRelationships | null;
     const relationships = typedData?.info?.relationships ?? [];
