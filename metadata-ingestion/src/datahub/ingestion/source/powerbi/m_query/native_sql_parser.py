@@ -1,9 +1,11 @@
 import logging
 import re
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import sqlglot
 import sqlparse
+from sqlglot import expressions as exp
 from sqlglot.errors import SqlglotError
 
 from datahub.ingestion.api.common import PipelineContext
@@ -23,7 +25,42 @@ SPECIAL_CHARACTERS = {
 
 ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 
+# EXTERNAL_QUERY args are string literals, not table ids — handled in extract_external_queries.
+EXTERNAL_QUERY_FUNCTION_NAME = "EXTERNAL_QUERY"
+
+EXTERNAL_QUERY_PATTERN = re.compile(
+    rf"\b{EXTERNAL_QUERY_FUNCTION_NAME}\s*\(", re.IGNORECASE
+)
+
+# Inert FROM/JOIN stand-in; original source alias is reused when present.
+EXTERNAL_QUERY_PLACEHOLDER_SQL = "(SELECT 1 AS pbi_federation_placeholder)"
+
+# Must not contain "EXTERNAL_QUERY" or the rewritten query re-triggers federation handling.
+EXTERNAL_QUERY_PLACEHOLDER_ALIAS_PREFIX = "pbi_federation_source"
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ExternalQueryReference:
+    connection: str  # first EXTERNAL_QUERY arg (project.region.connection)
+    inner_sql: str  # second EXTERNAL_QUERY arg (SQL on the external engine)
+
+
+@dataclass
+class ExternalQueryExtraction:
+    references: List[ExternalQueryReference]
+    rewritten_query: str
+    # Distinguishes "no federation" from "federation present but outer parse failed".
+    parse_failed: bool = False
+    # Detected EXTERNAL_QUERY calls that could not be extracted (non-literal args, etc.).
+    unresolvable: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.parse_failed and (self.references or self.unresolvable):
+            raise ValueError(
+                "parse_failed extraction cannot carry references or unresolvable federations"
+            )
 
 
 def remove_special_characters(native_query: str) -> str:
@@ -132,6 +169,33 @@ def remove_drop_statement(query: str) -> str:
     return remove_tsql_control_statements(query)
 
 
+def _resolve_dialect(platform: str) -> Optional[sqlglot.Dialect]:
+    """Resolve the sqlglot dialect for a platform, falling back to the default.
+
+    Platforms with no sqlglot dialect (e.g. an unresolved 'odbc') or a None platform
+    fall back to the default dialect rather than raising.
+    """
+    try:
+        return get_dialect(platform)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _parse_statements(
+    query: str, dialect: Optional[sqlglot.Dialect]
+) -> List[exp.Expression]:
+    """Parse a query into its non-empty statements in the given dialect.
+
+    Uses ``sqlglot.parse`` (not ``parse_one``) so multi-statement PowerBI SQL is kept.
+    Raises ``SqlglotError`` if the query is not valid SQL; callers decide how to react.
+    """
+    return [
+        stmt
+        for stmt in sqlglot.parse(query, dialect=dialect)
+        if isinstance(stmt, exp.Expression)
+    ]
+
+
 def _is_single_statement(query: str, platform: str) -> bool:
     """Return True if the query parses as a single statement in the platform's dialect.
 
@@ -139,19 +203,101 @@ def _is_single_statement(query: str, platform: str) -> bool:
     or fails to parse is handled by the multi-statement path.
     """
     try:
-        dialect = get_dialect(platform)
-    except (ValueError, AttributeError):
-        # Platform has no sqlglot dialect (e.g. unresolved 'odbc') or is None;
-        # fall back to the default dialect, which classifies these cases the same.
-        dialect = None
-    try:
-        statements = [
-            stmt for stmt in sqlglot.parse(query, dialect=dialect) if stmt is not None
-        ]
+        statements = _parse_statements(query, _resolve_dialect(platform))
     except SqlglotError:
         # Not valid single SQL (e.g. separator-less juxtaposed statements).
         return False
     return len(statements) <= 1
+
+
+def extract_external_queries(query: str, platform: str) -> ExternalQueryExtraction:
+    """Extract EXTERNAL_QUERY federations and rewrite them to inert placeholders."""
+    dialect = _resolve_dialect(platform)
+
+    try:
+        statements = _parse_statements(query, dialect)
+    except SqlglotError:
+        logger.debug("Failed to parse query for EXTERNAL_QUERY extraction: %s", query)
+        return ExternalQueryExtraction(
+            references=[], rewritten_query=query, parse_failed=True
+        )
+
+    references: List[ExternalQueryReference] = []
+    unresolvable: List[str] = []
+    placeholder_index = 0
+    mutated = False
+    for statement in statements:
+        # Materialize before mutating — replacing nodes during lazy find_all is unsafe.
+        for func in list(statement.find_all(exp.Anonymous)):
+            if func.name.upper() != EXTERNAL_QUERY_FUNCTION_NAME:
+                continue
+
+            func_sql = func.sql(dialect=dialect)
+            table_source = func.parent
+            in_table_position = isinstance(table_source, exp.Table)
+
+            # (connection, sql[, options]); only literal args in a table position are usable.
+            args = func.expressions
+            connection_arg = args[0] if len(args) >= 1 else None
+            inner_arg = args[1] if len(args) >= 2 else None
+            if len(args) < 2:
+                reason: Optional[str] = f"unexpected argument count {len(args)}"
+            elif not (
+                isinstance(connection_arg, exp.Literal)
+                and connection_arg.is_string
+                and isinstance(inner_arg, exp.Literal)
+                and inner_arg.is_string
+            ):
+                reason = "non-string-literal arguments"
+            elif not in_table_position:
+                reason = "not in a FROM/JOIN table position"
+            else:
+                reason = None
+
+            if reason is None:
+                assert connection_arg is not None and inner_arg is not None
+                references.append(
+                    ExternalQueryReference(
+                        connection=connection_arg.this,
+                        inner_sql=inner_arg.this,
+                    )
+                )
+            else:
+                logger.debug("Skipping EXTERNAL_QUERY (%s): %s", reason, func_sql)
+                unresolvable.append(func_sql)
+
+            # Strip table-position federations so the generic parser never emits a bogus URN.
+            if in_table_position:
+                assert isinstance(table_source, exp.Table)
+                placeholder = sqlglot.parse_one(
+                    EXTERNAL_QUERY_PLACEHOLDER_SQL, dialect=dialect
+                )
+                original_alias = table_source.args.get("alias")
+                if original_alias is not None:
+                    placeholder.set("alias", original_alias.copy())
+                else:
+                    placeholder.set(
+                        "alias",
+                        exp.TableAlias(
+                            this=exp.to_identifier(
+                                f"{EXTERNAL_QUERY_PLACEHOLDER_ALIAS_PREFIX}_{placeholder_index}"
+                            )
+                        ),
+                    )
+                placeholder_index += 1
+                table_source.replace(placeholder)
+                mutated = True
+
+    rewritten_query = (
+        ";\n".join(stmt.sql(dialect=dialect) for stmt in statements)
+        if mutated
+        else query
+    )
+    return ExternalQueryExtraction(
+        references=references,
+        rewritten_query=rewritten_query,
+        unresolvable=unresolvable,
+    )
 
 
 def parse_custom_sql(
