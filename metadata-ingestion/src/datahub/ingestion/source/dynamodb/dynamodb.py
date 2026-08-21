@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
@@ -61,6 +62,9 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -142,6 +146,14 @@ class DynamoDBConfig(
             "Requires dynamodb:ListExports and dynamodb:DescribeExport."
         ),
     )
+    include_s3_export_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "When `include_s3_export_lineage` is enabled, also emit column-level COPY lineage "
+            "using identity field-path mapping from the inferred DynamoDB schema onto the S3 dataset. "
+            "Nested map attributes use dotted field paths."
+        ),
+    )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
@@ -206,6 +218,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.LINEAGE_COARSE,
     "Optionally enabled via `include_s3_export_lineage` for DynamoDB Export to S3 destinations",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via `include_s3_export_lineage` with `include_s3_export_column_lineage`",
+)
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -225,9 +241,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self.report = DynamoDBSourceReport()
         self.platform = platform
         self.classification_handler = ClassificationHandler(self.config, self.report)
-        # Aggregate S3 downstream URNs -> DynamoDB upstream URNs so multiple tables
-        # that export to the same prefix emit one UpstreamLineage aspect per S3 URN.
-        self._s3_export_lineage: Dict[str, Set[str]] = defaultdict(set)
+        # Aggregate S3 downstream URNs -> DynamoDB upstream URN -> field paths so multiple
+        # tables that export to the same prefix emit one UpstreamLineage aspect per S3 URN.
+        self._s3_export_lineage: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -345,6 +361,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 table_arn=table_info["TableArn"],
                 dataset_urn=dataset_urn,
                 dataset_name=dataset_name,
+                field_paths=[field.fieldPath for field in schema_metadata.fields],
             )
 
     def _list_tables(
@@ -706,10 +723,13 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         export_arns: List[str] = []
         next_token: Optional[str] = None
         while True:
-            kwargs: Dict[str, object] = {"TableArn": table_arn}
             if next_token:
-                kwargs["NextToken"] = next_token
-            response = dynamodb_client.list_exports(**kwargs)
+                response = dynamodb_client.list_exports(
+                    TableArn=table_arn,
+                    NextToken=next_token,
+                )
+            else:
+                response = dynamodb_client.list_exports(TableArn=table_arn)
             for summary in response.get("ExportSummaries") or []:
                 if summary.get("ExportStatus") != EXPORT_STATUS_COMPLETED:
                     continue
@@ -727,6 +747,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         table_arn: str,
         dataset_urn: str,
         dataset_name: str,
+        field_paths: Optional[List[str]] = None,
     ) -> None:
         try:
             export_arns = self._list_completed_export_arns(
@@ -746,6 +767,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             return
 
         seen_s3_urns: Set[str] = set()
+        resolved_field_paths = field_paths or []
         for export_arn in export_arns:
             try:
                 export_description = (
@@ -778,22 +800,53 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             if s3_urn in seen_s3_urns:
                 continue
             seen_s3_urns.add(s3_urn)
-            self._s3_export_lineage[s3_urn].add(dataset_urn)
+            self._s3_export_lineage[s3_urn][dataset_urn] = list(resolved_field_paths)
             self.report.s3_export_locations_found += 1
 
+    def _build_s3_export_fine_grained_lineages(
+        self,
+        s3_urn: str,
+        upstream_urn: str,
+        field_paths: List[str],
+    ) -> List[FineGrainedLineageClass]:
+        fine_grained: List[FineGrainedLineageClass] = []
+        for field_path in field_paths:
+            fine_grained.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[make_schema_field_urn(s3_urn, field_path)],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[make_schema_field_urn(upstream_urn, field_path)],
+                )
+            )
+        return fine_grained
+
     def _emit_s3_export_lineage(self) -> Iterable[MetadataWorkUnit]:
-        for s3_urn, upstream_urns in self._s3_export_lineage.items():
-            if not upstream_urns:
+        for s3_urn, upstreams_by_urn in self._s3_export_lineage.items():
+            if not upstreams_by_urn:
                 continue
             upstreams = [
                 UpstreamClass(
                     dataset=upstream_urn,
                     type=DatasetLineageTypeClass.COPY,
                 )
-                for upstream_urn in sorted(upstream_urns)
+                for upstream_urn in sorted(upstreams_by_urn)
             ]
+            fine_grained: List[FineGrainedLineageClass] = []
+            if self.config.include_s3_export_column_lineage:
+                for upstream_urn in sorted(upstreams_by_urn):
+                    fine_grained.extend(
+                        self._build_s3_export_fine_grained_lineages(
+                            s3_urn=s3_urn,
+                            upstream_urn=upstream_urn,
+                            field_paths=upstreams_by_urn[upstream_urn],
+                        )
+                    )
             self.report.s3_export_lineage_edges += len(upstreams)
             yield MetadataChangeProposalWrapper(
                 entityUrn=s3_urn,
-                aspect=UpstreamLineageClass(upstreams=upstreams),
+                aspect=UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=fine_grained or None,
+                ),
             ).as_workunit()
