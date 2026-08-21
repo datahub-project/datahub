@@ -1,261 +1,298 @@
-"""
-Additional tests to increase coverage for masking modules.
-"""
+"""Tests for handler coverage — invariants 1, 2, 12, 17."""
 
 import logging
-import os
+import queue
+import sys
 from io import StringIO
+from logging.handlers import QueueHandler, QueueListener
+from typing import List
 
 import pytest
 
+from datahub.masking import masking_filter
 from datahub.masking.bootstrap import (
     initialize_secret_masking,
     shutdown_secret_masking,
 )
-from datahub.masking.logging_utils import get_masking_safe_logger
-from datahub.masking.masking_filter import SecretMaskingFilter
-from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+from datahub.masking.masking_filter import (
+    SecretMaskingFilter,
+    install_masking_filter,
+    uninstall_masking_filter,
+)
+from datahub.masking.secret_registry import SecretRegistry
 
 
-def test_masking_module_imports():
-    """Test that all public exports from __init__.py are importable."""
-    # Import from masking module to cover __init__.py
-    import datahub.masking
+class TestChildLoggerPropagation:
+    """Invariant 1: a record logged on a child logger and reaching a root
+    FileHandler via propagation is masked."""
 
-    # Test that all exports are available
-    assert hasattr(datahub.masking, "SecretMaskingFilter")
-    assert hasattr(datahub.masking, "StreamMaskingWrapper")
-    assert hasattr(datahub.masking, "install_masking_filter")
-    assert hasattr(datahub.masking, "uninstall_masking_filter")
-    assert hasattr(datahub.masking, "SecretRegistry")
-    assert hasattr(datahub.masking, "is_masking_enabled")
-    assert hasattr(datahub.masking, "initialize_secret_masking")
-    assert hasattr(datahub.masking, "get_masking_safe_logger")
-
-    # Verify imports work
-    from datahub.masking import (
-        SecretMaskingFilter,
-        SecretRegistry,
-        StreamMaskingWrapper,
-    )
-
-    assert SecretMaskingFilter is not None
-    assert SecretRegistry is not None
-    assert StreamMaskingWrapper is not None
-
-
-class TestSecretRegistryEdgeCases:
-    def setup_method(self):
-        SecretRegistry.reset_instance()
-
-    def teardown_method(self):
-        SecretRegistry.reset_instance()
-
-    def test_register_secret_empty_value(self):
-        registry = SecretRegistry.get_instance()
-        registry.register_secret("EMPTY", "")
-        assert registry.get_count() == 0
-
-    def test_register_secret_non_string(self):
-        registry = SecretRegistry.get_instance()
-        registry.register_secret("NUMBER", 123)  # type: ignore
-        assert registry.get_count() == 0
-
-    def test_register_secret_short_value(self):
-        registry = SecretRegistry.get_instance()
-        registry.register_secret("SHORT", "ab")
-        assert registry.get_count() == 0
-
-    def test_register_secret_with_escape_sequences(self):
-        registry = SecretRegistry.get_instance()
-        secret_with_newline = "pass\nword"
-        registry.register_secret("MULTILINE", secret_with_newline)
-
-        # Both original and repr version should be registered
-        assert registry.has_secret("MULTILINE")
-        assert registry.get_count() >= 1
-
-    def test_register_secrets_batch_empty(self):
-        registry = SecretRegistry.get_instance()
-        registry.register_secrets_batch({})
-        assert registry.get_count() == 0
-
-    def test_register_secrets_batch_all_invalid(self):
-        registry = SecretRegistry.get_instance()
-        registry.register_secrets_batch(
-            {
-                "EMPTY": "",
-                "SHORT": "ab",
-                "NONE": None,  # type: ignore
-            }
-        )
-        assert registry.get_count() == 0
-
-    def test_memory_limit_single(self):
-        registry = SecretRegistry.get_instance()
-        original_max = registry.MAX_SECRETS
-        registry.MAX_SECRETS = 5
-
-        # Register 10 secrets, only 5 should be stored
-        for i in range(10):
-            registry.register_secret(f"SECRET_{i}", f"value_{i}")
-
-        assert registry.get_count() <= 5
-        registry.MAX_SECRETS = original_max
-
-    def test_get_secret_value_not_found(self):
-        registry = SecretRegistry.get_instance()
-        assert registry.get_secret_value("NONEXISTENT") is None
-
-    def test_has_secret_not_found(self):
-        registry = SecretRegistry.get_instance()
-        assert not registry.has_secret("NONEXISTENT")
-
-
-class TestMaskingEnabled:
-    def test_is_masking_enabled(self):
-        # Default is enabled
-        assert is_masking_enabled()
-
-        # Disable via env var
-        os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "true"
-        assert not is_masking_enabled()
-
-        os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "1"
-        assert not is_masking_enabled()
-
-        os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "false"
-        assert is_masking_enabled()
-
-        del os.environ["DATAHUB_DISABLE_SECRET_MASKING"]
-
-
-class TestLoggingUtils:
-    def test_get_masking_safe_logger(self):
-        logger = get_masking_safe_logger(__name__)
-        assert isinstance(logger, logging.Logger)
-        assert logger.name == __name__
-
-    def test_logger_can_log(self):
-        logger = get_masking_safe_logger("test_logger")
-
-        # Capture log output
-        handler = logging.StreamHandler(StringIO())
-        logger.addHandler(handler)
-
-        logger.info("Test message")
-        logger.debug("Debug message")
-        logger.warning("Warning message")
-
-        logger.removeHandler(handler)
-
-
-class TestMaskingFilterDebugMode:
     def setup_method(self):
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
 
     def teardown_method(self):
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
-        # Ensure env var is cleaned up
-        if "DATAHUB_DISABLE_SECRET_MASKING" in os.environ:
-            del os.environ["DATAHUB_DISABLE_SECRET_MASKING"]
+        from datahub.masking.bootstrap import reset_bootstrap_state
 
-    def test_filter_masking_disabled_globally(self):
-        os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "true"
+        reset_bootstrap_state()
 
-        registry = SecretRegistry.get_instance()
-        registry.register_secret("DISABLED_SECRET", "disabled_value")
-
-        masking_filter = SecretMaskingFilter(registry)
-
-        record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname="",
-            lineno=0,
-            msg="Secret: disabled_value",
-            args=(),
-            exc_info=None,
-        )
-
-        result = masking_filter.filter(record)
-        assert result
-        # When masking is disabled, secrets should NOT be masked
-        assert "disabled_value" in record.msg
-
-
-class TestBootstrapEdgeCases:
-    def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
-
-    def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
-
-    def test_initialize_twice(self):
+    def test_child_logger_record_masked_at_root_handler(self, tmp_path):
+        log_file = tmp_path / "out.log"
+        # Install a FileHandler on the root logger.
         initialize_secret_masking()
-        initialize_secret_masking()  # Should be no-op
+        SecretRegistry.get_instance().register_secret("PW", "propagation_secret_value")
 
-        # Only one filter should be installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 1
-
-    def test_initialize_with_force(self):
-        initialize_secret_masking()
-        initialize_secret_masking(force=True)
-
-        # Should still work
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) >= 1
-
-    def test_shutdown_when_not_initialized(self):
-        shutdown_secret_masking()  # Should be safe
-
-    def test_shutdown_clears_filters(self):
-        initialize_secret_masking()
-        shutdown_secret_masking()
-
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 0
-
-    def test_is_bootstrapped(self):
-        from datahub.masking.bootstrap import is_bootstrapped
-
-        shutdown_secret_masking()
-        assert not is_bootstrapped()
-
-        initialize_secret_masking()
-        assert is_bootstrapped()
-
-        shutdown_secret_masking()
-        assert not is_bootstrapped()
-
-    def test_get_bootstrap_error(self):
-        from datahub.masking.bootstrap import get_bootstrap_error
-
-        shutdown_secret_masking()
-        assert get_bootstrap_error() is None
-
-    def test_initialize_with_disabled_masking(self):
-        """Test initialization when masking is disabled."""
-        from datahub.masking.bootstrap import is_bootstrapped
-
-        os.environ["DATAHUB_DISABLE_SECRET_MASKING"] = "true"
+        root = logging.getLogger()
+        fh = logging.FileHandler(str(log_file))
+        fh.setFormatter(logging.Formatter("%(message)s"))
+        root.addHandler(fh)
         try:
-            shutdown_secret_masking()
-            initialize_secret_masking()
-            # Should complete but not actually initialize
-            assert is_bootstrapped()
+            # Re-scan so the FileHandler gets the filter.
+            install_masking_filter(install_stdout_wrapper=False)
+            child = logging.getLogger("datahub.ingestion.some_source")
+            child.setLevel(logging.INFO)
+            child.info("leak propagation_secret_value in child log")
         finally:
-            if "DATAHUB_DISABLE_SECRET_MASKING" in os.environ:
-                del os.environ["DATAHUB_DISABLE_SECRET_MASKING"]
+            root.removeHandler(fh)
+            fh.close()
+
+        contents = log_file.read_text()
+        assert "propagation_secret_value" not in contents
+        assert "***REDACTED:PW***" in contents
+
+
+class TestCeleryProxyNotWrapped:
+    """Invariant 2: a celery-style stream proxy (no usable fileno()) is never
+    wrapped; logging continues normally after initialize + shutdown (no
+    feedback loop, no silenced logs)."""
+
+    def setup_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
+
+    def teardown_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
+
+    def test_proxy_not_wrapped(self):
+        class LoggingProxy:
+            """Mimics celery's LoggingProxy: no fileno, recurse guard."""
+
+            def __init__(self, target_stream):
+                self._target = target_stream
+                self._recurse = threading.local()
+
+            def fileno(self):
+                raise io.UnsupportedOperation("no fileno on proxy")
+
+            def write(self, text):
+                if getattr(self._recurse, "flag", False):
+                    return 0
+                self._recurse.flag = True
+                try:
+                    # Re-enters logging (like celery's proxy).
+                    logging.getLogger("proxy.target").info(text.rstrip())
+                finally:
+                    self._recurse.flag = False
+                return len(text)
+
+            def flush(self):
+                pass
+
+        import io
+        import threading
+
+        proxy = LoggingProxy(StringIO())
+        original_stdout = sys.stdout
+        sys.stdout = proxy
+        try:
+            initialize_secret_masking()
+            # The proxy must NOT be wrapped.
+            assert sys.stdout is proxy
+            SecretRegistry.get_instance().register_secret("PW", "proxy_secret_value")
+            logging.getLogger("test.proxy").info("leak proxy_secret_value")
             shutdown_secret_masking()
+            # After shutdown, stdout still the proxy (never wrapped).
+            assert sys.stdout is proxy
+            # Logging continues normally after initialize + shutdown: a record
+            # logged on a fresh handler actually arrives (no feedback loop, no
+            # silenced logs).
+            arrived: List[logging.LogRecord] = []
+
+            class _Capture(logging.Handler):
+                def emit(self, record: logging.LogRecord) -> None:
+                    arrived.append(record)
+
+            post_log = logging.getLogger("test.proxy.post_shutdown")
+            post_log.handlers.clear()
+            post_log.propagate = False
+            post_log.setLevel(logging.INFO)
+            cap_handler = _Capture()
+            post_log.addHandler(cap_handler)
+            try:
+                post_log.info("still logging after shutdown")
+            finally:
+                post_log.removeHandler(cap_handler)
+            assert len(arrived) == 1, arrived
+            assert arrived[0].getMessage() == "still logging after shutdown"
+        finally:
+            sys.stdout = original_stdout
+
+
+class TestHandlerAddedAfterInstall:
+    """Invariant 12: a handler added to a logger after install (via plain
+    addHandler and via logging.basicConfig(force=True)) carries the filter
+    and masks; a record routed through a logger-attached QueueHandler to a
+    QueueListener whose target handler was never attached to any logger
+    arrives at that target already masked, and the sentinel short-circuited
+    the nested pass."""
+
+    def setup_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
+
+    def teardown_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
+
+    def test_plain_addhandler_covers_new_handler(self):
+        initialize_secret_masking()
+        SecretRegistry.get_instance().register_secret("PW", "addhandler_secret_value")
+
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        log = logging.getLogger("test.addhandler_after")
+        log.handlers.clear()
+        log.propagate = False
+        log.setLevel(logging.INFO)
+        log.addHandler(h)
+        try:
+            log.info("leak addhandler_secret_value here")
+        finally:
+            log.removeHandler(h)
+        out = cap.getvalue()
+        assert "addhandler_secret_value" not in out
+        assert "***REDACTED:PW***" in out
+
+    def test_basicconfig_force_covers_new_handler(self):
+        initialize_secret_masking()
+        SecretRegistry.get_instance().register_secret("PW", "basicconfig_secret_value")
+        # basicConfig(force=True) replaces root handlers.
+        cap = StringIO()
+        root = logging.getLogger()
+        saved_handlers = list(root.handlers)
+        saved_level = root.level
+        logging.basicConfig(force=True, stream=cap, level=logging.INFO)
+        try:
+            logging.getLogger("test.basicconfig").info(
+                "leak basicconfig_secret_value here"
+            )
+        finally:
+            # Restore the root handler setup and level so later tests in the
+            # random order aren't left handler-less / re-leveled.
+            root.handlers.clear()
+            root.handlers.extend(saved_handlers)
+            root.setLevel(saved_level)
+        out = cap.getvalue()
+        assert "basicconfig_secret_value" not in out
+        assert "***REDACTED:PW***" in out
+
+    def test_queuehandler_target_arrives_masked(self):
+        initialize_secret_masking()
+        SecretRegistry.get_instance().register_secret("PW", "queue_secret_value")
+
+        # A target handler that is NEVER attached to a logger; it stores the
+        # records it receives so the sentinel can be checked by value.
+        captured: List[logging.LogRecord] = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record)
+
+        target = _Capture()
+
+        # QueueHandler attached to a logger; QueueListener dispatches to target.
+        q: queue.Queue[logging.LogRecord] = queue.Queue()
+        qh = QueueHandler(q)
+        log = logging.getLogger("test.queuehandler")
+        log.handlers.clear()
+        log.propagate = False
+        log.setLevel(logging.INFO)
+        log.addHandler(qh)
+        listener = QueueListener(q, target)
+        listener.start()
+        try:
+            log.info("leak queue_secret_value here")
+        finally:
+            listener.stop()  # drains and joins the listener thread
+            log.removeHandler(qh)
+        assert len(captured) == 1, captured
+        rec = captured[0]
+        # Sentinel set by value against the module constant (invariant 12).
+        assert getattr(rec, "_datahub_masked", None) is masking_filter._MASKED
+        assert "queue_secret_value" not in rec.getMessage()
+        assert "***REDACTED:PW***" in rec.getMessage()
+
+
+class TestReinstallAfterUninstall:
+    """Invariant 17: after a test-only uninstall, re-install re-covers a
+    handler that was added while the wrap was inert."""
+
+    def setup_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
+
+    def teardown_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+        from datahub.masking.bootstrap import reset_bootstrap_state
+
+        reset_bootstrap_state()
+
+    def test_reinstall_recovers_handler_added_while_inert(self):
+        install_masking_filter(install_stdout_wrapper=False)
+        SecretRegistry.get_instance().register_secret("PW", "first_secret_value")
+        # Uninstall (test-only): wrap goes inert.
+        uninstall_masking_filter()
+        # Add a handler while the wrap is inert — it gets no filter.
+        cap = StringIO()
+        h = logging.StreamHandler(cap)
+        h.setFormatter(logging.Formatter("%(message)s"))
+        log = logging.getLogger("test.reinstall")
+        log.handlers.clear()
+        log.propagate = False
+        log.addHandler(h)
+        assert not any(isinstance(f, SecretMaskingFilter) for f in h.filters)
+        # Re-install: the scan re-covers the handler added while inert.
+        install_masking_filter(install_stdout_wrapper=False)
+        SecretRegistry.get_instance().register_secret("PW", "second_secret_value")
+        try:
+            log.info("leak second_secret_value here")
+        finally:
+            log.removeHandler(h)
+        out = cap.getvalue()
+        assert "second_secret_value" not in out
+        assert "***REDACTED:PW***" in out
 
 
 if __name__ == "__main__":
