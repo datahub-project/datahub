@@ -231,8 +231,6 @@ class TestDynamoDBSchemaSampling:
 
 
 class TestDynamoDBS3ExportLineage:
-    """Test suite for DynamoDB Export to S3 lineage discovery."""
-
     @pytest.fixture
     def lineage_config(self):
         return DynamoDBConfig(
