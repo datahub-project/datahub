@@ -57,9 +57,10 @@ class DataAccessResolution:
     # another query in the model that is not loaded. Dataset parameters are
     # excluded, since those are values rather than tables.
     unresolved_identifiers: Set[str] = field(default_factory=set)
-    # Every name bound by any let in the expression. A name in here that the walk
-    # fails to resolve is merely out of the walk's reach, not absent from the
-    # model, so it is kept out of unresolved_identifiers.
+    # Every name bound by any let in the expression, casefolded to agree with
+    # identifier lookup. A name in here that the walk fails to resolve is merely
+    # out of the walk's reach, not absent from the model, so it is kept out of
+    # unresolved_identifiers.
     let_bound_names: Set[str] = field(default_factory=set)
 
 

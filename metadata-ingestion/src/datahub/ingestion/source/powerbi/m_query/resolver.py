@@ -386,7 +386,12 @@ def _record_unresolved_arguments(
 
 
 def _let_variable_names(let_node: dict) -> Set[str]:
-    """Names bound by one LetExpression, with any #"..." quoting stripped."""
+    """Casefolded names bound by one LetExpression, with #"..." quoting stripped.
+
+    Folded because resolve_identifier matches names case-insensitively, so the
+    in-scope check has to agree with it or a binding spelled `Sch` referenced as
+    `sch` reads as a missing query.
+    """
     names: Set[str] = set()
     var_list = let_node.get("variableList", {})
     if not isinstance(var_list, dict):
@@ -403,7 +408,7 @@ def _let_variable_names(let_node: dict) -> Set[str]:
         if literal.startswith('#"') and literal.endswith('"'):
             literal = literal[2:-1]
         if literal:
-            names.add(literal)
+            names.add(literal.casefold())
 
     return names
 
@@ -420,7 +425,7 @@ def _record_unresolved(
     this walk cannot reach them, so reporting them would point at a query that
     does not exist.
     """
-    if name in resolution.let_bound_names:
+    if name.casefold() in resolution.let_bound_names:
         return
     if resolve_parameter_value(parameters, name) is not None:
         return

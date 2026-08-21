@@ -2130,3 +2130,22 @@ def test_parameter_matched_case_insensitively_is_not_reported():
     )
 
     assert list(reporter.m_query_unresolved_identifiers) == []
+
+
+@pytest.mark.integration
+def test_outer_scope_name_differing_only_by_case_is_not_reported():
+    """Identifier lookup folds case, so the in-scope check must too -- otherwise
+    an outer binding spelled `Sch` and referenced as `sch` is reported as a
+    missing query."""
+    reporter = _resolve_and_report(
+        "let"
+        '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net",'
+        ' "/sql/1.0/endpoints/abc", [Database=null, Catalog="c"]),'
+        '    db = Source{[Name="c",Kind="Database"]}[Data],'
+        '    Sch = db{[Name="s",Kind="Schema"]}[Data],'
+        '    out = let t = sch{[Name="t",Kind="Table"]}[Data] in t'
+        " in out",
+        "MyDataSet.cased_table",
+    )
+
+    assert list(reporter.m_query_unresolved_identifiers) == []
