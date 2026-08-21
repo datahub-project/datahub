@@ -1,5 +1,27 @@
+import json
 import re
 from typing import Dict, Optional
+
+
+def unquote_and_decode_escape_seq(
+    string: str,
+    leading_quote: str = '"',
+    trailing_quote: Optional[str] = None,
+) -> str:
+    """
+    Unquotes a double-quoted string and decodes its escape sequences via JSON, falling
+    back to unquote_and_decode_unicode_escape_seq for anything that isn't valid JSON.
+    """
+    if leading_quote == '"' and (trailing_quote or leading_quote) == '"':
+        try:
+            decoded = json.loads(string)
+        except json.JSONDecodeError:
+            pass
+        else:
+            if isinstance(decoded, str):
+                return decoded
+
+    return unquote_and_decode_unicode_escape_seq(string, leading_quote, trailing_quote)
 
 
 def unquote_and_decode_unicode_escape_seq(
