@@ -698,7 +698,6 @@ def _merge_allof_map_keywords(
 _ALLOF_MIN_KEYWORDS = (
     "minLength",
     "minimum",
-    "exclusiveMinimum",
     "minItems",
     "minProperties",
 )
@@ -706,7 +705,6 @@ _ALLOF_MIN_KEYWORDS = (
 _ALLOF_MAX_KEYWORDS = (
     "maxLength",
     "maximum",
-    "exclusiveMaximum",
     "maxItems",
     "maxProperties",
 )
@@ -727,6 +725,11 @@ def _merge_allof_validation_keywords(merged_schema: Dict, resolved_allof: Dict) 
                 if key in merged_schema
                 else resolved_allof[key]
             )
+    # exclusiveMinimum/Maximum are booleans in OpenAPI 3.0 (draft-4) but numeric bounds
+    # in draft-6+. Never feed them to min()/max() blindly — that drops the stricter
+    # boolean flag and TypeErrors on mixed boolean/numeric values.
+    _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMinimum", max)
+    _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMaximum", min)
     if "uniqueItems" in resolved_allof:
         merged_schema["uniqueItems"] = (
             merged_schema.get("uniqueItems", False) or resolved_allof["uniqueItems"]
@@ -736,6 +739,29 @@ def _merge_allof_validation_keywords(merged_schema: Dict, resolved_allof: Dict) 
     for key in ("pattern", "multipleOf"):
         if key in resolved_allof and key not in merged_schema:
             merged_schema[key] = resolved_allof[key]
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _merge_exclusive_bound(
+    merged_schema: Dict, resolved_allof: Dict, key: str, numeric_more_restrictive
+) -> None:
+    if key not in resolved_allof:
+        return
+    incoming = resolved_allof[key]
+    current = merged_schema.get(key)
+    # draft-6+: numeric exclusive bound — keep the most restrictive value.
+    if _is_number(incoming):
+        merged_schema[key] = (
+            numeric_more_restrictive(current, incoming)
+            if _is_number(current)
+            else incoming
+        )
+    # draft-4: boolean flag — the bound is exclusive if any member makes it exclusive.
+    elif isinstance(incoming, bool):
+        merged_schema[key] = bool(current) or incoming
 
 
 def _combine_under_allof(existing: Dict, addition: Dict) -> Dict:

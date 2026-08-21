@@ -1823,6 +1823,47 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(pattern_schema.get("minLength"), 5)
         self.assertEqual(pattern_schema.get("maxLength"), 7)
 
+    def test_merge_allof_boolean_exclusive_bounds(self):
+        # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
+        # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {
+                    "patternProperties": {
+                        "^x": {"maximum": 10, "exclusiveMaximum": True}
+                    }
+                },
+                {
+                    "patternProperties": {
+                        "^x": {"maximum": 10, "exclusiveMaximum": False}
+                    }
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("maximum"), 10)
+        self.assertIs(pattern_schema.get("exclusiveMaximum"), True)
+
+    def test_merge_allof_numeric_exclusive_bounds(self):
+        # JSON Schema draft-6+ exclusiveMinimum/Maximum are numeric bounds: keep the
+        # most restrictive (max of exclusiveMinimum, min of exclusiveMaximum).
+        sw_dict = {"openapi": "3.1.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"exclusiveMinimum": 2}}},
+                {"patternProperties": {"^x": {"exclusiveMinimum": 5}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
+
     def test_property_names_allof_ref_with_sibling_constraints(self):
         # $ref alongside sibling constraints next to allOf: the ref is expanded and the
         # sibling constraint is kept (not dropped by the bare-$ref early return).
