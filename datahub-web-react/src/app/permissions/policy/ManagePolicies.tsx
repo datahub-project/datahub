@@ -34,6 +34,7 @@ import PolicyBuilderModal from '@app/permissions/policy/PolicyBuilderModal';
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -467,9 +468,18 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                         placeholder={t('searchPlaceholder')}
                         value={query || ''}
                         onChange={(value) => {
+                            // SearchBar's debounce also fires once on mount with an empty value.
+                            // Normalizing '' to undefined makes that a no-op against the initial
+                            // state instead of a redundant `query: ""` network fetch, and lets
+                            // clearing the box fall back to the cached first page.
+                            const nextQuery = value || undefined;
+                            if (nextQuery === query) {
+                                return;
+                            }
                             setPage(1);
-                            setQuery(value);
+                            setQuery(nextQuery);
                         }}
+                        debounceDelay={DEBOUNCE_SEARCH_MS}
                         width="250px"
                         allowClear
                     />

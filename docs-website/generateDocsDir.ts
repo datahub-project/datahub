@@ -126,6 +126,10 @@ function list_markdown_files(): string[] {
     /^\.[^/]+\//,
     // Ignore nested agent/Bugbot rule files (e.g. docs/.cursor/BUGBOT.md).
     /\/\.cursor\//,
+    // Agent context files (Claude Code / Cursor / Codex) — not public docs.
+    /(^|\/)CLAUDE\.md$/,
+    /(^|\/)CLAUDE\.MD$/,
+    /(^|\/)AGENTS\.md$/,
     // Ignore everything within this directory.
     /^docs-website\//,
     // Ignore third-party dependencies and library documentation.

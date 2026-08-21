@@ -79,6 +79,23 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
 }
 
 
+def snowflake_identity_key(name: str, *, preserve_column_case: bool) -> str:
+    """Internal identity of a column, metric or logical-table name. Never emitted.
+
+    Answers "are these two spellings the same object?". Snowflake reports stored
+    spellings, so with casing preserved they are distinct and with casing folded
+    they are one -- and the fold has to be uppercase rather than lowercase,
+    because it must not depend on convert_urns_to_lowercase (which decides how a
+    name is *emitted*, not whether two names are the same thing).
+
+    Module-level so the identifier builder and the data dictionary share one
+    definition; the latter has no builder to call.
+    """
+    if preserve_column_case:
+        return name
+    return name.upper()
+
+
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
@@ -406,6 +423,46 @@ class SnowflakeIdentifierBuilder:
             return identifier.lower()
         return identifier
 
+    def snowflake_column_identifier(self, column_name: str) -> str:
+        # Columns are folded separately from datasets: Snowflake's quoted identifiers
+        # let `"col"` and `"COL"` coexist in one table, and lowercasing collapses them
+        # into a single field path. Delegating on the default path keeps the emitted
+        # output byte-identical to the pre-flag behaviour.
+        if self.identifier_config.preserve_column_case:
+            return column_name
+        return self.snowflake_identifier(column_name)
+
+    def column_identity_key(self, column_name: str) -> str:
+        """Internal identity of a column/metric name. Never emitted.
+
+        Answers "are these two spellings the same object?", which is what the
+        semantic-model indices need. Distinct from snowflake_column_identifier,
+        which answers "what does this object get called in a URN".
+
+        With preserve_column_case off, case-only variants are one object, so
+        they must fold together whatever convert_urns_to_lowercase says.
+        Delegating to snowflake_column_identifier here makes the fold a no-op
+        when convert_urns_to_lowercase is also off (both reduce to identity),
+        which splits one metric into two entities and blinds the shadow check.
+        """
+        return snowflake_identity_key(
+            column_name,
+            preserve_column_case=self.identifier_config.preserve_column_case,
+        )
+
+    def logical_dataset_field_path(self, column_name: str) -> str:
+        """Field path for a column on a semantic-model logical dataset.
+
+        These datasets are built by the semantic-model mapper rather than
+        gen_schema_metadata, and it has always uppercased their field paths.
+        Emitting the stored name unconditionally would re-key every one of those
+        URNs for deployments running with convert_urns_to_lowercase off, so the
+        stored name is used only when preserve_column_case asks for it.
+        """
+        if not self.identifier_config.preserve_column_case:
+            column_name = column_name.upper()
+        return self.snowflake_column_identifier(column_name)
+
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
@@ -457,7 +514,10 @@ class SnowflakeIdentifierBuilder:
             MetricUrn(
                 platform=make_data_platform_urn(self.platform),
                 path=path,
-                id=self.snowflake_identifier(metric_name),
+                # A metric name is a semantic-view identifier like a dimension's:
+                # same DDL, same extraction, same folding. So it follows the
+                # column rule, which delegates when the flag is off.
+                id=self.snowflake_column_identifier(metric_name),
             )
         )
 

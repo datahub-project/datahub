@@ -521,7 +521,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return None
         column_lineage = ColumnLineageInfo(
             downstream=DownstreamColumnRef(
-                table=dataset_urn, column=self.identifiers.snowflake_identifier(col)
+                table=dataset_urn,
+                column=self.identifiers.snowflake_column_identifier(col),
             ),
             upstreams=sorted(column_upstreams),
         )
@@ -552,7 +553,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 column_upstreams.append(
                     ColumnRef(
                         table=self.identifiers.gen_dataset_urn(upstream_dataset_name),
-                        column=self.identifiers.snowflake_identifier(
+                        column=self.identifiers.snowflake_column_identifier(
                             upstream_col.column_name
                         ),
                     )
