@@ -745,6 +745,21 @@ def enhance_schema_with_titles(
             enhanced_schema["additionalProperties"], sw_dict, "", is_top_level=False
         )
 
+    if "patternProperties" in enhanced_schema and isinstance(
+        enhanced_schema["patternProperties"], dict
+    ):
+        for pattern, prop_schema in list(enhanced_schema["patternProperties"].items()):
+            enhanced_schema["patternProperties"][pattern] = enhance_schema_with_titles(
+                prop_schema, sw_dict, "", is_top_level=False
+            )
+
+    if "propertyNames" in enhanced_schema and isinstance(
+        enhanced_schema["propertyNames"], dict
+    ):
+        enhanced_schema["propertyNames"] = enhance_schema_with_titles(
+            enhanced_schema["propertyNames"], sw_dict, "", is_top_level=False
+        )
+
     # Handle union types - don't add titles to union members
     for union_key in ["oneOf", "anyOf", "allOf"]:
         if union_key in enhanced_schema:
@@ -756,6 +771,31 @@ def enhance_schema_with_titles(
             ]
 
     return enhanced_schema
+
+
+def _resolve_pattern_and_property_names(
+    resolved_schema: Dict, sw_dict: Dict, max_depth: int
+) -> None:
+    """Resolve $refs under patternProperties / propertyNames; promote maps for field extract."""
+    pattern_properties = resolved_schema.get("patternProperties")
+    if isinstance(pattern_properties, dict):
+        for pattern, prop_schema in list(pattern_properties.items()):
+            pattern_properties[pattern] = resolve_schema_references(
+                prop_schema, sw_dict, max_depth=max_depth - 1
+            )
+        # json_schema_util only understands additionalProperties as map values.
+        if "additionalProperties" not in resolved_schema:
+            pattern_schemas = list(pattern_properties.values())
+            if len(pattern_schemas) == 1:
+                resolved_schema["additionalProperties"] = pattern_schemas[0]
+            elif pattern_schemas:
+                resolved_schema["additionalProperties"] = {"anyOf": pattern_schemas}
+
+    property_names = resolved_schema.get("propertyNames")
+    if isinstance(property_names, dict):
+        resolved_schema["propertyNames"] = resolve_schema_references(
+            property_names, sw_dict, max_depth=max_depth - 1
+        )
 
 
 def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -841,6 +881,8 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
         resolved_schema["additionalProperties"] = resolve_schema_references(
             resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
+
+    _resolve_pattern_and_property_names(resolved_schema, sw_dict, max_depth)
 
     # Handle allOf by merging schemas (before treating as union)
     if "allOf" in resolved_schema:

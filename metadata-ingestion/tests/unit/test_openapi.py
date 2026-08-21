@@ -1,3 +1,4 @@
+import json
 import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
@@ -5,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.ingestion.source.openapi import APISource, OpenApiConfig
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
@@ -1444,6 +1446,76 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         # Should return partially resolved schema when depth limit is reached
         self.assertIsNotNone(resolved)
+
+    def test_resolve_schema_references_pattern_properties_anyof_ref(self):
+        """patternProperties with anyOf/$ref must resolve and promote to additionalProperties."""
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "name": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "patternProperties": {
+                "^[a-z]+$": {
+                    "anyOf": [{"$ref": "#/components/schemas/Item"}],
+                }
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("additionalProperties", resolved)
+        self.assertIn("anyOf", resolved["additionalProperties"])
+        item = resolved["additionalProperties"]["anyOf"][0]
+        self.assertIn("id", item["properties"])
+        self.assertIn("name", item["properties"])
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="pattern-props", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".id" in path for path in field_paths))
+        self.assertTrue(any(".name" in path for path in field_paths))
+
+    def test_resolve_schema_references_property_names_ref(self):
+        """propertyNames $ref must resolve so jsonref does not fail schema extraction."""
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "DateKey": {
+                        "type": "string",
+                        "format": "date",
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {"$ref": "#/components/schemas/DateKey"},
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertEqual(resolved["propertyNames"]["format"], "date")
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="property-names", json_schema=resolved
+        )
+        self.assertTrue(len(metadata.fields) > 0)
 
     def test_extract_response_schema_malformed_no_content_type(self):
         """Test handling of response with content but no application/json."""
