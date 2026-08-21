@@ -93,7 +93,7 @@
     "versionMilestone.viewing": "・表示中",
     "menuColumn.copyColumnFieldPath": "列のフィールドパスをコピー",
     "menuColumn.copyColumnUrn": "列のURNをコピー",
-    "menuColumn.seeColumnLineage": "列のlineageを表示",
+    "menuColumn.seeColumnLineage": "列のLineageを表示",
     "queriesSidebarTab.lastRunBy": "<1>{{name}}</1>が{{date}}に最終実行",
     "queriesSidebarTab.noQueriesFound": "この列に関するクエリが見つかりません",
     "queriesSidebarTab.sectionTitle": "クエリ",

@@ -29,7 +29,7 @@
     "freshness.lastUpdated.sectionTitle": "最終更新",
     "freshness.lastUpdated.tooltip": "最終更新",
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
-    "health.assertionsPassing": "すべてのAssertionが成功しています",
+    "health.assertionsPassing": "すべてのassertionが成功しています",
     "health.noActiveIncidents": "対応中のIncidentはありません",
     "health.testsPassing": "すべてのテストが成功しています",
     "lineage.downstreamCount_other": "{{count}} 件のダウンストリーム",

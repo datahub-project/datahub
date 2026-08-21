@@ -56,7 +56,7 @@
     "prop.hasActiveIncidentsDesc": "アセットにアクティブなincidentがあるかどうか。",
     "prop.hasDescription": "説明がある",
     "prop.hasDescriptionDesc": "アセットに説明があるかどうか。",
-    "prop.hasFailingAssertions": "失敗しているassertionがある",
+    "prop.hasFailingAssertions": "失敗しているAssertionがある",
     "prop.hasFailingAssertionsDesc": "アセットに失敗しているデータ品質assertionがあるかどうか。",
     "prop.owner": "Owner",
     "prop.ownerDesc": "アセットのOwner。",

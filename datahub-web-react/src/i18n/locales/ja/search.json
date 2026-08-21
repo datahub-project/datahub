@@ -59,7 +59,7 @@
     "fieldLabel.tag": "Tag",
     "filters.addFilter": "フィルターを追加",
     "filters.assertions.hasFailingLabel": "失敗しているAssertionがある",
-    "filters.assertions.hasFailingOption": "失敗しているAssertionがある",
+    "filters.assertions.hasFailingOption": "失敗しているassertionがある",
     "filters.assertions.hasPassingLabel": "成功しているAssertionがある",
     "filters.assertions.title": "Assertion",
     "filters.compactCardView": "コンパクトカード表示",

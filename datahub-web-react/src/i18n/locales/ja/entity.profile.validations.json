@@ -59,7 +59,7 @@
     "assertionType.unknown": "不明",
     "assertionType.volume": "ボリューム",
     "assertionTypeDescription.column": "列の値に関する期待値を定義・監視します",
-    "assertionTypeDescription.custom": "外部ツールやカスタム連携によって定義・報告されるassertion",
+    "assertionTypeDescription.custom": "外部ツールやカスタム連携によって定義・報告されるAssertion",
     "assertionTypeDescription.freshness": "このDatasetがいつ更新されるべきかについての期待値を定義・監視します",
     "assertionTypeDescription.other": "DataHub外部で定義・管理されるその他のassertion。",
     "assertionTypeDescription.schema": "テーブルの列とその型に関する期待値を定義・監視します",
