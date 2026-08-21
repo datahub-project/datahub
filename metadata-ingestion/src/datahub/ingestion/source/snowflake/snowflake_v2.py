@@ -500,13 +500,21 @@ class SnowflakeV2Source(
         ):
             return True
 
+        if self.discovered_datasets is None:
+            # An ordering bug, not a data problem: anything that parses SQL must
+            # run after discovered_datasets is set, or the arm below silently
+            # no-ops and a staging table is emitted as a real dataset instead of
+            # collapsing through. Raised rather than asserted so it still fires
+            # under `python -O`.
+            raise AssertionError(
+                "discovered_datasets must be populated before SQL parsing"
+            )
+
         # This is also a temp table if
         #   1. this name would be allowed by the dataset patterns, and
-        #   2. we have a list of discovered tables, and
-        #   3. it's not in the discovered tables list
+        #   2. it's not in the discovered tables list
         if (
             self.filters.is_dataset_pattern_allowed(name, SnowflakeObjectDomain.TABLE)
-            and self.discovered_datasets
             and name not in self.discovered_datasets
         ):
             return True
@@ -672,8 +680,6 @@ class SnowflakeV2Source(
                 )
                 yield from marketplace_handler.get_marketplace_workunits()
 
-        yield from self._get_stages_tasks_pipes_workunits(databases)
-
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
@@ -732,6 +738,8 @@ class SnowflakeV2Source(
                 else discovered_semantic_views
             )
         )
+
+        yield from self._get_stages_tasks_pipes_workunits(databases)
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
@@ -880,6 +888,9 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
+                filters=self.filters,
+                schema_resolver=self.aggregator.schema_resolver,
+                is_temp_table=self._is_temp_table,
             )
             for db in databases:
                 for schema in db.schemas:
@@ -972,7 +983,12 @@ class SnowflakeV2Source(
                 self.report.edition = SnowflakeEdition.STANDARD
             else:
                 self.report.edition = SnowflakeEdition.ENTERPRISE
-        except Exception:
+        except Exception as e:
+            self.report.warning(
+                title="Snowflake Edition Detection Failed",
+                message="Could not determine Snowflake edition; tag extraction may be affected",
+                exc=e,
+            )
             self.report.edition = None
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
