@@ -1263,7 +1263,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("getSemanticModels", new GetSemanticModelsResolver(this.entityClient))
                 .dataFetcher(
                     "entityExists", new EntityExistsResolver(this.entityService, this.featureFlags))
-                .dataFetcher("getRootDataProducts", new GetRootDataProductsResolver(this.entityClient))
+                .dataFetcher(
+                    "getRootDataProducts", new GetRootDataProductsResolver(this.entityClient))
                 .dataFetcher("entity", getEntityResolver())
                 .dataFetcher("entities", getEntitiesResolver())
                 .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
