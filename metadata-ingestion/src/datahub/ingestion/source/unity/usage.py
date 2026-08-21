@@ -282,18 +282,19 @@ class UnityCatalogUsageExtractor:
         ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
-        # For redacted queries, omit the "<REDACTED>" placeholder so the
-        # aggregator doesn't emit Query entities with the placeholder as SQL
-        # text or store it in top-SQL samples. Upstreams/downstreams still come
-        # from system.access.table_lineage, so table-level usage stats are
-        # preserved.
-        query_text = "" if query.is_query_text_redacted else query.query_text
+        # Keep the "<REDACTED>" placeholder as-is on the aggregator's usage
+        # path — it's the QUERY-dim key that lets UsageAggregator increment
+        # totalSqlQueries; blanking it to "" would silently drop those events
+        # from the per-table count. We still suppress Query-entity emission
+        # via query_count_only below so DataHub isn't polluted with
+        # placeholder Query entities that carry no useful SQL.
+        redacted = query.is_query_text_redacted
 
         if not targets:
             return [
                 PreparsedQuery(
                     query_id=self._query_fingerprint(query),
-                    query_text=query_text,
+                    query_text=query.query_text,
                     upstreams=upstreams,
                     downstream=None,
                     confidence_score=1.0,
@@ -301,6 +302,7 @@ class UnityCatalogUsageExtractor:
                     user=user,
                     timestamp=ts,
                     query_type=query_type,
+                    query_count_only=redacted,
                 )
             ]
 
@@ -310,7 +312,7 @@ class UnityCatalogUsageExtractor:
             preparsed.append(
                 PreparsedQuery(
                     query_id=self._query_fingerprint(query, secondary_id=secondary_id),
-                    query_text=query_text,
+                    query_text=query.query_text,
                     upstreams=upstreams,
                     downstream=downstream,
                     confidence_score=1.0,
@@ -318,6 +320,7 @@ class UnityCatalogUsageExtractor:
                     user=user,
                     timestamp=ts,
                     query_type=query_type,
+                    query_count_only=redacted,
                 )
             )
         return preparsed
@@ -466,16 +469,20 @@ class UnityCatalogUsageExtractor:
                 title="Databricks query text is redacted",
                 message=(
                     "Databricks returned <REDACTED> instead of SQL statement text. "
-                    "Query entities, column-level usage statistics, operational "
-                    "statistics, and the top-SQL sample are incomplete for those "
-                    "queries. Table-level usage statistics are preserved only on "
-                    "the default system-tables path (usage_data_source=AUTO with "
-                    "warehouse_id set, or SYSTEM_TABLES) with "
-                    "include_column_usage_stats=false; other paths drop the query "
-                    "entirely. Add the ingestion principal to the account-level "
-                    "databricks_pii_access group while retaining its existing "
-                    "query history permissions. See the DataHub Databricks "
-                    "connector prerequisites for details."
+                    "On the default system-tables path (usage_data_source=AUTO "
+                    "with warehouse_id set, or SYSTEM_TABLES) with "
+                    "include_column_usage_stats=false, table-level usage "
+                    "statistics (totalSqlQueries, uniqueUserCount, userCounts) "
+                    "are preserved because upstreams come from "
+                    "system.access.table_lineage; Query entities are not emitted "
+                    "for redacted queries, and column-level usage statistics, "
+                    "operational statistics, and per-query usage counts are "
+                    "absent. On the REST API path (usage_data_source=API) or "
+                    "when include_column_usage_stats=true, redacted queries are "
+                    "dropped entirely. Add the ingestion principal to the "
+                    "account-level databricks_pii_access group while retaining "
+                    "its existing query history permissions. See the DataHub "
+                    "Databricks connector prerequisites for details."
                 ),
                 context=f"count={self.report.num_queries_with_redacted_text}",
             )

@@ -62,12 +62,15 @@ class UnityCatalogConnectionTest:
                         capable=True,
                         mitigation_message=(
                             "Query text is redacted (<REDACTED>). Table-level "
-                            "usage statistics are still emitted via "
-                            "system.access.table_lineage on the system-tables "
-                            "path, but Query entities, column-level usage "
-                            "statistics, and the top-SQL sample are incomplete. "
-                            "Add the ingestion principal to the account-level "
-                            "group databricks_pii_access to restore them."
+                            "usage statistics (totalSqlQueries, "
+                            "uniqueUserCount, userCounts) are still emitted "
+                            "via system.access.table_lineage on the "
+                            "system-tables path. Query entities are not "
+                            "emitted for redacted queries, and column-level "
+                            "usage statistics, operational statistics, and "
+                            "per-query usage counts are absent. Add the "
+                            "ingestion principal to the account-level group "
+                            "databricks_pii_access to restore them."
                         ),
                     )
                 return CapabilityReport(

@@ -12,6 +12,7 @@ from datahub.configuration.time_window_config import BucketDuration, get_time_bu
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
     OperationClass,
     QueryUsageStatisticsClass,
 )
@@ -997,6 +998,74 @@ def test_basic_usage() -> None:
     check_goldens_stream(
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_basic_usage.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_preparsed_query_count_only_emits_usage_but_no_query_entity() -> None:
+    # Sources like Databricks Unity Catalog can lose SQL text to masking
+    # (statement_text = "<REDACTED>") while still knowing lineage from
+    # system.access.table_lineage. In that case we want table-level usage
+    # stats to survive — dropping the query would silently zero out
+    # totalSqlQueries — but we don't want a placeholder Query entity for
+    # every masked statement. query_count_only=True is that opt-in.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    upstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=False,
+        generate_queries=True,
+        generate_usage_statistics=True,
+        generate_query_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="<REDACTED>",
+            upstreams=[upstream_urn],
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+            query_count_only=True,
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    dataset_usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, DatasetUsageStatisticsClass)
+    ]
+    assert len(dataset_usage_mcps) == 1, (
+        "table-level usage must be emitted so totalSqlQueries isn't silently "
+        "zeroed for buckets whose queries are fully redacted"
+    )
+    usage_aspect = dataset_usage_mcps[0].aspect
+    assert isinstance(usage_aspect, DatasetUsageStatisticsClass)
+    assert usage_aspect.totalSqlQueries == 1
+    assert usage_aspect.uniqueUserCount == 1
+
+    query_mcps = [
+        mcp
+        for mcp in mcps
+        if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
+    ]
+    assert query_mcps == [], (
+        "query_count_only must suppress Query-entity emission to avoid "
+        "polluting the catalog with placeholder queries"
+    )
+
+    query_usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+    assert query_usage_mcps == [], (
+        "query_count_only must skip per-Query URN usage counters — those "
+        "would reference a Query that was never emitted"
     )
 
 
