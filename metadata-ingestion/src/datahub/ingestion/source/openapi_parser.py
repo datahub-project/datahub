@@ -637,27 +637,7 @@ def merge_allof_schemas(
                     max_depth=max_depth,
                 )
 
-        # Merge additionalProperties
-        if "additionalProperties" in resolved_allof:
-            if "additionalProperties" not in merged_schema:
-                merged_schema["additionalProperties"] = resolved_allof[
-                    "additionalProperties"
-                ]
-            elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
-                resolved_allof["additionalProperties"], dict
-            ):
-                # Recursively merge nested additionalProperties
-                merged_schema["additionalProperties"] = merge_allof_schemas(
-                    {
-                        "allOf": [
-                            merged_schema["additionalProperties"],
-                            resolved_allof["additionalProperties"],
-                        ]
-                    },
-                    sw_dict,
-                    resolving_refs=True,
-                    max_depth=max_depth,
-                )
+        _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, max_depth)
 
     # Recursively handle any nested allOf in the merged result
     # But don't call resolve_schema_references again to avoid recursion
@@ -667,6 +647,38 @@ def merge_allof_schemas(
         )
 
     return merged_schema
+
+
+def _merge_allof_map_keywords(
+    merged_schema: Dict, resolved_allof: Dict, sw_dict: Dict, max_depth: int
+) -> None:
+    if "additionalProperties" in resolved_allof:
+        if "additionalProperties" not in merged_schema:
+            merged_schema["additionalProperties"] = resolved_allof[
+                "additionalProperties"
+            ]
+        elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
+            resolved_allof["additionalProperties"], dict
+        ):
+            merged_schema["additionalProperties"] = merge_allof_schemas(
+                {
+                    "allOf": [
+                        merged_schema["additionalProperties"],
+                        resolved_allof["additionalProperties"],
+                    ]
+                },
+                sw_dict,
+                resolving_refs=True,
+                max_depth=max_depth,
+            )
+
+    if "patternProperties" in resolved_allof:
+        if "patternProperties" not in merged_schema:
+            merged_schema["patternProperties"] = {}
+        merged_schema["patternProperties"].update(resolved_allof["patternProperties"])
+
+    if "propertyNames" in resolved_allof and "propertyNames" not in merged_schema:
+        merged_schema["propertyNames"] = resolved_allof["propertyNames"]
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
@@ -796,7 +808,10 @@ def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
     pattern_properties = resolved_schema.get("patternProperties")
     if not isinstance(pattern_properties, dict):
         return
-    if "additionalProperties" in resolved_schema or "properties" in resolved_schema:
+    if "additionalProperties" in resolved_schema:
+        return
+    # Empty properties: {} has no named fields to protect.
+    if resolved_schema.get("properties"):
         return
     pattern_schemas = list(pattern_properties.values())
     if len(pattern_schemas) == 1:
@@ -889,13 +904,14 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
 
-    _resolve_pattern_and_property_names(resolved_schema, sw_dict, max_depth)
-
     # Handle allOf by merging schemas (before treating as union)
     if "allOf" in resolved_schema:
         resolved_schema = merge_allof_schemas(
             resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
+
+    # After allOf so keywords contributed by members are resolved too.
+    _resolve_pattern_and_property_names(resolved_schema, sw_dict, max_depth)
 
     # Handle union types (oneOf, anyOf) - allOf is already handled above
     for union_key in ["oneOf", "anyOf"]:

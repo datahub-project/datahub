@@ -1557,6 +1557,66 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         field_paths = [f.fieldPath for f in metadata.fields]
         self.assertTrue(any(".fixed" in path for path in field_paths))
 
+    def test_resolve_schema_references_empty_properties_still_promotes(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "properties": {},
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("additionalProperties", resolved)
+        self.assertIn("id", resolved["additionalProperties"]["properties"])
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="empty-props", json_schema=resolved
+        )
+        self.assertTrue(any(".id" in f.fieldPath for f in metadata.fields))
+
+    def test_resolve_schema_references_pattern_properties_inside_allof(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+                    },
+                }
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("additionalProperties", resolved)
+        self.assertIn("id", resolved["additionalProperties"]["properties"])
+
     def test_resolve_schema_references_property_names_ref(self):
         sw_dict = {
             "openapi": "3.0.0",
