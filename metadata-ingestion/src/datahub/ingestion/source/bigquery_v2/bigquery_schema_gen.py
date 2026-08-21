@@ -49,6 +49,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTableSnapshot,
     BigqueryView,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
@@ -223,6 +226,7 @@ class BigQuerySchemaGenerator:
         filters: BigQueryFilter,
         shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
+        sharing_handler: Optional[BigQuerySharingHandler] = None,
     ):
         self.config = config
         self.report = report
@@ -234,6 +238,7 @@ class BigQuerySchemaGenerator:
         self.filters = filters
         self.shard_matcher = shard_matcher
         self.graph = graph
+        self.sharing_handler = sharing_handler
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -355,6 +360,7 @@ class BigQuerySchemaGenerator:
         extra_properties: Optional[Dict[str, str]] = None,
         created: Optional[int] = None,
         last_modified: Optional[int] = None,
+        is_linked_dataset: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -389,7 +395,11 @@ class BigQuerySchemaGenerator:
             database=project_id,
             schema=dataset,
             qualified_name=f"{project_id}.{dataset}",
-            sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
+            sub_types=[
+                DatasetContainerSubTypes.BIGQUERY_LINKED_DATASET
+                if is_linked_dataset
+                else DatasetContainerSubTypes.BIGQUERY_DATASET
+            ],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
@@ -469,6 +479,14 @@ class BigQuerySchemaGenerator:
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
         )
+        if self.sharing_handler is not None and self.config.include_schema_metadata:
+            # Must precede the fan-out below: this writes the shared lookup that the
+            # per-dataset workers only read. Gated on include_schema_metadata because
+            # _process_schema returns before _record_linked_entities without it, so the
+            # get_dataset calls this makes would buy nothing.
+            self.sharing_handler.populate_for_project(
+                project_id, bigquery_project.datasets
+            )
         yield from self._process_project_datasets(bigquery_project, db_tables)
 
         if self.config.is_profiling_enabled():
@@ -576,10 +594,12 @@ class BigQuerySchemaGenerator:
                 dataset=dataset_name,
                 project_id=project_id,
                 tags=bigquery_dataset.labels,
-                extra_properties=(
-                    {"location": bigquery_dataset.location}
-                    if bigquery_dataset.location
-                    else None
+                extra_properties=self._dataset_container_properties(
+                    project_id, dataset_name, bigquery_dataset
+                ),
+                is_linked_dataset=(
+                    self.config.include_linked_datasets
+                    and bigquery_dataset.is_linked_dataset()
                 ),
                 description=bigquery_dataset.comment,
                 created=make_ts_millis(bigquery_dataset.created)
@@ -744,6 +764,21 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                 )
 
+    def _dataset_container_properties(
+        self, project_id: str, dataset_name: str, bigquery_dataset: BigqueryDataset
+    ) -> Optional[Dict[str, str]]:
+        properties: Dict[str, str] = {}
+        if bigquery_dataset.location:
+            properties["location"] = bigquery_dataset.location
+        sharing_info = (
+            self.sharing_handler.get_info(project_id, dataset_name)
+            if self.sharing_handler is not None
+            else None
+        )
+        if sharing_info is not None:
+            properties.update(sharing_info.to_extra_properties())
+        return properties or None
+
     def _process_table(
         self,
         table: BigqueryTable,
@@ -764,6 +799,14 @@ class BigQuerySchemaGenerator:
             )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
+
+        # Recorded here, past the pattern gate, because the columns are only in scope
+        # during the schema pass but the lineage is emitted last. See
+        # BigQuerySharingHandler.gen_all_lineage_workunits.
+        if self.sharing_handler is not None:
+            self.sharing_handler.record_entity(
+                project_id, dataset_name, table.name, columns
+            )
 
         if self.store_table_refs:
             table_ref = str(
@@ -814,6 +857,11 @@ class BigQuerySchemaGenerator:
             )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
+
+        if self.sharing_handler is not None:
+            self.sharing_handler.record_entity(
+                project_id, dataset_name, view.name, columns
+            )
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)

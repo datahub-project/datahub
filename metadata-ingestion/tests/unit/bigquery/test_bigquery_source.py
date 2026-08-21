@@ -65,6 +65,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
     TimeStampClass,
+    UpstreamLineageClass,
 )
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -578,7 +579,7 @@ def test_get_datasets_for_project_id_with_timestamps(
     mock_dataset_list_item1 = MagicMock()
     mock_dataset_list_item1.dataset_id = "dataset1"
     mock_dataset_list_item1.labels = {"env": "test"}
-    mock_dataset_list_item1._properties = {"location": "US"}
+    mock_dataset_list_item1._properties = {"location": "US", "type": "LINKED"}
 
     mock_dataset_list_item2 = MagicMock()
     mock_dataset_list_item2.dataset_id = "dataset2"
@@ -636,6 +637,9 @@ def test_get_datasets_for_project_id_with_timestamps(
     assert dataset1.comment == "Test dataset 1"
     assert dataset1.created == frozen_time
     assert dataset1.last_altered == frozen_time + timedelta(hours=1)
+    # Dataset.type is only reachable through the raw datasets.list payload, because
+    # google-cloud-bigquery exposes no property for it on DatasetListItem.
+    assert dataset1.type == "LINKED"
 
     # Assert second dataset (with missing timestamps)
     dataset2 = result[1]
@@ -643,6 +647,13 @@ def test_get_datasets_for_project_id_with_timestamps(
     assert dataset2.labels == {"env": "prod"}
     assert dataset2.location == "EU"
     assert dataset2.comment is None
+    # This mock omits "type" entirely, standing in for a client version that stops
+    # returning the field. It must parse as None rather than raise, because every
+    # dataset would otherwise read as non-linked with no signal that anything changed.
+    assert dataset2.type is None
+    # The counter is that signal, so assert it moved for exactly the one dataset
+    # missing the field. Without it the compatibility branch is silent.
+    assert schema_api.report.num_datasets_missing_type == 1
     assert dataset2.created is None
     assert dataset2.last_altered is None
 
@@ -2016,7 +2027,7 @@ def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) 
 def test_biglake_dataset_skipped_for_region_autodetect(
     get_projects_client, get_bq_client_mock
 ):
-    # REGRESSION PROTECTION: BigLake/Omni datasets report locations like
+    # BigLake/Omni datasets report locations like
     # `aws-us-east-1` that are NOT valid INFORMATION_SCHEMA region qualifiers.
     # If we add them to discovered_locations, the queries extractor would try
     # to scan `region-aws-us-east-1` and emit a spurious failure every run.
@@ -2051,3 +2062,141 @@ def test_biglake_dataset_skipped_for_region_autodetect(
     assert "aws-us-east-1" not in schema_gen.discovered_locations
     assert "europe-west1" in schema_gen.discovered_locations
     assert source.report.num_biglake_datasets_skipped_for_region_autodetect == 1
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_linked_entities_recorded_only_past_the_pattern_gates(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # Recording happens inside _process_table / _process_view, past the pattern gate
+    # each already applies, so an entity the run excludes cannot pick up a COPY edge
+    # pointing at an entity that was never ingested. Both gates are covered: an
+    # earlier version filtered views separately from tables and let a denied view
+    # through.
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+        BigQuerySharingHandler,
+    )
+
+    project_id = "consumer-project"
+    linked_dataset = "linked_ds"
+
+    bq_client = MagicMock()
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source_ds",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+            "view_pattern": {"deny": [".*denied_view.*"]},
+            "table_pattern": {"deny": [".*denied_table.*"]},
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    handler = BigQuerySharingHandler(
+        config,
+        source.report,
+        identifiers=source.identifiers,
+        client=bq_client,
+        projects_client=MagicMock(),
+    )
+    handler.populate_for_project(
+        project_id, [BigqueryDataset(name=linked_dataset, type="LINKED")]
+    )
+    schema_gen.sharing_handler = handler
+
+    for view_name in ("allowed_view", "denied_view"):
+        list(
+            schema_gen._process_view(
+                BigqueryView(
+                    name=view_name,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    view_definition=None,
+                ),
+                [],
+                project_id,
+                linked_dataset,
+            )
+        )
+
+    for table_name in ("allowed_table", "denied_table"):
+        list(
+            schema_gen._process_table(
+                BigqueryTable(
+                    name=table_name,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    size_in_bytes=None,
+                    rows_count=None,
+                ),
+                [],
+                project_id,
+                linked_dataset,
+            )
+        )
+
+    with_lineage = {
+        wu.metadata.entityUrn  # type: ignore[union-attr]
+        for wu in handler.gen_all_lineage_workunits()
+        if isinstance(wu.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
+    }
+
+    def _urn(name: str) -> str:
+        return source.identifiers.gen_dataset_urn(project_id, linked_dataset, name)
+
+    assert _urn("denied_view") not in with_lineage
+    assert _urn("denied_table") not in with_lineage
+    assert _urn("allowed_view") in with_lineage
+    assert _urn("allowed_table") in with_lineage
+
+
+def test_sharing_properties_without_linked_datasets_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The handler is only built when include_linked_datasets is on, so this pairing
+    # costs a permission grant and an enabled API for no output. Warn rather than
+    # raise, matching warn_legacy_only_usage_fields_under_queries_v2.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_datasets": False,
+                "extract_subscriptions_from_analytics_hub": True,
+            }
+        )
+    assert any("has no effect" in r.msg for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_datasets": True,
+                "extract_subscriptions_from_analytics_hub": True,
+            }
+        )
+    assert not any("has no effect" in r.msg for r in caplog.records)

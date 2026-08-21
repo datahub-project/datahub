@@ -160,6 +160,7 @@ bigid = [
 
 bigquery = [
     "cachetools<6.0.0",
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
@@ -1190,6 +1191,7 @@ all = [
     "GitPython>2,<4.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
@@ -1338,6 +1340,7 @@ dev = [
     "GitPython>2,<4.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
@@ -1532,6 +1535,7 @@ docs = [
     "GitPython>2,<4.0.0",
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",

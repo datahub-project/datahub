@@ -28,6 +28,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
 )
@@ -75,6 +78,8 @@ logger: logging.Logger = logging.getLogger(__name__)
     subtype_modifier=[
         SourceCapabilityModifier.BIGQUERY_PROJECT,
         SourceCapabilityModifier.BIGQUERY_DATASET,
+        # Emitted in place of BIGQUERY_DATASET when include_linked_datasets is on.
+        SourceCapabilityModifier.BIGQUERY_LINKED_DATASET,
     ],
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -184,6 +189,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config, self.report, self.profiling_state_handler
         )
 
+        self.sharing_handler: Optional[BigQuerySharingHandler] = None
+        if self.config.include_linked_datasets:
+            self.sharing_handler = BigQuerySharingHandler(
+                config=self.config,
+                report=self.report,
+                identifiers=self.identifiers,
+                client=config.get_bigquery_client(),
+                projects_client=config.get_projects_client(),
+            )
+
         self.bq_schema_extractor = BigQuerySchemaGenerator(
             self.config,
             self.report,
@@ -195,6 +210,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.filters,
             self.shard_matcher,
             self.ctx.graph,
+            self.sharing_handler,
         )
 
         self.add_config_to_report()
@@ -386,6 +402,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 yield from self.lineage_extractor.gen_lineage_workunits_for_external_table(
                     dataset_urn, table.ddl, graph=self.ctx.graph
                 )
+
+        # Runs last. gen_all_lineage_workunits explains why the position matters.
+        if self.sharing_handler is not None:
+            yield from self.sharing_handler.gen_all_lineage_workunits()
 
     def get_report(self) -> BigQueryV2Report:
         return self.report

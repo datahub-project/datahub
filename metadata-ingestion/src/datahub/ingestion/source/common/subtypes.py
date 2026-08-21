@@ -80,6 +80,8 @@ class DatasetContainerSubTypes(StrEnum):
     CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
+    # A BigQuery Sharing linked dataset: a read-only pointer into another project.
+    BIGQUERY_LINKED_DATASET = "Linked Dataset"
     DATABRICKS_METASTORE = "Metastore"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
