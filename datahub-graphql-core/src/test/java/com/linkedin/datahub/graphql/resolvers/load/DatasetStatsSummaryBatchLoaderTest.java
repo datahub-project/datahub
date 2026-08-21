@@ -322,7 +322,8 @@ public class DatasetStatsSummaryBatchLoaderTest {
                 .time(
                     TimeCanonicalizationConfiguration.builder()
                         .enabled(true)
-                        .bucketSize("5m")
+                        .bucketSize(5)
+                        .bucketSizeUnit("MINUTES")
                         .timezone("UTC")
                         .rounding("EXPAND")
                         .build())

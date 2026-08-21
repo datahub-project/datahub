@@ -13,7 +13,8 @@ import lombok.NoArgsConstructor;
  * only strategy today; the structure allows further strategies (field normalization, stable clause
  * ordering, ...) to be added without changing call sites.
  *
- * <p>{@code enabled: false} is the default and is a hard off switch for every strategy.
+ * <p>{@code enabled} is a hard off switch for every strategy. Defaults live in {@code
+ * application.yaml}.
  */
 @Data
 @NoArgsConstructor

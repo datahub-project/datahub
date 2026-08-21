@@ -145,7 +145,7 @@ public class DatasetStatsSummaryBatchLoader {
       // the per-URN resolver for requests landing in the same bucket.
       final CanonicalNow canonicalNow = opContext.canonicalNow();
       final long startMillis =
-          TimeseriesUtils.convertRangeToStartTime(UsageTimeRange.MONTH, canonicalNow.reference());
+          TimeseriesUtils.convertRangeToStartTime(UsageTimeRange.MONTH, canonicalNow);
       final Filter sharedFilter = timeWindowFilter(startMillis, canonicalNow.upperBound());
 
       // A: per-day LATEST totalSqlQueries → summed per dataset = queryCountLast30Days.
