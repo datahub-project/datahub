@@ -58,7 +58,8 @@ class TestResultAspectSizeGuard:
         )
 
         assert aspect.report is not None
-        assert len(aspect.report) <= MAX_LENGTH
+        # Exactly the budget, not merely under it -- catches over-truncation.
+        assert len(aspect.report) == MAX_LENGTH
         assert aspect.report.startswith("WARNING: ")
 
     @pytest.mark.parametrize("limit", [10, 40, 80, 200, MAX_LENGTH])
@@ -77,7 +78,7 @@ class TestResultAspectSizeGuard:
         )
 
         assert aspect.report is not None
-        assert len(aspect.report) <= limit
+        assert len(aspect.report) == limit
 
     def test_report_under_the_limit_is_passed_through_untouched(
         self, executor: ReportingExecutor
@@ -102,7 +103,8 @@ class TestResultAspectSizeGuard:
 
         assert aspect.structuredReport is None
         assert aspect.report is not None
-        assert len(aspect.report) <= MAX_LENGTH
+        # Exactly the budget, not merely under it -- catches over-truncation.
+        assert len(aspect.report) == MAX_LENGTH
 
     def test_both_over_the_limit_stays_within_the_limit(
         self, executor: ReportingExecutor
@@ -119,7 +121,8 @@ class TestResultAspectSizeGuard:
 
         assert aspect.structuredReport is None
         assert aspect.report is not None
-        assert len(aspect.report) <= MAX_LENGTH
+        # Exactly the budget, not merely under it -- catches over-truncation.
+        assert len(aspect.report) == MAX_LENGTH
 
 
 class TestExecutorInstanceId:
@@ -173,29 +176,33 @@ class TestExecutorInstanceId:
             accepted is reporting_executor._RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
         )
 
-    def test_unsupported_field_is_omitted_with_a_warning(
+    def test_unsupported_field_is_omitted_and_warned_about_only_once(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
+        # This method builds an MCP on every progress heartbeat, so warning per build
+        # would flood the log for a whole run. The warning belongs at construction.
         monkeypatch.setattr(
             reporting_executor, "_RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID", False
         )
-        executor = ReportingExecutor(
-            ReportingExecutorConfig(
-                id="test-executor",
-                task_configs=[],
-                secret_stores=[],
-                graph_client=Mock(spec=DataHubGraph),
-                executor_instance_id="pool-a",
-            )
-        )
 
         with caplog.at_level(logging.WARNING):
-            aspect = executor._build_execution_request_result_aspect(
-                status="SUCCESS", start_time_ms=0, exec_request=_request()
+            executor = ReportingExecutor(
+                ReportingExecutorConfig(
+                    id="test-executor",
+                    task_configs=[],
+                    secret_stores=[],
+                    graph_client=Mock(spec=DataHubGraph),
+                    executor_instance_id="pool-a",
+                )
             )
+            for _ in range(5):
+                aspect = executor._build_execution_request_result_aspect(
+                    status="SUCCESS", start_time_ms=0, exec_request=_request()
+                )
 
         assert getattr(aspect, "executorInstanceId", None) is None
-        assert "executorInstanceId" in caplog.text
+        warnings = [r for r in caplog.records if "executorInstanceId" in r.getMessage()]
+        assert len(warnings) == 1
 
     def test_supported_field_is_forwarded_to_the_aspect(
         self, monkeypatch: pytest.MonkeyPatch

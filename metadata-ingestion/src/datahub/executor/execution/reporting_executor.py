@@ -92,6 +92,17 @@ class ReportingExecutor(DefaultExecutor):
         # Implements LRU cache via OrderedDict to avoid memory leak
         self.results_to_emit: OrderedDict[str, ExecutionResult] = OrderedDict()
         self.dropped_reports: set[str] = set()  # Leaks memory slowly, like task_futures
+        if (
+            exec_config.executor_instance_id is not None
+            and not _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
+        ):
+            # Warned once here rather than per aspect: this method builds an MCP on every
+            # progress heartbeat, so warning there floods the log for a whole run.
+            logger.warning(
+                "executor_instance_id is configured but the installed "
+                "ExecutionRequestResult aspect does not declare executorInstanceId; "
+                "it will be omitted from execution results."
+            )
         if exec_config.graph_client is not None:
             self._datahub_graph = exec_config.graph_client
         elif exec_config.graph_client_config is not None:
@@ -337,15 +348,11 @@ class ReportingExecutor(DefaultExecutor):
         # would raise TypeError here -- and since this method builds every kickoff,
         # progress and completion MCP, that would fail all reporting for the executor
         # rather than degrading a single field.
-        if self._config.executor_instance_id is not None:
-            if _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID:
-                result_args["executorInstanceId"] = self._config.executor_instance_id
-            else:
-                logger.warning(
-                    "executor_instance_id is configured but the installed "
-                    "ExecutionRequestResult aspect does not declare executorInstanceId; "
-                    "omitting it from the execution result."
-                )
+        if (
+            self._config.executor_instance_id is not None
+            and _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
+        ):
+            result_args["executorInstanceId"] = self._config.executor_instance_id
 
         return ExecutionRequestResultClass(**result_args)  # type: ignore[arg-type]
 
