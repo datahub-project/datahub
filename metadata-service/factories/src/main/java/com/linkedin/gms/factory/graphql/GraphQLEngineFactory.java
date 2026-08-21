@@ -62,6 +62,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.ExecutorService;
@@ -263,11 +264,13 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       final EntityVersioningService entityVersioningService,
       final MetricUtils metricUtils) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
+    args.setSystemOperationContext(systemOperationContext);
     args.setGraphClient(graphClient);
     args.setUsageClient(
         new UsageStatsJavaClient(
