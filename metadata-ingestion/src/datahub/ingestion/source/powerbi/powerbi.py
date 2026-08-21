@@ -353,6 +353,7 @@ class Mapper:
         # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
+        expressions = table.dataset.expressions if table.dataset else {}
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
@@ -370,11 +371,17 @@ class Mapper:
             ctx=self.__ctx,
             config=self.__config,
             parameters=parameters,
+            expressions=expressions,
         )
 
         logger.debug(
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
+
+        # One table can reach the same upstream by more than one route -- two
+        # queries filtering a common source, or both branches of a conditional --
+        # and the aspect should name it once.
+        emitted_upstream_urns: Set[str] = set()
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
@@ -387,12 +394,18 @@ class Mapper:
                     )
                     continue
 
-                upstream_table_class = UpstreamClass(
-                    self.lineage_urn_to_lowercase(upstream_dpt.urn),
-                    DatasetLineageTypeClass.TRANSFORMED,
-                )
-
-                upstream.append(upstream_table_class)
+                upstream_urn = self.lineage_urn_to_lowercase(upstream_dpt.urn)
+                # Only the upstream itself is deduplicated. Column lineage is
+                # left as it was, so a second route contributing mappings the
+                # first did not have still reaches the aspect.
+                if upstream_urn not in emitted_upstream_urns:
+                    emitted_upstream_urns.add(upstream_urn)
+                    upstream.append(
+                        UpstreamClass(
+                            upstream_urn,
+                            DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    )
 
                 # Add column level lineage if any
                 cll_lineage.extend(

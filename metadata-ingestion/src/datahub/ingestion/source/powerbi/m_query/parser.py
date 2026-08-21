@@ -23,6 +23,9 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
     Lineage,
 )
+from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
+    SharedExpressions,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
@@ -54,6 +57,7 @@ def get_upstream_tables(
     ctx: PipelineContext,
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
+    expressions: Optional[Dict[str, str]] = None,
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
@@ -62,6 +66,32 @@ def get_upstream_tables(
     caller has opted out of (``native_query_parsing=False``).
     """
     parameters = parameters or {}
+
+    # The dataset's other queries, so a reference to one that is not loaded into
+    # the model can still be followed to the data source it holds. The
+    # native_query_parsing opt-out has to apply here as well: the check below
+    # only sees the table's own expression, so without this a native query one
+    # hop away would be parsed despite the flag.
+    shared_texts = expressions or {}
+    if not config.native_query_parsing:
+        withheld = [
+            name for name, text in shared_texts.items() if "Value.NativeQuery" in text
+        ]
+        if withheld:
+            logger.debug(
+                "Not following %s (native_query_parsing=False)",
+                withheld,
+            )
+        shared_texts = {
+            name: text
+            for name, text in shared_texts.items()
+            if "Value.NativeQuery" not in text
+        }
+
+    shared = SharedExpressions(
+        texts=shared_texts,
+        parse=lambda text: _parse_with_bridge(text, config.m_query_parse_timeout),
+    )
 
     if table.expression is None:
         logger.debug("There is no M-Query expression in table %s", table.full_name)
@@ -141,7 +171,7 @@ def get_upstream_tables(
 
     try:
         data_access_func_details = mquery_resolver.resolve_to_data_access_functions(
-            node_map, parameters=parameters
+            node_map, parameters=parameters, shared=shared
         )
 
         if not data_access_func_details:
@@ -173,6 +203,15 @@ def get_upstream_tables(
             ).create_lineage(f_detail)
             if lineage.upstreams:
                 lineages.append(lineage)
+
+        if shared.failures:
+            reporter.warning(
+                title="Unable to parse a referenced query",
+                message="A query this table is built on could not be parsed, so "
+                'the lineage it holds is missing. Queries with "Enable load" '
+                "switched off are reached this way.",
+                context=f"table-full-name={table.full_name}, queries={shared.failures}",
+            )
 
         if lineages:
             reporter.m_query_resolver_successes += 1
