@@ -1666,6 +1666,78 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(parts[0].get("minLength"), 1)
         self.assertEqual(parts[1].get("maxLength"), 10)
 
+    def test_merge_allof_same_pattern_three_members_keeps_all_fields(self):
+        # Three allOf members share a pattern: the generated allOf must stay flat so
+        # none of the earlier value schemas are dropped during resolution.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"properties": {"a": {"type": "string"}}},
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"properties": {"b": {"type": "string"}}},
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"properties": {"c": {"type": "string"}}},
+                    },
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^[a-z]+$"]
+        for field in ("a", "b", "c"):
+            self.assertIn(field, pattern_schema["properties"])
+
+    def test_merge_allof_property_names_three_members_flat(self):
+        # Three propertyNames contributors must flatten into a single allOf list
+        # (not nest), so every constraint survives resolution.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "propertyNames": {"type": "string", "minLength": 1},
+            "allOf": [
+                {"propertyNames": {"type": "string", "maxLength": 10}},
+                {"propertyNames": {"type": "string", "pattern": "^x"}},
+            ],
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        parts = resolved["propertyNames"]["allOf"]
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(parts[0].get("minLength"), 1)
+        self.assertEqual(parts[1].get("maxLength"), 10)
+        self.assertEqual(parts[2].get("pattern"), "^x")
+
+    def test_property_names_allof_preserves_sibling_constraints(self):
+        # A propertyNames carrying allOf alongside sibling keys must keep those
+        # siblings when its $refs are resolved.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "type": "object",
+            "propertyNames": {
+                "minLength": 2,
+                "allOf": [{"type": "string", "maxLength": 5}],
+            },
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertEqual(property_names.get("minLength"), 2)
+        self.assertEqual(property_names["allOf"][0].get("maxLength"), 5)
+
     def test_resolve_schema_references_property_names_ref(self):
         sw_dict = {
             "openapi": "3.0.0",

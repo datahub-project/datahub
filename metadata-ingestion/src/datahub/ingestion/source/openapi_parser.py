@@ -678,19 +678,39 @@ def _merge_allof_map_keywords(
         for pattern, prop_schema in resolved_allof["patternProperties"].items():
             existing = merged_schema["patternProperties"].get(pattern)
             if existing is not None:
-                prop_schema = {"allOf": [existing, prop_schema]}
+                prop_schema = _combine_under_allof(existing, prop_schema)
             merged_schema["patternProperties"][pattern] = prop_schema
 
     if "propertyNames" in resolved_allof:
         if "propertyNames" not in merged_schema:
             merged_schema["propertyNames"] = resolved_allof["propertyNames"]
         else:
-            merged_schema["propertyNames"] = {
-                "allOf": [
-                    merged_schema["propertyNames"],
-                    resolved_allof["propertyNames"],
-                ]
-            }
+            merged_schema["propertyNames"] = _combine_under_allof(
+                merged_schema["propertyNames"], resolved_allof["propertyNames"]
+            )
+
+
+def _combine_under_allof(existing: Dict, addition: Dict) -> Dict:
+    """Combine two colliding same-key schemas under a single flattened allOf.
+
+    Flatten a pure ``{"allOf": [...]}`` wrapper we generated on an earlier merge so a
+    third (or later) contributor is appended as a sibling instead of being nested.
+    merge_allof_schemas(resolving_refs=True) does not expand nested member allOf, so a
+    nested wrapper would drop the earlier schemas' fields/constraints during resolution.
+    A wrapper carrying sibling keys is left intact (not flattened) so its constraints
+    are preserved.
+    """
+    members: List[Dict] = []
+    for part in (existing, addition):
+        if (
+            isinstance(part, dict)
+            and set(part.keys()) == {"allOf"}
+            and isinstance(part["allOf"], list)
+        ):
+            members.extend(part["allOf"])
+        else:
+            members.append(part)
+    return {"allOf": members}
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
@@ -812,12 +832,14 @@ def _resolve_pattern_and_property_names(
         # Resolve $refs / members without collapsing allOf — constraints like
         # minLength/maxLength are not merged by merge_allof_schemas.
         if "allOf" in property_names:
-            resolved_schema["propertyNames"] = {
-                "allOf": [
-                    resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
-                    for part in property_names["allOf"]
-                ]
-            }
+            # Preserve any sibling constraints (minLength, pattern, ...) that sit
+            # alongside allOf; only the allOf list is resolved member-by-member.
+            resolved_names = {k: v for k, v in property_names.items() if k != "allOf"}
+            resolved_names["allOf"] = [
+                resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
+                for part in property_names["allOf"]
+            ]
+            resolved_schema["propertyNames"] = resolved_names
         else:
             resolved_schema["propertyNames"] = resolve_schema_references(
                 property_names, sw_dict, max_depth=max_depth - 1
