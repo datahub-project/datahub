@@ -80,7 +80,21 @@ After creating a filter, you can choose whether results should or should not mat
 
 ### Results
 
-Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In DataHub Cloud, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency.
+Search results appear ranked by their relevance.
+
+In DataHub OSS, keyword search ranking is based on how closely the query matched textual
+fields of an asset and its metadata, and deprecated assets are demoted. On the browse / explore-all
+view (an empty or `*` query) assets are additionally ranked by metadata completeness — having a
+description, owners, a domain, glossary terms, or tags each contributes a boost. These weights live
+in `search_config.yaml` and are fully customizable; see [Customizing Search](#customizing-search).
+
+In DataHub Cloud, ranking additionally applies a second-stage reranking pass over the top results of
+the text-relevance pass. That pass combines textual relevance with usage (queries, views, and
+distinct users), recency, query-intent signals such as exact name and fully-qualified-name matches,
+and metadata completeness — so completeness influences ranking for ordinary keyword searches, not
+just the browse view. Assets that are deprecated, or that look non-production or internal (for
+example staging and test naming conventions, or backup-copy name prefixes), are demoted. See
+[How ranking works](#how-ranking-works) for the full picture.
 
 With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
 
@@ -334,6 +348,48 @@ the **term** `orders` is the same, however one location may be more important an
 **Note:** The customized query is a pass-through to Elasticsearch and must comply with their API, syntax errors are possible.
 It is recommended to test the customized queries prior to production deployment and knowledge of the Elasticsearch query
 language is required.
+
+### How ranking works
+
+DataHub ranks results in stages.
+
+**Stage 1 — retrieval and text relevance.** Elasticsearch/OpenSearch scores documents with BM25
+across the searchable fields, adjusted by per-field boosts and by the `functionScore` weights of the
+matching search profile described above. This stage decides _which_ assets are candidates, and
+provides the baseline ordering.
+
+**Stage 2 — reranking (DataHub Cloud).** DataHub Cloud reranks the top slice of the Stage 1 results
+using a configurable formula over named signals. The signals fall into these groups:
+
+| Group                     | Examples                                                                      | Effect             |
+| ------------------------- | ----------------------------------------------------------------------------- | ------------------ |
+| Query intent              | exact name match, fully-qualified-name match, all query terms present in name | Strong promotion   |
+| Text relevance            | the Stage 1 BM25 score                                                        | Primary ordering   |
+| Curation and completeness | description, owners, tags, glossary terms, curated structured properties      | Moderate promotion |
+| Usage and freshness       | queries, views, distinct users, last-modified recency                         | Tie-breaking       |
+| Demotions                 | deprecated, non-production naming, internal/backup copies, system tags        | Strong demotion    |
+
+Signals combine multiplicatively and each carries a configurable weight, so an asset that is strong
+on several signals compounds those gains.
+
+Two properties are worth understanding when reasoning about result order:
+
+- **Reranking operates on a window.** Only the top slice of the Stage 1 result set is reranked.
+  Improving an asset's metadata will not surface it for a query it does not match in the first place
+  — completeness reorders candidates, it does not create them.
+- **Query intent outranks curation.** When a query looks navigational — a quoted exact name, or a
+  dotted `database.schema.table` style identifier — the intent signals are designed to dominate
+  every other signal, so the asset the user asked for lands first regardless of its curation state.
+
+The practical implication for data teams: curating descriptions, owners, tags and glossary terms
+measurably improves where an asset lands among competing results, and cleaning up deprecated or
+stale-looking assets is at least as effective as enriching the good ones. Naming conventions matter
+too, since assets whose names look like test, staging, or backup copies are deliberately demoted.
+
+To influence ranking beyond the defaults, DataHub OSS deployments can edit the `functionScore`
+weights in `search_config.yaml`. DataHub Cloud additionally supports per-tag ranking boosts and
+opting a structured property in as a ranking feature, which lets you promote a curated or certified
+subset of the catalog; contact your DataHub representative to tune these.
 
 ### Default search entity types
 
