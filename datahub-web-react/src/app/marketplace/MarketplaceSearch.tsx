@@ -5,13 +5,14 @@ import EntityAutocompleteDropdown from '@app/sharedV2/sidebar/HierarchicalBrowse
 
 import { EntityType } from '@types';
 
-export default function GlossarySearch() {
-    const { t: tc } = useTranslation('common.actions');
+export default function MarketplaceSearch() {
+    const { t } = useTranslation('misc');
 
     return (
         <EntityAutocompleteDropdown
-            entityTypes={[EntityType.GlossaryTerm, EntityType.GlossaryNode]}
-            placeholder={tc('search')}
+            entityTypes={[EntityType.DataProduct]}
+            placeholder={t('marketplace.searchPlaceholder')}
+            dataTestId="marketplace-sidebar-search-input"
         />
     );
 }
