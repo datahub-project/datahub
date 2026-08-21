@@ -433,31 +433,36 @@ export default function SchemaTable({
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
     }, [expandedRows, expandedDrawerFieldPath, finalColumns]);
 
-    const rowClassName = (record) => {
-        let className = '';
+    // Pre-compute prefixes once per expandedRows change rather than inside the per-row callback.
+    // expandedRows.forEach inside rowClassName was O(expandedRows) × O(rows) on every render.
+    const expandedRowPrefixes = useMemo(() => Array.from(expandedRows).map((r) => `${r}.`), [expandedRows]);
 
-        if (expandedDrawerFieldPath === record.fieldPath) {
-            className += 'selected-row';
-        }
-        if (expandedRows.has(record?.fieldPath)) {
-            className += ' expanded-row';
-        }
-        // Add different classes based on depth
-        if (record?.depth < 2) className += ` level-${record?.depth}`;
-        else className += ' level-n';
+    const rowClassName = useCallback(
+        (record) => {
+            let className = '';
 
-        const path: string = record?.fieldPath?.toString();
+            if (expandedDrawerFieldPath === record.fieldPath) {
+                className += 'selected-row';
+            }
+            if (expandedRows.has(record?.fieldPath)) {
+                className += ' expanded-row';
+            }
+            // Add different classes based on depth
+            if (record?.depth < 2) className += ` level-${record?.depth}`;
+            else className += ' level-n';
 
-        expandedRows.forEach((row) => {
-            if (path.startsWith(`${row}.`)) {
+            const path: string = record?.fieldPath?.toString();
+            if (expandedRowPrefixes.some((prefix) => path.startsWith(prefix))) {
                 className += ' expanded-child';
             }
-        });
 
-        return className;
-    };
+            return className;
+        },
+        [expandedDrawerFieldPath, expandedRows, expandedRowPrefixes],
+    );
 
-    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => row.depth || 0 > 1), [rows]);
+    // Previous expression `row.depth || 0 > 1` was truthy for any non-zero depth due to precedence.
+    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => (row.depth || 0) > 0), [rows]);
 
     const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);
     useDebounce(() => setSchemaFieldDrawerFieldPath(expandedDrawerFieldPath), KEYBOARD_CONTROL_DEBOUNCE_MS, [
