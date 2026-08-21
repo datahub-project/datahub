@@ -21,6 +21,12 @@ export const LINEAGE_FILTER_PAGINATION = 4;
 // Page size for fetching/displaying a bounding box's members, and the initial home member limit.
 export const BOUNDING_BOX_MEMBER_PAGE_SIZE = 50;
 
+/** Entity types rendered as a bounding-box lineage graph (DataProduct, SemanticModel). */
+export const BOUNDING_BOX_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
+    EntityType.DataProduct,
+    EntityType.SemanticModel,
+]);
+
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
 export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
@@ -64,9 +70,10 @@ export interface LineageEntity extends NodeBase {
     parentDataJob?: Urn;
     /** Bounding boxes (DataProducts, SemanticModels) this entity belongs to, with whether it is
      * an output port of each (DataProduct-only concept; SemanticModel members always set false).
-     * Undefined means membership is not yet known; fetched for the bounding-box lineage graph by
-     * `useBulkDataProductMemberships` / `useBulkSemanticModelMemberships`. Not fetched as part of
-     * `entity` because membership lookup requires querying the graph index. */
+     * Undefined means membership is not yet known; fetched for the DataProduct lineage graph by
+     * `useBulkDataProductMemberships`. For SemanticModel lineage, home members are marked by
+     * `useFetchSemanticModelEntities` and other nodes are treated as free (no membership gate).
+     * Not fetched as part of `entity` because membership lookup requires querying the graph index. */
     boundingBoxes?: { urn: Urn; isOutputPort: boolean }[];
     /** For a DataProduct or SemanticModel rendered as a bounding box: how many of its members to
      * fetch and display, raised a page at a time by the box header's "Show more" control.

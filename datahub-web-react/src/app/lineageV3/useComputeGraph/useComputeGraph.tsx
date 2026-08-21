@@ -2,7 +2,13 @@ import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
-import { LineageFilter, LineageNodesContext, NodeContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import {
+    BOUNDING_BOX_ENTITY_TYPES,
+    LineageFilter,
+    LineageNodesContext,
+    NodeContext,
+    useIgnoreSchemaFieldStatus,
+} from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeBoundingBoxGraph from '@app/lineageV3/useComputeGraph/boundingBoxes/computeBoundingBoxGraph';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
@@ -100,7 +106,7 @@ export default function useComputeGraph(): ProcessedData {
                 };
             }
 
-            if (rootType === EntityType.DataProduct || rootType === EntityType.SemanticModel) {
+            if (BOUNDING_BOX_ENTITY_TYPES.has(rootType)) {
                 const result = computeBoundingBoxGraph(
                     rootUrn,
                     context,

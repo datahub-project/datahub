@@ -3,37 +3,23 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { DataHubPageModuleType, Dataset, EntityType, SearchResult } from '@types';
-
-type EntityDataWithMemberDatasets = {
-    entities?: {
-        searchResults?: SearchResult[] | null;
-    } | null;
-};
-
-function getMemberDatasets(entityData: EntityDataWithMemberDatasets | null | undefined): Dataset[] {
-    return (entityData?.entities?.searchResults ?? [])
-        .map((result) => result.entity)
-        .filter((entity): entity is Dataset => entity?.type === EntityType.Dataset);
-}
+import { DataHubPageModuleType } from '@types';
 
 export default function SemanticModelDatasetsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
+    const { datasets, loading } = useSemanticModelMemberDatasets();
 
-    const datasets = getMemberDatasets(entityData as EntityDataWithMemberDatasets);
-
-    if (!datasets.length) {
+    if (!loading && !datasets.length) {
         return (
-            <LargeModule {...props} dataTestId="semantic-model-datasets-module">
+            <LargeModule {...props} loading={loading} dataTestId="semantic-model-datasets-module">
                 <EmptyContent
                     icon={Database}
                     title={t('semanticModelDatasets.emptyTitle')}
@@ -44,7 +30,7 @@ export default function SemanticModelDatasetsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="semantic-model-datasets-module">
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-datasets-module">
             {datasets.map((dataset) => {
                 const typeName = entityRegistry.getEntityName(dataset.type) ?? dataset.type;
                 return (

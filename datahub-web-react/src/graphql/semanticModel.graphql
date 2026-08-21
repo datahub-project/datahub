@@ -1,68 +1,3 @@
-fragment semanticFieldAnnotationFields on SemanticFieldAnnotation {
-    type
-    expression {
-        dialects {
-            dialect
-            expression
-        }
-    }
-    aggregationFunction
-    dimension {
-        isTime
-    }
-}
-
-fragment modelDatasetFields on Dataset {
-    urn
-    type
-    name
-    platform {
-        ...platformFields
-    }
-    editableProperties {
-        description
-    }
-    properties {
-        name
-        description
-    }
-    tags {
-        ...globalTagsFields
-    }
-    semanticModelProperties {
-        alias
-        semanticModel {
-            urn
-            type
-        }
-    }
-    schema {
-        fields {
-            fieldPath
-            type
-            description
-            nativeDataType
-            tags {
-                ...globalTagsFields
-            }
-            glossaryTerms {
-                ...glossaryTerms
-            }
-            schemaFieldEntity {
-                aiContext {
-                    synonyms
-                    instructions
-                    examples
-                    customInstructions
-                }
-                semanticFieldAnnotation {
-                    ...semanticFieldAnnotationFields
-                }
-            }
-        }
-    }
-}
-
 fragment modelMetricFields on Metric {
     id
     path
@@ -144,6 +79,45 @@ fragment semanticModelProfileInfoFields on SemanticModelInfo {
     nativeDefinition
 }
 
+# Member datasets for SM summary modules (Datasets, Relationships, Dimensions).
+fragment semanticModelMemberDatasetFields on Dataset {
+    urn
+    type
+    name
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        description
+    }
+    properties {
+        name
+        description
+    }
+    semanticModelProperties {
+        alias
+    }
+    schema {
+        fields {
+            fieldPath
+            schemaFieldEntity {
+                semanticFieldAnnotation {
+                    type
+                    dimension {
+                        isTime
+                    }
+                    expression {
+                        dialects {
+                            dialect
+                            expression
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fragment semanticModelFields on SemanticModel {
     urn
     type
@@ -161,31 +135,6 @@ fragment semanticModelFields on SemanticModel {
         instructions
         examples
         customInstructions
-    }
-    entities(input: { types: [DATASET], count: 100, query: "*" }) {
-        total
-        searchResults {
-            entity {
-                urn
-                type
-                ... on Dataset {
-                    ...modelDatasetFields
-                }
-            }
-        }
-    }
-    metrics(input: { count: 20, query: "*" }) {
-        total
-        nextScrollId
-        searchResults {
-            entity {
-                urn
-                type
-                ... on Metric {
-                    ...modelMetricFields
-                }
-            }
-        }
     }
     ownership {
         ...ownershipFields
@@ -225,7 +174,25 @@ query getSemanticModel($urn: String!) {
     }
 }
 
-# Pagination beyond the first page embedded in getSemanticModel's `metrics` selection.
+# Member datasets for Datasets, Relationships, and Dimensions summary modules.
+query getSemanticModelMemberDatasets($urn: String!, $start: Int!, $count: Int!) {
+    semanticModel(urn: $urn) {
+        urn
+        entities(input: { types: [DATASET], start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...semanticModelMemberDatasetFields
+                    }
+                }
+            }
+        }
+    }
+}
+
 query getSemanticModelMetricsPage($urn: String!, $input: ScrollAcrossEntitiesInput!) {
     semanticModel(urn: $urn) {
         urn

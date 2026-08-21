@@ -11,7 +11,6 @@ import LineageVisualization from '@app/lineageV3/LineageVisualization';
 import { ColumnRef, LineageDisplayContext, LineageNodesContext, setDefault } from '@app/lineageV3/common';
 import useBulkDataProductMemberships from '@app/lineageV3/queries/useBulkDataProductMemberships';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
-import useBulkSemanticModelMemberships from '@app/lineageV3/queries/useBulkSemanticModelMemberships';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import useComputeGraph from '@app/lineageV3/useComputeGraph/useComputeGraph';
@@ -67,7 +66,6 @@ export default function LineageDisplay({
     }, [flowNodes]);
     const refetchUrn = useBulkEntityLineage(shownUrns);
     useBulkDataProductMemberships();
-    useBulkSemanticModelMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
     const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns } = useColumnHighlighting(

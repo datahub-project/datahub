@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 
-import { EdgeId, LineageEdge, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
+import {
+    BOUNDING_BOX_ENTITY_TYPES,
+    EdgeId,
+    LineageEdge,
+    LineageEntity,
+    LineageNodesContext,
+    NodeContext,
+} from '@app/lineageV3/common';
 import DAGNodeInitializer from '@app/lineageV3/initialize/DataFlowGraphInitializer';
 import DataProductGraphInitializer from '@app/lineageV3/initialize/DataProductGraphInitializer';
 import ImpactAnalysisNodeInitializer from '@app/lineageV3/initialize/ImpactAnalysisNodeInitializer';
@@ -70,7 +77,7 @@ export default function LineageExplorer(props: Props) {
             {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
             {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
             {type === EntityType.SemanticModel && <SemanticModelGraphInitializer urn={urn} type={type} />}
-            {type !== EntityType.DataFlow && type !== EntityType.DataProduct && type !== EntityType.SemanticModel && (
+            {type !== EntityType.DataFlow && !BOUNDING_BOX_ENTITY_TYPES.has(type) && (
                 <ImpactAnalysisNodeInitializer urn={urn} type={type} />
             )}
         </LineageNodesContext.Provider>
