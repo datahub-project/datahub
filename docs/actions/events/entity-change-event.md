@@ -530,6 +530,55 @@ This event is emitted when a new glossary term creation is proposed on DataHub.
 }
 ```
 
+### Create Domain Request Event
+
+This event is emitted when a new Domain creation is proposed on DataHub.
+
+#### Sample Event
+
+```json
+{
+  "entityType": "actionRequest",
+  "entityUrn": "urn:li:actionRequest:create-domain-101",
+  "category": "LIFECYCLE",
+  "operation": "CREATE",
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1234567890
+  },
+  "version": 0,
+  "parameters": {
+    "actionRequestType": "CREATE_DOMAIN",
+    "resourceType": "domain"
+  }
+}
+```
+
+### Create Data Product Request Event
+
+This event is emitted when a new Data Product creation is proposed on DataHub.
+
+#### Sample Event
+
+```json
+{
+  "entityType": "actionRequest",
+  "entityUrn": "urn:li:actionRequest:create-data-product-101",
+  "category": "LIFECYCLE",
+  "operation": "CREATE",
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1234567890
+  },
+  "version": 0,
+  "parameters": {
+    "actionRequestType": "CREATE_DATA_PRODUCT",
+    "resourceType": "domain",
+    "resourceUrn": "urn:li:domain:marketing"
+  }
+}
+```
+
 ### Term Association Request Event
 
 This event is emitted when a glossary term association is proposed for an entity on DataHub.

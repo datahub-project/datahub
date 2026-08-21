@@ -578,6 +578,8 @@ These privileges are to view & modify any entity within DataHub.
 | Propose Dataset Column Structured Properties[^1]  | Allow actor to propose a structured property to a dataset schema column (field).                |
 | Propose Create Glossary Term[^1]                  | Allow actor to propose creation of a new glossary term.                                         |
 | Propose Create Glossary Node[^1]                  | Allow actor to propose creation of a new glossary node.                                         |
+| Propose Create Domain[^1]                         | Allow actor to propose creation of a new Domain.                                                |
+| Propose Create Data Product[^1]                   | Allow actor to propose creation of a new Data Product.                                          |
 | Manage Tag Proposals[^1]                          | Allow actor to manage a proposal to add a tag to an asset.                                      |
 | Manage Glossary Term Proposals[^1]                | Allow actor to manage a proposal to add a glossary term to an asset.                            |
 | Manage Domain Proposals[^1]                       | Allow actor to manage a proposal to add a domain to an asset.                                   |
