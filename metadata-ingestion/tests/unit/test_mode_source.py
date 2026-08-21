@@ -9,6 +9,8 @@ Tests cover:
 - _process_report error isolation (including error handler failures)
 - Dataset error isolation in _emit_workunits_for_space
 - exclude_personal_collections config
+- Report-level chart_count gating in _process_report_inner
+- Chartless-query -> report links via construct_dashboard datasetEdges
 """
 
 from typing import Dict, Iterator, List, cast
@@ -27,7 +29,9 @@ from datahub.ingestion.source.mode import (
     ModeSource,
     _is_http_404,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    DashboardInfoClass,
     InputFieldsClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -766,10 +770,16 @@ class TestChartFetchGating:
             "data_source_id": 1,
             "last_run_id": 1,
             "explorations_count": explorations_count,
-            "chart_count": chart_count,
             "_links": {"creator": {"href": "/api/modeuser"}},
         }
-        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
+        # chart_count is a report-level field in the Mode API, not a query field.
+        report = {
+            "token": "rtok",
+            "id": 1,
+            "name": "r",
+            "chart_count": chart_count,
+            "_links": {},
+        }
 
         chart_calls: List[tuple] = []
 
@@ -883,4 +893,212 @@ class TestGetInputFields:
         assert isinstance(aspect, InputFieldsClass)
         assert [f.schemaFieldUrn for f in aspect.fields] == [
             builder.make_schema_field_urn(query_urn, field_path)
+        ]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Chart gating (report-level chart_count) + chartless-query -> report links
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _dashboard_info_from_workunits(wus: List) -> DashboardInfoClass:
+    """Extract the report's DashboardInfo aspect from emitted workunits."""
+    for wu in wus:
+        metadata = wu.metadata
+        if isinstance(metadata, MetadataChangeEvent):
+            for aspect in metadata.proposedSnapshot.aspects:
+                if isinstance(aspect, DashboardInfoClass):
+                    return aspect
+    raise AssertionError("No DashboardInfo aspect found in emitted workunits")
+
+
+class TestConstructDashboardChartlessLinks:
+    """construct_dashboard links chartless queries to the report via datasetEdges."""
+
+    def test_chartless_queries_become_dataset_edges(self):
+        source = _make_source()
+        source.space_tokens = {"space1": "My Space"}
+        report_info = {"token": "rep_tok", "id": "111", "name": "My Report"}
+        chartless = [
+            "urn:li:dataset:(urn:li:dataPlatform:mode,q1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mode,q2,PROD)",
+        ]
+
+        result = source.construct_dashboard(
+            space_token="space1",
+            report_info=report_info,
+            chart_urns=[],
+            chartless_query_urns=chartless,
+        )
+
+        assert result is not None
+        snapshot, _ = result
+        dashboard_info = next(
+            a for a in snapshot.aspects if isinstance(a, DashboardInfoClass)
+        )
+        assert dashboard_info.datasetEdges is not None
+        assert [e.destinationUrn for e in dashboard_info.datasetEdges] == chartless
+
+    def test_no_chartless_queries_leaves_dataset_edges_unset(self):
+        source = _make_source()
+        source.space_tokens = {"space1": "My Space"}
+        report_info = {"token": "rep_tok", "id": "111", "name": "My Report"}
+
+        result = source.construct_dashboard(
+            space_token="space1",
+            report_info=report_info,
+            chart_urns=[],
+            chartless_query_urns=[],
+        )
+
+        assert result is not None
+        snapshot, _ = result
+        dashboard_info = next(
+            a for a in snapshot.aspects if isinstance(a, DashboardInfoClass)
+        )
+        assert dashboard_info.datasetEdges is None
+
+
+class TestProcessReportInnerChartGate:
+    """The chart API is gated on the report's chart_count."""
+
+    def _make_report_source(self) -> ModeSource:
+        source = _make_source()
+        source.space_tokens = {"space1": "My Space"}
+        return source
+
+    def test_report_without_charts_skips_chart_api(self):
+        """chart_count == 0 on the report: no per-query chart API calls, and every
+        query is linked straight to the report via datasetEdges."""
+        source = self._make_report_source()
+        report = {"token": "rep", "id": "1", "name": "R", "chart_count": "0"}
+        queries = [{"token": "qt1", "id": "q1"}, {"token": "qt2", "id": "q2"}]
+
+        with (
+            patch.object(source, "_get_queries", return_value=queries),
+            patch.object(
+                source,
+                "construct_query_or_dataset",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+            patch.object(source, "_get_charts") as mock_get_charts,
+        ):
+            wus = list(source._process_report_inner("space1", report))
+
+        mock_get_charts.assert_not_called()
+        assert source.report.chart_api_calls_skipped == 2
+
+        dashboard_info = _dashboard_info_from_workunits(wus)
+        assert dashboard_info.charts == []
+        assert dashboard_info.datasetEdges is not None
+        assert {e.destinationUrn for e in dashboard_info.datasetEdges} == {
+            source.get_dataset_urn_from_query(q) for q in queries
+        }
+
+    def test_report_with_charts_links_charted_and_chartless_separately(self):
+        """chart_count > 0: charts are fetched per query. A query with charts is
+        linked through its chart; a query without charts is linked to the report."""
+        source = self._make_report_source()
+        report = {"token": "rep", "id": "1", "name": "R", "chart_count": "2"}
+        charted_query = {"token": "qc", "id": "qc"}
+        chartless_query = {"token": "qn", "id": "qn"}
+
+        def fake_get_charts(report_token: str, query_token: str) -> List[dict]:
+            return [{"token": "chart1"}] if query_token == "qc" else []
+
+        with (
+            patch.object(
+                source, "_get_queries", return_value=[charted_query, chartless_query]
+            ),
+            patch.object(
+                source,
+                "construct_query_or_dataset",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+            patch.object(source, "_get_charts", side_effect=fake_get_charts),
+            patch.object(
+                source,
+                "construct_chart_from_api_data",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            wus = list(source._process_report_inner("space1", report))
+
+        dashboard_info = _dashboard_info_from_workunits(wus)
+        # Charted query -> chart in DashboardInfo.charts.
+        assert dashboard_info.charts == [builder.make_chart_urn("mode", "chart1")]
+        # Chartless query -> report datasetEdge.
+        assert dashboard_info.datasetEdges is not None
+        assert [e.destinationUrn for e in dashboard_info.datasetEdges] == [
+            source.get_dataset_urn_from_query(chartless_query)
+        ]
+
+    def test_string_chart_count_does_not_raise_and_gates_on(self):
+        """Mode types chart_count as a string; a non-zero string must enable chart
+        fetching rather than raise a TypeError."""
+        source = self._make_report_source()
+        report = {"token": "rep", "id": "1", "name": "R", "chart_count": "5"}
+        query = {"token": "qt", "id": "q"}
+
+        with (
+            patch.object(source, "_get_queries", return_value=[query]),
+            patch.object(
+                source,
+                "construct_query_or_dataset",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+            patch.object(source, "_get_charts", return_value=[]) as mock_get_charts,
+        ):
+            list(source._process_report_inner("space1", report))
+
+        mock_get_charts.assert_called_once()
+
+    def test_missing_chart_count_skips_chart_api(self):
+        """A report with no chart_count key at all is treated as having no charts:
+        the chart API is skipped and the query is linked to the report directly."""
+        source = self._make_report_source()
+        report = {"token": "rep", "id": "1", "name": "R"}  # no chart_count key
+        query = {"token": "qt", "id": "q"}
+
+        with (
+            patch.object(source, "_get_queries", return_value=[query]),
+            patch.object(
+                source,
+                "construct_query_or_dataset",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+            patch.object(source, "_get_charts") as mock_get_charts,
+        ):
+            wus = list(source._process_report_inner("space1", report))
+
+        mock_get_charts.assert_not_called()
+        dashboard_info = _dashboard_info_from_workunits(wus)
+        assert dashboard_info.datasetEdges is not None
+        assert [e.destinationUrn for e in dashboard_info.datasetEdges] == [
+            source.get_dataset_urn_from_query(query)
+        ]
+
+    def test_non_numeric_chart_count_does_not_raise_and_skips(self):
+        """A malformed (non-numeric) chart_count must coerce to 0 rather than raise,
+        so the report still processes (chart API skipped)."""
+        source = self._make_report_source()
+        report = {"token": "rep", "id": "1", "name": "R", "chart_count": "not-a-number"}
+        query = {"token": "qt", "id": "q"}
+
+        with (
+            patch.object(source, "_get_queries", return_value=[query]),
+            patch.object(
+                source,
+                "construct_query_or_dataset",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+            patch.object(source, "_get_charts") as mock_get_charts,
+        ):
+            wus = list(source._process_report_inner("space1", report))  # must not raise
+
+        mock_get_charts.assert_not_called()
+        dashboard_info = _dashboard_info_from_workunits(wus)
+        assert dashboard_info.datasetEdges is not None
+        assert [e.destinationUrn for e in dashboard_info.datasetEdges] == [
+            source.get_dataset_urn_from_query(query)
         ]
