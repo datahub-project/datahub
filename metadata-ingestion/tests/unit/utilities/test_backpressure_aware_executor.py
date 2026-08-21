@@ -1,4 +1,5 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 from datahub.utilities.perf_timer import PerfTimer
@@ -57,3 +58,28 @@ def test_backpressure_aware_executor_advanced():
         # Validate that the entire process took about 5-10x the task duration.
         # That's because we have 2 workers and 10 tasks.
         assert 5 * task_duration < timer.elapsed_seconds() < 10 * task_duration
+
+
+def test_backpressure_aware_executor_with_provided_executor():
+    """When an executor is passed in, map uses it and does NOT close it."""
+
+    def task(i):
+        return i
+
+    executor = ThreadPoolExecutor(max_workers=2)
+    try:
+        results = {
+            res.result()
+            for res in BackpressureAwareExecutor.map(
+                task,
+                ((i,) for i in range(10)),
+                max_workers=2,
+                executor=executor,
+            )
+        }
+        assert results == set(range(10))
+
+        # The provided executor must remain usable — map must not have shut it down.
+        assert executor.submit(task, 42).result() == 42
+    finally:
+        executor.shutdown(wait=True)
