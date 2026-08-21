@@ -18,6 +18,9 @@ public class HdfsPathDataset extends SparkDataset {
   private static final String TABLE = "{table}";
   private static final String TABLE_MARKER = "/{table}";
   private static final String TABLE_MARKER_REGEX = "/\\{table\\}";
+  private static final String TABLE_PATH = "{table_path}";
+  private static final String TABLE_PATH_MARKER = "/{table_path}";
+  private static final String TABLE_PATH_MARKER_REGEX = "/\\{table_path\\}";
 
   private static final String URI_SPLITTER = "://";
 
@@ -108,7 +111,8 @@ public class HdfsPathDataset extends SparkDataset {
 
     if (pathSpecs == null || pathSpecs.isEmpty()) {
       log.info(
-          "No path_spec_list configuration found. Falling back to creating dataset name with complete uri");
+          "No path_spec_list configuration found. Falling back to creating dataset name with"
+              + " complete uri");
     } else {
       for (String pathSpec : pathSpecs) {
         String uri = getMatchedUri(pathUri, pathSpec);
@@ -157,6 +161,38 @@ public class HdfsPathDataset extends SparkDataset {
   }
 
   static String getMatchedUri(String pathUri, String pathSpec) {
+    if (pathSpec.contains(TABLE_PATH_MARKER)) {
+      if (!pathSpec.endsWith(TABLE_PATH_MARKER)) {
+        log.warn("Invalid path spec [{}]. {} must be the final path segment", pathSpec, TABLE_PATH);
+        return null;
+      }
+
+      String miniSpec = pathSpec.split(TABLE_PATH_MARKER_REGEX)[0] + TABLE_PATH_MARKER;
+      String[] specFolderList = miniSpec.split("/");
+      String[] pathFolderList = pathUri.split("/");
+      if (pathFolderList.length >= specFolderList.length) {
+        for (int i = 0; i < specFolderList.length; i++) {
+          if (specFolderList[i].equals(pathFolderList[i]) || specFolderList[i].equals("*")) {
+            continue;
+          } else if (specFolderList[i].equals(TABLE_PATH)) {
+            String tablePath =
+                String.join("/", Arrays.copyOfRange(pathFolderList, i, pathFolderList.length));
+            String matchedUri = getSplitUri(pathUri)[0] + URI_SPLITTER + tablePath;
+            log.debug(
+                "Actual path [{}] matched with path_spec [{}], table-relative path [{}]",
+                pathUri,
+                pathSpec,
+                tablePath);
+            return matchedUri;
+          } else {
+            break;
+          }
+        }
+      }
+      log.debug("No path spec matched with actual path [{}]", pathUri);
+      return null;
+    }
+
     if (pathSpec.contains(TABLE_MARKER)) {
       String miniSpec = pathSpec.split(TABLE_MARKER_REGEX)[0] + TABLE_MARKER;
       String[] specFolderList = miniSpec.split("/");
@@ -168,7 +204,7 @@ public class HdfsPathDataset extends SparkDataset {
             uri.append(pathFolderList[i]).append("/");
           } else if (specFolderList[i].equals(TABLE)) {
             uri.append(pathFolderList[i]);
-            log.debug("Actual path [" + pathUri + "] matched with path_spec [" + pathSpec + "]");
+            log.debug("Actual path [{}] matched with path_spec [{}]", pathUri, pathSpec);
             return uri.toString();
           } else {
             break;
@@ -177,7 +213,8 @@ public class HdfsPathDataset extends SparkDataset {
       }
       log.debug("No path spec matched with actual path [" + pathUri + "]");
     } else {
-      log.warn("Invalid path spec [" + pathSpec + "]. Path spec should contain {table}");
+      log.warn(
+          "Invalid path spec [{}]. Path spec should contain {} or {}", pathSpec, TABLE, TABLE_PATH);
     }
     return null;
   }
