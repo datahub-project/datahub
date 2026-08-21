@@ -1,29 +1,19 @@
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
-)
+import sqlglot
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import (
-    PLATFORMS_WITH_CASE_SENSITIVE_TABLES,
-    get_dialect_str,
-)
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 _MAX_SAMPLE_MISMATCHES = 5
-
-
-def _exact_urn(urn: str) -> str:
-    """Identity key for case-sensitive connections — preserves the URN so
-    ``Proj.DataSet.Tbl`` and ``proj.dataset.tbl`` are not collapsed."""
-    return urn
 
 
 if TYPE_CHECKING:
@@ -158,10 +148,12 @@ class HexLineageBuilder:
         Build upstream URN strings from queriedTables API response.
 
         {dataConnectionId, dataConnectionName, tableName} — tableName's level
-        of qualification is not guaranteed by Hex, so under-qualified names
-        are padded with the connection's default_database / default_schema
-        before URN construction. Only emits URNs for connections whose
-        platform can be confidently resolved.
+        of qualification is not guaranteed by Hex, so under-qualified names are
+        padded with the connection's default_database / default_schema,
+        dialect-normalized, then resolved through the same ``SchemaResolver``
+        the SQL-cell path uses — so tier-1 and tier-2 URNs agree by
+        construction. Only emits URNs for connections whose platform can be
+        confidently resolved.
         """
         seen: Set[str] = set()
         result: List[str] = []
@@ -187,13 +179,16 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
-            if self._should_lowercase(connection):
-                qualified_name = qualified_name.lower()
-            urn = make_dataset_urn_with_platform_instance(
-                platform=connection.platform,
-                name=qualified_name,
-                platform_instance=connection.platform_instance,
-                env=self._env,
+            dialect = get_dialect_str(connection.platform)
+            tbl = normalize_identifiers(
+                sqlglot.to_table(qualified_name, dialect=dialect), dialect=dialect
+            )
+            urn, _ = self._get_resolver(
+                connection.platform, connection.platform_instance
+            ).resolve_table_parts(
+                database=tbl.catalog or None,
+                db_schema=tbl.db or None,
+                table=tbl.name,
             )
             if urn not in seen:
                 seen.add(urn)
@@ -265,38 +260,17 @@ class HexLineageBuilder:
         Extract column-level lineage from SQL cells, cross-validated against
         the queriedTables result set.
 
-        For ENTERPRISE workspaces: queriedTables provides runtime-proven dataset
-        URNs. SQL parsing may produce table URNs that differ (unqualified names,
-        view references, dynamic SQL). A column reference is only emitted if its
-        parent dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
-        would dangle (pointing to a dataset that may not exist in DataHub or that
-        represents a different entity than intended).
+        queriedTables provides runtime-proven dataset URNs; SQL parsing may
+        produce table URNs that differ (unqualified names, view references,
+        dynamic SQL). A column reference is only emitted if its parent
+        dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
+        would dangle. Mismatches are recorded in the report with sample cells.
 
-        Mismatches are recorded in the report with sample cells for diagnostics.
-
-        The comparison key is per-connection. Case-insensitive connections
-        (``_should_lowercase`` True) key on ``lowercase_dataset_urn(urn)`` —
-        the same function ``AutoLowercaseUrnsProcessor`` uses on the way out —
-        so URNs this source considers equal are also emitted identically.
-        Case-sensitive connections (bigquery, db2, or an explicit
-        ``convert_urns_to_lowercase: false`` override) key on the exact URN:
-        ``Proj.DataSet.Tbl`` and ``proj.dataset.tbl`` are different tables on
-        BigQuery and must not collapse.
-
-        The lowercase key folds ``platform_instance`` into
-        ``DatasetUrn.name.lower()`` (the instance lives inside ``name``);
-        this is load-bearing because the SQL-cell path's
-        ``SchemaResolver.get_urn_for_table(lower=True)`` lowercases the
-        instance too — without the fold an instanced Snowflake connection
-        (e.g. ``Prod_SF``) would never match between tiers. Each emitted
-        SchemaFieldUrn is rebuilt against the exact matched queried URN so
-        column-lineage edges resolve to the same dataset as ``datasetEdges``.
+        Both tiers resolve through the same ``SchemaResolver``, so a parsed
+        parent and a queriedTables URN for the same table are identical
+        strings — the comparison is a plain set membership test.
         """
-        queried_by_lower: Dict[str, str] = {}
-        queried_by_exact: Dict[str, str] = {}
-        for u in queried_table_urns:
-            queried_by_lower.setdefault(lowercase_dataset_urn(u), u)
-            queried_by_exact.setdefault(u, u)
+        queried_set: Set[str] = set(queried_table_urns)
 
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
@@ -309,13 +283,6 @@ class HexLineageBuilder:
             _, field_urns = self._parse_cell(cell, connection)
             if not field_urns:
                 continue
-
-            if self._should_lowercase(connection):
-                match_map = queried_by_lower
-                key_fn: Callable[[str], str] = lowercase_dataset_urn
-            else:
-                match_map = queried_by_exact
-                key_fn = _exact_urn
 
             matched: List[str] = []
             unmatched_tables: Set[str] = set()
@@ -334,11 +301,8 @@ class HexLineageBuilder:
                     )
                     continue
 
-                queried_parent = match_map.get(key_fn(parent_urn))
-                if queried_parent is not None:
-                    # Rebuild the field URN against the exact queried URN so
-                    # column lineage points to the same dataset as datasetEdges.
-                    matched.append(make_schema_field_urn(queried_parent, field_path))
+                if parent_urn in queried_set:
+                    matched.append(make_schema_field_urn(parent_urn, field_path))
                 else:
                     unmatched_tables.add(parent_urn)
                     unmatched_field_count += 1
@@ -370,19 +334,6 @@ class HexLineageBuilder:
 
         self._report.enterprise_column_fields_emitted += len(validated_fields)
         return validated_fields
-
-    def _should_lowercase(self, connection: HexConnection) -> bool:
-        """Whether to lowercase the qualified table name for this connection.
-
-        Mirrors the SQL-cell path's ``SchemaResolver._prefers_urn_lower()``: by
-        default case-insensitive platforms (snowflake, postgres, redshift, …) are
-        lowercased and case-sensitive platforms (bigquery, db2) preserve author
-        case. A per-connection ``convert_urns_to_lowercase`` override, if set,
-        wins over the platform default.
-        """
-        if connection.convert_urns_to_lowercase is not None:
-            return connection.convert_urns_to_lowercase
-        return connection.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 
     def _lookup_connection(
         self, connection_id: Optional[str]

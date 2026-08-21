@@ -30,21 +30,12 @@ source:
     # use_queried_tables_lineage: true
 
     # (Optional) Match the platform_instance under which the upstream warehouses
-    # were ingested. Required so Hex's lineage URNs collide with the
-    # warehouse-ingested ones. Keyed by Hex dataConnectionId (UUID).
-    #
-    # convert_urns_to_lowercase (per connection) controls whether the
-    # queriedTables path lowercases db/schema/table in the upstream URN. By
-    # default the Hex source mirrors the SQL-cell path: case-insensitive
-    # platforms (snowflake, postgres, redshift, …) are lowercased
-    # automatically and case-sensitive platforms (bigquery, db2) preserve
-    # author case — so most workspaces need no setting here. Set it
-    # explicitly only to override the platform default (e.g. true for a
-    # BigQuery connection whose warehouse was ingested with
-    # convert_urns_to_lowercase=true, or false for a Snowflake connection
-    # ingested with convert_urns_to_lowercase=false). This only rewrites a
-    # lineage edge's destination URN; it does not re-key datasets or trigger
-    # stale soft-deletes, and it does not affect the SQL-cell parsing path.
+    # were ingested, and pin platform for connections Hex can't auto-resolve.
+    # Keyed by Hex dataConnectionId (UUID). Both the queriedTables and SQL-cell
+    # paths route through the same schema resolver, so casing follows the
+    # upstream warehouse (lowercase for snowflake/postgres/redshift/mssql/…,
+    # preserve for bigquery/db2) and BigQuery date-shard suffixes fold — no
+    # per-connection casing flag is needed.
     # connection_platform_map:
     #   "8f3a1c2d-4b5e-6789-abcd-ef0123456789":
     #     platform: snowflake
@@ -55,7 +46,6 @@ source:
     #     platform: bigquery
     #     default_database: my-gcp-project
     #     default_schema: analytics
-    #     convert_urns_to_lowercase: true  # override the bigquery default
 
     # (Optional) Filter projects and components by title or category.
     # project_title_pattern:

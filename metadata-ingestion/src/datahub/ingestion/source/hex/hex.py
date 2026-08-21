@@ -513,9 +513,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 platform_instance=platform_instance,
                 default_database=default_database,
                 default_schema=default_schema,
-                convert_urns_to_lowercase=(
-                    override.convert_urns_to_lowercase if override else None
-                ),
             )
 
         if unmapped_type_counts:
@@ -640,6 +637,19 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                                 sql_cells, upstream_urns
                             )
                         )
+                        if not hex_item.input_fields:
+                            self.report.warning(
+                                title="Column lineage dropped",
+                                message=(
+                                    "queriedTables produced upstream URNs but no "
+                                    "SQL-cell column lineage matched them — "
+                                    "column-level lineage for this entity was "
+                                    "dropped. Check the lineage builder's mismatch "
+                                    "sample to confirm the queriedTables and "
+                                    "SQL-cell URNs refer to the same tables."
+                                ),
+                                context=f"{hex_item.id}",
+                            )
                 used_queried_tables = True
 
         if not used_queried_tables:

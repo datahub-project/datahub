@@ -29,11 +29,8 @@ CONNECTIONS: Dict[str, HexConnection] = {
 
 @pytest.fixture(autouse=True)
 def _pin_dataset_urn_case_global(monkeypatch):
-    """Pin the module global DATASET_URN_TO_LOWER to False so case-preservation
-    assertions don't depend on DATAHUB_DATASET_URN_TO_LOWER in the env. The
-    builder lowercases per-connection itself; this only prevents
-    make_dataset_urn_with_platform_instance from silently lowercasing when the
-    connection's rule says to preserve case."""
+    """Pin DATASET_URN_TO_LOWER to False so case-preservation assertions
+    don't depend on DATAHUB_DATASET_URN_TO_LOWER in the env."""
     monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
 
 
@@ -700,79 +697,46 @@ def test_build_from_queried_tables_bigquery_preserves_case_by_default():
     assert urns == [expected]
 
 
-def test_build_from_queried_tables_override_false_preserves_snowflake_case():
-    """An explicit convert_urns_to_lowercase=false on a Snowflake connection
-    overrides the platform default and preserves author case."""
+def test_build_from_queried_tables_bigquery_normalizes_date_shard():
+    """BigQuery shard suffixes are normalized by the resolver — a queriedTables
+    entry for ``proj.dataset.events_20240101`` resolves to the same URN as the
+    partitioned table ``proj.dataset.events_yyyymmdd`` that the warehouse
+    ingestion emits, so the lineage edge lands on the right dataset."""
     b = _builder(
-        connections={
-            SNOWFLAKE_CONN: HexConnection(
-                name="A",
-                platform="snowflake",
-                platform_instance="prod_sf",
-                convert_urns_to_lowercase=False,
-            ),
-        },
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
     )
     urns = b.build_from_queried_tables(
-        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "MY_DB.MY_SCHEMA.MY_TABLE"}]
-    )
-    expected = make_dataset_urn_with_platform_instance(
-        platform="snowflake",
-        name="MY_DB.MY_SCHEMA.MY_TABLE",
-        platform_instance="prod_sf",
-        env="PROD",
-    )
-    assert urns == [expected]
-
-
-def test_build_from_queried_tables_override_true_lowercases_bigquery():
-    """An explicit convert_urns_to_lowercase=true on a BigQuery connection
-    overrides the platform default and lowercases the name."""
-    b = _builder(
-        connections={
-            BIGQUERY_CONN: HexConnection(
-                name="BQ",
-                platform="bigquery",
-                convert_urns_to_lowercase=True,
-            ),
-        },
-    )
-    urns = b.build_from_queried_tables(
-        [{"dataConnectionId": BIGQUERY_CONN, "tableName": "Proj.DataSet.Tbl"}]
+        [
+            {
+                "dataConnectionId": BIGQUERY_CONN,
+                "tableName": "proj.dataset.events_20240101",
+            }
+        ]
     )
     expected = make_dataset_urn_with_platform_instance(
         platform="bigquery",
-        name="proj.dataset.tbl",
+        name="proj.dataset.events_yyyymmdd",
         platform_instance=None,
         env="PROD",
     )
     assert urns == [expected]
 
 
-def test_build_from_queried_tables_builder_does_not_lowercase_platform_instance():
-    """The builder lowercases the qualified table name only — platform_instance
-    is passed through to make_dataset_urn_with_platform_instance unchanged.
-    Scoped to the builder boundary; the top-level recipe key is absent for the
-    Hex source, so AutoLowercaseUrnsProcessor does not fire downstream."""
+def test_build_from_queried_tables_mssql_lowercases_by_default():
+    """MSSQL is case-insensitive — the resolver lowercases the qualified name,
+    matching a warehouse ingested with convert_urns_to_lowercase=true."""
     b = _builder(
         connections={
-            SNOWFLAKE_CONN: HexConnection(
-                name="A",
-                platform="snowflake",
-                platform_instance="Prod_Snowflake",
-            ),
+            "conn-mssql": HexConnection(name="M", platform="mssql"),
         },
     )
     urns = b.build_from_queried_tables(
-        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.T"}]
+        [{"dataConnectionId": "conn-mssql", "tableName": "MY_DB.dbo.MY_TABLE"}]
     )
-    # name is lowercased (db.schema.t) but platform_instance "Prod_Snowflake"
-    # is preserved verbatim — the instance lives inside name as a prefix, but
-    # the builder does not touch it.
     expected = make_dataset_urn_with_platform_instance(
-        platform="snowflake",
-        name="db.schema.t",
-        platform_instance="Prod_Snowflake",
+        platform="mssql",
+        name="my_db.dbo.my_table",
+        platform_instance=None,
         env="PROD",
     )
     assert urns == [expected]
@@ -801,13 +765,10 @@ def test_build_from_queried_tables_dedup_collapses_case_variants():
     assert urns == [expected]
 
 
-def test_validated_cll_mixed_case_platform_instance_matches():
-    """The comparison key deliberately folds platform_instance into
-    DatasetUrn.name.lower() (the instance lives inside name). This is
-    load-bearing: the SQL-cell path's SchemaResolver.get_urn_for_table(lower=True)
-    also lowercases the instance, so without the fold an instanced Snowflake
-    connection (e.g. Prod_SF) would never match between tiers and column
-    lineage would be silently dropped with only a mismatch counter as signal."""
+def test_validated_cll_instanced_snowflake_matches_between_tiers():
+    """Both tiers route through the same SchemaResolver, so an instanced
+    Snowflake connection yields identical URNs from queriedTables and from
+    SQL-cell parsing — column lineage matches without a hand-rolled key."""
     report = LineageBuilderReport()
     b = _builder(
         report=report,
@@ -819,21 +780,13 @@ def test_validated_cll_mixed_case_platform_instance_matches():
             ),
         },
     )
-    # make_dataset_urn_with_platform_instance prepends the instance to name, so
-    # name is just the db.schema.table portion.
-    queried = [
-        make_dataset_urn_with_platform_instance(
-            platform="snowflake",
-            name="db.schema.orders",
-            platform_instance="Prod_SF",
-            env="PROD",
-        )
-    ]
+    queried = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.ORDERS"}]
+    )
     sql = "SELECT order_id FROM DB.SCHEMA.ORDERS"
     fields = b.build_validated_column_lineage([_cell(sql)], queried)
-    expected_parent = queried[0]
     assert len(fields) == 1
-    assert SchemaFieldUrn.from_string(fields[0]).parent == expected_parent
+    assert SchemaFieldUrn.from_string(fields[0]).parent == queried[0]
     assert report.enterprise_column_fields_skipped_mismatch == 0
 
 
@@ -931,29 +884,3 @@ def test_validated_cll_bigquery_matches_by_exact_urn_not_lowercase():
     assert fields_nomatch == []
     assert report2.enterprise_column_fields_skipped_mismatch > 0
     assert report2.enterprise_cells_with_mismatch == 1
-
-
-def test_build_upstream_urns_preserves_case_for_bigquery():
-    """The SQL-cell path uses SchemaResolver, which preserves case for
-    bigquery. A per-connection ``convert_urns_to_lowercase`` override only
-    affects the queriedTables path — pin that it doesn't leak into SQL-cell
-    parsing."""
-    b = _builder(
-        connections={
-            BIGQUERY_CONN: HexConnection(
-                name="BQ",
-                platform="bigquery",
-                convert_urns_to_lowercase=True,
-            ),
-        },
-    )
-    datasets, _ = b.build_upstream_urns(
-        [_cell("SELECT id FROM proj.dataset.Tbl", conn_id=BIGQUERY_CONN)]
-    )
-    expected = make_dataset_urn_with_platform_instance(
-        platform="bigquery",
-        name="proj.dataset.Tbl",
-        platform_instance=None,
-        env="PROD",
-    )
-    assert datasets == [expected]
