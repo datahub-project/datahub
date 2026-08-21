@@ -2,7 +2,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, FrozenSet, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -58,6 +58,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -1655,11 +1656,44 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
-# Two-tier platforms whose connector URNs are schema.table. Their ODBC
-# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
-# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
-# the enum so a platform-name rename can't silently disable the catalog drop.
-ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
+# Platforms whose standalone connectors emit schema.table URNs by default.
+# ODBC nav for these must not prepend Kind=Database or a dsn_to_database_schema
+# database onto Schema+Table (that would force three-part URNs that mismatch
+# the connector). Hive also drops its constant "HIVE" pseudo-catalog.
+ODBC_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
+    {
+        SupportedDataPlatform.HIVE.value.datahub_data_platform_name,
+        SupportedDataPlatform.ORACLE.value.datahub_data_platform_name,
+    }
+)
+
+# Platforms whose standalone connectors emit database.schema.table (or the
+# BigQuery equivalent project.dataset.table). When ODBC navigation (+ optional
+# dsn_to_database_schema backfill) yields database + table but no schema, these
+# must warn-and-skip rather than emit a truncated database.table URN.
+# db2 has no SupportedDataPlatform member because it is only reachable over ODBC
+# (odbc.py sniffs it from the driver / dsn_to_platform_name); its datahub platform
+# name is the literal "db2" that the standalone Db2Source registers. Its standalone
+# connector emits database.schema.object, so it is three-tier here.
+DB2_PLATFORM: str = "db2"
+
+ODBC_THREE_TIER_PLATFORMS: FrozenSet[str] = frozenset(
+    {
+        SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name,
+        SupportedDataPlatform.SNOWFLAKE.value.datahub_data_platform_name,
+        SupportedDataPlatform.POSTGRES_SQL.value.datahub_data_platform_name,
+        SupportedDataPlatform.MS_SQL.value.datahub_data_platform_name,
+        SupportedDataPlatform.AMAZON_REDSHIFT.value.datahub_data_platform_name,
+        SupportedDataPlatform.DATABRICKS_SQL.value.datahub_data_platform_name,
+        DB2_PLATFORM,
+    }
+)
+
+ATHENA_PLATFORM: str = (
+    SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+)
+ORACLE_PLATFORM: str = SupportedDataPlatform.ORACLE.value.datahub_data_platform_name
+HIVE_PLATFORM: str = SupportedDataPlatform.HIVE.value.datahub_data_platform_name
 
 
 class OdbcLineage(AbstractLineage):
@@ -1733,8 +1767,28 @@ class OdbcLineage(AbstractLineage):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
-                data_access_func_detail, data_platform, platform_pair, server_name
+                data_access_func_detail, data_platform, platform_pair, server_name, dsn
             )
+
+    def _resolve_dsn_database_schema(
+        self, dsn: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Resolve the configured database (and optional schema) for a DSN.
+
+        ODBC inline SQL and hierarchical navigation do not always expose every
+        level of a table's qualified name (e.g. a BigQuery ODBC source commonly
+        surfaces dataset.table but omits the project). dsn_to_database_schema
+        supplies those missing high-order levels so a fully-qualified upstream
+        URN can still be built.
+        """
+        value = self.config.dsn_to_database_schema.get(dsn)
+        if not value:
+            return None, None
+        # Config validation already stripped segments and rejected blanks.
+        parts = value.split(".")
+        if len(parts) == 1:
+            return parts[0], None
+        return parts[0], parts[1]
 
     def query_lineage(
         self,
@@ -1743,9 +1797,6 @@ class OdbcLineage(AbstractLineage):
         server_name: str,
         dsn: str,
     ) -> Lineage:
-        database = None
-        schema = None
-
         if not query:
             # query should never be None as it is checked before calling this function.
             # however, we need to check just in case.
@@ -1756,15 +1807,7 @@ class OdbcLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        if self.config.dsn_to_database_schema:
-            value = self.config.dsn_to_database_schema.get(dsn)
-            if value:
-                parts = value.split(".")
-                if len(parts) == 1:
-                    database = parts[0]
-                elif len(parts) == 2:
-                    database = parts[0]
-                    schema = parts[1]
+        database, schema = self._resolve_dsn_database_schema(dsn)
 
         logger.debug(
             f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
@@ -1778,18 +1821,47 @@ class OdbcLineage(AbstractLineage):
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
-        # Athena-specific processing: catalog stripping and federated table platform override
-        if (
-            platform_pair.datahub_data_platform_name
-            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
-        ):
-            # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs
-            # This ensures URN consistency with the standalone Athena connector
-            result = self._strip_athena_catalog_from_lineage(result)
-            # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
-            result = self._apply_table_platform_override(result, dsn)
+        return self._post_process_athena(result, platform_pair, server_name, dsn)
 
-        return result
+    def _post_process_athena(
+        self,
+        result: Lineage,
+        platform_pair: DataPlatformPair,
+        server_name: str,
+        dsn: str,
+    ) -> Lineage:
+        """Athena-specific post-processing for both the query and hierarchical
+        navigation paths. Strips the catalog prefix so URNs match the standalone
+        Athena connector's database.table shape, then applies federated table
+        platform overrides (e.g. athena -> mysql). No-op for other platforms."""
+        if platform_pair.datahub_data_platform_name != ATHENA_PLATFORM:
+            return result
+        # URNs embed the configured platform_instance as the leading segment of
+        # the dataset name; resolve it so catalog stripping and override matching
+        # operate on the real table portion instead of dropping the instance.
+        platform_detail = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=platform_pair,
+                data_platform_server=server_name,
+            )
+        )
+        platform_instance = platform_detail.platform_instance
+        result = self._strip_athena_catalog_from_lineage(result, platform_instance)
+        return self._apply_table_platform_override(result, dsn, platform_instance)
+
+    @staticmethod
+    def _split_platform_instance_prefix(
+        name: str, platform_instance: Optional[str]
+    ) -> Tuple[Optional[str], str]:
+        """Separate a leading platform_instance prefix from a dataset URN name.
+
+        make_dataset_urn_with_platform_instance embeds the instance as the first
+        dot-segment of the name (``instance.database.table``). Splitting it off
+        lets the Athena catalog-strip / override logic manipulate the real
+        qualified table name without clobbering the instance."""
+        if platform_instance and name.startswith(f"{platform_instance}."):
+            return platform_instance, name[len(platform_instance) + 1 :]
+        return None, name
 
     @staticmethod
     def _transform_lineage_urns(
@@ -1842,7 +1914,9 @@ class OdbcLineage(AbstractLineage):
             column_lineage=updated_column_lineage,
         )
 
-    def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
+    def _strip_athena_catalog_from_lineage(
+        self, lineage: Lineage, platform_instance: Optional[str]
+    ) -> Lineage:
         """
         Strip catalog/database prefix from Athena URNs to normalize to database.table format.
 
@@ -1863,16 +1937,30 @@ class OdbcLineage(AbstractLineage):
             """Strip first part from 3-part table names in URN."""
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except Exception as e:
-                logger.warning(f"Failed to parse URN for catalog stripping: {urn}: {e}")
+            except InvalidUrnError as e:
+                self.reporter.warning(
+                    title="Failed to normalize Athena URN",
+                    message=(
+                        "Could not parse an Athena upstream URN to strip its catalog "
+                        "prefix; the emitted URN may not match the standalone Athena "
+                        "connector."
+                    ),
+                    context=f"table-name={self.table.full_name}, urn={urn}",
+                    exc=e,
+                )
                 return urn
 
-            parts = parsed.name.split(".")
+            instance_prefix, table_name = self._split_platform_instance_prefix(
+                parsed.name, platform_instance
+            )
+            parts = table_name.split(".")
             if len(parts) < 3:
                 return urn
 
             # Strip first part, keep remaining parts (database.table)
             stripped_name = ".".join(parts[1:])
+            if instance_prefix:
+                stripped_name = f"{instance_prefix}.{stripped_name}"
             stripped_urn = str(
                 DatasetUrn(platform=parsed.platform, name=stripped_name, env=parsed.env)
             )
@@ -1881,12 +1969,18 @@ class OdbcLineage(AbstractLineage):
 
         return self._transform_lineage_urns(lineage, strip_catalog_from_urn)
 
-    def _apply_table_platform_override(self, lineage: Lineage, dsn: str) -> Lineage:
+    def _apply_table_platform_override(
+        self, lineage: Lineage, dsn: str, platform_instance: Optional[str]
+    ) -> Lineage:
         """
         Override the platform in URNs for specific tables based on config.
 
         This is used when Athena queries federated data sources (e.g., MySQL)
         and the lineage should point to the actual source platform entity.
+
+        The rewritten URN carries the matched override's own platform_instance (or
+        none), never Athena's — the resolved Athena instance names an Athena
+        deployment, not the federated source, so re-using it would dangle.
 
         Matching priority:
         1. DSN-scoped overrides (where override.dsn matches the current DSN)
@@ -1899,45 +1993,195 @@ class OdbcLineage(AbstractLineage):
             """Check if table matches override config and replace platform."""
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except Exception as e:
-                logger.warning(f"Failed to parse URN for platform override: {urn}: {e}")
+            except InvalidUrnError as e:
+                self.reporter.warning(
+                    title="Failed to apply Athena table platform override",
+                    message=(
+                        "Could not parse an Athena upstream URN to apply the "
+                        "configured platform override; leaving the original platform."
+                    ),
+                    context=f"table-name={self.table.full_name}, dsn={dsn}, urn={urn}",
+                    exc=e,
+                )
                 return urn
 
-            urn_name = parsed.name  # format: "database.table"
             current_platform = str(parsed.platform)
 
-            # Parse database and table from URN name
-            # Athena has no schema level, so expect exactly 2 parts (database.table)
-            # Skip override if format is unexpected (e.g., unstripped catalog prefix)
-            name_parts = urn_name.split(".")
+            # Parse database and table from URN name, ignoring any embedded
+            # platform_instance prefix. Athena has no schema level, so the real
+            # qualified name must be exactly 2 parts (database.table); skip the
+            # override if the format is unexpected (e.g. unstripped catalog prefix).
+            _, table_name = self._split_platform_instance_prefix(
+                parsed.name, platform_instance
+            )
+            name_parts = table_name.split(".")
             if len(name_parts) != 2:
                 return urn
             urn_database, urn_table = name_parts
 
             # Find matching override: DSN-scoped first, then global
             target_platform = None
+            target_platform_instance = None
             for override in self.config.athena_table_platform_override:
                 if override.database == urn_database and override.table == urn_table:
                     if override.dsn == dsn:
                         # DSN-scoped match takes priority
                         target_platform = override.platform
+                        target_platform_instance = override.platform_instance
                         break
                     elif override.dsn is None and target_platform is None:
                         # Global match (only if no DSN-scoped match found yet)
                         target_platform = override.platform
+                        target_platform_instance = override.platform_instance
 
             if not target_platform:
                 return urn
 
-            overridden_urn = str(
-                DatasetUrn(platform=target_platform, name=urn_name, env=parsed.env)
+            # A platform change hands the entity to the source connector (e.g.
+            # mysql), so Athena's platform_instance must never carry over — it
+            # names an Athena deployment, not the source, and would point at a URN
+            # that connector never emits. The Athena prefix was only split off so
+            # the override could match the real database.table. Rebuild the URN
+            # with the target connector's own platform_instance when the operator
+            # supplies one, otherwise emit an instance-less URN (the common case).
+            # (Catalog stripping keeps its prefix because it stays on athena.)
+            overridden_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=target_platform,
+                name=table_name,
+                platform_instance=target_platform_instance,
+                env=parsed.env,
             )
             logger.debug(
-                f"Overriding platform for table {urn_name}: {current_platform} -> {target_platform}"
+                f"Overriding platform for table {table_name}: {current_platform} -> {target_platform}"
             )
             return overridden_urn
 
         return self._transform_lineage_urns(lineage, override_platform_in_urn)
+
+    def _resolve_oracle_default_database(
+        self, platform_pair: DataPlatformPair, server_name: str
+    ) -> Optional[str]:
+        """Oracle over ODBC opts into 3-part database.schema.table URNs only when
+        default_database is configured under server_to_platform_instance (i.e. the
+        Oracle ingestion runs add_database_name_to_urn=true); otherwise it stays
+        2-part."""
+        if platform_pair.datahub_data_platform_name != ORACLE_PLATFORM:
+            return None
+        platform_detail = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=platform_pair,
+                data_platform_server=server_name,
+            )
+        )
+        return (
+            platform_detail.default_database
+            if isinstance(platform_detail, OraclePlatformDetail)
+            else None
+        )
+
+    def _qualify_odbc_navigation_table(
+        self,
+        data_platform: str,
+        database_name: Optional[str],
+        schema_name: Optional[str],
+        table_name: Optional[str],
+        config_database: Optional[str],
+        config_schema: Optional[str],
+        oracle_default_database: Optional[str] = None,
+    ) -> Optional[str]:
+        """Build the fully-qualified upstream name from an ODBC hierarchical
+        navigation, backfilling tiers missing from navigation with
+        dsn_to_database_schema values (navigation always wins). Returns None when a
+        required tier cannot be resolved, so the caller warns and skips.
+
+        URN shapes mirror each platform's standalone connector:
+          - two-tier (Oracle/Hive): schema.table; any Kind=Database pseudo-catalog is
+            dropped. A single-segment dsn_to_database_schema value is a database:
+            for Hive (no separate schema tier) it doubles as the schema, but for
+            Oracle (real schemas) it is not promoted into the schema slot, so an
+            Oracle nav with no schema warns and skips. Oracle additionally emits
+            database.schema.table when the user opts in via
+            server_to_platform_instance `default_database` (oracle_default_database),
+            mirroring standalone Oracle's add_database_name_to_urn=true; within that
+            opt-in the navigation-supplied database wins and default_database is only
+            the fallback (matching OracleLineage's effective_db precedence).
+          - three-tier (BigQuery/Snowflake/...): database.schema.table; a missing tier
+            skips rather than emitting a truncated database.table.
+          - Athena: database.table, where the database sits in navigation's schema
+            slot below the strippable Kind=Database catalog. The database is resolved
+            from navigation Schema, the DSN schema segment, or a one-part DSN database
+            (matching the SQL path); the Kind=Database node is only the strippable
+            catalog and can never stand in for it, so a missing database skips rather
+            than emitting catalog.table. (Composing catalog.database.table for the
+            caller to strip back to database.table is a provable no-op here, so we
+            build the two-part name directly.)
+          - everything else (MySQL/Teradata/ClickHouse/...): database.table; the
+            schema tier is never spliced in (neither backfilled from config nor
+            taken from a navigation Schema node) to avoid emitting a spurious
+            three-part URN that cannot match their two-part entities. If
+            navigation did supply a Schema node it is dropped, but a warning is
+            reported so the drop is never silent.
+        """
+        if table_name is None:
+            return None
+
+        if data_platform in ODBC_TWO_TIER_PLATFORMS:
+            schema = schema_name or config_schema
+            # Hive has no separate schema tier, so a bare (one-part)
+            # dsn_to_database_schema value — a database — doubles as the schema.
+            if schema is None and data_platform == HIVE_PLATFORM:
+                schema = config_database
+            if schema is None:
+                return None
+            if oracle_default_database is not None:
+                # Navigation wins over the configured default_database (which is a
+                # fallback for bare TNS aliases that carry no database), matching
+                # OracleLineage's effective_db precedence.
+                return (
+                    f"{database_name or oracle_default_database}.{schema}.{table_name}"
+                )
+            return f"{schema}.{table_name}"
+
+        database = database_name or config_database
+        schema = schema_name
+        if schema is None and data_platform in ODBC_THREE_TIER_PLATFORMS:
+            schema = config_schema
+
+        # Only three-tier platforms compose a three-part name. Two-part platforms
+        # must never splice in a schema tier — even when navigation or
+        # dsn_to_database_schema supplies one — or the URN cannot match their
+        # database.table entities.
+        if (
+            database is not None
+            and schema is not None
+            and data_platform in ODBC_THREE_TIER_PLATFORMS
+        ):
+            return f"{database}.{schema}.{table_name}"
+        # Three-tier platforms must not fall back to a truncated database.table.
+        if data_platform in ODBC_THREE_TIER_PLATFORMS:
+            return None
+        if data_platform == ATHENA_PLATFORM:
+            # Athena's real database sits in the schema slot below the strippable
+            # Kind=Database catalog, so the catalog can never stand in for it.
+            athena_database = schema_name or config_schema or config_database
+            if athena_database is None:
+                return None
+            return f"{athena_database}.{table_name}"
+        if database is not None:
+            if schema_name is not None:
+                self.reporter.warning(
+                    title="Dropped ODBC navigation schema level",
+                    message="ODBC navigation supplied a schema level that this "
+                    "platform's database.table URN shape does not use; emitting "
+                    "database.table without it.",
+                    context=(
+                        f"table-name={self.table.full_name}, "
+                        f"data-platform={data_platform}, database={database}, "
+                        f"schema={schema_name}, table={table_name}"
+                    ),
+                )
+            return f"{database}.{table_name}"
+        return None
 
     def expression_lineage(
         self,
@@ -1945,11 +2189,11 @@ class OdbcLineage(AbstractLineage):
         data_platform: str,
         platform_pair: DataPlatformPair,
         server_name: str,
+        dsn: str,
     ) -> Lineage:
         database_name = None
         schema_name = None
         table_name = None
-        qualified_table_name = None
 
         temp_accessor: Optional[IdentifierAccessor] = (
             data_access_func_detail.identifier_accessor
@@ -1975,38 +2219,52 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
-            if schema_name is not None:
-                # Drop the pseudo-catalog database_name for two-tier platforms.
-                qualified_table_name = f"{schema_name}.{table_name}"
-            else:
-                # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
-                # schema; emitting it would produce a dangling URN. Surface instead.
+        config_database, config_schema = self._resolve_dsn_database_schema(dsn)
+        oracle_default_database = self._resolve_oracle_default_database(
+            platform_pair, server_name
+        )
+
+        qualified_table_name = self._qualify_odbc_navigation_table(
+            data_platform=data_platform,
+            database_name=database_name or None,
+            schema_name=schema_name or None,
+            table_name=table_name or None,
+            config_database=config_database,
+            config_schema=config_schema,
+            oracle_default_database=oracle_default_database,
+        )
+
+        if qualified_table_name is None:
+            if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
+                # database_name here is a Kind=Database pseudo-catalog (e.g. Hive's
+                # "HIVE"), not a real schema; emitting it would produce a dangling URN.
                 self.reporter.warning(
                     title="Cannot build two-tier ODBC table name",
-                    message="Two-tier ODBC navigation had no schema level; skipping lineage.",
-                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
+                    message=(
+                        "Two-tier ODBC navigation exposed no schema level, and no "
+                        "mapping supplied one; skipping lineage. Supply the schema "
+                        "via 'dsn_to_database_schema: {<dsn>: <schema>}' (Oracle: "
+                        "'<database>.<schema>') in your PowerBI recipe — hierarchical "
+                        "navigation reads dsn_to_database_schema, not the Oracle "
+                        "default_schema knob."
+                    ),
+                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, dsn={dsn}, database={database_name}, table={table_name}",
                 )
-                return Lineage.empty()
-        elif (
-            database_name is not None
-            and schema_name is not None
-            and table_name is not None
-        ):
-            qualified_table_name = f"{database_name}.{schema_name}.{table_name}"
-        elif database_name is not None and table_name is not None:
-            qualified_table_name = f"{database_name}.{table_name}"
-
-        if not qualified_table_name:
-            self.reporter.warning(
-                title="Can not determine qualified table name",
-                message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
-                context=f"table-name={self.table.full_name}, data-platform={data_platform}",
-            )
-            logger.warning(
-                f"Can not determine qualified table name for ODBC data source {data_platform} "
-                f"table {self.table.full_name}."
-            )
+            else:
+                self.reporter.warning(
+                    title="Can not determine qualified table name",
+                    message=(
+                        "ODBC hierarchical navigation did not expose every level of "
+                        "the qualified table name, and no mapping supplied the rest. "
+                        "Skipping lineage. Add the missing level(s) via "
+                        "'dsn_to_database_schema: {<dsn>: <database>[.<schema>]}' "
+                        "in your PowerBI recipe."
+                    ),
+                    context=(
+                        f"table-name={self.table.full_name}, data-platform={data_platform}, "
+                        f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
+                    ),
+                )
             return Lineage.empty()
 
         logger.debug(
@@ -2023,7 +2281,7 @@ class OdbcLineage(AbstractLineage):
 
         column_lineage = self.create_table_column_lineage(urn)
 
-        return Lineage(
+        result = Lineage(
             upstreams=[
                 DataPlatformTable(
                     data_platform_pair=platform_pair,
@@ -2032,6 +2290,8 @@ class OdbcLineage(AbstractLineage):
             ],
             column_lineage=column_lineage,
         )
+
+        return self._post_process_athena(result, platform_pair, server_name, dsn)
 
     @staticmethod
     def create_platform_pair(
