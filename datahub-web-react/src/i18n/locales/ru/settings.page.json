@@ -1,0 +1,22 @@
+{
+    "logOut": "Выйти",
+    "nav.access": "Доступ",
+    "nav.accessTokens": "Токены доступа",
+    "nav.appearance": "Внешний вид",
+    "nav.developer": "Разработчик",
+    "nav.features": "Функции",
+    "nav.homePage": "Домашняя страница",
+    "nav.manage": "Управление",
+    "nav.myNotifications": "Мои уведомления",
+    "nav.mySubscriptions": "Мои подписки",
+    "nav.ownershipTypes": "Типы владения",
+    "nav.permissions": "Права доступа",
+    "nav.personal": "Личное",
+    "nav.preferences": "Настройки",
+    "nav.usersGroups": "Пользователи и группы",
+    "nav.views": "Представления",
+    "nav.collapseSidebar": "Свернуть боковую панель настроек",
+    "nav.expandSidebar": "Развернуть боковую панель настроек",
+    "subTitle": "Управление настройками",
+    "title": "Настройки"
+}

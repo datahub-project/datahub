@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Управление настройками внешнего вида.",
+    "appearance.title": "Внешний вид",
+    "language.description": "Выберите предпочитаемый язык интерфейса",
+    "language.title": "Язык интерфейса",
+    "noSettings": "Настройки внешнего вида не найдены.",
+    "showApplications.description": "Приложения — ещё один способ организации данных, похожий на Домены. По умолчанию они скрыты.",
+    "showApplications.successMessage": "Настройка обновлена!",
+    "showApplications.title": "Показывать приложения"
+}

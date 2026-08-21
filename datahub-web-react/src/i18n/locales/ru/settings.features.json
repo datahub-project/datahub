@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Распространять новую документацию от вышестоящих активов к нижестоящим на основе связей происхождения данных (lineage).",
+    "docPropagation.assetLevelTitle": "Распространение на уровне актива",
+    "docPropagation.backfillButton": "Инициализировать",
+    "docPropagation.backfillTitle": "Заполнить существующую документацию от вышестоящих к нижестоящим столбцам/активам",
+    "docPropagation.columnLevelDescription": "Распространять новую документацию от вышестоящих к нижестоящим столбцам на основе связей происхождения на уровне столбцов.",
+    "docPropagation.columnLevelTitle": "Распространение на уровне столбца",
+    "docPropagation.comingSoon": "Скоро!",
+    "docPropagation.description": "Автоматически распространять документацию от вышестоящих к нижестоящим столбцам и активам.",
+    "docPropagation.rollbackButton": "Откатить",
+    "docPropagation.rollbackTitle": "Откатить изменения распространения",
+    "docPropagation.title": "Распространение документации",
+    "docPropagation.updateError": "Не удалось обновить настройки распространения документации",
+    "docPropagation.updateSuccess": "Настройки распространения документации успешно обновлены",
+    "learnMore": "Подробнее",
+    "newLabel": "Новое!",
+    "onlyOnCloud": "Доступно только в DataHub Cloud",
+    "pageSubTitle": "Изучите и настройте отдельные функции",
+    "pageTitle": "Функции"
+}

@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "Скопировать ссылку на этот объект.",
+    "copyName.label": "Скопировать имя",
+    "copyName.tooltip": "Скопировать полное имя {{type}}",
+    "copyUrn.label": "Скопировать URN",
+    "copyUrn.tooltip": "Скопировать URN этого объекта ({{type}}). URN однозначно идентифицирует сущность в DataHub.",
+    "email.label": "Эл. почта",
+    "email.tooltip": "Поделиться этим объектом ({{type}}) по эл. почте"
+}

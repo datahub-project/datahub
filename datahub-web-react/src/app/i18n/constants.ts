@@ -8,6 +8,7 @@ import huHU from 'antd/lib/locale/hu_HU';
 import itIT from 'antd/lib/locale/it_IT';
 import nbNO from 'antd/lib/locale/nb_NO';
 import ptBR from 'antd/lib/locale/pt_BR';
+import ruRU from 'antd/lib/locale/ru_RU';
 import svSE from 'antd/lib/locale/sv_SE';
 
 import { LocaleConfig, SupportedLanguage } from '@app/i18n/types';
@@ -82,6 +83,13 @@ export const FI_LOCALE_CONFIG: LocaleConfig = {
     label: 'Suomi (Beta)',
 };
 
+export const RU_LOCALE_CONFIG: LocaleConfig = {
+    lang: 'ru',
+    antd: ruRU,
+    dayjs: 'ru',
+    label: 'Русский (Beta)',
+};
+
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     en: EN_LOCALE_CONFIG,
     de: DE_LOCALE_CONFIG,
@@ -93,6 +101,7 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     sv: SV_LOCALE_CONFIG,
     hu: HU_LOCALE_CONFIG,
     fi: FI_LOCALE_CONFIG,
+    ru: RU_LOCALE_CONFIG,
 };
 
 export const LANGUAGE_OPTIONS: SelectOption[] = [
@@ -106,6 +115,7 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     SV_LOCALE_CONFIG,
     HU_LOCALE_CONFIG,
     FI_LOCALE_CONFIG,
+    RU_LOCALE_CONFIG,
 ].map((localeConfig) => ({
     value: localeConfig.lang,
     label: localeConfig.label,
