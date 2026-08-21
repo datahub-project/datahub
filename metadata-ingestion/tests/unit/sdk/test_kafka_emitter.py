@@ -95,7 +95,8 @@ class KafkaEmitterTest(unittest.TestCase):
         # Attempt to emit an MCE should call callback with error
         mce = MetadataChangeEvent(
             proposedSnapshot=DatasetSnapshotClass(
-                urn="urn:li:dataset:123", aspects=[StatusClass(False)]
+                urn="urn:li:dataset:(urn:li:dataPlatform:test,123,PROD)",
+                aspects=[StatusClass(False)],
             )
         )
         emitter.emit_mce_async(mce, callback=test_callback)
@@ -131,7 +132,8 @@ class KafkaEmitterTest(unittest.TestCase):
         # Emit an MCE
         mce = MetadataChangeEvent(
             proposedSnapshot=DatasetSnapshotClass(
-                urn="urn:li:dataset:123", aspects=[StatusClass(False)]
+                urn="urn:li:dataset:(urn:li:dataPlatform:test,123,PROD)",
+                aspects=[StatusClass(False)],
             )
         )  # Mock MCE object
         emitter.emit_mce_async(mce, callback=lambda err, msg: None)

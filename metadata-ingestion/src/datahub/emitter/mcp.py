@@ -16,12 +16,35 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     _Aspect,
 )
-from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 _ENTITY_TYPE_UNSET = "ENTITY_TYPE_UNSET"
+
+
+def validate_emitted_urn(urn: Optional[str]) -> None:
+    """Reject an urn that DataHub would store but could never read back.
+
+    GMS only rejects reserved characters inside urn components when
+    STRICT_URN_VALIDATION_ENABLED is set, and that defaults to false. Without
+    this guard such an urn is accepted, persisted, and then fails every typed-urn
+    read of that entity forever, with nothing surfaced at write time.
+    See https://github.com/datahub-project/datahub/issues/19086.
+
+    Parsing with Urn.from_string keeps the guard exactly as permissive as a
+    reader, so it can only reject urns that were already unreadable.
+    """
+    if urn is None:
+        return
+    try:
+        Urn.from_string(urn)
+    except InvalidUrnError as e:
+        # The generated urn classes name the offending field but not its value,
+        # which is undiagnosable when emitting in bulk.
+        raise InvalidUrnError(f"Cannot emit {urn}: {e}") from e
 
 
 def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
