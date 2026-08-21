@@ -61,8 +61,10 @@ def get_frontend_session():
 
 @tenacity.retry(
     retry=tenacity.retry_if_exception(_is_transient_login_error),
-    stop=tenacity.stop_after_attempt(5),
-    wait=tenacity.wait_exponential(multiplier=1, min=1, max=8),
+    # Under xdist, parallel /logIn traffic can return transient 400s for longer than
+    # five attempts cover (see PFP-5610 test_login_events). Give more runway.
+    stop=tenacity.stop_after_attempt(10),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=12),
     reraise=True,
 )
 def login_as(username: str, password: str):

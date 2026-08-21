@@ -21,15 +21,15 @@ import {
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import BoundingBoxNodeBuilder, {
     BoundingBoxSize,
-} from '@app/lineageV3/useComputeGraph/dataProduct/BoundingBoxNodeBuilder';
-import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
+} from '@app/lineageV3/useComputeGraph/boundingBoxes/BoundingBoxNodeBuilder';
+import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
 
 import { EntityType, LineageDirection } from '@types';
 
 type Urn = string;
 
 /**
- * Flag for data-product-to-data-product positioning.
+ * Flag for box-to-box positioning.
  * - false: box-to-box lineage collapses through intermediate free nodes, so every box
  *   reachable from the home box — even only through free nodes — is positioned first, box-to-box.
  * - true: only DIRECT box-to-box lineage positions boxes first. A box reachable only through a free
@@ -38,11 +38,11 @@ type Urn = string;
 const POSITION_INDIRECT_BOXES_AS_FREE_CHILDREN = true;
 
 /**
- * Positions bounding boxes and free nodes (displayed entities not in any data product) together,
- * via BoundingBoxNodeBuilder, in a single graph rooted at the home data product's bounding box:
- * bounding boxes are placed first from the data-product-to-data-product lineage, then free nodes
+ * Positions bounding boxes and free nodes (displayed entities not in any box) together,
+ * via BoundingBoxNodeBuilder, in a single graph rooted at the home bounding box:
+ * bounding boxes are placed first from the box-to-box lineage, then free nodes
  * are arranged around them.
- * Lineage between two data products' members becomes an edge between their bounding boxes, and
+ * Lineage between two boxes' members becomes an edge between their bounding boxes, and
  * lineage between a member and a free node becomes an edge between the box and the free node.
  * A bounding box is placed downstream (right) of the home box if its entities are downstream of the
  * home box's entities, and upstream (left) otherwise. If it is both, the side with more direct
@@ -82,8 +82,8 @@ export default function positionTopLevelNodes(
         }
     };
     const endpointsFor = (urn: Urn): Urn[] => {
-        const dataProducts = displayedMembership.get(urn)?.filter((dataProduct) => boxes.has(dataProduct));
-        if (dataProducts?.length) return dataProducts;
+        const boxUrns = displayedMembership.get(urn)?.filter((boxUrn) => boxes.has(boxUrn));
+        if (boxUrns?.length) return boxUrns;
         return displayedFreeIds.has(urn) ? [urn] : [];
     };
     graphStore.edges.forEach((edge, edgeId) => {
@@ -119,10 +119,10 @@ export default function positionTopLevelNodes(
         return undefined; // Disconnected boxes stack below the home box
     };
 
-    const makeBoxNode = (boxUrn: Urn): LineageEntity => ({
+    const makeBoxNode = (boxUrn: Urn, boxType: EntityType): LineageEntity => ({
         id: boxUrn,
         urn: boxUrn,
-        type: EntityType.DataProduct,
+        type: boxType,
         direction: boxDirection(boxUrn),
         isExpanded: { [LineageDirection.Upstream]: true, [LineageDirection.Downstream]: true },
         fetchStatus: {
@@ -136,10 +136,10 @@ export default function positionTopLevelNodes(
     });
 
     // Boxes come before free nodes so they're placed first, prioritizing their desired positions
-    const rootBoxNode = makeBoxNode(rootUrn);
+    const rootBoxNode = makeBoxNode(rootUrn, graphStore.rootType);
     const layoutNodes: LineageNode[] = [rootBoxNode];
     boxes.forEach((box) => {
-        if (box.group.urn !== rootUrn) layoutNodes.push(makeBoxNode(box.group.urn));
+        if (box.group.urn !== rootUrn) layoutNodes.push(makeBoxNode(box.group.urn, box.group.type));
     });
     freeNodes.forEach((node) => {
         if (node.type === LINEAGE_FILTER_TYPE) {
@@ -150,7 +150,7 @@ export default function positionTopLevelNodes(
         }
     });
 
-    // Data product -> data product lineage, placing the bounding boxes before any free node
+    // Box -> box lineage, placing the bounding boxes before any free node
     const boxSizes = new Map<string, BoundingBoxSize>();
     boxes.forEach((box) =>
         boxSizes.set(box.group.urn, {
@@ -171,7 +171,7 @@ export default function positionTopLevelNodes(
 
     const builder = new BoundingBoxNodeBuilder(
         rootUrn,
-        EntityType.DataProduct,
+        graphStore.rootType,
         [rootBoxNode],
         layoutNodes,
         new Map(),
@@ -244,7 +244,7 @@ function computeBoxAdjacency(
 
 /**
  * For each free node, the row offset within a bounding box at which it should be anchored, so a
- * data product's external neighbors line up with the member they connect to rather than the box's
+ * box's external neighbors line up with the member they connect to rather than the box's
  * top. Keyed by free node id, then box urn; the average is used when a node links to several members.
  *
  * From each member, its row offset is propagated outward through transformational nodes (queries,
@@ -283,7 +283,7 @@ function computeChildBoxAnchors(
             neighbors(memberUrn).forEach(enqueue);
             for (let i = 0; i < queue.length; i += 1) {
                 const urn = queue[i];
-                // Skip members: don't anchor to them or cross into another data product
+                // Skip members: don't anchor to them or cross into another bounding box
                 if (!isMember(urn)) {
                     if (displayedFreeIds.has(urn)) {
                         setDefault(setDefault(offsetsByChildBox, urn, new Map()), boxUrn, []).push(offset);

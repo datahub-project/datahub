@@ -15,27 +15,31 @@ import {
     isTransformational,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
+import {
+    BoundingBoxGroup,
+    BoxLayout,
+    GraphStore,
+} from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.types';
+import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
-import { BoxLayout, DataProductGroup, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
-import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
 
-import { EntityType, LineageDirection } from '@types';
+import { LineageDirection } from '@types';
 
-// Vertical gap between separate connected components within a data product bounding box: one node
+// Vertical gap between separate connected components within a bounding box: one node
 // height (to clear the component above) plus a small gap.
 const COMPONENT_SEPARATION = 24 + LINEAGE_NODE_HEIGHT;
 
 /**
- * Lays out the displayed members of one data product via NodeBuilder, as in the standard
- * impact-analysis view but with layers computed from intra-product topology (members lack a shared
- * home node).
+ * Lays out the displayed members of one bounding box via NodeBuilder, as in the standard
+ * impact-analysis view but with layers computed from intra-box topology (members lack a
+ * shared home node).
  * Members with revealed lineage to each other are placed horizontally; disconnected components are
  * stacked vertically.
  * Returns member nodes positioned relative to the resulting bounding box, and the box's dimensions.
  */
-export default function layoutDataProductInterior(
-    group: DataProductGroup,
+export default function layoutBoundingBoxInterior(
+    group: BoundingBoxGroup,
     graphStore: GraphStore,
     ignoreSchemaFieldStatus: boolean,
 ): BoxLayout | undefined {
@@ -63,7 +67,7 @@ export default function layoutDataProductInterior(
                 [LineageDirection.Upstream, offset],
                 [LineageDirection.Downstream, offset],
             ]);
-            // A member's `direction` is relative to the home data product and would mirror
+            // A member's `direction` is relative to the home box and would mirror
             // NodeBuilder's layering for upstream boxes (children placed left of their parents).
             // The interior layout is purely topological, left to right, so lay out direction-less
             // copies; the original direction is restored on the rendered member data below.
@@ -72,7 +76,7 @@ export default function layoutDataProductInterior(
             );
             const nodeBuilder = new NodeBuilder(
                 group.urn,
-                EntityType.DataProduct,
+                graphStore.rootType,
                 roots,
                 layoutNodes,
                 parents,
@@ -130,7 +134,7 @@ export function createBoundingBoxNode(box: BoxLayout, position: XYPosition | und
         position: position ?? { x: 0, y: 0 },
         data: {
             urn: group.urn,
-            type: EntityType.DataProduct,
+            type: group.type,
             entity: group.entity,
             colorHex: group.colorHex,
             memberCount: box.memberNodes.length,
