@@ -1,5 +1,8 @@
 package com.linkedin.metadata.config.search;
 
+import com.linkedin.metadata.utils.ParseUtils;
+import java.time.Duration;
+import java.util.Locale;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,14 +30,19 @@ public class TimeCanonicalizationConfiguration {
   private boolean enabled;
 
   /**
-   * Bucket size as a duration string, e.g. {@code 1m}, {@code 5m}, {@code 15m}, {@code 30m}, {@code
-   * 1h}. Any {@code <number><unit>} value is accepted with units ms/s/m/h/d, up to a maximum of 1d.
-   * This is an arbitrary duration, not an enum - the listed values are conventional, not
-   * exhaustive.
+   * Bucket size, in {@link #bucketSizeUnit} units; 1d maximum.
    *
-   * <p>An unparseable value disables canonicalization rather than failing startup.
+   * <p>Zero, negative or over-1d disables canonicalization rather than failing startup. A
+   * non-numeric value is different: Spring binding rejects it and GMS does not start, so duration
+   * syntax like {@code 5m} goes in {@link #bucketSizeUnit}, not here.
    */
-  private String bucketSize;
+  private int bucketSize;
+
+  /**
+   * Unit for {@link #bucketSize}: a {@link java.util.concurrent.TimeUnit} name, e.g. {@code
+   * MINUTES}. Omitting it means {@code SECONDS}.
+   */
+  private String bucketSizeUnit;
 
   /**
    * Timezone whose local midnight anchors the bucket boundaries. Defaults to {@code UTC}, which
@@ -48,7 +56,19 @@ public class TimeCanonicalizationConfiguration {
    * window is always a superset of the requested window (no data is hidden). {@code SHRINK} floors
    * both ends, which produces tidier windows but hides up to one bucket of the most recent data.
    *
+   * <p>The analytics highlights floor both ends regardless: they compare two periods, so equal
+   * widths matter more there than the superset guarantee.
+   *
    * <p>An unparseable value disables canonicalization rather than failing startup.
    */
   private String rounding;
+
+  /**
+   * Bucket size as a {@link Duration}. Upper-cased here rather than in the shared {@link
+   * ParseUtils}, so a Turkish default locale cannot turn {@code minutes} into {@code MİNUTES}.
+   */
+  public Duration getBucketDuration() {
+    return ParseUtils.parseDuration(
+        bucketSize, bucketSizeUnit == null ? null : bucketSizeUnit.toUpperCase(Locale.ROOT));
+  }
 }

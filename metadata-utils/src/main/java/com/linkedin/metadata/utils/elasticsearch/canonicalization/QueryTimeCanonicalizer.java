@@ -8,9 +8,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.time.zone.ZoneOffsetTransitionRule;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -42,10 +40,13 @@ import lombok.extern.slf4j.Slf4j;
  * matching document is excluded. Under {@link TimeRoundingMode#SHRINK} both ends floor, which hides
  * up to one bucket of the most recent data.
  *
- * <p><b>One clock read per query.</b> Callers obtain a single {@link CanonicalNow} via {@link
- * #now()} and derive every bound in the query from it, rather than calling the clock once per
- * bound. That is what guarantees multiple time ranges within one request agree with each other even
- * when the request straddles a bucket boundary.
+ * <p><b>One clock read per call site.</b> A caller takes one {@link CanonicalNow} from {@link
+ * #now()} and derives every bound from it, so both ends of a window agree. Call sites read the
+ * clock separately, so they agree with each other only within a bucket.
+ *
+ * <p><b>Derived figures.</b> Widening is harmless for counts and sums, but a figure computed
+ * <i>over</i> the window - a percent change, a per-day average, a rate - has to decide what the
+ * widened edge means. See {@code GetHighlightsResolver}.
  *
  * <p>Instances are immutable and thread-safe. Reach one through {@code
  * OperationContext#getQueryTimeCanonicalizer()} rather than constructing it per call site.
@@ -73,9 +74,6 @@ public final class QueryTimeCanonicalizer {
   public static final QueryTimeCanonicalizer DISABLED =
       new QueryTimeCanonicalizer(
           false, 0L, ZoneOffset.UTC, TimeRoundingMode.EXPAND, null, null, SKIP_DISABLED);
-
-  private static final Pattern DURATION_PATTERN =
-      Pattern.compile("^(\\d+)\\s*(ms|s|m|h|d)$", Pattern.CASE_INSENSITIVE);
 
   private static final long ONE_HOUR_MILLIS = 3_600_000L;
   private static final long ONE_DAY_MILLIS = 86_400_000L;
@@ -143,11 +141,14 @@ public final class QueryTimeCanonicalizer {
    * Builds a canonicalizer from configuration, returning an instrumented pass-through when the
    * feature is off <em>or misconfigured</em>.
    *
-   * <p>Misconfiguration deliberately degrades to disabled rather than failing startup. This is an
-   * optional cache optimization: a typo in a bucket size should cost you the optimization, not the
-   * service. The error is logged loudly and the resulting instance reports {@code
-   * canonicalization.skipped{reason="invalid_config"}} so the misconfiguration stays visible long
-   * after the startup log has rolled away.
+   * <p>Anything this method can reject - an out-of-range bucket, an unknown unit, timezone or
+   * rounding mode - degrades to disabled rather than failing startup: a typo should cost the
+   * optimization, not the service. The error is logged and the instance reports {@code
+   * canonicalization.skipped{reason="invalid_config"}}, so it stays visible after the log rolls
+   * away.
+   *
+   * <p>A non-numeric {@code bucketSize} is the exception - Spring binding rejects it before this
+   * runs.
    */
   public static QueryTimeCanonicalizer fromConfig(
       @Nullable QueryCanonicalizationConfiguration config, @Nullable MetricUtils metricUtils) {
@@ -172,22 +173,21 @@ public final class QueryTimeCanonicalizer {
     }
 
     try {
-      final long bucketMillis = parseDurationMillis(time.getBucketSize());
+      final long bucketMillis = time.getBucketDuration().toMillis();
       if (bucketMillis <= 0) {
         throw new IllegalArgumentException(
-            "bucketSize must be positive, got: " + time.getBucketSize());
+            "bucketSize must be positive, got: " + time.getBucketDuration());
       }
       if (bucketMillis > ONE_DAY_MILLIS) {
         throw new IllegalArgumentException(
-            "bucketSize must not exceed 1d, got: " + time.getBucketSize());
+            "bucketSize must not exceed 1d, got: " + time.getBucketDuration());
       }
 
       final ZoneId zone = parseZone(time.getTimezone());
       final TimeRoundingMode mode = TimeRoundingMode.fromString(time.getRounding());
 
       log.info(
-          "Query time canonicalization enabled: bucketSize={} ({}ms), timezone={}, rounding={}",
-          time.getBucketSize(),
+          "Query time canonicalization enabled: bucketSize={}ms, timezone={}, rounding={}",
           bucketMillis,
           zone,
           mode);
@@ -195,10 +195,11 @@ public final class QueryTimeCanonicalizer {
       return new QueryTimeCanonicalizer(true, bucketMillis, zone, mode, clock, metricUtils, null);
     } catch (RuntimeException e) {
       log.error(
-          "Invalid query canonicalization configuration (bucketSize={}, timezone={}, rounding={}); "
-              + "disabling canonicalization and continuing with exact timestamps. "
+          "Invalid query canonicalization configuration (bucketSize={} {}, timezone={}, "
+              + "rounding={}); disabling canonicalization and continuing with exact timestamps. "
               + "Fix the configuration and restart to enable it.",
           time.getBucketSize(),
+          time.getBucketSizeUnit(),
           time.getTimezone(),
           time.getRounding(),
           e);
@@ -295,17 +296,36 @@ public final class QueryTimeCanonicalizer {
     if (ZoneOffset.UTC.equals(zone) || ZoneOffset.UTC.equals(zone.normalized())) {
       return true;
     }
-    // Local-midnight anchoring is only provably idempotent when buckets tile an hour, which
-    // guarantees they also tile any DST-shifted day. Anything else falls back to epoch anchoring.
-    if (bucketMillis <= ONE_HOUR_MILLIS && ONE_HOUR_MILLIS % bucketMillis == 0) {
-      return false;
+    // Local-midnight anchoring needs buckets that tile a local day, including a DST-shifted one.
+    // Tiling an hour is not enough: a sub-hour shift (Australia/Lord_Howe shifts 30m) leaves a
+    // partial bucket at the end of the shifted day, and ceil stops being idempotent at local
+    // midnight. Everything else epoch-anchors, which tiles unconditionally. Only recurring rules
+    // are checked - enough for rounding the current clock.
+    if (bucketMillis > ONE_HOUR_MILLIS || ONE_HOUR_MILLIS % bucketMillis != 0) {
+      log.warn(
+          "Query time canonicalization bucket {}ms does not evenly divide one hour; "
+              + "falling back to UTC/epoch-anchored bucket boundaries for timezone {}.",
+          bucketMillis,
+          zone);
+      return true;
     }
-    log.warn(
-        "Query time canonicalization bucket {}ms does not evenly divide one hour; "
-            + "falling back to UTC/epoch-anchored bucket boundaries for timezone {}.",
-        bucketMillis,
-        zone);
-    return true;
+    for (ZoneOffsetTransitionRule rule : zone.getRules().getTransitionRules()) {
+      final long shiftMillis =
+          Math.abs(
+                  (long) rule.getOffsetAfter().getTotalSeconds()
+                      - rule.getOffsetBefore().getTotalSeconds())
+              * 1000L;
+      if (shiftMillis % bucketMillis != 0) {
+        log.warn(
+            "Query time canonicalization bucket {}ms does not evenly divide the {}ms offset shift "
+                + "of timezone {}; falling back to UTC/epoch-anchored bucket boundaries.",
+            bucketMillis,
+            shiftMillis,
+            zone);
+        return true;
+      }
+    }
+    return false;
   }
 
   private static ZoneId parseZone(@Nullable String timezone) {
@@ -313,38 +333,6 @@ public final class QueryTimeCanonicalizer {
       return ZoneOffset.UTC;
     }
     return ZoneId.of(timezone.trim());
-  }
-
-  /**
-   * Parses a {@code <number><unit>} duration. Deliberately a general duration rather than an enum
-   * of blessed values, so operators can pick any bucket their workload calls for.
-   */
-  public static long parseDurationMillis(@Nullable String value) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException("bucketSize is required when canonicalization is enabled");
-    }
-    final Matcher matcher = DURATION_PATTERN.matcher(value.trim());
-    if (!matcher.matches()) {
-      throw new IllegalArgumentException(
-          "Unsupported duration '"
-              + value
-              + "'. Expected <number><unit> with unit one of ms, s, m, h, d (e.g. 5m, 1h).");
-    }
-    final long magnitude = Long.parseLong(matcher.group(1));
-    switch (matcher.group(2).toLowerCase(Locale.ROOT)) {
-      case "ms":
-        return magnitude;
-      case "s":
-        return magnitude * 1_000L;
-      case "m":
-        return magnitude * 60_000L;
-      case "h":
-        return magnitude * ONE_HOUR_MILLIS;
-      case "d":
-        return magnitude * ONE_DAY_MILLIS;
-      default:
-        throw new IllegalArgumentException("Unsupported duration unit in: " + value);
-    }
   }
 
   /**

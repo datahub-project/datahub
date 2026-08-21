@@ -118,7 +118,7 @@ public class DashboardStatsSummaryResolver
     // identical query.
     final CanonicalNow canonicalNow = opContext.canonicalNow();
     final long now = canonicalNow.upperBound();
-    final long nowMinusOneMonth = timeMinusOneMonth(canonicalNow.reference());
+    final long nowMinusOneMonth = timeMinusOneMonth(canonicalNow);
     final Filter bucketStatsFilter =
         createUsageFilter(resourceUrn.toString(), nowMinusOneMonth, now, true);
     return getUserUsageCounts(opContext, bucketStatsFilter, this.timeseriesAspectService);

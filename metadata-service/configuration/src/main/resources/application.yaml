@@ -985,12 +985,13 @@ elasticsearch:
     # Query canonicalization rounds query time windows onto a fixed bucket so that requests asking
     # the same logical question produce an identical query, which is a precondition for the
     # Elasticsearch/OpenSearch shard request cache to be reused. NOTE: bucketSize is NOT a cache TTL.
-    # Misconfiguration disables the feature rather than failing startup.
+    # A bad unit, timezone or rounding value disables the feature rather than failing startup.
     canonicalization:
       enabled: ${SEARCH_QUERY_CANONICALIZATION_ENABLED:true} # master switch; set false to restore exact per-request timestamps
       time:
         enabled: ${SEARCH_QUERY_CANONICALIZATION_TIME_ENABLED:true} # only active when the master switch is on
-        bucketSize: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_SIZE:5m} # any <number><unit> with unit ms/s/m/h/d, max 1d
+        bucketSize: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_SIZE:5} # max 1 day, in bucketSizeUnit units
+        bucketSizeUnit: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_UNIT:MINUTES} # TimeUnit name
         timezone: ${SEARCH_QUERY_CANONICALIZATION_TIME_TIMEZONE:UTC} # anchors bucket boundaries; UTC anchors at the epoch
         rounding: ${SEARCH_QUERY_CANONICALIZATION_TIME_ROUNDING:EXPAND} # EXPAND floors lower bounds and ceils upper bounds (never hides data); SHRINK floors both
     validation:

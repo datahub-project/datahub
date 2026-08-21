@@ -69,7 +69,7 @@ public class DashboardStatsSummaryBatchLoader {
     // batched and per-URN paths issue the same query for requests inside the same bucket.
     final CanonicalNow canonicalNow = context.getOperationContext().canonicalNow();
     final long now = canonicalNow.upperBound();
-    final long start = timeMinusOneMonth(canonicalNow.reference());
+    final long start = timeMinusOneMonth(canonicalNow);
 
     final Filter viewCountFilter = buildSharedUsageFilter(null, null, false);
     final Filter statsFilter = buildSharedUsageFilter(start, now, true);
