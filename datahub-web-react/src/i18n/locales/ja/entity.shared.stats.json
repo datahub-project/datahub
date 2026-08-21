@@ -1,0 +1,12 @@
+{
+    "graph.empty": "現在、このアセットの統計情報は収集されていません。",
+    "graph.rowCount_other": "{{formattedCount}} 行",
+    "graph.statName": "行数",
+    "graph.title": "行数",
+    "percentile.high": "高",
+    "percentile.low": "低",
+    "percentile.med": "中",
+    "upstream.directUpstreams": "直接のアップストリーム",
+    "upstream.indirectUpstreams": "間接的なアップストリーム",
+    "upstream.unhealthy": "一部のアップストリームが正常ではありません"
+}
