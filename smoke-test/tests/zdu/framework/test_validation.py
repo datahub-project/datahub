@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import MagicMock
 
+import pytest
+
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import (
     IndexState,
     RollingRestartResult,
@@ -17,6 +20,8 @@ from tests.zdu.framework.context import (
 from tests.zdu.framework.phases.validation import ValidationPhase
 from tests.zdu.framework.scenario_loader import ZDUTestScenario
 from tests.zdu.framework.suite import Suite
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _ctx_with_post_upgrade_state(

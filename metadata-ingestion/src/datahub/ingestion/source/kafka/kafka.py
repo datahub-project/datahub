@@ -22,6 +22,8 @@ from typing import (
     cast,
 )
 
+from typing_extensions import LiteralString
+
 from datahub.ingestion.source.kafka.kafka_constants import (
     CONFLUENT_MAGIC_BYTE,
     CONFLUENT_WIRE_HEADER_LENGTH,
@@ -85,7 +87,15 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
+from datahub.ingestion.source.confluent.models import (
+    BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES,
+    non_colliding_business_metadata,
+)
+from datahub.ingestion.source.kafka.confluent_catalog import KafkaTopicCatalog
+from datahub.ingestion.source.kafka.kafka_config import (
+    KafkaConfluentCatalogConfig,
+    KafkaSourceConfig,
+)
 from datahub.ingestion.source.kafka.kafka_profiler import (
     KafkaProfiler,
 )
@@ -315,6 +325,11 @@ class KafkaConnectionTest:
     "Not supported",
     supported=False,
 )
+@capability(
+    SourceCapability.TAGS,
+    "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
+    supported=True,
+)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
@@ -344,6 +359,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         # read-modify-write, so serialize every mutation from a worker thread.
         self._report_lock = threading.Lock()
         self._schema_resolver: Optional[KafkaSchemaResolver] = None
+        self.topic_catalog: Optional[KafkaTopicCatalog] = None
+        # globalTags is a replacement aspect: a topic dropped by a partial catalog read
+        # would be re-emitted without its catalog tags, deleting them. Warn once.
+        self._warned_partial_catalog = False
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
             self.source_config.connection
         )
@@ -376,12 +395,24 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 self.source_config.strip_user_ids_from_email,
                 match_nested_props=True,
             )
+
+            catalog_config = self.source_config.confluent_catalog
+            self.topic_catalog = self._create_topic_catalog(catalog_config)
         except Exception:
             try:
                 self.consumer.close()
             except Exception as e:
                 logger.debug(f"Failed to close consumer during failed init: {e}")
             raise
+
+    def _create_topic_catalog(
+        self, catalog_config: KafkaConfluentCatalogConfig
+    ) -> Optional[KafkaTopicCatalog]:
+        if not catalog_config.enabled:
+            return None
+        if not catalog_config.check_confluent_cloud_endpoint(self.report):
+            return None
+        return KafkaTopicCatalog(catalog_config, self.report)
 
     def init_kafka_admin_client(self) -> None:
         try:
@@ -537,7 +568,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         log=False,
                     )
 
-    def _locked_warning(self, message: str, context: str) -> None:
+    def _locked_warning(self, message: LiteralString, context: str) -> None:
         # report.warning is not thread-safe; serialize the profiling worker calls.
         with self._report_lock:
             self.report.warning(message=message, context=context, log=False)
@@ -1249,6 +1280,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
+        if not is_subject:
+            self._apply_catalog_metadata(topic, all_tags, custom_props)
+
         if self.source_config.external_url_base:
             base_url = self.source_config.external_url_base.rstrip("/")
             external_url = f"{base_url}/{dataset_name}"
@@ -1261,7 +1295,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         subtype = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
-        tag_urns = [make_tag_urn(tag) for tag in all_tags] if all_tags else None
+        tag_urns = (
+            [make_tag_urn(tag) for tag in dict.fromkeys(all_tags)] if all_tags else None
+        )
         yield Dataset(
             platform=self.platform,
             name=dataset_name,
@@ -1276,6 +1312,50 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             domain=domain_urn,
             extra_aspects=extra_aspects,
         )
+
+    def _apply_catalog_metadata(
+        self, topic: str, all_tags: List[str], custom_props: Dict[str, str]
+    ) -> None:
+        if self.topic_catalog is None:
+            return
+
+        config = self.source_config.confluent_catalog
+        # Only a partial read that actually applies replacement metadata can drop a
+        # topic's tags/business metadata; stay quiet when neither is enabled.
+        if (
+            (config.include_tags or config.include_business_metadata)
+            and not self.topic_catalog.is_complete()
+            and not self._warned_partial_catalog
+        ):
+            self._warned_partial_catalog = True
+            self.report.warning(
+                message="The Confluent Stream Catalog was only partially read, so a topic that "
+                "dropped out of the partial result may have its catalog tags and business metadata "
+                "removed. Re-run once the catalog is fully readable to restore them.",
+                context="confluent_catalog",
+            )
+
+        catalog_topic = self.topic_catalog.get_topic(topic)
+        if catalog_topic is None:
+            return
+
+        if config.include_tags and catalog_topic.tags:
+            all_tags.extend(
+                self.source_config.tag_prefix + tag for tag in catalog_topic.tags
+            )
+            self.report.catalog_tagged_topics += 1
+
+        if config.include_business_metadata:
+            properties = non_colliding_business_metadata(
+                catalog_topic,
+                custom_props,
+                self.report,
+                collision_message=BM_COLLISION_WITH_BROKER_TOPIC_PROPERTIES,
+                context=f"topic={topic}",
+            )
+            if properties:
+                custom_props.update(properties)
+                self.report.catalog_topics_with_business_metadata += 1
 
     def build_custom_properties(
         self,
@@ -1337,8 +1417,15 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def close(self) -> None:
         if self.consumer:
-            self.consumer.close()
-        # Cleanup any resources when source is closed
+            try:
+                self.consumer.close()
+            except Exception:
+                logger.warning("Failed to close Kafka consumer", exc_info=True)
+        if self.topic_catalog:
+            try:
+                self.topic_catalog.close()
+            except Exception:
+                logger.warning("Failed to close Stream Catalog client", exc_info=True)
         super().close()
 
     def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:

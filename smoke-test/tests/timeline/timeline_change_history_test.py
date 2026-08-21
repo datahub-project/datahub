@@ -54,11 +54,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import StructuredPropertyUrn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
 
 
 def _is_transient_sp_error(exc: BaseException) -> bool:

@@ -56,7 +56,8 @@ fragment searchResultCardFields on Entity {
                 }
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+        siblingsSearch(input: { query: "*", count: 1, searchFlags: { skipHighlighting: true, skipAggregates: true } })
+            @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -598,6 +599,87 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     ...datasetStatsFields
 }
 
+fragment siblingSearchDatasetFields on Dataset {
+    exists
+    name
+    origin
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        name
+        description
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        ...entityHealth
+    }
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+    siblings {
+        isPrimary
+    }
+}
+
 fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
@@ -609,7 +691,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                 urn
                 type
                 ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
+                    ...siblingSearchDatasetFields
                     structuredProperties {
                         properties {
                             ...structuredPropertiesFields
@@ -626,10 +708,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                     urn
                     type
                     ... on Dataset {
-                        ...nonSiblingsDatasetSearchFields
-                        siblings {
-                            isPrimary
-                        }
+                        ...siblingSearchDatasetFields
                         structuredProperties {
                             properties {
                                 ...structuredPropertiesFields
