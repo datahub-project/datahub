@@ -265,13 +265,25 @@
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "notes",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR(60)",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784884360260,
-        "runId": "informix-2026_07_24-11_12_38-604ngs",
+        "lastObserved": 1787306792341,
+        "runId": "informix-2026_08_21-12_06_31-aki6wq",
         "lastRunId": "no-run-id-provided"
     }
 },

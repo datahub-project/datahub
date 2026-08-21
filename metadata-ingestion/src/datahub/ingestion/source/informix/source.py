@@ -300,6 +300,7 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
             views: List[_PendingView] = []
 
             seen_owners = set()
+            selected = 0
             for table in client.get_tables():
                 name = make_table_identifier(
                     self.config.database,
@@ -325,6 +326,7 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_dropped(name)
                     continue
 
+                selected += 1
                 schema_key = self._schema_key(table.owner)
                 owners = self._owners(table.owner)
 
@@ -397,6 +399,21 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                         context=f"{table.owner}.{table.name}",
                         exc=e,
                     )
+
+            # Per-object failures above are only warnings, so a systemic problem
+            # (revoked catalog privileges, a dropped connection mid-scan) would
+            # otherwise finish as a successful run that emitted nothing but
+            # containers. Escalate once here instead.
+            ingested = self.report.tables_scanned + self.report.views_scanned
+            if selected and not ingested:
+                self.report.failure(
+                    title="No tables or views could be ingested",
+                    message="Every table and view selected from the catalog failed "
+                    "extraction. This usually indicates a systemic problem such as "
+                    "missing privileges on the system catalogs rather than a "
+                    "per-object issue; see the preceding warnings.",
+                    context=f"{selected} objects selected, 0 ingested",
+                )
 
             # Pass 2: emit viewProperties for every view with stored SQL, and
             # optionally parse that SQL for upstream lineage.

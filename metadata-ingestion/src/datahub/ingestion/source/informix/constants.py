@@ -88,11 +88,14 @@ SQL_COLUMNS = (
     "FROM syscolumns c JOIN systables t ON c.tabid = t.tabid "
     "WHERE TRIM(t.tabname) = ? AND TRIM(t.owner) = ? ORDER BY c.colno"
 )
+# A constraint's backing index is looked up by (tabid, idxname), not idxname
+# alone: that is the join IBM's catalog documentation specifies, and it keeps
+# resolution correct even where an index name is not unique database-wide.
 SQL_PK = (
     "SELECT TRIM(c.colname) AS colname "
     "FROM sysconstraints cn "
     "JOIN systables t ON cn.tabid = t.tabid "
-    "JOIN sysindexes ix ON cn.idxname = ix.idxname "
+    "JOIN sysindexes ix ON cn.tabid = ix.tabid AND cn.idxname = ix.idxname "
     "JOIN syscolumns c ON c.tabid = t.tabid AND c.colno IN "
     f"({_index_part_cols('ix')}) "
     "WHERE cn.constrtype = 'P' AND TRIM(t.tabname) = ? AND TRIM(t.owner) = ?"
@@ -108,13 +111,13 @@ SQL_FK = (
     "TRIM(pc.colname) AS parent_col "
     "FROM sysconstraints cn "
     "JOIN systables ct ON cn.tabid = ct.tabid "
-    "JOIN sysindexes cix ON cn.idxname = cix.idxname "
+    "JOIN sysindexes cix ON cn.tabid = cix.tabid AND cn.idxname = cix.idxname "
     "JOIN syscolumns cc ON cc.tabid = ct.tabid AND cc.colno IN "
     f"({_index_part_cols('cix')}) "
     "JOIN sysreferences r ON cn.constrid = r.constrid "
     "JOIN sysconstraints pcn ON r.primary = pcn.constrid "
     "JOIN systables pt ON pcn.tabid = pt.tabid "
-    "JOIN sysindexes pix ON pcn.idxname = pix.idxname "
+    "JOIN sysindexes pix ON pcn.tabid = pix.tabid AND pcn.idxname = pix.idxname "
     "JOIN syscolumns pc ON pc.tabid = pt.tabid AND pc.colno IN "
     f"({_index_part_cols('pix')}) "
     "WHERE cn.constrtype = 'R' AND TRIM(ct.tabname) = ? AND TRIM(ct.owner) = ?"

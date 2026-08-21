@@ -20,6 +20,24 @@ from datahub.metadata.schema_classes import (
 # plain character length, so length is only meaningful for these string types.
 _LENGTH_TYPES = {"CHAR", "VARCHAR", "NCHAR", "NVARCHAR", "LVARCHAR"}
 
+# VARCHAR/NVARCHAR go further and pack the whole declaration into collength as
+# (reserved_min_space * 256) + max_size. collength is a signed SMALLINT, so a
+# reserved minimum of 128 or more wraps it negative. Measured on Informix
+# 15.0.1: VARCHAR(100) -> 100, VARCHAR(100,10) -> 2660, VARCHAR(200,150) ->
+# -26936, NVARCHAR(80,20) -> 5200. CHAR/NCHAR/LVARCHAR store the length as-is.
+# See the IBM Informix SQL Reference (SYSCOLUMNS).
+_PACKED_LENGTH_TYPES = {"VARCHAR", "NVARCHAR"}
+
+
+def _declared_length(native: str, collength: int) -> int:
+    if native not in _PACKED_LENGTH_TYPES:
+        return collength
+    if collength < 0:
+        collength += 65536
+    # Only the low byte (the declared maximum) is reported; the reserved minimum
+    # is a storage hint, not part of the column's size contract.
+    return collength % 256
+
 
 def build_jdbc_url(config: InformixSourceConfig) -> str:
     user = config.username or ""
@@ -55,8 +73,9 @@ def columns_to_schema_fields(
     for col in columns:
         mapped = map_coltype(col.coltype)
         native = mapped.native
-        if native in _LENGTH_TYPES and col.length > 0:
-            native = f"{native}({col.length})"
+        length = _declared_length(native, col.length)
+        if native in _LENGTH_TYPES and length > 0:
+            native = f"{native}({length})"
         if native.startswith("UNKNOWN"):
             report.warning(
                 title="Unmapped Informix column type",

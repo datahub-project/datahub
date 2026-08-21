@@ -1,7 +1,14 @@
+import re
+
 import pytest
 
 from datahub.ingestion.source.informix.config import InformixSourceConfig
-from datahub.ingestion.source.informix.constants import INFORMIX_TYPE_MAP, map_coltype
+from datahub.ingestion.source.informix.constants import (
+    INFORMIX_TYPE_MAP,
+    SQL_FK,
+    SQL_PK,
+    map_coltype,
+)
 from datahub.ingestion.source.informix.models import InformixForeignKey
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -120,6 +127,17 @@ def test_informix_type_map_keys_match_parametrized_coverage():
         52,
         53,
     }
+
+
+def test_every_sysindexes_join_is_scoped_by_tabid():
+    # A constraint's backing index must be looked up by (tabid, idxname). Joining
+    # on idxname alone can attach another table's index parts, which would flag
+    # the wrong columns as primary keys and mislink foreign key fields.
+    for sql in (SQL_PK, SQL_FK):
+        aliases = re.findall(r"JOIN sysindexes (\w+) ON", sql)
+        assert aliases
+        for alias in aliases:
+            assert f".tabid = {alias}.tabid" in sql
 
 
 def test_foreign_key_rejects_mismatched_column_counts():

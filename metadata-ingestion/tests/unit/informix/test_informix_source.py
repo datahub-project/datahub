@@ -89,6 +89,11 @@ class _PartialFailureClient:
         pass
 
 
+class _TotalFailureClient(_TwoTableClient):
+    def get_columns(self, table):
+        raise RuntimeError("catalog unreadable")
+
+
 class _FkClient:
     def get_tables(self):
         return [
@@ -286,6 +291,52 @@ def test_source_isolates_per_table_failures():
     names = sorted(d.urn.name for d in datasets)
     assert names == ["testdb.informix.customers"]
     assert len(source.report.warnings) == 1
+
+
+def test_source_fails_when_every_selected_object_fails():
+    # A systemic catalog problem must not finish as a successful run that emitted
+    # only containers -- per-object warnings are escalated to one run failure.
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_TotalFailureClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    assert [e for e in entities if isinstance(e, Dataset)] == []
+    assert len(source.report.failures) == 1
+    assert source.report.tables_scanned == 0
+
+
+def test_source_does_not_fail_when_everything_is_filtered_out():
+    # Nothing was selected, so there is no failure to escalate.
+    config = InformixSourceConfig.parse_obj(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "table_pattern": {"deny": [".*"]},
+        }
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_TotalFailureClient()
+    )
+    list(source.get_workunits_internal())
+
+    assert len(source.report.failures) == 0
+
+
+def test_source_does_not_fail_when_some_objects_succeed():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_PartialFailureClient()
+    )
+    list(source.get_workunits_internal())
+
+    assert len(source.report.failures) == 0
+    assert source.report.tables_scanned == 1
 
 
 def test_source_applies_table_pattern_deny():

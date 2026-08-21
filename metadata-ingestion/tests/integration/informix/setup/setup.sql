@@ -3,7 +3,10 @@ CREATE DATABASE testdb WITH LOG;
 CREATE TABLE customers (
   id INTEGER PRIMARY KEY,
   name VARCHAR(100),
-  email VARCHAR(255)
+  email VARCHAR(255),
+  -- Declared with reserved minimum space, so syscolumns.collength packs it as
+  -- (10 * 256) + 60 = 2620. Guards the collength decode in mapping.py.
+  notes VARCHAR(60,10)
 );
 
 CREATE TABLE orders (
