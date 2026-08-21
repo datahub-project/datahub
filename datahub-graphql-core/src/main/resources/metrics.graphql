@@ -268,7 +268,7 @@ type SemanticModel implements EntityWithRelationships & Entity {
   Search-backed filter on member-side `semanticModel` / `hasSemanticModel`.
   Used by the lineage explorer.
   """
-  entities(input: SearchAcrossEntitiesInput): SearchResults
+  entities(input: SearchAcrossEntitiesInput): SearchResults @noAspects
 
   """
   Ownership metadata of the SemanticModel.
