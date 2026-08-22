@@ -420,7 +420,12 @@ public class ConsistencyService {
     BoolQueryBuilder query =
         buildSystemMetadataQuery(
             opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
-    return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
+    try {
+      return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
+    } catch (RuntimeException e) {
+      log.warn("countMatching failed (continuing without total): {}", e.getMessage());
+      return Optional.empty();
+    }
   }
 
   /**

@@ -187,20 +187,25 @@ public class ConsistencyScanRunnerTest {
                 .build());
 
     AtomicInteger batches = new AtomicInteger();
+    AtomicInteger onCompleteCalls = new AtomicInteger();
     Thread runnerThread =
         new Thread(
-            () ->
-                runner.run(
-                    opContext,
-                    ConsistencyScanRequest.builder()
-                        .entityType("dataset")
-                        .delayMs(60_000)
-                        .onBatch(
-                            r -> {
-                              batches.incrementAndGet();
-                              return BatchHandleResult.none();
-                            })
-                        .build()));
+            () -> {
+              ConsistencyScanResult result =
+                  runner.run(
+                      opContext,
+                      ConsistencyScanRequest.builder()
+                          .entityType("dataset")
+                          .delayMs(60_000)
+                          .onBatch(
+                              r -> {
+                                batches.incrementAndGet();
+                                return BatchHandleResult.none();
+                              })
+                          .onComplete(r -> onCompleteCalls.incrementAndGet())
+                          .build());
+              assertTrue(result.isCancelled());
+            });
     runnerThread.start();
     Thread.sleep(200);
     runnerThread.interrupt();
@@ -208,6 +213,7 @@ public class ConsistencyScanRunnerTest {
 
     assertFalse(runnerThread.isAlive());
     assertEquals(batches.get(), 1);
+    assertEquals(onCompleteCalls.get(), 0);
     verify(consistencyService, times(1)).checkBatch(eq(opContext), any(), isNull());
   }
 

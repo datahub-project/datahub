@@ -70,6 +70,7 @@ public class ConsistencyScanRunner {
     int fixed = request.getInitialFixed();
     int failed = request.getInitialFailed();
     String scrollId = request.getScrollId();
+    boolean cancelled = false;
 
     do {
       if (request.getShouldStop() != null && request.getShouldStop().getAsBoolean()) {
@@ -135,6 +136,7 @@ public class ConsistencyScanRunner {
 
       if (request.getDelayMs() > 0 && scrollId != null) {
         if (!applyDelay(request)) {
+          cancelled = true;
           break;
         }
       }
@@ -151,9 +153,10 @@ public class ConsistencyScanRunner {
             .issuesFailed(failed)
             .totalEstimate(totalForTracker)
             .finalProgress(finalSnap)
+            .cancelled(cancelled)
             .build();
 
-    if (request.getOnComplete() != null) {
+    if (!cancelled && request.getOnComplete() != null) {
       request.getOnComplete().accept(result);
     }
 

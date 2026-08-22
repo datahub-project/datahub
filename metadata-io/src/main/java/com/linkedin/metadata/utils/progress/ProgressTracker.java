@@ -45,11 +45,17 @@ public class ProgressTracker {
       @Nullable Long warmupMs,
       @Nullable Clock clock) {
     this.label = label;
-    this.total = total;
+    this.total = total != null && total < 0 ? null : total;
     this.processed = Math.max(0, initialProcessed);
     this.rateBaselineProcessed = this.processed;
     this.reportIntervalMs = reportIntervalMs > 0 ? reportIntervalMs : DEFAULT_REPORT_INTERVAL_MS;
-    this.warmupMs = warmupMs != null ? warmupMs : DEFAULT_WARMUP_MS;
+    if (warmupMs == null) {
+      this.warmupMs = DEFAULT_WARMUP_MS;
+    } else if (warmupMs < 0) {
+      this.warmupMs = DEFAULT_WARMUP_MS;
+    } else {
+      this.warmupMs = warmupMs;
+    }
     this.clock = clock != null ? clock : Clock.systemUTC();
     this.startTimeMs = this.clock.millis();
     this.lastReportTimeMs = 0L;

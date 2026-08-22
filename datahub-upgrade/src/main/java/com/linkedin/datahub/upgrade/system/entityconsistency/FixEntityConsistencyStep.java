@@ -345,13 +345,20 @@ public class FixEntityConsistencyStep implements UpgradeStep {
         for (String entityType : typesToProcess) {
           log.info("Processing entity type: {}", entityType);
 
-          int[] typeResults =
+          EntityTypeProcessResult typeResults =
               processEntityType(
                   entityType, ctx, context, runStartTime, incrementalFilterTime, effectiveCheckIds);
-          totalEntitiesScanned += typeResults[0];
-          totalIssuesFound += typeResults[1];
-          totalFixed += typeResults[2];
-          totalFailed += typeResults[3];
+          if (typeResults.cancelled()) {
+            log.info(
+                "Scan interrupted during {}; preserving IN_PROGRESS checkpoints for resume",
+                entityType);
+            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.IN_PROGRESS);
+          }
+
+          totalEntitiesScanned += typeResults.scanned();
+          totalIssuesFound += typeResults.issues();
+          totalFixed += typeResults.fixed();
+          totalFailed += typeResults.failed();
 
           // Clear caches between entity types to prevent memory buildup
           ctx.clearCaches();
@@ -475,9 +482,9 @@ public class FixEntityConsistencyStep implements UpgradeStep {
   /**
    * Process an entity type with pagination, supporting resume and incremental processing.
    *
-   * @return array of [scanned, issues, fixed, failed]
+   * @return scan counters; {@code cancelled} when interrupted during an inter-batch delay
    */
-  private int[] processEntityType(
+  private EntityTypeProcessResult processEntityType(
       String entityType,
       CheckContext ctx,
       UpgradeContext upgradeContext,
@@ -507,7 +514,7 @@ public class FixEntityConsistencyStep implements UpgradeStep {
 
       if (typeCheckIds.isEmpty()) {
         log.info("No applicable checks for entity type {}, skipping", entityType);
-        return new int[] {scanned, issues, fixed, failed};
+        return new EntityTypeProcessResult(0, 0, 0, 0, false);
       }
     }
 
@@ -621,6 +628,15 @@ public class FixEntityConsistencyStep implements UpgradeStep {
                                 : ""))
                 .build());
 
+    if (scanResult.isCancelled()) {
+      return new EntityTypeProcessResult(
+          (int) scanResult.getEntitiesScanned(),
+          scanResult.getIssuesFound(),
+          scanResult.getIssuesFixed(),
+          scanResult.getIssuesFailed(),
+          true);
+    }
+
     // Mark entity type as completed (clear IN_PROGRESS state)
     Map<String, String> doneState = new HashMap<>();
     doneState.put(KEY_ENTITIES_SCANNED, String.valueOf(scanResult.getEntitiesScanned()));
@@ -637,13 +653,16 @@ public class FixEntityConsistencyStep implements UpgradeStep {
         DataHubUpgradeState.SUCCEEDED,
         doneState);
 
-    return new int[] {
-      (int) scanResult.getEntitiesScanned(),
-      scanResult.getIssuesFound(),
-      scanResult.getIssuesFixed(),
-      scanResult.getIssuesFailed()
-    };
+    return new EntityTypeProcessResult(
+        (int) scanResult.getEntitiesScanned(),
+        scanResult.getIssuesFound(),
+        scanResult.getIssuesFixed(),
+        scanResult.getIssuesFailed(),
+        false);
   }
+
+  private record EntityTypeProcessResult(
+      int scanned, int issues, int fixed, int failed, boolean cancelled) {}
 
   /**
    * Apply fixes partitioned by per-check mode. Job-level dryRun is a ceiling.

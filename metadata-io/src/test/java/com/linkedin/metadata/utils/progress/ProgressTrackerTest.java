@@ -212,6 +212,36 @@ public class ProgressTrackerTest {
   }
 
   @Test
+  public void testNegativeTotal_treatedAsUnknown() {
+    MutableClock clock = new MutableClock(1_000_000L);
+    ProgressTracker tracker =
+        ProgressTracker.builder().label("scan").total(-5L).warmupMs(0L).clock(clock).build();
+
+    ProgressSnapshot snap = tracker.snapshot();
+    assertNull(snap.getTotal());
+    assertNull(snap.getPercentComplete());
+    assertFalse(snap.isFinished());
+  }
+
+  @Test
+  public void testNegativeWarmupUsesDefault() {
+    MutableClock clock = new MutableClock(1_000_000L);
+    ProgressTracker tracker =
+        ProgressTracker.builder()
+            .label("scan")
+            .total(1000L)
+            .warmupMs(-1L)
+            .reportIntervalMs(60_000L)
+            .clock(clock)
+            .build();
+
+    tracker.record(100);
+    clock.advance(10_000);
+    assertNull(tracker.snapshot().getEtaSeconds());
+    assertFalse(tracker.maybeReport(s -> {}));
+  }
+
+  @Test
   public void testFormatDuration() {
     assertEquals(ProgressTracker.formatDuration(45), "45s");
     assertEquals(ProgressTracker.formatDuration(125), "2m 5s");

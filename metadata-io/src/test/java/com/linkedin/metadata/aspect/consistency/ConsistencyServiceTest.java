@@ -2442,4 +2442,23 @@ public class ConsistencyServiceTest {
 
     assertTrue(count.isEmpty());
   }
+
+  @Test
+  public void testCountMatching_softFailsOnRuntimeException() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenThrow(new RuntimeException("ES unavailable"));
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
+
+    assertTrue(count.isEmpty());
+  }
 }

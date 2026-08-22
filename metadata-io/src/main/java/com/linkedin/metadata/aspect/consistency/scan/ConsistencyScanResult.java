@@ -20,4 +20,7 @@ public class ConsistencyScanResult {
   @Nullable Long totalEstimate;
 
   @Nonnull ProgressSnapshot finalProgress;
+
+  /** True when the scan stopped early due to thread interrupt during an inter-batch delay. */
+  @Builder.Default boolean cancelled = false;
 }
