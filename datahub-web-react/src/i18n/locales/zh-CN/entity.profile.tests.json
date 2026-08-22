@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "失败",
+    "resultText.passing": "通过",
+    "summary.allFailing": "所有测试均失败",
+    "summary.allPassing": "所有测试均通过",
+    "summary.countsSubtitle": "{{passing}} 个通过，{{failing}} 个失败",
+    "summary.noTestsRun": "未运行任何测试",
+    "summary.someFailing": "部分测试失败",
+    "summary.statusTooltip": "此状态基于每个测试的最新运行结果。",
+    "testResults.empty": "未找到测试 :(",
+    "testResults.noEvaluations": "无评估",
+    "testResults.title": "治理测试结果"
+}
