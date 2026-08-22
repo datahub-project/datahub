@@ -2,19 +2,29 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, ClassVar, Iterable, List, Optional, Union, cast
+from functools import cached_property
+from typing import Any, Dict, Iterable, List, Optional, Union
 
+import requests.exceptions
 import smart_open
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
-from datahub.configuration.common import HiddenFromDocs
+from datahub.configuration.common import GraphError, HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
@@ -57,6 +67,20 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD = 5
+
+AGGREGATOR_FAILURE_RATIO_THRESHOLD = 0.8
+
+# Listed explicitly for readability even though several are OSError subclasses.
+_SYSTEMIC_ERRORS = (
+    GraphError,
+    ConnectionError,
+    OSError,
+    TimeoutError,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+)
+
 
 class SqlQueriesSourceConfig(
     PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
@@ -90,16 +114,17 @@ class SqlQueriesSourceConfig(
     )
     temp_table_patterns: List[str] = Field(
         description="Regex patterns for temporary tables to filter in lineage ingestion. "
-        "Patterns match from the start of the table name only, not the entire name - "
-        "anchor with '^...$' for an exact match. This is useful for platforms like Athena "
+        "Patterns are start-anchored (like AllowDenyPattern). "
+        "Use '.*' suffix for prefix matching (e.g. 'temp_.*'). "
+        "This is useful for platforms like Athena "
         "that don't have native temp tables but use naming patterns for fake temp tables.",
         default=[],
     )
 
-    enable_lazy_schema_loading: bool = Field(
-        default=True,
-        description="Enable lazy schema loading for better performance. When enabled, schemas are fetched on-demand "
-        "instead of bulk loading all schemas upfront, reducing startup time and memory usage.",
+    max_consecutive_aggregator_failures: int = Field(
+        default=DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD,
+        description="Abort after this many consecutive aggregator failures (likely systemic). "
+        "Set to 0 to disable.",
     )
 
     # AWS/S3 configuration
@@ -107,6 +132,37 @@ class SqlQueriesSourceConfig(
         default=None,
         description="AWS configuration for S3 access. Required when query_file is an S3 URI (s3://).",
     )
+
+    _enable_lazy_schema_loading_removed = pydantic_removed_field(
+        "enable_lazy_schema_loading", "August", 2026
+    )
+
+    @field_validator("temp_table_patterns")
+    @classmethod
+    def validate_temp_table_patterns(cls, v: List[str]) -> List[str]:
+        for pattern in v:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"Invalid regex in temp_table_patterns: '{pattern}': {e}"
+                ) from e
+        return v
+
+    @model_validator(mode="after")
+    def validate_s3_config(self) -> "SqlQueriesSourceConfig":
+        if self.query_file.startswith("s3://") and not self.aws_config:
+            raise ValueError(
+                "aws_config is required when query_file is an S3 URI (s3://)"
+            )
+        return self
+
+    @cached_property
+    def _compiled_temp_table_patterns(self) -> List["re.Pattern[str]"]:
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temp_table_patterns
+        ]
 
 
 @dataclass
@@ -116,8 +172,6 @@ class SqlQueriesSourceReport(SourceReport):
     num_queries_aggregator_failures: int = 0
     num_queries_processed_sequential: int = 0
     num_temp_tables_detected: int = 0
-    temp_table_patterns_used: List[str] = field(default_factory=list)
-    peak_memory_usage_mb: float = 0.0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
     schema_resolver_report: Optional[SchemaResolverReport] = None
@@ -136,7 +190,6 @@ class SqlQueriesSource(Source):
     Implementation notes:
     - Uses SqlParsingAggregator for query parsing and deduplication
     - Optionally uses SchemaResolver to fetch table schemas from DataHub for better parsing accuracy
-    - Supports lazy schema loading to reduce memory usage and startup time
     - Maintains temp table mappings across queries using session_id
     """
 
@@ -155,13 +208,8 @@ class SqlQueriesSource(Source):
         self.report = SqlQueriesSourceReport()
 
         if self.config.use_schema_resolver:
-            # Create schema resolver report for tracking
             self.report.schema_resolver_report = SchemaResolverReport()
 
-            # Use lazy loading - schemas will be fetched on-demand and cached
-            logger.info(
-                "Using lazy schema loading - schemas will be fetched on-demand and cached"
-            )
             self.schema_resolver = SchemaResolver(
                 platform=self.config.platform,
                 platform_instance=self.config.platform_instance,
@@ -176,9 +224,7 @@ class SqlQueriesSource(Source):
             platform=self.config.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            schema_resolver=cast(SchemaResolver, self.schema_resolver)
-            if self.schema_resolver
-            else None,
+            schema_resolver=self.schema_resolver,
             eager_graph_load=False,
             generate_lineage=True,  # TODO: make this configurable
             generate_queries=True,  # TODO: make this configurable
@@ -220,184 +266,231 @@ class SqlQueriesSource(Source):
     def _process_queries_batch(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        """Process all queries in memory (original behavior)."""
-        with self.report.new_stage("Collecting queries from file"):
-            queries = list(self._parse_query_file())
-            logger.info(f"Collected {len(queries)} queries for processing")
+        consecutive_failure_threshold = (
+            self.config.max_consecutive_aggregator_failures
+        )
 
-        with self.report.new_stage("Processing queries through SQL parsing aggregator"):
-            logger.info("Using sequential processing")
-            self._process_queries_sequential(queries)
+        with self.report.new_stage("Parsing and processing queries"):
+            consecutive_failures = 0
+            for entry in self._parse_query_file():
+                try:
+                    self._add_query_to_aggregator(entry)
+                    consecutive_failures = 0
+                    self.report.num_queries_processed_sequential += 1
+                    if self.report.num_queries_processed_sequential % 1000 == 0:
+                        logger.info(
+                            f"Processed {self.report.num_queries_processed_sequential} queries"
+                        )
+                except (MemoryError, SystemExit, KeyboardInterrupt):
+                    raise
+                except _SYSTEMIC_ERRORS as e:
+                    self.report.failure(
+                        title="Systemic error",
+                        message="Systemic error while processing queries — "
+                        "check graph connectivity and authentication",
+                        context=str(e),
+                        exc=e,
+                    )
+                    return
+                except Exception as e:
+                    self.report.num_queries_aggregator_failures += 1
+                    consecutive_failures += 1
+                    self.report.warning(
+                        title="Error adding query to aggregator",
+                        message="Query skipped due to failure when adding query to SQL parsing aggregator",
+                        context=entry.query,
+                        exc=e,
+                    )
+                    if (
+                        consecutive_failure_threshold > 0
+                        and consecutive_failures >= consecutive_failure_threshold
+                    ):
+                        self.report.failure(
+                            title="Too many consecutive failures",
+                            message="Too many consecutive aggregator failures — "
+                            "likely a systemic issue (auth, connectivity, config)",
+                            context=f"{consecutive_failures} consecutive failures, last: {e}",
+                            exc=e,
+                        )
+                        return
+
+        self._check_post_loop_health()
 
         with self.report.new_stage("Generating metadata work units"):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
 
-    def _is_s3_uri(self, path: str) -> bool:
-        """Check if the path is an S3 URI."""
-        return path.startswith("s3://")
+    def _check_post_loop_health(self) -> None:
+        """Check aggregator health after the processing loop.
+
+        Handles three cases:
+        - Empty file (no entries parsed, no failures) → warning
+        - All entries malformed (no entries parsed, some failures) → failure
+        - Entries parsed but most failed inside the aggregator → failure
+        """
+        if self.report.num_entries_processed == 0 and self.report.num_entries_failed == 0:
+            self.report.warning(
+                title="Empty input",
+                message="No query entries found in input file",
+                context=self.config.query_file,
+            )
+            return
+
+        if self.report.num_entries_processed == 0 and self.report.num_entries_failed > 0:
+            self.report.failure(
+                title="All entries failed to parse",
+                message="Every entry in the input file failed to parse — "
+                "check the file format (expected newline-delimited JSON)",
+                context=f"{self.report.num_entries_failed} entries failed",
+            )
+            return
+
+        agg_report = self.aggregator.report
+        total_observed = agg_report.num_observed_queries
+        failed_observed = agg_report.num_observed_queries_failed
+        if total_observed > 0:
+            failure_ratio = failed_observed / total_observed
+            if failure_ratio >= AGGREGATOR_FAILURE_RATIO_THRESHOLD:
+                self.report.failure(
+                    title="Most queries failed SQL parsing",
+                    message="A high proportion of queries failed during SQL parsing — "
+                    "likely a systemic issue such as expired credentials or "
+                    "unreachable schema resolver",
+                    context=f"{failed_observed}/{total_observed} queries failed ({failure_ratio:.0%})",
+                )
 
     def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
         """Parse query file from S3 using smart_open."""
-        if not self.config.aws_config:
-            raise ValueError("AWS configuration required for S3 file access")
-
         logger.info(f"Reading query file from S3: {self.config.query_file}")
 
         try:
-            # Use smart_open for efficient S3 streaming, similar to S3FileSystem
+            if self.config.aws_config is None:
+                raise ValueError("aws_config must be set for S3 URIs")
             s3_client = self.config.aws_config.get_s3_client()
-
-            with smart_open.open(
+            file_stream_ctx = smart_open.open(
                 self.config.query_file, mode="r", transport_params={"client": s3_client}
-            ) as file_stream:
-                for line in file_stream:
-                    if line.strip():
-                        try:
-                            query_dict = json.loads(line, strict=False)
-                            entry = QueryEntry.create(query_dict, config=self.config)
-                            self.report.num_entries_processed += 1
-                            if self.report.num_entries_processed % 1000 == 0:
-                                logger.info(
-                                    f"Processed {self.report.num_entries_processed} query entries from S3"
-                                )
-                            yield entry
-                        except Exception as e:
-                            self.report.num_entries_failed += 1
-                            self.report.warning(
-                                title="Error processing query from S3",
-                                message="Query skipped due to parsing error",
-                                context=line.strip(),
-                                exc=e,
-                            )
+            )
         except Exception as e:
-            self.report.warning(
-                title="Error reading S3 file",
-                message="Failed to read S3 file",
+            self.report.failure(
+                title="S3 read error",
+                message="Failed to read query file from S3",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
+
+        try:
+            with file_stream_ctx as file_stream:
+                yield from self._parse_lines(file_stream)
+        except Exception as e:
+            self.report.failure(
+                title="S3 stream error",
+                message="Error reading S3 stream mid-transfer",
                 context=self.config.query_file,
                 exc=e,
             )
             raise
 
     def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
-        """Parse local query file (existing logic)."""
-        with open(self.config.query_file) as f:
-            for line in f:
-                try:
-                    query_dict = json.loads(line, strict=False)
-                    entry = QueryEntry.create(query_dict, config=self.config)
-                    self.report.num_entries_processed += 1
-                    if self.report.num_entries_processed % 1000 == 0:
-                        logger.info(
-                            f"Processed {self.report.num_entries_processed} query entries"
-                        )
-                    yield entry
-                except Exception as e:
-                    self.report.num_entries_failed += 1
-                    self.report.warning(
-                        title="Error processing query",
-                        message="Query skipped due to parsing error",
-                        context=line.strip(),
-                        exc=e,
-                    )
+        """Parse local query file."""
+        try:
+            f = open(self.config.query_file)
+        except OSError as e:
+            self.report.failure(
+                title="Local file read error",
+                message="Failed to open local query file",
+                context=self.config.query_file,
+                exc=e,
+            )
+            raise
+
+        with f:
+            yield from self._parse_lines(f)
+
+    def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
+        """Parse lines from a file stream, yielding QueryEntry objects."""
+        for line in stream:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                query_dict = json.loads(stripped, strict=False)
+                entry = QueryEntry.create(query_dict, config=self.config)
+            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                self.report.num_entries_failed += 1
+                self.report.warning(
+                    title="Error processing query entry",
+                    message="Query skipped due to parsing error",
+                    context=stripped,
+                    exc=e,
+                    log=False,
+                )
+                continue
+            self.report.num_entries_processed += 1
+            if self.report.num_entries_processed % 1000 == 0:
+                logger.info(
+                    f"Processed {self.report.num_entries_processed} query entries"
+                )
+            yield entry
 
     def _parse_query_file(self) -> Iterable["QueryEntry"]:
         """Parse the query file and yield QueryEntry objects."""
-        if self._is_s3_uri(self.config.query_file):
+        if self.config.query_file.startswith("s3://"):
             yield from self._parse_s3_query_file()
         else:
             yield from self._parse_local_query_file()
 
-    def _process_queries_sequential(self, queries: List["QueryEntry"]) -> None:
-        """Process queries sequentially."""
-        total_queries = len(queries)
-        logger.info(f"Processing {total_queries} queries sequentially")
-
-        # Process each query sequentially
-        for i, query_entry in enumerate(queries):
-            self._add_query_to_aggregator(query_entry)
-            self.report.num_queries_processed_sequential += 1
-
-            # Simple progress reporting every 1000 queries
-            if (i + 1) % 1000 == 0:
-                progress_pct = ((i + 1) / total_queries) * 100
-                logger.info(
-                    f"Processed {i + 1}/{total_queries} queries ({progress_pct:.1f}%)"
-                )
-
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:
-        """Add a query to the SQL parsing aggregator."""
-        try:
-            # If we have both upstream and downstream tables, use explicit lineage
-            if query_entry.upstream_tables and query_entry.downstream_tables:
-                logger.debug("Using explicit lineage from query file")
-                for downstream_table in query_entry.downstream_tables:
-                    known_lineage = KnownQueryLineageInfo(
-                        query_text=query_entry.query,
-                        downstream=str(downstream_table),
-                        upstreams=[str(urn) for urn in query_entry.upstream_tables],
-                        timestamp=query_entry.timestamp,
-                        session_id=query_entry.session_id,
-                    )
-                    self.aggregator.add_known_query_lineage(known_lineage)
-            else:
-                # Warn if only partial lineage information is provided
-                # XOR: true if exactly one of upstream_tables or downstream_tables is provided
-                if bool(query_entry.upstream_tables) ^ bool(
-                    query_entry.downstream_tables
-                ):
-                    query_preview = (
-                        query_entry.query[:150] + "..."
-                        if len(query_entry.query) > 150
-                        else query_entry.query
-                    )
-                    missing_upstream = (
-                        "Missing upstream. " if not query_entry.upstream_tables else ""
-                    )
-                    missing_downstream = (
-                        "Missing downstream. "
-                        if not query_entry.downstream_tables
-                        else ""
-                    )
-                    logger.info(
-                        f"Only partial lineage information provided, falling back to SQL parsing for complete lineage detection. {missing_upstream}{missing_downstream}Query: {query_preview}"
-                    )
-                # No explicit lineage, rely on parsing
-                observed_query = ObservedQuery(
-                    query=query_entry.query,
-                    timestamp=query_entry.timestamp,
-                    user=query_entry.user,
-                    session_id=query_entry.session_id,
-                    default_db=self.config.default_db,
-                    default_schema=self.config.default_schema,
-                    override_dialect=self.config.override_dialect,
-                )
-                self.aggregator.add_observed_query(observed_query)
+        """Add a query to the SQL parsing aggregator.
 
-        except Exception as e:
-            self.report.num_queries_aggregator_failures += 1
-            self.report.warning(
-                title="Error adding query to aggregator",
-                message="Query skipped due to failure when adding query to SQL parsing aggregator",
-                context=query_entry.query,
-                exc=e,
+        Raises on systemic errors (graph/auth/connection) so the caller can
+        detect and abort.  Per-query data errors should not reach here — they
+        are handled during parsing.
+        """
+        if query_entry.upstream_tables and query_entry.downstream_tables:
+            logger.debug("Using explicit lineage from query file")
+            for downstream_table in query_entry.downstream_tables:
+                known_lineage = KnownQueryLineageInfo(
+                    query_text=query_entry.query,
+                    downstream=str(downstream_table),
+                    upstreams=[str(urn) for urn in query_entry.upstream_tables],
+                    timestamp=query_entry.timestamp,
+                    session_id=query_entry.session_id,
+                )
+                self.aggregator.add_known_query_lineage(known_lineage)
+        else:
+            if bool(query_entry.upstream_tables) ^ bool(
+                query_entry.downstream_tables
+            ):
+                side = "upstream" if not query_entry.upstream_tables else "downstream"
+                logger.info(
+                    "Partial lineage (missing %s), falling back to SQL parsing. Query: %.150s",
+                    side,
+                    query_entry.query,
+                )
+            observed_query = ObservedQuery(
+                query=query_entry.query,
+                timestamp=query_entry.timestamp,
+                user=query_entry.user,
+                session_id=query_entry.session_id,
+                default_db=self.config.default_db,
+                default_schema=self.config.default_schema,
+                override_dialect=self.config.override_dialect,
             )
+            self.aggregator.add_observed_query(observed_query)
 
     def is_temp_table(self, name: str) -> bool:
-        """Check if a table name matches any of the configured temp table patterns."""
-        if not self.config.temp_table_patterns:
-            return False
+        """Check if a table name matches any of the configured temp table patterns.
 
-        try:
-            for pattern in self.config.temp_table_patterns:
-                if re.match(pattern, name, flags=re.IGNORECASE):
-                    logger.debug(
-                        f"Table '{name}' matched temp table pattern: {pattern}"
-                    )
-                    self.report.num_temp_tables_detected += 1
-                    return True
-        except re.error as e:
-            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
+        Uses start-anchored matching (re.match), consistent with AllowDenyPattern.
+        """
+        for compiled in self.config._compiled_temp_table_patterns:
+            if compiled.match(name):
+                logger.debug(
+                    f"Table '{name}' matched temp table pattern: {compiled.pattern}"
+                )
+                self.report.num_temp_tables_detected += 1
+                return True
 
         return False
 
@@ -406,13 +499,9 @@ class QueryEntry(BaseModel):
     query: str
     timestamp: Optional[datetime] = None
     user: Optional[CorpUserUrn] = None
-    operation_type: Optional[str] = None
     downstream_tables: List[DatasetUrn] = Field(default_factory=list)
     upstream_tables: List[DatasetUrn] = Field(default_factory=list)
     session_id: Optional[str] = None
-
-    # Validation context for URN creation
-    _validation_context: ClassVar[Optional[SqlQueriesSourceConfig]] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -431,39 +520,40 @@ class QueryEntry(BaseModel):
 
     @field_validator("downstream_tables", "upstream_tables", mode="before")
     @classmethod
-    def parse_tables(cls, v: Any) -> Any:
+    def parse_tables(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
             return []
 
-        result = []
+        config: Optional[SqlQueriesSourceConfig] = (info.context or {}).get("config")
+
+        result: List[DatasetUrn] = []
         for item in v:
             if isinstance(item, DatasetUrn):
                 result.append(item)
             elif isinstance(item, str):
-                # Skip empty/whitespace-only strings
-                if item and item.strip():
-                    # Convert to URN using validation context
-                    assert cls._validation_context, (
-                        "Validation context must be set for URN creation"
-                    )
+                stripped = item.strip()
+                if stripped:
+                    if config is None:
+                        raise ValueError(
+                            "Config context required for URN creation from table name strings"
+                        )
                     urn_string = make_dataset_urn_with_platform_instance(
-                        name=item,
-                        platform=cls._validation_context.platform,
-                        platform_instance=cls._validation_context.platform_instance,
-                        env=cls._validation_context.env,
+                        name=stripped,
+                        platform=config.platform,
+                        platform_instance=config.platform_instance,
+                        env=config.env,
                     )
                     result.append(DatasetUrn.from_string(urn_string))
+            else:
+                logger.warning(
+                    f"Ignoring invalid table entry of type {type(item).__name__}: {item!r}"
+                )
 
         return result
 
     @classmethod
     def create(
-        cls, entry_dict: dict, *, config: SqlQueriesSourceConfig
+        cls, entry_dict: Dict[str, Any], *, config: SqlQueriesSourceConfig
     ) -> "QueryEntry":
         """Create QueryEntry from dict with config context."""
-        # Set validation context for URN creation
-        cls._validation_context = config
-        try:
-            return cls.model_validate(entry_dict)
-        finally:
-            cls._validation_context = None
+        return cls.model_validate(entry_dict, context={"config": config})

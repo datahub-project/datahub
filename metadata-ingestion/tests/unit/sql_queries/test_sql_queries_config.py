@@ -17,34 +17,23 @@ class TestS3Support:
     """Test S3 support features."""
 
     def test_s3_uri_detection(self):
-        """Test S3 URI detection."""
-        # Create a minimal source instance without full initialization
-        config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
+        """Test S3 URI detection via config validation."""
+        # Non-S3 config works without aws_config
+        config = SqlQueriesSourceConfig(platform="snowflake", query_file="/local/path/file.json")
+        assert not config.query_file.startswith("s3://")
 
-        # Test S3 URIs
-        assert source._is_s3_uri("s3://bucket/path/file.json") is True
-        assert source._is_s3_uri("s3://my-bucket/data/queries.jsonl") is True
-
-        # Test non-S3 URIs
-        assert source._is_s3_uri("/local/path/file.json") is False
-        assert source._is_s3_uri("file://local/path/file.json") is False
-        assert source._is_s3_uri("https://example.com/file.json") is False
+        # S3 URI without aws_config fails at config time
+        with pytest.raises(ValueError):
+            SqlQueriesSourceConfig(platform="snowflake", query_file="s3://bucket/path/file.json")
 
     def test_aws_config_required_for_s3(self):
-        """Test that AWS config is required for S3 files."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="s3://bucket/file.json"
-        )
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-
+        """Test that AWS config is required for S3 files at config time."""
         with pytest.raises(
-            ValueError, match="AWS configuration required for S3 file access"
+            ValueError, match="aws_config is required when query_file is an S3 URI"
         ):
-            list(source._parse_s3_query_file())
+            SqlQueriesSourceConfig(
+                platform="snowflake", query_file="s3://bucket/file.json"
+            )
 
     @patch("datahub.ingestion.source.sql_queries.smart_open.open")
     def test_s3_file_processing(self, mock_open):
@@ -149,23 +138,14 @@ class TestTemporaryTableSupport:
         assert source.is_temp_table("table_temp_other") is False
 
     def test_is_temp_table_invalid_regex(self):
-        """Test temp table detection with invalid regex patterns."""
-        patterns = ["[invalid_regex", "^temp_.*"]  # First pattern is invalid
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", temp_table_patterns=patterns
-        )
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-        source.report = Mock()
-        source.report.num_temp_tables_detected = 0
-        source.ctx = Mock()  # Add ctx attribute
-
-        # Current implementation has a bug: when there's an invalid regex pattern,
-        # it returns False immediately instead of continuing to check other patterns
-        # This test reflects the current behavior
-        assert source.is_temp_table("temp_table") is False  # Current buggy behavior
-        assert source.is_temp_table("regular_table") is False
+        """Test that invalid regex patterns are rejected at config time."""
+        patterns = ["[invalid_regex", "^temp_.*"]
+        with pytest.raises(ValueError, match="Invalid regex in temp_table_patterns"):
+            SqlQueriesSourceConfig(
+                platform="snowflake",
+                query_file="dummy.json",
+                temp_table_patterns=patterns,
+            )
 
     def test_temp_table_detection_counting(self):
         """Test that temp table detection is counted in reporting."""
@@ -192,19 +172,12 @@ class TestTemporaryTableSupport:
         assert source.report.num_temp_tables_detected == 2
 
     def test_temp_table_patterns_tracking(self):
-        """Test that temp table patterns are tracked in reporting."""
+        """Test that temp table patterns are stored in config."""
         patterns = ["^temp_.*", "^tmp_.*"]
         config = SqlQueriesSourceConfig(
             platform="snowflake", query_file="dummy.json", temp_table_patterns=patterns
         )
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-        source.report = Mock()
-        source.report.temp_table_patterns_used = patterns.copy()
-
-        # Patterns should be copied to report
-        assert source.report.temp_table_patterns_used == patterns
+        assert config.temp_table_patterns == patterns
 
     def test_sql_parsing_temp_table_detection_without_patterns(self):
         """Test that SQL parsing detects CREATE TEMPORARY TABLE even without temp_table_patterns."""
@@ -407,19 +380,15 @@ class TestEnhancedReporting:
         report.num_queries_processed_sequential += 5
         assert report.num_queries_processed_sequential == 5
 
-    def test_peak_memory_usage_tracking(self):
-        """Test peak memory usage tracking."""
+    def test_temp_tables_detected_tracking(self):
+        """Test temp table detection counter."""
         from datahub.ingestion.source.sql_queries import SqlQueriesSourceReport
 
-        # Create a report instance directly
         report = SqlQueriesSourceReport()
+        assert report.num_temp_tables_detected == 0
 
-        # Initial value should be 0
-        assert report.peak_memory_usage_mb == 0.0
-
-        # Simulate memory usage
-        report.peak_memory_usage_mb = 150.5
-        assert report.peak_memory_usage_mb == 150.5
+        report.num_temp_tables_detected += 3
+        assert report.num_temp_tables_detected == 3
 
 
 class TestConfigurationValidation:
@@ -478,37 +447,31 @@ class TestEdgeCases:
         assert source.is_temp_table("regular_table") is False
 
     def test_none_aws_config(self):
-        """Test behavior with None AWS config."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="s3://bucket/file.json", aws_config=None
-        )
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
+        """Test that S3 URI with None AWS config is rejected at config time."""
+        with pytest.raises(ValueError, match="aws_config is required"):
+            SqlQueriesSourceConfig(
+                platform="snowflake",
+                query_file="s3://bucket/file.json",
+                aws_config=None,
+            )
 
-        with pytest.raises(
-            ValueError, match="AWS configuration required for S3 file access"
-        ):
-            list(source._parse_s3_query_file())
-
-    def test_invalid_s3_uri_format(self):
-        """Test behavior with invalid S3 URI format."""
+    def test_s3_uri_detection_in_config(self):
+        """Test that S3 URIs require aws_config."""
+        # Non-S3 URIs don't require aws_config
         config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
+        assert not config.query_file.startswith("s3://")
 
-        # Should not detect as S3 URI
-        assert source._is_s3_uri("not-an-s3-uri") is False
-        assert (
-            source._is_s3_uri("s3://") is True
-        )  # Even incomplete S3 URI should be detected
+        # S3 URIs require aws_config
+        with pytest.raises(ValueError, match="aws_config is required"):
+            SqlQueriesSourceConfig(
+                platform="snowflake", query_file="s3://bucket/file.json"
+            )
 
 
 class TestIntegrationScenarios:
     """Test integration scenarios combining multiple features."""
 
-    def test_s3_with_lazy_loading(self):
+    def test_s3_with_aws_config(self):
         """Test S3 processing with lazy loading enabled."""
         # Create a proper AWS config dict
         aws_config_dict = {
@@ -523,12 +486,8 @@ class TestIntegrationScenarios:
             aws_config=aws_config_dict,
         )
 
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-
-        # Verify configuration
-        assert source._is_s3_uri(config.query_file) is True
+        # Verify S3 URI detected
+        assert config.query_file.startswith("s3://")
 
     def test_temp_tables_support(self):
         """Test temp table support."""
@@ -560,8 +519,6 @@ class TestIntegrationScenarios:
             query_file="dummy.json",
         )
 
-        # Verify all optimizations are enabled
-        assert config.enable_lazy_schema_loading is True
         assert config.temp_table_patterns == []
 
     def test_backward_compatibility_with_new_features(self):
