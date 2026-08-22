@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import logging
 import time
 from collections import OrderedDict
@@ -46,6 +47,14 @@ DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult"
 REPORTS_TO_EMIT_MAX_SIZE = 10
 
+# Only some models builds declare executorInstanceId (a metadata-models fork, or a
+# custom models package). Generated aspect classes take explicit kwargs, so passing it
+# to a build without the field raises TypeError.
+_RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID = (
+    "executorInstanceId"
+    in inspect.signature(ExecutionRequestResultClass.__init__).parameters
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +89,16 @@ class ReportingExecutor(DefaultExecutor):
         # Implements LRU cache via OrderedDict to avoid memory leak
         self.results_to_emit: OrderedDict[str, ExecutionResult] = OrderedDict()
         self.dropped_reports: set[str] = set()  # Leaks memory slowly, like task_futures
+        if (
+            exec_config.executor_instance_id is not None
+            and not _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
+        ):
+            # Warned here, not per aspect: an MCP is built on every progress heartbeat.
+            logger.warning(
+                "executor_instance_id is configured but the installed "
+                "ExecutionRequestResult aspect does not declare executorInstanceId; "
+                "it will be omitted from execution results."
+            )
         if exec_config.graph_client is not None:
             self._datahub_graph = exec_config.graph_client
         elif exec_config.graph_client_config is not None:
@@ -288,7 +307,7 @@ class ReportingExecutor(DefaultExecutor):
             and ((len(structured_report) + len(report)) > max_length)
         ):
             exec_id = exec_request.exec_id if exec_request else "unknown"
-            message = f"{exec_id} structured report exceeded limit of {max_length} chars and was truncated."
+            message = f"{exec_id} report and structured report exceeded the combined limit of {max_length} chars, so the structured report was removed."
             logger.warning(message)
             structured_report = None
             report = f"WARNING: {message}\n{report}"
@@ -297,8 +316,11 @@ class ReportingExecutor(DefaultExecutor):
             exec_id = exec_request.exec_id if exec_request else "unknown"
             message = f"{exec_id} report exceeded limit of {max_length} chars and was truncated."
             logger.warning(message)
-            report = report[:max_length]
-            report = f"WARNING: {message}\n{report}"
+            # Reserve room for the prefix, then clamp: prepending after truncating
+            # overshoots by len(prefix), and reserving alone still overshoots when
+            # max_length < len(prefix).
+            prefix = f"WARNING: {message}\n"
+            report = (prefix + report[: max(0, max_length - len(prefix))])[:max_length]
 
         # Build the arguments for ExecutionRequestResultClass
         result_args = {
@@ -315,12 +337,11 @@ class ReportingExecutor(DefaultExecutor):
             else None,
         }
 
-        # Included only when configured. The ExecutionRequestResult aspect does not
-        # declare executorInstanceId, and generated aspect classes reject unknown
-        # keyword arguments, so passing it unconditionally would fail. Deployments
-        # that set it supply a custom models package whose aspect declares the field
-        # (see datahub.utilities._custom_package_loader).
-        if self._config.executor_instance_id is not None:
+        # Skipped when the installed models lack the field; warned about at construction.
+        if (
+            self._config.executor_instance_id is not None
+            and _RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
+        ):
             result_args["executorInstanceId"] = self._config.executor_instance_id
 
         return ExecutionRequestResultClass(**result_args)  # type: ignore[arg-type]

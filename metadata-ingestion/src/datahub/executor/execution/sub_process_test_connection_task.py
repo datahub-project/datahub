@@ -85,6 +85,13 @@ class SubProcessTestConnectionTask(Task):
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
         # 2. Prepare or resolve venv
+        # The connection report is written here. Only the dynamic venv path creates this
+        # directory (via `uv venv`); "bundled" and "native" return before that, and the
+        # missing directory makes the CLI's --report-to write fail, which
+        # _test_source_connection reports as a failed connection test. Created after
+        # validation so earlier failures leave no empty directory behind.
+        Path(exec_out_dir).mkdir(0o755, parents=True, exist_ok=True)
+
         venv_config = VenvConfig(
             version=validated_args.version,
             main_plugin=plugin,

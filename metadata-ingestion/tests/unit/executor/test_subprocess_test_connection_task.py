@@ -361,3 +361,35 @@ async def test_cancellation_terminates_the_subprocess(
             await pending
 
     mock_process.terminate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_exec_out_dir_exists_before_venv_setup(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """exec_out_dir must exist before setup_venv, which skips creating it for the
+    "bundled" and "native" versions -- leaving the connection report unwritable."""
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    observed: dict[str, bool] = {}
+
+    async def stop_after_recording(*_args: Any, **kwargs: Any) -> None:
+        # tmp_dir is exec_out_dir; record whether it exists at the moment a bundled or
+        # native run would have returned without creating anything.
+        observed["exec_out_dir_exists"] = Path(kwargs["tmp_dir"]).is_dir()
+        raise RuntimeError("stop the test here; the directory is all we care about")
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.setup_venv",
+            side_effect=stop_after_recording,
+        ),
+        pytest.raises(TaskError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert observed["exec_out_dir_exists"]
