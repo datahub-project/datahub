@@ -287,9 +287,10 @@ RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && 
     chown -R datahub:datahub /opt/datahub/bundled-venv-build
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/install_extra_packages.sh /install_extra_packages.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
-RUN chmod a+x /start_datahub_actions.sh && \
+RUN chmod a+x /start_datahub_actions.sh /install_extra_packages.sh && \
     mkdir -p /etc/datahub/actions && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
@@ -373,9 +374,10 @@ RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && 
     chown -R datahub:datahub /opt/datahub/bundled-venv-build
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/install_extra_packages.sh /install_extra_packages.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
-RUN chmod a+x /start_datahub_actions.sh && \
+RUN chmod a+x /start_datahub_actions.sh /install_extra_packages.sh && \
     mkdir -p /etc/datahub/actions && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
@@ -448,9 +450,10 @@ ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/install_extra_packages.sh /install_extra_packages.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
-RUN chmod a+x /start_datahub_actions.sh && \
+RUN chmod a+x /start_datahub_actions.sh /install_extra_packages.sh && \
     mkdir -p /etc/datahub/actions && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub

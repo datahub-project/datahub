@@ -635,6 +635,28 @@ quickstart_configs.each { taskName, config ->
 }
 
 
+// Shell-level tests for the datahub-actions startup scripts. These need no Docker daemon:
+// uv and the installer are stubbed, so they run anywhere bash does.
+//
+// Wired into `check` so the coverage is actually enforced. An unregistered test script is
+// decoration: the defect it guards can return while the required checks stay green.
+tasks.register('testDatahubActionsScripts', Exec) {
+    description = 'Runs the datahub-actions startup script tests'
+    group = 'verification'
+    workingDir = project.projectDir
+    executable 'bash'
+    args 'datahub-actions/tests/test_install_extra_packages.sh'
+
+    inputs.file('datahub-actions/install_extra_packages.sh')
+    inputs.file('datahub-actions/start.sh')
+    inputs.file('datahub-actions/tests/test_install_extra_packages.sh')
+    outputs.upToDateWhen { false }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('testDatahubActionsScripts')
+}
+
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
     args '-c', 'echo -e "$(docker compose version | sed -E \'s/.*v([0-9.]+).*/\\1/\')\n2.20"|sort --version-sort --check=quiet --reverse'
