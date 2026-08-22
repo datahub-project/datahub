@@ -19,7 +19,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
-from datahub.metadata.urns import DataPlatformUrn
+from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
@@ -37,6 +37,10 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
+    # Hits that resolved via the lowercase→canonical index (case-insensitive platforms).
+    num_normalized_urn_hits: int = 0
+    # Lookups where multiple registered URNs shared a normalized key (left unresolved).
+    num_normalized_urn_collisions: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -93,6 +97,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
+        # Lowercased dataset-name key -> registered URN(s). Used only for
+        # case-insensitive platforms so a MixedCase schema URN can be found from a
+        # lowercase query/BI reference. Ambiguous collisions stay unresolved.
+        self._normalized_to_urns: Dict[str, Set[str]] = {}
+        if self._prefers_urn_lower():
+            for existing_urn, info in self._schema_cache.items():
+                if info is not None:
+                    self._index_normalized_urn(existing_urn)
 
     @property
     def platform(self) -> str:
@@ -173,10 +185,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
 
         urns_to_try = [urn]
-        if urn_lower != urn:
-            urns_to_try.append(urn_lower)
-        if urn_mixed not in {urn, urn_lower}:
-            urns_to_try.append(urn_mixed)
+        if self._prefers_urn_lower():
+            if urn_lower != urn:
+                urns_to_try.append(urn_lower)
+            if urn_mixed not in {urn, urn_lower}:
+                urns_to_try.append(urn_mixed)
 
         for candidate_urn in urns_to_try:
             if candidate_urn in self._schema_cache:
@@ -184,6 +197,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                 if schema_info is not None:
                     self._track_cache_hit()
                     return candidate_urn, schema_info
+
+        # Case-insensitive platforms: map lowercase query/BI refs onto the URN casing
+        # already registered from schema extraction (e.g. Teradata DBC MixedCase).
+        normalized_hit = self._resolve_via_normalized_index(urns_to_try)
+        if normalized_hit is not None:
+            return normalized_hit
 
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
@@ -237,6 +256,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     self._track_cache_hit()
                     return candidate_urn, schema_info
 
+            normalized_hit = self._resolve_via_normalized_index(urns_to_try)
+            if normalized_hit is not None:
+                return normalized_hit
+
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
             f"primary={urn}, lower={urn_lower}, mixed={urn_mixed}"
@@ -277,6 +300,83 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         """Track a cache miss if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
+
+    def _track_normalized_hit(self) -> None:
+        if self.report is not None:
+            self.report.num_normalized_urn_hits += 1
+
+    def _track_normalized_collision(self) -> None:
+        if self.report is not None:
+            self.report.num_normalized_urn_collisions += 1
+
+    @staticmethod
+    def _normalized_urn_key(urn: str) -> Optional[str]:
+        """Lowercase the dataset name while keeping platform / env identity intact."""
+        try:
+            parsed = DatasetUrn.from_string(urn)
+            platform = DataPlatformUrn.from_string(parsed.platform).platform_name
+            return make_dataset_urn_with_platform_instance(
+                platform=platform,
+                # Name already embeds any platform_instance prefix.
+                platform_instance=None,
+                env=parsed.env,
+                name=parsed.name.lower(),
+            )
+        except (ValueError, IndexError, AttributeError, TypeError):
+            return None
+
+    def _index_normalized_urn(self, urn: str) -> None:
+        if not self._prefers_urn_lower():
+            return
+        key = self._normalized_urn_key(urn)
+        if key is None:
+            return
+        self._normalized_to_urns.setdefault(key, set()).add(urn)
+
+    def _unindex_normalized_urn(self, urn: str) -> None:
+        if not self._prefers_urn_lower():
+            return
+        key = self._normalized_urn_key(urn)
+        if key is None:
+            return
+        urns = self._normalized_to_urns.get(key)
+        if not urns:
+            return
+        urns.discard(urn)
+        if not urns:
+            del self._normalized_to_urns[key]
+
+    def _resolve_via_normalized_index(
+        self, urns_to_try: List[str]
+    ) -> Optional[Tuple[str, SchemaInfo]]:
+        if not self._prefers_urn_lower() or not self._normalized_to_urns:
+            return None
+
+        seen_keys: Set[str] = set()
+        for candidate in urns_to_try:
+            key = self._normalized_urn_key(candidate)
+            if key is None or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            matches = self._normalized_to_urns.get(key)
+            if not matches:
+                continue
+            if len(matches) > 1:
+                self._track_normalized_collision()
+                logger.debug(
+                    "Ambiguous case-insensitive URN match for key %s: %s",
+                    key,
+                    sorted(matches),
+                )
+                continue
+            canonical_urn = next(iter(matches))
+            schema_info = self._schema_cache.get(canonical_urn)
+            if schema_info is None:
+                continue
+            self._track_cache_hit()
+            self._track_normalized_hit()
+            return canonical_urn, schema_info
+        return None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -338,7 +438,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
+        previous = self._schema_cache.get(urn) if urn in self._schema_cache else None
+        if previous is not None and schema_info is None:
+            self._unindex_normalized_urn(urn)
         self._schema_cache[urn] = schema_info
+        if schema_info is not None:
+            self._index_normalized_urn(urn)
 
     def _fetch_schema_info(
         self, graph: "DataHubGraph", urn: str
@@ -365,6 +470,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def close(self) -> None:
         self._schema_cache.close()
+        self._normalized_to_urns.clear()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):

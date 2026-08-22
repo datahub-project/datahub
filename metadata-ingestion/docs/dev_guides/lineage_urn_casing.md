@@ -41,21 +41,23 @@ When enabled, the feature inspects each source's lineage before it is sent to Da
 casing of **upstream warehouse references** against the casing DataHub already stores:
 
 - If an entity with the **exact** URN already exists, the reference is left unchanged (`EXACT`).
-- Otherwise, if the reference matches an existing entity when casing is normalized, it is rewritten to
-  that entity's stored URN (`NORMALIZED`).
+- Otherwise, if the reference matches an existing entity when casing is normalized (including
+  MixedCase / UPPER warehouse identities resolved via SchemaResolver's lowercase→canonical index),
+  it is rewritten to that entity's stored URN (`NORMALIZED`).
 - If no existing entity matches, the reference is left unchanged and flagged `UNRESOLVED`.
+- On **case-insensitive** platforms, if multiple registered entities would match under
+  case-folding, the reference is also left unchanged (`UNRESOLVED`) rather than pick one.
 
 Only references **to** warehouse assets are modified. The entity the aspect is attached to and its
 downstream fields are never touched — the feature respects the casing the warehouse itself reported.
 Column-level casing is corrected the same way, using the schema DataHub stores for the resolved table
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
 
-> **Current coverage limit.** Reconciliation currently heals a reference when the warehouse stores the
-> entity in its **lowercased** form (the common Snowflake/BigQuery default) — regardless of how the BI
-> tool cased it. A warehouse that keeps a **non-lowercase** identity (UPPER / Pascal / Mixed) is **not
-> yet** reconciled, and ambiguous case-collisions are not detected. Full any-casing resolution and
-> collision-safety are planned as backend infrastructure; once it lands, this feature picks it up
-> automatically with no config change.
+> **Case-sensitive platforms.** Platforms in
+> `PLATFORMS_WITH_CASE_SENSITIVE_TABLES` (e.g. BigQuery, DB2) keep exact-string
+> identity — `MyTable` and `mytable` are different entities. `SchemaResolver` tries
+> only the reference's exact URN (no lower/mixed candidates, no normalized index), so a
+> BI ref whose casing does not match the ingested table stays `UNRESOLVED`.
 
 ### What gets fixed
 
@@ -147,8 +149,10 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   and the BI source re-runs.
 - **Does not retroactively heal existing broken edges.** Re-ingest the affected source after enabling the
   flag to fix them.
-- **Conservative on collisions.** On case-sensitive platforms where two genuinely different tables differ
-  only by case, ambiguous references are left unchanged rather than risk merging distinct entities.
+- **Conservative on collisions.** Case-insensitive platforms detect ambiguous case-folding
+  (two registered URNs for the same normalized key) and leave the reference unchanged.
+  Case-sensitive platforms never fold casings, so `MyTable` and `mytable` coexist as
+  separate entities and only an exact URN match resolves.
 - **Reconciles against tables that have a schema in DataHub.** A referenced table that exists without a
   schema (more common on schemaless platforms like Kafka/DynamoDB) is left unchanged and reported
   `UNRESOLVED`. Broadening this is a tracked follow-up.
