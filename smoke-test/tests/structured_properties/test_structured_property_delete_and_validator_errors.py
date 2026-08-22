@@ -18,10 +18,14 @@ from tests.utils import delete_urn
 
 logger = logging.getLogger(__name__)
 
-dataset_urn = make_dataset_urn("snowflake", f"validator_error_test_{randint(10, 10000)}")
+dataset_urn = make_dataset_urn(
+    "snowflake", f"validator_error_test_{randint(10, 10000)}"
+)
 
 
-def create_property_with_id(property_id: str, graph: DataHubGraph, value_type: str = "number") -> str:
+def create_property_with_id(
+    property_id: str, graph: DataHubGraph, value_type: str = "number"
+) -> str:
     """Emits a propertyDefinition MCP directly under the given raw urn id (bypassing any
     client-side name sanitization) so server-side validators are the only thing standing
     between this call and success."""
@@ -97,7 +101,9 @@ def test_hard_deleted_structured_property_rolls_up_out_of_search(graph_client):
         entityUrn=dataset_urn,
         aspect=StructuredPropertiesClass(
             properties=[
-                StructuredPropertyValueAssignmentClass(propertyUrn=property_urn, values=[42.0])
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=property_urn, values=[42.0]
+                )
             ]
         ),
     )
