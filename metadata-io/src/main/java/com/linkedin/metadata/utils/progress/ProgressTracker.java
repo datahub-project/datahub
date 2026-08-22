@@ -14,6 +14,9 @@ import lombok.Builder;
  * Reporting is time-throttled so callers may invoke {@link #maybeReport} every batch without
  * flooding logs.
  *
+ * <p>Rate and ETA use only work completed since tracker construction ({@link #record} deltas), not
+ * {@code initialProcessed}, so resume after checkpoint does not inflate throughput.
+ *
  * <p>{@link #snapshot()} is always cheap and suitable for silent checkpoint persistence.
  */
 public class ProgressTracker {
@@ -27,6 +30,7 @@ public class ProgressTracker {
   private final long warmupMs;
   private final Clock clock;
   private final long startTimeMs;
+  private final long rateBaselineProcessed;
 
   private long processed;
   private long lastReportTimeMs;
@@ -38,13 +42,14 @@ public class ProgressTracker {
       @Nullable Long total,
       long initialProcessed,
       long reportIntervalMs,
-      long warmupMs,
+      @Nullable Long warmupMs,
       @Nullable Clock clock) {
     this.label = label;
-    this.total = total != null && total > 0 ? total : null;
+    this.total = total;
     this.processed = Math.max(0, initialProcessed);
+    this.rateBaselineProcessed = this.processed;
     this.reportIntervalMs = reportIntervalMs > 0 ? reportIntervalMs : DEFAULT_REPORT_INTERVAL_MS;
-    this.warmupMs = warmupMs >= 0 ? warmupMs : DEFAULT_WARMUP_MS;
+    this.warmupMs = warmupMs != null ? warmupMs : DEFAULT_WARMUP_MS;
     this.clock = clock != null ? clock : Clock.systemUTC();
     this.startTimeMs = this.clock.millis();
     this.lastReportTimeMs = 0L;
@@ -76,14 +81,15 @@ public class ProgressTracker {
     long now = clock.millis();
     long elapsedMs = Math.max(0L, now - startTimeMs);
     double elapsedSec = elapsedMs / 1000.0;
-    double rate = elapsedSec > 0 ? processed / elapsedSec : 0.0;
+    long processedSinceStart = Math.max(0L, processed - rateBaselineProcessed);
+    double rate = elapsedSec > 0 ? processedSinceStart / elapsedSec : 0.0;
 
     boolean finished = total != null && processed >= total;
     Integer percent = null;
     Long etaSeconds = null;
 
-    if (total != null && total > 0) {
-      if (finished) {
+    if (total != null) {
+      if (total == 0 || finished) {
         percent = 100;
       } else {
         percent = (int) Math.min(99, (processed * 100L) / total);
@@ -91,7 +97,7 @@ public class ProgressTracker {
     }
 
     boolean pastWarmup = elapsedMs >= warmupMs;
-    if (total != null && rate > 0 && pastWarmup && !finished) {
+    if (total != null && total > 0 && rate > 0 && pastWarmup && !finished) {
       long remaining = Math.max(0L, total - processed);
       etaSeconds = (long) Math.ceil(remaining / rate);
     }

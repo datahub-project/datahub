@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.consistency.scan;
 
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
+import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.utils.progress.ProgressSnapshot;
 import com.linkedin.metadata.utils.progress.ProgressTracker;
@@ -50,7 +51,7 @@ public class ConsistencyScanRunner {
           .accept(
               ConsistencyScanStart.builder()
                   .entityType(request.getEntityType())
-                  .totalEstimate(request.isEntityEtaEligible() ? count.orElse(null) : null)
+                  .totalEstimate(request.isEntityEtaEligible() ? totalForTracker : null)
                   .etaEnabled(totalForTracker != null)
                   .build());
     }
@@ -75,6 +76,11 @@ public class ConsistencyScanRunner {
         break;
       }
 
+      CheckContext batchContext = request.getCheckContext();
+      if (batchContext != null) {
+        batchContext.clearOrphanUrns(request.getEntityType());
+      }
+
       CheckResult checkResult =
           consistencyService.checkBatch(
               opContext,
@@ -85,7 +91,7 @@ public class ConsistencyScanRunner {
                   .scrollId(scrollId)
                   .filter(request.getFilter())
                   .build(),
-              request.getCheckContext());
+              batchContext);
 
       if (checkResult.getEntitiesScanned() == 0) {
         break;
@@ -128,7 +134,9 @@ public class ConsistencyScanRunner {
       }
 
       if (request.getDelayMs() > 0 && scrollId != null) {
-        applyDelay(request);
+        if (!applyDelay(request)) {
+          break;
+        }
       }
 
     } while (scrollId != null);
@@ -165,15 +173,20 @@ public class ConsistencyScanRunner {
     return counted;
   }
 
-  private void applyDelay(@Nonnull ConsistencyScanRequest request) {
+  /**
+   * @return false when interrupted — caller should stop the scan loop
+   */
+  private boolean applyDelay(@Nonnull ConsistencyScanRequest request) {
     if (request.getDelayHook() != null) {
       request.getDelayHook().run();
-      return;
+      return true;
     }
     try {
       Thread.sleep(request.getDelayMs());
+      return true;
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
+      return false;
     }
   }
 }

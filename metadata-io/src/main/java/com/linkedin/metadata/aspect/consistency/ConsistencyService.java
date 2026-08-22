@@ -280,36 +280,6 @@ public class ConsistencyService {
    * @throws IllegalArgumentException if checkIds span multiple entity types or if neither
    *     entityType nor checkIds is provided
    */
-  /**
-   * Count system-metadata documents matching the same discovery query used by {@link #checkBatch}.
-   *
-   * <p>With {@code keyAspectOnly=true} (upgrade default), the count approximates unique entities.
-   * Soft-fails to empty on ES errors so callers can continue rate-only without a fake ETA.
-   *
-   * @param opContext operation context
-   * @param request same shape as checkBatch (entity type, check IDs, filter, URNs)
-   * @return matching document count, or empty when count cannot be obtained
-   */
-  @Nonnull
-  public Optional<Long> countMatching(
-      @Nonnull OperationContext opContext, @Nonnull CheckBatchRequest request) {
-    try {
-      String resolvedEntityType = resolveEntityType(request);
-      List<ConsistencyCheck> checks =
-          checkRegistry.getDefaultByEntityTypeAndIds(resolvedEntityType, request.getCheckIds());
-      if (checks.isEmpty()) {
-        return Optional.of(0L);
-      }
-      BoolQueryBuilder query =
-          buildSystemMetadataQuery(
-              opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
-      return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
-    } catch (Exception e) {
-      log.warn("countMatching failed (continuing without total): {}", e.getMessage());
-      return Optional.empty();
-    }
-  }
-
   public CheckResult checkBatch(
       @Nonnull OperationContext opContext,
       @Nonnull CheckBatchRequest request,
@@ -425,6 +395,32 @@ public class ConsistencyService {
         .issues(issues)
         .scrollId(nextScrollId)
         .build();
+  }
+
+  /**
+   * Count system-metadata documents matching the same discovery query used by {@link #checkBatch}.
+   *
+   * <p>With {@code keyAspectOnly=true} (upgrade default), the count approximates unique entities.
+   * Returns empty when the ES count query fails ({@link ESSystemMetadataDAO#count} soft-fails).
+   * Validation errors from entity-type resolution propagate to the caller.
+   *
+   * @param opContext operation context
+   * @param request same shape as checkBatch (entity type, check IDs, filter, URNs)
+   * @return matching document count, or empty when count cannot be obtained
+   */
+  @Nonnull
+  public Optional<Long> countMatching(
+      @Nonnull OperationContext opContext, @Nonnull CheckBatchRequest request) {
+    String resolvedEntityType = resolveEntityType(request);
+    List<ConsistencyCheck> checks =
+        checkRegistry.getDefaultByEntityTypeAndIds(resolvedEntityType, request.getCheckIds());
+    if (checks.isEmpty()) {
+      return Optional.of(0L);
+    }
+    BoolQueryBuilder query =
+        buildSystemMetadataQuery(
+            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
+    return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
   }
 
   /**

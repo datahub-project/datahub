@@ -52,8 +52,8 @@ public class ConsistencyCheckResult {
   @Schema(
       description =
           "Estimated matching system-metadata documents for this request filter. "
-              + "Populated on the first page (scrollId null) when a count is available. "
-              + "With keyAspectOnly, approximates unique entities.")
+              + "Populated on the first request page (when no scroll ID is supplied) when a count "
+              + "is available. With keyAspectOnly, approximates unique entities.")
   @Nullable
   private Long totalEstimate;
 }

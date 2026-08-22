@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
+import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -116,6 +117,98 @@ public class ConsistencyScanRunnerTest {
     assertNull(starts.get(0).getTotalEstimate());
     assertNull(result.getTotalEstimate());
     assertEquals(result.getEntitiesScanned(), 50);
+  }
+
+  @Test
+  public void testOnStartUsesLimitedTotal() {
+    when(consistencyService.countMatching(eq(opContext), any(CheckBatchRequest.class)))
+        .thenReturn(Optional.of(1000L));
+    when(consistencyService.checkBatch(eq(opContext), any(CheckBatchRequest.class), isNull()))
+        .thenReturn(
+            CheckResult.builder()
+                .entitiesScanned(100)
+                .issuesFound(0)
+                .issues(List.of())
+                .scrollId(null)
+                .build());
+
+    List<ConsistencyScanStart> starts = new ArrayList<>();
+    runner.run(
+        opContext,
+        ConsistencyScanRequest.builder()
+            .entityType("dataset")
+            .limit(150)
+            .onStart(starts::add)
+            .build());
+
+    assertEquals(starts.size(), 1);
+    assertEquals(starts.get(0).getTotalEstimate().longValue(), 150L);
+  }
+
+  @Test
+  public void testSharedContext_clearsOrphanUrnsEachBatch() {
+    when(consistencyService.countMatching(eq(opContext), any(CheckBatchRequest.class)))
+        .thenReturn(Optional.of(100L));
+    when(consistencyService.checkBatch(eq(opContext), any(CheckBatchRequest.class), any()))
+        .thenReturn(
+            CheckResult.builder()
+                .entitiesScanned(50)
+                .issuesFound(0)
+                .issues(List.of())
+                .scrollId("more")
+                .build(),
+            CheckResult.builder()
+                .entitiesScanned(50)
+                .issuesFound(0)
+                .issues(List.of())
+                .scrollId(null)
+                .build());
+
+    CheckContext ctx = mock(CheckContext.class);
+    runner.run(
+        opContext,
+        ConsistencyScanRequest.builder().entityType("dataset").checkContext(ctx).build());
+
+    verify(ctx, times(2)).clearOrphanUrns("dataset");
+    verify(consistencyService, times(2)).checkBatch(eq(opContext), any(), eq(ctx));
+  }
+
+  @Test
+  public void testDelayInterruptStopsScan() throws Exception {
+    when(consistencyService.countMatching(eq(opContext), any(CheckBatchRequest.class)))
+        .thenReturn(Optional.of(1000L));
+    when(consistencyService.checkBatch(eq(opContext), any(CheckBatchRequest.class), isNull()))
+        .thenReturn(
+            CheckResult.builder()
+                .entitiesScanned(100)
+                .issuesFound(0)
+                .issues(List.of())
+                .scrollId("more")
+                .build());
+
+    AtomicInteger batches = new AtomicInteger();
+    Thread runnerThread =
+        new Thread(
+            () ->
+                runner.run(
+                    opContext,
+                    ConsistencyScanRequest.builder()
+                        .entityType("dataset")
+                        .delayMs(60_000)
+                        .onBatch(
+                            r -> {
+                              batches.incrementAndGet();
+                              return BatchHandleResult.none();
+                            })
+                        .build()));
+    runnerThread.start();
+    Thread.sleep(200);
+    runnerThread.interrupt();
+    runnerThread.join(5000);
+
+    assertFalse(runnerThread.isAlive());
+    assertEquals(batches.get(), 1);
+    verify(consistencyService, times(1)).checkBatch(eq(opContext), any(), isNull());
   }
 
   @Test
@@ -239,6 +332,8 @@ public class ConsistencyScanRunnerTest {
         runner.run(opContext, ConsistencyScanRequest.builder().entityType("dataset").build());
 
     assertEquals(result.getEntitiesScanned(), 0);
+    assertEquals(result.getTotalEstimate().longValue(), 0L);
+    assertTrue(result.getFinalProgress().isFinished());
     verify(consistencyService, times(1)).checkBatch(eq(opContext), any(), isNull());
   }
 }

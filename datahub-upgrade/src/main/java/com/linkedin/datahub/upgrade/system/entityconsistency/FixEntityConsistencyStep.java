@@ -585,11 +585,6 @@ public class FixEntityConsistencyStep implements UpgradeStep {
                                 + " (count-based total; time ETA appears after warmup)",
                             entityType,
                             start.getTotalEstimate());
-                      } else if (start.getTotalEstimate() != null) {
-                        log.info(
-                            "entity-check[{}]: starting scan, matchingDocs={} (entity time-ETA disabled)",
-                            entityType,
-                            start.getTotalEstimate());
                       } else {
                         log.info(
                             "entity-check[{}]: starting scan, total unknown (rate-only progress,"
