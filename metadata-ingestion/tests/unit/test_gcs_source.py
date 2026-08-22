@@ -747,3 +747,27 @@ def test_gcs_oauth_aws_config_raises_without_creds():
 
         with pytest.raises(RuntimeError, match="_gcs_oauth_credentials must be set"):
             config.get_s3_client()
+
+
+def test_gcs_infer_schema_defaults_to_true():
+    config = GCSSourceConfig.model_validate(
+        {
+            "path_specs": [{"include": "gs://bucket/{table}/*.parquet"}],
+            "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        }
+    )
+    assert config.infer_schema is True
+
+
+def test_gcs_infer_schema_forwarded_to_s3_config():
+    """infer_schema=False must be forwarded to the underlying S3 config."""
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(run_id="test-gcs", graph=graph, pipeline_name="test-gcs")
+
+    source = {
+        "path_specs": [{"include": "gs://bucket/{table}/*.parquet"}],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+        "infer_schema": False,
+    }
+    gcs_source = GCSSource.create(source, ctx)
+    assert gcs_source.s3_source.source_config.infer_schema is False
