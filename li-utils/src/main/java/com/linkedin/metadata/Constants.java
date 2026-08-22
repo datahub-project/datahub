@@ -630,6 +630,16 @@ public class Constants {
 
   public static final String RESTLI_SUCCESS = "success";
 
+  // The emit-mode marker is the same system-metadata key/value convention already
+  // published by the Python REST emitter (EMIT_MODE_MARKER_KEY /
+  // EMIT_MODE_MARKER_SYNC in datahub.emitter.request_helper): a per-MCP marker
+  // that pins a write to synchronous routing regardless of the caller's
+  // configured emit mode. Stamping it server-side (rather than requiring a producer
+  // to set it directly) lets externally-originated sync writes propagate that pin
+  // through MCL -> platform events -> downstream event consumers.
+  public static final String EMIT_MODE_MARKER_KEY = "emitModeMarker";
+  public static final String EMIT_MODE_MARKER_SYNC = "sync";
+
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
   // EntityPrivilegesResolver
   public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
