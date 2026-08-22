@@ -639,11 +639,9 @@ def _search_results_contain_urns(auth_session, urns: List[str]) -> Optional[Set[
     }
 
 
-def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
-    """Poll GraphQL search until searchable ingested URNs are indexed."""
-    remaining: Set[str] = set(
-        searchable_ingest_urns(entity_urns_from_ingest_file(filename))
-    )
+def wait_for_urns_searchable(auth_session, urns: List[str]) -> None:
+    """Poll GraphQL search until the given catalog URNs are indexed."""
+    remaining: Set[str] = set(searchable_ingest_urns(urns))
     if not remaining:
         return
 
@@ -657,9 +655,12 @@ def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
         if attempt < sleep_times - 1:
             time.sleep(sleep_sec)
 
-    raise AssertionError(
-        f"Entities not searchable after ingest of {filename}: {sorted(remaining)}"
-    )
+    raise AssertionError(f"Entities not searchable: {sorted(remaining)}")
+
+
+def wait_for_ingested_urns_searchable(auth_session, filename: str) -> None:
+    """Poll GraphQL search until searchable ingested URNs are indexed."""
+    wait_for_urns_searchable(auth_session, entity_urns_from_ingest_file(filename))
 
 
 def wait_for_browse_path_entities(
