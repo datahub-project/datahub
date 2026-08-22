@@ -711,22 +711,41 @@ class VirtualConnectionProcessor:
             if vc_columns and db_columns:
                 # Case-insensitive mapping for column matching
                 db_column_map = self._build_column_name_map(db_columns)
+                db_column_names = {
+                    column[c.NAME] for column in db_columns if column.get(c.NAME)
+                }
 
                 for vc_column in vc_columns:
                     vc_col_name = vc_column.get(c.NAME)
                     if not vc_col_name:
                         continue
 
-                    if vc_col_name.lower() in db_column_map:
+                    # Exact before folded. A source that allows case-distinct
+                    # identifiers can hold both `col` and `COL`, and the folded
+                    # map keeps only one of them -- so matching on the folded
+                    # name alone hands both columns whichever one survived.
+                    db_col_name = None
+                    if vc_col_name in db_column_names:
+                        db_col_name = vc_col_name
+                    elif vc_col_name.lower() in db_column_map:
                         db_col_name = db_column_map[vc_col_name.lower()]
 
+                    if db_col_name is not None:
                         final_db_col_name = db_col_name
                         if (
                             self.tableau_source.is_snowflake_urn(db_table_urn)
                             and not self.config.ingest_tables_external
                         ):
-                            # Snowflake normalizes field names - match that behavior for lineage
-                            final_db_col_name = db_col_name.lower().replace(" ", "_")
+                            # Snowflake field paths follow that source's own
+                            # casing settings, so match against the schema
+                            # already in DataHub rather than assuming a
+                            # convention. Same resolution the datasource
+                            # lineage path uses.
+                            final_db_col_name = (
+                                self.tableau_source._match_snowflake_column_name(
+                                    db_table_urn, db_col_name
+                                )
+                            )
 
                         fine_grained_lineages.append(
                             FineGrainedLineageClass(
