@@ -179,6 +179,28 @@ BEGIN
 END;
 /
 
+-- The only unit here whose lineage comes purely from the data dictionary. Its
+-- body carries no DML, and an assignment from a function is not a CALL
+-- statement, so the SQL parser finds nothing in it either -- the sole edge is
+-- the ALL_DEPENDENCIES entry for GET_ORDER_TOTAL. That combination is what
+-- covers catalogue-derived `inputDatajobs` surviving a body with no lineage of
+-- its own; without it, a procedure like this emits no dataJobInputOutput at all
+-- and the dependency is silently lost.
+--
+-- Same schema on purpose: the procedure registry is built per schema, so the
+-- target is a registry hit and the edge carries the same
+-- argument-signature-hashed job id as the DataJob emitted for GET_ORDER_TOTAL.
+-- Declared after that function so it compiles VALID rather than with an
+-- unresolved reference. DBMS_OUTPUT adds a SYS dependency, which the
+-- system-schema filter drops while keeping the real one.
+CREATE OR REPLACE PROCEDURE summarize_order(p_order_id IN NUMBER) AS
+    v_total NUMBER;
+BEGIN
+    v_total := get_order_total(p_order_id);
+    DBMS_OUTPUT.PUT_LINE('Order total: ' || v_total);
+END;
+/
+
 -- Create ANALYTICS_SCHEMA objects with materialized views
 ALTER SESSION SET CURRENT_SCHEMA = analytics_schema;
 
