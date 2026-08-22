@@ -86,9 +86,16 @@ input RaiseIncidentInput {
   description: String
 
   """
-  The resource (dataset, dashboard, chart, dataFlow, etc) that the incident is associated with.
+  The resource that the incident is associated with. See the supported entity
+  types below. Must be present if resourceUrns is not defined.
   """
-  resourceUrn: String!
+  resourceUrn: String
+
+  """
+  The resources that the incident is associated with, for a multi-resource
+  incident. Must be present and not empty if resourceUrn is not defined.
+  """
+  resourceUrns: [String!]
 
   """
   The source of the incident, i.e. how it was generated
@@ -96,6 +103,75 @@ input RaiseIncidentInput {
   source: IncidentSourceInput
 }
 ```
+
+### Supported entity types
+
+Incident support is not a single switch. It is declared independently in several
+places, and they do not all cover the same set. Four of them are backend and decide
+what happens to an incident raised through the API. Every entity passed in
+`resourceUrn`, and every entity in the `resourceUrns` list for a multi-resource
+incident, goes through all four.
+
+1. **Can it be raised?** The `IncidentOn` relationship in `IncidentInfo.pdl` lists
+   the entity types accepted as incident resources. A type not on this list is
+   rejected and nothing is written.
+2. **Is it summarised?** The `incidentsSummary` aspect on the entity in
+   `entity-registry.yml` is what keeps an entity's active incident count current.
+   Without it, the incident exists but the entity has no rolled-up state.
+3. **Is the field declared?** An `extend type` block in `incident.graphql` is what
+   gives the entity an `incidents` field in the schema.
+4. **Is the field wired?** The entity's GraphQL type has to appear in the
+   `entitiesWithIncidents` list in `GmsGraphQLEngine.java`, which is what attaches
+   the resolver behind that field.
+
+Gates 3 and 4 are reported separately because declaring the field without wiring a
+resolver behind it does not fail. The query is valid and `incidents` comes back
+null, which reads as an entity with no incidents rather than as an unsupported one.
+
+An entity can clear gate 1 and fail the rest. That is a worse outcome than a clean
+rejection, because the call succeeds and returns an incident URN while the entity
+it names never shows the incident.
+
+The table below is generated at docs build time from those four files, so it cannot
+drift from the code the way a hand-maintained list does.
+
+{{ inline /docs/generated/incidents/entity-support.md.snippet }}
+
+Any type absent from the table, including `mlModelGroup`, `mlModelDeployment` and
+`dataProcessInstance`, is rejected at gate 1 and nothing is written.
+
+A rejected destination fails the whole mutation, including any other entity sent
+in the same call. The wording has changed between releases, so search for the
+entity type rather than for the exact sentence. On v1.5.0.6 the rejection reads:
+
+```
+java.lang.RuntimeException: Invalid format for aspect: incident
+ Cause: ERROR :: /entities/0 :: "Provided urn <urn>" is invalid:
+        Entity type for urn: <urn> is not a valid destination for field path: /entities/*
+```
+
+`service` and `aiAgent` are the two types where a write can look like it worked and
+then go nowhere. Both are on the `IncidentOn` list and both carry
+`incidentsSummary`, so the call is accepted and returns an incident URN, but
+neither has a GraphQL type to hang an `incidents` field on in the first place. The
+incident itself is still readable: `Incident` implements `Entity`, so the returned
+URN can be passed to the generic `entity(urn: ...)` query. What is missing is the
+asset side. Nothing lists the incident from the service or agent, and nothing
+renders it. Until that closes, raise the incident on a dataset the service reads or
+writes and name the service in the title.
+
+`schemaField` is a deliberate half. All four backend gates are closed, so field
+level incidents can be raised, summarised and listed through the API, but there is
+no Incidents tab on a field today, so the UI will not show them. Treat it as an API
+feature.
+
+Three further copies of the same list live outside the metadata model, so they are
+not derived here: the `activeIncidents` badge alias and the per-type inline
+fragments of `getEntityIncidents` in the frontend, and the fragments in the MCP
+`list_incidents` query. Keeping the frontend two from drifting is the subject of
+[#19097](https://github.com/datahub-project/datahub/pull/19097), and the wider
+entity-support plan is tracked in
+[#19322](https://github.com/datahub-project/datahub/issues/19322).
 
 ### Examples
 
