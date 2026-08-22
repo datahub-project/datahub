@@ -253,12 +253,6 @@ module.exports = {
             {
                 paths: [
                     {
-                        name: '@phosphor-icons/react',
-                        message:
-                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
-                        allowTypeImports: true,
-                    },
-                    {
                         name: '@monaco-editor/react',
                         importNames: ['loader'],
                         message:
@@ -267,6 +261,7 @@ module.exports = {
                 ],
             },
         ],
+        'rulesdir/no-phosphor-generic-imports': 'error',
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
