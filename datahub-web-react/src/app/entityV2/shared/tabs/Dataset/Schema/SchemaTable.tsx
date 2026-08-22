@@ -1,4 +1,3 @@
-import { Skeleton } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
@@ -17,6 +16,7 @@ import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/trans
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import CellSkeleton from '@app/entityV2/shared/tabs/Dataset/Schema/components/CellSkeleton';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
@@ -265,6 +265,15 @@ export default function SchemaTable({
         [schemaTypeRenderer, tc],
     );
 
+    // One shared wrapper for every Phase 2 metadata column (description/tags/terms): skeleton
+    // while full metadata loads, real content otherwise. On Phase 2 failure the tab-level
+    // error banner (SchemaTab) signals it and cells fall back to structural content.
+    const renderMetadataCell = useCallback(
+        (width: number, content: () => React.ReactNode): React.ReactNode =>
+            fullMetadataLoading ? <CellSkeleton $width={width} /> : content(),
+        [fullMetadataLoading],
+    );
+
     const descriptionColumn = useMemo(
         () => ({
             ellipsis: true,
@@ -273,16 +282,12 @@ export default function SchemaTable({
             dataIndex: 'description',
             key: 'description',
             render: (description, record, index) =>
-                fullMetadataLoading ? (
-                    <Skeleton.Input active size="small" style={{ width: 120, height: 20 }} />
-                ) : (
-                    descriptionRender(description, record, index)
-                ),
+                renderMetadataCell(120, () => descriptionRender(description, record, index)),
             sorter: (sourceA, sourceB) =>
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
         }),
-        [descriptionRender, extractFieldDescription, tc, fullMetadataLoading],
+        [descriptionRender, extractFieldDescription, tc, renderMetadataCell],
     );
 
     const tagColumn = useMemo(
@@ -291,16 +296,11 @@ export default function SchemaTable({
             title: tc('tags'),
             dataIndex: 'globalTags',
             key: 'tag',
-            render: (tags, record) =>
-                fullMetadataLoading ? (
-                    <Skeleton.Input active size="small" style={{ width: 80, height: 20 }} />
-                ) : (
-                    tagRenderer(tags, record)
-                ),
+            render: (tags, record) => renderMetadataCell(80, () => tagRenderer(tags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
         }),
-        [tagRenderer, extractFieldTagsInfo, tc, fullMetadataLoading],
+        [tagRenderer, extractFieldTagsInfo, tc, renderMetadataCell],
     );
 
     const termColumn = useMemo(
@@ -309,17 +309,12 @@ export default function SchemaTable({
             title: t('schemaTable.glossaryTermsColumn'),
             dataIndex: 'globalTags',
             key: 'term',
-            render: (tags, record) =>
-                fullMetadataLoading ? (
-                    <Skeleton.Input active size="small" style={{ width: 80, height: 20 }} />
-                ) : (
-                    termRenderer(tags, record)
-                ),
+            render: (tags, record) => renderMetadataCell(80, () => termRenderer(tags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
                 extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
         }),
-        [termRenderer, extractFieldGlossaryTermsInfo, t, fullMetadataLoading],
+        [termRenderer, extractFieldGlossaryTermsInfo, t, renderMetadataCell],
     );
 
     const businessAttributeColumn = useMemo(

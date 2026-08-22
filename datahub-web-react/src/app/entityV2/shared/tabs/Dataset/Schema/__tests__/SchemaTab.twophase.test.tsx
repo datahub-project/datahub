@@ -54,11 +54,12 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryS
 
 // Renders the row slice it receives so tests can assert which fields are displayed.
 vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable', () => ({
-    default: ({ rows }: { rows: Array<{ fieldPath: string }> }) => (
+    default: ({ rows, fullMetadataLoading }: { rows: Array<{ fieldPath: string }>; fullMetadataLoading?: boolean }) => (
         <div
             data-testid="schema-table"
             data-first-key={rows[0]?.fieldPath ?? ''}
             data-row-count={String(rows.length)}
+            data-metadata-loading={String(!!fullMetadataLoading)}
         />
     ),
 }));
@@ -160,6 +161,10 @@ describe('SchemaTab two-phase loading', () => {
         mockEntityUrn.value = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,ds_a,PROD)';
     });
 
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
     it('renders Phase 1 structural rows while Phase 2 metadata is in-flight', async () => {
         mockUseGetEntityWithSchema.mockReturnValue(phase1State(5));
 
@@ -184,17 +189,22 @@ describe('SchemaTab two-phase loading', () => {
     });
 
     it('does not clear filter text while Phase 2 metadata is still loading', async () => {
-        mockUseGetEntityWithSchema.mockReturnValue(phase1State(5));
+        // Start before Phase 1 has settled so the loading -> false transition below
+        // actually re-runs the wasSearchReset effect (it only fires on loading changes).
+        mockUseGetEntityWithSchema.mockReturnValue({ ...phase1State(5), loading: true });
 
-        render(<Tab />);
+        const { rerender } = render(<Tab />);
 
-        await waitFor(() => expect(screen.getByTestId('schema-table')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByTestId('filter-input')).toBeInTheDocument());
 
         // Type a filter that has no matches in the Phase 1 structural data.
         fireEvent.change(screen.getByTestId('filter-input'), { target: { value: 'xyz' } });
 
-        // The wasSearchReset effect should NOT fire while metadataLoading is true,
-        // even though matches.length is 0 against structural-only data.
+        // Phase 1 settles while Phase 2 is still in flight: the effect re-runs with
+        // matches.length === 0, and must NOT clear the filter while metadata is loading.
+        mockUseGetEntityWithSchema.mockReturnValue(phase1State(5));
+        rerender(<Tab />);
+
         await waitFor(() => expect(screen.getByTestId('filter-input')).toHaveValue('xyz'));
     });
 
@@ -242,6 +252,10 @@ describe('SchemaTab two-phase loading', () => {
 
         // Error banner is shown for Phase 2 failure.
         expect(screen.getByText(/Could not load field metadata/)).toBeInTheDocument();
+
+        // Cells fall back to structural content: the failure must end the metadata-loading
+        // state so the table stops rendering skeletons (the banner is the error signal).
+        expect(screen.getByTestId('schema-table')).toHaveAttribute('data-metadata-loading', 'false');
 
         const retryButton = screen.getByRole('button', { name: /retry/i });
         expect(retryButton).toBeInTheDocument();
