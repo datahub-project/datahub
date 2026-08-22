@@ -22,7 +22,8 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.10 or 3.11** installed and configured. Check with `python3 --version` on macOS/Linux or
+  `py -3.11 --version` on Windows. If you installed Python 3.10, use `py -3.10 --version` instead.
 
 :::note Docker Resource Allocation
 
@@ -48,7 +49,7 @@ Homebrew manages an isolated Python environment for `datahub`, so there's no ven
 ```
 
 </TabItem>
-<TabItem value="pip" label="pip">
+<TabItem value="pip-unix" label="pip (macOS/Linux)">
 
 ```bash
 python3 -m pip install --upgrade pip wheel setuptools
@@ -60,6 +61,25 @@ datahub version
 
 If you see `command not found`, try running cli commands like `python3 -m datahub version`. <br />
 Note that DataHub CLI does not support Python 2.x.
+
+:::
+
+</TabItem>
+<TabItem value="pip-windows" label="pip (Windows)">
+
+```powershell
+py -3.11 -m pip install --upgrade pip wheel setuptools
+py -3.11 -m pip install --upgrade acryl-datahub
+py -3.11 -m datahub version
+```
+
+:::note Command Not Found
+
+The Windows Python installer includes the `py` launcher. Use `py -3.10` instead if Python 3.10 is installed. If `py`
+is unavailable, replace `py -3.11` with the command that runs your Python 3.10 or 3.11 installation.
+
+For the rest of this guide, Windows pip users can replace each `datahub` command with `py -3.11 -m datahub` (or
+`py -3.10 -m datahub`). This also works when the Python Scripts directory is not on `PATH`.
 
 :::
 
@@ -157,7 +177,10 @@ Once DataHub is running, use the commands below to manage your local instance. T
 
 By default, DataHub generates a random signing key and salt for authentication tokens on first run and reuses them on later runs (saved to `~/.datahub/quickstart/.local-secrets.env`). Most users don't need to change this.
 
-If you want tokens to stay stable across environments, set your own values **before** running `datahub docker quickstart`:
+If you want tokens to stay stable across environments, set your own values **before** running `datahub docker quickstart`.
+
+<Tabs>
+<TabItem value="signing-key-unix" label="macOS/Linux">
 
 ```bash
 export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
@@ -165,6 +188,28 @@ export DATAHUB_TOKEN_SERVICE_SALT=<value>
 ```
 
 Generate a value with `openssl rand -base64 32`.
+
+</TabItem>
+<TabItem value="signing-key-windows" label="Windows PowerShell">
+
+```powershell
+function New-DataHubSecret {
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $bytes = New-Object byte[] 32
+        $rng.GetBytes($bytes)
+        [Convert]::ToBase64String($bytes)
+    } finally {
+        $rng.Dispose()
+    }
+}
+
+$env:DATAHUB_TOKEN_SERVICE_SIGNING_KEY = New-DataHubSecret
+$env:DATAHUB_TOKEN_SERVICE_SALT = New-DataHubSecret
+```
+
+</TabItem>
+</Tabs>
 
 If upgrading from a CLI older than v1.5: the signing key is now generated randomly instead of using a hardcoded default, so any personal access tokens (PATs) created before upgrading are invalidated and must be regenerated.
 
