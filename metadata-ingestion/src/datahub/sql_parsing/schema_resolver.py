@@ -97,14 +97,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
-        # Lowercased dataset-name key -> registered URN(s). Used only for
-        # case-insensitive platforms so a MixedCase schema URN can be found from a
-        # lowercase query/BI reference. Ambiguous collisions stay unresolved.
+        # Lowercased dataset-name key -> registered URN(s). Bridges casing mismatches
+        # between ingested schema URNs and query/BI references. Ambiguous collisions
+        # (two case-distinct tables on BigQuery/DB2) stay unresolved.
         self._normalized_to_urns: Dict[str, Set[str]] = {}
-        if self._prefers_urn_lower():
-            for existing_urn, info in self._schema_cache.items():
-                if info is not None:
-                    self._index_normalized_urn(existing_urn)
+        for existing_urn, info in self._schema_cache.items():
+            if info is not None:
+                self._index_normalized_urn(existing_urn)
 
     @property
     def platform(self) -> str:
@@ -173,36 +172,29 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         exists must test the ``SchemaInfo``, never ``urn is None``.
         """
         urn = self.get_urn_for_table(table)
-        urn_lower = self.get_urn_for_table(table, lower=True)
-        # Our treatment of platform instances when lowercasing urns
-        # is inconsistent. In some places (e.g. Snowflake), we lowercase
-        # the table names but not the platform instance. In other places
-        # (e.g. Databricks), we lowercase everything because it happens
-        # via the automatic lowercasing helper.
-        # See https://github.com/datahub-project/datahub/pull/8928.
-        # While we have this sort of inconsistency, we should also
-        # check the mixed case urn, as a last resort.
-        urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
-
+        prefers_lower = self._prefers_urn_lower()
         urns_to_try = [urn]
-        if self._prefers_urn_lower():
+        urn_lower = urn
+        urn_mixed = urn
+        if prefers_lower:
+            urn_lower = self.get_urn_for_table(table, lower=True)
+            # Our treatment of platform instances when lowercasing urns
+            # is inconsistent. In some places (e.g. Snowflake), we lowercase
+            # the table names but not the platform instance. In other places
+            # (e.g. Databricks), we lowercase everything because it happens
+            # via the automatic lowercasing helper.
+            # See https://github.com/datahub-project/datahub/pull/8928.
+            # While we have this sort of inconsistency, we should also
+            # check the mixed case urn, as a last resort.
             if urn_lower != urn:
                 urns_to_try.append(urn_lower)
+            urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
             if urn_mixed not in {urn, urn_lower}:
                 urns_to_try.append(urn_mixed)
 
-        for candidate_urn in urns_to_try:
-            if candidate_urn in self._schema_cache:
-                schema_info = self._schema_cache[candidate_urn]
-                if schema_info is not None:
-                    self._track_cache_hit()
-                    return candidate_urn, schema_info
-
-        # Case-insensitive platforms: map lowercase query/BI refs onto the URN casing
-        # already registered from schema extraction (e.g. Teradata DBC MixedCase).
-        normalized_hit = self._resolve_via_normalized_index(urns_to_try)
-        if normalized_hit is not None:
-            return normalized_hit
+        hit = self._try_resolve_cached(urns_to_try)
+        if hit is not None:
+            return hit
 
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
@@ -250,15 +242,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     for fetch_urn in urns_to_fetch:
                         self._save_to_cache(fetch_urn, None)
 
-            for candidate_urn in urns_to_try:
-                schema_info = self._schema_cache.get(candidate_urn)
-                if schema_info is not None:
-                    self._track_cache_hit()
-                    return candidate_urn, schema_info
-
-            normalized_hit = self._resolve_via_normalized_index(urns_to_try)
-            if normalized_hit is not None:
-                return normalized_hit
+            hit = self._try_resolve_cached(urns_to_try)
+            if hit is not None:
+                return hit
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -266,7 +252,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        return (urn_lower if self._prefers_urn_lower() else urn), None
+        return (urn_lower if prefers_lower else urn), None
 
     def resolve_table_parts(
         self,
@@ -326,16 +312,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             return None
 
     def _index_normalized_urn(self, urn: str) -> None:
-        if not self._prefers_urn_lower():
-            return
         key = self._normalized_urn_key(urn)
         if key is None:
             return
         self._normalized_to_urns.setdefault(key, set()).add(urn)
 
     def _unindex_normalized_urn(self, urn: str) -> None:
-        if not self._prefers_urn_lower():
-            return
         key = self._normalized_urn_key(urn)
         if key is None:
             return
@@ -346,10 +328,21 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if not urns:
             del self._normalized_to_urns[key]
 
+    def _try_resolve_cached(
+        self, urns_to_try: List[str]
+    ) -> Optional[Tuple[str, SchemaInfo]]:
+        for candidate_urn in urns_to_try:
+            schema_info = self._schema_cache.get(candidate_urn)
+            if schema_info is not None:
+                self._track_cache_hit()
+                return candidate_urn, schema_info
+        # Cross-casing lookup (Teradata MixedCase, BigQuery/DB2 when unambiguous).
+        return self._resolve_via_normalized_index(urns_to_try)
+
     def _resolve_via_normalized_index(
         self, urns_to_try: List[str]
     ) -> Optional[Tuple[str, SchemaInfo]]:
-        if not self._prefers_urn_lower() or not self._normalized_to_urns:
+        if not self._normalized_to_urns:
             return None
 
         seen_keys: Set[str] = set()

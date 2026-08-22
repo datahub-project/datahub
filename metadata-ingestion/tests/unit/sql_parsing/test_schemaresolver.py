@@ -581,20 +581,67 @@ class TestNormalizedUrnResolution:
             _TableName(database=None, db_schema="riverflow", table="t"), lower=True
         )
 
-    def test_case_sensitive_platform_does_not_fold(self):
-        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
-        mixed_urn = resolver.get_urn_for_table(
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_platform_resolves_when_unambiguous(self, platform: str):
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform=platform, env="PROD", graph=None, report=report
+        )
+        canonical_urn = resolver.get_urn_for_table(
             _TableName(database="proj", db_schema="ds", table="MyTable")
         )
-        resolver.add_raw_schema_info(mixed_urn, {"c": "STRING"})
+        resolver.add_raw_schema_info(canonical_urn, {"c": "STRING"})
 
         resolved_urn, schema = resolver.resolve_table(
             _TableName(database="proj", db_schema="ds", table="mytable")
         )
 
+        assert schema is not None
+        assert schema["c"] == "STRING"
+        assert resolved_urn == canonical_urn
+        assert report.num_normalized_urn_hits == 1
+
+    def test_case_sensitive_miss_keeps_query_casing(self):
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
+        table = _TableName(database="proj", db_schema="ds", table="mytable")
+
+        resolved_urn, schema = resolver.resolve_table(table)
+
         assert schema is None
-        assert resolved_urn != mixed_urn
-        assert "mytable" in resolved_urn
+        assert resolved_urn == resolver.get_urn_for_table(table)
+        assert "MyTable" not in resolved_urn
+
+    def test_negative_cache_does_not_block_normalized_hit(self):
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
+        canonical_urn = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+        resolver.add_raw_schema_info(canonical_urn, {"c": "STRING"})
+        query_urn = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+        resolver._save_to_cache(query_urn, None)
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+
+        assert schema is not None
+        assert resolved_urn == canonical_urn
+
+    def test_case_sensitive_graph_fetches_only_exact_urn(self):
+        mock_graph = MagicMock(spec=DataHubGraph)
+        mock_graph.get_entities.return_value = {}
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=mock_graph)
+
+        resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+
+        mock_graph.get_entities.assert_called_once()
+        urns_fetched = mock_graph.get_entities.call_args[1]["urns"]
+        assert len(urns_fetched) == 1
+        assert "MyTable" in urns_fetched[0]
 
     @pytest.mark.parametrize("platform", ["bigquery", "db2"])
     def test_case_sensitive_third_casing_stays_unresolved_when_both_exist(

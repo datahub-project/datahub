@@ -54,10 +54,11 @@ Column-level casing is corrected the same way, using the schema DataHub stores f
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
 
 > **Case-sensitive platforms.** Platforms in
-> `PLATFORMS_WITH_CASE_SENSITIVE_TABLES` (e.g. BigQuery, DB2) keep exact-string
-> identity — `MyTable` and `mytable` are different entities. `SchemaResolver` tries
-> only the reference's exact URN (no lower/mixed candidates, no normalized index), so a
-> BI ref whose casing does not match the ingested table stays `UNRESOLVED`.
+> `PLATFORMS_WITH_CASE_SENSITIVE_TABLES` (e.g. BigQuery, DB2) do **not** synthesize
+> lower/mixed URN variants on a cache miss — `MyTable` and `mytable` remain distinct
+> synthesized identities. When only one casing is registered in DataHub, the normalized
+> index can still reconcile a reference to that entity; if both casings exist, the
+> collision stays `UNRESOLVED`.
 
 ### What gets fixed
 
@@ -149,10 +150,10 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   and the BI source re-runs.
 - **Does not retroactively heal existing broken edges.** Re-ingest the affected source after enabling the
   flag to fix them.
-- **Conservative on collisions.** Case-insensitive platforms detect ambiguous case-folding
-  (two registered URNs for the same normalized key) and leave the reference unchanged.
-  Case-sensitive platforms never fold casings, so `MyTable` and `mytable` coexist as
-  separate entities and only an exact URN match resolves.
+- **Conservative on collisions.** When two case-distinct URNs normalize to the same key
+  (common on BigQuery/DB2 with quoted identifiers), the reference stays unchanged.
+  Case-insensitive platforms use the same rule; they additionally try lower/mixed URN
+  candidates before the normalized index.
 - **Reconciles against tables that have a schema in DataHub.** A referenced table that exists without a
   schema (more common on schemaless platforms like Kafka/DynamoDB) is left unchanged and reported
   `UNRESOLVED`. Broadening this is a tracked follow-up.

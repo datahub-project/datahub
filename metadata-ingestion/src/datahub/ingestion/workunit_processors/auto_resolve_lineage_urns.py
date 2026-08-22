@@ -162,8 +162,9 @@ class AutoResolveLineageUrnsProcessor(
     disconnected lineage nodes. For each configured upstream platform it bulk-loads that
     platform's URNs and schemas once (via ``SchemaResolverProvider``) and resolves every
     reference locally via ``SchemaResolver.resolve_table`` (which tries the original,
-    lowercased, and mixed-instance casings, and for case-insensitive platforms also a
-    lowercase→canonical index of registered schemas — see ``_resolve_dataset``) against
+    lowercased, and mixed-instance casings on case-insensitive platforms, and a
+    lowercase→canonical index of registered schemas when the match is unambiguous —
+    see ``_resolve_dataset``) against
     the casing DataHub already stores — table-level (``UpstreamLineage``,
     ``DashboardInfo``) and column-level (``FineGrainedLineage`` field paths).
 
@@ -201,8 +202,8 @@ class AutoResolveLineageUrnsProcessor(
         )
         # Per-platform SchemaResolvers, bulk-initialized up front by _load_catalogs().
         # Casing matching is delegated to SchemaResolver.resolve_table (exact / lower /
-        # mixed candidates, plus a lowercase→canonical index for case-insensitive
-        # platforms so MixedCase warehouse URNs resolve from lowercase BI refs).
+        # mixed candidates on case-insensitive platforms, plus a lowercase→canonical
+        # index when the match is unambiguous — including BigQuery/DB2).
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
         # Platforms actually referenced by this source's lineage, so
         # _warn_unmatched_platforms can flag configured platforms that no reference used
@@ -476,10 +477,10 @@ class AutoResolveLineageUrnsProcessor(
         ``ProdWarehouse.DB.SCHEMA.TABLE``: (1) misses (table cased wrong), (2) misses
         (instance lowercased to ``prodwarehouse``), (3) matches.
 
-        When those candidates miss on a case-insensitive platform, ``resolve_table`` also
-        looks up a lowercase→canonical index of schemas already registered in the
-        resolver (e.g. MixedCase warehouse URNs from catalog load). A unique hit is
-        NORMALIZED to that stored URN; an ambiguous collision is UNRESOLVED.
+        When those candidates miss, ``resolve_table`` also looks up a lowercase→canonical
+        index of schemas already registered in the resolver (e.g. MixedCase warehouse
+        URNs from catalog load). A unique hit is NORMALIZED to that stored URN; an
+        ambiguous collision (two case-distinct tables on BigQuery/DB2) is UNRESOLVED.
 
         A hit under the reference's own casing is EXACT; a hit under a different candidate
         (or the normalized index) is NORMALIZED; no hit is UNRESOLVED. The resolved
