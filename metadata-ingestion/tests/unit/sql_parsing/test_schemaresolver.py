@@ -599,7 +599,7 @@ class TestNormalizedUrnResolution:
     @pytest.mark.parametrize("platform", ["bigquery", "db2"])
     def test_case_sensitive_third_casing_stays_unresolved_when_both_exist(
         self, platform: str
-    ):
+    ) -> None:
         """Do not pick a lowercase candidate when two case-distinct tables exist."""
         resolver = SchemaResolver(platform=platform, env="PROD", graph=None)
         mixed = resolver.get_urn_for_table(
