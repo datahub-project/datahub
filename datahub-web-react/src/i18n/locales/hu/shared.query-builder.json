@@ -33,6 +33,8 @@
     "operators.lessThanDesc": "Kisebb egy értéknél",
     "operators.not": "Nem",
     "operators.notDesc": "Nem",
+    "operators.notEquals": "Nem egyenlő",
+    "operators.notEqualsDesc": "Nem egyezik meg egy értékkel",
     "operators.regexMatch": "Reguláris kifejezésre illeszkedik",
     "operators.regexMatchDesc": "Illeszkedik egy reguláris kifejezés értékére",
     "operators.startsWith": "Ezzel kezdődik",

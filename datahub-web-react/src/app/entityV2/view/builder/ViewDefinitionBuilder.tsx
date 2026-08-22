@@ -8,6 +8,7 @@ import {
     BUILD_FILTERS_TAB_KEY,
     DEFAULT_DYNAMIC_FILTER,
     SELECT_ASSETS_TAB_KEY,
+    URN_FILTER_NAME,
 } from '@app/entityV2/view/builder/constants';
 import { ViewBuilderMode, ViewFilter } from '@app/entityV2/view/builder/types';
 import { useViewBuilderProperties } from '@app/entityV2/view/builder/useViewBuilderProperties';
@@ -23,7 +24,7 @@ import { ViewBuilderState } from '@app/entityV2/view/types';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { LogicalOperator } from '@types';
+import { EntityType, LogicalOperator } from '@types';
 
 const ScrollableFiltersWrapper = styled.div`
     max-height: 300px;
@@ -46,16 +47,23 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const properties = useViewBuilderProperties();
     const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
     const existingOperator = state.definition?.filter?.operator;
+    const existingEntityTypes = (state.definition?.entityTypes || []) as EntityType[];
 
     const [activeTab, setActiveTab] = useState(() => getInitialTabKey(existingFilters));
 
     // State for Select Assets tab
     const [selectedUrns, setSelectedUrns] = useState<string[]>(() => filtersToSelectedUrns(existingFilters));
 
-    // State for Build Filters tab
+    // State for Build Filters tab. Seed from both the saved filters and the view's
+    // top-level entityTypes so the entity-type scope is visible/editable. Seeded
+    // regardless of the active tab: a view can open on Select Assets and still
+    // carry scope, and switching tabs serializes this state — leaving it null
+    // there would clear the saved definition on a mere tab click. URN filters are
+    // excluded because they belong to the Select Assets tab, not this one.
     const [dynamicFilter, setDynamicFilter] = useState<LogicalPredicate | null>(() => {
-        if (existingFilters.length > 0 && activeTab === BUILD_FILTERS_TAB_KEY) {
-            return filtersToLogicalPredicate(existingOperator, existingFilters);
+        const seedFilters = existingFilters.filter((filter) => filter.field !== URN_FILTER_NAME);
+        if (seedFilters.length > 0 || existingEntityTypes.length > 0) {
+            return filtersToLogicalPredicate(existingOperator, seedFilters, existingEntityTypes);
         }
         return null;
     });
