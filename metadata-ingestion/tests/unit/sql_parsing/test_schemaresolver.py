@@ -560,6 +560,21 @@ class TestNormalizedUrnResolution:
         assert "Riverflow" in resolved_urn
         assert report.num_normalized_urn_hits == 1
 
+    def test_malformed_urn_skips_normalized_index(self) -> None:
+        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
+        resolver.add_raw_schema_info("not-a-valid-urn", {"c": "VARCHAR"})
+        canonical_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="t")
+        )
+        resolver.add_raw_schema_info(canonical_urn, {"c": "VARCHAR"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="t")
+        )
+
+        assert schema is not None
+        assert resolved_urn == canonical_urn
+
     def test_ambiguous_collision_stays_unresolved(self):
         resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
         mixed = resolver.get_urn_for_table(

@@ -23,6 +23,7 @@ from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
@@ -97,13 +98,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
-        # Lowercased dataset-name key -> registered URN(s). Bridges casing mismatches
-        # between ingested schema URNs and query/BI references. Ambiguous collisions
-        # (two case-distinct tables on BigQuery/DB2) stay unresolved.
+        # Lowercased dataset-name key -> registered URN(s). Populated incrementally on
+        # schema registration and lazily per lookup key on cache miss (not at startup).
         self._normalized_to_urns: Dict[str, Set[str]] = {}
-        for existing_urn, info in self._schema_cache.items():
-            if info is not None:
-                self._index_normalized_urn(existing_urn)
+        self._normalized_keys_scanned: Set[str] = set()
 
     @property
     def platform(self) -> str:
@@ -308,13 +306,28 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                 env=parsed.env,
                 name=parsed.name.lower(),
             )
-        except (ValueError, IndexError, AttributeError, TypeError):
+        except (ValueError, IndexError, AttributeError, TypeError, InvalidUrnError):
             return None
+
+    def _ensure_normalized_key_indexed(self, key: str) -> None:
+        if key in self._normalized_to_urns or key in self._normalized_keys_scanned:
+            return
+        matches: Set[str] = set()
+        for urn, info in self._schema_cache.items():
+            if info is None:
+                continue
+            if self._normalized_urn_key(urn) == key:
+                matches.add(urn)
+        if matches:
+            self._normalized_to_urns[key] = matches
+        else:
+            self._normalized_keys_scanned.add(key)
 
     def _index_normalized_urn(self, urn: str) -> None:
         key = self._normalized_urn_key(urn)
         if key is None:
             return
+        self._normalized_keys_scanned.discard(key)
         self._normalized_to_urns.setdefault(key, set()).add(urn)
 
     def _unindex_normalized_urn(self, urn: str) -> None:
@@ -342,15 +355,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _resolve_via_normalized_index(
         self, urns_to_try: List[str]
     ) -> Optional[Tuple[str, SchemaInfo]]:
-        if not self._normalized_to_urns:
-            return None
-
         seen_keys: Set[str] = set()
         for candidate in urns_to_try:
             key = self._normalized_urn_key(candidate)
             if key is None or key in seen_keys:
                 continue
             seen_keys.add(key)
+            self._ensure_normalized_key_indexed(key)
             matches = self._normalized_to_urns.get(key)
             if not matches:
                 continue
@@ -464,6 +475,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def close(self) -> None:
         self._schema_cache.close()
         self._normalized_to_urns.clear()
+        self._normalized_keys_scanned.clear()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):

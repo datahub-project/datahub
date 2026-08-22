@@ -1479,10 +1479,10 @@ def test_cll_extraction(
     requests_mock: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Golden file assumes CLL completes; CI can exceed the default 10s cooperative
-    # timeout once SchemaResolver does extra case-normalization work per lookup.
+    # Golden file assumes CLL completes; allow extra headroom for SchemaResolver work
+    # while keeping the cooperative timeout guard enabled.
     monkeypatch.setattr(
-        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", False
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_SECONDS", 60
     )
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
