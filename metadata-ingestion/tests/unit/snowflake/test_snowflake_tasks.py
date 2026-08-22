@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Callable, List, Optional
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -650,6 +652,55 @@ class TestSnowflakeTasksExtractor:
         # No lineage survived, but the task itself is fully ingested.
         assert _data_job_input_outputs(wus) == []
         assert _job_urn(wus, "etl_task")
+
+    def test_ordering_fault_is_not_downgraded_to_a_parse_failure(self) -> None:
+        """`_is_temp_table` raises when discovered_datasets isn't populated yet.
+        That's a wiring bug, not a bad task body — the parse guard must let it
+        through rather than logging a per-task lineage warning and moving on."""
+
+        def unwired(_: str) -> bool:
+            raise AssertionError("discovered_datasets must be populated first")
+
+        with pytest.raises(AssertionError):
+            _collect_workunits(
+                [_make_task(definition="INSERT INTO out_tbl SELECT a FROM in_tbl")],
+                is_temp_table=unwired,
+            )
+
+    def test_column_parse_failure_silent_when_column_lineage_disabled(self) -> None:
+        """A column-lineage warning for a recipe that switched column lineage off
+        is noise: the aspect's fineGrainedLineages get stripped regardless."""
+        config = _make_config()
+        config.include_table_lineage = True
+        config.include_column_lineage = False
+
+        def fake_parse(**kwargs):
+            kwargs["parse_report"].queries_column_failed = 1
+            kwargs["parse_report"].record_error("boom")
+            return None
+
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_tasks.parse_procedure_code",
+            side_effect=fake_parse,
+        ):
+            _, report = _collect_workunits(
+                [_make_task(definition="INSERT INTO out_tbl SELECT a FROM in_tbl")],
+                config=config,
+            )
+        assert not [
+            w for w in report.warnings if "Column Lineage" in (w.title or "")
+        ], [w.title for w in report.warnings]
+
+        config.include_column_lineage = True
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_tasks.parse_procedure_code",
+            side_effect=fake_parse,
+        ):
+            _, report = _collect_workunits(
+                [_make_task(definition="INSERT INTO out_tbl SELECT a FROM in_tbl")],
+                config=config,
+            )
+        assert [w for w in report.warnings if "Column Lineage" in (w.title or "")]
 
     def test_execute_immediate_yields_no_datajob_edge(self) -> None:
         """EXECUTE IMMEDIATE runs SQL built at runtime, so there is no call

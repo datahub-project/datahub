@@ -191,6 +191,10 @@ class SnowflakeTasksExtractor:
                         filtered_task_fqns=filtered_task_fqns,
                     )
                 )
+            except AssertionError:
+                # A wiring fault, not a bad task: let it out rather than
+                # reporting it as one task among many that failed.
+                raise
             except Exception as e:
                 self.report.tasks_failed += 1
                 self.report.warning(
@@ -512,6 +516,11 @@ class SnowflakeTasksExtractor:
                     ),
                     parse_report=parse_report,
                 )
+            except AssertionError:
+                # An ordering/programming fault (see _is_temp_table) is not a
+                # parse failure and must not be downgraded into one: fail closed
+                # so it surfaces as itself.
+                raise
             except Exception as e:
                 # Guarded here rather than around the whole task so a body we
                 # can't parse still leaves DataJobInfo/SubTypes/Status/Ownership
@@ -581,8 +590,12 @@ class SnowflakeTasksExtractor:
                 context=f"{task_fqn}: {parse_report.statements_failed} statement(s) and "
                 f"{parse_report.queries_failed} query(s) failed; first error: {parse_report.first_error}",
             )
-        elif parse_report.queries_column_failed:
+        elif parse_report.queries_column_failed and (
+            self.config.include_table_lineage and self.config.include_column_lineage
+        ):
             # Table-level lineage survived; only the column-level half was lost.
+            # Silent when column lineage is switched off, since the aspect would
+            # have had its fineGrainedLineages stripped anyway.
             self.report.warning(
                 title="Task Column Lineage Parse Failure",
                 message="Table-level lineage extracted, but column-level lineage failed for part of the task body",
