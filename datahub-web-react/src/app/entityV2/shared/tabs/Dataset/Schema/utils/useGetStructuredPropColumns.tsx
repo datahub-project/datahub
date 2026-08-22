@@ -1,9 +1,33 @@
-import { Skeleton } from 'antd';
 import React, { useMemo } from 'react';
+import styled from 'styled-components';
 
 import StructuredPropValues from '@src/app/entityV2/dataset/profile/schema/components/StructuredPropValues';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+
+// Neutral shimmer block standing in for a cell value while the full-metadata query is still
+// in flight (master's no-antd-imports lint rule rules out antd's Skeleton for new files).
+const CellSkeleton = styled.div`
+    width: 80px;
+    height: 20px;
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        ${(props) => props.theme.colors.bgSkeleton} 25%,
+        ${(props) => props.theme.colors.bgSkeletonShimmer} 37%,
+        ${(props) => props.theme.colors.bgSkeleton} 63%
+    );
+    background-size: 400% 100%;
+    animation: cell-skeleton-shimmer 1.4s ease infinite;
+    @keyframes cell-skeleton-shimmer {
+        0% {
+            background-position: 100% 50%;
+        }
+        100% {
+            background-position: 0 50%;
+        }
+    }
+`;
 
 export const useGetStructuredPropColumns = (properties: SearchResult[] | undefined, fullMetadataLoading?: boolean) => {
     const columns = useMemo(() => {
@@ -16,7 +40,7 @@ export const useGetStructuredPropColumns = (properties: SearchResult[] | undefin
                 key: prop.entity.urn,
                 render: (record) =>
                     fullMetadataLoading ? (
-                        <Skeleton.Input active size="small" style={{ width: 80, height: 20 }} />
+                        <CellSkeleton data-testid="prop-cell-skeleton" />
                     ) : (
                         <StructuredPropValues schemaFieldEntity={record} propColumn={prop} />
                     ),
