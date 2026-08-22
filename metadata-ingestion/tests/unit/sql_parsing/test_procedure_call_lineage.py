@@ -492,3 +492,96 @@ def test_catalogue_input_jobs_survive_a_body_with_no_lineage():
         )
         is None
     )
+
+
+def test_tsql_execute_immediate_is_not_a_call_target():
+    """TSQL parses `EXECUTE IMMEDIATE '<sql>'` into a structured Execute node,
+    where the keyword lands in the target slot and reads as a procedure named
+    IMMEDIATE. That is the same dynamic SQL as the Command-literal form, and the
+    same non-existent target — guarding only one of the two paths left MSSQL and
+    any other structured-Execute dialect emitting a bogus edge."""
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="""
+        EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src';
+        INSERT INTO real_target (id) SELECT id FROM real_source;
+        """,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert not result.inputDatajobs
+    # An ordinary EXEC on the same path still resolves, so the guard is not
+    # swallowing real calls.
+    with_call = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="EXEC test_db.test_schema.immediate_refresh",
+        is_temp_table=lambda _: False,
+    )
+    assert with_call is not None
+    assert with_call.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(mssql,test_db.test_schema.stored_procedures,PROD),immediate_refresh)"
+    ]
+
+
+def test_resolve_procedure_urn_callback_owns_the_target_urn():
+    """The callback is the whole point of the hook: the source maps a call onto a
+    procedure it actually ingested, because the urn's job id carries an
+    argument-signature hash the call site cannot see. Cover all three paths —
+    resolution, refusal, and what the reference carries."""
+    schema_resolver = SchemaResolver(platform="snowflake", env="PROD")
+    seen = []
+
+    def resolver(ref):
+        seen.append(ref)
+        return (
+            "urn:li:dataJob:(urn:li:dataFlow:"
+            "(snowflake,test_db.test_schema.stored_procedures,PROD),"
+            "my_proc_deadbeef)"
+        )
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="CALL my_proc('a', 'b')",
+        is_temp_table=lambda _: False,
+        resolve_procedure_urn=resolver,
+    )
+
+    # The composed form would have been ...,my_proc) with no hash; the callback's
+    # answer is used verbatim instead.
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(snowflake,test_db.test_schema.stored_procedures,PROD),my_proc_deadbeef)"
+    ]
+
+    # The reference arrives with the caller's defaults already applied, and with
+    # the call-site arity that lets a source narrow overloads.
+    assert len(seen) == 1
+    assert (seen[0].database, seen[0].db_schema, seen[0].name) == (
+        "test_db",
+        "test_schema",
+        "my_proc",
+    )
+    assert seen[0].argument_count == 2
+
+    # Refusal means "not ingested here": no edge at all, rather than a composed
+    # urn pointing at a DataJob that was never emitted.
+    refused = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="CALL my_proc('a')",
+        is_temp_table=lambda _: False,
+        resolve_procedure_urn=lambda ref: None,
+    )
+    assert refused is None

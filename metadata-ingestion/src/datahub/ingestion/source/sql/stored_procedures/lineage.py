@@ -62,6 +62,12 @@ _LEADING_BLOCK_OPENER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# ``IMMEDIATE`` as a standalone keyword, not as the start of a procedure name:
+# ``EXECUTE IMMEDIATE '<sql>'`` is dynamic SQL, while ``EXEC immediate_refresh``
+# is an ordinary call.
+_IMMEDIATE_KEYWORD = "IMMEDIATE"
+_IMMEDIATE_KEYWORD_RE = re.compile(r"\s*IMMEDIATE\b", re.IGNORECASE)
+
 # A block/control closer carries no lineage: bare ``END``, a labeled MariaDB block
 # closer (``END my_label``), or a compound-statement closer (``END IF/WHILE/LOOP/CASE``).
 _BLOCK_CLOSER_RE = re.compile(
@@ -169,11 +175,23 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[Procedur
     if isinstance(parsed, sqlglot.exp.Execute):
         target = parsed.this
         if isinstance(target, sqlglot.exp.Table):
+            catalog = (
+                target.args["catalog"].name if target.args.get("catalog") else None
+            )
+            db_schema = target.args["db"].name if target.args.get("db") else None
+            if (
+                not catalog
+                and not db_schema
+                and target.name.upper() == _IMMEDIATE_KEYWORD
+            ):
+                # Some dialects parse ``EXECUTE IMMEDIATE '<sql>'`` into this
+                # structured form, where the keyword lands in the target slot and
+                # reads as a procedure named IMMEDIATE. Same dynamic SQL, same
+                # non-existent target as the Command branch below.
+                return None
             return ProcedureCall(
-                database=target.args["catalog"].name
-                if target.args.get("catalog")
-                else None,
-                db_schema=target.args["db"].name if target.args.get("db") else None,
+                database=catalog,
+                db_schema=db_schema,
                 name=target.name,
             )
         return None
@@ -185,9 +203,7 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[Procedur
         # Rebuild the surface form sqlglot saw so the regex sees the keyword too.
         expression = parsed.args.get("expression")
         literal = expression.name if expression is not None else ""
-        if keyword in {"EXEC", "EXECUTE"} and literal.lstrip().upper().startswith(
-            "IMMEDIATE"
-        ):
+        if keyword in {"EXEC", "EXECUTE"} and _IMMEDIATE_KEYWORD_RE.match(literal):
             # ``EXECUTE IMMEDIATE '<sql>'`` (Snowflake, Oracle) runs SQL assembled
             # at runtime — there is no static call target. Without this guard the
             # regex reads the ``IMMEDIATE`` keyword as the procedure name and we
@@ -575,20 +591,21 @@ def parse_procedure_code(
                     )
                 )
 
-            if aggregator.report.num_observed_queries_failed and raise_:
-                logger.info(aggregator.report.as_string())
-                raise ValueError(
-                    f"Failed to parse {aggregator.report.num_observed_queries_failed} queries."
-                )
-
-            # The aggregator is discarded here, so anything the caller might want
-            # to warn about has to be copied out first.
+            # Copied out before the raise below: the aggregator is discarded on
+            # the way out either way, and a caller that asked to raise still
+            # wants the counts.
             report.queries_failed += aggregator.report.num_observed_queries_failed
             report.queries_column_failed += (
                 aggregator.report.num_observed_queries_column_failed
             )
             for failure in aggregator.report.observed_query_parse_failures:
                 report.record_error(failure)
+
+            if aggregator.report.num_observed_queries_failed and raise_:
+                logger.info(aggregator.report.as_string())
+                raise ValueError(
+                    f"Failed to parse {aggregator.report.num_observed_queries_failed} queries."
+                )
 
             result = to_datajob_input_output(
                 mcps=list(aggregator.gen_metadata()),
