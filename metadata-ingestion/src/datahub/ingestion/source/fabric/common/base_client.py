@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, Set
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -157,10 +157,39 @@ class BaseFabricClient(ABC):
             logger.error(f"Request error for {method} {url}: {e}")
             raise
 
+    def _is_repeated_pagination_token(
+        self, token: Optional[str], seen_tokens: Set[str], context: str
+    ) -> bool:
+        """Return True (and warn) if a pagination token has already been seen.
+
+        A well-behaved endpoint issues a fresh token per page and finally omits
+        it. An endpoint that ignores the page/continuation-token request parameter
+        echoes the same token on every call; detecting a repeat lets the caller
+        stop before re-issuing the request and re-yielding the same page, instead
+        of looping forever.
+
+        Args:
+            token: The next-page token from the current response (may be falsy)
+            seen_tokens: Tokens already followed on this pagination run
+            context: Human-readable endpoint/url for the warning message
+
+        Returns:
+            True if ``token`` is truthy and already in ``seen_tokens``.
+        """
+        if token and token in seen_tokens:
+            logger.warning(
+                f"{context} returned a repeated pagination token; stopping "
+                "pagination to avoid an infinite loop. Results may be incomplete — "
+                "the endpoint may not honor the pagination-token parameter."
+            )
+            return True
+        return False
+
     def _paginate(
         self,
         endpoint: str,
         params: Optional[Dict[str, str]] = None,
+        items_key: str = "value",
     ) -> Iterator[dict]:
         """Yield all items from a paginated Fabric API endpoint.
 
@@ -170,22 +199,33 @@ class BaseFabricClient(ABC):
         Args:
             endpoint: API endpoint (relative to base URL)
             params: Initial query parameters
+            items_key: Response JSON key holding the items array (default "value")
 
         Yields:
-            Item dictionaries from each page's "value" array
+            Item dictionaries from each page's items array
         """
         request_params: Dict[str, str] = dict(params or {})
+        seen_tokens: Set[str] = set()
         page = 1
         while True:
-            response = self.get(endpoint, params=request_params)
+            response = self.get(endpoint, params=dict(request_params))
             data = response.json()
-            items = data.get("value", [])
+
+            continuation_token = data.get("continuationToken")
+            # Check for a repeated token before yielding, so a non-advancing
+            # cursor doesn't emit the same page twice.
+            if self._is_repeated_pagination_token(
+                continuation_token, seen_tokens, f"Fabric API endpoint '{endpoint}'"
+            ):
+                break
+
+            items = data.get(items_key, [])
             logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
             yield from items
 
-            continuation_token = data.get("continuationToken")
             if not continuation_token:
                 break
+            seen_tokens.add(continuation_token)
             request_params["continuationToken"] = continuation_token
             page += 1
 
@@ -193,6 +233,7 @@ class BaseFabricClient(ABC):
         self,
         endpoint: str,
         body: dict,
+        items_key: str = "value",
     ) -> Iterator[dict]:
         """Yield all items from a paginated Fabric POST API endpoint.
 
@@ -201,25 +242,33 @@ class BaseFabricClient(ABC):
 
         Args:
             endpoint: API endpoint (relative to base URL)
-            body: JSON request body (will be mutated to add continuationToken)
+            body: JSON request body
+            items_key: Response JSON key holding the items array (default "value")
 
         Yields:
-            Item dictionaries from each page's "value" array
+            Item dictionaries from each page's items array
         """
+        seen_tokens: Set[str] = set()
         page = 1
         while True:
-            response = self.post(endpoint, json=body)
+            response = self.post(endpoint, json=dict(body))
             data = response.json()
-
-            items = data if isinstance(data, list) else data.get("value", [])
-            logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
-            yield from items
 
             continuation_token = (
                 data.get("continuationToken") if isinstance(data, dict) else None
             )
+            if self._is_repeated_pagination_token(
+                continuation_token, seen_tokens, f"Fabric API endpoint '{endpoint}'"
+            ):
+                break
+
+            items = data if isinstance(data, list) else data.get(items_key, [])
+            logger.debug(f"Page {page}: got {len(items)} item(s) from {endpoint}")
+            yield from items
+
             if not continuation_token:
                 break
+            seen_tokens.add(continuation_token)
             body["continuationToken"] = continuation_token
             page += 1
 
