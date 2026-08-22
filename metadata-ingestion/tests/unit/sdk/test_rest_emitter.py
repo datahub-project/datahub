@@ -3,7 +3,7 @@ import os
 import time
 import warnings
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from unittest.mock import ANY, MagicMock, Mock, PropertyMock, patch
 
 import pytest
@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     ChangeTypeClass,
 )
+from datahub.sdk.main_client import DataHubClient
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.server_config_util import RestServiceConfig
 
@@ -165,6 +166,88 @@ class TestDataHubRestEmitter:
         )
         assert emitter._session_config.retry_status_codes == [418]
         assert emitter._session_config.retry_max_times == 42
+
+    def test_server_config_uses_dedicated_retry_policy(
+        self, mock_response: Response
+    ) -> None:
+        emitter = DatahubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            retry_max_times=42,
+            server_config_retry_max_times=0,
+        )
+
+        session_adapter = cast(
+            HTTPAdapter, emitter._session.get_adapter(MOCK_GMS_ENDPOINT)
+        )
+        assert session_adapter.max_retries.total == 42
+        assert emitter._config_session is not None
+        config_adapter = cast(
+            HTTPAdapter, emitter._config_session.get_adapter(MOCK_GMS_ENDPOINT)
+        )
+        assert config_adapter.max_retries.total == 0
+
+        config_session = MagicMock(spec=Session)
+        config_session.get.return_value = mock_response
+        emitter._config_session = config_session
+        emitter._session = MagicMock(spec=Session)
+
+        emitter.fetch_server_config()
+
+        config_session.get.assert_called_once_with(f"{MOCK_GMS_ENDPOINT}/config")
+        emitter._session.get.assert_not_called()
+
+    def test_from_emitter_copies_auth_to_config_session(self) -> None:
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        auth = MagicMock(name="oauth-auth")
+        emitter = DatahubRestEmitter(
+            MOCK_GMS_ENDPOINT,
+            server_config_retry_max_times=0,
+        )
+        emitter._session.auth = auth
+
+        graph = DataHubGraph.from_emitter(emitter)
+
+        assert graph._session.auth is auth
+        assert graph._config_session is not None
+        assert graph._config_session.auth is auth
+
+    def test_get_default_graph_preserves_config_retry_limit(self) -> None:
+        from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        loaded = DatahubClientConfig(
+            server=MOCK_GMS_ENDPOINT,
+            server_config_retry_max_times=3,
+        )
+        get_default_graph.cache_clear()
+        try:
+            with (
+                patch(
+                    "datahub.ingestion.graph.client.config_utils.load_client_config",
+                    return_value=loaded,
+                ),
+                patch.object(DataHubGraph, "test_connection"),
+                patch("datahub.ingestion.graph.client.telemetry_instance"),
+            ):
+                graph = get_default_graph(server_config_retry_max_times=None)
+                assert graph._server_config_retry_max_times == 3
+
+                get_default_graph.cache_clear()
+                graph = get_default_graph(server_config_retry_max_times=0)
+                assert graph._server_config_retry_max_times == 0
+        finally:
+            get_default_graph.cache_clear()
+
+    def test_datahub_client_from_env_passes_config_retry_limit(self) -> None:
+        with patch("datahub.sdk.main_client.get_default_graph") as get_default_graph:
+            DataHubClient.from_env(server_config_retry_max_times=0)
+
+        get_default_graph.assert_called_once_with(
+            client_mode=ClientMode.SDK,
+            datahub_component=None,
+            server_config_retry_max_times=0,
+        )
 
     def test_datahub_rest_emitter_extra_params(self) -> None:
         emitter = DatahubRestEmitter(

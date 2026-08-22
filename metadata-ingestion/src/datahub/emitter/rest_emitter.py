@@ -476,6 +476,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
+    _config_session: Optional[requests.Session]
     _openapi_ingestion: Optional[bool]
     _server_config: Optional[RestServiceConfig]
 
@@ -502,6 +503,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
+        server_config_retry_max_times: Optional[int] = None,
         tcp_keepalive: Optional[bool] = None,
         default_emit_mode: Optional[EmitMode] = None,
     ):
@@ -550,6 +552,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         # mutator/validator, or an upstream processing step).
         self.respect_mcp_sync_marker = respect_mcp_sync_marker is True
         self._server_config_refresh_interval = server_config_refresh_interval
+        self._server_config_retry_max_times = server_config_retry_max_times
         self._server_config: Optional[RestServiceConfig] = None
         self._config_fetch_time: Optional[float] = None
 
@@ -614,6 +617,14 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._session = self._session_config.build_session()
         if auth is not None:
             self._session.auth = auth
+        self._config_session = None
+        if server_config_retry_max_times is not None:
+            config_session_config = self._session_config.model_copy(
+                update={"retry_max_times": server_config_retry_max_times}
+            )
+            self._config_session = config_session_config.build_session()
+            if auth is not None:
+                self._config_session.auth = auth
 
     @property
     def session(self) -> requests.Session:
@@ -654,7 +665,8 @@ class DataHubRestEmitter(Closeable, Emitter):
                 )
 
             url = f"{self._gms_server}/config"
-            response = self._session.get(url)
+            config_session = self._config_session or self._session
+            response = config_session.get(url)
 
             if response.status_code == 200:
                 raw_config = response.json()
@@ -1392,6 +1404,8 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def close(self) -> None:
         self._session.close()
+        if self._config_session is not None:
+            self._config_session.close()
 
 
 """This class exists as a pass-through for backwards compatibility"""
