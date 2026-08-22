@@ -21,6 +21,14 @@ It is especially visible when using Iceberg REST Catalog - which can use many bl
 Note that, for advanced users, it is possible to specify a custom catalog client implementation via `py-catalog-impl`
 configuration option - refer to `pyiceberg` documentation on details.
 
+#### Iceberg views
+
+For catalogs supporting the views part of the Iceberg REST specification (e.g. Apache Polaris), Iceberg views are
+ingested as datasets with the `View` subtype. Since `pyiceberg` does not expose a view-loading API yet, only basic
+metadata (name, container, platform instance) is extracted for views — schema extraction will be added once
+`pyiceberg` supports reading view metadata. Views are filtered with the same `table_pattern` used for tables.
+Catalogs without view support (e.g. Glue, Hive) are unaffected.
+
 #### Glue catalog + S3 warehouse
 
 The minimal configuration for connecting to Glue catalog with S3 warehouse:
