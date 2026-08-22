@@ -1864,6 +1864,53 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         pattern_schema = resolved["patternProperties"]["^x"]
         self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
 
+    def test_pattern_properties_promoted_with_additional_properties_false(self):
+        # Idiomatic closed-map form: patternProperties + additionalProperties: false.
+        # Promotion must still run so json_schema_util can extract the map value type.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "type": "object",
+            "patternProperties": {"^x": {"type": "string"}},
+            "additionalProperties": False,
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved["additionalProperties"], {"type": "string"})
+
+    def test_pattern_properties_not_promoted_over_existing_value_schema(self):
+        # An explicit dict additionalProperties value schema is left untouched.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "type": "object",
+            "patternProperties": {"^x": {"type": "string"}},
+            "additionalProperties": {"type": "integer"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved["additionalProperties"], {"type": "integer"})
+
+    def test_property_names_ref_with_siblings_no_allof(self):
+        # propertyNames with a $ref plus a sibling constraint but no allOf: the $ref is
+        # expanded and the sibling minLength is preserved (bare-$ref early return trap).
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {"$ref": "#/components/schemas/Key", "minLength": 3},
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertNotIn("$ref", json.dumps(property_names))
+        self.assertEqual(property_names.get("format"), "uuid")
+        self.assertEqual(property_names.get("minLength"), 3)
+
     def test_merge_allof_mixed_exclusive_bounds_no_error(self):
         # A numeric (draft-6+) exclusive bound in one member and a boolean (draft-4)
         # flag in another must not raise and must keep the numeric bound, regardless

@@ -935,8 +935,12 @@ def _resolve_pattern_and_property_names(
             ]
             resolved_schema["propertyNames"] = resolved_names
         else:
-            resolved_schema["propertyNames"] = resolve_schema_references(
-                property_names, sw_dict, max_depth=max_depth - 1
+            # Same bare-$ref early-return trap as the allOf branch: a $ref alongside
+            # sibling constraints (minLength, ...) would drop the siblings.
+            resolved_schema["propertyNames"] = (
+                _resolve_siblings_preserving_ref_constraints(
+                    property_names, sw_dict, max_depth
+                )
             )
 
 
@@ -946,7 +950,11 @@ def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
     pattern_properties = resolved_schema.get("patternProperties")
     if not isinstance(pattern_properties, dict):
         return
-    if "additionalProperties" in resolved_schema:
+    # An existing dict value schema already lets json_schema_util extract the map. But
+    # the idiomatic closed-map form pairs patternProperties with additionalProperties:
+    # false, which must still be promoted or no map columns are extracted.
+    existing_additional = resolved_schema.get("additionalProperties")
+    if isinstance(existing_additional, dict) and existing_additional:
         return
     # Empty properties: {} has no named fields to protect.
     if resolved_schema.get("properties"):
