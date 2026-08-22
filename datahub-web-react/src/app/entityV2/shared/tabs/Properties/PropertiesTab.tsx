@@ -17,6 +17,7 @@ import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { TabRenderType } from '@app/entityV2/shared/types';
+import Loading from '@app/shared/Loading';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, StructuredProperties } from '@src/types.generated';
@@ -62,11 +63,16 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
 
-    const { structuredPropertyRows, expandedRowsFromFilter, structuredPropertyRowsRaw } = useStructuredProperties(
-        entityRegistry,
-        fieldPath || null,
-        filterText,
-    );
+    const {
+        structuredPropertyRows,
+        expandedRowsFromFilter,
+        structuredPropertyRowsRaw,
+        loading: structuredPropertiesLoading,
+    } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldProperties);
+
+    // avoid flashing an empty table when revisiting this tab before the parent drawer's
+    // field properties have loaded
+    const isLoadingFieldProperties = !!fieldPath && !fieldProperties && structuredPropertiesLoading;
 
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
@@ -135,37 +141,41 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                 />
             )}
             <div data-testid="entity-properties-table">
-                <StyledTable
-                    pagination={false}
-                    // typescript is complaining that default sort order is not a valid column field- overriding this here
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-ignore
-                    columns={propertyTableColumns}
-                    dataSource={dataSource}
-                    locale={{
-                        emptyText: (
-                            <EmptyText description={t('properties.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                        ),
-                    }}
-                    rowKey={PROPERTY_ROW_KEY}
-                    expandable={{
-                        expandedRowKeys: [...Array.from(expandedRows)],
-                        defaultExpandAllRows: false,
-                        expandRowByClick: false,
-                        expandIcon: (props) => <ExpandIcon {...props} isCompact />,
-                        onExpand: (expanded, record) => {
-                            if (expanded) {
-                                setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
-                            } else {
-                                setExpandedRows((previousRows) => {
-                                    previousRows.delete(record.qualifiedName);
-                                    return new Set(previousRows);
-                                });
-                            }
-                        },
-                        indentSize: 16,
-                    }}
-                />
+                {isLoadingFieldProperties ? (
+                    <Loading />
+                ) : (
+                    <StyledTable
+                        pagination={false}
+                        // typescript is complaining that default sort order is not a valid column field- overriding this here
+                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                        // @ts-ignore
+                        columns={propertyTableColumns}
+                        dataSource={dataSource}
+                        locale={{
+                            emptyText: (
+                                <EmptyText description={t('properties.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                            ),
+                        }}
+                        rowKey={PROPERTY_ROW_KEY}
+                        expandable={{
+                            expandedRowKeys: [...Array.from(expandedRows)],
+                            defaultExpandAllRows: false,
+                            expandRowByClick: false,
+                            expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                            onExpand: (expanded, record) => {
+                                if (expanded) {
+                                    setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
+                                } else {
+                                    setExpandedRows((previousRows) => {
+                                        previousRows.delete(record.qualifiedName);
+                                        return new Set(previousRows);
+                                    });
+                                }
+                            },
+                            indentSize: 16,
+                        }}
+                    />
+                )}
             </div>
         </>
     );
