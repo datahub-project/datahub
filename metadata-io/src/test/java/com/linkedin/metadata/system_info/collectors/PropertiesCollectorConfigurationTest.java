@@ -178,6 +178,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.userIdClaim",
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
+          // Per-entity mapping limit overrides (e.g. mapping.total_fields.limit) keyed by entity
+          // name (with reserved key `default`) and limit name.
+          "elasticsearch.index.entityMappingLimits.*.*",
           // Shim properties
           "elasticsearch.shim.*",
           // Postgres PgQueue configuration (non-credential settings)
