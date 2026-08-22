@@ -167,10 +167,15 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     // Process each group of events for the same URN
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
 
-      // Process update events
+      // Timeseries writes must follow input order (DELETE then UPSERT must not invert).
+      processTimeseriesEventsInUrnOrder(
+          opContext, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
+
+      // Process non-timeseries update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
               .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
+              .filter(e -> !e.getAspectSpec().isTimeseries())
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
@@ -197,33 +202,59 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         }
       }
 
-      // Process delete events
-      List<MCLItem> deleteEvents =
+      // Process non-timeseries delete events
+      for (MCLItem deleteEvent :
           urnEvents.stream()
               .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
-              .collect(Collectors.toList());
-
-      for (MCLItem deleteEvent : deleteEvents) {
-        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
-        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
-
-        if (specPair.getSecond().isTimeseries()) {
-          deleteTimeseriesFieldsForDeleteEvent(opContext, deleteEvent);
-        } else {
-          deleteSearchData(
-              opContext,
-              deleteEvent.getUrn(),
-              specPair.getFirst().getName(),
-              specPair.getSecond(),
-              deleteEvent.getRecordTemplate(),
-              isDeletingKey,
-              deleteEvent.getAuditStamp());
+              .collect(Collectors.toList())) {
+        if (deleteEvent.getAspectSpec().isTimeseries()) {
+          continue;
         }
+        Pair<EntitySpec, AspectSpec> specPair =
+            Pair.of(deleteEvent.getEntitySpec(), deleteEvent.getAspectSpec());
+        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
+        deleteSearchData(
+            opContext,
+            deleteEvent.getUrn(),
+            specPair.getFirst().getName(),
+            specPair.getSecond(),
+            deleteEvent.getRecordTemplate(),
+            isDeletingKey,
+            deleteEvent.getAuditStamp());
       }
     }
 
     if (throttleSummary != null) {
       throttleSummary.logIfSuppressed();
+    }
+  }
+
+  /**
+   * Apply timeseries index and optional Postgres sink writes in the original MCL list order for one
+   * URN group. A same-URN batch of DELETE then UPSERT must not run deletes after all upserts.
+   */
+  private void processTimeseriesEventsInUrnOrder(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> urnEvents,
+      boolean structuredPropertiesHookEnabled,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    for (MCLItem event : urnEvents) {
+      if (!event.getAspectSpec().isTimeseries()) {
+        continue;
+      }
+      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+        if (structuredPropertiesHookEnabled) {
+          updateIndexMappings(opContext, event);
+        }
+        processTimeseriesThrottled(
+            opContext,
+            event,
+            throttleSummary,
+            () -> updateSearchIndicesForEvent(opContext, event),
+            () -> updateTimeseriesFieldsForEvent(opContext, event));
+      } else if (event.getChangeType() == ChangeType.DELETE) {
+        deleteTimeseriesFieldsForDeleteEvent(opContext, event);
+      }
     }
   }
 
