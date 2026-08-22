@@ -780,6 +780,34 @@ def test_oracle_parse_dependencies_cross_schema():
     assert any("sales.stored_procedures" in urn for urn in result)
 
 
+def test_oracle_parse_dependencies_drops_system_schemas():
+    """Every PL/SQL unit depends on SYS.STANDARD and SYS.SYS_STUB_FOR_PURITY_ANALYSIS,
+    and PROCEDURES_QUERY never ingests system schemas — so those edges would dangle.
+    The drop cannot rely on schema_pattern, which defaults to allow-all."""
+    database_key = DatabaseKey(
+        database="ORCL", platform="oracle", instance=None, env="PROD"
+    )
+    schema_key = SchemaKey(
+        database="ORCL", schema="hr", platform="oracle", instance=None, env="PROD"
+    )
+
+    deps = (
+        "SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE), "
+        "sys.dbms_output (PACKAGE), HR.PROC1 (PROCEDURE)"
+    )
+
+    # No is_schema_in_scope at all, i.e. the allow-all default.
+    result = _parse_oracle_procedure_dependencies(deps, database_key, schema_key, None)
+    assert len(result) == 1
+    assert "proc1" in result[0].lower()
+
+    # And an explicitly permissive callback doesn't reopen the hole.
+    result = _parse_oracle_procedure_dependencies(
+        deps, database_key, schema_key, None, is_schema_in_scope=lambda _: True
+    )
+    assert len(result) == 1
+
+
 def test_oracle_parse_dependencies_case_sensitivity():
     """Test that dependency parsing handles mixed case correctly."""
     database_key = DatabaseKey(

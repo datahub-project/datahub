@@ -1317,11 +1317,13 @@ def _parse_oracle_procedure_dependencies(
     Note: Only extracts procedure/function/package dependencies. Table/view dependencies
     are handled separately by the SQL parser analyzing the procedure code.
 
-    ``is_schema_in_scope`` filters out dependencies living in schemas this run does
-    not ingest. Every PL/SQL unit depends on ``SYS.STANDARD`` and
-    ``SYS.SYS_STUB_FOR_PURITY_ANALYSIS``, and SYS is normally outside
-    ``schema_pattern`` — so without the filter every procedure gains edges to
-    DataJobs that were never emitted.
+    Dependencies in schemas this run does not ingest are dropped, since no DataJob
+    is emitted for them and the edge would dangle. Two filters apply:
+    ``ORACLE_SYSTEM_SCHEMAS`` always, because ``PROCEDURES_QUERY`` excludes those
+    unconditionally and ``schema_pattern`` defaults to allow-all; plus the caller's
+    ``is_schema_in_scope``. Every PL/SQL unit depends on ``SYS.STANDARD`` and
+    ``SYS.SYS_STUB_FOR_PURITY_ANALYSIS``, so without the first filter every single
+    procedure gains two dangling edges.
 
     Returns:
         List of DataJob URNs for procedure dependencies. Empty list if no procedure
@@ -1349,7 +1351,10 @@ def _parse_oracle_procedure_dependencies(
 
         dep_schema, dep_name = parts
 
-        if is_schema_in_scope is not None and not is_schema_in_scope(dep_schema):
+        out_of_scope = dep_schema.upper() in ORACLE_SYSTEM_SCHEMAS or (
+            is_schema_in_scope is not None and not is_schema_in_scope(dep_schema)
+        )
+        if out_of_scope:
             # No DataJob is emitted for a schema we don't ingest, so an edge here
             # would dangle.
             logger.debug(

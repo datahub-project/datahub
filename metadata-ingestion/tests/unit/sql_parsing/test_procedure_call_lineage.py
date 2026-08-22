@@ -537,11 +537,10 @@ def test_immediate_guard_does_not_swallow_real_calls():
     """The guard has to separate dynamic SQL from anything merely *named* like it.
     `IMMEDIATE` is a legal identifier, so a procedure called IMMEDIATE, and a
     schema called IMMEDIATE, both have to stay callable."""
-    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
 
-    def edges(code: str) -> List[str]:
+    def edges(code: str, platform: str = "mssql") -> List[str]:
         result = parse_procedure_code(
-            schema_resolver=schema_resolver,
+            schema_resolver=SchemaResolver(platform=platform, env="PROD"),
             default_db="test_db",
             default_schema="test_schema",
             code=code,
@@ -551,6 +550,9 @@ def test_immediate_guard_does_not_swallow_real_calls():
 
     # Dynamic SQL: dropped on both the structured and the literal path.
     assert not edges("EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'")
+    assert not edges(
+        "EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'", platform="snowflake"
+    )
 
     # A procedure that happens to be named IMMEDIATE, with and without args.
     assert edges("EXEC IMMEDIATE")
@@ -558,6 +560,14 @@ def test_immediate_guard_does_not_swallow_real_calls():
 
     # A qualifier that merely starts with the keyword.
     assert edges("CALL immediate_refresh()")
+
+    # A schema named IMMEDIATE, on both branches. tsql gives the structured
+    # `Execute` node, where the guard's "no catalog, no db" condition lets the
+    # qualified target through; snowflake falls back to `Command`, where the
+    # regex sees `IMMEDIATE.proc` — the case that ruled out a word boundary in
+    # favour of the whitespace lookahead.
+    assert edges("EXEC IMMEDIATE.proc")
+    assert edges("EXECUTE IMMEDIATE.proc", platform="snowflake")
 
 
 def test_resolve_procedure_urn_callback_owns_the_target_urn():
