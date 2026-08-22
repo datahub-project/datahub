@@ -139,7 +139,8 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         isEnabled,
         "",
         Collections.emptyList(),
-        Collections.emptyList());
+        Collections.emptyList(),
+        false);
   }
 
   @Override
@@ -224,7 +225,9 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         if (!changeEvent.hasProperties() || changeEvent.getProperties() == null) {
           changeEvent.setProperties(new StringMap());
         }
-        changeEvent.getProperties().put(Constants.EMIT_MODE_MARKER_KEY, Constants.EMIT_MODE_MARKER_SYNC);
+        changeEvent
+            .getProperties()
+            .put(Constants.EMIT_MODE_MARKER_KEY, Constants.EMIT_MODE_MARKER_SYNC);
       }
       PlatformEvent platformEvent = buildRelationshipPlatformEvent(changeEvent);
       emitPlatformEvent(
