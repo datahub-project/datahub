@@ -125,6 +125,9 @@ public class FixEntityConsistencyStepTest {
     consistencyService =
         new ConsistencyService(
             mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+
+    // Soft-fail count for ETA (scan runner calls countMatching once per entity type)
+    when(mockEsSystemMetadataDAO.count(any(), any(), anyBoolean())).thenReturn(Optional.empty());
   }
 
   /** Helper method to create a mock ConsistencyCheck for testing. */

@@ -1536,6 +1536,9 @@ systemUpdate:
     delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
     gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
     limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
+    # Min ms between progress/ETA INFO lines per entity type (checkpoints stay silent every batch)
+    progressLogIntervalMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_PROGRESS_LOG_INTERVAL_MS:60000}
+    progressWarmupMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_PROGRESS_WARMUP_MS:30000}
     entityTypes: []  # Job-level override of entity types for default checks. Empty = types with registered default checks.
     checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
     reprocess:
