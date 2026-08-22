@@ -16,6 +16,7 @@ from datahub.pgqueue.config import (
     PgQueueConnectionConfig,
     PgQueueConsumerConfig,
     PgQueueEmitterConfig,
+    PgQueueMclProducerConfig,
     PgQueueTopicDefaultsConfig,
 )
 from datahub.pgqueue.repository import EnqueueBatchItem, PgQueueMessageHandle
@@ -27,11 +28,13 @@ __all__ = [
     "build_pg_queue_event_meta",
     "DatahubPgQueueConsumer",
     "DatahubPgQueueEmitter",
+    "DatahubPgQueueMclProducer",
     "PgQueueAuthMode",
     "PgQueueConnectionConfig",
     "PayloadRouteKind",
     "PgQueueConsumerConfig",
     "PgQueueEmitterConfig",
+    "PgQueueMclProducerConfig",
     "PgQueueTopicDefaultsConfig",
 ]
 
@@ -53,4 +56,8 @@ def __getattr__(name: str) -> Any:
         from datahub.pgqueue.emitter import DatahubPgQueueEmitter
 
         return DatahubPgQueueEmitter
+    if name == "DatahubPgQueueMclProducer":
+        from datahub.pgqueue.mcl_producer import DatahubPgQueueMclProducer
+
+        return DatahubPgQueueMclProducer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
