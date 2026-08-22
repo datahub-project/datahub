@@ -517,6 +517,69 @@ Enter your DataHub access token []: <token generated from https://<your-instance
 datahub init --host https://<your-instance-id>.acryl.io/gms --token <your-token>
 ```
 
+#### Browser SSO Login
+
+If your instance sits behind an identity provider (Okta, Azure AD, Google, and so on), `--sso` opens a browser, lets you sign in the way you normally do, and writes the resulting token to `~/.datahubenv`. You never copy a token out of the UI.
+
+It needs Playwright:
+
+```shell
+pip install 'acryl-datahub[sso]'
+```
+
+If your default browser is Chrome, Edge or Firefox, that is everything — the login opens the browser you already have.
+
+Playwright cannot automate Safari. If Safari is your default, run this once and the login opens that Chromium instead:
+
+```shell
+playwright install chromium
+```
+
+If no browser can be opened at all, the error tells you which one to install.
+
+Then:
+
+```shell
+# Sign in through your identity provider
+datahub init --sso
+
+# Against a DataHub Cloud instance, with a longer token
+datahub init --host https://<your-instance-id>.acryl.io/gms --sso --token-duration ONE_MONTH
+```
+
+**Which browser opens.** The one your operating system already uses for `https` — Chrome, Edge or Firefox — launched from where it is already installed, so machine-level policy and your certificate store apply. There is no flag to choose it: change your default browser and the next login follows. If your default cannot be driven, the CLI falls back to a browser Playwright downloaded and says so.
+
+It opens that browser with **its own profile**, not your everyday one, so your normal cookies do not carry over and by default the first run asks you to sign in. `--seed-profile` below is how you skip even that.
+
+**Signing in only once.** The profile is kept under `~/.datahub/sso-browser-profiles`, one directory per instance and per browser, created `0700`. While your identity provider session is still valid, later runs skip the login form. Support logins get their own directory, so they are never reused as a normal login.
+
+| Flag                 | Use it when                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `--fresh-login`      | Signing in as somebody else. Discards the saved profiles and session for this instance. |
+| `--seed-profile DIR` | You want the very first login skipped too. See below.                                   |
+| `--remember-session` | Your provider makes you log in every time despite the above. See below.                 |
+
+All three are rejected without `--sso`.
+
+**`--seed-profile DIR`** copies a browser profile you already sign in with into the CLI's own directory, on first use only, so the session in it comes along:
+
+```shell
+cp -r ~/Library/Application\ Support/Firefox/Profiles/abc123.default /tmp/profile-copy
+datahub init --sso --seed-profile /tmp/profile-copy
+```
+
+Three things to know:
+
+- Point it at a **copy**. Browsers hold an exclusive lock on a profile they have open, and copying a live one produces a torn, unusable directory.
+- The seed must come from the same browser engine as your default — a Firefox profile for a Firefox default, a Chrome or Edge profile for either of those. The formats are not interchangeable, and a mismatch is refused rather than copied.
+- For Chrome or Edge, point at the **user data directory** — the one holding `Local State` and `Default` — not at `Default` itself. Seeding a single profile puts the cookies a level above where the browser looks for them. That is refused too.
+
+Seeding happens only while the CLI's own profile directory is empty. Anything an earlier run left there makes it non-empty and the seed is skipped, including remnants of an attempt that failed, so use `--fresh-login` to clear it and seed again.
+
+**`--remember-session`** stores the cookies the login establishes in `~/.datahub/sso-sessions` — the directory `0700`, the files inside it `0600` — and replays them next time. You only need it if your provider issues a session cookie with no expiry — no browser writes one of those to disk, so profile reuse alone cannot carry it across a browser restart. With a stored session the next login is tried headlessly first, showing no window; if that does not authenticate, a visible browser opens as usual.
+
+It is opt-in because it takes a credential your provider deliberately kept in memory and writes it to a file. Prefer plain profile reuse where that is enough.
+
 #### Environment variables supported
 
 The environment variables listed below take precedence over the DataHub CLI config created through the `init` command.
