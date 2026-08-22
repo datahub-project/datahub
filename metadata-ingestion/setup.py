@@ -746,7 +746,9 @@ plugins: Dict[str, Set[str]] = {
         "kerberos>=1.3.0,<2.0.0",
     },
     "pulsar": {"requests<3.0.0"},
-    "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
+    # sql-metadata>=3.0.1: every earlier release hard-pins sqlparse<0.6.0, conflicting with
+    # the CVE floor above. Not imported by datahub code (comment reference only).
+    "redash": {"redash-toolbelt<0.2.0", "sql-metadata>=3.0.1,<4.0.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
@@ -812,7 +814,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
+        | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -842,7 +844,7 @@ plugins: Dict[str, Set[str]] = {
     "quicksight": aws_common | sqlglot_lib,
     # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
     # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
-    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
+    "sigma": sqlglot_lib | {"sqlparse>=0.6.0,<1.0.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
