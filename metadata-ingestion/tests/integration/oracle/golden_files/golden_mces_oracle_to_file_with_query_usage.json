@@ -530,9 +530,6 @@
                     "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_count,PROD)",
                     "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_total_sales,PROD)"
                 ],
-                "inputDatajobs": [
-                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)"
-                ],
                 "fineGrainedLineages": [
                     {
                         "upstreamType": "FIELD_SET",
@@ -2406,7 +2403,8 @@
                 "customProperties": {
                     "object_type": "FUNCTION",
                     "status": "VALID",
-                    "upstream_dependencies": "SALES_SCHEMA.ORDER_ITEMS (TABLE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
+                    "upstream_dependencies": "SALES_SCHEMA.ORDER_ITEMS (TABLE), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)",
+                    "downstream_dependencies": "SALES_SCHEMA.SUMMARIZE_ORDER (PROCEDURE)"
                 },
                 "name": "GET_ORDER_TOTAL",
                 "type": {
@@ -2490,10 +2488,6 @@
                 "outputDatasets": [
                     "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_total,PROD)"
                 ],
-                "inputDatajobs": [
-                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
-                ],
                 "fineGrainedLineages": [
                     {
                         "upstreamType": "FIELD_SET",
@@ -2520,6 +2514,132 @@
     {
         "entityType": "dataJob",
         "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "browsePathsV2",
+        "aspect": {
+            "json": {
+                "path": [
+                    {
+                        "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                        "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                    },
+                    {
+                        "id": "urn:li:container:6e9764c5a9db406997c912cf91316bd2",
+                        "urn": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInfo",
+        "aspect": {
+            "json": {
+                "customProperties": {
+                    "object_type": "PROCEDURE",
+                    "status": "VALID",
+                    "upstream_dependencies": "PUBLIC.DBMS_OUTPUT (SYNONYM), SALES_SCHEMA.GET_ORDER_TOTAL (FUNCTION), SYS.STANDARD (PACKAGE), SYS.SYS_STUB_FOR_PURITY_ANALYSIS (PACKAGE)"
+                },
+                "name": "SUMMARIZE_ORDER",
+                "type": {
+                    "string": "Stored Procedure"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "subTypes",
+        "aspect": {
+            "json": {
+                "typeNames": [
+                    "Stored Procedure"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "container",
+        "aspect": {
+            "json": {
+                "container": "urn:li:container:6e9764c5a9db406997c912cf91316bd2"
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataTransformLogic",
+        "aspect": {
+            "json": {
+                "transforms": [
+                    {
+                        "queryStatement": {
+                            "value": "PROCEDURE summarize_order(p_order_id IN NUMBER) AS\n    v_total NUMBER;\nBEGIN\n    v_total := get_order_total(p_order_id);\n    DBMS_OUTPUT.PUT_LINE('Order total: ' || v_total);\nEND;",
+                            "language": "SQL"
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "dataJobInputOutput",
+        "aspect": {
+            "json": {
+                "inputDatasets": [],
+                "outputDatasets": [],
+                "inputDatajobs": [
+                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),GET_ORDER_TOTAL_261b636f7a5da1ca0277dc8c8299d392)"
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
         "changeType": "UPSERT",
         "aspectName": "browsePathsV2",
         "aspect": {
@@ -2638,10 +2758,6 @@
                     "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
                     "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_emp_name,PROD)",
                     "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_sales_rep_id,PROD)"
-                ],
-                "inputDatajobs": [
-                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                    "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
                 ],
                 "fineGrainedLineages": [
                     {
@@ -3271,6 +3387,22 @@
     {
         "entityType": "dataJob",
         "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),PROCESS_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "json": {
+                "removed": false
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1643871600000,
+            "runId": "oracle-query-usage-test",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataJob",
+        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sales_schema.stored_procedures,PROD),SUMMARIZE_ORDER_261b636f7a5da1ca0277dc8c8299d392)",
         "changeType": "UPSERT",
         "aspectName": "status",
         "aspect": {

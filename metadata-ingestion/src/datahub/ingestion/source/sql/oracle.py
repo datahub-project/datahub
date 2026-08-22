@@ -1307,6 +1307,7 @@ def _parse_oracle_procedure_dependencies(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     procedure_registry: Optional[Dict[str, str]] = None,
+    is_schema_in_scope: Optional[Callable[[str], bool]] = None,
 ) -> List[str]:
     """
     Parse Oracle ALL_DEPENDENCIES string to DataJob URNs for procedure-to-procedure dependencies.
@@ -1315,6 +1316,14 @@ def _parse_oracle_procedure_dependencies(
 
     Note: Only extracts procedure/function/package dependencies. Table/view dependencies
     are handled separately by the SQL parser analyzing the procedure code.
+
+    Dependencies in schemas this run does not ingest are dropped, since no DataJob
+    is emitted for them and the edge would dangle. Two filters apply:
+    ``ORACLE_SYSTEM_SCHEMAS`` always, because ``PROCEDURES_QUERY`` excludes those
+    unconditionally and ``schema_pattern`` defaults to allow-all; plus the caller's
+    ``is_schema_in_scope``. Every PL/SQL unit depends on ``SYS.STANDARD`` and
+    ``SYS.SYS_STUB_FOR_PURITY_ANALYSIS``, so without the first filter every single
+    procedure gains two dangling edges.
 
     Returns:
         List of DataJob URNs for procedure dependencies. Empty list if no procedure
@@ -1341,6 +1350,17 @@ def _parse_oracle_procedure_dependencies(
             continue
 
         dep_schema, dep_name = parts
+
+        out_of_scope = dep_schema.upper() in ORACLE_SYSTEM_SCHEMAS or (
+            is_schema_in_scope is not None and not is_schema_in_scope(dep_schema)
+        )
+        if out_of_scope:
+            # No DataJob is emitted for a schema we don't ingest, so an edge here
+            # would dangle.
+            logger.debug(
+                f"Skipping procedure dependency {full_name}: schema not in scope"
+            )
+            continue
 
         # Normalize to lowercase for case-insensitive matching (Oracle default behavior)
         registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
@@ -1678,7 +1698,13 @@ class OracleSource(SQLAlchemySource):
                         env=self.config.env,
                     )
                     additional_input_jobs = _parse_oracle_procedure_dependencies(
-                        upstream_deps, database_key, schema_key, procedure_registry
+                        upstream_deps,
+                        database_key,
+                        schema_key,
+                        procedure_registry,
+                        is_schema_in_scope=lambda dep_schema: (
+                            self.config.schema_pattern.allowed(dep_schema)
+                        ),
                     )
                 except (ValueError, KeyError, AttributeError) as e:
                     logger.warning(

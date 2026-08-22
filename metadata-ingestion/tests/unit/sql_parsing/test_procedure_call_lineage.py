@@ -21,7 +21,13 @@ These are the same composition rules used by ``BaseProcedure.to_urn`` /
 DataJob URNs emitted for the called procedures elsewhere in ingestion.
 """
 
-from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
+from typing import List
+
+from datahub.ingestion.source.sql.stored_procedures.lineage import (
+    ProcedureParseReport,
+    _count_call_arguments,
+    parse_procedure_code,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
@@ -375,3 +381,246 @@ def test_begin_end_wrapped_body_recovers_first_dml_and_call():
     assert result.outputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.target_table,PROD)"
     ]
+
+
+def test_execute_immediate_is_not_a_call_target():
+    """``EXECUTE IMMEDIATE '<sql>'`` builds its SQL at runtime, so there is no
+    static call target. Without the guard the regex reads ``IMMEDIATE`` as the
+    procedure name, and sources that compose the target urn (rather than
+    resolving it) emit an edge to a DataJob that cannot exist."""
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+
+    code = """
+    EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src';
+    INSERT INTO real_target (id) SELECT id FROM real_source;
+    """
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code=code,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    # The static INSERT still produces lineage; the dynamic one contributes nothing.
+    assert result.outputDatasets == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,test_db.test_schema.real_target,PROD)"
+    ]
+    assert not result.inputDatajobs
+    assert not any("immediate" in urn.lower() for urn in result.inputDatajobs or [])
+
+
+def test_unparseable_body_is_reported_as_a_failure_not_as_empty():
+    """A body whose statements fail to parse returns None, exactly like a body
+    with nothing lineage-bearing in it. The parse report is what tells a caller
+    which of the two it got."""
+    schema_resolver = SchemaResolver(platform="snowflake", env="PROD")
+
+    parse_report = ProcedureParseReport()
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="INSERT INTO tgt SELECT FROM WHERE ((",
+        is_temp_table=lambda _: False,
+        parse_report=parse_report,
+    )
+
+    assert result is None
+    assert parse_report.failed
+    assert parse_report.first_error
+
+    quiet_report = ProcedureParseReport()
+    assert (
+        parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code="TRUNCATE TABLE tgt",
+            is_temp_table=lambda _: False,
+            parse_report=quiet_report,
+        )
+        is None
+    )
+    assert not quiet_report.failed
+
+
+def test_count_call_arguments_counts_top_level_arguments_only():
+    """Overload disambiguation rests on this count, so pin the awkward cases:
+    commas inside string literals and nested calls don't separate arguments."""
+    assert _count_call_arguments("('a,b')") == 1
+    assert _count_call_arguments("(f(a,b), c)") == 2
+    assert _count_call_arguments("()") == 0
+    assert _count_call_arguments("(  )") == 0
+    assert _count_call_arguments("(a, b") is None
+    assert _count_call_arguments("") is None
+
+
+def test_catalogue_input_jobs_survive_a_body_with_no_lineage():
+    """`additional_input_jobs` comes from a system catalogue (Oracle's
+    ALL_DEPENDENCIES), not from the code. A body the parser finds nothing in —
+    an `EXECUTE IMMEDIATE`, a bare `BEGIN NULL; END` — must not take those edges
+    down with it, or the caller silently loses dependencies it knows about."""
+    schema_resolver = SchemaResolver(platform="oracle", env="PROD")
+    catalogue_edge = (
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(oracle,test_db.test_schema.stored_procedures,PROD),upstream_proc)"
+    )
+
+    for code in (
+        "EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'",
+        "BEGIN NULL; END;",
+    ):
+        result = parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code=code,
+            is_temp_table=lambda _: False,
+            additional_input_jobs=[catalogue_edge],
+        )
+        assert result is not None, code
+        assert result.inputDatajobs == [catalogue_edge], code
+
+    # With nothing from either source there is still no aspect to emit.
+    assert (
+        parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code="BEGIN NULL; END;",
+            is_temp_table=lambda _: False,
+        )
+        is None
+    )
+
+
+def test_tsql_execute_immediate_is_not_a_call_target():
+    """TSQL parses `EXECUTE IMMEDIATE '<sql>'` into a structured Execute node,
+    where the keyword lands in the target slot and reads as a procedure named
+    IMMEDIATE. That is the same dynamic SQL as the Command-literal form, and the
+    same non-existent target — guarding only one of the two paths left MSSQL and
+    any other structured-Execute dialect emitting a bogus edge."""
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="""
+        EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src';
+        INSERT INTO real_target (id) SELECT id FROM real_source;
+        """,
+        is_temp_table=lambda _: False,
+    )
+
+    assert result is not None
+    assert not result.inputDatajobs
+    # An ordinary EXEC on the same path still resolves, so the guard is not
+    # swallowing real calls.
+    with_call = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="EXEC test_db.test_schema.immediate_refresh",
+        is_temp_table=lambda _: False,
+    )
+    assert with_call is not None
+    assert with_call.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(mssql,test_db.test_schema.stored_procedures,PROD),immediate_refresh)"
+    ]
+
+
+def test_immediate_guard_does_not_swallow_real_calls():
+    """The guard has to separate dynamic SQL from anything merely *named* like it.
+    `IMMEDIATE` is a legal identifier, so a procedure called IMMEDIATE, and a
+    schema called IMMEDIATE, both have to stay callable."""
+
+    def edges(code: str, platform: str = "mssql") -> List[str]:
+        result = parse_procedure_code(
+            schema_resolver=SchemaResolver(platform=platform, env="PROD"),
+            default_db="test_db",
+            default_schema="test_schema",
+            code=code,
+            is_temp_table=lambda _: False,
+        )
+        return [] if result is None else (result.inputDatajobs or [])
+
+    # Dynamic SQL: dropped on both the structured and the literal path.
+    assert not edges("EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'")
+    assert not edges(
+        "EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'", platform="snowflake"
+    )
+
+    # A procedure that happens to be named IMMEDIATE, with and without args.
+    assert edges("EXEC IMMEDIATE")
+    assert edges("EXEC IMMEDIATE @p=1")
+
+    # A qualifier that merely starts with the keyword.
+    assert edges("CALL immediate_refresh()")
+
+    # A schema named IMMEDIATE, on both branches. tsql gives the structured
+    # `Execute` node, where the guard's "no catalog, no db" condition lets the
+    # qualified target through; snowflake falls back to `Command`, where the
+    # regex sees `IMMEDIATE.proc` — the case that ruled out a word boundary in
+    # favour of the whitespace lookahead.
+    assert edges("EXEC IMMEDIATE.proc")
+    assert edges("EXECUTE IMMEDIATE.proc", platform="snowflake")
+
+
+def test_resolve_procedure_urn_callback_owns_the_target_urn():
+    """The callback is the whole point of the hook: the source maps a call onto a
+    procedure it actually ingested, because the urn's job id carries an
+    argument-signature hash the call site cannot see. Cover all three paths —
+    resolution, refusal, and what the reference carries."""
+    schema_resolver = SchemaResolver(platform="snowflake", env="PROD")
+    seen = []
+
+    def resolver(ref):
+        seen.append(ref)
+        return (
+            "urn:li:dataJob:(urn:li:dataFlow:"
+            "(snowflake,test_db.test_schema.stored_procedures,PROD),"
+            "my_proc_deadbeef)"
+        )
+
+    result = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="CALL my_proc('a', 'b')",
+        is_temp_table=lambda _: False,
+        resolve_procedure_urn=resolver,
+    )
+
+    # The composed form would have been ...,my_proc) with no hash; the callback's
+    # answer is used verbatim instead.
+    assert result is not None
+    assert result.inputDatajobs == [
+        "urn:li:dataJob:(urn:li:dataFlow:"
+        "(snowflake,test_db.test_schema.stored_procedures,PROD),my_proc_deadbeef)"
+    ]
+
+    # The reference arrives with the caller's defaults already applied, and with
+    # the call-site arity that lets a source narrow overloads.
+    assert len(seen) == 1
+    assert (seen[0].database, seen[0].db_schema, seen[0].name) == (
+        "test_db",
+        "test_schema",
+        "my_proc",
+    )
+    assert seen[0].argument_count == 2
+
+    # Refusal means "not ingested here": no edge at all, rather than a composed
+    # urn pointing at a DataJob that was never emitted.
+    refused = parse_procedure_code(
+        schema_resolver=schema_resolver,
+        default_db="test_db",
+        default_schema="test_schema",
+        code="CALL my_proc('a')",
+        is_temp_table=lambda _: False,
+        resolve_procedure_urn=lambda ref: None,
+    )
+    assert refused is None
