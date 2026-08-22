@@ -11,6 +11,12 @@ SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
 DEFAULT_SNOWFLAKE_DOMAIN = "snowflakecomputing.com"
 
+# DataHub platforms whose datasets Snowflake emits as external storage lineage, i.e. the
+# only keys `platform_instance_map` is read for. `make_snowflake_external_urn` resolves
+# each of these; `SnowflakeIdentifierConfig` validates the mapping's keys against it so a
+# key that would never be read fails at startup rather than yielding zero lineage.
+EXTERNAL_STORAGE_PLATFORMS = frozenset({"s3", "gcs", "abs"})
+
 
 class SnowflakeEdition(StrEnum):
     STANDARD = "Standard"
