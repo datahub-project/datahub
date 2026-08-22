@@ -500,6 +500,57 @@ public class TimeseriesAspectServicePostgresIT {
   }
 
   /**
+   * MCL deleteDocument omits event_time and removes every row for the logical message_id (design
+   * doc), not only the row matching the deleted document's timestampMillis.
+   */
+  @Test
+  public void deleteDocument_sameMessageIdDistinctEventTimes_removesAllRows() throws Exception {
+    try (java.sql.Connection c = database.dataSource().getConnection()) {
+      c.setAutoCommit(false);
+      PostgresTestUtils.truncatePgTimeseriesAspect(c, props);
+    }
+
+    Urn urn = new TestEntityUrn("acryl", "testPostgresTimeseriesAspectService", "msgIdMultiTime");
+    final long dayStart = Calendar.getInstance().getTimeInMillis();
+    final long t1 = dayStart - dayStart % 86400000;
+    final long t2 = t1 + 86_400_000L;
+    final String sharedMessageId = "shared-logical-msg";
+
+    for (long eventTime : List.of(t1, t2)) {
+      TestEntityProfile profile = makeTestProfile(eventTime, 10, sharedMessageId);
+      Map<String, JsonNode> documents =
+          TimeseriesAspectTransformer.transform(urn, profile, aspectSpec, null, "MD5");
+      for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
+        JsonNode doc = entry.getValue();
+        if (!doc.path(MappingsBuilder.IS_EXPLODED_FIELD).asBoolean(false)) {
+          pgTimeseries.upsertDocument(
+              opContext, ENTITY_NAME, ASPECT_NAME, entry.getKey(), entry.getValue());
+        }
+      }
+    }
+
+    Filter urnFilter =
+        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
+            Collections.singletonList(
+                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
+                    "urn", Condition.EQUAL, urn.toString())));
+    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 2L);
+
+    TestEntityProfile deleteProfile = makeTestProfile(t2, 10, sharedMessageId);
+    Map<String, JsonNode> deleteDocs =
+        TimeseriesAspectTransformer.transform(urn, deleteProfile, aspectSpec, null, "MD5");
+    Map.Entry<String, JsonNode> deleteDoc =
+        deleteDocs.entrySet().stream()
+            .filter(e -> !e.getValue().path(MappingsBuilder.IS_EXPLODED_FIELD).asBoolean(false))
+            .findFirst()
+            .orElseThrow();
+    pgTimeseries.deleteDocument(
+        opContext, ENTITY_NAME, ASPECT_NAME, deleteDoc.getKey(), deleteDoc.getValue(), false);
+
+    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
+  }
+
+  /**
    * Mirrors {@link
    * com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceTestBase#testUpsertProfilesWithUniqueMessageIds}.
    *

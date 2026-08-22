@@ -565,16 +565,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @SuppressWarnings("unused") boolean isExploded) {
     String messageId = AbstractTimeseriesAspectWriteSink.resolveMessageId(docId, document);
     try {
-      if (document != null
-          && document.has(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
-          && document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).isNumber()) {
-        long timestampMillis = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).asLong();
-        store(entityName, aspectName)
-            .getDao()
-            .deleteByMessageIdAndEventTime(entityName, aspectName, messageId, timestampMillis);
-      } else {
-        store(entityName, aspectName).getDao().deleteByMessageId(entityName, aspectName, messageId);
-      }
+      store(entityName, aspectName).getDao().deleteByMessageId(entityName, aspectName, messageId);
     } catch (SQLException e) {
       throw new IllegalStateException("PostgreSQL timeseries deleteDocument failed", e);
     }

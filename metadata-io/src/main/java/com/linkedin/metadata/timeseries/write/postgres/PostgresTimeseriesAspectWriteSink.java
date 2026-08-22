@@ -1,7 +1,6 @@
 package com.linkedin.metadata.timeseries.write.postgres;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink;
 import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink.TimeseriesAspectRowPayload;
@@ -69,20 +68,10 @@ public class PostgresTimeseriesAspectWriteSink extends AbstractTimeseriesAspectW
       @SuppressWarnings("unused") boolean isExploded) {
     String messageId = resolveMessageId(docId, document);
     try {
-      if (document != null
-          && document.has(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)
-          && document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).isNumber()) {
-        long timestampMillis = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).asLong();
-        storeRegistry
-            .resolve(entityName, aspectName)
-            .getDao()
-            .deleteByMessageIdAndEventTime(entityName, aspectName, messageId, timestampMillis);
-      } else {
-        storeRegistry
-            .resolve(entityName, aspectName)
-            .getDao()
-            .deleteByMessageId(entityName, aspectName, messageId);
-      }
+      storeRegistry
+          .resolve(entityName, aspectName)
+          .getDao()
+          .deleteByMessageId(entityName, aspectName, messageId);
     } catch (SQLException e) {
       handleFailure(
           opContext,

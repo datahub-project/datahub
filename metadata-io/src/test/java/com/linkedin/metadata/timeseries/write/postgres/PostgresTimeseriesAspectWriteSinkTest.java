@@ -64,7 +64,7 @@ public class PostgresTimeseriesAspectWriteSinkTest {
   }
 
   @Test
-  public void deleteDocument_usesMessageIdAndEventTime() throws Exception {
+  public void deleteDocument_usesMessageIdOnly() throws Exception {
     PostgresTimeseriesAspectDao dao = mock(PostgresTimeseriesAspectDao.class);
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     PostgresTimeseriesAspectWriteSink sink =
@@ -74,9 +74,7 @@ public class PostgresTimeseriesAspectWriteSinkTest {
     doc.put(MappingsBuilder.MESSAGE_ID_FIELD, "msg-1");
     sink.deleteDocument(opContext, "dataset", "datasetProfile", "doc1", doc, false);
 
-    verify(dao)
-        .deleteByMessageIdAndEventTime(
-            eq("dataset"), eq("datasetProfile"), eq("msg-1"), eq(1_700_000_000_000L));
+    verify(dao).deleteByMessageId(eq("dataset"), eq("datasetProfile"), eq("msg-1"));
   }
 
   @Test
