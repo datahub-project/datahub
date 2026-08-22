@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from datahub.errors import SdkUsageError
+from datahub.metadata.schema_classes import AuditStampClass
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import FilterDsl as F
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -230,6 +231,42 @@ def test_add_lineage_dataset_to_dataset_copy_basic(client: DataHubClient) -> Non
 
     client.lineage.add_lineage(upstream=upstream, downstream=downstream)
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_basic_golden.json")
+
+
+def test_add_lineage_dataset_to_dataset_with_audit_stamp(
+    client: DataHubClient,
+) -> None:
+    """Test add_lineage records a caller-supplied audit stamp instead of the
+    zero-time/unknown-actor default."""
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+
+    client.lineage.add_lineage(
+        upstream=upstream,
+        downstream=downstream,
+        audit_stamp=AuditStampClass(
+            time=1700000000000, actor="urn:li:corpuser:jdoe"
+        ),
+    )
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_copy_with_audit_stamp_golden.json"
+    )
+
+
+def test_add_lineage_audit_stamp_rejected_for_non_dataset_lineage(
+    client: DataHubClient,
+) -> None:
+    """audit_stamp is only meaningful for dataset-to-dataset lineage, same as
+    column_lineage/transformation_text, and should be rejected the same way."""
+    with pytest.raises(
+        SdkUsageError,
+        match="audit_stamp is only applicable for dataset-to-dataset lineage",
+    ):
+        client.lineage.add_lineage(
+            upstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+            downstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
+            audit_stamp=AuditStampClass(time=123, actor="urn:li:corpuser:jdoe"),
+        )
 
 
 def test_add_lineage_dataset_to_dataset_copy_custom_mapping(
