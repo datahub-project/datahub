@@ -54,6 +54,30 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           sourceLocation);
     }
 
+    // Distinct from the graphql-layer ValidationException above: this is metadata-io's
+    // validator-rejection exception (thrown by AspectsBatchImpl/EntityServiceImpl when an
+    // AspectPayloadValidator rejects a proposal). Its message is already a clean validator
+    // message (see ValidationExceptionCollection.getCollectiveMessage()), so no need to walk
+    // the cause chain - just classify it as BAD_REQUEST instead of falling through to the
+    // generic RuntimeException branch below, which would misclassify it as a 500.
+    com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (metadataValidationException != null) {
+      // Log the full per-entity/aspect breakdown (which urn/aspect failed, useful when a batch
+      // has multiple items) separately from the exception's own message, which is intentionally
+      // just the clean validator text now - see ValidationExceptionCollection.getCollectiveMessage().
+      log.error(
+          "Failed to execute: {}",
+          metadataValidationException.getValidationExceptionCollection(),
+          metadataValidationException);
+      return completedResult(
+          metadataValidationException.getMessage(),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation);
+    }
+
     IllegalArgumentException illException =
         findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
     if (illException != null) {
