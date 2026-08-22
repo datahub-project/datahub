@@ -954,7 +954,7 @@ def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
     # the idiomatic closed-map form pairs patternProperties with additionalProperties:
     # false, which must still be promoted or no map columns are extracted.
     existing_additional = resolved_schema.get("additionalProperties")
-    if isinstance(existing_additional, dict) and existing_additional:
+    if existing_additional is not None and existing_additional is not False:
         return
     # Empty properties: {} has no named fields to protect.
     if resolved_schema.get("properties"):
