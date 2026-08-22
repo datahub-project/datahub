@@ -1,5 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import DOMPurify from 'dompurify';
 import React from 'react';
 
@@ -73,6 +74,75 @@ describe('SchemaDescriptionField', () => {
         );
         expect(getByText('Edited description')).toBeInTheDocument();
         expect(queryByText('This is a description')).not.toBeInTheDocument();
+    });
+});
+
+describe('permission-aware edit affordances', () => {
+    const renderTab = (canEditDescription: boolean, entityData: Record<string, unknown>) =>
+        render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
+                    <EntityContext.Provider
+                        value={{
+                            urn: 'urn:li:dataset:123',
+                            entityType: EntityType.Dataset,
+                            entityData: {
+                                ...entityData,
+                                privileges: { canEditDescription },
+                            },
+                            baseEntity: {},
+                            updateEntity: vi.fn(),
+                            routeToTab: vi.fn(),
+                            loading: true,
+                            lineage: undefined,
+                            dataNotCombinedWithSiblings: null,
+                            refetch: vi.fn(),
+                        }}
+                    >
+                        <DocumentationTab />
+                    </EntityContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+    it('enables the edit button and shows no tooltip when the user has canEditDescription', async () => {
+        renderTab(true, { properties: { description: 'This is a description' } });
+
+        const editButton = screen.getByTestId('edit-documentation-button');
+        expect(editButton).not.toBeDisabled();
+
+        await userEvent.hover(editButton);
+        expect(screen.queryByText('You do not have permission to change this.')).not.toBeInTheDocument();
+    });
+
+    it('disables the edit button and shows a tooltip when the user lacks canEditDescription', async () => {
+        renderTab(false, { properties: { description: 'This is a description' } });
+
+        const editButton = screen.getByTestId('edit-documentation-button');
+        expect(editButton).toBeDisabled();
+
+        await userEvent.hover(editButton);
+        expect(await screen.findByText('You do not have permission to change this.')).toBeInTheDocument();
+    });
+
+    it('enables the add-documentation button when the user has canEditDescription', async () => {
+        renderTab(true, {});
+
+        const addButton = screen.getByTestId('add-documentation');
+        expect(addButton).not.toBeDisabled();
+
+        await userEvent.hover(addButton);
+        expect(screen.queryByText('You do not have permission to change this.')).not.toBeInTheDocument();
+    });
+
+    it('disables the add-documentation button and shows a tooltip when the user lacks canEditDescription', async () => {
+        renderTab(false, {});
+
+        const addButton = screen.getByTestId('add-documentation');
+        expect(addButton).toBeDisabled();
+
+        await userEvent.hover(addButton);
+        expect(await screen.findByText('You do not have permission to change this.')).toBeInTheDocument();
     });
 });
 
