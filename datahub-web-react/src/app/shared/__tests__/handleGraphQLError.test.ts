@@ -1,6 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { toast } from '@components';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorCodes } from '@app/shared/constants';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
