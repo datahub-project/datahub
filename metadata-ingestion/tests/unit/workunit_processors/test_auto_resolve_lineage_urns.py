@@ -227,7 +227,7 @@ def test_unconfigured_platform_left_unchanged():
 
 
 def test_exact_mixedcase_wins_and_does_not_misroute():
-    # Both `DataHub` and `datahub` genuinely exist (case-sensitive platform). BI emits
+    # Both `DataHub` and `datahub` exist on Snowflake (case-insensitive platform). BI emits
     # `datahub`, which matches one exactly -> keep it, never re-route to `DataHub`.
     out = _run(
         {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},

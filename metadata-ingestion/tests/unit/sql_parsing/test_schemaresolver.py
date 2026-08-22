@@ -595,3 +595,28 @@ class TestNormalizedUrnResolution:
         assert schema is None
         assert resolved_urn != mixed_urn
         assert "mytable" in resolved_urn
+
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_third_casing_stays_unresolved_when_both_exist(
+        self, platform: str
+    ):
+        """Do not pick a lowercase candidate when two case-distinct tables exist."""
+        resolver = SchemaResolver(platform=platform, env="PROD", graph=None)
+        mixed = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+        lower = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+        assert mixed != lower
+        resolver.add_raw_schema_info(mixed, {"a": "int"})
+        resolver.add_raw_schema_info(lower, {"b": "int"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="MYTABLE")
+        )
+
+        assert schema is None
+        assert resolved_urn == resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MYTABLE")
+        )

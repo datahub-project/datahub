@@ -185,10 +185,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
 
         urns_to_try = [urn]
-        if urn_lower != urn:
-            urns_to_try.append(urn_lower)
-        if urn_mixed not in {urn, urn_lower}:
-            urns_to_try.append(urn_mixed)
+        if self._prefers_urn_lower():
+            if urn_lower != urn:
+                urns_to_try.append(urn_lower)
+            if urn_mixed not in {urn, urn_lower}:
+                urns_to_try.append(urn_mixed)
 
         for candidate_urn in urns_to_try:
             if candidate_urn in self._schema_cache:
