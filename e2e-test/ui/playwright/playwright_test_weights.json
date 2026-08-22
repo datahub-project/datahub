@@ -1,358 +1,358 @@
 [
   {
     "filePath": "analytics/analytics.spec.ts",
-    "duration": "22.898s"
+    "duration": "22.549s"
   },
   {
     "filePath": "application/application-management.spec.ts",
-    "duration": "25.639s"
+    "duration": "31.643s"
   },
   {
     "filePath": "application/application-sidebar.spec.ts",
-    "duration": "50.694s"
+    "duration": "31.997s"
   },
   {
     "filePath": "auth/login-with-welcome-modal.spec.ts",
-    "duration": "16.305s"
+    "duration": "13.949s"
   },
   {
     "filePath": "auth/login.spec.ts",
-    "duration": "19.176s"
+    "duration": "16.890s"
   },
   {
     "filePath": "autocomplete-v2/autocomplete.spec.ts",
-    "duration": "27.957s"
+    "duration": "26.376s"
   },
   {
     "filePath": "browse-v2/browse-v2.spec.ts",
-    "duration": "85.303s"
+    "duration": "86.333s"
   },
   {
     "filePath": "business-attributes/business-attribute-navigation.spec.ts",
-    "duration": "0.209s"
+    "duration": "0.286s"
   },
   {
     "filePath": "business-attributes/business-attribute.spec.ts",
-    "duration": "0.564s"
+    "duration": "0.751s"
   },
   {
     "filePath": "business-attributes/check-feature-flag.spec.ts",
-    "duration": "0.089s"
+    "duration": "0.124s"
   },
   {
     "filePath": "change-history/change-history.spec.ts",
-    "duration": "270.137s"
+    "duration": "255.075s"
   },
   {
     "filePath": "containers-v2/v2-containers.spec.ts",
-    "duration": "5.302s"
+    "duration": "4.693s"
   },
   {
     "filePath": "documents/document-import.spec.ts",
-    "duration": "14.346s"
+    "duration": "23.397s"
   },
   {
     "filePath": "documents/document-management.spec.ts",
-    "duration": "255.744s"
+    "duration": "269.433s"
   },
   {
     "filePath": "documents/document-tree-expand.spec.ts",
-    "duration": "50.356s"
+    "duration": "49.317s"
   },
   {
     "filePath": "domains-v2/v2-domains-advanced.spec.ts",
-    "duration": "33.812s"
+    "duration": "35.441s"
   },
   {
     "filePath": "domains-v2/v2-domains-core.spec.ts",
-    "duration": "28.047s"
+    "duration": "24.350s"
   },
   {
     "filePath": "domains-v2/v2-domains-summary.spec.ts",
-    "duration": "19.591s"
+    "duration": "19.123s"
   },
   {
     "filePath": "entity-pages/summary-tab/v2-summary-tab-about-section.spec.ts",
-    "duration": "20.346s"
+    "duration": "19.106s"
   },
   {
     "filePath": "entity-pages/summary-tab/v2-summary-tab-data-product.spec.ts",
-    "duration": "4.841s"
+    "duration": "4.140s"
   },
   {
     "filePath": "entity-pages/summary-tab/v2-summary-tab-domain.spec.ts",
-    "duration": "5.299s"
+    "duration": "4.318s"
   },
   {
     "filePath": "entity-pages/summary-tab/v2-summary-tab-glossary-node.spec.ts",
-    "duration": "4.781s"
+    "duration": "10.909s"
   },
   {
     "filePath": "entity-pages/summary-tab/v2-summary-tab-glossary-term.spec.ts",
-    "duration": "5.024s"
+    "duration": "9.285s"
   },
   {
     "filePath": "glossary/v2-glossary-navigation.spec.ts",
-    "duration": "60.362s"
+    "duration": "63.820s"
   },
   {
     "filePath": "glossary/v2-glossary-node-tags.spec.ts",
-    "duration": "11.468s"
+    "duration": "9.859s"
   },
   {
     "filePath": "glossary/v2-glossary-term-tags.spec.ts",
-    "duration": "15.476s"
+    "duration": "13.238s"
   },
   {
     "filePath": "glossary/v2-glossary-term.spec.ts",
-    "duration": "17.498s"
+    "duration": "18.947s"
   },
   {
     "filePath": "glossary/v2-glossary.spec.ts",
-    "duration": "104.366s"
+    "duration": "105.939s"
   },
   {
     "filePath": "home-v2/v2-home.spec.ts",
-    "duration": "4.092s"
+    "duration": "3.300s"
   },
   {
     "filePath": "home/homepage-collection-view-all.spec.ts",
-    "duration": "9.003s"
+    "duration": "6.170s"
   },
   {
     "filePath": "home/homepage-modules.spec.ts",
-    "duration": "42.231s"
+    "duration": "55.944s"
   },
   {
     "filePath": "home/homepage-templates.spec.ts",
-    "duration": "7.452s"
+    "duration": "13.020s"
   },
   {
     "filePath": "home/homepage-visibility.spec.ts",
-    "duration": "7.308s"
+    "duration": "8.010s"
   },
   {
     "filePath": "incidents-v2/v2-incidents.spec.ts",
-    "duration": "30.166s"
+    "duration": "30.729s"
   },
   {
     "filePath": "ingestion-v2/odcs-source.spec.ts",
-    "duration": "9.487s"
+    "duration": "10.992s"
   },
   {
     "filePath": "ingestion-v2/run-history.spec.ts",
-    "duration": "31.733s"
+    "duration": "19.695s"
   },
   {
     "filePath": "ingestion-v2/secrets-tab.spec.ts",
-    "duration": "45.996s"
+    "duration": "45.137s"
   },
   {
     "filePath": "ingestion-v2/sources.spec.ts",
-    "duration": "59.854s"
+    "duration": "57.884s"
   },
   {
     "filePath": "ingestion-v3/run-history.spec.ts",
-    "duration": "22.157s"
+    "duration": "23.223s"
   },
   {
     "filePath": "ingestion-v3/secrets-tab.spec.ts",
-    "duration": "44.834s"
+    "duration": "43.876s"
   },
   {
     "filePath": "ingestion-v3/sources.spec.ts",
-    "duration": "56.406s"
+    "duration": "57.837s"
   },
   {
     "filePath": "lineage-v3/v3-download-lineage-results.spec.ts",
-    "duration": "13.362s"
+    "duration": "11.620s"
   },
   {
     "filePath": "lineage-v3/v3-lineage-column-level.spec.ts",
-    "duration": "9.356s"
+    "duration": "7.124s"
   },
   {
     "filePath": "lineage-v3/v3-lineage-column-path.spec.ts",
-    "duration": "22.953s"
+    "duration": "20.957s"
   },
   {
     "filePath": "lineage-v3/v3-lineage-graph.spec.ts",
-    "duration": "89.433s"
+    "duration": "76.524s"
   },
   {
     "filePath": "lineage-v3/v3-lineage-impact-analysis.spec.ts",
-    "duration": "104.879s"
+    "duration": "106.864s"
   },
   {
     "filePath": "login-v2/v2-login.spec.ts",
-    "duration": "8.994s"
+    "duration": "4.948s"
   },
   {
     "filePath": "manage-tags/assign-unassign-tags.spec.ts",
-    "duration": "16.791s"
+    "duration": "15.026s"
   },
   {
     "filePath": "manage-tags/create-edit-remove-tags.spec.ts",
-    "duration": "11.222s"
+    "duration": "9.918s"
   },
   {
     "filePath": "manage-tags/search-filter-tags.spec.ts",
-    "duration": "21.308s"
+    "duration": "11.764s"
   },
   {
     "filePath": "mfeframework/valid-config-mfe.spec.ts",
-    "duration": "15.533s"
+    "duration": "16.036s"
   },
   {
     "filePath": "ml-entities-v2/v2-experiment.spec.ts",
-    "duration": "18.669s"
+    "duration": "18.884s"
   },
   {
     "filePath": "ml-entities-v2/v2-model-mlflow.spec.ts",
-    "duration": "21.360s"
+    "duration": "25.446s"
   },
   {
     "filePath": "ml-entities-v2/v2-model-sagemaker.spec.ts",
-    "duration": "6.630s"
+    "duration": "7.914s"
   },
   {
     "filePath": "mutations-v2/v2-domains.spec.ts",
-    "duration": "55.585s"
+    "duration": "49.824s"
   },
   {
     "filePath": "mutations-v2/v2-edit-documentation.spec.ts",
-    "duration": "56.546s"
+    "duration": "58.811s"
   },
   {
     "filePath": "mutations/dataset-health.spec.ts",
-    "duration": "5.406s"
+    "duration": "3.120s"
   },
   {
     "filePath": "mutations/edit-documentation.spec.ts",
-    "duration": "12.141s"
+    "duration": "10.218s"
   },
   {
     "filePath": "navbar/navbar.spec.ts",
-    "duration": "23.003s"
+    "duration": "18.195s"
   },
   {
     "filePath": "nested-column-stats/nested-column-stats.spec.ts",
-    "duration": "13.448s"
+    "duration": "12.034s"
   },
   {
     "filePath": "onboarding/welcome-modal.spec.ts",
-    "duration": "192.936s"
+    "duration": "187.896s"
   },
   {
     "filePath": "ownership-v2/v2-manage-ownership.spec.ts",
-    "duration": "13.358s"
+    "duration": "15.151s"
   },
   {
     "filePath": "quality/assertion-list.spec.ts",
-    "duration": "8.086s"
+    "duration": "8.031s"
   },
   {
     "filePath": "schema-blame/schema-blame.spec.ts",
-    "duration": "10.656s"
+    "duration": "8.765s"
   },
   {
     "filePath": "search/query-and-filter-search.spec.ts",
-    "duration": "92.107s"
+    "duration": "89.717s"
   },
   {
     "filePath": "search/search-filters.spec.ts",
-    "duration": "42.818s"
+    "duration": "42.606s"
   },
   {
     "filePath": "search/search-within-operator.spec.ts",
-    "duration": "15.025s"
+    "duration": "16.470s"
   },
   {
     "filePath": "search/search.spec.ts",
-    "duration": "61.694s"
+    "duration": "61.910s"
   },
   {
     "filePath": "search/searchv2.spec.ts",
-    "duration": "132.882s"
+    "duration": "113.232s"
   },
   {
     "filePath": "settings-v2/v2-home-page-posts.spec.ts",
-    "duration": "56.424s"
+    "duration": "46.736s"
   },
   {
     "filePath": "settings-v2/v2-manage-access-tokens.spec.ts",
-    "duration": "9.359s"
+    "duration": "6.426s"
   },
   {
     "filePath": "settings-v2/v2-manage-policies.spec.ts",
-    "duration": "62.260s"
+    "duration": "58.064s"
   },
   {
     "filePath": "settings-v2/v2-manage-service-accounts.spec.ts",
-    "duration": "18.516s"
+    "duration": "19.840s"
   },
   {
     "filePath": "settings-v2/v2-managing-groups.spec.ts",
-    "duration": "81.543s"
+    "duration": "77.707s"
   },
   {
     "filePath": "siblings-v2/siblings.spec.ts",
-    "duration": "30.395s"
+    "duration": "29.104s"
   },
   {
     "filePath": "stats-v2/v2-change-history.spec.ts",
-    "duration": "53.096s"
+    "duration": "51.680s"
   },
   {
     "filePath": "stats-v2/v2-charts.spec.ts",
-    "duration": "45.847s"
+    "duration": "45.235s"
   },
   {
     "filePath": "stats-v2/v2-column-stats.spec.ts",
-    "duration": "9.254s"
+    "duration": "8.263s"
   },
   {
     "filePath": "stats-v2/v2-highlights.spec.ts",
-    "duration": "7.856s"
+    "duration": "8.218s"
   },
   {
     "filePath": "stats-v2/v2-stats-tab.spec.ts",
-    "duration": "20.798s"
+    "duration": "20.601s"
   },
   {
     "filePath": "structured-properties/entity-level.spec.ts",
-    "duration": "50.908s"
+    "duration": "37.377s"
   },
   {
     "filePath": "structured-properties/schema-field.spec.ts",
-    "duration": "57.214s"
+    "duration": "48.594s"
   },
   {
     "filePath": "structured-properties/structured-properties.spec.ts",
-    "duration": "16.991s"
+    "duration": "21.611s"
   },
   {
     "filePath": "structured-properties/structured-props-drawer-font.spec.ts",
-    "duration": "8.149s"
+    "duration": "5.881s"
   },
   {
     "filePath": "task-runs-v2/task-runs.spec.ts",
-    "duration": "10.401s"
+    "duration": "7.532s"
   },
   {
     "filePath": "upload-files/upload-files.spec.ts",
-    "duration": "49.401s"
+    "duration": "51.155s"
   },
   {
     "filePath": "views/v2-manage-views.spec.ts",
-    "duration": "8.428s"
+    "duration": "7.540s"
   },
   {
     "filePath": "views/v2-view-select.spec.ts",
-    "duration": "20.105s"
+    "duration": "18.314s"
   },
   {
     "filePath": "views/v2-view-within-operator.spec.ts",
-    "duration": "10.654s"
+    "duration": "10.449s"
   }
 ]
