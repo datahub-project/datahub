@@ -235,7 +235,16 @@ def map_aspect_type_to_datahub(type_str: str) -> SchemaFieldDataTypeClass:
         "INT",
         "INT64",
         "LONG",
-    ) or type_str_upper in ("FLOAT", "DOUBLE", "NUMERIC", "DECIMAL"):
+    ) or type_str_upper in (
+        "FLOAT",
+        # BigQuery spells these FLOAT64 / BIGNUMERIC; without them numeric
+        # columns silently fall through to the StringType default below.
+        "FLOAT64",
+        "DOUBLE",
+        "NUMERIC",
+        "BIGNUMERIC",
+        "DECIMAL",
+    ):
         return SchemaFieldDataTypeClass(type=NumberTypeClass())
     elif type_str_upper in ("BOOLEAN", "BOOL"):
         return SchemaFieldDataTypeClass(type=BooleanTypeClass())
