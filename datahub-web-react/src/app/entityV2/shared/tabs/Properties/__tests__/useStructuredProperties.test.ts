@@ -65,9 +65,10 @@ const entityRegistry = new EntityRegistry();
 
 const FIELD_PATH = 'fieldA';
 
-function buildStructuredPropertiesEntry(qualifiedName: string, value: string) {
+function buildStructuredPropertiesEntry(qualifiedName: string, value: string, propagated = false) {
     return {
         structuredProperty: {
+            urn: `urn:li:structuredProperty:${qualifiedName}`,
             exists: true,
             definition: {
                 displayName: qualifiedName,
@@ -78,6 +79,7 @@ function buildStructuredPropertiesEntry(qualifiedName: string, value: string) {
         values: [{ __typename: 'StringValue', stringValue: value } as unknown as PropertyValueInput],
         valueEntities: [],
         associatedUrn: 'urn:li:schemaField:1',
+        attribution: propagated ? { sourceDetail: [{ key: 'propagated', value: 'true' }] } : undefined,
     };
 }
 
@@ -106,7 +108,35 @@ describe('useStructuredProperties', () => {
         expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(true);
         expect(result.current.loading).toBe(false);
         expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
-        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({ qualifiedName: 'testProp' });
+        // Assert the full derived row, not just its key: a wrong displayName, value mapping, or
+        // inferred value type through the new fieldEntity code path must not pass silently.
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({
+            displayName: 'testProp',
+            qualifiedName: 'testProp',
+            values: [{ value: 'value1', entity: null }],
+            type: { type: 'string', nativeDataType: 'text' },
+        });
+    });
+
+    it('dedupes fieldEntity-derived rows by property urn, preferring direct over propagated', () => {
+        const fieldEntity = {
+            structuredProperties: {
+                properties: [
+                    buildStructuredPropertiesEntry('testProp', 'propagatedValue', true),
+                    buildStructuredPropertiesEntry('testProp', 'directValue'),
+                ],
+            },
+        } as any;
+
+        const { result } = renderHook(() =>
+            useStructuredProperties(entityRegistry, FIELD_PATH, undefined, fieldEntity),
+        );
+
+        expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({
+            qualifiedName: 'testProp',
+            values: [{ value: 'directValue', entity: null }],
+        });
     });
 
     it('falls back to the entity-with-schema query when fieldEntity is not provided', () => {

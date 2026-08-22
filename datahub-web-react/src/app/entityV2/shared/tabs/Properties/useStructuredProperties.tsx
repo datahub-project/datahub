@@ -51,53 +51,34 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
     };
 }
 
-// map the properties map into a list of PropertyRow objects to render in a table
-export function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
-    const structuredPropertyRows: PropertyRow[] = [];
-
-    const dedupedProperties = dedupeByUrn(
-        entityData?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
+// Shared row builder: every property-row path filters out non-existent property definitions,
+// dedupes by property urn (preferring direct assignments over propagated ones), and maps to
+// PropertyRow — keeping the three entry points below behaviorally identical.
+function buildStructuredPropertyRows(properties?: Maybe<Array<StructuredPropertiesEntry>> | null): PropertyRow[] {
+    return dedupeByUrn(
+        properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
         (prop) => prop.structuredProperty.urn,
         structuredPropertyIsPropagated,
-    );
-    dedupedProperties.forEach((structuredPropertiesEntry) => {
-        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-    });
+    ).map(mapStructuredPropertyToPropertyRow);
+}
 
-    return structuredPropertyRows;
+// map the properties map into a list of PropertyRow objects to render in a table
+export function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
+    return buildStructuredPropertyRows(entityData?.structuredProperties?.properties);
 }
 
 function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericEntityProperties | null) {
-    const structuredPropertyRows: PropertyRow[] = [];
-
     const schemaFieldEntity = entityData?.schemaMetadata?.fields?.find(
         (f) => f.fieldPath === fieldPath,
     )?.schemaFieldEntity;
 
-    const dedupedProperties = dedupeByUrn(
-        schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) ?? [],
-        (prop) => prop.structuredProperty.urn,
-        structuredPropertyIsPropagated,
-    );
-    dedupedProperties.forEach((structuredPropertiesEntry) => {
-        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-    });
-
-    return structuredPropertyRows;
+    return buildStructuredPropertyRows(schemaFieldEntity?.structuredProperties?.properties);
 }
 
 // map structured properties already available on the caller (e.g. from a parent drawer) into a
 // list of PropertyRow objects, without needing to fire the entity-with-schema query
 export function getFieldEntityStructuredPropertyRows(fieldEntity?: Maybe<SchemaFieldEntity>) {
-    const structuredPropertyRows: PropertyRow[] = [];
-
-    fieldEntity?.structuredProperties?.properties
-        ?.filter((prop) => prop.structuredProperty.exists)
-        .forEach((structuredPropertiesEntry) => {
-            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
-        });
-
-    return structuredPropertyRows;
+    return buildStructuredPropertyRows(fieldEntity?.structuredProperties?.properties);
 }
 
 function findAllSubstrings(s: string): Array<string> {
