@@ -736,7 +736,7 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
-  public void testFilterViewableQueryEntities_allowsViaCanViewEntityOnSubject() {
+  public void testFilterViewableQueryEntities_allowsViaViewEntityQueriesPrivilegeOnSubject() {
     QuerySubjects querySubjects = new QuerySubjects();
     QuerySubject subject = new QuerySubject();
     subject.setEntity(SUBJECT_DATASET);
@@ -748,7 +748,14 @@ public class EntityAspectAuthorizationUtilsTest {
         .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
 
     authUtilMockedStatic
-        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(SUBJECT_DATASET)))
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(
+                        new EntitySpec(
+                            SUBJECT_DATASET.getEntityType(), SUBJECT_DATASET.toString()))))
         .thenReturn(true);
 
     Set<Urn> viewable =
@@ -756,6 +763,31 @@ public class EntityAspectAuthorizationUtilsTest {
             OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
 
     Assert.assertEquals(viewable, Set.of(QUERY_URN));
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_pageViewAloneNoLongerSufficient() {
+    QuerySubjects querySubjects = new QuerySubjects();
+    QuerySubject subject = new QuerySubject();
+    subject.setEntity(SUBJECT_DATASET);
+    querySubjects.setSubjects(new QuerySubjectArray(subject));
+    Aspect subjectsAspect = new Aspect(querySubjects.data());
+
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
+
+    // Entity-page visibility no longer implies query visibility; the explicit privilege check
+    // (mocked to deny) is what decides.
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(SUBJECT_DATASET)))
+        .thenReturn(true);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
+
+    Assert.assertTrue(viewable.isEmpty());
   }
 
   @Test
@@ -771,7 +803,14 @@ public class EntityAspectAuthorizationUtilsTest {
         .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
 
     authUtilMockedStatic
-        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(SUBJECT_DATASET)))
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(
+                        new EntitySpec(
+                            SUBJECT_DATASET.getEntityType(), SUBJECT_DATASET.toString()))))
         .thenReturn(true);
 
     Assert.assertTrue(

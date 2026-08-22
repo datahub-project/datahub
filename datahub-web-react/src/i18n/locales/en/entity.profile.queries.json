@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Queries that power downstream assets",
     "queriesTab.highlightedQueriesTitle": "Highlighted Queries",
     "queriesTab.highlightedQueriesTooltip": "Curated queries relevant to this dataset",
+    "queriesTab.noViewPermission": "You don't have permission to view queries for this dataset.",
+    "queriesTab.queriesTitle": "Queries",
     "queriesTab.recentQueriesTitle": "Recent Queries",
     "queriesTab.recentQueriesTooltip": "Recently executed queries against this dataset",
     "queryBuilderModal.createError": "Failed to create Query! An unexpected error occurred",
