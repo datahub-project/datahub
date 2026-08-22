@@ -185,7 +185,7 @@ def _resolve_token_service_secrets() -> None:
 
     persisted: Dict[str, str] = {}
     if secrets_file.exists():
-        for line in secrets_file.read_text().splitlines():
+        for line in secrets_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
@@ -211,7 +211,8 @@ def _resolve_token_service_secrets() -> None:
         secrets_file.write_text(
             f"# Auto-generated local dev secrets — do not commit\n"
             f"DATAHUB_TOKEN_SERVICE_SIGNING_KEY={signing_key}\n"
-            f"DATAHUB_TOKEN_SERVICE_SALT={salt}\n"
+            f"DATAHUB_TOKEN_SERVICE_SALT={salt}\n",
+            encoding="utf-8",
         )
         logger.debug(
             f"Generated token service secrets saved to {secrets_file} for reuse across restarts"
