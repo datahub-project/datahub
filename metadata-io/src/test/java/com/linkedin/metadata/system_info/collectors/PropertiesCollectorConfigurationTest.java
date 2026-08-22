@@ -82,6 +82,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.config.database.password",
           // Postgres PgQueue/PgCron credentials
           "postgres.pgQueue.pool.password",
+          "postgres.pgTimeseries.pool.password",
           "postgres.pgCron.admin.password",
           "postgres.pgCron.iam.awsSecretAccessKey",
           "postgres.pgCron.iam.awsSessionToken",
@@ -102,7 +103,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingKey",
           "authentication.tokenService.salt",
           "authentication.authenticators[*].configs.signingKey",
-          "authentication.authenticators[*].configs.salt");
+          "authentication.authenticators[*].configs.salt",
+          // Named-store JDBC passwords from DATAHUB_PGTIMESERIES_CONFIG_FILE / ConfigMap
+          "postgres.pgTimeseries.stores.*.pool.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -186,6 +189,29 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.maintenance.*",
           "postgres.pgQueue.retention.*",
           "postgres.pgQueue.producer.*",
+          // Named pgTimeseries stores/routing from DATAHUB_PGTIMESERIES_CONFIG_FILE.
+          // Do not use stores.*.*.* or stores.*.pool.*: those also match pool.password.
+          "postgres.pgTimeseries.stores.*",
+          "postgres.pgTimeseries.stores.*.schema",
+          "postgres.pgTimeseries.stores.*.tablePrefix",
+          "postgres.pgTimeseries.stores.*.partitioning",
+          "postgres.pgTimeseries.stores.*.partitioning.*",
+          "postgres.pgTimeseries.stores.*.retention",
+          "postgres.pgTimeseries.stores.*.retention.*",
+          "postgres.pgTimeseries.stores.*.maintenance",
+          "postgres.pgTimeseries.stores.*.maintenance.*",
+          "postgres.pgTimeseries.stores.*.pool",
+          "postgres.pgTimeseries.stores.*.pool.url",
+          "postgres.pgTimeseries.stores.*.pool.driver",
+          "postgres.pgTimeseries.stores.*.pool.username",
+          "postgres.pgTimeseries.stores.*.pool.minConnections",
+          "postgres.pgTimeseries.stores.*.pool.maxConnections",
+          "postgres.pgTimeseries.stores.*.pool.maxInactiveTimeSeconds",
+          "postgres.pgTimeseries.stores.*.pool.maxAgeMinutes",
+          "postgres.pgTimeseries.stores.*.pool.leakTimeMinutes",
+          "postgres.pgTimeseries.stores.*.pool.waitTimeoutMillis",
+          "postgres.pgTimeseries.routing.*",
+          "postgres.pgTimeseries.routing.*.*",
           "datahub.gms.rateLimits.capacity.rules[*].*",
           "datahub.gms.rateLimits.endpoint.rules[*].*",
           "datahub.gms.rateLimits.scoped.heavyResolvers.*.*");
@@ -1056,6 +1082,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "telemetry.enableThirdPartyLogging",
           "timeseriesAspectService.batchAggMaxUrnsPerBatch",
           "timeseriesAspectService.batchLoadEnabled",
+          "timeseriesAspectService.implementation",
           "timeseriesAspectService.limit.results.apiDefault",
           "timeseriesAspectService.limit.results.max",
           "timeseriesAspectService.limit.results.strict",
@@ -1231,6 +1258,27 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.pool.url",
           "postgres.pgQueue.pool.username",
           "postgres.pgQueue.pool.waitTimeoutMillis",
+          "postgres.pgTimeseries.enabled",
+          "postgres.pgTimeseries.defaultStore",
+          "postgres.pgTimeseries.tablePrefix",
+          "postgres.pgTimeseries.dualWriteFailOnError",
+          "postgres.pgTimeseries.stores",
+          "postgres.pgTimeseries.routing",
+          "postgres.pgTimeseries.partitioning.partmanPartitionInterval",
+          "postgres.pgTimeseries.partitioning.partmanPremake",
+          "postgres.pgTimeseries.partitioning.forceOverwritePartmanConfig",
+          "postgres.pgTimeseries.retention.maxAgeSeconds",
+          "postgres.pgTimeseries.maintenance.cronEnabled",
+          "postgres.pgTimeseries.maintenance.intervalSeconds",
+          "postgres.pgTimeseries.pool.url",
+          "postgres.pgTimeseries.pool.driver",
+          "postgres.pgTimeseries.pool.username",
+          "postgres.pgTimeseries.pool.minConnections",
+          "postgres.pgTimeseries.pool.maxConnections",
+          "postgres.pgTimeseries.pool.maxInactiveTimeSeconds",
+          "postgres.pgTimeseries.pool.maxAgeMinutes",
+          "postgres.pgTimeseries.pool.leakTimeMinutes",
+          "postgres.pgTimeseries.pool.waitTimeoutMillis",
           "postgres.pgQueue.consumerPoll.emptyPollSleepMillis",
           "postgres.pgQueue.consumerPoll.mclEmptyPollSleepMillis",
           "postgres.pgQueue.consumerPoll.missingTopicSleepMillis",
@@ -1351,6 +1399,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
   /** Check if a property key matches any of the non-sensitive templates */
   private boolean matchesNonSensitiveTemplate(String key) {
+    if (SENSITIVE_PROPERTIES.contains(key) || matchesSensitiveTemplate(key)) {
+      return false;
+    }
     return NON_SENSITIVE_PROPERTY_TEMPLATES.stream()
         .anyMatch(template -> key.matches(templateToRegex(template)));
   }
@@ -1536,6 +1587,18 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     assertFalse(
         "cache.client.entityClient.entityAspectTTLSeconds.corpuser"
             .matches(regex2)); // Too few segments
+
+    assertTrue(matchesSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.password"));
+    assertFalse(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.password"));
+    assertFalse(matchesSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.url"));
+    assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long"));
+    assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.tablePrefix"));
+    assertTrue(matchesNonSensitiveTemplate("postgres.pgTimeseries.stores.long.pool.url"));
+    assertTrue(
+        matchesNonSensitiveTemplate(
+            "postgres.pgTimeseries.stores.long.partitioning.partmanPremake"));
+    assertTrue(
+        matchesNonSensitiveTemplate("postgres.pgTimeseries.routing.[dataset.datasetprofile]"));
 
     log.info("✅ Template-to-regex conversion working correctly");
   }

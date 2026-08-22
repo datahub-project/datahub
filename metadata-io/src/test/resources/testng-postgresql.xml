@@ -23,4 +23,9 @@
             </class>
         </classes>
     </test>
+    <test name="postgresql-timeseries">
+        <classes>
+            <class name="com.linkedin.metadata.timeseries.postgres.TimeseriesAspectServicePostgresIT"/>
+        </classes>
+    </test>
 </suite>
