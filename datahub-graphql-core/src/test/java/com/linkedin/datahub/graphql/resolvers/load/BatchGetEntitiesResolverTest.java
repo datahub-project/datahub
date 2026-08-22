@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -115,6 +116,43 @@ public class BatchGetEntitiesResolverTest {
     List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
     assertEquals(batchGetResponse.size(), 2);
     assertEquals(batchGetResponse.get(0), mockResponseEntity);
+    assertEquals(batchGetResponse.get(1), mockResponseEntity);
+  }
+
+  @Test
+  /**
+   * Tests that a null entry in the provider's entity list (e.g. UrnToEntityMapper returning null
+   * for a urn whose entity type has no GraphQL mapping yet, such as an experimental entity type)
+   * is left unresolved in the response rather than throwing a NullPointerException, and that it
+   * doesn't disrupt resolution of the other, mappable entities in the same batch.
+   */
+  public void testNullEntityIsSkippedNotThrown() throws Exception {
+    Function entityProvider = mock(Function.class);
+    List<Entity> inputEntities = new ArrayList<>();
+    inputEntities.add(null);
+    inputEntities.addAll(getRequestEntities(ImmutableList.of("urn:li:dataset:1")));
+    when(entityProvider.apply(any())).thenReturn(inputEntities);
+    BatchGetEntitiesResolver resolver =
+        new BatchGetEntitiesResolver(
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
+
+    DataLoaderRegistry mockDataLoaderRegistry = mock(DataLoaderRegistry.class);
+    when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(mockDataLoaderRegistry);
+    DataLoader mockDataLoader = mock(DataLoader.class);
+    when(mockDataLoaderRegistry.getDataLoader(any())).thenReturn(mockDataLoader);
+
+    Dataset mockResponseEntity = new Dataset();
+    mockResponseEntity.setUrn("urn:li:dataset:1");
+
+    CompletableFuture mockFuture =
+        CompletableFuture.completedFuture(ImmutableList.of(mockResponseEntity));
+    when(mockDataLoader.loadMany(any())).thenReturn(mockFuture);
+    when(_entityService.exists(any(), any(List.class), eq(true)))
+        .thenAnswer(args -> Set.of(args.getArgument(0)));
+
+    List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
+    assertEquals(batchGetResponse.size(), 2);
+    assertNull(batchGetResponse.get(0));
     assertEquals(batchGetResponse.get(1), mockResponseEntity);
   }
 }
