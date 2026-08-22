@@ -636,9 +636,6 @@
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_count,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.v_total_sales,PROD)"
             ],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)"
-            ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
@@ -652,27 +649,6 @@
                     "transformOperation": "SQL: NVL(\"EMPLOYEE_SALES_SUMMARY\".\"TOTAL_SALES\", 0) AS \"_col_0\"",
                     "confidenceScore": 0.2
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00-mhwum5",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD),REFRESH_ANALYTICS_DATA)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
             ]
         }
     },
@@ -1569,27 +1545,6 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),CALCULATE_ANNUAL_SALARY_80fcded156e41b6f562fc1438f132bbb)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00-mhwum5",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -1685,27 +1640,6 @@
                         "language": "SQL"
                     }
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00-mhwum5",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.hr_schema.stored_procedures,PROD),GET_EMPLOYEE_INFO_ae548124ee515a556f8cee0139839057)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
             ]
         }
     },
@@ -2553,10 +2487,6 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_total,PROD)"
             ],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
-            ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
@@ -2701,10 +2631,6 @@
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.orders,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_emp_name,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,sales_schema.v_sales_rep_id,PROD)"
-            ],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),standard)",
-                "urn:li:dataJob:(urn:li:dataFlow:(oracle,xepdb1.sys.stored_procedures,PROD),sys_stub_for_purity_analysis)"
             ],
             "fineGrainedLineages": [
                 {
