@@ -582,7 +582,9 @@ class TestNormalizedUrnResolution:
         )
 
     @pytest.mark.parametrize("platform", ["bigquery", "db2"])
-    def test_case_sensitive_platform_resolves_when_unambiguous(self, platform: str):
+    def test_case_sensitive_platform_resolves_when_unambiguous(
+        self, platform: str
+    ) -> None:
         report = SchemaResolverReport()
         resolver = SchemaResolver(
             platform=platform, env="PROD", graph=None, report=report
@@ -601,7 +603,7 @@ class TestNormalizedUrnResolution:
         assert resolved_urn == canonical_urn
         assert report.num_normalized_urn_hits == 1
 
-    def test_case_sensitive_miss_keeps_query_casing(self):
+    def test_case_sensitive_miss_keeps_query_casing(self) -> None:
         resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
         table = _TableName(database="proj", db_schema="ds", table="mytable")
 
@@ -611,7 +613,7 @@ class TestNormalizedUrnResolution:
         assert resolved_urn == resolver.get_urn_for_table(table)
         assert "MyTable" not in resolved_urn
 
-    def test_negative_cache_does_not_block_normalized_hit(self):
+    def test_negative_cache_does_not_block_normalized_hit(self) -> None:
         resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
         canonical_urn = resolver.get_urn_for_table(
             _TableName(database="proj", db_schema="ds", table="MyTable")
@@ -629,7 +631,7 @@ class TestNormalizedUrnResolution:
         assert schema is not None
         assert resolved_urn == canonical_urn
 
-    def test_case_sensitive_graph_fetches_only_exact_urn(self):
+    def test_case_sensitive_graph_fetches_only_exact_urn(self) -> None:
         mock_graph = MagicMock(spec=DataHubGraph)
         mock_graph.get_entities.return_value = {}
         resolver = SchemaResolver(platform="bigquery", env="PROD", graph=mock_graph)
