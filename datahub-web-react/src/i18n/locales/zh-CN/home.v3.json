@@ -1,0 +1,10 @@
+{
+  "defaultTemplateBar.editingWarning": "正在编辑组织默认主页",
+  "header.discoverLabel": "发现",
+  "error.failedToAddSummaryElement": "添加摘要元素失败",
+  "error.failedToRemoveSummaryElement": "移除摘要元素失败",
+  "error.failedToReplaceSummaryElement": "替换摘要元素失败",
+  "error.noTemplateAvailable": "没有可更新的模板",
+  "toast.editedDescription": "要重置主页，请点击\"重置为组织默认\"",
+  "toast.editedTitle": "您已编辑了主页"
+}
