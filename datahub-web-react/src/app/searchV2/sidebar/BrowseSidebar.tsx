@@ -1,100 +1,43 @@
-import { Button } from '@components';
-import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
-import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
-import { Divider, Typography } from 'antd';
+import { SearchBar } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useIsPlatformBrowseMode } from '@app/searchV2/sidebar/BrowseContext';
+import BrowseSidebarSearchResults from '@app/searchV2/sidebar/BrowseSidebarSearchResults';
 import EntityBrowse from '@app/searchV2/sidebar/EntityBrowse';
 import PlatformBrowse from '@app/searchV2/sidebar/PlatformBrowse';
-import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useOnChangeFilters, useSelectedFilters } from '@app/searchV2/sidebar/SidebarContext';
+import { clearBrowseNavigationFilters, hasBrowseNavigationFilter } from '@app/searchV2/sidebar/browseContextUtils';
+import { isBrowseSidebarSearchActive } from '@app/searchV2/sidebar/browseSidebarSearch';
+import useBrowseSidebarSearch from '@app/searchV2/sidebar/useBrowseSidebarSearch';
+import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import {
+    CollapsedScrollColumn,
+    SearchIconButton,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import SidebarHomeNavLink from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarHomeNavLink';
+import {
+    HIERARCHICAL_BROWSE_GAP_PX,
+    HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-const PLATFORM_BROWSE_TRANSITION_MS = 200;
-const MAX_BROWSER_WIDTH = 500;
-const MIN_BROWSWER_WIDTH = 260;
-
-const StyledEntitySidebarContainer = styled.div<{
-    isCollapsed: boolean;
-    isHidden: boolean;
-    $width?: number;
-    backgroundColor?: string;
-    $isShowNavBarRedesign?: boolean;
-}>`
-    flex: 1;
-    overflow: hidden;
-    display: ${(props) => (props.isHidden ? 'none' : undefined)};
-
-    ${(props) => !props.isCollapsed && props.$width && `max-width: ${props.$width}px;`}
-    ${(props) => props.isCollapsed && 'min-width: 63px; max-width: 63px;'}
- &::-webkit-scrollbar {
-        display: none;
-    }
-
-    margin: ${(props) => {
-        if (props.$isShowNavBarRedesign) {
-            return props.isCollapsed ? '8px 4px 5px 5px' : '8px 0px 5px 5px';
-        }
-        return props.isCollapsed ? '12px' : '12px 0 12px 12px';
-    }};
-    transition:
-        max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
-        min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
-
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
-`;
-
-const StyledSidebar = styled.div`
-    overflow: auto;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-`;
-
-const Controls = styled.div<{ isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    height: 52px;
-    padding: 16px 12px;
-    overflow: hidden;
-`;
-
-const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
-    && {
-        padding: 0;
-        margin: 0;
-        min-width: 140px;
-        display: ${(props) => (props.isClosed ? 'none' : 'block')};
-        font-size: 14px;
-        line-height: 20px;
-        font-weight: bold;
-        color: ${(props) => props.theme.colors.textSecondary};
-    }
-`;
-
-const ThinDivider = styled(Divider)`
-    margin: 0px;
-    padding: 0px;
-`;
-
-const SidebarBody = styled.div`
-    height: calc(100% - 53px);
-    overflow: auto;
-    white-space: nowrap;
-    /* Hide scrollbar altoghether for Chrome, Safari, and Opera */
-    &::-webkit-scrollbar {
-        display: none;
-    }
-    scrollbar-gutter: stable;
-    -moz-scrollbar-gutter: stable;
-    -webkit-scrollbar-gutter: stable;
+const BrowseSidebarSlot = styled.div<{ $hidden: boolean; $isShowNavBarRedesign?: boolean }>`
+    display: ${(props) => (props.$hidden ? 'none' : 'flex')};
+    align-self: stretch;
+    min-height: 0;
+    ${(props) =>
+        props.$isShowNavBarRedesign
+            ? `
+                padding: ${HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX}px 0 ${HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX}px ${HIERARCHICAL_BROWSE_LAYOUT_PADDING_PX}px;
+                margin-right: ${HIERARCHICAL_BROWSE_GAP_PX}px;
+            `
+            : 'margin: 12px 0 12px 12px;'}
 `;
 
 type Props = {
@@ -103,74 +46,110 @@ type Props = {
 
 const BrowseSidebar = ({ visible }: Props) => {
     const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
-    const [isClosed, setIsClosed] = useState(false);
-    const [isHidden, setIsHidden] = useState(false);
     const isShowNavBarRedesign = useShowNavBarRedesign();
-
-    const [sidebarWidth, setSidebarWidth] = useState(MIN_BROWSWER_WIDTH);
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isHidden, setIsHidden] = useState(false);
+    const [searchInput, setSearchInput] = useState('');
+    const { hits, loading, isRefreshing } = useBrowseSidebarSearch({ searchInput });
+    const searchActive = isBrowseSidebarSearchActive(searchInput);
+    const selectedFilters = useSelectedFilters();
+    const onChangeFilters = useOnChangeFilters();
+    const isAllSelected = !hasBrowseNavigationFilter(selectedFilters);
 
     const hideSidebar = useCallback(() => {
         setIsHidden(true);
-        setIsClosed(true);
+        setIsCollapsed(true);
     }, []);
 
     const unhideSidebar = useCallback(() => setIsHidden(false), []);
+    const expandSidebar = useCallback(() => setIsCollapsed(false), []);
+    const toggleCollapsed = useCallback(() => setIsCollapsed((prev) => !prev), []);
+    const clearSearch = useCallback(() => setSearchInput(''), []);
+    const goToAll = useCallback(() => {
+        setSearchInput('');
+        onChangeFilters(clearBrowseNavigationFilters(selectedFilters));
+    }, [onChangeFilters, selectedFilters]);
+
+    const platformBrowse = (
+        <PlatformBrowse
+            collapsed={isCollapsed}
+            expand={expandSidebar}
+            visible={visible}
+            hideSidebar={hideSidebar}
+            unhideSidebar={unhideSidebar}
+        />
+    );
 
     return (
-        <>
-            <StyledEntitySidebarContainer
-                isCollapsed={isClosed}
-                isHidden={isHidden}
-                $width={sidebarWidth}
-                $isShowNavBarRedesign={isShowNavBarRedesign}
-                id="browse-v2"
-                data-testid="browse-v2-results"
-            >
-                <Controls isCollapsed={isClosed}>
-                    {!isClosed ? (
-                        <NavigateTitle level={5} isClosed={isClosed}>
-                            {t('sidebar.navigate')}
-                        </NavigateTitle>
-                    ) : null}
-                    <Button
-                        variant="text"
-                        color="gray"
-                        size="lg"
-                        isCircle
-                        icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
-                        isActive={!isClosed}
-                        onClick={() => setIsClosed(!isClosed)}
-                        data-testid="browse-v2-toggle"
+        <BrowseSidebarSlot $hidden={isHidden} $isShowNavBarRedesign={isShowNavBarRedesign} id="browse-v2">
+            <HierarchicalBrowseSidebar
+                title={t('sidebar.navigate')}
+                isCollapsed={isCollapsed}
+                onToggleCollapsed={toggleCollapsed}
+                onExpandSidebar={expandSidebar}
+                id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}
+                dataTestId="browse-v2-results"
+                collapseButtonTestId="browse-v2-toggle"
+                expandTooltip={tc('expand')}
+                collapseTooltip={tc('collapse')}
+                search={
+                    <SearchBar
+                        placeholder={t('sidebar.searchPlaceholder')}
+                        value={searchInput}
+                        onChange={(value) => setSearchInput(value)}
+                        data-testid="browse-v2-search-input"
                     />
-                </Controls>
-                <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
-                    <ThinDivider />
-                    <SidebarBody>
-                        {!isPlatformBrowseMode ? (
-                            <EntityBrowse visible={visible} />
-                        ) : (
-                            <PlatformBrowse
-                                collapsed={isClosed}
-                                expand={() => setIsClosed(false)}
-                                visible={visible}
-                                hideSidebar={hideSidebar}
-                                unhideSidebar={unhideSidebar}
+                }
+                homeNav={
+                    <SidebarHomeNavLink
+                        label={t('sidebar.all')}
+                        icon={SquaresFour}
+                        isSelected={isAllSelected}
+                        onClick={goToAll}
+                        data-testid="browse-v2-all"
+                    />
+                }
+            >
+                {({ isCollapsed: collapsed }) => {
+                    if (collapsed) {
+                        return (
+                            <>
+                                <SearchIconButton
+                                    type="button"
+                                    onClick={expandSidebar}
+                                    aria-label={t('sidebar.searchAriaLabel')}
+                                    data-testid="browse-v2-search-icon"
+                                >
+                                    <MagnifyingGlass size={TREE_ROW_ENTITY_ICON_SIZE} weight="regular" />
+                                </SearchIconButton>
+                                {isPlatformBrowseMode ? (
+                                    <CollapsedScrollColumn>{platformBrowse}</CollapsedScrollColumn>
+                                ) : null}
+                            </>
+                        );
+                    }
+
+                    if (searchActive) {
+                        return (
+                            <BrowseSidebarSearchResults
+                                hits={hits}
+                                loading={loading}
+                                isRefreshing={isRefreshing}
+                                onClear={clearSearch}
                             />
-                        )}
-                    </SidebarBody>
-                </StyledSidebar>
-            </StyledEntitySidebarContainer>
-            {!isClosed && (
-                <ProfileSidebarResizer
-                    setSidePanelWidth={(widthProp) => {
-                        setSidebarWidth(Math.min(Math.max(widthProp, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH));
-                    }}
-                    initialSize={sidebarWidth}
-                    isSidebarOnLeft
-                />
-            )}
-        </>
+                        );
+                    }
+
+                    if (!isPlatformBrowseMode) {
+                        return <EntityBrowse visible={visible} />;
+                    }
+
+                    return platformBrowse;
+                }}
+            </HierarchicalBrowseSidebar>
+        </BrowseSidebarSlot>
     );
 };
 
