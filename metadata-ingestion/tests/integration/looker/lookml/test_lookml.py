@@ -109,6 +109,53 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_lookml_shared_view_same_connection(pytestconfig, tmp_path, mock_time):
+    """Test that a view file shared between two models with the same connection
+    is ingested for both models when view_naming_pattern includes {model}.
+    See https://github.com/datahub-project/datahub/issues/12043
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
+    mce_out_file = "shared_view_same_connection_mces.json"
+
+    new_recipe = {
+        "run_id": "lookml-test",
+        "source": {
+            "type": "lookml",
+            "config": {
+                "base_folder": f"{test_resources_dir}/lkml_samples_shared_view_same_connection",
+                "connection_to_platform_map": {"my_connection": "postgres"},
+                "parse_table_names_from_sql": True,
+                "tag_measures_and_dimensions": False,
+                "project_name": "shared_view_project",
+                "emit_reachable_views_only": False,
+                "view_naming_pattern": {"pattern": "{project}.{model}.view.{name}"},
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{tmp_path}/{mce_out_file}",
+            },
+        },
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=False)
+
+    report = pipeline.source.get_report()
+    assert isinstance(report, LookMLSourceReport)
+
+    # The shared view must be discovered twice: once per model
+    assert report.views_discovered == 2, (
+        f"Expected 2 views (one per model), got {report.views_discovered}. "
+        "The shared view file should be ingested for each model when "
+        "view_naming_pattern includes {{model}}."
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
     """Test backwards compatibility with previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
