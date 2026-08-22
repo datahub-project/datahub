@@ -163,10 +163,8 @@ def _stored_upstream(wu: MetadataWorkUnit) -> str:
 def test_heals_to_stored_casing_when_warehouse_lowercase(
     stored: str, emitted: str
 ) -> None:
-    # SchemaResolver.resolve_table matches the reference's original casing and its
-    # lowercased form, so a reference heals when the warehouse stores the entity
-    # lowercased (any BI casing -> lowercase). Non-lowercase stored casings are not yet
-    # reachable — that is the tracked normalizedUrn SchemaResolver follow-up (see below).
+    # SchemaResolver.resolve_table matches exact / lower / mixed candidates and a
+    # lowercase→canonical index, so a reference heals to the warehouse-stored casing.
     out = _run({stored: {"amount": "int"}}, _upstream_wu(emitted))
     assert _stored_upstream(out) == stored
 
@@ -179,16 +177,15 @@ def test_heals_to_stored_casing_when_warehouse_lowercase(
         (WH_MIXED, WH_UPPER),  # warehouse mixed, upper emitted
     ],
 )
-def test_non_lowercase_stored_unresolved_pending_normalizedurn(
+def test_non_lowercase_stored_normalizes_to_canonical(
     stored: str, emitted: str
 ) -> None:
-    # Until SchemaResolver gains casing-aware resolution (the normalizedUrn follow-up),
-    # resolve_table cannot reach a warehouse stored in UPPER/Mixed casing from a different
-    # BI casing -> the reference is left unchanged and flagged UNRESOLVED.
+    # SchemaResolver's lowercase→canonical index maps BI refs onto the Mixed/UPPER
+    # URN casing already registered from the warehouse catalog.
     out = _run({stored: {"amount": "int"}}, _upstream_wu(emitted))
-    assert _stored_upstream(out) == emitted
+    assert _stored_upstream(out) == stored
     assert (
-        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
     )
 
 
@@ -199,11 +196,10 @@ def test_keeps_exact_when_exact_entity_exists():
     assert _stored_upstream(out) == UPPER
 
 
-def test_ambiguous_collision_resolves_to_lowercase_pending_normalizedurn():
+def test_ambiguous_collision_prefers_exact_lowercase_candidate():
     # Both `DB.SCHEMA.TABLE` and `db.schema.table` exist. A BI ref in a third casing
-    # (MIXED) resolves via resolve_table's lowercase attempt to the lowercase entity —
-    # resolve_table has no ambiguous-collision detection, so it does not leave it
-    # unchanged. Restoring collision-safety is part of the normalizedUrn follow-up.
+    # (MIXED) hits the lowercase candidate in resolve_table's urns_to_try before the
+    # normalized index is consulted, so it still lands on the lowercase entity.
     out = _run(
         {UPPER: {"amount": "int"}, LOWER: {"amount": "int"}}, _upstream_wu(MIXED)
     )
@@ -242,10 +238,10 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
-def test_mixedcase_third_casing_resolves_to_lowercase_pending_normalizedurn():
-    # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB`. resolve_table's
-    # lowercase attempt hits `datahub`, so it resolves there (no collision detection). The
-    # collision-safe behavior is part of the normalizedUrn follow-up.
+def test_mixedcase_third_casing_resolves_to_lowercase_when_both_exist():
+    # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB`.
+    # resolve_table's lowercase candidate hits `datahub` before the normalized index
+    # (which would see a collision), so it resolves to the lowercase entity.
     out = _run(
         {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},
         _upstream_wu(WH_UPPER),

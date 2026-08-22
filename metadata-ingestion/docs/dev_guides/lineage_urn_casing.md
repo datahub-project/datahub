@@ -41,21 +41,20 @@ When enabled, the feature inspects each source's lineage before it is sent to Da
 casing of **upstream warehouse references** against the casing DataHub already stores:
 
 - If an entity with the **exact** URN already exists, the reference is left unchanged (`EXACT`).
-- Otherwise, if the reference matches an existing entity when casing is normalized, it is rewritten to
-  that entity's stored URN (`NORMALIZED`).
-- If no existing entity matches, the reference is left unchanged and flagged `UNRESOLVED`.
+- Otherwise, if the reference matches an existing entity when casing is normalized (including
+  MixedCase / UPPER warehouse identities resolved via SchemaResolver's lowercase→canonical index),
+  it is rewritten to that entity's stored URN (`NORMALIZED`).
+- If no existing entity matches — or multiple entities collide under case-folding — the reference
+  is left unchanged and flagged `UNRESOLVED`.
 
 Only references **to** warehouse assets are modified. The entity the aspect is attached to and its
 downstream fields are never touched — the feature respects the casing the warehouse itself reported.
 Column-level casing is corrected the same way, using the schema DataHub stores for the resolved table
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
 
-> **Current coverage limit.** Reconciliation currently heals a reference when the warehouse stores the
-> entity in its **lowercased** form (the common Snowflake/BigQuery default) — regardless of how the BI
-> tool cased it. A warehouse that keeps a **non-lowercase** identity (UPPER / Pascal / Mixed) is **not
-> yet** reconciled, and ambiguous case-collisions are not detected. Full any-casing resolution and
-> collision-safety are planned as backend infrastructure; once it lands, this feature picks it up
-> automatically with no config change.
+> **Case-sensitive platforms.** Platforms in
+> `PLATFORMS_WITH_CASE_SENSITIVE_TABLES` (e.g. BigQuery, DB2) keep exact-string
+> identity — `MyTable` and `mytable` are different entities and are never folded.
 
 ### What gets fixed
 

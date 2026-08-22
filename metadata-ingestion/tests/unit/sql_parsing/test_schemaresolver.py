@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClas
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
+    SchemaResolverReport,
     _TableName,
     match_columns_to_schema,
 )
@@ -531,3 +532,66 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+class TestNormalizedUrnResolution:
+    def test_mixedcase_registered_resolves_from_lowercase_query(self):
+        """Teradata-style: schema keeps DBC casing; lineage queries are lowercase."""
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform="teradata",
+            platform_instance="td20-jul26-trial",
+            env="Test",
+            graph=None,
+            report=report,
+        )
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="riverflow_native")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="riverflow_native")
+        )
+
+        assert schema is not None
+        assert schema["col_a"] == "VARCHAR"
+        assert resolved_urn == mixed_urn
+        assert "Riverflow" in resolved_urn
+        assert report.num_normalized_urn_hits == 1
+
+    def test_ambiguous_collision_stays_unresolved(self):
+        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
+        mixed = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="t")
+        )
+        other = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="RIVERFLOW", table="T")
+        )
+        assert mixed != other
+        resolver.add_raw_schema_info(mixed, {"a": "int"})
+        resolver.add_raw_schema_info(other, {"b": "int"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="t")
+        )
+
+        assert schema is None
+        assert resolved_urn == resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="riverflow", table="t"), lower=True
+        )
+
+    def test_case_sensitive_platform_does_not_fold(self):
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"c": "STRING"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+
+        assert schema is None
+        assert resolved_urn != mixed_urn
+        assert "mytable" in resolved_urn
