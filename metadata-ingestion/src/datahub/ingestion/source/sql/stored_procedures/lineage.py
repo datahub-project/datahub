@@ -66,7 +66,7 @@ _LEADING_BLOCK_OPENER_RE = re.compile(
 # ``EXECUTE IMMEDIATE '<sql>'`` is dynamic SQL, while ``EXEC immediate_refresh``
 # is an ordinary call.
 _IMMEDIATE_KEYWORD = "IMMEDIATE"
-_IMMEDIATE_KEYWORD_RE = re.compile(r"\s*IMMEDIATE\b", re.IGNORECASE)
+_IMMEDIATE_KEYWORD_RE = re.compile(r"\s*IMMEDIATE(?=\s)", re.IGNORECASE)
 
 # A block/control closer carries no lineage: bare ``END``, a labeled MariaDB block
 # closer (``END my_label``), or a compound-statement closer (``END IF/WHILE/LOOP/CASE``).
@@ -161,6 +161,15 @@ def _parse_call_target(literal: str) -> Optional[ProcedureCall]:
     )
 
 
+def _is_dynamic_sql_operand(parsed: sqlglot.exp.Expression) -> bool:
+    """Whether an ``Execute`` node carries a single string literal, i.e. the
+    ``EXECUTE IMMEDIATE '<sql>'`` shape rather than a call with arguments."""
+    operands = parsed.args.get("expressions") or []
+    return len(operands) == 1 and (
+        isinstance(operands[0], sqlglot.exp.Literal) and operands[0].is_string
+    )
+
+
 def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[ProcedureCall]:
     """Return the called procedure for a CALL/EXEC statement, or ``None``.
 
@@ -183,11 +192,14 @@ def _extract_procedure_call(parsed: sqlglot.exp.Expression) -> Optional[Procedur
                 not catalog
                 and not db_schema
                 and target.name.upper() == _IMMEDIATE_KEYWORD
+                and _is_dynamic_sql_operand(parsed)
             ):
                 # Some dialects parse ``EXECUTE IMMEDIATE '<sql>'`` into this
                 # structured form, where the keyword lands in the target slot and
                 # reads as a procedure named IMMEDIATE. Same dynamic SQL, same
-                # non-existent target as the Command branch below.
+                # non-existent target as the Command branch below. The operand
+                # check keeps a procedure genuinely named IMMEDIATE callable:
+                # ``EXEC IMMEDIATE`` and ``EXEC IMMEDIATE @p=1`` still resolve.
                 return None
             return ProcedureCall(
                 database=catalog,

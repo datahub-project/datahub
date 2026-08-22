@@ -21,6 +21,8 @@ These are the same composition rules used by ``BaseProcedure.to_urn`` /
 DataJob URNs emitted for the called procedures elsewhere in ingestion.
 """
 
+from typing import List
+
 from datahub.ingestion.source.sql.stored_procedures.lineage import (
     ProcedureParseReport,
     _count_call_arguments,
@@ -529,6 +531,33 @@ def test_tsql_execute_immediate_is_not_a_call_target():
         "urn:li:dataJob:(urn:li:dataFlow:"
         "(mssql,test_db.test_schema.stored_procedures,PROD),immediate_refresh)"
     ]
+
+
+def test_immediate_guard_does_not_swallow_real_calls():
+    """The guard has to separate dynamic SQL from anything merely *named* like it.
+    `IMMEDIATE` is a legal identifier, so a procedure called IMMEDIATE, and a
+    schema called IMMEDIATE, both have to stay callable."""
+    schema_resolver = SchemaResolver(platform="mssql", env="PROD")
+
+    def edges(code: str) -> List[str]:
+        result = parse_procedure_code(
+            schema_resolver=schema_resolver,
+            default_db="test_db",
+            default_schema="test_schema",
+            code=code,
+            is_temp_table=lambda _: False,
+        )
+        return [] if result is None else (result.inputDatajobs or [])
+
+    # Dynamic SQL: dropped on both the structured and the literal path.
+    assert not edges("EXECUTE IMMEDIATE 'INSERT INTO tgt SELECT a FROM src'")
+
+    # A procedure that happens to be named IMMEDIATE, with and without args.
+    assert edges("EXEC IMMEDIATE")
+    assert edges("EXEC IMMEDIATE @p=1")
+
+    # A qualifier that merely starts with the keyword.
+    assert edges("CALL immediate_refresh()")
 
 
 def test_resolve_procedure_urn_callback_owns_the_target_urn():
