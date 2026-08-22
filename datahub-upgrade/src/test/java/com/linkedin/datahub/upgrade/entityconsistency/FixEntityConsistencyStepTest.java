@@ -1006,6 +1006,7 @@ public class FixEntityConsistencyStepTest {
 
     assertFalse(runnerThread.isAlive());
     assertEquals(resultHolder.get().result(), DataHubUpgradeState.IN_PROGRESS);
+    assertEquals(resultHolder.get().action(), UpgradeStepResult.Action.ABORT);
     verify(mockUpgrade, never())
         .setUpgradeResult(
             any(OperationContext.class),

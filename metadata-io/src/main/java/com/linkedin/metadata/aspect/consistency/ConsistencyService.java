@@ -423,7 +423,7 @@ public class ConsistencyService {
     try {
       return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
     } catch (RuntimeException e) {
-      log.warn("countMatching failed (continuing without total): {}", e.getMessage());
+      log.warn("countMatching failed (continuing without total): {}", e.getMessage(), e);
       return Optional.empty();
     }
   }

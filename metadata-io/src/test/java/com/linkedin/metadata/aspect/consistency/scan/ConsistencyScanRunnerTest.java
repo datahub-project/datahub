@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -188,30 +189,30 @@ public class ConsistencyScanRunnerTest {
 
     AtomicInteger batches = new AtomicInteger();
     AtomicInteger onCompleteCalls = new AtomicInteger();
+    AtomicReference<ConsistencyScanResult> resultHolder = new AtomicReference<>();
     Thread runnerThread =
         new Thread(
-            () -> {
-              ConsistencyScanResult result =
-                  runner.run(
-                      opContext,
-                      ConsistencyScanRequest.builder()
-                          .entityType("dataset")
-                          .delayMs(60_000)
-                          .onBatch(
-                              r -> {
-                                batches.incrementAndGet();
-                                return BatchHandleResult.none();
-                              })
-                          .onComplete(r -> onCompleteCalls.incrementAndGet())
-                          .build());
-              assertTrue(result.isCancelled());
-            });
+            () ->
+                resultHolder.set(
+                    runner.run(
+                        opContext,
+                        ConsistencyScanRequest.builder()
+                            .entityType("dataset")
+                            .delayMs(60_000)
+                            .onBatch(
+                                r -> {
+                                  batches.incrementAndGet();
+                                  return BatchHandleResult.none();
+                                })
+                            .onComplete(r -> onCompleteCalls.incrementAndGet())
+                            .build())));
     runnerThread.start();
     Thread.sleep(200);
     runnerThread.interrupt();
     runnerThread.join(5000);
 
     assertFalse(runnerThread.isAlive());
+    assertTrue(resultHolder.get().isCancelled());
     assertEquals(batches.get(), 1);
     assertEquals(onCompleteCalls.get(), 0);
     verify(consistencyService, times(1)).checkBatch(eq(opContext), any(), isNull());
@@ -222,19 +223,23 @@ public class ConsistencyScanRunnerTest {
     when(consistencyService.countMatching(eq(opContext), any(CheckBatchRequest.class)))
         .thenReturn(Optional.of(1000L));
     when(consistencyService.checkBatch(eq(opContext), any(CheckBatchRequest.class), isNull()))
-        .thenReturn(
-            CheckResult.builder()
-                .entitiesScanned(100)
-                .issuesFound(0)
-                .issues(List.of())
-                .scrollId("more")
-                .build());
+        .thenAnswer(
+            invocation -> {
+              CheckBatchRequest batchRequest = invocation.getArgument(1);
+              int scanned = batchRequest.getBatchSize();
+              return CheckResult.builder()
+                  .entitiesScanned(scanned)
+                  .issuesFound(0)
+                  .issues(List.of())
+                  .scrollId("more")
+                  .build();
+            });
 
     ConsistencyScanResult result =
         runner.run(
             opContext, ConsistencyScanRequest.builder().entityType("dataset").limit(150).build());
 
-    assertEquals(result.getEntitiesScanned(), 200); // two batches then stop (>= limit)
+    assertEquals(result.getEntitiesScanned(), 150);
     assertEquals(result.getTotalEstimate().longValue(), 150L); // min(count, limit)
     verify(consistencyService, times(2)).checkBatch(eq(opContext), any(), isNull());
   }

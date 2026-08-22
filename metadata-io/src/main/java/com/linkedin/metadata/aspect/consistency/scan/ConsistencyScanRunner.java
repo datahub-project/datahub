@@ -77,6 +77,16 @@ public class ConsistencyScanRunner {
         break;
       }
 
+      if (request.getLimit() > 0 && scanned >= request.getLimit()) {
+        break;
+      }
+
+      int batchSize = request.getBatchSize();
+      if (request.getLimit() > 0) {
+        long remaining = request.getLimit() - scanned;
+        batchSize = (int) Math.min(batchSize, remaining);
+      }
+
       CheckContext batchContext = request.getCheckContext();
       if (batchContext != null) {
         batchContext.clearOrphanUrns(request.getEntityType());
@@ -88,7 +98,7 @@ public class ConsistencyScanRunner {
               CheckBatchRequest.builder()
                   .entityType(request.getEntityType())
                   .checkIds(request.getCheckIds())
-                  .batchSize(request.getBatchSize())
+                  .batchSize(batchSize)
                   .scrollId(scrollId)
                   .filter(request.getFilter())
                   .build(),

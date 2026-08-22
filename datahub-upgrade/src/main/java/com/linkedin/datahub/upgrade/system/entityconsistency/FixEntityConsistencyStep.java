@@ -352,7 +352,8 @@ public class FixEntityConsistencyStep implements UpgradeStep {
             log.info(
                 "Scan interrupted during {}; preserving IN_PROGRESS checkpoints for resume",
                 entityType);
-            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.IN_PROGRESS);
+            return new DefaultUpgradeStepResult(
+                id(), DataHubUpgradeState.IN_PROGRESS, UpgradeStepResult.Action.ABORT);
           }
 
           totalEntitiesScanned += typeResults.scanned();
