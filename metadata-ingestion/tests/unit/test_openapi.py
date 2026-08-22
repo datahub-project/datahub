@@ -1,3 +1,4 @@
+import json
 import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
@@ -5,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.ingestion.source.openapi import APISource, OpenApiConfig
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
@@ -1444,6 +1446,540 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         # Should return partially resolved schema when depth limit is reached
         self.assertIsNotNone(resolved)
+
+    def test_resolve_schema_references_pattern_properties_anyof_ref(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "name": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "patternProperties": {
+                "^[a-z]+$": {
+                    "anyOf": [{"$ref": "#/components/schemas/Item"}],
+                }
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("additionalProperties", resolved)
+        self.assertIn("anyOf", resolved["additionalProperties"])
+        item = resolved["additionalProperties"]["anyOf"][0]
+        self.assertIn("id", item["properties"])
+        self.assertIn("name", item["properties"])
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="pattern-props", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".id" in path for path in field_paths))
+        self.assertTrue(any(".name" in path for path in field_paths))
+
+    def test_resolve_schema_references_pattern_properties_keeps_named_properties(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "properties": {"fixed": {"type": "string"}},
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertNotIn("additionalProperties", resolved)
+        self.assertIn("fixed", resolved["properties"])
+        self.assertIn("id", resolved["patternProperties"]["^[a-z]+$"]["properties"])
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="named-plus-pattern", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".fixed" in path for path in field_paths))
+
+    def test_resolve_schema_references_pattern_properties_after_allof(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    },
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+            "allOf": [
+                {
+                    "type": "object",
+                    "properties": {"fixed": {"type": "string"}},
+                }
+            ],
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("fixed", resolved["properties"])
+        self.assertNotIn("additionalProperties", resolved)
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="allof-pattern", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".fixed" in path for path in field_paths))
+
+    def test_resolve_schema_references_empty_properties_still_promotes(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "properties": {},
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("additionalProperties", resolved)
+        self.assertIn("id", resolved["additionalProperties"]["properties"])
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="empty-props", json_schema=resolved
+        )
+        self.assertTrue(any(".id" in f.fieldPath for f in metadata.fields))
+
+    def test_resolve_schema_references_pattern_properties_inside_allof(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Item": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+                    },
+                }
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("additionalProperties", resolved)
+        self.assertIn("id", resolved["additionalProperties"]["properties"])
+
+    def test_merge_allof_same_pattern_combines_under_allof(self):
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {
+                            "type": "object",
+                            "properties": {"a": {"type": "string"}},
+                        },
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {
+                            "type": "object",
+                            "properties": {"b": {"type": "string"}},
+                        },
+                    },
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^[a-z]+$"]
+        self.assertIn("a", pattern_schema["properties"])
+        self.assertIn("b", pattern_schema["properties"])
+
+    def test_merge_allof_property_names_combines_under_allof(self):
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "propertyNames": {"type": "string", "minLength": 1},
+            "allOf": [
+                {"propertyNames": {"type": "string", "maxLength": 10}},
+            ],
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertIn("allOf", resolved["propertyNames"])
+        parts = resolved["propertyNames"]["allOf"]
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(parts[0].get("minLength"), 1)
+        self.assertEqual(parts[1].get("maxLength"), 10)
+
+    def test_merge_allof_same_pattern_three_members_keeps_all_fields(self):
+        # 3+ members sharing a pattern must not nest, or earlier schemas get dropped.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"properties": {"a": {"type": "string"}}},
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"properties": {"b": {"type": "string"}}},
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-z]+$": {"properties": {"c": {"type": "string"}}},
+                    },
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^[a-z]+$"]
+        for field in ("a", "b", "c"):
+            self.assertIn(field, pattern_schema["properties"])
+
+    def test_merge_allof_property_names_three_members_flat(self):
+        # 3+ propertyNames contributors flatten into one allOf list, not nested.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "propertyNames": {"type": "string", "minLength": 1},
+            "allOf": [
+                {"propertyNames": {"type": "string", "maxLength": 10}},
+                {"propertyNames": {"type": "string", "pattern": "^x"}},
+            ],
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        parts = resolved["propertyNames"]["allOf"]
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(parts[0].get("minLength"), 1)
+        self.assertEqual(parts[1].get("maxLength"), 10)
+        self.assertEqual(parts[2].get("pattern"), "^x")
+
+    def test_property_names_allof_preserves_sibling_constraints(self):
+        # allOf alongside sibling keys (minLength) must keep the siblings on resolve.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "type": "object",
+            "propertyNames": {
+                "minLength": 2,
+                "allOf": [{"type": "string", "maxLength": 5}],
+            },
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertEqual(property_names.get("minLength"), 2)
+        self.assertEqual(property_names["allOf"][0].get("maxLength"), 5)
+
+    def test_merge_allof_three_pattern_members_with_ref_resolved(self):
+        # 3+ same-pattern members, one a $ref: after merge-then-resolve the flattened
+        # allOf members still get their refs resolved (no $ref left, all fields present).
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {"Ref": {"properties": {"c": {"type": "string"}}}}
+            },
+        }
+        schema = {
+            "allOf": [
+                {
+                    "patternProperties": {
+                        "^x": {"properties": {"a": {"type": "string"}}}
+                    }
+                },
+                {
+                    "patternProperties": {
+                        "^x": {"properties": {"b": {"type": "string"}}}
+                    }
+                },
+                {"patternProperties": {"^x": {"$ref": "#/components/schemas/Ref"}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertNotIn("$ref", json.dumps(pattern_schema))
+        for field in ("a", "b", "c"):
+            self.assertIn(field, pattern_schema["properties"])
+
+    def test_property_names_allof_sibling_ref_resolved(self):
+        # A sibling union ($ref inside anyOf) next to allOf must have its $ref resolved.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {
+                "anyOf": [{"$ref": "#/components/schemas/Key"}],
+                "allOf": [{"type": "string", "maxLength": 5}],
+            },
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertNotIn("$ref", json.dumps(property_names))
+        self.assertEqual(property_names["anyOf"][0].get("format"), "uuid")
+        self.assertEqual(property_names["allOf"][0].get("maxLength"), 5)
+
+    def test_merge_allof_same_pattern_preserves_value_constraints(self):
+        # Colliding same-pattern value schemas keep scalar constraints after the
+        # allOf collapse (merge_allof_schemas carries validation keywords through).
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"type": "string", "minLength": 3}}},
+                {"patternProperties": {"^x": {"type": "string", "maxLength": 8}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("minLength"), 3)
+        self.assertEqual(pattern_schema.get("maxLength"), 8)
+
+    def test_merge_allof_conflicting_bounds_keep_most_restrictive(self):
+        # Repeated same-keyword constraints across members collapse to the most
+        # restrictive: max of the lower bounds, min of the upper bounds.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"minLength": 2, "maxLength": 9}}},
+                {"patternProperties": {"^x": {"minLength": 5, "maxLength": 7}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("minLength"), 5)
+        self.assertEqual(pattern_schema.get("maxLength"), 7)
+
+    def test_merge_allof_boolean_exclusive_bounds(self):
+        # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
+        # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {
+                    "patternProperties": {
+                        "^x": {"maximum": 10, "exclusiveMaximum": True}
+                    }
+                },
+                {
+                    "patternProperties": {
+                        "^x": {"maximum": 10, "exclusiveMaximum": False}
+                    }
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("maximum"), 10)
+        self.assertIs(pattern_schema.get("exclusiveMaximum"), True)
+
+    def test_merge_allof_numeric_exclusive_bounds(self):
+        # JSON Schema draft-6+ exclusiveMinimum/Maximum are numeric bounds: keep the
+        # most restrictive (max of exclusiveMinimum, min of exclusiveMaximum).
+        sw_dict = {"openapi": "3.1.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"exclusiveMinimum": 2}}},
+                {"patternProperties": {"^x": {"exclusiveMinimum": 5}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
+
+    def test_pattern_properties_promoted_with_additional_properties_false(self):
+        # Idiomatic closed-map form: patternProperties + additionalProperties: false.
+        # Promotion must still run so json_schema_util can extract the map value type.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "type": "object",
+            "patternProperties": {"^x": {"type": "string"}},
+            "additionalProperties": False,
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved["additionalProperties"], {"type": "string"})
+
+    def test_pattern_properties_not_promoted_over_existing_value_schema(self):
+        # An explicit dict additionalProperties value schema is left untouched.
+        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        schema = {
+            "type": "object",
+            "patternProperties": {"^x": {"type": "string"}},
+            "additionalProperties": {"type": "integer"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved["additionalProperties"], {"type": "integer"})
+
+    def test_property_names_ref_with_siblings_no_allof(self):
+        # propertyNames with a $ref plus a sibling constraint but no allOf: the $ref is
+        # expanded and the sibling minLength is preserved (bare-$ref early return trap).
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {"$ref": "#/components/schemas/Key", "minLength": 3},
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertNotIn("$ref", json.dumps(property_names))
+        self.assertEqual(property_names.get("format"), "uuid")
+        self.assertEqual(property_names.get("minLength"), 3)
+
+    def test_merge_allof_mixed_exclusive_bounds_no_error(self):
+        # A numeric (draft-6+) exclusive bound in one member and a boolean (draft-4)
+        # flag in another must not raise and must keep the numeric bound, regardless
+        # of member order.
+        sw_dict = {"openapi": "3.1.0", "components": {"schemas": {}}}
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"exclusiveMinimum": 5}}},
+                {"patternProperties": {"^x": {"minimum": 5, "exclusiveMinimum": True}}},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
+
+    def test_property_names_allof_ref_with_sibling_constraints(self):
+        # $ref alongside sibling constraints next to allOf: the ref is expanded and the
+        # sibling constraint is kept (not dropped by the bare-$ref early return).
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {
+                "$ref": "#/components/schemas/Key",
+                "minLength": 3,
+                "allOf": [{"maxLength": 6}],
+            },
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertNotIn("$ref", json.dumps(property_names))
+        self.assertEqual(property_names.get("format"), "uuid")
+        self.assertEqual(property_names.get("minLength"), 3)
+        self.assertEqual(property_names["allOf"][0].get("maxLength"), 6)
+
+    def test_resolve_schema_references_property_names_ref(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "DateKey": {
+                        "type": "string",
+                        "format": "date",
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {"$ref": "#/components/schemas/DateKey"},
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertEqual(resolved["propertyNames"]["format"], "date")
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="property-names", json_schema=resolved
+        )
+        self.assertTrue(len(metadata.fields) > 0)
 
     def test_extract_response_schema_malformed_no_content_type(self):
         """Test handling of response with content but no application/json."""

@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
 
 import requests
 import yaml
@@ -611,7 +611,7 @@ def merge_allof_schemas(
             )
 
         # Merge other schema attributes (type, format, description, etc.)
-        # Only merge if not already present in merged_schema
+        # Only merge if not already present in merged_schema.
         for key in [
             "type",
             "format",
@@ -623,6 +623,10 @@ def merge_allof_schemas(
         ]:
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
+
+        # Merge JSON-Schema validation keywords with allOf semantics (most
+        # restrictive wins) so repeated contributors don't drop constraints.
+        _merge_allof_validation_keywords(merged_schema, resolved_allof)
 
         # Merge items (for arrays)
         if "items" in resolved_allof:
@@ -637,27 +641,7 @@ def merge_allof_schemas(
                     max_depth=max_depth,
                 )
 
-        # Merge additionalProperties
-        if "additionalProperties" in resolved_allof:
-            if "additionalProperties" not in merged_schema:
-                merged_schema["additionalProperties"] = resolved_allof[
-                    "additionalProperties"
-                ]
-            elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
-                resolved_allof["additionalProperties"], dict
-            ):
-                # Recursively merge nested additionalProperties
-                merged_schema["additionalProperties"] = merge_allof_schemas(
-                    {
-                        "allOf": [
-                            merged_schema["additionalProperties"],
-                            resolved_allof["additionalProperties"],
-                        ]
-                    },
-                    sw_dict,
-                    resolving_refs=True,
-                    max_depth=max_depth,
-                )
+        _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, max_depth)
 
     # Recursively handle any nested allOf in the merged result
     # But don't call resolve_schema_references again to avoid recursion
@@ -667,6 +651,139 @@ def merge_allof_schemas(
         )
 
     return merged_schema
+
+
+def _merge_allof_map_keywords(
+    merged_schema: Dict, resolved_allof: Dict, sw_dict: Dict, max_depth: int
+) -> None:
+    if "additionalProperties" in resolved_allof:
+        if "additionalProperties" not in merged_schema:
+            merged_schema["additionalProperties"] = resolved_allof[
+                "additionalProperties"
+            ]
+        elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
+            resolved_allof["additionalProperties"], dict
+        ):
+            merged_schema["additionalProperties"] = merge_allof_schemas(
+                {
+                    "allOf": [
+                        merged_schema["additionalProperties"],
+                        resolved_allof["additionalProperties"],
+                    ]
+                },
+                sw_dict,
+                resolving_refs=True,
+                max_depth=max_depth,
+            )
+
+    if "patternProperties" in resolved_allof:
+        if "patternProperties" not in merged_schema:
+            merged_schema["patternProperties"] = {}
+        for pattern, prop_schema in resolved_allof["patternProperties"].items():
+            existing = merged_schema["patternProperties"].get(pattern)
+            if existing is not None:
+                prop_schema = _combine_under_allof(existing, prop_schema)
+            merged_schema["patternProperties"][pattern] = prop_schema
+
+    if "propertyNames" in resolved_allof:
+        if "propertyNames" not in merged_schema:
+            merged_schema["propertyNames"] = resolved_allof["propertyNames"]
+        else:
+            merged_schema["propertyNames"] = _combine_under_allof(
+                merged_schema["propertyNames"], resolved_allof["propertyNames"]
+            )
+
+
+# Lower-bound keywords: the most restrictive value is the largest.
+_ALLOF_MIN_KEYWORDS = (
+    "minLength",
+    "minimum",
+    "minItems",
+    "minProperties",
+)
+# Upper-bound keywords: the most restrictive value is the smallest.
+_ALLOF_MAX_KEYWORDS = (
+    "maxLength",
+    "maximum",
+    "maxItems",
+    "maxProperties",
+)
+
+
+def _merge_allof_validation_keywords(merged_schema: Dict, resolved_allof: Dict) -> None:
+    for key in _ALLOF_MIN_KEYWORDS:
+        if key in resolved_allof:
+            merged_schema[key] = (
+                max(merged_schema[key], resolved_allof[key])
+                if key in merged_schema
+                else resolved_allof[key]
+            )
+    for key in _ALLOF_MAX_KEYWORDS:
+        if key in resolved_allof:
+            merged_schema[key] = (
+                min(merged_schema[key], resolved_allof[key])
+                if key in merged_schema
+                else resolved_allof[key]
+            )
+    # exclusiveMinimum/Maximum are booleans in OpenAPI 3.0 but numeric bounds in JSON
+    # Schema draft-6+, so they can't go through the numeric min()/max() merge above:
+    # that drops the stricter boolean flag and TypeErrors on mixed boolean/numeric values.
+    _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMinimum", max)
+    _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMaximum", min)
+    if "uniqueItems" in resolved_allof:
+        merged_schema["uniqueItems"] = (
+            merged_schema.get("uniqueItems", False) or resolved_allof["uniqueItems"]
+        )
+    # pattern and multipleOf can't collapse to a single value under allOf (a name must
+    # match every pattern / be a multiple of every value); keep the first as best-effort.
+    for key in ("pattern", "multipleOf"):
+        if key in resolved_allof and key not in merged_schema:
+            merged_schema[key] = resolved_allof[key]
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _merge_exclusive_bound(
+    merged_schema: Dict,
+    resolved_allof: Dict,
+    key: str,
+    numeric_more_restrictive: Callable[[Any, Any], Any],
+) -> None:
+    if key not in resolved_allof:
+        return
+    incoming = resolved_allof[key]
+    current = merged_schema.get(key)
+    if _is_number(incoming):
+        merged_schema[key] = (
+            numeric_more_restrictive(current, incoming)
+            if _is_number(current)
+            else incoming
+        )
+    elif isinstance(incoming, bool):
+        # A boolean flag must not clobber an already-merged numeric bound, so a
+        # mixed-version spec stays order-independent.
+        merged_schema[key] = (
+            current if _is_number(current) else bool(current) or incoming
+        )
+
+
+def _combine_under_allof(existing: Dict, addition: Dict) -> Dict:
+    # Flatten a pure allOf wrapper from an earlier merge before appending, so a 3rd+
+    # contributor is a sibling not a nested member — merge_allof_schemas(resolving_refs)
+    # does not expand nested member allOf and would drop the earlier schemas.
+    members: List[Dict] = []
+    for part in (existing, addition):
+        if (
+            isinstance(part, dict)
+            and set(part.keys()) == {"allOf"}
+            and isinstance(part["allOf"], list)
+        ):
+            members.extend(part["allOf"])
+        else:
+            members.append(part)
+    return {"allOf": members}
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
@@ -745,6 +862,21 @@ def enhance_schema_with_titles(
             enhanced_schema["additionalProperties"], sw_dict, "", is_top_level=False
         )
 
+    if "patternProperties" in enhanced_schema and isinstance(
+        enhanced_schema["patternProperties"], dict
+    ):
+        for pattern, prop_schema in list(enhanced_schema["patternProperties"].items()):
+            enhanced_schema["patternProperties"][pattern] = enhance_schema_with_titles(
+                prop_schema, sw_dict, "", is_top_level=False
+            )
+
+    if "propertyNames" in enhanced_schema and isinstance(
+        enhanced_schema["propertyNames"], dict
+    ):
+        enhanced_schema["propertyNames"] = enhance_schema_with_titles(
+            enhanced_schema["propertyNames"], sw_dict, "", is_top_level=False
+        )
+
     # Handle union types - don't add titles to union members
     for union_key in ["oneOf", "anyOf", "allOf"]:
         if union_key in enhanced_schema:
@@ -756,6 +888,82 @@ def enhance_schema_with_titles(
             ]
 
     return enhanced_schema
+
+
+def _resolve_siblings_preserving_ref_constraints(
+    siblings: Dict, sw_dict: Dict, max_depth: int
+) -> Dict:
+    # resolve_schema_references returns the ref target early on a bare $ref, which would
+    # drop sibling constraints (minLength, ...). Expand the $ref first, then merge the
+    # remaining siblings on top before resolving the rest.
+    if not siblings:
+        return {}
+    if "$ref" in siblings:
+        resolved_ref = resolve_schema_references(
+            {"$ref": siblings["$ref"]}, sw_dict, max_depth=max_depth - 1
+        )
+        merged = {**resolved_ref, **{k: v for k, v in siblings.items() if k != "$ref"}}
+        return resolve_schema_references(merged, sw_dict, max_depth=max_depth - 1)
+    return resolve_schema_references(siblings, sw_dict, max_depth=max_depth - 1)
+
+
+def _resolve_pattern_and_property_names(
+    resolved_schema: Dict, sw_dict: Dict, max_depth: int
+) -> None:
+    pattern_properties = resolved_schema.get("patternProperties")
+    if isinstance(pattern_properties, dict):
+        for pattern, prop_schema in list(pattern_properties.items()):
+            pattern_properties[pattern] = resolve_schema_references(
+                prop_schema, sw_dict, max_depth=max_depth - 1
+            )
+
+    property_names = resolved_schema.get("propertyNames")
+    if isinstance(property_names, dict):
+        # Resolve $refs / members without collapsing allOf — constraints like
+        # minLength/maxLength are not merged by merge_allof_schemas.
+        if "allOf" in property_names:
+            # Keep sibling keys (minLength, anyOf, $ref, ...) alongside allOf, but still
+            # resolve their $refs — resolve the siblings without their (uncollapsed)
+            # allOf, then re-attach the member-resolved allOf list.
+            siblings = {k: v for k, v in property_names.items() if k != "allOf"}
+            resolved_names = _resolve_siblings_preserving_ref_constraints(
+                siblings, sw_dict, max_depth
+            )
+            resolved_names["allOf"] = [
+                resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
+                for part in property_names["allOf"]
+            ]
+            resolved_schema["propertyNames"] = resolved_names
+        else:
+            # Same bare-$ref early-return trap as the allOf branch: a $ref alongside
+            # sibling constraints (minLength, ...) would drop the siblings.
+            resolved_schema["propertyNames"] = (
+                _resolve_siblings_preserving_ref_constraints(
+                    property_names, sw_dict, max_depth
+                )
+            )
+
+
+def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> None:
+    # json_schema_util treats dict additionalProperties as a map and skips
+    # named properties — only promote on map-only schemas, after allOf merge.
+    pattern_properties = resolved_schema.get("patternProperties")
+    if not isinstance(pattern_properties, dict):
+        return
+    # An existing dict value schema already lets json_schema_util extract the map. But
+    # the idiomatic closed-map form pairs patternProperties with additionalProperties:
+    # false, which must still be promoted or no map columns are extracted.
+    existing_additional = resolved_schema.get("additionalProperties")
+    if existing_additional is not None and existing_additional is not False:
+        return
+    # Empty properties: {} has no named fields to protect.
+    if resolved_schema.get("properties"):
+        return
+    pattern_schemas = list(pattern_properties.values())
+    if len(pattern_schemas) == 1:
+        resolved_schema["additionalProperties"] = pattern_schemas[0]
+    elif pattern_schemas:
+        resolved_schema["additionalProperties"] = {"anyOf": pattern_schemas}
 
 
 def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -848,6 +1056,9 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
+    # After allOf so keywords contributed by members are resolved too.
+    _resolve_pattern_and_property_names(resolved_schema, sw_dict, max_depth)
+
     # Handle union types (oneOf, anyOf) - allOf is already handled above
     for union_key in ["oneOf", "anyOf"]:
         if union_key in resolved_schema:
@@ -857,6 +1068,8 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 )
                 for union_schema in resolved_schema[union_key]
             ]
+
+    _promote_pattern_properties_to_additional(resolved_schema)
 
     return resolved_schema
 
