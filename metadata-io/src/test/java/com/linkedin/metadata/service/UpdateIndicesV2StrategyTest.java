@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -921,6 +922,85 @@ public class UpdateIndicesV2StrategyTest {
             eq(false),
             any(AuditStamp.class));
     verify(timeseriesAspectService, times(2))
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesDeleteBeforeUpsert_preservesUpsertOrder()
+      throws Exception {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV2Strategy dualWriteStrategy =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            null);
+
+    AspectSpec tsSpec = mock(AspectSpec.class);
+    when(tsSpec.getName()).thenReturn("datasetProfile");
+    when(tsSpec.isTimeseries()).thenReturn(true);
+    when(tsSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(tsSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+
+    DataMap prevData = new DataMap();
+    prevData.put("timestampMillis", 1_000_000_000L);
+    RecordTemplate prevAspect = mock(RecordTemplate.class);
+    when(prevAspect.data()).thenReturn(prevData);
+
+    DataMap upsertData = new DataMap();
+    upsertData.put("timestampMillis", 1_000_001_000L);
+    RecordTemplate upsertAspect = mock(RecordTemplate.class);
+    when(upsertAspect.data()).thenReturn(upsertData);
+
+    MCLItem deleteEvent =
+        makeEvent("datasetProfile", tsSpec, null, prevAspect, "run-1", ChangeType.DELETE);
+    MCLItem upsertEvent =
+        makeEvent("datasetProfile", tsSpec, upsertAspect, null, "run-1", ChangeType.UPSERT);
+
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(true);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.empty());
+
+    dualWriteStrategy.processBatch(
+        operationContext, groupedFor(List.of(deleteEvent, upsertEvent)), false);
+
+    org.mockito.InOrder inOrder = inOrder(timeseriesAspectService, sink);
+    inOrder
+        .verify(timeseriesAspectService)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+    inOrder
+        .verify(sink)
+        .deleteDocument(
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            any(),
+            anyBoolean());
+    inOrder
+        .verify(timeseriesAspectService)
+        .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+    inOrder
+        .verify(sink)
         .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
   }
 
