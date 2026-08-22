@@ -988,6 +988,12 @@ public class ESIndexBuilder {
     final long pollStartTimeMillis = documentCountsLastUpdated;
     final long pollStartDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
+    // Source count captured before the loop starts. The source receives writes during reindex so
+    // its live count grows; this snapshot is the stable baseline for the mismatch exit condition.
+    final long initialSourceDocCount = documentCounts.getFirst();
+    final boolean allowMismatch =
+        config.getBuildIndices().isAllowDocCountMismatch()
+            && config.getBuildIndices().isCloneIndices();
 
     while (System.currentTimeMillis() < timeoutAt) {
       log.info(
@@ -1064,6 +1070,36 @@ public class ESIndexBuilder {
             taskLookup);
       }
 
+      // The completion check above compares the destination against the CURRENT expected count. On
+      // the legacy path that count is the live source, which keeps taking writes while the reindex
+      // runs (synchronous pre-process index updates, MAE consumer), so it stays ahead of the
+      // destination and dest >= expected is never observed. Against a moving target the poll runs
+      // until timeout no matter how complete the copy is.
+      //
+      // When allowDocCountMismatch=true, completion is instead measured against the count the
+      // source held when polling began. That value is fixed before the loop starts, so it cannot
+      // drift out from under the comparison.
+      //
+      // Task state reuses allowsCountBasedCompletion, so this path inherits the same rules as the
+      // check above: a RUNNING task does not qualify (the destination may merely be passing through
+      // the snapshot count mid-copy), and neither does LOOKUP_ERROR, since a transient getTask
+      // failure is not evidence the copy finished. cloneIndices=true is required as well --
+      // documents written to the source after initialSourceDocCount was captured are not guaranteed
+      // to reach the destination, and the retained original index is the recovery path for them.
+      if (allowMismatch
+          && allowsSnapshotFloorCompletion(taskLookup)
+          && destCount >= initialSourceDocCount) {
+        log.info(
+            "Reindex complete (initial-count match): {} -> {} dest={} initialSource={} expected={} taskLookup={}",
+            sourceIndex,
+            destIndex,
+            destCount,
+            initialSourceDocCount,
+            expectedCount,
+            taskLookup);
+        return new PollReindexResult(true, latestReindexInfo, documentCounts);
+      }
+
       // A completed task whose destination is still short of the source dropped documents. Waiting
       // out the no-progress timer is pointless, so re-trigger immediately; the retry (bounded by
       // numRetries) lets a transient shortfall converge on a fresh attempt, and a persistent one
@@ -1131,6 +1167,22 @@ public class ESIndexBuilder {
     return lookup == ReindexTaskLookup.BLANK_TASK_ID
         || lookup == ReindexTaskLookup.COMPLETED
         || lookup == ReindexTaskLookup.NOT_FOUND;
+  }
+
+  /**
+   * Whether the {@code allowDocCountMismatch} exit may complete for this task-lookup outcome.
+   * Stricter than {@link #allowsCountBasedCompletion}: {@code BLANK_TASK_ID} is excluded.
+   *
+   * <p>That exit measures against the source count captured at poll start rather than the current
+   * expected count, so on a live source it clears a lower bar and needs firmer evidence that the
+   * copy finished. {@code NOT_FOUND} supplies it — a usable task id was resolved and ES reports no
+   * such task, so it ran and its record is gone. {@code BLANK_TASK_ID} supplies the opposite: no
+   * usable id was ever available, so nothing is known about the copy. On the legacy resume path a
+   * reindex is positively known to be in flight while the parent task id renders as unset, which
+   * lands here — completing then would swap an alias onto an index still being written.
+   */
+  static boolean allowsSnapshotFloorCompletion(@Nonnull final ReindexTaskLookup lookup) {
+    return lookup == ReindexTaskLookup.COMPLETED || lookup == ReindexTaskLookup.NOT_FOUND;
   }
 
   /**
