@@ -5,7 +5,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
@@ -83,6 +83,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
+    split_quoted_name_list,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -364,21 +365,38 @@ class SnowflakeV2Source(
             [row["CURRENT_SECONDARY_ROLES()"] for row in cur][0]
         )["roles"]
         secondary_roles = (
-            [] if secondary_roles_str == "" else secondary_roles_str.split(",")
+            []
+            if secondary_roles_str == ""
+            else split_quoted_name_list(secondary_roles_str)
         )
 
-        roles = [current_role] + secondary_roles
+        roles: List[str] = []
+        seen_roles: Set[str] = set()
 
+        def add_role(role_name: str, *, already_rendered: bool = False) -> None:
+            # Roles are tracked in their quoted form. current_role() reports names
+            # bare while `show grants` reports them quoted, so without normalizing
+            # the same role would be visited once under each spelling.
+            quoted = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role(
+                role_name, already_rendered=already_rendered
+            )
+            if quoted not in seen_roles:
+                seen_roles.add(quoted)
+                roles.append(quoted)
+
+        add_role(current_role)
+        for secondary_role in secondary_roles:
+            # The secondary role list preserves Snowflake's own quoting.
+            add_role(secondary_role, already_rendered=True)
         # PUBLIC role is automatically granted to every role
-        if "PUBLIC" not in roles:
-            roles.append("PUBLIC")
+        add_role("PUBLIC")
+
         i = 0
 
         while i < len(roles):
             role = roles[i]
             i = i + 1
-            # for some roles, quoting is necessary. for example test-role
-            cur = conn.query(f'show grants to role "{role}"')
+            cur = conn.query(f"show grants to role {role}")
             for row in cur:
                 privilege = SnowflakePrivilege(
                     privilege=row["privilege"],
@@ -438,12 +456,8 @@ class SnowflakeV2Source(
                     break
 
                 # Due to this, entire role hierarchy is considered
-                if (
-                    privilege.object_type == "ROLE"
-                    and privilege.privilege == "USAGE"
-                    and privilege.object_name not in roles
-                ):
-                    roles.append(privilege.object_name)
+                if privilege.object_type == "ROLE" and privilege.privilege == "USAGE":
+                    add_role(privilege.object_name, already_rendered=True)
 
         cur = conn.query("select current_warehouse()")
         current_warehouse = [row["CURRENT_WAREHOUSE()"] for row in cur][0]
