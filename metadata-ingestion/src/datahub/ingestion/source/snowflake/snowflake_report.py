@@ -111,6 +111,12 @@ class SnowflakeV2Report(
     semantic_views_scanned: int = 0
     stages_scanned: int = 0
     tasks_scanned: int = 0
+    # Task skipped entirely — no aspects emitted for it.
+    tasks_failed: int = 0
+    # Task fully ingested, but its SQL body failed to parse.
+    tasks_with_sql_parse_failures: int = 0
+    # Task fully ingested, body parsed, nothing lineage-bearing in it.
+    tasks_without_sql_lineage: int = 0
     pipes_scanned: int = 0
 
     include_usage_stats: bool = False
