@@ -7,10 +7,10 @@ import frFR from 'antd/lib/locale/fr_FR';
 import huHU from 'antd/lib/locale/hu_HU';
 import itIT from 'antd/lib/locale/it_IT';
 import jaJP from 'antd/lib/locale/ja_JP';
-import zhCN from 'antd/lib/locale/zh_CN';
 import nbNO from 'antd/lib/locale/nb_NO';
 import ptBR from 'antd/lib/locale/pt_BR';
 import svSE from 'antd/lib/locale/sv_SE';
+import zhCN from 'antd/lib/locale/zh_CN';
 
 import { LocaleConfig, SupportedLanguage } from '@app/i18n/types';
 
