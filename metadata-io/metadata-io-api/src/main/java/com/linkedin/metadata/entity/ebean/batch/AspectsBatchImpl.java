@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -43,6 +44,21 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Nonnull private final Collection<? extends BatchItem> items;
   @Nonnull private final Collection<? extends BatchItem> nonRepeatedItems;
   @Getter @Nonnull private final RetrieverContext retrieverContext;
+
+  /**
+   * MCPs that failed item construction during {@link AspectsBatchImplBuilder#mcps} and were
+   * soft-skipped so siblings could proceed. Empty when every input built successfully. On the
+   * consumer path, EntityService emits FMCP for each; API accept does not.
+   */
+  @Getter @Builder.Default @Nonnull
+  private final List<ConstructionFailure> constructionFailures = List.of();
+
+  /** One MCP that failed to become a {@link BatchItem} during construction (soft-skipped). */
+  @Value
+  public static class ConstructionFailure {
+    @Nonnull MetadataChangeProposal mcp;
+    @Nonnull Throwable cause;
+  }
 
   @Override
   @Nonnull
@@ -173,12 +189,11 @@ public class AspectsBatchImpl implements AspectsBatch {
   public static class AspectsBatchImplBuilder {
 
     /**
-     * Construction-time IllegalArgumentException failures deferred until {@link
-     * #build(OperationContext)}. API paths (requestContext present) fail hard; consumer/system
-     * paths soft-skip and proceed with valid items (see #11187 / #19086).
+     * Per-MCP construction failures recorded during {@link #mcps}. Soft-skip siblings when some
+     * items remain; throw when the batch would be empty (#19086). Cleared at the start of each
+     * {@code mcps(...)} call.
      */
-    private final List<Pair<MetadataChangeProposal, IllegalArgumentException>>
-        constructionFailures = new ArrayList<>();
+    private final List<ConstructionFailure> pendingConstructionFailures = new ArrayList<>();
 
     /**
      * Just one aspect record template
@@ -205,38 +220,48 @@ public class AspectsBatchImpl implements AspectsBatch {
         RetrieverContext retrieverContext,
         boolean alternateMCPValidation) {
 
+      pendingConstructionFailures.clear();
       retrieverContext(retrieverContext);
-      items(
-          mcps.stream()
-              .map(
-                  mcp -> {
-                    try {
-                      if (alternateMCPValidation) {
-                        return ProposedItem.builder()
-                            .build(
-                                mcp,
-                                auditStamp,
-                                retrieverContext.getAspectRetriever().getEntityRegistry());
-                      }
-                      if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                        return PatchItemImpl.builder()
-                            .build(
-                                mcp,
-                                auditStamp,
-                                retrieverContext.getAspectRetriever().getEntityRegistry());
-                      } else {
-                        return ChangeItemImpl.builder()
-                            .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
-                      }
-                    } catch (IllegalArgumentException e) {
-                      // Defer fail-hard vs soft-skip until build(opContext): API RequestContext →
-                      // ValidationException; consumer/system (null RequestContext) → skip (#11187).
-                      constructionFailures.add(Pair.of(mcp, e));
-                      return null;
-                    }
-                  })
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList()));
+      List<BatchItem> builtItems = new ArrayList<>();
+      for (MetadataChangeProposal mcp : mcps) {
+        try {
+          final BatchItem item;
+          if (alternateMCPValidation) {
+            item =
+                ProposedItem.builder()
+                    .build(
+                        mcp,
+                        auditStamp,
+                        retrieverContext.getAspectRetriever().getEntityRegistry());
+          } else if (ChangeType.PATCH.equals(mcp.getChangeType())) {
+            item =
+                PatchItemImpl.builder()
+                    .build(
+                        mcp,
+                        auditStamp,
+                        retrieverContext.getAspectRetriever().getEntityRegistry());
+          } else {
+            item =
+                ChangeItemImpl.builder()
+                    .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
+          }
+          builtItems.add(item);
+        } catch (RuntimeException e) {
+          // Normalize construction failures regardless of exception type (IAE vs
+          // ValidationException vs UnsupportedOperationException). Soft-skip this MCP
+          // and decide empty-batch fail vs proceed in build(opContext).
+          pendingConstructionFailures.add(new ConstructionFailure(mcp, e));
+          log.error(
+              "Invalid proposal during construction, skipping item: entityUrn={},"
+                  + " aspectName={}, changeType={}, reason={}",
+              mcp.hasEntityUrn() ? mcp.getEntityUrn() : null,
+              mcp.hasAspectName() ? mcp.getAspectName() : null,
+              mcp.hasChangeType() ? mcp.getChangeType() : null,
+              e.getMessage(),
+              e);
+        }
+      }
+      items(builtItems);
       return this;
     }
 
@@ -261,26 +286,24 @@ public class AspectsBatchImpl implements AspectsBatch {
         this.items = Collections.emptyList();
       }
 
-      if (!constructionFailures.isEmpty()) {
-        boolean failHard = operationContext != null && operationContext.getRequestContext() != null;
-        if (failHard) {
-          IllegalArgumentException firstCause = constructionFailures.get(0).getSecond();
-          String message =
-              constructionFailures.stream()
-                  .map(
-                      failure ->
-                          "Invalid MetadataChangeProposal: " + failure.getSecond().getMessage())
-                  .collect(Collectors.joining("; "));
-          throw new ValidationException(message, firstCause);
+      // Empty after construction failures: silent success was #19086. Fail regardless of API vs
+      // consumer — consumers FMCP via their outer catch / EntityService.
+      if (!pendingConstructionFailures.isEmpty() && this.items.isEmpty()) {
+        if (pendingConstructionFailures.size() == 1) {
+          Throwable cause = pendingConstructionFailures.get(0).getCause();
+          if (cause instanceof ValidationException) {
+            throw (ValidationException) cause;
+          }
+          throw new ValidationException(
+              "Invalid MetadataChangeProposal: " + cause.getMessage(), cause);
         }
-        for (Pair<MetadataChangeProposal, IllegalArgumentException> failure :
-            constructionFailures) {
-          log.error(
-              "Invalid proposal, skipping and proceeding with batch: {}",
-              failure.getFirst(),
-              failure.getSecond());
-        }
-        constructionFailures.clear();
+        Throwable firstCause = pendingConstructionFailures.get(0).getCause();
+        String message =
+            pendingConstructionFailures.stream()
+                .map(
+                    failure -> "Invalid MetadataChangeProposal: " + failure.getCause().getMessage())
+                .collect(Collectors.joining("; "));
+        throw new ValidationException(message, firstCause);
       }
 
       this.nonRepeatedItems = filterRepeats(this.items);
@@ -295,7 +318,11 @@ public class AspectsBatchImpl implements AspectsBatch {
         throw new ValidationException(exceptions);
       }
 
-      return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
+      return new AspectsBatchImpl(
+          this.items,
+          this.nonRepeatedItems,
+          this.retrieverContext,
+          List.copyOf(this.pendingConstructionFailures));
     }
 
     private AspectsBatchImpl build() {

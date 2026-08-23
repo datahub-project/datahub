@@ -226,13 +226,19 @@ public class MetadataChangeProposalsProcessorTest {
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
 
-    // Execute test — consumer path (no RequestContext) soft-skips construction failures (#11187).
+    // Execute test — all-invalid construction fails the batch; consumer outer catch FMCPs.
     processor.consume(mockConsumerRecord);
 
-    // Soft-skip: no FMCP, ingest proceeds with an empty/no-op batch.
-    verify(mockKafkaProducer, never()).produceFailedMetadataChangeProposal(any(), any(), any());
-    verify(mockEntityService, times(1))
+    ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
+    verify(mockKafkaProducer, times(1))
+        .produceFailedMetadataChangeProposal(
+            eq(opContext), eq(List.of(mcp)), exceptionCaptor.capture());
+    verify(mockEntityService, never())
         .ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false));
+
+    Throwable validationException = exceptionCaptor.getValue();
+    verify(mockSpan).recordException(validationException);
+    verify(mockSpan).setStatus(eq(StatusCode.ERROR), any());
   }
 
   @Test

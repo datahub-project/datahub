@@ -1752,6 +1752,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    // Construction soft-skips are recorded on AspectsBatchImpl. Emit FMCP only on consumer /
+    // system ingest (no HTTP RequestContext). API accept must not FMCP: mixed batches keep
+    // valids; all-invalid already threw at AspectsBatchImpl.build (#19086 / #11187).
+    final boolean isClientApiRequest = opContext.getRequestContext() != null;
+    if (!isClientApiRequest
+        && aspectsBatch instanceof AspectsBatchImpl
+        && !((AspectsBatchImpl) aspectsBatch).getConstructionFailures().isEmpty()) {
+      for (AspectsBatchImpl.ConstructionFailure skippedConstruction :
+          ((AspectsBatchImpl) aspectsBatch).getConstructionFailures()) {
+        producer.produceFailedMetadataChangeProposal(
+            opContext, List.of(skippedConstruction.getMcp()), skippedConstruction.getCause());
+      }
+    }
+
     // Apply MCP observers (pre-transaction metrics collection, external actions).
     // Only on sync path — async MCPs come back via MCE consumer with async=false.
     if (!async) {

@@ -340,11 +340,12 @@ public class AspectsBatchImplTest {
   }
 
   @Test
-  public void singleInvalidDoesntBreakBatchOnConsumerPath() {
-    // Null RequestContext (consumer/system): soft-skip invalid MCP, keep valids (#11187).
+  public void mixedBatchKeepsValidItemRegardlessOfRequestContext() {
+    // Soft-skip invalid MCP, keep the specific valid proposal (#11187). Same for API and consumer.
+    DatasetUrn validUrn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
     MetadataChangeProposal proposal1 =
         new DatasetPropertiesPatchBuilder()
-            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
+            .urn(validUrn)
             .setDescription("something")
             .setName("name")
             .addCustomProperty("prop1", "propVal1")
@@ -357,7 +358,7 @@ public class AspectsBatchImplTest {
             .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
             .setChangeType(ChangeType.UPSERT);
 
-    AspectsBatchImpl testBatch =
+    AspectsBatchImpl consumerBatch =
         AspectsBatchImpl.builder()
             .mcps(
                 ImmutableList.of(proposal1, proposal2),
@@ -366,43 +367,38 @@ public class AspectsBatchImplTest {
             .retrieverContext(retrieverContext)
             .build(null);
 
-    assertEquals(
-        testBatch
-            .toUpsertBatchItems(
-                OperationFingerprint.EMPTY,
-                new HashMap<>(),
-                new HashMap<>(),
-                (changeMCP, systemAspect) -> systemAspect)
-            .getSecond()
-            .size(),
-        1,
-        "Expected 1 valid mcp to be passed through.");
-  }
-
-  @Test
-  public void allInvalidConsumerYieldsEmptyBatch() {
-    MetadataChangeProposal invalidProposal =
-        new MetadataChangeProposal()
-            .setEntityType(DATASET_ENTITY_NAME)
-            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
-            .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
-            .setChangeType(ChangeType.UPSERT);
-
-    AspectsBatchImpl testBatch =
+    AspectsBatchImpl apiBatch =
         AspectsBatchImpl.builder()
             .mcps(
-                ImmutableList.of(invalidProposal),
+                ImmutableList.of(proposal1, proposal2),
                 AuditStampUtils.createDefaultAuditStamp(),
                 retrieverContext)
             .retrieverContext(retrieverContext)
-            .build(null);
+            .build(apiOperationContext());
 
-    assertTrue(testBatch.getItems().isEmpty());
+    for (AspectsBatchImpl testBatch : List.of(consumerBatch, apiBatch)) {
+      assertEquals(testBatch.getItems().size(), 1, "Expected only the valid mcp to remain");
+      assertEquals(
+          testBatch.getItems().iterator().next().getUrn(),
+          validUrn,
+          "Surviving item must be the valid proposal, not the invalid one");
+      assertEquals(testBatch.getConstructionFailures().size(), 1);
+      assertEquals(testBatch.getConstructionFailures().get(0).getMcp(), proposal2);
+      assertEquals(
+          testBatch
+              .toUpsertBatchItems(
+                  OperationFingerprint.EMPTY,
+                  new HashMap<>(),
+                  new HashMap<>(),
+                  (changeMCP, systemAspect) -> systemAspect)
+              .getSecond()
+              .size(),
+          1);
+    }
   }
 
-  @Test(expectedExceptions = ValidationException.class)
-  public void invalidProposalFailsBatchOnApiPath() {
-    // Missing entityUrn and entity key — API RequestContext must fail hard (#19086).
+  @Test
+  public void allInvalidThrowsRegardlessOfRequestContext() {
     MetadataChangeProposal invalidProposal =
         new MetadataChangeProposal()
             .setEntityType(DATASET_ENTITY_NAME)
@@ -410,17 +406,35 @@ public class AspectsBatchImplTest {
             .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
             .setChangeType(ChangeType.UPSERT);
 
-    AspectsBatchImpl.builder()
-        .mcps(
-            ImmutableList.of(invalidProposal),
-            AuditStampUtils.createDefaultAuditStamp(),
-            retrieverContext)
-        .retrieverContext(retrieverContext)
-        .build(apiOperationContext());
+    try {
+      AspectsBatchImpl.builder()
+          .mcps(
+              ImmutableList.of(invalidProposal),
+              AuditStampUtils.createDefaultAuditStamp(),
+              retrieverContext)
+          .retrieverContext(retrieverContext)
+          .build(null);
+      throw new AssertionError("Expected ValidationException on consumer path");
+    } catch (ValidationException expected) {
+      // expected
+    }
+
+    try {
+      AspectsBatchImpl.builder()
+          .mcps(
+              ImmutableList.of(invalidProposal),
+              AuditStampUtils.createDefaultAuditStamp(),
+              retrieverContext)
+          .retrieverContext(retrieverContext)
+          .build(apiOperationContext());
+      throw new AssertionError("Expected ValidationException on API path");
+    } catch (ValidationException expected) {
+      // expected
+    }
   }
 
-  @Test(expectedExceptions = ValidationException.class)
-  public void invalidUrnFailsBatchOnApiPath() {
+  @Test
+  public void invalidUrnThrowsWhenBatchWouldBeEmpty() {
     // URN with trailing whitespace always fails validation (independent of STRICT mode).
     MetadataChangeProposal invalidUrnProposal =
         new MetadataChangeProposal()
@@ -432,39 +446,18 @@ public class AspectsBatchImplTest {
             .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
             .setChangeType(ChangeType.UPSERT);
 
-    AspectsBatchImpl.builder()
-        .mcps(
-            ImmutableList.of(invalidUrnProposal),
-            AuditStampUtils.createDefaultAuditStamp(),
-            retrieverContext)
-        .retrieverContext(retrieverContext)
-        .build(apiOperationContext());
-  }
-
-  @Test(expectedExceptions = ValidationException.class)
-  public void oneInvalidProposalFailsEntireBatchOnApiPath() {
-    MetadataChangeProposal validProposal =
-        new DatasetPropertiesPatchBuilder()
-            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
-            .setDescription("something")
-            .setName("name")
-            .addCustomProperty("prop1", "propVal1")
-            .addCustomProperty("prop2", "propVal2")
-            .build();
-    MetadataChangeProposal invalidProposal =
-        new MetadataChangeProposal()
-            .setEntityType(DATASET_ENTITY_NAME)
-            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
-            .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
-            .setChangeType(ChangeType.UPSERT);
-
-    AspectsBatchImpl.builder()
-        .mcps(
-            ImmutableList.of(validProposal, invalidProposal),
-            AuditStampUtils.createDefaultAuditStamp(),
-            retrieverContext)
-        .retrieverContext(retrieverContext)
-        .build(apiOperationContext());
+    try {
+      AspectsBatchImpl.builder()
+          .mcps(
+              ImmutableList.of(invalidUrnProposal),
+              AuditStampUtils.createDefaultAuditStamp(),
+              retrieverContext)
+          .retrieverContext(retrieverContext)
+          .build(apiOperationContext());
+      throw new AssertionError("Expected ValidationException");
+    } catch (ValidationException ex) {
+      assertTrue(ex.getCause() instanceof IllegalArgumentException);
+    }
   }
 
   private static OperationContext apiOperationContext() {
