@@ -34,7 +34,7 @@ export function collectDataProductGroups(
             const group = setDefault(groups, urn, { urn, memberUrns: new Set<Urn>(), queryUrns: new Set<Urn>() });
             group.memberUrns.add(node.urn);
             if (!group.entity && urn !== rootUrn) {
-                group.entity = dataProductEntities.get(urn);
+                group.entity = allNodes.get(urn)?.entity ?? dataProductEntities.get(urn);
                 group.colorHex = colorOf(group.entity);
             }
         });

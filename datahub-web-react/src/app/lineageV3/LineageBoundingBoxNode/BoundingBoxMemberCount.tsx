@@ -54,8 +54,9 @@ interface Props {
 
 /**
  * Member counter shown on the right of a data product bounding box header. The home product shows
- * "x / y entities shown" with a "Show more" control that pages in more members; other products show
- * how many of their assets are connected to the home product, and are not paginated.
+ * how many of its members the box displays, with a "Show more" control that seeds another page of
+ * them; other products show how many of their assets are connected to the home product, and are not
+ * paginated.
  */
 export default function BoundingBoxMemberCount({ urn, memberCount }: Props) {
     const { t } = useTranslation('lineage');
@@ -67,9 +68,9 @@ export default function BoundingBoxMemberCount({ urn, memberCount }: Props) {
     if (urn === rootUrn) {
         const node = nodes.get(urn);
         const limit = node?.boundingBoxLimit ?? DATA_PRODUCT_MEMBER_PAGE_SIZE;
-        // "Shown" tracks pagination progress, not raw displayed nodes (which include sibling copies
-        // and so can exceed the product's entity count).
-        const shown = Math.min(limit, total);
+        // Runs ahead of `limit`: members past the seeded page are displayed when another member's
+        // lineage reaches them.
+        const shown = Math.min(memberCount, total);
         return (
             <StackedWrapper>
                 <span>{t('dataProduct.assetCount', { shown, total })}</span>

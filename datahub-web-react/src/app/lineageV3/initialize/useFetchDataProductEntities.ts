@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from 'react';
 import {
     DATA_PRODUCT_MEMBER_PAGE_SIZE,
     FetchStatus,
+    LINEAGE_FILTER_PAGINATION,
     LineageEntity,
     LineageNodesContext,
     setDefault,
@@ -82,8 +83,8 @@ function makeEntityNode({ urn, type }: Entity): LineageEntity {
             [LineageDirection.Downstream]: FetchStatus.COMPLETE,
         },
         filters: {
-            [LineageDirection.Upstream]: { limit: undefined, facetFilters: new Map() },
-            [LineageDirection.Downstream]: { limit: undefined, facetFilters: new Map() },
+            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
         },
     };
 }
