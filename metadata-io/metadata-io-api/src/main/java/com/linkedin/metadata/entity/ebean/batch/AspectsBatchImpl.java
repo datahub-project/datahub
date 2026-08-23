@@ -230,16 +230,12 @@ public class AspectsBatchImpl implements AspectsBatch {
             item =
                 ProposedItem.builder()
                     .build(
-                        mcp,
-                        auditStamp,
-                        retrieverContext.getAspectRetriever().getEntityRegistry());
+                        mcp, auditStamp, retrieverContext.getAspectRetriever().getEntityRegistry());
           } else if (ChangeType.PATCH.equals(mcp.getChangeType())) {
             item =
                 PatchItemImpl.builder()
                     .build(
-                        mcp,
-                        auditStamp,
-                        retrieverContext.getAspectRetriever().getEntityRegistry());
+                        mcp, auditStamp, retrieverContext.getAspectRetriever().getEntityRegistry());
           } else {
             item =
                 ChangeItemImpl.builder()
