@@ -42,7 +42,7 @@
     "fieldBusinessAttribute.sectionTitle": "业务属性",
     "fieldDescription.addDescription": "添加描述",
     "fieldDescription.addDescriptionTitle": "添加描述",
-    "fieldDescription.proposalFailed": "提案失败！\\n{{message}}",
+    "fieldDescription.proposalFailed": "提案失败！\n{{message}}",
     "fieldDescription.sectionTitle": "描述",
     "fieldDescription.updateDescriptionTitle": "更新描述",
     "fieldDetails.addNote": "+ 添加备注",

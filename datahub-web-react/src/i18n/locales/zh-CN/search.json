@@ -81,7 +81,7 @@
     "filters.incidents.hasActive": "有活跃事件",
     "filters.incidents.hasActiveLabel": "有活跃事件",
     "filters.incidents.title": "事件",
-    "filters.pluralizedTypeLabel": "{{type}}s",
+    "filters.pluralizedTypeLabel": "{{type}}",
     "filters.searchFor": "搜索 {{name}}",
     "filters.siblings.hasNoSiblingsLabel": "无关联实体",
     "filters.siblings.hasSiblings": "有关联实体",
@@ -168,5 +168,5 @@
     "filters.incidents.hasResolvedLabel": "有已解决的事件",
     "filters.moreCount_one": "更多 ({{count}})",
     "filters.moreCount_other": "更多 ({{count}})",
-    "filters.moreCount_zero": "更多 ({{count}})"
+    "filters.moreCount_zero": "更多"
 }
