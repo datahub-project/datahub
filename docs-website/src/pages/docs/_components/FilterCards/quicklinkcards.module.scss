@@ -27,17 +27,42 @@
 // Cards plus an optional sticky rail. `align-items: start` is load-bearing:
 // the default `stretch` would give the rail full column height and its
 // `position: sticky` would then have nothing to travel within.
+//
+// The rail comes first in the DOM (see index.jsx) so that it lands above the
+// cards once this grid collapses to a single column. Grid places items in
+// order-modified document order, so `order` puts the cards back in the left
+// column and the rail in the right one at wide widths. There are always
+// exactly two children here: the aside, then the card grid or the empty state.
 .withAside {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 17rem;
   gap: 1.5rem;
   align-items: start;
+
+  > :first-child {
+    order: 2;
+  }
+
+  > :last-child {
+    order: 1;
+  }
 }
 
-// Below this width the rail would squeeze the card grid past two across, so
-// it returns to normal flow underneath the cards.
+// Below this width the rail would squeeze the card grid past two across, so it
+// returns to normal flow - above the cards, per the DOM order, rather than
+// below every card. Dropping the `order` overrides is what restores that.
 @media (max-width: 1200px) {
   .withAside {
     grid-template-columns: minmax(0, 1fr);
+
+    > :first-child,
+    > :last-child {
+      order: 0;
+    }
   }
+}
+
+.noResults {
+  margin: 0.5rem;
+  color: var(--ifm-color-emphasis-700);
 }

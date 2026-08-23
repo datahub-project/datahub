@@ -14,9 +14,23 @@
 // Sticks below the fixed navbar so the legend stays on screen while the cards
 // scroll past it. Sticky only engages while the rail is shorter than its grid
 // column, which is why the card grid sets `align-items: start`.
+//
+// The offset has to clear BOTH bars. global.scss pins .navbar at
+// `top: var(--docusaurus-announcement-bar-height)` with `height:
+// var(--ifm-navbar-height)`, so the navbar occupies 45-105px of the viewport.
+// `position: sticky` resolves `top` against the scrollport, not the
+// padding-shifted body, so an offset of navbar-height alone pins the legend
+// 29px inside the navbar and hides its own heading. The announcement bar is
+// declared `isCloseable: false`, so it is always present.
+//
+// Note global.scss switches to a 65px bar under 768px without redefining the
+// variable; that does not matter here because the 1200px rule below drops
+// sticky positioning entirely well before that width is reached.
 .legend {
   position: sticky;
-  top: calc(var(--ifm-navbar-height) + 1rem);
+  top: calc(
+    var(--docusaurus-announcement-bar-height) + var(--ifm-navbar-height) + 1rem
+  );
   padding: 0.75rem 1rem;
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 8px;
