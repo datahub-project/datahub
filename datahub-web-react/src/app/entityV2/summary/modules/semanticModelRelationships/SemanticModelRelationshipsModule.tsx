@@ -8,6 +8,7 @@ import styled from 'styled-components';
 import { ColorOptions } from '@components/theme/config';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -26,7 +27,6 @@ import {
 type EntityDataWithRelationships = {
     platform?: DataPlatform | null;
     info?: {
-        datasets?: Dataset[] | null;
         relationships?: SemanticModelRelationship[] | null;
     } | null;
 };
@@ -164,6 +164,7 @@ function RelationshipEndpoint({ datasetName, columns, platform, source, align }:
 export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
+    const { datasets, loading } = useAllSemanticModelMemberDatasets();
 
     const typedData = entityData as EntityDataWithRelationships | null;
     const relationships = typedData?.info?.relationships ?? [];
@@ -171,15 +172,15 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
 
     const datasetsByName = useMemo(() => {
         const map = new Map<string, Dataset>();
-        (typedData?.info?.datasets ?? []).forEach((dataset) =>
-            map.set(dataset.semanticModelProperties?.alias || dataset.name, dataset),
-        );
+        datasets.forEach((dataset) => {
+            map.set(dataset.semanticModelProperties?.alias || dataset.name, dataset);
+        });
         return map;
-    }, [typedData?.info?.datasets]);
+    }, [datasets]);
 
     if (!relationships.length) {
         return (
-            <LargeModule {...props} dataTestId="semantic-model-relationships-module">
+            <LargeModule {...props} loading={loading} dataTestId="semantic-model-relationships-module">
                 <EmptyContent
                     icon={ArrowsLeftRight}
                     title={t('semanticModelRelationships.emptyTitle')}
@@ -190,7 +191,7 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="semantic-model-relationships-module">
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-relationships-module">
             {relationships.map((rel, idx) => {
                 const fromDataset = datasetsByName.get(rel.from);
                 const toDataset = datasetsByName.get(rel.to);

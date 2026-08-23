@@ -24,6 +24,8 @@ entities:
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - usageFeatures
+      - storageFeatures
       - operation
       - domains
       - applications
@@ -453,6 +455,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -514,6 +517,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlFeature
@@ -537,6 +541,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey
@@ -601,6 +606,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - incidentsSummary
       - deprecation
       - subTypes
       - logicalParent

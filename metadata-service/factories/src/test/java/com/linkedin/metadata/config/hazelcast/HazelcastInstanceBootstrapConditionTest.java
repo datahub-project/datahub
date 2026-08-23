@@ -4,16 +4,24 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
+import com.linkedin.metadata.config.ratelimit.RateLimitEffectiveConfig;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.ConditionContext;
-import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
+import org.springframework.mock.env.MockEnvironment;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class HazelcastInstanceBootstrapConditionTest {
 
   private final HazelcastInstanceBootstrapCondition condition =
       new HazelcastInstanceBootstrapCondition();
+
+  @AfterMethod
+  public void tearDown() {
+    RateLimitEffectiveConfig.reset();
+  }
 
   @Test
   public void testSearchCacheHazelcastEnablesInstance() {
@@ -39,6 +47,24 @@ public class HazelcastInstanceBootstrapConditionTest {
   @Test
   public void testNeitherEnabledSkipsInstance() {
     assertFalse(evaluate("caffeine", "false", "false", "false"));
+  }
+
+  @Test
+  public void testOverlayJsonEnablesInstanceWithoutSearchCache() {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(
+        RateLimitConfigLoader.RATE_LIMITS_CONFIG_JSON_ENV, "{\"scoped\":{\"enabled\":true}}");
+    assertTrue(matches(environment));
+  }
+
+  @Test
+  public void testMissingOverlayFileDoesNotFailBootstrapCondition() {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine");
+    environment.setProperty(
+        RateLimitConfigLoader.RATE_LIMITS_CONFIG_FILE_ENV,
+        "file:/tmp/datahub-missing-rate-limits-does-not-exist.yaml");
+    assertFalse(matches(environment));
   }
 
   @Test
@@ -69,16 +95,12 @@ public class HazelcastInstanceBootstrapConditionTest {
 
   private boolean evaluateWriteLock(
       String backend, String optimisticLockingEnabled, String entityServiceImpl) {
-    ConditionContext context = Mockito.mock(ConditionContext.class);
-    Environment environment = Mockito.mock(Environment.class);
-    when(context.getEnvironment()).thenReturn(environment);
-    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "none"))
-        .thenReturn(backend);
-    when(environment.getProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "false"))
-        .thenReturn(optimisticLockingEnabled);
-    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_SERVICE_IMPL, "ebean"))
-        .thenReturn(entityServiceImpl);
-    return condition.matches(context, Mockito.mock(AnnotatedTypeMetadata.class));
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, backend);
+    environment.setProperty(
+        HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, optimisticLockingEnabled);
+    environment.setProperty(HazelcastBootstrapProperties.ENTITY_SERVICE_IMPL, entityServiceImpl);
+    return matches(environment);
   }
 
   private boolean evaluate(
@@ -86,24 +108,20 @@ public class HazelcastInstanceBootstrapConditionTest {
       String endpointEnabled,
       String entityGraphCacheEnabled,
       String scopedEnabled) {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(
+        HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, cacheImplementation);
+    environment.setProperty(
+        HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, endpointEnabled);
+    environment.setProperty(HazelcastBootstrapProperties.RATE_LIMIT_SCOPED_ENABLED, scopedEnabled);
+    environment.setProperty(
+        HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, entityGraphCacheEnabled);
+    return matches(environment);
+  }
+
+  private boolean matches(MockEnvironment environment) {
     ConditionContext context = Mockito.mock(ConditionContext.class);
-    Environment environment = Mockito.mock(Environment.class);
     when(context.getEnvironment()).thenReturn(environment);
-    when(environment.getProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION))
-        .thenReturn(cacheImplementation);
-    when(environment.getProperty(
-            HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine"))
-        .thenReturn(cacheImplementation);
-    when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED))
-        .thenReturn(endpointEnabled);
-    when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "false"))
-        .thenReturn(endpointEnabled);
-    when(environment.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_SCOPED_ENABLED, "false"))
-        .thenReturn(scopedEnabled);
-    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED))
-        .thenReturn(entityGraphCacheEnabled);
-    when(environment.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))
-        .thenReturn(entityGraphCacheEnabled);
     return condition.matches(context, Mockito.mock(AnnotatedTypeMetadata.class));
   }
 }
