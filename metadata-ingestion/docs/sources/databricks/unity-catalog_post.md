@@ -101,6 +101,14 @@ connector emits a warning and falls back to lineage without query links in that 
 fields rather than from query history, so a metric view never carries a query URN, even
 when its YAML parses successfully.
 
+If no `~` nodes appear, the ingestion report tells you why: `num_lineage_statements_seen`
+is how many statements were read from `system.query.history`,
+`num_lineage_edges_query_linked` and `num_lineage_edges_query_unlinked` split the emitted
+lineage edges by whether a statement was found for them, and
+`num_lineage_statements_unresolved_tables` counts statements whose table names could not be
+matched to ingested tables. When nothing at all was linked the connector also raises a
+warning rather than reporting silent success.
+
 ##### Spark: SQL versus the DataFrame API
 
 For the Spark agent, whether any transformation text exists at all depends on how the step

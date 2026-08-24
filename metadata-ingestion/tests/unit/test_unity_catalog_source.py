@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Iterator
 from unittest.mock import ANY, patch
 
 import pytest
@@ -7,7 +8,14 @@ from databricks.sdk.service.catalog import TableType
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column, Query, Schema, Table
+from datahub.ingestion.source.unity.proxy_types import (
+    Column,
+    Query,
+    QueryStatementType,
+    Schema,
+    Table,
+    usage_statement_types,
+)
 from datahub.ingestion.source.unity.query_lineage import QueryLineageResolver
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
@@ -3289,6 +3297,8 @@ class TestUnityCatalogQueryLinkedLineage:
         linked = [u for u in aspect.upstreams if u.dataset == upstream_urn]
         assert len(linked) == 1
         assert linked[0].query == expected_query_urn
+        assert source.report.num_lineage_edges_query_linked == 1
+        assert source.report.num_lineage_edges_query_unlinked == 0
 
     def test_lineage_aspect_without_resolver_sets_no_query(self):
         """Cluster-executed lineage has no statement_id, so nothing is linked."""
@@ -3300,6 +3310,29 @@ class TestUnityCatalogQueryLinkedLineage:
 
         assert aspect is not None
         assert all(u.query is None for u in aspect.upstreams)
+        # With no resolver the feature is inert: neither counter moves, so the
+        # report cannot imply the feature ran.
+        assert source.report.num_lineage_edges_query_linked == 0
+        assert source.report.num_lineage_edges_query_unlinked == 0
+
+    def test_unmatched_edge_counts_as_unlinked(self):
+        """An edge the resolver cannot attribute is counted, not silently dropped.
+
+        This counter is how an operator distinguishes "my workload is
+        cluster-executed, so the feature cannot apply" from "the feature ran and
+        matched nothing".
+        """
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        resolver = QueryLineageResolver(resolve_urn=lambda _full_name: None)
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=resolver)
+
+        assert aspect is not None
+        assert all(u.query is None for u in aspect.upstreams)
+        assert source.report.num_lineage_edges_query_linked == 0
+        assert source.report.num_lineage_edges_query_unlinked == 1
 
     def test_fine_grained_lineage_carries_query_urn(self):
         """Column-level entries carry the same query URN as their table edge."""
@@ -3396,10 +3429,16 @@ class TestUnityCatalogQueryLinkedLineage:
             source_table_full_names=[upstream_ref.qualified_table_name],
             target_table_full_names=[table.ref.qualified_table_name],
         )
+        captured: dict = {}
+
+        def _stub_history(*args: object, **kwargs: object) -> Iterator[Query]:
+            captured.update(kwargs)
+            return iter([query])
+
         monkeypatch.setattr(
             source.unity_catalog_api_proxy,
             "get_query_history_via_system_tables",
-            lambda *args, **kwargs: iter([query]),
+            _stub_history,
         )
         monkeypatch.setattr(
             source.unity_catalog_api_proxy, "table_lineage", lambda *a, **k: None
@@ -3410,6 +3449,19 @@ class TestUnityCatalogQueryLinkedLineage:
 
         source.query_lineage_resolver = source._build_query_lineage_resolver()
         assert source.query_lineage_resolver is not None
+
+        # Assert the arguments actually passed, not just the outcome under a
+        # permissive stub. include_operational_stats narrows the *fetch*: when
+        # false, usage_statement_types() allows SELECT only, so every
+        # lineage-producing statement (INSERT/CTAS/MERGE/UPDATE/COPY) is excluded
+        # and the whole feature becomes a silent no-op.
+        assert captured["include_operational_stats"] is True
+        assert QueryStatementType.INSERT in usage_statement_types(
+            bool(captured["include_operational_stats"])
+        )
+        # This is a second fetch of the same window; its parse/row-read problems
+        # must not inflate the usage path's counters or duplicate its warnings.
+        assert captured["secondary_fetch"] is True
 
         entity_workunits = list(
             source._gen_query_entity_workunits(source.query_lineage_resolver)
