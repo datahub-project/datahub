@@ -505,17 +505,35 @@ class SqlQueriesSource(Source):
             )
             raise
 
-        try:
-            with file_stream_ctx as file_stream:
-                yield from self._parse_lines(file_stream)
-        except Exception as e:
-            self.report.failure(
-                title="S3 stream error",
-                message="Error reading S3 stream mid-transfer",
-                context=self.config.query_file,
-                exc=e,
+        with file_stream_ctx as file_stream:
+            yield from self._parse_lines(
+                self._guarded_stream(file_stream, "S3 stream error")
             )
-            raise
+
+    def _guarded_stream(
+        self, stream: Iterable[str], failure_title: str
+    ) -> Iterable[str]:
+        """Yield lines, reporting read errors that occur mid-transfer.
+
+        Only stream advancement sits inside the try. Wrapping the yield instead
+        would capture exceptions raised by whatever consumes these lines, which
+        belong to the consumer, not to reading the file.
+        """
+        iterator = iter(stream)
+        while True:
+            try:
+                line = next(iterator)
+            except StopIteration:
+                return
+            except Exception as e:
+                self.report.failure(
+                    title=failure_title,
+                    message="Error reading query file mid-transfer",
+                    context=self.config.query_file,
+                    exc=e,
+                )
+                raise
+            yield line
 
     def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
         """Parse local query file."""
@@ -531,7 +549,11 @@ class SqlQueriesSource(Source):
             raise
 
         with f:
-            yield from self._parse_lines(f)
+            # Guarded too: a truncated read or undecodable bytes surface partway
+            # through iteration, well after open() has succeeded.
+            yield from self._parse_lines(
+                self._guarded_stream(f, "Local file read error")
+            )
 
     def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
         """Parse lines from a file stream, yielding QueryEntry objects."""

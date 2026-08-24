@@ -418,7 +418,7 @@ class TestIntegrationScenarios:
     """Test integration scenarios combining multiple features."""
 
     def test_s3_with_aws_config(self):
-        """Test S3 processing with lazy loading enabled."""
+        """An s3:// query_file is accepted when aws_config is supplied."""
         # Create a proper AWS config dict
         aws_config_dict = {
             "aws_access_key_id": "test_key",

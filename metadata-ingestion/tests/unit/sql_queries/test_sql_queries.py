@@ -8,7 +8,9 @@ import pytest
 from requests.exceptions import HTTPError
 
 from datahub.configuration.common import ConfigurationWarning, GraphError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
     MIN_SAMPLE_FOR_FAILURE_RATIO,
@@ -592,7 +594,18 @@ class TestSqlQueriesSource:
         )
         source = SqlQueriesSource(pipeline_context, config)
         work_units = list(source.get_workunits_internal())
-        assert len(work_units) >= 0
+
+        # The fixture holds valid lineage queries, so dropped output must fail.
+        assert work_units
+        assert all(isinstance(wu, MetadataWorkUnit) for wu in work_units)
+        aspects = {
+            wu.metadata.aspectName
+            for wu in work_units
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.aspectName
+        }
+        assert "queryProperties" in aspects
+        assert "querySubjects" in aspects
 
     @pytest.mark.parametrize("incremental_lineage", [None, True, False])
     def test_workunit_processors_with_incremental_lineage(
