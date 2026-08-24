@@ -4,10 +4,15 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetLineageType;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.FineGrainedLineageDownstreamType;
+import com.linkedin.dataset.FineGrainedLineageUpstreamType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
@@ -20,8 +25,10 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -233,6 +240,62 @@ public class GraphIndexUtilsTest {
     Edge edge = edges.get(0);
     // Since via path is null, edge via should be null
     assertNull(edge.getVia());
+  }
+
+  @Test
+  public void testFineGrainedLineageOnDataJobPrefersQueryAsVia() {
+    // A datajob-hosted fine-grained lineage that names a query must attribute the
+    // edge to that query, not to the datajob: the query is the transformation.
+    Urn dataJobUrn =
+        UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,test_flow,PROD),test_task)");
+    Urn queryUrn = UrnUtils.getUrn("urn:li:query:test-query-id");
+
+    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
+    fineGrainedLineage.setUpstreams(new UrnArray(Collections.singletonList(upstreamUrn)));
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setDownstreams(new UrnArray(Collections.singletonList(datasetUrn)));
+    fineGrainedLineage.setQuery(queryUrn);
+
+    List<Edge> edgesToAdd = new ArrayList<>();
+    GraphIndexUtils.updateFineGrainedEdgesAndRelationships(
+        dataJobUrn,
+        new FineGrainedLineageArray(Collections.singletonList(fineGrainedLineage)),
+        edgesToAdd,
+        new HashMap<>(),
+        Collections.emptyList(),
+        null);
+
+    assertEquals(edgesToAdd.size(), 1);
+    Edge edge = edgesToAdd.get(0);
+    assertEquals(edge.getVia(), queryUrn);
+  }
+
+  @Test
+  public void testFineGrainedLineageOnDataJobWithoutQueryStillUsesDataJobAsVia() {
+    // With no query present, the datajob remains the via entity — this is what
+    // makes the Logic panel work for Spark today.
+    Urn dataJobUrn =
+        UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,test_flow,PROD),test_task)");
+
+    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
+    fineGrainedLineage.setUpstreams(new UrnArray(Collections.singletonList(upstreamUrn)));
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setDownstreams(new UrnArray(Collections.singletonList(datasetUrn)));
+
+    List<Edge> edgesToAdd = new ArrayList<>();
+    GraphIndexUtils.updateFineGrainedEdgesAndRelationships(
+        dataJobUrn,
+        new FineGrainedLineageArray(Collections.singletonList(fineGrainedLineage)),
+        edgesToAdd,
+        new HashMap<>(),
+        Collections.emptyList(),
+        null);
+
+    assertEquals(edgesToAdd.size(), 1);
+    Edge edge = edgesToAdd.get(0);
+    assertEquals(edge.getVia(), dataJobUrn);
   }
 
   @Test
