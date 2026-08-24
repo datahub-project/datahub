@@ -61,5 +61,9 @@ public class PgTimeseriesSqlMigrationSqlTest {
 
     assertFalse(substituted.contains("__PARTMAN_PARENT_QUALIFIED__"));
     assertTrue(substituted.contains("create_parent"));
+    assertTrue(
+        substituted.contains(
+            "RAISE EXCEPTION 'pg_partman is required for pgTimeseries partition registration'"));
+    assertFalse(substituted.contains("RAISE NOTICE"));
   }
 }

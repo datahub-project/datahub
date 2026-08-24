@@ -65,18 +65,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       if (b.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
         ZoneId z = zoneForBucket(b);
         String millisExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
-        String trunc = postgresDateTrunc(b.getTimeWindowSize());
-        groupSql.add(
-            "date_trunc('"
-                + trunc
-                + "', to_timestamp(("
-                + millisExpr
-                + ")::double precision / 1000.0) AT TIME ZONE '"
-                + z.getId().replace("'", "''")
-                + "') AT TIME ZONE '"
-                + z.getId().replace("'", "''")
-                + "' AS "
-                + alias);
+        groupSql.add(postgresDateBucketSql(b.getTimeWindowSize(), millisExpr, z) + " AS " + alias);
       } else if (b.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
         String pathExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
         // ES terms buckets omit missing values; parent (non-exploded) rows lack collection fields
@@ -606,6 +595,110 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       }
     }
     return zoneId;
+  }
+
+  /**
+   * SQL expression that buckets a millisecond epoch field into the same calendar windows as {@link
+   * com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO}, including {@code
+   * TimeWindowSize.multiple}.
+   *
+   * <p>When {@code multiple > 1}, {@code date_trunc} alone would emit every unit boundary; gap-fill
+   * then advances by {@code multiple} and can omit real rows. Align the truncated timestamp down to
+   * a multiple of the unit so SQL grouping and {@link #fillEmptyDateBuckets} share the same keys.
+   */
+  @Nonnull
+  static String postgresDateBucketSql(
+      @Nonnull TimeWindowSize tws, @Nonnull String millisExpr, @Nonnull ZoneId zone) {
+    String zoneEsc = zone.getId().replace("'", "''");
+    String trunc = postgresDateTrunc(tws);
+    String localTs =
+        "to_timestamp(("
+            + millisExpr
+            + ")::double precision / 1000.0) AT TIME ZONE '"
+            + zoneEsc
+            + "'";
+    String truncated = "date_trunc('" + trunc + "', " + localTs + ")";
+    int multiple = tws.hasMultiple() ? tws.getMultiple() : 1;
+    if (multiple < 1) {
+      multiple = 1;
+    }
+    String bucketLocal =
+        multiple == 1 ? truncated : alignDateTruncToMultiple(truncated, tws.getUnit(), multiple);
+    // Second AT TIME ZONE converts the local wall-clock bucket start back to timestamptz.
+    return bucketLocal + " AT TIME ZONE '" + zoneEsc + "'";
+  }
+
+  /**
+   * Floors a {@code date_trunc}'d timestamp (without time zone) to a multiple of the calendar unit.
+   */
+  @Nonnull
+  static String alignDateTruncToMultiple(
+      @Nonnull String truncatedSql, @Nonnull CalendarInterval unit, int multiple) {
+    switch (unit) {
+      case SECOND:
+        return truncatedSql
+            + " - ((EXTRACT(EPOCH FROM "
+            + truncatedSql
+            + ")::bigint % "
+            + multiple
+            + ") * INTERVAL '1 second')";
+      case MINUTE:
+        return truncatedSql
+            + " - (((EXTRACT(EPOCH FROM "
+            + truncatedSql
+            + ")::bigint / 60) % "
+            + multiple
+            + ") * INTERVAL '1 minute')";
+      case HOUR:
+        return truncatedSql
+            + " - (((EXTRACT(EPOCH FROM "
+            + truncatedSql
+            + ")::bigint / 3600) % "
+            + multiple
+            + ") * INTERVAL '1 hour')";
+      case DAY:
+        return truncatedSql
+            + " - (((EXTRACT(EPOCH FROM "
+            + truncatedSql
+            + ")::bigint / 86400) % "
+            + multiple
+            + ") * INTERVAL '1 day')";
+      case WEEK:
+        return truncatedSql
+            + " - (((EXTRACT(EPOCH FROM "
+            + truncatedSql
+            + ")::bigint / 604800) % "
+            + multiple
+            + ") * INTERVAL '1 week')";
+      case MONTH:
+        return truncatedSql
+            + " - make_interval(months => ((EXTRACT(YEAR FROM "
+            + truncatedSql
+            + ")::int * 12 + EXTRACT(MONTH FROM "
+            + truncatedSql
+            + ")::int - 1) % "
+            + multiple
+            + "))";
+      case QUARTER:
+        return truncatedSql
+            + " - make_interval(months => (((EXTRACT(YEAR FROM "
+            + truncatedSql
+            + ")::int * 4 + EXTRACT(QUARTER FROM "
+            + truncatedSql
+            + ")::int - 1) % "
+            + multiple
+            + ") * 3))";
+      case YEAR:
+        return truncatedSql
+            + " - make_interval(years => (EXTRACT(YEAR FROM "
+            + truncatedSql
+            + ")::int % "
+            + multiple
+            + "))";
+      default:
+        throw new IllegalArgumentException(
+            "Unknown date grouping bucket time window size unit: " + unit);
+    }
   }
 
   /** Maps {@link TimeWindowSize} unit to a PostgreSQL {@code date_trunc} field. */

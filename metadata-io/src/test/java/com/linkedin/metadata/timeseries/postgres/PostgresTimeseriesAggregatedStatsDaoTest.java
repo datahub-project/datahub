@@ -198,6 +198,60 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
         Integer.valueOf(PostgresTimeseriesAggregatedStatsDao.MAX_TERM_BUCKETS));
   }
 
+  @Test
+  public void fillEmptyDateBuckets_dayMultiple2_preservesAlignedBuckets() {
+    GroupingBucket[] buckets =
+        new GroupingBucket[] {
+          new GroupingBucket()
+              .setKey("@timestamp")
+              .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+              .setTimeWindowSize(new TimeWindowSize().setMultiple(2).setUnit(CalendarInterval.DAY))
+        };
+    // Aligned 2-day bucket keys (as SQL with multiple=2 would emit)
+    List<StringArray> rows =
+        List.of(row("1622073600000", "4"), row("1622246400000", "1")); // May 27, May 29
+
+    List<StringArray> filled =
+        PostgresTimeseriesAggregatedStatsDao.fillEmptyDateBuckets(rows, buckets, 1);
+
+    assertEquals(
+        filled.stream().map(r -> r.get(0)).collect(Collectors.toList()),
+        List.of("1622073600000", "1622246400000"));
+    assertEquals(filled.get(0).get(1), "4");
+    assertEquals(filled.get(1).get(1), "1");
+  }
+
+  @Test
+  public void postgresDateBucketSql_multiple1_usesDateTruncOnly() {
+    String sql =
+        PostgresTimeseriesAggregatedStatsDao.postgresDateBucketSql(
+            window(CalendarInterval.DAY), "document->>'@timestamp'", java.time.ZoneId.of("GMT"));
+    assertTrue(sql.contains("date_trunc('day'"));
+    assertFalse(sql.contains("% 2"));
+    assertFalse(sql.contains("INTERVAL '1 day'"));
+  }
+
+  @Test
+  public void postgresDateBucketSql_multiple2_alignsDayBuckets() {
+    String sql =
+        PostgresTimeseriesAggregatedStatsDao.postgresDateBucketSql(
+            new TimeWindowSize().setMultiple(2).setUnit(CalendarInterval.DAY),
+            "document->>'@timestamp'",
+            java.time.ZoneId.of("GMT"));
+    assertTrue(sql.contains("date_trunc('day'"));
+    assertTrue(sql.contains("/ 86400) % 2"));
+    assertTrue(sql.contains("INTERVAL '1 day'"));
+  }
+
+  @Test
+  public void alignDateTruncToMultiple_month() {
+    String aligned =
+        PostgresTimeseriesAggregatedStatsDao.alignDateTruncToMultiple(
+            "date_trunc('month', ts)", CalendarInterval.MONTH, 3);
+    assertTrue(aligned.contains("make_interval(months =>"));
+    assertTrue(aligned.contains("% 3"));
+  }
+
   private static TimeWindowSize window(CalendarInterval unit) {
     return new TimeWindowSize().setMultiple(1).setUnit(unit);
   }
