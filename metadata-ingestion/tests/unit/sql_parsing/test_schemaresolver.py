@@ -684,3 +684,50 @@ class TestNormalizedUrnResolution:
         assert resolved_urn == resolver.get_urn_for_table(
             _TableName(database="proj", db_schema="ds", table="MYTABLE")
         )
+
+    def test_in_process_index_needs_no_bootstrap_scan(self) -> None:
+        # No restored cache: the incremental index (via _save_to_cache) is authoritative,
+        # so a normalized lookup must never walk the full FileBackedDict.
+        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
+        assert resolver._normalized_bootstrapped is True
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="t")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+
+        def _fail_scan() -> None:
+            raise AssertionError("normalized index should not scan the cache")
+
+        resolver._schema_cache.items = _fail_scan  # type: ignore[assignment,method-assign]
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="t")
+        )
+
+        assert schema is not None
+        assert resolved_urn == mixed_urn
+
+    def test_bootstrap_scan_indexes_unindexed_cache_entries(self) -> None:
+        # Simulate a cache restored from a prior run: rows exist in _schema_cache but the
+        # in-memory normalized index is empty and not yet bootstrapped. The first
+        # normalized lookup must scan the cache once to pick them up.
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform="teradata", env="PROD", graph=None, report=report
+        )
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="native")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+        resolver._normalized_to_urns.clear()
+        resolver._normalized_bootstrapped = False
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="native")
+        )
+
+        assert schema is not None
+        assert schema["col_a"] == "VARCHAR"
+        assert resolved_urn == mixed_urn
+        assert resolver._normalized_bootstrapped is True
+        assert report.num_normalized_urn_hits == 1

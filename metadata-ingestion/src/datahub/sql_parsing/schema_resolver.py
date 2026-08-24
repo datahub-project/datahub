@@ -98,10 +98,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
-        # Lowercased dataset-name key -> registered URN(s). Populated incrementally on
-        # schema registration and lazily bootstrapped on first normalized lookup.
+        # Lowercased dataset-name key -> registered URN(s). Every in-process write goes
+        # through _save_to_cache, which indexes incrementally, so the index stays complete
+        # on its own. The one exception is a cache restored from a persisted _cache_filename:
+        # those rows never passed through _save_to_cache, so they need a one-time bootstrap
+        # scan on the first normalized lookup. When there is no restored cache we mark the
+        # index bootstrapped up front to avoid ever walking the full FileBackedDict (a
+        # needless SQLite flush + deserialize on large bulk-loaded catalogs).
         self._normalized_to_urns: Dict[str, Set[str]] = {}
-        self._normalized_bootstrapped = False
+        self._normalized_bootstrapped = _cache_filename is None
 
     @property
     def platform(self) -> str:
