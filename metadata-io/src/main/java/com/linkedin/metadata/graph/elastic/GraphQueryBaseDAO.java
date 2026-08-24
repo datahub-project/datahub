@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -1617,6 +1618,43 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * (see {@code elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds}) is a bounded join on
    * those stages, not a reliable wait for in-flight HTTP to finish.
    */
+  /**
+   * A hop's relationship budget shared across its parallel slices. Each slice draws from this
+   * single counter instead of independently self-capping to the full remaining {@code
+   * maxRelations}; that per-slice independence made the per-hop transient peak {@code slices *
+   * maxRelations} relationships in memory, which could exhaust the GMS heap. {@code null} means
+   * unlimited ({@code maxRelations <= 0}), which never caps.
+   */
+  @Nullable
+  static AtomicInteger newSharedRelationshipBudget(int maxRelations) {
+    return maxRelations > 0 ? new AtomicInteger(maxRelations) : null;
+  }
+
+  /**
+   * The next page size for a slice: the smaller of the configured page size and the budget still
+   * shared across the hop's slices, so a fetch near the limit does not pull a full page past it.
+   * Returns {@code defaultPageSize} unchanged when the budget is unlimited ({@code null}).
+   */
+  static int nextSharedPageSize(@Nullable AtomicInteger sharedRemaining, int defaultPageSize) {
+    if (sharedRemaining == null) {
+      return defaultPageSize;
+    }
+    return Math.min(defaultPageSize, Math.max(1, sharedRemaining.get()));
+  }
+
+  /**
+   * Deduct the relationships a slice just added from the shared budget and report whether the
+   * budget is now exhausted (so the slice must stop). A {@code null} budget (unlimited) never
+   * exhausts.
+   */
+  static boolean deductSharedBudgetAndCheckExhausted(
+      @Nullable AtomicInteger sharedRemaining, int added) {
+    if (sharedRemaining == null) {
+      return false;
+    }
+    return sharedRemaining.addAndGet(-Math.max(0, added)) <= 0;
+  }
+
   protected void cancelAndDrainSliceFutures(
       List<CompletableFuture<List<LineageRelationship>>> sliceFutures) {
     if (sliceFutures.isEmpty()) {

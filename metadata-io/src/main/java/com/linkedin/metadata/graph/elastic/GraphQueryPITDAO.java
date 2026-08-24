@@ -23,7 +23,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -134,6 +136,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                   .getIndexName(opContext, INDEX_NAME));
       final String tempPitId = pitId;
 
+      // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
+      final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
+
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
 
@@ -150,6 +155,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       remainingHops,
                       existingPaths,
                       maxRelations,
+                      sharedRemaining,
                       defaultPageSize,
                       currentSliceId,
                       slices,
@@ -191,6 +197,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int remainingHops,
       ThreadSafePathStore existingPaths,
       int maxRelations, // This is the REMAINING capacity, not the original total limit
+      @Nullable AtomicInteger sharedRemaining, // budget shared across this hop's slices; null=∞
       int defaultPageSize,
       int sliceId,
       int totalSlices,
@@ -205,8 +212,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
-      // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
-      while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
+      // If maxRelations is -1 or 0, treat as unlimited (only bound by time). Otherwise stop when
+      // the
+      // budget shared across all slices of this hop is exhausted, not when this one slice alone
+      // reaches maxRelations (that per-slice cap made the peak slices * maxRelations).
+      while (maxRelations <= 0 || sharedRemaining.get() > 0) {
         // Check for thread interruption (from future.cancel(true))
         if (Thread.currentThread().isInterrupted()) {
           log.warn("Slice {} was interrupted, cleaning up PIT and stopping", sliceId);
@@ -223,7 +233,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
-        searchSourceBuilder.size(defaultPageSize);
+        searchSourceBuilder.size(nextSharedPageSize(sharedRemaining, defaultPageSize));
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -276,11 +286,11 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
         sliceRelationships.addAll(pageRelationships);
 
-        // Safety check to prevent exceeding the limit (skip if unlimited, i.e., -1 or 0)
-        if (maxRelations > 0 && sliceRelationships.size() >= maxRelations) {
+        // Deduct from the hop's shared budget and stop when it (not this slice alone) is exhausted.
+        if (deductSharedBudgetAndCheckExhausted(sharedRemaining, pageRelationships.size())) {
           if (allowPartialResults) {
             log.warn(
-                "Slice {} reached maxRelations limit, stopping PIT search. Results will be marked as partial.",
+                "Shared maxRelations budget exhausted during slice {}, stopping PIT search. Results will be marked as partial.",
                 sliceId);
             break;
           } else {

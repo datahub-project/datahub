@@ -997,7 +997,11 @@ public class LineageSearchService {
               : null;
       EntityLineageResult lineageResult;
       if (cachedLineageResult == null) {
-        maxHops = maxHops != null ? maxHops : 1000;
+        // Clamp hops the same way searchAcrossLineage does (see applyMaxHopsLimit). The scroll path
+        // previously defaulted to 1000 without clamping, so a caller-supplied maxHops could drive
+        // an
+        // unbounded deep traversal.
+        maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
         if (enableCache(opContext.getSearchContext().getSearchFlags())) {
           cache.put(
