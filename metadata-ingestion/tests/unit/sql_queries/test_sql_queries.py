@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
-from requests.exceptions import HTTPError
 
 from datahub.configuration.common import ConfigurationWarning, GraphError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -764,87 +763,6 @@ class TestErrorHandling:
         # Aborting must emit nothing: with incremental_lineage off, partial
         # output would overwrite good lineage with worse.
         assert work_units == []
-
-    def test_schema_resolver_auth_failure_detected(
-        self, pipeline_context, query_file_with
-    ):
-        """Expired token causes schema resolver graph fetch errors, detected post-loop.
-
-        Simulates the real production path: graph.get_entities raises HTTPError,
-        schema_resolver catches it, caches URNs as None, and increments
-        num_graph_fetch_errors. Queries parse "successfully" but without schemas.
-        """
-        path = query_file_with([_query_line(i) for i in range(5)])
-        source = _make_source(pipeline_context, path)
-
-        pipeline_context.graph.get_entities = Mock(
-            side_effect=HTTPError("401 Unauthorized")
-        )
-
-        list(source.get_workunits_internal())
-
-        assert source.report.schema_resolver_report.num_graph_fetch_errors > 0
-        assert any(
-            f.title == "Schema resolution failed" for f in source.report.failures
-        )
-
-    def test_schema_resolver_partial_failure_warns(
-        self, pipeline_context, query_file_with
-    ):
-        """A token that expires mid-run must not produce a clean report.
-
-        The ratio stays under the failure threshold, so this is a warning rather
-        than a failure — but lineage for the affected tables is missing and the
-        operator has to be told.
-        """
-        path = query_file_with([_query_line(i) for i in range(20)])
-        source = _make_source(pipeline_context, path)
-
-        calls = {"n": 0}
-
-        def fail_near_the_end(*args, **kwargs):
-            calls["n"] += 1
-            # Keep the error ratio under failure_ratio_threshold so this covers
-            # the warning branch rather than the failure branch.
-            if calls["n"] > 15:
-                raise HTTPError("401 Unauthorized")
-            return {}
-
-        pipeline_context.graph.get_entities = Mock(side_effect=fail_near_the_end)
-
-        work_units = list(source.get_workunits_internal())
-
-        resolver_report = source.report.schema_resolver_report
-        assert resolver_report.num_graph_fetch_errors > 0
-        assert resolver_report.num_graph_fetch_success > 0
-        assert any(
-            w.title == "Some schema lookups failed" for w in source.report.warnings
-        )
-        assert not source.report.failures
-        # Below the threshold the run is still usable, so it must still emit.
-        assert work_units
-
-    def test_schema_lookups_finding_nothing_is_not_a_failure(
-        self, pipeline_context, query_file_with
-    ):
-        """Tables absent from DataHub is the normal first-run case, not an error.
-
-        Guards against a regression where the denominator counts cache misses:
-        a fetch that succeeds but finds nothing must never be read as a failure.
-        It does warrant a distinct warning, since it usually means the recipe's
-        platform/platform_instance/env don't match how the tables were ingested.
-        """
-        path = query_file_with([_query_line(i) for i in range(20)])
-        source = _make_source(pipeline_context, path)
-
-        pipeline_context.graph.get_entities = Mock(return_value={})
-
-        work_units = list(source.get_workunits_internal())
-
-        assert source.report.schema_resolver_report.num_graph_fetch_errors == 0
-        assert not source.report.failures
-        assert any(w.title == "No schemas resolved" for w in source.report.warnings)
-        assert work_units
 
     def test_single_parse_failure_below_min_sample_is_not_a_failure(
         self, pipeline_context, query_file_with

@@ -83,7 +83,7 @@ class TestS3Support:
         mock_open.return_value = mock_file_stream
 
         # Test S3 file processing
-        queries = list(source._parse_s3_query_file())
+        queries = list(source._parse_s3_query_file(config.aws_config))
         assert len(queries) == 2
         assert queries[0].query == "SELECT * FROM table1"
         assert queries[1].query == "SELECT * FROM table2"

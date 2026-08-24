@@ -66,20 +66,6 @@
     }
   },
   {
-    "_comment": "Per-table fallback for tables not covered by the GraphQL bulk preload. Without this, MOCKSERVER_REQUIRE_EXPECTED_REQUEST makes it 404, which the source now correctly reports as a schema-resolution failure.",
-    "httpRequest": {
-      "method": "POST",
-      "path": "/openapi/v3/entity/dataset/batchGet"
-    },
-    "httpResponse": {
-      "statusCode": 200,
-      "headers": {
-        "Content-Type": ["application/json"]
-      },
-      "body": []
-    }
-  },
-  {
     "httpRequest": {
       "method": "POST",
       "path": "/api/graphql"

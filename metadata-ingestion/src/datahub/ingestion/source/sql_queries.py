@@ -373,7 +373,6 @@ class SqlQueriesSource(Source):
         healthy = self._check_entry_parse_health()
         healthy &= self._check_aggregator_health()
         healthy &= self._check_sql_parsing_health()
-        healthy &= self._check_schema_resolver_health()
         return healthy
 
     def _check_entry_parse_health(self) -> bool:
@@ -444,68 +443,14 @@ class SqlQueriesSource(Source):
         )
         return False
 
-    def _check_schema_resolver_health(self) -> bool:
-        resolver_report = self.report.schema_resolver_report
-        if not resolver_report:
-            return True
-
-        errored = resolver_report.num_graph_fetch_errors
-        resolved = resolver_report.num_schema_cache_hits
-        misses = resolver_report.num_schema_cache_misses
-
-        # Every lookup missed and none errored: the graph answered, it just had
-        # nothing. Usually a platform/platform_instance/env mismatch in the
-        # recipe rather than a broken connection, so it needs its own message.
-        if not errored and misses and not resolved:
-            self.report.warning(
-                title="No schemas resolved",
-                message="No table schema was found in DataHub, so column-level lineage "
-                "will be empty. Verify that platform, platform_instance and env "
-                "match how these tables were ingested, and that the token's actor "
-                "can read them.",
-                context=f"{misses} lookups, 0 resolved",
-            )
-            return True
-
-        if not errored:
-            return True
-
-        # Both counters track whole batch calls, so this ratio is meaningful. A
-        # fetch that succeeds but finds nothing is "not in DataHub yet", which is
-        # normal for a first run and must not be mistaken for a failure.
-        attempted = errored + resolver_report.num_graph_fetch_success
-        ratio = errored / attempted
-        context = f"{errored}/{attempted} schema fetches errored ({ratio:.0%})"
-
-        if ratio >= self.config.failure_ratio_threshold:
-            self.report.failure(
-                title="Schema resolution failed",
-                message="Most schema lookups could not reach DataHub — "
-                "likely expired credentials or an unreachable graph. "
-                "Lineage and column-level lineage will be incomplete.",
-                context=context,
-            )
-            return False
-
-        # Below the threshold this is not fatal, but any fetch error means some
-        # lineage is silently missing — never let that pass unreported.
-        self.report.warning(
-            title="Some schema lookups failed",
-            message="Some schema lookups could not reach DataHub, so lineage "
-            "for the affected tables will be incomplete",
-            context=context,
-        )
-        return True
-
-    def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
+    def _parse_s3_query_file(
+        self, aws_config: AwsConnectionConfig
+    ) -> Iterable["QueryEntry"]:
         """Parse query file from S3 using smart_open."""
         logger.info(f"Reading query file from S3: {self.config.query_file}")
 
-        # Guaranteed by validate_s3_config; narrows the Optional for mypy.
-        assert self.config.aws_config is not None
-
         try:
-            s3_client = self.config.aws_config.get_s3_client()
+            s3_client = aws_config.get_s3_client()
             file_stream_ctx = smart_open.open(
                 self.config.query_file, mode="r", transport_params={"client": s3_client}
             )
@@ -610,10 +555,16 @@ class SqlQueriesSource(Source):
 
     def _parse_query_file(self) -> Iterable["QueryEntry"]:
         """Parse the query file and yield QueryEntry objects."""
-        if self.config.query_file.startswith("s3://"):
-            yield from self._parse_s3_query_file()
-        else:
+        if not self.config.query_file.startswith("s3://"):
             yield from self._parse_local_query_file()
+            return
+
+        aws_config = self.config.aws_config
+        if aws_config is None:
+            # validate_s3_config rejects this at config time, so this only
+            # trips if the config was mutated after construction.
+            raise ValueError(f"aws_config is required to read {self.config.query_file}")
+        yield from self._parse_s3_query_file(aws_config)
 
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:
         """Add a query to the SQL parsing aggregator.

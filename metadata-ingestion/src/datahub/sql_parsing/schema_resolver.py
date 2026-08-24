@@ -37,12 +37,6 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
-    # Batch graph fetches that completed vs. errored out (auth, connectivity,
-    # timeout). Both count whole batch calls, so their ratio distinguishes "the
-    # graph is unreachable" from "these tables just aren't in DataHub yet" — a
-    # successful fetch that returns nothing is the latter, not a failure.
-    num_graph_fetch_success: int = 0
-    num_graph_fetch_errors: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -218,9 +212,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
                         self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
 
-                    if self.report:
-                        self.report.num_graph_fetch_success += 1
-
                 except (
                     TimeoutError,
                     ConnectionError,
@@ -237,8 +228,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                         f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
                         exc_info=True,
                     )
-                    if self.report:
-                        self.report.num_graph_fetch_errors += 1
                     for fetch_urn in urns_to_fetch:
                         self._save_to_cache(fetch_urn, None)
 
