@@ -140,11 +140,23 @@ describe('entity V2 utils test ->', () => {
                 const result = handleBatchError(urns, e, defaultMessage);
                 expect(result).toEqual({ content: 'Urn ID cannot have spaces', duration: 3 });
             });
-            test('should NOT surface the server message for 400s without the VALIDATION marker', () => {
+            test('should surface the server message for 400s without the VALIDATION marker too', () => {
                 const e = {
                     graphQLErrors: [
                         {
-                            message: 'internal detail that must not reach the toast',
+                            message: 'Urn ID cannot have spaces',
+                            extensions: { code: 400 },
+                        },
+                    ],
+                };
+                const result = handleBatchError(urns, e, defaultMessage);
+                expect(result).toEqual({ content: 'Urn ID cannot have spaces', duration: 3 });
+            });
+            test('should fall back to the default message for 400s with a blank server message', () => {
+                const e = {
+                    graphQLErrors: [
+                        {
+                            message: '   ',
                             extensions: { code: 400 },
                         },
                     ],
