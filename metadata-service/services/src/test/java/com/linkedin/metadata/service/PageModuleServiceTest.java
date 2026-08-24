@@ -364,6 +364,7 @@ public class PageModuleServiceTest {
       "urn:li:dataHubPageModule:output_ports",
       "urn:li:dataHubPageModule:child_hierarchy",
       "urn:li:dataHubPageModule:data_products",
+      "urn:li:dataHubPageModule:sub_data_products",
       "urn:li:dataHubPageModule:related_terms",
       "urn:li:dataHubPageModule:columns"
     };

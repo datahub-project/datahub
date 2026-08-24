@@ -1282,6 +1282,12 @@ module.exports = {
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
         { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
         { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/evals",
+          label: "evals",
+          className: "saasOnly",
+        },
         { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },

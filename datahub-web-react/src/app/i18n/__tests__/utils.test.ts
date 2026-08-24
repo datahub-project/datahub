@@ -45,12 +45,20 @@ describe('detectBrowserLanguage', () => {
     });
 
     it('returns the first supported language in preference order', () => {
-        stubLanguages(['ja-JP', 'fr-FR', 'de']);
+        // Use unsupported tags first so preference order is exercised past them.
+        stubLanguages(['ko-KR', 'zh-CN', 'fr-FR', 'de']);
         expect(detectBrowserLanguage()).toBe('fr');
     });
 
+    it('maps Japanese region variants to ja', () => {
+        stubLanguages(['ja-JP']);
+        expect(detectBrowserLanguage()).toBe('ja');
+        stubLanguages(['ja']);
+        expect(detectBrowserLanguage()).toBe('ja');
+    });
+
     it('returns undefined when no preferred language is supported', () => {
-        stubLanguages(['ja-JP', 'zh-CN']);
+        stubLanguages(['ko-KR', 'zh-CN']);
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 
