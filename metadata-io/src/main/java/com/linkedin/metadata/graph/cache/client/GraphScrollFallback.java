@@ -6,12 +6,10 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -115,21 +113,14 @@ public final class GraphScrollFallback {
     }
   }
 
+  /**
+   * Single multi-value {@code urn} EQUAL criterion (one {@code termsQuery}), not one OR clause per
+   * parent — wide frontiers must not approach ES {@code indices.query.bool.max_clause_count}.
+   */
   @Nonnull
   private static Filter urnEqualsFilter(@Nonnull Collection<Urn> urns) {
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                urns.stream()
-                    .map(Urn::toString)
-                    .map(
-                        urn ->
-                            new ConjunctiveCriterion()
-                                .setAnd(
-                                    new CriterionArray(
-                                        List.of(
-                                            CriterionUtils.buildCriterion(
-                                                "urn", Condition.EQUAL, urn)))))
-                    .collect(Collectors.toList())));
+    List<String> values = urns.stream().map(Urn::toString).collect(Collectors.toList());
+    return QueryUtils.newDisjunctiveFilter(
+        CriterionUtils.buildCriterion("urn", Condition.EQUAL, values));
   }
 }

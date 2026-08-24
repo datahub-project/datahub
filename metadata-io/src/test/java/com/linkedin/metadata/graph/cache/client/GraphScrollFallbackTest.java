@@ -218,6 +218,11 @@ public class GraphScrollFallbackTest {
     assertEquals(parentsPerScroll.get(0), Set.of(ROOT.toString()));
     assertEquals(parentsPerScroll.get(1), Set.of(CHILD_A.toString(), CHILD_B.toString()));
     assertEquals(parentsPerScroll.get(2), Set.of(GRANDCHILD_A.toString(), GRANDCHILD_B.toString()));
+    // Wide frontiers must use one multi-value EQUAL criterion (termsQuery), not N OR clauses.
+    assertEquals(filterCaptor.getAllValues().get(1).getOr().size(), 1);
+    assertEquals(filterCaptor.getAllValues().get(1).getOr().get(0).getAnd().size(), 1);
+    assertEquals(
+        filterCaptor.getAllValues().get(1).getOr().get(0).getAnd().get(0).getValues().size(), 2);
   }
 
   @Test
