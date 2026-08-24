@@ -1858,9 +1858,18 @@ class OdbcLineage(AbstractLineage):
         make_dataset_urn_with_platform_instance embeds the instance as the first
         dot-segment of the name (``instance.database.table``). Splitting it off
         lets the Athena catalog-strip / override logic manipulate the real
-        qualified table name without clobbering the instance."""
-        if platform_instance and name.startswith(f"{platform_instance}."):
-            return platform_instance, name[len(platform_instance) + 1 :]
+        qualified table name without clobbering the instance.
+
+        The match is case-insensitive: sqlglot's schema resolver lowercases the
+        whole URN (instance included) for case-insensitive platforms like Athena
+        on a resolution miss, so the embedded segment may not match the
+        config-cased platform_instance. The returned prefix preserves the casing
+        as it actually appears in ``name`` so reconstruction leaves the URN
+        untouched."""
+        if platform_instance:
+            prefix = f"{platform_instance}."
+            if name[: len(prefix)].lower() == prefix.lower():
+                return name[: len(platform_instance)], name[len(prefix) :]
         return None, name
 
     @staticmethod
