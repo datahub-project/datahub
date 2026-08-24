@@ -134,7 +134,7 @@ By default, a task's SQL lineage is attributed to the task itself. Enable `captu
 capture_query_entities = True  # Default: False
 ```
 
-This only works when the task's OpenLineage integration captures a SQL job facet — i.e. the task actually runs SQL through one of the supported SQL operators. Tasks with no SQL to capture emit no Query entity even with the flag on, and are unaffected by it either way.
+This only works when the task's OpenLineage integration populates a SQL job facet, which happens for `SQLExecuteQueryOperator` subclasses routed through DataHub's shared `SQLParser` patch. `AthenaOperator`/`AWSAthenaOperator`, `BigQueryInsertJobOperator`, and `TeradataOperator` use their own OpenLineage patches that populate only the SQL parsing result, not the job facet, so enabling this flag produces no Query entity for tasks using those operators — their table- and column-level lineage is unaffected either way. Tasks with no SQL to capture at all likewise emit no Query entity.
 
 ## Manual Lineage Annotation
 
