@@ -91,9 +91,9 @@ function BoundingBoxMemberCountView({ urn, memberCount, total }: Props & { total
     if (urn === rootUrn) {
         const node = nodes.get(urn);
         const limit = node?.boundingBoxLimit ?? BOUNDING_BOX_MEMBER_PAGE_SIZE;
-        // "Shown" tracks pagination progress, not raw displayed nodes (which include sibling copies
-        // and so can exceed the container's entity count).
-        const shown = Math.min(limit, total);
+        // Runs ahead of `limit`: members past the seeded page are displayed when another member's
+        // lineage reaches them.
+        const shown = Math.min(memberCount, total);
         return (
             <StackedWrapper>
                 <span>{t('dataProduct.assetCount', { shown, total })}</span>

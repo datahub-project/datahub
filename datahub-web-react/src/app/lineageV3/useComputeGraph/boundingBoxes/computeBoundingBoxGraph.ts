@@ -12,6 +12,7 @@ import {
 } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import {
+    assignQueriesToGroups,
     collectBoundingBoxGroups,
     computeMembership,
 } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxGroups';
@@ -59,10 +60,11 @@ function createBoundingBoxNodeFilter(
  *    lineage of its own), using the standard impact analysis display rules (per-node filters,
  *    expansion state, lineage filter nodes). Members of bounding boxes sort before other children,
  *    so they're prioritized by pagination.
- * 2. Displayed entities are grouped by bounding-box membership. Displayed members of each box
- *    are laid out horizontally via NodeBuilder, determining the size of the bounding box.
- *    An entity in multiple boxes gets one node per box.
- * 3. Bounding boxes and free entities (displayed entities not in any box) are positioned
+ * 2. Displayed entities are grouped by bounding-box membership, along with query nodes connecting
+ *    two members of the same box. Displayed members of each box are laid out horizontally via
+ *    NodeBuilder, determining the size of the bounding box. An entity in multiple boxes gets one
+ *    node per box.
+ * 3. Bounding boxes and free entities (displayed entities not rendered in a box) are positioned
  *    together via BoundingBoxNodeBuilder, in a single graph rooted at the home bounding box:
  *    lineage between two boxes' members becomes an edge between their boxes,
  *    and lineage between a member and a free entity becomes an edge between the box and the free
@@ -167,6 +169,7 @@ export default function computeBoundingBoxGraph(
     const displayedIds = new Set(shownNodes.map((node) => node.id));
 
     // Step 2 (+ 4): Lay out the displayed members within each bounding box, sizing it
+    assignQueriesToGroups(groups, revealedGraphStore, displayedIds);
     const boxes = new Map<Urn, BoxLayout>();
     groups.forEach((group) => {
         const displayedMemberUrns = new Set(Array.from(group.memberUrns).filter((member) => displayedIds.has(member)));
@@ -209,9 +212,10 @@ export default function computeBoundingBoxGraph(
 
     // Nodes rendered inside a bounding box; all other displayed nodes are free nodes
     const displayedMembership = new Map<Urn, Urn[]>();
-    boxes.forEach((box) =>
-        box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn)),
-    );
+    boxes.forEach((box) => {
+        box.group.memberUrns.forEach((member) => setDefault(displayedMembership, member, []).push(box.group.urn));
+        box.group.queryUrns.forEach((query) => setDefault(displayedMembership, query, []).push(box.group.urn));
+    });
     const freeNodes = shownNodes.filter((node) => node.id !== urn && !displayedMembership.has(node.id));
     const displayedFreeIds = new Set(freeNodes.map((node) => node.id));
 

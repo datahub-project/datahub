@@ -1,7 +1,13 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it } from 'vitest';
 
-import { BOUNDING_BOX_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
+import {
+    BOUNDING_BOX_MEMBER_PAGE_SIZE,
+    FetchStatus,
+    LINEAGE_FILTER_PAGINATION,
+    LineageEntity,
+    NodeContext,
+} from '@app/lineageV3/common';
 import {
     createBoundingBoxMemberNode,
     useBoundingBoxMemberPagination,
@@ -54,7 +60,8 @@ describe('useBoundingBoxMemberPagination', () => {
     });
 
     it('caps paging at boundingBoxLimit when total is larger', () => {
-        const limit = BOUNDING_BOX_MEMBER_PAGE_SIZE + 25;
+        // A limit part-way into the third page: paging stops there rather than following `total`.
+        const limit = BOUNDING_BOX_MEMBER_PAGE_SIZE * 2 + 5;
         const nodes = makeNodes(ROOT_URN, limit);
         const { result } = renderHook(() => useBoundingBoxMemberPagination(ROOT_URN, nodes));
 
@@ -62,7 +69,7 @@ describe('useBoundingBoxMemberPagination', () => {
             result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE * 5);
         });
 
-        expect(result.current.start).toBe(BOUNDING_BOX_MEMBER_PAGE_SIZE);
+        expect(result.current.start).toBe(BOUNDING_BOX_MEMBER_PAGE_SIZE * 2);
     });
 
     it('resets start and initialized when rootUrn changes', () => {
@@ -98,7 +105,7 @@ describe('createBoundingBoxMemberNode', () => {
         expect(node.boundingBoxes).toBeUndefined();
     });
 
-    it('marks member nodes as fully expanded with complete fetch status and empty filters', () => {
+    it('marks member nodes as fully expanded with complete fetch status and paginated filters', () => {
         const node = createBoundingBoxMemberNode(entity, ROOT_URN);
 
         expect(node.id).toBe(MEMBER_URN);
@@ -108,8 +115,8 @@ describe('createBoundingBoxMemberNode', () => {
         expect(node.isExpanded?.[LineageDirection.Downstream]).toBe(true);
         expect(node.fetchStatus?.[LineageDirection.Upstream]).toBe(FetchStatus.COMPLETE);
         expect(node.fetchStatus?.[LineageDirection.Downstream]).toBe(FetchStatus.COMPLETE);
-        expect(node.filters?.[LineageDirection.Upstream]?.limit).toBeUndefined();
-        expect(node.filters?.[LineageDirection.Downstream]?.limit).toBeUndefined();
+        expect(node.filters?.[LineageDirection.Upstream]?.limit).toBe(LINEAGE_FILTER_PAGINATION);
+        expect(node.filters?.[LineageDirection.Downstream]?.limit).toBe(LINEAGE_FILTER_PAGINATION);
         expect(node.filters?.[LineageDirection.Upstream]?.facetFilters.size).toBe(0);
         expect(node.filters?.[LineageDirection.Downstream]?.facetFilters.size).toBe(0);
     });
