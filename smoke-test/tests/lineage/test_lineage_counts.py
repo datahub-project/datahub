@@ -1,4 +1,5 @@
 import logging
+import time
 from random import randint
 from typing import Dict, Iterator, List, Optional
 
@@ -14,7 +15,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.utilities.domains import Domain
-from tests.utils import delete_urns, wait_for_writes_to_sync
+from tests.utils import delete_urns, get_sleep_info, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,69 @@ def _fine_grained(
         downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
         upstreams=[upstream_field],
         downstreams=[downstream_field],
+    )
+
+
+def count_upstream_columns(
+    graph_client: DataHubGraph,
+    urn: str,
+    include_ghost_entities: Optional[bool] = None,
+    validate_schema_fields: Optional[str] = None,
+    or_filters: Optional[List[dict]] = None,
+    lineage_flags: Optional[dict] = None,
+    include_soft_deleted: Optional[bool] = None,
+) -> int:
+    query_input: Dict[str, object] = {
+        "urn": urn,
+        "direction": "UPSTREAM",
+        "types": ["SCHEMA_FIELD"],
+    }
+    if include_ghost_entities is not None:
+        query_input["includeGhostEntities"] = include_ghost_entities
+    if validate_schema_fields is not None:
+        query_input["validateSchemaFields"] = validate_schema_fields
+    if or_filters is not None:
+        query_input["orFilters"] = or_filters
+    if lineage_flags is not None:
+        query_input["lineageFlags"] = lineage_flags
+    if include_soft_deleted is not None:
+        query_input["includeSoftDeleted"] = include_soft_deleted
+
+    result = graph_client.execute_graphql(
+        COUNTS_QUERY, variables={"input": query_input}
+    )
+    return result["searchAcrossLineageCounts"]["total"]
+
+
+def _wait_for_upstream_column_count(
+    graph_client: DataHubGraph,
+    urn: str,
+    min_count: int,
+    *,
+    include_ghost_entities: Optional[bool] = None,
+    validate_schema_fields: Optional[str] = None,
+    or_filters: Optional[List[dict]] = None,
+    lineage_flags: Optional[dict] = None,
+) -> None:
+    """Poll until fine-grained column lineage is visible in the graph index."""
+    sleep_sec, sleep_times = get_sleep_info()
+    last_count = 0
+    for attempt in range(sleep_times):
+        last_count = count_upstream_columns(
+            graph_client,
+            urn,
+            include_ghost_entities=include_ghost_entities,
+            validate_schema_fields=validate_schema_fields,
+            or_filters=or_filters,
+            lineage_flags=lineage_flags,
+        )
+        if last_count >= min_count:
+            return
+        if attempt < sleep_times - 1:
+            time.sleep(sleep_sec)
+
+    raise AssertionError(
+        f"Lineage count for {urn} did not reach {min_count} (last count={last_count})"
     )
 
 
@@ -132,6 +196,13 @@ def lineage_counts_data(graph_client: DataHubGraph) -> Iterator[Dict[str, str]]:
     for mcp in mcps:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    _wait_for_upstream_column_count(
+        graph_client,
+        col_a,
+        3,
+        include_ghost_entities=True,
+        validate_schema_fields="NONE",
+    )
 
     yield {
         "upstream": upstream,
@@ -152,37 +223,6 @@ def lineage_counts_data(graph_client: DataHubGraph) -> Iterator[Dict[str, str]]:
             make_schema_field_urn(upstream, MATERIALIZED),
         ],
     )
-
-
-def count_upstream_columns(
-    graph_client: DataHubGraph,
-    urn: str,
-    include_ghost_entities: Optional[bool] = None,
-    validate_schema_fields: Optional[str] = None,
-    or_filters: Optional[List[dict]] = None,
-    lineage_flags: Optional[dict] = None,
-    include_soft_deleted: Optional[bool] = None,
-) -> int:
-    query_input: Dict[str, object] = {
-        "urn": urn,
-        "direction": "UPSTREAM",
-        "types": ["SCHEMA_FIELD"],
-    }
-    if include_ghost_entities is not None:
-        query_input["includeGhostEntities"] = include_ghost_entities
-    if validate_schema_fields is not None:
-        query_input["validateSchemaFields"] = validate_schema_fields
-    if or_filters is not None:
-        query_input["orFilters"] = or_filters
-    if lineage_flags is not None:
-        query_input["lineageFlags"] = lineage_flags
-    if include_soft_deleted is not None:
-        query_input["includeSoftDeleted"] = include_soft_deleted
-
-    result = graph_client.execute_graphql(
-        COUNTS_QUERY, variables={"input": query_input}
-    )
-    return result["searchAcrossLineageCounts"]["total"]
 
 
 def test_counts_by_materialization(graph_client, lineage_counts_data):
@@ -435,15 +475,24 @@ def hops_data(graph_client: DataHubGraph) -> Iterator[Dict[str, str]]:
             ),
         ),
     ]
+    tgt_col = make_schema_field_urn(target, "tgt_col")
     for mcp in mcps:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    _wait_for_upstream_column_count(
+        graph_client,
+        tgt_col,
+        1,
+        include_ghost_entities=True,
+        or_filters=related_column_filters(),
+        lineage_flags={"ignoreAsHops": IGNORE_AS_HOPS},
+    )
 
     yield {
         "source": source,
         "dbt_model": dbt_model,
         "target": target,
-        "tgt_col": make_schema_field_urn(target, "tgt_col"),
+        "tgt_col": tgt_col,
         "src_col": make_schema_field_urn(source, "src_col"),
         "dbt_col": make_schema_field_urn(dbt_model, "dbt_col"),
     }
