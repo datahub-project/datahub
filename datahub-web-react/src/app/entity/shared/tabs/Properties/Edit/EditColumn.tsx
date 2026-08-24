@@ -7,6 +7,7 @@ import { ItemType } from '@components/components/Menu/types';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { Button, Menu } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
@@ -69,8 +70,13 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                     entityRefetch();
                 }
             })
-            .catch(() => {
-                showToastMessage(ToastType.ERROR, t('properties.removed.error'), 3);
+            .catch((error) => {
+                // Route through the shared handler so a validator's rejection message reaches
+                // the user verbatim (errorSource=VALIDATION) instead of a generic failure toast.
+                handleGraphQLError({
+                    error,
+                    defaultMessage: t('properties.removed.error'),
+                });
             });
 
         setShowConfirmRemove(false);
