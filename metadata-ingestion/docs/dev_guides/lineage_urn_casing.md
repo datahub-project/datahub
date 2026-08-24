@@ -209,8 +209,10 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   and the BI source re-runs.
 - **Does not retroactively heal existing broken edges.** Re-ingest the affected source after enabling the
   flag to fix them.
-- **Conservative on collisions.** On case-sensitive platforms where two genuinely different tables differ
-  only by case, ambiguous references are left unchanged rather than risk merging distinct entities.
+- **Collisions resolve to the lowercase-named entity.** On case-sensitive platforms where two genuinely
+  different tables differ only by case, a reference that matches neither exactly is healed to the
+  lowercase-named one; only a collision with no lowercase-named side is left unchanged. See
+  [Match types](#match-types).
 - **Column casing needs the table's schema.** A referenced table that exists without a `schemaMetadata`
   aspect is still healed at table level; only its column casing is left as the source reported it.
 - **Scope is by platform.** By default a reference is reconciled only if its platform is named in

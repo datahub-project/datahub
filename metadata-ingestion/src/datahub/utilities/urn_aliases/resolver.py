@@ -42,10 +42,10 @@ def pick_match(urn: str, matches: List[str]) -> Optional[str]:
     normalizes every casing to — rather than leaving the reference unresolved. An exact
     match always wins: the reference names a real entity whatever else exists.
     """
-    if len(matches) == 1:
-        return matches[0]
     if urn in matches:
         return urn
+    if len(matches) == 1:
+        return matches[0]
     for match in matches:
         if _has_lowercased_name(match):
             return match
