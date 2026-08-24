@@ -231,6 +231,14 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           break;
         }
 
+        // Stop before fetching once the shared per-hop budget is exhausted (consumed by this or
+        // another slice). Retention is already bounded by the reservation below; this avoids
+        // wasteful post-exhaustion fetches (including all-visited pages). The outer hop loop
+        // enforces the total maxRelations limit and the partial/strict-reject decision.
+        if (sharedRemaining != null && sharedRemaining.get() <= 0) {
+          break;
+        }
+
         // Build search request with PIT and slice configuration
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

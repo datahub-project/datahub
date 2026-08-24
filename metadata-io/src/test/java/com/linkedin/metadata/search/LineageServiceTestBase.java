@@ -654,9 +654,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             eq(TEST_URN),
             eq(DOWNSTREAM_FILTERS),
             maxHopsCaptor.capture());
-    // Integer.MAX_VALUE must have been clamped down to the finite configured impact hop limit.
-    assertTrue(maxHopsCaptor.getValue() > 0);
-    assertTrue(maxHopsCaptor.getValue() < Integer.MAX_VALUE);
+    // Integer.MAX_VALUE must have been clamped down to the exact configured impact hop limit.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
     clearCache(false);
   }
 
@@ -697,9 +698,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             eq(TEST_URN),
             eq(DOWNSTREAM_FILTERS),
             maxHopsCaptor.capture());
-    // null must have resolved to the finite configured impact hop limit, not passed through.
-    assertTrue(maxHopsCaptor.getValue() > 0);
-    assertTrue(maxHopsCaptor.getValue() < Integer.MAX_VALUE);
+    // null must resolve to the exact configured impact hop limit, not pass through.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
     clearCache(false);
   }
 

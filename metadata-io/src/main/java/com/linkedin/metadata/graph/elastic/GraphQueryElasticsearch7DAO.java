@@ -214,6 +214,14 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           break;
         }
 
+        // Stop before the next scroll once the shared per-hop budget is exhausted (consumed by this
+        // or another slice). Retention is already bounded by the reservation below; this avoids
+        // wasteful post-exhaustion fetches (including all-visited pages). The outer hop loop
+        // enforces the total maxRelations limit and the partial/strict-reject decision.
+        if (sharedRemaining != null && sharedRemaining.get() <= 0) {
+          break;
+        }
+
         // Continue scroll
         SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
         scrollRequest.scroll(keepAlive); // Use configured keepAlive
