@@ -547,17 +547,12 @@ public class Neo4jGraphService implements GraphService {
     }
 
     String srcNodeLabel = StringUtils.EMPTY;
-    // Create a URN from the String. Only proceed if src filter is not empty
+    // Label optimization only when every parseable source URN shares one entity type.
     if (srcFilter.hasConstraints()) {
-      final String urnValue = firstFilterValue(graphFilters.getSourceEntityFilter());
-      if (urnValue != null) {
-        try {
-          final Urn urn = Urn.createFromString(urnValue);
-          srcNodeLabel = urn.getEntityType();
-          matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
-        } catch (URISyntaxException e) {
-          log.error("Failed to parse URN: {} ", urnValue, e);
-        }
+      final String commonType = commonSourceNodeLabel(graphFilters.getSourceEntityFilter());
+      if (commonType != null) {
+        srcNodeLabel = commonType;
+        matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
       }
     }
 
@@ -638,26 +633,31 @@ public class Neo4jGraphService implements GraphService {
 
     Boolean hasSourceTypes = sourceTypes != null && !sourceTypes.isEmpty();
     Boolean hasDestTypes = destinationTypes != null && !destinationTypes.isEmpty();
+    // Parenthesize type OR-groups so AND with later predicates cannot bind into one branch.
     if (hasSourceTypes && hasDestTypes) {
       whereClause =
           String.format(
               " WHERE left(type(r), 2)<>'r_' AND %s AND %s",
-              sourceTypes.stream().map(type -> "src:" + type).collect(Collectors.joining(" OR ")),
+              sourceTypes.stream()
+                  .map(type -> "src:" + type)
+                  .collect(Collectors.joining(" OR ", "(", ")")),
               destinationTypes.stream()
                   .map(type -> "dest:" + type)
-                  .collect(Collectors.joining(" OR ")));
+                  .collect(Collectors.joining(" OR ", "(", ")")));
     } else if (hasSourceTypes) {
       whereClause =
           String.format(
               " WHERE left(type(r), 2)<>'r_' AND %s",
-              sourceTypes.stream().map(type -> "src:" + type).collect(Collectors.joining(" OR ")));
+              sourceTypes.stream()
+                  .map(type -> "src:" + type)
+                  .collect(Collectors.joining(" OR ", "(", ")")));
     } else if (hasDestTypes) {
       whereClause =
           String.format(
               " WHERE left(type(r), 2)<>'r_' AND %s",
               destinationTypes.stream()
                   .map(type -> "dest:" + type)
-                  .collect(Collectors.joining(" OR ")));
+                  .collect(Collectors.joining(" OR ", "(", ")")));
     }
     return whereClause;
   }
@@ -939,7 +939,9 @@ public class Neo4jGraphService implements GraphService {
 
     for (var criterion : criterionArray) {
       if (criterion.getValues() == null || criterion.getValues().isEmpty()) {
-        continue;
+        // Fail closed — dropping an EQUAL constraint would over-match.
+        throw new IllegalArgumentException(
+            "Neo4j EQUAL criterion requires at least one value for field: " + criterion.getField());
       }
       if (criterion.getValues().size() == 1) {
         mapJoiner.add(toCriterionString(criterion.getField(), criterion.getValues().get(0)));
@@ -961,23 +963,50 @@ public class Neo4jGraphService implements GraphService {
     return value.replace("\\", "\\\\").replace("\"", "\\\"");
   }
 
+  /**
+   * Returns the shared Neo4j node label for source filter URNs, or {@code null} when the filter has
+   * no parseable URNs or mixes entity types (so a single label would under-match).
+   */
   @Nullable
-  private static String firstFilterValue(@Nullable Filter filter) {
-    if (filter == null
-        || filter.getOr() == null
-        || filter.getOr().isEmpty()
-        || filter.getOr().get(0).getAnd() == null
-        || filter.getOr().get(0).getAnd().isEmpty()
-        || filter.getOr().get(0).getAnd().get(0).getValues() == null
-        || filter.getOr().get(0).getAnd().get(0).getValues().isEmpty()) {
+  @VisibleForTesting
+  static String commonSourceNodeLabel(@Nullable Filter filter) {
+    if (filter == null || filter.getOr() == null || filter.getOr().isEmpty()) {
       return null;
     }
-    return filter.getOr().get(0).getAnd().get(0).getValues().get(0);
+    if (filter.getOr().get(0).getAnd() == null) {
+      return null;
+    }
+    String commonType = null;
+    boolean sawUrn = false;
+    for (var criterion : filter.getOr().get(0).getAnd()) {
+      if (criterion.getValues() == null) {
+        continue;
+      }
+      for (String value : criterion.getValues()) {
+        try {
+          final String type = Urn.createFromString(value).getEntityType();
+          sawUrn = true;
+          if (commonType == null) {
+            commonType = type;
+          } else if (!commonType.equals(type)) {
+            return null;
+          }
+        } catch (URISyntaxException ignored) {
+          // Non-URN filter values (e.g. platform) do not participate in label selection.
+        }
+      }
+    }
+    return sawUrn ? commonType : null;
   }
 
+  /**
+   * Appends AND-joined predicates to an existing WHERE clause. Parenthesizes the existing body so
+   * Cypher AND/OR precedence cannot let a new predicate apply to only one branch of a type OR.
+   */
   @SafeVarargs
   @Nonnull
-  private static String appendWherePredicates(
+  @VisibleForTesting
+  static String appendWherePredicates(
       @Nonnull String whereClause, @Nonnull List<String>... predicateGroups) {
     List<String> extras =
         java.util.Arrays.stream(predicateGroups)
@@ -989,7 +1018,8 @@ public class Neo4jGraphService implements GraphService {
     }
     String joined = String.join(" AND ", extras);
     if (StringUtils.containsIgnoreCase(whereClause, "WHERE")) {
-      return whereClause + " AND " + joined;
+      String body = whereClause.replaceFirst("(?i)\\s*WHERE\\s+", "").trim();
+      return " WHERE (" + body + ") AND " + joined;
     }
     return " WHERE " + joined;
   }
@@ -1092,17 +1122,12 @@ public class Neo4jGraphService implements GraphService {
     }
 
     String srcNodeLabel = StringUtils.EMPTY;
-    // Create a URN from the String. Only proceed if src filter is not empty
+    // Label optimization only when every parseable source URN shares one entity type.
     if (srcFilter.hasConstraints()) {
-      final String urnValue = firstFilterValue(graphFilters.getSourceEntityFilter());
-      if (urnValue != null) {
-        try {
-          final Urn urn = Urn.createFromString(urnValue);
-          srcNodeLabel = urn.getEntityType();
-          matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
-        } catch (URISyntaxException e) {
-          log.error("Failed to parse URN: {} ", urnValue, e);
-        }
+      final String commonType = commonSourceNodeLabel(graphFilters.getSourceEntityFilter());
+      if (commonType != null) {
+        srcNodeLabel = commonType;
+        matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
       }
     }
 
