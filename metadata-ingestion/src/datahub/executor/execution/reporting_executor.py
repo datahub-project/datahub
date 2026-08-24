@@ -316,9 +316,6 @@ class ReportingExecutor(DefaultExecutor):
             exec_id = exec_request.exec_id if exec_request else "unknown"
             message = f"{exec_id} report exceeded limit of {max_length} chars and was truncated."
             logger.warning(message)
-            # Reserve room for the prefix, then clamp: prepending after truncating
-            # overshoots by len(prefix), and reserving alone still overshoots when
-            # max_length < len(prefix).
             prefix = f"WARNING: {message}\n"
             report = (prefix + report[: max(0, max_length - len(prefix))])[:max_length]
 
