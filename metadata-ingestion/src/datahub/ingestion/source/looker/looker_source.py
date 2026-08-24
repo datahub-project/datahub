@@ -1283,6 +1283,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
                 exc=e,
+                log=False,
             )
             return None
 

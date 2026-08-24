@@ -115,4 +115,5 @@ def test_http_adapter_pool_size_matches_max_threads():
     retries = kwargs["max_retries"]
     assert retries.total == config.max_retries
     assert retries.status_forcelist == [429, 500, 502, 503, 504]
+    assert "POST" in retries.allowed_methods
     assert mock_session.mount.call_count == 2
