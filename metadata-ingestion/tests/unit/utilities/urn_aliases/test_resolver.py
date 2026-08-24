@@ -93,7 +93,7 @@ def test_a_non_dataset_urn_is_neither_stored_nor_matched() -> None:
     assert _loaded("urn:li:corpuser:alice").find_match("urn:li:corpuser:alice") == []
 
 
-# --- choosing a URN out of the matches -------------------------------------------------
+# --- the matches under a key -----------------------------------------------------------
 
 
 def test_every_casing_of_a_name_answers_under_one_key() -> None:
@@ -106,30 +106,8 @@ def test_the_same_urn_is_stored_once() -> None:
     assert _loaded(_LOWER, _LOWER).find_match(_UPPER) == [_LOWER]
 
 
-def test_resolve_returns_the_stored_urn_for_a_different_casing() -> None:
-    assert _loaded(_LOWER).resolve(_UPPER) == _LOWER
-
-
-def test_resolve_returns_an_exact_match_even_when_another_casing_exists() -> None:
-    # An exact hit is never ambiguous: the reference names a real entity, so it stands
-    # regardless of other casings of the same name.
-    assert _loaded(_LOWER, _UPPER).resolve(_UPPER) == _UPPER
-
-
-def test_resolve_settles_a_collision_on_the_lowercased_urn() -> None:
-    # Two entities differ only by case and the reference matches neither exactly. The
-    # lowercase-named one is the form GMS normalizes every casing to, so the reference
-    # settles there rather than being left unresolved.
-    assert _loaded(_LOWER, _UPPER).resolve(_MIXED) == _LOWER
-
-
-def test_resolve_declines_a_collision_with_no_lowercased_urn() -> None:
-    # Both stored casings are non-lowercase, so there is nothing to settle on.
-    assert _loaded(_MIXED, _UPPER).resolve(_LOWER) is None
-
-
-def test_resolve_returns_none_when_nothing_matches() -> None:
-    assert _loaded(_LOWER).resolve(_OTHER) is None
+def test_a_stored_urn_matches_a_different_casing_of_it() -> None:
+    assert _loaded(_LOWER).find_match(_UPPER) == [_LOWER]
 
 
 # --- a bulk load caches; the graph answers ---------------------------------------------
@@ -139,14 +117,14 @@ def test_a_bulk_loaded_hit_needs_no_question() -> None:
     graph = _server(_LOWER)
     resolver = _load(graph)
 
-    assert resolver.resolve(_UPPER) == _LOWER
+    assert resolver.find_match(_UPPER) == [_LOWER]
     graph.get_dataset_urns_ignoring_case.assert_not_called()
 
 
 def test_a_graph_backed_resolver_asks_under_the_key() -> None:
     graph = _server(_LOWER)
 
-    assert UrnAliasResolver(graph).resolve(_UPPER) == _LOWER
+    assert UrnAliasResolver(graph).find_match(_UPPER) == [_LOWER]
     # Asked under the key, not the reference's own casing.
     assert _asked(graph) == [_LOWER]
 
@@ -155,8 +133,8 @@ def test_references_sharing_a_key_are_one_question() -> None:
     graph = _server(_LOWER)
     resolver = UrnAliasResolver(graph)
 
-    resolver.resolve(_UPPER)
-    resolver.resolve(_MIXED)
+    resolver.find_match(_UPPER)
+    resolver.find_match(_MIXED)
 
     assert _asked(graph) == [_LOWER]
 
@@ -165,8 +143,8 @@ def test_an_absence_is_recorded_so_it_is_asked_once() -> None:
     graph = _server()
     resolver = UrnAliasResolver(graph)
 
-    assert resolver.resolve(_UPPER) is None
-    assert resolver.resolve(_MIXED) is None
+    assert resolver.find_match(_UPPER) == []
+    assert resolver.find_match(_MIXED) == []
 
     assert _asked(graph) == [_LOWER]
 
@@ -179,11 +157,11 @@ def test_a_failed_search_records_nothing() -> None:
     resolver = UrnAliasResolver(graph)
 
     with pytest.raises(Exception, match="search failed"):
-        resolver.resolve(_UPPER)
+        resolver.find_match(_UPPER)
 
     graph.get_dataset_urns_ignoring_case.side_effect = None
     graph.get_dataset_urns_ignoring_case.return_value = [_LOWER]
-    assert resolver.resolve(_UPPER) == _LOWER
+    assert resolver.find_match(_UPPER) == [_LOWER]
 
 
 def test_a_graph_less_resolver_answers_a_miss_with_nothing() -> None:
@@ -209,15 +187,13 @@ def test_a_load_that_fails_part_way_yields_no_resolver() -> None:
 
 def test_a_partial_load_cannot_answer_a_collision_wrongly() -> None:
     # Both casings exist but the scroll reached only the uppercase one. Kept, that row
-    # heals a mixed-case reference to the uppercase entity and rewrites an exact uppercase
-    # one — wrong table either way.
+    # would offer the uppercase entity as the only match for the name, and a caller would
+    # heal a mixed-case reference to it. Discarded, the graph search still sees both.
     graph = _server(_UPPER, _LOWER, fails=True)
 
     with pytest.raises(RuntimeError):
         _load(graph)
-    fetching = UrnAliasResolver(graph)
-    assert fetching.resolve(_MIXED) == _LOWER
-    assert fetching.resolve(_UPPER) == _UPPER
+    assert UrnAliasResolver(graph).find_match(_MIXED) == [_UPPER, _LOWER]
 
 
 def test_one_resolver_is_shared_by_every_consumer_of_a_region() -> None:
@@ -231,14 +207,14 @@ def test_a_load_narrowed_to_an_instance_holds_that_instance_alone() -> None:
     # So its miss is not an absence: inst_b exists and this resolver never saw it.
     resolver = _load(_server(_IN_A, _IN_B), instance="inst_a")
 
-    assert resolver.resolve(_IN_A_UPPER) == _IN_A
+    assert resolver.find_match(_IN_A_UPPER) == [_IN_A]
     assert resolver.find_match(_IN_B_UPPER) == []
 
 
 def test_an_unfiltered_load_holds_every_instance() -> None:
     resolver = _load(_server(_IN_A, _IN_B))
 
-    assert resolver.resolve(_IN_B_UPPER) == _IN_B
+    assert resolver.find_match(_IN_B_UPPER) == [_IN_B]
 
 
 def test_an_empty_instance_filtered_load_still_loads() -> None:

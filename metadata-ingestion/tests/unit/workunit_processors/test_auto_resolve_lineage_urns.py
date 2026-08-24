@@ -20,6 +20,7 @@ from datahub.ingestion.run.pipeline_config import (
 )
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
     AutoResolveLineageUrnsProcessor,
+    _pick_match,
 )
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
@@ -252,6 +253,34 @@ def _fine_grained(wu: MetadataWorkUnit) -> FineGrainedLineageClass:
 
 def _stored_upstream(wu: MetadataWorkUnit) -> str:
     return _upstream_aspect(wu).upstreams[0].dataset
+
+
+# --- choosing a URN out of the matches --------------------------------------------
+
+
+def test_a_single_match_under_a_different_casing_is_the_answer() -> None:
+    assert _pick_match(UPPER, [LOWER]) == LOWER
+
+
+def test_an_exact_match_wins_over_another_casing() -> None:
+    # An exact hit is never ambiguous: the reference names a real entity, so it stands
+    # regardless of other casings of the same name.
+    assert _pick_match(UPPER, [LOWER, UPPER]) == UPPER
+
+
+def test_a_collision_settles_on_the_lowercase_named_entity() -> None:
+    # Two entities differ only by case and the reference matches neither exactly. The
+    # lowercase-named one is the form GMS normalizes every casing to, so the reference
+    # settles there rather than being left unresolved.
+    assert _pick_match(MIXED, [LOWER, UPPER]) == LOWER
+
+
+def test_a_collision_with_no_lowercase_named_entity_is_declined() -> None:
+    assert _pick_match(LOWER, [MIXED, UPPER]) is None
+
+
+def test_no_matches_settles_nothing() -> None:
+    assert _pick_match(UPPER, []) is None
 
 
 # --- table-level dataset URN casing -----------------------------------------------

@@ -31,29 +31,10 @@ def lowercased_urn(urn: str) -> Optional[str]:
     return str(DatasetUrn(platform=dataset.platform, name=lowercased, env=dataset.env))
 
 
-def _has_lowercased_name(urn: str) -> bool:
-    return lowercased_urn(urn) == urn
-
-
-def pick_match(urn: str, matches: List[str]) -> Optional[str]:
-    """The one URN out of `matches` that `urn` names, or None if none of them settles it.
-
-    A collision between casings settles on the lowercase-named URN — the form GMS
-    normalizes every casing to — rather than leaving the reference unresolved. An exact
-    match always wins: the reference names a real entity whatever else exists.
-    """
-    if urn in matches:
-        return urn
-    if len(matches) == 1:
-        return matches[0]
-    for match in matches:
-        if _has_lowercased_name(match):
-            return match
-    return None
-
-
 class UrnAliasResolver:
-    """Resolves a dataset URN to the URN DataHub stores for it, ignoring case.
+    """An index of the casings DataHub stores for a dataset name.
+
+    Answers which stored URNs a reference matches, not which one it means.
 
     Rows are keyed by the lowercased URN, the value GMS indexes as a dataset's alias, so one
     row answers for every casing of a name.
@@ -96,10 +77,6 @@ class UrnAliasResolver:
         entry = self._graph.get_dataset_urns_ignoring_case(key)
         self._urns_by_key[key] = entry
         return entry
-
-    def resolve(self, urn: str) -> Optional[str]:
-        """The dataset URN DataHub stores for `urn`, or None if nothing settles it."""
-        return pick_match(urn, self.find_match(urn))
 
     def urn_count(self) -> int:
         """How many names are held; one key answers for every casing of a name."""

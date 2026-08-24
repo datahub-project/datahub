@@ -57,8 +57,8 @@ from datahub.utilities.urn_aliases.provider import (
 )
 from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
+    lowercased_urn,
     maintains_dataset_aliases,
-    pick_match,
     required_server_version,
 )
 from datahub.utilities.urns.error import InvalidUrnError
@@ -151,6 +151,27 @@ def _field_path(field_urn: str) -> Optional[str]:
         return SchemaFieldUrn.from_string(field_urn).field_path
     except InvalidUrnError:
         return None
+
+
+def _has_lowercased_name(urn: str) -> bool:
+    return lowercased_urn(urn) == urn
+
+
+def _pick_match(urn: str, matches: List[str]) -> Optional[str]:
+    """The one URN out of `matches` that `urn` names, or None if none of them settles it.
+
+    A collision between casings settles on the lowercase-named URN — the form GMS
+    normalizes every casing to — rather than leaving the reference unresolved. An exact
+    match always wins: the reference names a real entity whatever else exists.
+    """
+    if urn in matches:
+        return urn
+    if len(matches) == 1:
+        return matches[0]
+    for match in matches:
+        if _has_lowercased_name(match):
+            return match
+    return None
 
 
 def _is_dataset_urn(urn: Optional[str]) -> TypeGuard[str]:
@@ -510,7 +531,7 @@ class AutoResolveLineageUrnsProcessor(
     def _resolve_dataset(self, urn: str, *, with_schema: bool = False) -> _Resolution:
         """Resolve `urn` to the casing DataHub already stores, via the URN alias index.
 
-        ``pick_match`` returns the stored URN matching the reference under any casing: a
+        ``_pick_match`` returns the stored URN matching the reference under any casing: a
         hit under the reference's own casing is EXACT, a hit under a different casing is
         NORMALIZED, and None is UNRESOLVED. Two stored entities differing only by case heal
         to the lowercase-named one rather than leaving the lineage broken; None is left for
@@ -586,8 +607,8 @@ class AutoResolveLineageUrnsProcessor(
                 )
                 continue
             if matches:
-                return pick_match(urn, matches)
-        return graph_urn_alias_resolver(self._graph).resolve(urn)
+                return _pick_match(urn, matches)
+        return _pick_match(urn, graph_urn_alias_resolver(self._graph).find_match(urn))
 
     def _schema_of(self, urn: str, platform: str) -> Optional[SchemaInfo]:
         """The columns DataHub stores for `urn`, or None for an entity that has none.
