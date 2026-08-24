@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import ANY, patch
 
 import pytest
@@ -6,7 +7,8 @@ from databricks.sdk.service.catalog import TableType
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
+from datahub.ingestion.source.unity.proxy_types import Column, Query, Schema, Table
+from datahub.ingestion.source.unity.query_lineage import QueryLineageResolver
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
@@ -3265,20 +3267,35 @@ class TestUnityCatalogQueryLinkedLineage:
         upstream_ref = next(iter(table.upstreams))
         upstream_urn = source.gen_dataset_urn(upstream_ref)
 
-        class _StubResolver:
-            def query_urn_for(self, up: str, down: str):
-                if (up, down) == (upstream_urn, dataset_urn):
-                    return "urn:li:query:abc123"
-                return None
-
-        aspect = source._generate_lineage_aspect(
-            dataset_urn, table, resolver=_StubResolver()
+        urn_by_full_name = {
+            upstream_ref.qualified_table_name: upstream_urn,
+            table.ref.qualified_table_name: dataset_urn,
+        }
+        resolver = QueryLineageResolver(resolve_urn=urn_by_full_name.get)
+        resolver.add_query(
+            Query(
+                query_id="stmt-1",
+                query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
+                statement_type=None,
+                start_time=None,
+                end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                user_id=None,
+                user_name=None,
+                executed_as_user_id=None,
+                executed_as_user_name=None,
+                source_table_full_names=[upstream_ref.qualified_table_name],
+                target_table_full_names=[table.ref.qualified_table_name],
+            )
         )
+        expected_query_urn = resolver.query_urn_for(upstream_urn, dataset_urn)
+        assert expected_query_urn is not None
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=resolver)
 
         assert aspect is not None
         linked = [u for u in aspect.upstreams if u.dataset == upstream_urn]
         assert len(linked) == 1
-        assert linked[0].query == "urn:li:query:abc123"
+        assert linked[0].query == expected_query_urn
 
     def test_lineage_aspect_without_resolver_sets_no_query(self):
         """Cluster-executed lineage has no statement_id, so nothing is linked."""

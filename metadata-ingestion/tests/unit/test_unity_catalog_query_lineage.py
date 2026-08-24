@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Optional
 
+import datahub.metadata.schema_classes as models
 from datahub.ingestion.source.unity.proxy_types import Query
 from datahub.ingestion.source.unity.query_lineage import (
     QueryLineageResolver,
@@ -80,6 +81,7 @@ def test_latest_statement_wins_for_same_edge():
     urn = resolver.query_urn_for(
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
+    assert urn is not None
     emitted = dict(resolver.queries_to_emit())
 
     assert emitted[urn] == newer.query_text
@@ -202,8 +204,12 @@ def test_single_target_urn_matches_usage_path_fingerprint():
         platform="databricks",
         report=SimpleNamespace(num_queries_preparsed_fingerprint_fallback=0),
     )
+    # _query_fingerprint only touches self.platform/self.report; a real
+    # UnityCatalogUsageExtractor needs an unrelated config/proxy/schema_resolver
+    # graph that has nothing to do with fingerprinting.
     expected_fingerprint = UnityCatalogUsageExtractor._query_fingerprint(
-        usage_path_stub, query
+        usage_path_stub,  # type: ignore[arg-type]
+        query,
     )
 
     assert urn == f"urn:li:query:{expected_fingerprint}"
@@ -222,12 +228,12 @@ def test_build_query_entity_aspects_shape():
     names = {type(a).__name__ for a in aspects}
     assert names == {"QueryPropertiesClass", "QuerySubjectsClass"}
 
-    props = next(a for a in aspects if type(a).__name__ == "QueryPropertiesClass")
+    props = next(a for a in aspects if isinstance(a, models.QueryPropertiesClass))
     assert props.statement.value == "SELECT col_a FROM my_catalog.my_schema.src"
     assert props.statement.language == "SQL"
     assert props.source == "SYSTEM"
 
-    subjects = next(a for a in aspects if type(a).__name__ == "QuerySubjectsClass")
+    subjects = next(a for a in aspects if isinstance(a, models.QuerySubjectsClass))
     assert len(subjects.subjects) == 2
 
 
@@ -244,6 +250,7 @@ def test_subject_urns_for_returns_all_distinct_datasets_for_a_query():
     urn = resolver.query_urn_for(
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
+    assert urn is not None
     assert urn == resolver.query_urn_for(
         _urn("my_catalog.my_schema.src2"), _urn("my_catalog.my_schema.tgt")
     )
@@ -269,6 +276,7 @@ def test_subject_urns_for_reflects_edges_added_after_a_prior_call():
     urn = resolver.query_urn_for(
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
+    assert urn is not None
 
     resolver.subject_urns_for(urn)  # populate the cache before the mutation below
 
