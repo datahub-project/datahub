@@ -1,10 +1,10 @@
 package com.linkedin.metadata.graph.cache.client;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -67,9 +67,12 @@ public final class GraphScrollFallback {
                 null,
                 null);
         if (result.getEntities() != null) {
-          result.getEntities().stream()
-              .map(related -> UrnUtils.getUrn(related.getSourceUrn()))
-              .forEach(children::add);
+          for (var related : result.getEntities()) {
+            Urn child = EntityGraphEndpoints.toUrn(related.getSourceUrn());
+            if (child != null) {
+              children.add(child);
+            }
+          }
         }
       }
       return new DirectChildrenResult(children, false);

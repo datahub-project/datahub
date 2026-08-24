@@ -1,7 +1,7 @@
 import { InfiniteScrollList, radius } from '@components';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -11,17 +11,15 @@ import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 
-import { useGetSemanticModelMetricsPageLazyQuery } from '@graphql/semanticModel.generated';
-import { DataHubPageModuleType, Entity, Metric, ScrollResults } from '@types';
+import {
+    useGetSemanticModelMetricsPageLazyQuery,
+    useGetSemanticModelMetricsPageQuery,
+} from '@graphql/semanticModel.generated';
+import { DataHubPageModuleType, Entity, Metric } from '@types';
 
 const DEFAULT_PAGE_SIZE = 20;
 const QUERY_ALL = '*';
 const SIGMA_ICON_SIZE = 20;
-
-type EntityDataWithMetrics = {
-    urn: string;
-    metrics?: ScrollResults | null;
-};
 
 type MetricEntity = { __typename: 'Metric' } & Pick<Metric, 'urn' | 'type'>;
 
@@ -44,20 +42,37 @@ function MetricSigmaIcon() {
     );
 }
 
+function isMetricEntity(entity: Entity | null | undefined): entity is MetricEntity {
+    return (entity as MetricEntity | null | undefined)?.__typename === 'Metric';
+}
+
 export default function SemanticModelMetricsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const { entityData } = useEntityData();
+    const { urn } = useEntityData();
 
-    const typedData = entityData as EntityDataWithMetrics | null;
-    const urn = typedData?.urn ?? '';
-    const initialMetrics: MetricEntity[] = (typedData?.metrics?.searchResults ?? [])
-        .map((r) => r.entity)
-        .filter((e): e is MetricEntity => (e as MetricEntity)?.__typename === 'Metric');
-    const initialNextScrollId = typedData?.metrics?.nextScrollId ?? null;
-    const total = typedData?.metrics?.total ?? 0;
+    const { data, loading } = useGetSemanticModelMetricsPageQuery({
+        skip: !urn,
+        variables: {
+            urn: urn || '',
+            input: { query: QUERY_ALL, count: DEFAULT_PAGE_SIZE },
+        },
+        fetchPolicy: 'cache-first',
+    });
+
+    const metricsResult = data?.semanticModel?.metrics;
+    const initialMetrics = useMemo(
+        () => (metricsResult?.searchResults ?? []).map((r) => r?.entity).filter(isMetricEntity),
+        [metricsResult?.searchResults],
+    );
+    const initialNextScrollId = metricsResult?.nextScrollId ?? null;
+    const total = metricsResult?.total ?? 0;
 
     const [fetchPage] = useGetSemanticModelMetricsPageLazyQuery();
     const scrollIdRef = useRef(initialNextScrollId);
+
+    useEffect(() => {
+        scrollIdRef.current = initialNextScrollId;
+    }, [initialNextScrollId]);
 
     const fetchMetrics = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
@@ -65,7 +80,7 @@ export default function SemanticModelMetricsModule(props: ModuleProps) {
                 scrollIdRef.current = initialNextScrollId;
                 return initialMetrics as Entity[];
             }
-            if (!scrollIdRef.current) {
+            if (!scrollIdRef.current || !urn) {
                 return [];
             }
             const result = await fetchPage({
@@ -74,18 +89,15 @@ export default function SemanticModelMetricsModule(props: ModuleProps) {
                     input: { query: QUERY_ALL, count, scrollId: scrollIdRef.current },
                 },
             });
-            const metricsResult = result.data?.semanticModel?.metrics;
-            scrollIdRef.current = metricsResult?.nextScrollId ?? null;
-            return (metricsResult?.searchResults ?? [])
-                .map((r) => r.entity)
-                .filter((e): e is Entity => (e as MetricEntity)?.__typename === 'Metric');
+            const pageResult = result.data?.semanticModel?.metrics;
+            scrollIdRef.current = pageResult?.nextScrollId ?? null;
+            return (pageResult?.searchResults ?? []).map((r) => r?.entity).filter(isMetricEntity);
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [fetchPage, urn, initialNextScrollId],
+        [fetchPage, urn, initialNextScrollId, initialMetrics],
     );
 
     return (
-        <LargeModule {...props} dataTestId="semantic-model-metrics-module">
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-metrics-module">
             <InfiniteScrollList<Entity>
                 fetchData={fetchMetrics}
                 renderItem={(entity) => (

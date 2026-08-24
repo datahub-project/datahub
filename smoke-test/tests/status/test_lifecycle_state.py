@@ -20,9 +20,12 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 SMOKE_TEST_STAGE_PREFIX = "smoketest"
 

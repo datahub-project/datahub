@@ -1,0 +1,9 @@
+{
+    "columnCount_other": "{{count}} 列",
+    "matchCount_other": "{{count}} 件の一致",
+    "ownerCount_other": "{{count}} 人のOwner",
+    "queryCount_other": "{{count}} 件のクエリ",
+    "rowCount_other": "{{count}} 行",
+    "tagCount_other": "{{count}} 件のTag",
+    "termCount_other": "{{count}} 件の用語"
+}

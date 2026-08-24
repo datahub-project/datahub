@@ -1383,4 +1383,139 @@ def default_query_results(  # noqa: C901
                 "IS_HYBRID": "NO",
             },
         ]
+
+    # --- Semantic views -------------------------------------------------------
+    # Deliberately awkward, because the plain shapes never caught anything: a
+    # mixed-case logical table ("Orders"), a case-only column pair on it, a PK on
+    # a quoted column, a join key whose dimension is spelled differently, and a
+    # derived metric referencing another by its quoted name.
+    if query == SnowflakeQuery.get_semantic_views_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "COMMENT": "Sales semantic view",
+                "CREATED": datetime(2022, 6, 6, 0, 0, 0, 0, tzinfo=timezone.utc),
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_tables_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "SEMANTIC_TABLE_NAME": "Orders",
+                "BASE_TABLE_CATALOG": "TEST_DB",
+                "BASE_TABLE_SCHEMA": "TEST_SCHEMA",
+                "BASE_TABLE_NAME": "TABLE_1",
+                "PRIMARY_KEYS": '["Order_Id"]',
+                "UNIQUE_KEYS": None,
+                "COMMENT": "Order facts",
+                "SYNONYMS": None,
+            },
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "SEMANTIC_TABLE_NAME": "CUSTOMERS",
+                "BASE_TABLE_CATALOG": "TEST_DB",
+                "BASE_TABLE_SCHEMA": "TEST_SCHEMA",
+                "BASE_TABLE_NAME": "TABLE_2",
+                "PRIMARY_KEYS": '["CUSTOMER_ID"]',
+                "UNIQUE_KEYS": None,
+                "COMMENT": None,
+                "SYNONYMS": None,
+            },
+        ]
+    if query == SnowflakeQuery.get_semantic_dimensions_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "Orders",
+                "NAME": name,
+                "DATA_TYPE": "TEXT",
+                "EXPRESSION": expression,
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+            for name, expression in (
+                # A case-only pair: one column each, indistinguishable once folded.
+                ("Order_Id", '"Order_Id"'),
+                ("ORDER_ID", '"ORDER_ID"'),
+                # The dimension is spelled differently from the base column the
+                # relationship's join key names.
+                ("cust_ref", '"Cust_Ref"'),
+            )
+        ] + [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "CUSTOMERS",
+                "NAME": "CUSTOMER_ID",
+                "DATA_TYPE": "NUMBER",
+                "EXPRESSION": "CUSTOMER_ID",
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_facts_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "Orders",
+                "NAME": "AMOUNT",
+                "DATA_TYPE": "NUMBER",
+                "EXPRESSION": "AMOUNT",
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_metrics_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "TABLE_NAME": "Orders",
+                "NAME": name,
+                "DATA_TYPE": "NUMBER",
+                "EXPRESSION": expression,
+                "COMMENT": None,
+                "SYNONYMS": None,
+            }
+            for name, expression in (
+                ("Total_Amount", 'SUM("Orders"."AMOUNT")'),
+                # Quoted reference: the only spelling Snowflake resolves to a
+                # metric stored mixed-case.
+                ("Double_Amount", '"Orders"."Total_Amount" * 2'),
+            )
+        ]
+    if query == SnowflakeQuery.get_semantic_relationships_for_database("TEST_DB"):
+        return [
+            {
+                "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+                "SEMANTIC_VIEW_SCHEMA": "TEST_SCHEMA",
+                "SEMANTIC_VIEW_NAME": "SALES_MODEL",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "Orders",
+                "REF_TABLE_NAME": "CUSTOMERS",
+                "FOREIGN_KEYS": '["Cust_Ref"]',
+                "REF_KEYS": '["CUSTOMER_ID"]',
+            }
+        ]
+    if query == SnowflakeQuery.get_semantic_view_ddl(
+        "TEST_DB", "TEST_SCHEMA", "SALES_MODEL"
+    ):
+        return [
+            {
+                "DDL": 'CREATE SEMANTIC VIEW SALES_MODEL\n  TABLES ("Orders" AS TEST_DB.TEST_SCHEMA.TABLE_1)'
+            }
+        ]
+
     raise ValueError(f"Unexpected query: {query}")

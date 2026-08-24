@@ -39,7 +39,7 @@ from .base import ConfiguredPhase, PhaseResult
 from ..config import ZDUTestConfig
 from ..constants import REPO_ROOT, TOKEN_SERVICE_KEYS
 from ..context import TestContext
-from ..docker_compose import DockerComposeClient
+from ..docker_compose import DEFAULT_UP_TIMEOUT_S, DockerComposeClient
 from ..host_mounts import worktree_mount_env
 
 # Persisted dev secrets file maintained by docker/build.gradle's
@@ -86,7 +86,11 @@ class NukeAndRedeployPhase(ConfiguredPhase):
         gms_service: str,
         health_url: str,
         down_timeout_s: int = 120,
-        up_timeout_s: int = 120,
+        # Defer to DockerComposeClient's default rather than re-declaring 120s
+        # here: this phase is the cold-boot path, so it is exactly the caller
+        # that cannot clear a 120s bound on a clean runner. Overridable via
+        # ZDU_COMPOSE_UP_TIMEOUT_S.
+        up_timeout_s: int = DEFAULT_UP_TIMEOUT_S,
         health_timeout_s: int = 300,
     ) -> None:
         self._docker = docker

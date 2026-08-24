@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -10,6 +11,7 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
@@ -17,7 +19,10 @@ import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
+import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.VersionBasedRetention;
 import io.datahubproject.metadata.context.OperationContext;
@@ -50,7 +55,8 @@ public class EbeanRetentionServiceTest {
             server,
             2,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server));
+            new PassThroughScopedTransactionFactory(server),
+            mock(SystemEntityClient.class));
   }
 
   @AfterMethod
@@ -279,23 +285,27 @@ public class EbeanRetentionServiceTest {
   }
 
   @Test
-  public void testApplyRetentionBatch_noPolicyContexts_returnsSameKeyInstancesAsInputs() {
+  public void testApplyRetentionBatch_noPolicyContexts_returnsSameKeyInstancesAsInputs()
+      throws java.net.URISyntaxException {
     // The drainer passes parallel (keys, contexts) lists and matches returned committed keys
     // against the original input keys via HashSet.contains. The Ebean override rebuilds each
     // context with a resolved policy but MUST echo back the SAME keys it received (at the
     // committed index) — not reconstructed ones — else the drainer's successes.contains(key) match
     // fails and committed keys re-drain forever. This pins that contract at the unit level.
     EntityService<?> entityService = mock(EntityService.class);
-    // getRetention -> getLatestAspects returns empty -> getRetention returns new Retention()
-    // (empty)
-    when(entityService.getLatestAspects(any(), any(), any())).thenReturn(Collections.emptyMap());
+    // getRetention -> SystemEntityClient.batchGetV2 -> getEntitiesV2 returns empty -> getRetention
+    // returns new Retention() (empty)
+    when(entityService.getEntitiesV2(any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
     EbeanRetentionService<?> svc =
         new EbeanRetentionService<>(
             entityService,
             server,
             2,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server));
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(
+                entityService, mock(EventProducer.class), mock(MetricUtils.class)));
 
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     String urnA = "urn:li:corpuser:noPolicyA";
