@@ -443,18 +443,20 @@ class AutoResolveLineageUrnsProcessor(
                 f"{entry.platform}, platform_instance={entry.platform_instance}, "
                 f"env={entry.env}"
             )
-            alias_resolver = provide_urn_alias_resolver(
-                graph=self._graph,
-                platform=entry.platform,
-                platform_instance=entry.platform_instance,
-                env=entry.env,
-            )
-            if alias_resolver is None:
+            try:
+                alias_resolver = provide_urn_alias_resolver(
+                    graph=self._graph,
+                    platform=entry.platform,
+                    platform_instance=entry.platform_instance,
+                    env=entry.env,
+                )
+            except Exception as e:
                 self.ctx.source_report.warning(
                     title="Lineage URN casing: upstream URNs not loaded",
                     message="Failed to load an upstream platform's URNs from DataHub, "
                     "so its references are reconciled without a preloaded catalog.",
                     context=scope,
+                    exc=e,
                 )
             else:
                 self._alias_resolvers.setdefault(entry.platform, []).append(

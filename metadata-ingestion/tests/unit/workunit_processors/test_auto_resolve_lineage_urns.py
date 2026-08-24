@@ -128,7 +128,7 @@ def _seed_index(
     """A `provide_urn_alias_resolver` stand-in, plus a graph that knows every seeded URN.
 
     Each region in `regions` gets a graph-less resolver holding only what its own filter
-    would have reached; a region not listed yields None, as a failed load does. Either way a
+    would have reached; a region not listed raises, as a failed load does. Either way a
     miss falls through to the graph, which answers from `urns` as DataHub would.
     """
     _registers_aliases(graph)
@@ -152,8 +152,11 @@ def _seed_index(
         platform_instance: Optional[str],
         env: str,
         **kwargs: Any,
-    ) -> Optional[UrnAliasResolver]:
-        return resolvers.get((platform, platform_instance, env))
+    ) -> UrnAliasResolver:
+        resolver = resolvers.get((platform, platform_instance, env))
+        if resolver is None:
+            raise RuntimeError("boom")
+        return resolver
 
     return mock.MagicMock(side_effect=_load)
 

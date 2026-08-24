@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from unittest import mock
 
 import pytest
@@ -67,8 +67,8 @@ def _asked(graph: mock.MagicMock) -> List[str]:
     ]
 
 
-def _load(graph: mock.MagicMock, instance: str = "") -> Optional[UrnAliasResolver]:
-    """One bulk-loaded region, or None when its scroll did not finish."""
+def _load(graph: mock.MagicMock, instance: str = "") -> UrnAliasResolver:
+    """One bulk-loaded region. Raises when its scroll did not finish."""
     return provide_urn_alias_resolver(
         graph=graph,
         platform="snowflake",
@@ -138,7 +138,6 @@ def test_resolve_returns_none_when_nothing_matches() -> None:
 def test_a_bulk_loaded_hit_needs_no_question() -> None:
     graph = _server(_LOWER)
     resolver = _load(graph)
-    assert resolver is not None
 
     assert resolver.resolve(_UPPER) == _LOWER
     graph.get_dataset_urns_ignoring_case.assert_not_called()
@@ -203,8 +202,9 @@ def test_the_graph_backed_resolver_is_shared_per_server() -> None:
 
 def test_a_load_that_fails_part_way_yields_no_resolver() -> None:
     # A partial row is a hit with an incomplete list of casings, which heals a reference to
-    # the wrong entity.
-    assert _load(_server(_LOWER, fails=True)) is None
+    # the wrong entity. Raised rather than swallowed, so the cause reaches the report.
+    with pytest.raises(RuntimeError):
+        _load(_server(_LOWER, fails=True))
 
 
 def test_a_partial_load_cannot_answer_a_collision_wrongly() -> None:
@@ -213,7 +213,8 @@ def test_a_partial_load_cannot_answer_a_collision_wrongly() -> None:
     # one — wrong table either way.
     graph = _server(_UPPER, _LOWER, fails=True)
 
-    assert _load(graph) is None
+    with pytest.raises(RuntimeError):
+        _load(graph)
     fetching = UrnAliasResolver(graph)
     assert fetching.resolve(_MIXED) == _LOWER
     assert fetching.resolve(_UPPER) == _UPPER
@@ -230,7 +231,6 @@ def test_a_load_narrowed_to_an_instance_holds_that_instance_alone() -> None:
     # So its miss is not an absence: inst_b exists and this resolver never saw it.
     resolver = _load(_server(_IN_A, _IN_B), instance="inst_a")
 
-    assert resolver is not None
     assert resolver.resolve(_IN_A_UPPER) == _IN_A
     assert resolver.find_match(_IN_B_UPPER) == []
 
@@ -238,7 +238,6 @@ def test_a_load_narrowed_to_an_instance_holds_that_instance_alone() -> None:
 def test_an_unfiltered_load_holds_every_instance() -> None:
     resolver = _load(_server(_IN_A, _IN_B))
 
-    assert resolver is not None
     assert resolver.resolve(_IN_B_UPPER) == _IN_B
 
 
@@ -247,7 +246,6 @@ def test_an_empty_instance_filtered_load_still_loads() -> None:
     # emit. An empty load is a load, not a failure; the caller reports the emptiness.
     resolver = _load(_server(), instance="inst_a")
 
-    assert resolver is not None
     assert resolver.urn_count() == 0
 
 

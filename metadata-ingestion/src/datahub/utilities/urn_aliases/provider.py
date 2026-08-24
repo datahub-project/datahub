@@ -24,11 +24,13 @@ def provide_urn_alias_resolver(
     platform_instance: Optional[str],
     env: str,
     batch_size: int = _BATCH_SIZE,
-) -> Optional[UrnAliasResolver]:
+) -> UrnAliasResolver:
     """A graph-less resolver over one bulk-loaded region of DataHub, cached per region.
 
-    None when the scroll fails part way: a key holds every casing of a name, so a partial
-    row is a hit with an incomplete list, which heals a reference to the wrong entity.
+    Raises when the scroll fails part way: a key holds every casing of a name, so a partial
+    row is a hit with an incomplete list, which heals a reference to the wrong entity. The
+    caller owns the report, so the cause reaches it; a raise is not memoised either, so a
+    later region is not disabled by one flaky search.
 
     Scrolls URNs alone; schemas are a separate concern with a separate loader.
     """
@@ -56,12 +58,12 @@ def provide_urn_alias_resolver(
                 f"Loaded {count} URNs for {scope} in {timer.elapsed_seconds()} seconds"
             )
     except Exception:
-        logger.warning(
+        logger.debug(
             f"Failed to load URN aliases for {scope} after {count} URNs.",
             exc_info=True,
         )
         resolver.close()
-        return None
+        raise
     return resolver
 
 
