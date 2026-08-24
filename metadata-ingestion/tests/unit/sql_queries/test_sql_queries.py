@@ -80,6 +80,24 @@ def _query_line(idx=0, **overrides):
     return json.dumps(entry)
 
 
+def _lineage_line(idx=0):
+    """A row that reliably produces work units.
+
+    Explicit upstream/downstream tables bypass SQL parsing, so unlike
+    _query_line these still emit under the mocked graph. Abort tests need that:
+    asserting no output only proves anything if output was otherwise expected.
+    """
+    return json.dumps(
+        {
+            "query": f"INSERT INTO out_{idx} SELECT * FROM in_{idx}",
+            "timestamp": 1640995200 + idx,
+            "user": "test_user",
+            "upstream_tables": [f"db.schema.in_{idx}"],
+            "downstream_tables": [f"db.schema.out_{idx}"],
+        }
+    )
+
+
 # ── QueryEntry tests ─────────────────────────────────────────────────────
 
 
@@ -750,7 +768,10 @@ class TestErrorHandling:
 
     def test_systemic_error_aborts_immediately(self, pipeline_context, query_file_with):
         """If a systemic error propagates through add_observed_query, abort immediately."""
-        path = query_file_with([_query_line(i) for i in range(10)])
+        # Good rows first: without them "emitted nothing" is vacuously true.
+        path = query_file_with(
+            [_lineage_line(i) for i in range(4)] + [_query_line(i) for i in range(10)]
+        )
         source = _make_source(pipeline_context, path)
         source.aggregator.add_observed_query = Mock(
             side_effect=GraphError("Token expired")
@@ -759,9 +780,10 @@ class TestErrorHandling:
         work_units = list(source.get_workunits_internal())
 
         assert any(f.title == "Systemic error" for f in source.report.failures)
-        assert source.report.num_queries_processed == 0
-        # Aborting must emit nothing: with incremental_lineage off, partial
-        # output would overwrite good lineage with worse.
+        # The 4 lineage rows aggregate fine before the error hits; the point is
+        # that none of them reach the sink. With incremental_lineage off,
+        # emitting partial output would overwrite good lineage with worse.
+        assert source.report.num_queries_processed == 4
         assert work_units == []
 
     def test_single_parse_failure_below_min_sample_is_not_a_failure(
@@ -799,6 +821,144 @@ class TestErrorHandling:
         assert any(
             w.title == "Queries failed SQL parsing" for w in source.report.warnings
         )
+        assert not source.report.failures
+
+    @pytest.mark.parametrize(
+        "bad_field",
+        [
+            pytest.param({"user": "urn:li:dataset:(a,b,c)"}, id="wrong_entity_urn"),
+            pytest.param({"timestamp": 99999999999999999999}, id="timestamp_overflow"),
+            pytest.param({"timestamp": 1e30}, id="timestamp_float_overflow"),
+            pytest.param({"upstream_tables": 42}, id="tables_not_a_list"),
+            pytest.param({"upstream_tables": "my_table"}, id="tables_bare_string"),
+        ],
+    )
+    def test_one_bad_row_never_aborts_the_run(
+        self, pipeline_context, query_file_with, bad_field
+    ):
+        """A single malformed row is counted and skipped, never fatal.
+
+        These are the shapes that motivated the broad catch in _parse_lines:
+        InvalidUrnError and OSError/OverflowError are NOT ValueError, so a
+        narrowed catch lets them escape and kill the whole run.
+        """
+        good = [_lineage_line(i) for i in range(4)]
+        bad = json.dumps({**json.loads(_lineage_line(99)), **bad_field})
+        source = _make_source(pipeline_context, query_file_with(good + [bad]))
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.num_entries_processed == 4
+        assert not source.report.failures
+        assert work_units
+
+    def test_empty_user_is_treated_as_no_actor(self, pipeline_context, query_file_with):
+        """Exported logs use "" for system queries; that must not fail the row."""
+        source = _make_source(
+            pipeline_context,
+            query_file_with(
+                [
+                    json.dumps({**json.loads(_lineage_line(i)), "user": ""})
+                    for i in range(4)
+                ]
+            ),
+        )
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.num_entries_failed == 0
+        assert source.report.num_entries_processed == 4
+        assert work_units
+
+    def test_bare_string_tables_do_not_become_per_character_urns(
+        self, pipeline_context, query_file_with
+    ):
+        """A str is iterable — without a guard each character becomes a URN."""
+        entry = {**json.loads(_lineage_line(0)), "upstream_tables": "my_table"}
+        source = _make_source(pipeline_context, query_file_with([json.dumps(entry)]))
+
+        list(source.get_workunits_internal())
+
+        assert source.report.num_entries_failed == 1
+        assert source.report.num_entries_processed == 0
+
+    @pytest.mark.parametrize("threshold,expect_failure", [(0.5, True), (0.95, False)])
+    def test_entry_failure_ratio_threshold_takes_effect(
+        self, pipeline_context, query_file_with, threshold, expect_failure
+    ):
+        """The configured threshold actually gates, at 60% failures."""
+        lines = ["not json {"] * 15 + [_lineage_line(i) for i in range(10)]
+        source = _make_source(
+            pipeline_context, query_file_with(lines), failure_ratio_threshold=threshold
+        )
+
+        work_units = list(source.get_workunits_internal())
+
+        failed = any(
+            f.title == "Most entries failed to parse" for f in source.report.failures
+        )
+        assert failed is expect_failure
+        # The gate must suppress emission, not merely report.
+        assert (work_units == []) is expect_failure
+
+    def test_interleaved_aggregator_failures_abort(
+        self, pipeline_context, query_file_with
+    ):
+        """Non-consecutive failures never trip the consecutive guard.
+
+        Losing most queries to a 4-fail/1-pass pattern must still fail and
+        suppress emission — partial lineage would replace good lineage.
+        """
+        source = _make_source(
+            pipeline_context,
+            query_file_with([_lineage_line(i) for i in range(25)]),
+        )
+        calls = {"n": 0}
+        real_add = source.aggregator.add_known_query_lineage
+
+        def every_fifth_succeeds(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] % 5:
+                raise RuntimeError("intermittent failure")
+            return real_add(*args, **kwargs)
+
+        source.aggregator.add_known_query_lineage = every_fifth_succeeds
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.num_queries_aggregator_failures > 0
+        assert source.report.num_queries_processed > 0
+        assert any(
+            f.title == "Most queries failed aggregation" for f in source.report.failures
+        )
+        assert work_units == []
+
+    def test_mid_read_error_reports_and_propagates(self, pipeline_context):
+        """_guarded_stream converts a mid-transfer read error into a failure."""
+        source = _make_source(pipeline_context, "dummy.jsonl")
+
+        def failing_stream():
+            yield _lineage_line(0) + "\n"
+            raise OSError("connection reset")
+
+        with pytest.raises(OSError):
+            list(source._guarded_stream(failing_stream(), "Local file read error"))
+
+        assert any(f.title == "Local file read error" for f in source.report.failures)
+
+    def test_guarded_stream_ignores_consumer_errors(self, pipeline_context):
+        """The whole point of the helper: yield sits outside the try.
+
+        An exception thrown in by the consumer belongs to the consumer, and must
+        not be reported as a read failure.
+        """
+        source = _make_source(pipeline_context, "dummy.jsonl")
+        gen = source._guarded_stream(iter(["a\n", "b\n"]), "Local file read error")
+        next(gen)
+
+        with pytest.raises(ValueError):
+            gen.throw(ValueError("consumer blew up"))
+
         assert not source.report.failures
 
     def test_file_not_found_reports_failure(self, pipeline_context):

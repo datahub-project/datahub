@@ -141,10 +141,9 @@ class SqlQueriesSourceConfig(
         default=DEFAULT_FAILURE_RATIO_THRESHOLD,
         gt=0.0,
         le=1.0,
-        description="Fail the ingestion when at least this fraction of queries fail SQL parsing, "
-        "or this fraction of schema lookups cannot reach DataHub. Raise it to tolerate "
-        f"a noisier input. Ratios are only applied once at least {MIN_SAMPLE_FOR_FAILURE_RATIO} "
-        "samples have been seen.",
+        description="Fail the ingestion when at least this fraction of input entries, or of "
+        "queries, fails to process. Raise it to tolerate a noisier input. Ratios are "
+        f"only applied once at least {MIN_SAMPLE_FOR_FAILURE_RATIO} samples have been seen.",
     )
 
     # AWS/S3 configuration
@@ -280,7 +279,6 @@ class SqlQueriesSource(Source):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
 
-        logger.info("Processing all queries in batch mode")
         yield from self._process_queries_batch()
 
     def _process_queries_batch(
@@ -347,11 +345,11 @@ class SqlQueriesSource(Source):
             yield from auto_workunit(self.aggregator.gen_metadata())
 
     def _check_post_loop_health(self) -> bool:
-        """Report on aggregator and schema-resolver health after the processing loop.
+        """Assess entry-parse, aggregator and SQL-parsing health after the loop.
 
         Returns False when the run is too broken to emit. Every check runs — a
-        symptom firing must not hide its root cause, since the aggregator and
-        schema-resolver ratios are usually two views of the same failure.
+        symptom firing must not hide its root cause, and these three are often
+        views of the same underlying failure.
         """
         if self.report.num_entries_processed == 0:
             if self.report.num_entries_failed > 0:
@@ -378,33 +376,80 @@ class SqlQueriesSource(Source):
     def _check_entry_parse_health(self) -> bool:
         failed = self.report.num_entries_failed
         total = failed + self.report.num_entries_processed
-        if total < MIN_SAMPLE_FOR_FAILURE_RATIO or not failed:
+        if not failed:
             return True
 
         ratio = failed / total
+        context = f"{failed}/{total} entries failed ({ratio:.0%})"
+
+        # Below the sample floor a ratio isn't evidence of a systemic problem.
+        # It still needs saying: unlike the SQL-parse equivalent, the entries
+        # that survived here do go on to emit.
+        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
+            self.report.warning(
+                title="Entries failed to parse",
+                message="Entries failed to parse, but too few were seen to "
+                "distinguish bad input from a systemic problem",
+                context=context,
+            )
+            return True
+
         if ratio < self.config.failure_ratio_threshold:
+            # Below the threshold is not fatal, but staying silent would hide a
+            # steadily-degrading export. Surviving entries still emit.
+            self.report.warning(
+                title="Some entries failed to parse",
+                message="Some input lines were not valid query entries and were skipped",
+                context=context,
+            )
             return True
 
         self.report.failure(
             title="Most entries failed to parse",
             message="A high proportion of input lines were not valid query entries — "
-            "check that the file is newline-delimited JSON with the expected fields",
-            context=f"{failed}/{total} entries failed ({ratio:.0%})",
+            "check the per-entry warnings for the underlying cause",
+            context=context,
         )
         return False
 
     def _check_aggregator_health(self) -> bool:
-        if (
-            self.report.num_queries_aggregator_failures == 0
-            or self.report.num_queries_processed > 0
-        ):
+        failed = self.report.num_queries_aggregator_failures
+        if not failed:
+            return True
+
+        if self.report.num_queries_processed == 0:
+            self.report.failure(
+                title="All queries failed aggregation",
+                message="Every query failed during aggregation — "
+                "likely a systemic issue (auth, connectivity, config)",
+                context=f"{failed} failures",
+            )
+            return False
+
+        # These failures never reach the aggregator, so _check_sql_parsing_health
+        # cannot see them — without a ratio here, losing most of a run to
+        # non-consecutive failures would report success and still emit.
+        total = failed + self.report.num_queries_processed
+        ratio = failed / total
+        context = f"{failed}/{total} queries failed ({ratio:.0%})"
+
+        if ratio < self.config.failure_ratio_threshold:
+            return True
+
+        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
+            self.report.warning(
+                title="Queries failed aggregation",
+                message="Most queries failed during aggregation, but too few were "
+                "seen to distinguish bad input from a systemic problem",
+                context=context,
+            )
             return True
 
         self.report.failure(
-            title="All queries failed aggregation",
-            message="Every query failed during aggregation — "
+            title="Most queries failed aggregation",
+            message="A high proportion of queries failed during aggregation — "
             "likely a systemic issue (auth, connectivity, config)",
-            context=f"{self.report.num_queries_aggregator_failures} failures",
+            context=context,
         )
         return False
 
@@ -432,6 +477,14 @@ class SqlQueriesSource(Source):
             return True
 
         if ratio < self.config.failure_ratio_threshold:
+            # Some parse failure is normal (DDL, unsupported syntax), so this is
+            # a warning — but a run losing a large minority of its queries must
+            # not look identical to a healthy one.
+            self.report.warning(
+                title="Some queries failed SQL parsing",
+                message="Some queries could not be parsed, so their lineage is missing",
+                context=context,
+            )
             return True
 
         self.report.failure(
@@ -640,6 +693,12 @@ class QueryEntry(BaseModel):
         if v is None:
             return None
 
+        # Exported query logs routinely carry "" for system/background queries.
+        # The field is Optional, so treat that as "no actor" exactly like null —
+        # rejecting the row instead would discard an otherwise valid query.
+        if isinstance(v, str) and not v.strip():
+            return None
+
         return v if isinstance(v, CorpUserUrn) else CorpUserUrn(v)
 
     @field_validator("downstream_tables", "upstream_tables", mode="before")
@@ -647,6 +706,14 @@ class QueryEntry(BaseModel):
     def parse_tables(cls, v: Any, info: ValidationInfo) -> Any:
         if not v:
             return []
+
+        # A bare string is iterable, so without this it fans out into one URN
+        # per character and writes fabricated lineage silently.
+        if isinstance(v, (str, bytes)):
+            raise ValueError(
+                "upstream_tables/downstream_tables must be a list of table names, "
+                f"not a bare string: {v!r}"
+            )
 
         context = info.context or {}
         config: Optional[SqlQueriesSourceConfig] = context.get("config")

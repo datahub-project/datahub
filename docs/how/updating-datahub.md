@@ -59,6 +59,8 @@ Requirements:
 
 - #19099 **(Ingestion / sql-queries)** The `enable_lazy_schema_loading` config option has been removed (it was never read). Existing recipes that include it will now produce a deprecation warning instead of silently accepting it. **Action:** remove `enable_lazy_schema_loading` from your recipe.
 
+- #19099 **(Ingestion / sql-queries)** Runs that lose most of their input now fail and produce no metadata, where previously they completed successfully with partial results. This applies when most input lines are not valid query entries, or most queries fail to process. Partial output was silently replacing complete lineage in DataHub, so the run now stops instead. **Action:** if a previously-green ingestion starts failing, the report names the cause; a genuinely noisy source can be tolerated by raising `failure_ratio_threshold` (default `0.8`). Some report field names also changed: `num_queries_processed_sequential` is now `num_queries_processed`, and `num_temp_tables_detected` is now `num_temp_table_matches`.
+
 ### Known Issues
 
 ### Potential Downtime
