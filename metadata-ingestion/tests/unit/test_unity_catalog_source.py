@@ -3307,3 +3307,40 @@ class TestUnityCatalogQueryLinkedLineage:
 
         assert aspect is not None
         assert all(u.query is None for u in aspect.upstreams)
+
+    def test_fine_grained_lineage_carries_query_urn(self):
+        """Column-level entries carry the same query URN as their table edge."""
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        upstream_ref = next(iter(table.upstreams))
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+
+        urn_by_full_name = {
+            upstream_ref.qualified_table_name: upstream_urn,
+            table.ref.qualified_table_name: dataset_urn,
+        }
+        resolver = QueryLineageResolver(resolve_urn=urn_by_full_name.get)
+        resolver.add_query(
+            Query(
+                query_id="stmt-1",
+                query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
+                statement_type=None,
+                start_time=None,
+                end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                user_id=None,
+                user_name=None,
+                executed_as_user_id=None,
+                executed_as_user_name=None,
+                source_table_full_names=[upstream_ref.qualified_table_name],
+                target_table_full_names=[table.ref.qualified_table_name],
+            )
+        )
+        expected_query_urn = resolver.query_urn_for(upstream_urn, dataset_urn)
+        assert expected_query_urn is not None
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=resolver)
+
+        assert aspect is not None
+        assert aspect.fineGrainedLineages
+        assert all(fg.query == expected_query_urn for fg in aspect.fineGrainedLineages)

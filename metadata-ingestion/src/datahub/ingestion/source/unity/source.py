@@ -1205,6 +1205,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ],
                     downstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     downstreams=[make_schema_field_urn(dataset_urn, d_col)],
+                    query=query_urn,
                 )
                 for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
             )
