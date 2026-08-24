@@ -3,6 +3,7 @@ package com.linkedin.metadata.system_info.collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -94,6 +95,38 @@ public class PropertiesCollectorTest {
 
     // Verify redaction count
     assertEquals(result.getRedactedProperties(), 2); // password and secret
+  }
+
+  @Test
+  public void testJdbcUrlCredentialsAreScrubbedButHostKept() {
+    TestPropertySource testSource = new TestPropertySource("jdbc-source");
+    testSource.addProperty(
+        "postgres.pgAnalytics.stores.product.pool.url",
+        "jdbc:postgresql://alice:s3cret@db.example:5432/datahub?sslmode=require&password=s3cret&user=alice");
+    mockPropertySources.addFirst(testSource);
+    when(mockEnvironment.getProperty("postgres.pgAnalytics.stores.product.pool.url"))
+        .thenReturn(
+            "jdbc:postgresql://alice:s3cret@db.example:5432/datahub?sslmode=require&password=s3cret&user=alice");
+
+    SystemPropertiesInfo result = propertiesCollector.collect();
+    PropertyInfo urlProp =
+        result.getProperties().get("postgres.pgAnalytics.stores.product.pool.url");
+    assertNotNull(urlProp);
+    String sanitized = String.valueOf(urlProp.getResolvedValue());
+    assertTrue(sanitized.contains("db.example"));
+    assertTrue(sanitized.contains("sslmode=require"));
+    assertFalse(sanitized.contains("s3cret"));
+    assertFalse(sanitized.contains("alice"));
+  }
+
+  @Test
+  public void testScrubUrlCredentialsHelpers() {
+    assertEquals(
+        PropertiesCollector.scrubUrlCredentials(
+            "jdbc:postgresql://u:p@localhost:5432/datahub?user=u&password=p&ssl=true"),
+        "jdbc:postgresql://localhost:5432/datahub?ssl=true");
+    assertEquals(PropertiesCollector.scrubUrlCredentials("not-a-url"), "not-a-url");
+    assertEquals(PropertiesCollector.scrubUrlCredentials(42), 42);
   }
 
   @Test

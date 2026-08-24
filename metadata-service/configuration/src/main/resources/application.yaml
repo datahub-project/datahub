@@ -704,19 +704,10 @@ postgres:
       maxAgeMinutes: ${DATAHUB_PGANALYTICS_MAX_AGE_MINUTES:120}
       leakTimeMinutes: ${DATAHUB_PGANALYTICS_LEAK_TIME_MINUTES:15}
       waitTimeoutMillis: ${DATAHUB_PGANALYTICS_WAIT_TIMEOUT_MILLIS:1000}
-    # Named stores + metric_family routing. Overlay (DATAHUB_PGANALYTICS_CONFIG_FILE) can replace.
-    # Product store: longer raw retention for browserId MAU; ops stay on default (90d raw).
-    stores:
-      product:
-        tablePrefix: ${DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX:metadata_analytics_product}
-        retention:
-          rawMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_RAW_MAX_AGE_SECONDS:31536000}
-          hourlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_HOURLY_MAX_AGE_SECONDS:15552000}
-          dailyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_DAILY_MAX_AGE_SECONDS:46656000}
-          monthlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_MONTHLY_MAX_AGE_SECONDS:94608000}
-    routing:
-      datahub_usage: product
-      # api_usage / system_usage → defaultStore
+    # Named stores + metric_family routing. Defaults live in pganalytics-config.yaml so
+    # DATAHUB_PGANALYTICS_CONFIG_FILE replaces the whole document (not a key-merge into these maps).
+    stores: {}
+    routing: {}
 
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:

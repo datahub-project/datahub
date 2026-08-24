@@ -6,6 +6,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
 
+/**
+ * Loads the pgAnalytics multi-store document. The URI is either the bundled classpath default or
+ * {@code DATAHUB_PGANALYTICS_CONFIG_FILE}; Spring does not merge those two files. Because {@code
+ * application.yaml} leaves {@code stores}/{@code routing} empty, the active document fully owns
+ * those maps (set the env to replace product routing, not to patch individual keys).
+ */
 @Slf4j
 @Configuration
 @PropertySource(
@@ -25,7 +31,8 @@ public class PgAnalyticsConfigOverlay {
     if (!configFile.startsWith("file:") && !configFile.startsWith("classpath:")) {
       log.warn(
           "{} should be a Spring resource URI (e.g. file:/etc/datahub/pganalytics.yaml); got '{}'."
-              + " Prepend file: or classpath: so the PropertySource overlay can load it.",
+              + " Prepend file: or classpath: so the PropertySource can load it. The file replaces"
+              + " classpath:/pganalytics-config.yaml entirely (stores/routing are not merged).",
           CONFIG_FILE_ENV,
           configFile);
     }

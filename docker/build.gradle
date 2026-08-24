@@ -483,7 +483,7 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("DATAHUB_FRONTEND_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("DATAHUB_MAE_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("DATAHUB_MCE_VERSION", '__VERSION__')
-        composeExecutor.parameters.environment.put("DATAHUB_ACTIONS_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_ACTIONS_VERSION", '__VERSION__-slim')
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')

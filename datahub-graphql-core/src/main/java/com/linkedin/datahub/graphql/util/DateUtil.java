@@ -29,17 +29,26 @@ public class DateUtil {
     return setTimeToZero(getNow().plusDays(1));
   }
 
+  /**
+   * Trailing week as a half-open range {@code [start, end)} ending at tomorrow UTC midnight so
+   * analytics backends (ES {@code .lt(end)}, Postgres {@code event_time < end}) include all of
+   * today and stay grain-aligned for rollups.
+   */
   public DateRange getTrailingWeekDateRange() {
-    final DateTime todayEnd = getTomorrowStart().minusMillis(1);
-    final DateTime aWeekAgoStart = todayEnd.minusWeeks(1).plusMillis(1);
+    final DateTime endExclusive = getTomorrowStart();
+    final DateTime start = endExclusive.minusWeeks(1);
     return new DateRange(
-        String.valueOf(aWeekAgoStart.getMillis()), String.valueOf(todayEnd.getMillis()));
+        String.valueOf(start.getMillis()), String.valueOf(endExclusive.getMillis()));
   }
 
+  /**
+   * Trailing month as a half-open range {@code [start, end)} ending at tomorrow UTC midnight (same
+   * exclusive-end contract as {@link #getTrailingWeekDateRange()}).
+   */
   public DateRange getTrailingMonthDateRange() {
-    final DateTime todayEnd = getTomorrowStart().minusMillis(1);
-    final DateTime aMonthAgoStart = todayEnd.minusMonths(1).plusMillis(1);
+    final DateTime endExclusive = getTomorrowStart();
+    final DateTime start = endExclusive.minusMonths(1);
     return new DateRange(
-        String.valueOf(aMonthAgoStart.getMillis()), String.valueOf(todayEnd.getMillis()));
+        String.valueOf(start.getMillis()), String.valueOf(endExclusive.getMillis()));
   }
 }

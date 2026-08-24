@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.utils;
 
 import static org.testng.AssertJUnit.assertEquals;
 
+import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.util.DateUtil;
 import org.joda.time.DateTime;
 import org.mockito.Mockito;
@@ -46,5 +47,21 @@ public class DateUtilTest {
 
     Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(8, false));
     assertEqualStartOfNextWeek(dateUtil, 9);
+  }
+
+  @Test
+  public void testTrailingRangesUseExclusiveMidnightEnds() {
+    DateUtil dateUtil = Mockito.spy(DateUtil.class);
+    // Wednesday 2023-01-04 01:02:03.004 → tomorrow start 2023-01-05 00:00:00.000
+    Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(4, false));
+    DateTime tomorrow = dateUtil.getTomorrowStart();
+
+    DateRange week = dateUtil.getTrailingWeekDateRange();
+    assertEquals(tomorrow.minusWeeks(1).getMillis(), Long.parseLong(week.getStart()));
+    assertEquals(tomorrow.getMillis(), Long.parseLong(week.getEnd()));
+
+    DateRange month = dateUtil.getTrailingMonthDateRange();
+    assertEquals(tomorrow.minusMonths(1).getMillis(), Long.parseLong(month.getStart()));
+    assertEquals(tomorrow.getMillis(), Long.parseLong(month.getEnd()));
   }
 }

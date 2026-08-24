@@ -572,21 +572,35 @@ def _event_time_from_ms(timestamp_ms: int) -> datetime:
     return datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
 
 
+def _default_product_event_table() -> str:
+    """Match smoke SoT: PRODUCT_TABLE_PREFIX + _event, or PRODUCT_EVENT_TABLE override."""
+    explicit = os.getenv("DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE")
+    if explicit:
+        return explicit
+    prefix = os.getenv(
+        "DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX",
+        "metadata_analytics_product",
+    )
+    return f"{prefix}_event"
+
+
 def send_events_to_postgres(
     events: List[Dict],
     postgres_url: str,
     username: str,
     password: str,
     database: str = "datahub",
-    table: str = "metadata_analytics_product_event",
+    table: Optional[str] = None,
     batch_size: int = 500,
 ) -> None:
     """
     Insert synthetic usage events into pgAnalytics product store
-    (metadata_analytics_product_event by default).
+    (metadata_analytics_product_event by default, derived from table prefix).
 
     Column mapping mirrors PostgresAnalyticsEventJson.parseDatahubUsage.
     """
+    if table is None:
+        table = _default_product_event_table()
     import psycopg2
     from psycopg2.extras import execute_batch
 
@@ -736,6 +750,14 @@ def main():
         help="Postgres database name",
     )
     parser.add_argument(
+        "--postgres-table",
+        default=None,
+        help=(
+            "Product event table (default: DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE "
+            "or DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX + '_event')"
+        ),
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -832,6 +854,7 @@ def main():
             username=args.postgres_username,
             password=args.postgres_password,
             database=args.postgres_database,
+            table=args.postgres_table,
         )
 
     logger.info("✅ Event generation complete!")

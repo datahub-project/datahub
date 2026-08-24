@@ -39,7 +39,20 @@ Durable aggregation lives in Postgres only. This feature does **not** add a new 
 
 **Seal rule:** an hour is sealable when `now >= hour_end + input_lag` (default 900s). Open hours are never watermarked. Day/month compactors only read sealed children.
 
-**Query rule:** product charts use rollups only when requested grain is **≥ hour** and the range is fully sealed; otherwise raw within retention. Sub-hour historical charts require raw retention. Product MAU (`uniqueOn=browserId`) still reads raw until monthly distinct rollups exist for `datahub_usage`, so the **product** store keeps raw for **1 year** (`DATAHUB_PGANALYTICS_PRODUCT_RAW_MAX_AGE_SECONDS`). Ops families (`api_usage`, `system_usage`) stay on the default store with **90-day** raw (`DATAHUB_PGANALYTICS_RAW_MAX_AGE_SECONDS`).
+**Query rule:** product charts use rollups only when all of the following hold; otherwise they read
+raw within retention:
+
+- requested grain is **hour, day, or month** (not week/year — those still need rebucketed points)
+- the `[start, end)` range is **grain-aligned** (exclusive midnight / month boundaries)
+- the range is **fully sealed**
+- the query is an unfiltered `event_type` group-by (filters, uniqueness, and other dimensions stay
+  on raw until matching rollups exist)
+
+Sub-hour historical charts require raw retention. Product MAU (`uniqueOn=browserId`) still reads
+raw until monthly distinct rollups exist for `datahub_usage`, so the **product** store keeps raw for
+**1 year** (`DATAHUB_PGANALYTICS_PRODUCT_RAW_MAX_AGE_SECONDS`). Ops families (`api_usage`,
+`system_usage`) stay on the default store with **90-day** raw
+(`DATAHUB_PGANALYTICS_RAW_MAX_AGE_SECONDS`).
 
 ## Progressive compaction
 
@@ -94,8 +107,12 @@ DATAHUB_PGANALYTICS_MAINTENANCE_CRON_ENABLED=true
 # DATAHUB_ANALYTICS_COMPACT_WALL_CLOCK_MILLIS=30000
 ```
 
-Multi-store defaults live in `application.yaml` (override with `DATAHUB_PGANALYTICS_CONFIG_FILE`).
-Routing keys are **`metric_family`** values. Out of the box:
+Multi-store defaults live in `classpath:/pganalytics-config.yaml` (override by setting
+`DATAHUB_PGANALYTICS_CONFIG_FILE` to a Spring resource URI such as
+`file:/etc/datahub/pganalytics.yaml`). That file **replaces** the bundled document — it does not
+merge `stores` / `routing` keys with the classpath defaults — so mounted configs must declare the
+full map they want. `application.yaml` keeps those maps empty so the active document fully owns
+them.
 
 | Store     | Prefix (default)             | Families                    | Raw retention |
 | --------- | ---------------------------- | --------------------------- | ------------- |

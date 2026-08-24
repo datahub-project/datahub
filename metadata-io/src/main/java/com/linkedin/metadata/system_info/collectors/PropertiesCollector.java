@@ -3,13 +3,17 @@ package com.linkedin.metadata.system_info.collectors;
 import com.linkedin.metadata.system_info.PropertyInfo;
 import com.linkedin.metadata.system_info.PropertySourceInfo;
 import com.linkedin.metadata.system_info.SystemPropertiesInfo;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -126,12 +130,15 @@ public class PropertiesCollector {
 
                   // Check if this is an allowed property
                   if (isAllowedProperty(k, resolvedValue)) {
+                    Object sanitizedRaw = scrubUrlCredentials(rawValue);
+                    String sanitizedResolved =
+                        resolvedValue == null ? null : (String) scrubUrlCredentials(resolvedValue);
                     return PropertyInfo.builder()
                         .key(k)
-                        .value(rawValue)
+                        .value(sanitizedRaw)
                         .source(propertySource.getName())
                         .sourceType(propertySource.getClass().getSimpleName())
-                        .resolvedValue(resolvedValue)
+                        .resolvedValue(sanitizedResolved)
                         .build();
                   } else {
                     return PropertyInfo.builder()
@@ -184,5 +191,77 @@ public class PropertiesCollector {
     return isBooleanValue
         || ALLOWED_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(lowerKey).find())
         || SENSITIVE_PATTERNS.stream().noneMatch(lowerKey::endsWith);
+  }
+
+  /**
+   * Strip embedded credentials from JDBC/HTTP URLs while keeping host/path visible in system-info.
+   * Non-URL values are returned unchanged.
+   */
+  @Nullable
+  static Object scrubUrlCredentials(@Nullable Object value) {
+    if (!(value instanceof String original) || original.isBlank()) {
+      return value;
+    }
+    String working = original.trim();
+    String jdbcPrefix = "";
+    if (working.regionMatches(true, 0, "jdbc:", 0, 5)) {
+      jdbcPrefix = working.substring(0, 5);
+      working = working.substring(5);
+    }
+    if (!working.contains("://")) {
+      return original;
+    }
+    try {
+      URI uri = new URI(working);
+      String query = uri.getRawQuery();
+      String sanitizedQuery = scrubCredentialQueryParams(query);
+      URI rebuilt =
+          new URI(
+              uri.getScheme(),
+              null, // drop userInfo
+              uri.getHost(),
+              uri.getPort(),
+              uri.getPath(),
+              sanitizedQuery,
+              uri.getFragment());
+      return jdbcPrefix + rebuilt;
+    } catch (URISyntaxException e) {
+      // Best-effort fallback for non-RFC JDBC forms.
+      String stripped = working.replaceFirst("://[^/@\\s]+@", "://");
+      stripped = scrubCredentialQueryParamsInPlace(stripped);
+      return jdbcPrefix + stripped;
+    }
+  }
+
+  @Nullable
+  private static String scrubCredentialQueryParams(@Nullable String query) {
+    if (query == null || query.isBlank()) {
+      return query;
+    }
+    List<String> kept = new ArrayList<>();
+    for (String part : query.split("&")) {
+      int eq = part.indexOf('=');
+      String name = eq >= 0 ? part.substring(0, eq) : part;
+      String lower = name.toLowerCase(Locale.ROOT);
+      if (lower.equals("user")
+          || lower.equals("username")
+          || lower.equals("password")
+          || lower.equals("pwd")
+          || lower.equals("pass")) {
+        continue;
+      }
+      kept.add(part);
+    }
+    return kept.isEmpty() ? null : String.join("&", kept);
+  }
+
+  private static String scrubCredentialQueryParamsInPlace(String url) {
+    int q = url.indexOf('?');
+    if (q < 0) {
+      return url;
+    }
+    String base = url.substring(0, q);
+    String sanitized = scrubCredentialQueryParams(url.substring(q + 1));
+    return sanitized == null ? base : base + "?" + sanitized;
   }
 }

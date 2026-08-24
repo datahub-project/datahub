@@ -28,7 +28,7 @@ services:
       SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
       UV_LINK_MODE: hardlink
     hostname: actions
-    image: acryldata/datahub-actions:${DATAHUB_VERSION}
+    image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
     networks:
       default: null
     volumes:

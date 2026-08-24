@@ -1,5 +1,7 @@
 """Unit tests for usage-events SoT resolution used by smoke fixtures."""
 
+import importlib
+
 from tests.utilities import env_vars, usage_events_sot
 
 
@@ -99,6 +101,35 @@ def test_resolve_falls_back_to_env_when_gms_unavailable(monkeypatch):
     assert (
         usage_events_sot.resolve_usage_events_implementation(_Session()) == "postgres"
     )
+
+
+def test_resolve_skips_live_lookup_when_session_rejects_timeout(monkeypatch):
+    """Do not retry without a deadline if the session wrapper rejects timeout=."""
+    monkeypatch.setenv("DATAHUB_USAGE_EVENTS_IMPLEMENTATION", "elasticsearch")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
+
+    class _Session:
+        def get(self, url, timeout=None):
+            raise TypeError("get() got an unexpected keyword argument 'timeout'")
+
+    assert (
+        usage_events_sot.resolve_usage_events_implementation(_Session())
+        == "elasticsearch"
+    )
+
+
+def test_product_usage_event_table_derives_from_prefix(monkeypatch):
+    monkeypatch.setenv(
+        "DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX", "metadata_analytics_product_custom"
+    )
+    monkeypatch.delenv("DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE", raising=False)
+    reloaded = importlib.reload(usage_events_sot)
+    assert (
+        reloaded.PRODUCT_USAGE_EVENT_TABLE == "metadata_analytics_product_custom_event"
+    )
+    # Restore module for later tests that import from package path.
+    monkeypatch.delenv("DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX", raising=False)
+    importlib.reload(usage_events_sot)
 
 
 def test_canonicalize_login_source_enum_and_camel_case():

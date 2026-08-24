@@ -16,10 +16,15 @@ _SYSTEM_INFO_PATH = "/openapi/v1/system-info/properties/simple"
 _USAGE_EVENTS_PROP = "platformAnalytics.usage-events.implementation"
 _SYSTEM_INFO_TIMEOUT_SEC = 10
 
-# Default product-store event table (postgres.pgAnalytics.stores.product.tablePrefix + _event).
+# Product-store event table: prefer explicit override, else derive from tablePrefix + "_event"
+# (matches postgres.pgAnalytics.stores.product.tablePrefix).
+_PRODUCT_TABLE_PREFIX = os.getenv(
+    "DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX",
+    "metadata_analytics_product",
+)
 PRODUCT_USAGE_EVENT_TABLE = os.getenv(
     "DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE",
-    "metadata_analytics_product_event",
+    f"{_PRODUCT_TABLE_PREFIX}_event",
 )
 
 # LoginSource enum name ↔ camelCase ``source`` string (see LoginSource.java).
@@ -115,8 +120,11 @@ def _get_system_info_props(
             try:
                 response = auth_session.get(url, timeout=_SYSTEM_INFO_TIMEOUT_SEC)
             except TypeError:
-                # Some session wrappers may not forward timeout.
-                response = auth_session.get(url)
+                # Wrapper rejected timeout=; do not retry without a deadline.
+                logger.debug(
+                    "session.get rejected timeout for %s; skipping live lookup", url
+                )
+                return None
         else:
             response = requests.get(url, timeout=_SYSTEM_INFO_TIMEOUT_SEC)
         if response.status_code != 200:

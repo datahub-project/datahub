@@ -1,5 +1,17 @@
-# Optional pgAnalytics multi-store overlay (DATAHUB_PGANALYTICS_CONFIG_FILE).
-# Defaults (product store + datahub_usage routing) live in application.yaml.
-# Mount a file here only to override stores/routing; omit `stores`/`routing` keys you want to keep.
+# Default pgAnalytics multi-store document (classpath:/pganalytics-config.yaml).
+# Setting DATAHUB_PGANALYTICS_CONFIG_FILE swaps this PropertySource for your file — it does
+# NOT merge with this document. Mounted files must declare the full stores/routing map they want.
+# Product store: longer raw retention for browserId MAU; ops stay on default (90d raw).
 postgres:
-  pgAnalytics: {}
+  pgAnalytics:
+    stores:
+      product:
+        tablePrefix: ${DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX:metadata_analytics_product}
+        retention:
+          rawMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_RAW_MAX_AGE_SECONDS:31536000}
+          hourlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_HOURLY_MAX_AGE_SECONDS:15552000}
+          dailyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_DAILY_MAX_AGE_SECONDS:46656000}
+          monthlyMaxAgeSeconds: ${DATAHUB_PGANALYTICS_PRODUCT_MONTHLY_MAX_AGE_SECONDS:94608000}
+    routing:
+      datahub_usage: product
+      # api_usage / system_usage → defaultStore
