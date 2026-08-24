@@ -2312,3 +2312,41 @@ class TestRestCatalogConnectionConfig:
             adapter = mock_catalog._session.mount.call_args[0][1]
             assert adapter.timeout == 99
             assert adapter.max_retries.total == 7
+
+    def test_no_connection_block_passes_config_through_with_defaults(self):
+        """The common case — no `connection` block — must keep working: the
+        config reaches load_catalog() unchanged and the REST session gets the
+        default retry/timeout."""
+        from unittest.mock import MagicMock
+
+        from pyiceberg.catalog.rest import RestCatalog
+
+        from datahub.ingestion.source.iceberg.iceberg_common import (
+            DEFAULT_REST_RETRY_POLICY,
+            DEFAULT_REST_TIMEOUT,
+        )
+
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                }
+            }
+        )
+        mock_catalog = MagicMock()
+        mock_catalog.__class__ = RestCatalog  # type: ignore[assignment]
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog",
+            return_value=mock_catalog,
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs == {
+                "name": "test_rest",
+                "type": "rest",
+                "uri": "https://catalog.example.com/api/catalog",
+            }
+            adapter = mock_catalog._session.mount.call_args[0][1]
+            assert adapter.timeout == DEFAULT_REST_TIMEOUT
+            assert adapter.max_retries.total == DEFAULT_REST_RETRY_POLICY["total"]
