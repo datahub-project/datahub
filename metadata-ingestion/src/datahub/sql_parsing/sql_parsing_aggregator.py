@@ -415,12 +415,14 @@ class SqlAggregatorReport(Report):
             return
         # The resolver can be borrowed rather than owned (see the schema_resolver
         # argument to SqlParsingAggregator), so its owner may close it while this
-        # aggregator is still open. The _closed check above says nothing about
-        # that. Guard only this line: an early return here would also drop the
-        # counters below, which stay readable when just the resolver is gone.
+        # aggregator is still open, which _closed above does not describe. Guard
+        # only this line, and clear rather than skip: an early return drops the
+        # counters below, and compute_stats() runs on every render, so skipping
+        # would leave a mid-run value in the final report.
         resolver = self._aggregator._schema_resolver
-        if not resolver.closed:
-            self.schema_resolver_count = resolver.schema_count()
+        self.schema_resolver_count = (
+            resolver.schema_count() if not resolver.closed else None
+        )
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)

@@ -1896,6 +1896,26 @@ def test_aggregator_owned_stats_survive_dead_resolver():
     assert borrower.report.schema_resolver_count is None
 
 
+def test_stale_count_not_republished_after_resolver_closes():
+    """compute_stats() runs on every render, including the mid-run progress print.
+
+    A count measured while the resolver was alive must not survive into the final
+    report once the resolver is gone.
+    """
+    owner, borrower = _borrowed_resolver_pair()
+
+    borrower.report.compute_stats()
+    assert isinstance(borrower.report.schema_resolver_count, int), (
+        "setup failed: the count was never populated, so the assertion below "
+        "would pass for the wrong reason"
+    )
+
+    owner.close()
+    borrower.report.compute_stats()
+
+    assert borrower.report.schema_resolver_count is None
+
+
 def test_no_stats_for_never_populated_closed_resolver():
     owner, borrower = _borrowed_resolver_pair()
     owner._schema_resolver._schema_cache.clear()
