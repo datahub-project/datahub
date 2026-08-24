@@ -1280,13 +1280,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # causes it to be soft-deleted even though it still exists.
             self.reporter.failure(
                 title="Failed to fetch dashboard from the Looker API",
-                message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
+                message="Error occurred while attempting to load dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
                 exc=e,
                 log=False,
             )
-            return None
-
     def _create_empty_result(
         self, dashboard_id: str, start_time: datetime.datetime
     ) -> DashboardProcessingResult:
