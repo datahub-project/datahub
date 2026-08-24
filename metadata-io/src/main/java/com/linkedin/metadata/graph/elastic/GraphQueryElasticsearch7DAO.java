@@ -104,8 +104,13 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         sliceFutures.add(sliceFuture);
       }
 
-      // Reuse the existing slice coordination logic
-      return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+      // Reuse the existing slice coordination logic. If the shared budget ended exhausted, the hop
+      // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
+      // limit check can miss it when cross-slice duplicates merge away.
+      return markPartialIfSharedBudgetExhausted(
+          processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
+          sharedRemaining,
+          allowPartialResults);
     } finally {
       // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
       cancelAndDrainSliceFutures(sliceFutures);
@@ -146,6 +151,12 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
     try {
       if (System.currentTimeMillis() >= deadline) {
         log.warn("Slice {} timed out before initial scroll search", sliceId);
+        return sliceRelationships;
+      }
+
+      // Other slices may have exhausted the shared budget before this slice starts.
+      if (stopSliceIfSharedBudgetExhausted(
+          sharedRemaining, maxRelations, sliceId, allowPartialResults)) {
         return sliceRelationships;
       }
 
@@ -215,10 +226,10 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         }
 
         // Stop before the next scroll once the shared per-hop budget is exhausted (consumed by this
-        // or another slice). Retention is already bounded by the reservation below; this avoids
-        // wasteful post-exhaustion fetches (including all-visited pages). The outer hop loop
-        // enforces the total maxRelations limit and the partial/strict-reject decision.
-        if (sharedRemaining != null && sharedRemaining.get() <= 0) {
+        // or another slice): strict mode rejects, partial mode stops and searchWithSlices marks the
+        // hop partial. Retention is already bounded by the reservation below.
+        if (stopSliceIfSharedBudgetExhausted(
+            sharedRemaining, maxRelations, sliceId, allowPartialResults)) {
           break;
         }
 

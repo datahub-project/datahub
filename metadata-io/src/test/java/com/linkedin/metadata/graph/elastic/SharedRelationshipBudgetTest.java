@@ -1,7 +1,10 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,5 +85,48 @@ public class SharedRelationshipBudgetTest {
     }
     assertEquals(totalReserved.get(), maxRelations);
     assertEquals(budget.get(), 0);
+  }
+
+  @Test
+  public void testStopSliceGuardStrictRejectsWhenExhausted() {
+    // Reaching the cap in strict mode is an error, even at an exact page boundary where no
+    // partial grant ever happened — matching the pre-shared-budget per-slice behavior.
+    assertFalse(GraphQueryBaseDAO.stopSliceIfSharedBudgetExhausted(null, 100, 0, false));
+    assertFalse(
+        GraphQueryBaseDAO.stopSliceIfSharedBudgetExhausted(new AtomicInteger(1), 100, 0, false));
+    try {
+      GraphQueryBaseDAO.stopSliceIfSharedBudgetExhausted(new AtomicInteger(0), 100, 0, false);
+      fail("Strict mode must reject when the shared budget is exhausted");
+    } catch (IllegalStateException e) {
+      assertTrue(e.getMessage().contains("maxRelations limit"));
+    }
+  }
+
+  @Test
+  public void testStopSliceGuardPartialStopsWhenExhausted() {
+    assertTrue(
+        GraphQueryBaseDAO.stopSliceIfSharedBudgetExhausted(new AtomicInteger(0), 100, 0, true));
+    assertFalse(
+        GraphQueryBaseDAO.stopSliceIfSharedBudgetExhausted(new AtomicInteger(5), 100, 0, true));
+  }
+
+  @Test
+  public void testMarkPartialWhenBudgetExhausted() {
+    // An exhausted budget means the hop was truncated at maxRelations; the fetch must be reported
+    // partial directly, because the outer unique-entity limit check can miss the truncation when
+    // cross-slice duplicates merge to fewer unique entities than relationships were retained.
+    LineageSliceFetchResult fetch = new LineageSliceFetchResult(List.of(), false);
+    assertTrue(
+        GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(0), true)
+            .isPartial());
+    // Budget remaining, unlimited, or strict mode (a slice rejects instead): unchanged.
+    assertFalse(
+        GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(3), true)
+            .isPartial());
+    assertFalse(
+        GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, null, true).isPartial());
+    assertFalse(
+        GraphQueryBaseDAO.markPartialIfSharedBudgetExhausted(fetch, new AtomicInteger(0), false)
+            .isPartial());
   }
 }

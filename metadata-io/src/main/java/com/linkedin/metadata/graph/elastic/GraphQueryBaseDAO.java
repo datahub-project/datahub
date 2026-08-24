@@ -1684,14 +1684,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       return false; // fully covered, or unlimited budget
     }
     if (!allowPartialResults) {
-      log.error(
-          "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-          sliceId,
-          maxRelations);
-      throw new IllegalStateException(
-          String.format(
-              "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-              sliceId, maxRelations));
+      throw rejectMaxRelationsExceeded(sliceId, maxRelations);
     }
     // Shared budget ran out mid-page: keep only what we reserved, drop the over-limit tail so the
     // combined retained relationships never exceed maxRelations.
@@ -1700,6 +1693,60 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         "Shared maxRelations budget exhausted during slice {}, stopping. Results will be marked as partial.",
         sliceId);
     return true;
+  }
+
+  /**
+   * Guard to run before a slice fetches a page: when the shared per-hop budget is already exhausted
+   * (by this or any other slice), reject in strict mode — reaching the cap is an error, matching
+   * the pre-shared-budget per-slice behavior — or tell the caller to stop with partial results.
+   * Also avoids wasteful post-exhaustion fetches, including pages whose hits would all be dropped
+   * as already visited.
+   */
+  static boolean stopSliceIfSharedBudgetExhausted(
+      @Nullable AtomicInteger sharedRemaining,
+      int maxRelations,
+      int sliceId,
+      boolean allowPartialResults) {
+    if (sharedRemaining == null || sharedRemaining.get() > 0) {
+      return false;
+    }
+    if (!allowPartialResults) {
+      throw rejectMaxRelationsExceeded(sliceId, maxRelations);
+    }
+    log.warn(
+        "Shared maxRelations budget exhausted before slice {} fetch, stopping. Results will be marked as partial.",
+        sliceId);
+    return true;
+  }
+
+  /**
+   * Mark a hop's fetch result partial when its shared relationship budget ended exhausted: the hop
+   * was truncated at the shared maxRelations capacity, which the outer unique-entity limit check
+   * can miss when cross-slice duplicates merge to fewer unique entities than relationships were
+   * retained. Only applies with partial results allowed; in strict mode a slice rejects instead.
+   */
+  static LineageSliceFetchResult markPartialIfSharedBudgetExhausted(
+      LineageSliceFetchResult fetch,
+      @Nullable AtomicInteger sharedRemaining,
+      boolean allowPartialResults) {
+    if (!allowPartialResults
+        || fetch.isPartial()
+        || sharedRemaining == null
+        || sharedRemaining.get() > 0) {
+      return fetch;
+    }
+    return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
+  }
+
+  private static IllegalStateException rejectMaxRelationsExceeded(int sliceId, int maxRelations) {
+    log.error(
+        "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+        sliceId,
+        maxRelations);
+    return new IllegalStateException(
+        String.format(
+            "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+            sliceId, maxRelations));
   }
 
   protected void cancelAndDrainSliceFutures(
