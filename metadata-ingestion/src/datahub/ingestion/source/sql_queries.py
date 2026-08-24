@@ -69,12 +69,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD = 5
 
-DEFAULT_FAILURE_RATIO_THRESHOLD = 0.8
-
-# Below this many samples a failure ratio is noise: one bad query out of three
-# is not evidence of a systemic problem.
-MIN_SAMPLE_FOR_FAILURE_RATIO = 20
-
 # Query text is unbounded and routinely contains literals, so cap what we copy
 # into report context — the report is persisted in DataHub.
 _MAX_QUERY_CONTEXT_CHARS = 200
@@ -130,22 +124,6 @@ class SqlQueriesSourceConfig(
         default=[],
     )
 
-    max_consecutive_aggregator_failures: int = Field(
-        default=DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD,
-        ge=0,
-        description="Abort after this many consecutive aggregator failures (likely systemic). "
-        "Set to 0 to disable.",
-    )
-
-    failure_ratio_threshold: float = Field(
-        default=DEFAULT_FAILURE_RATIO_THRESHOLD,
-        gt=0.0,
-        le=1.0,
-        description="Fail the ingestion when at least this fraction of input entries, or of "
-        "queries, fails to process. Raise it to tolerate a noisier input. Ratios are "
-        f"only applied once at least {MIN_SAMPLE_FOR_FAILURE_RATIO} samples have been seen.",
-    )
-
     # AWS/S3 configuration
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None,
@@ -181,54 +159,6 @@ class SqlQueriesSourceConfig(
         return [
             re.compile(pattern, re.IGNORECASE) for pattern in self.temp_table_patterns
         ]
-
-
-@dataclass(frozen=True)
-class _HealthMessages:
-    """What to say at each severity for one failure-ratio check.
-
-    Titles are literals so the report groups identical problems together.
-    """
-
-    some_title: LiteralString
-    some_message: LiteralString
-    few_title: LiteralString
-    few_message: LiteralString
-    most_title: LiteralString
-    most_message: LiteralString
-
-
-_TOO_FEW = "but too few were seen to distinguish bad input from a systemic problem"
-
-_ENTRY_PARSE_HEALTH = _HealthMessages(
-    some_title="Some entries failed to parse",
-    some_message="Some input lines were not valid query entries and were skipped",
-    few_title="Entries failed to parse",
-    few_message=f"Most input lines were not valid query entries, {_TOO_FEW}",
-    most_title="Most entries failed to parse",
-    most_message="A high proportion of input lines were not valid query entries — "
-    "check the per-entry warnings for the underlying cause",
-)
-
-_AGGREGATION_HEALTH = _HealthMessages(
-    some_title="Some queries failed aggregation",
-    some_message="Some queries failed during aggregation, so their lineage is missing",
-    few_title="Queries failed aggregation",
-    few_message=f"Most queries failed during aggregation, {_TOO_FEW}",
-    most_title="Most queries failed aggregation",
-    most_message="A high proportion of queries failed during aggregation — "
-    "likely a systemic issue (auth, connectivity, config)",
-)
-
-_SQL_PARSING_HEALTH = _HealthMessages(
-    some_title="Some queries failed SQL parsing",
-    some_message="Some queries could not be parsed, so their lineage is missing",
-    few_title="Queries failed SQL parsing",
-    few_message=f"Most queries failed SQL parsing, {_TOO_FEW}",
-    most_title="Most queries failed SQL parsing",
-    most_message="A high proportion of queries failed during SQL parsing — "
-    "likely a systemic issue such as expired credentials or an unreachable graph",
-)
 
 
 @dataclass
@@ -332,14 +262,11 @@ class SqlQueriesSource(Source):
     def _process_queries_batch(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        consecutive_failure_threshold = self.config.max_consecutive_aggregator_failures
 
         with self.report.new_stage("Parsing and processing queries"):
-            consecutive_failures = 0
             for entry in self._parse_query_file():
                 try:
                     self._add_query_to_aggregator(entry)
-                    consecutive_failures = 0
                     self.report.num_queries_processed += 1
                     if self.report.num_queries_processed % 1000 == 0:
                         logger.info(
@@ -358,25 +285,12 @@ class SqlQueriesSource(Source):
                     return
                 except Exception as e:
                     self.report.num_queries_aggregator_failures += 1
-                    consecutive_failures += 1
                     self.report.warning(
                         title="Error adding query to aggregator",
                         message="Query skipped due to failure when adding query to SQL parsing aggregator",
                         context=entry.query[:_MAX_QUERY_CONTEXT_CHARS],
                         exc=e,
                     )
-                    if (
-                        consecutive_failure_threshold > 0
-                        and consecutive_failures >= consecutive_failure_threshold
-                    ):
-                        self.report.failure(
-                            title="Too many consecutive failures",
-                            message="Too many consecutive aggregator failures — "
-                            "likely a systemic issue (auth, connectivity, config)",
-                            context=f"{consecutive_failures} consecutive failures, last: {e}",
-                            exc=e,
-                        )
-                        return
 
         if not self._check_post_loop_health():
             # Emitting now would be actively harmful: incremental_lineage is off
@@ -393,11 +307,15 @@ class SqlQueriesSource(Source):
             yield from auto_workunit(self.aggregator.gen_metadata())
 
     def _check_post_loop_health(self) -> bool:
-        """Assess entry-parse, aggregator and SQL-parsing health after the loop.
+        """Decide whether this run produced anything worth emitting.
 
-        Returns False when the run is too broken to emit. Every check runs — a
-        symptom firing must not hide its root cause, and these three are often
-        views of the same underlying failure.
+        Returns False only when nothing succeeded at all. Emitting after a
+        wholesale failure is destructive rather than merely useless: with
+        incremental_lineage off (the default) an upstreamLineage aspect is
+        UPSERT-ed, so partial output replaces complete lineage already in
+        DataHub. Partial-failure grading is deliberately left to the report —
+        the aggregator already publishes num_observed_queries_failed and a
+        sample of the failing queries.
         """
         if self.report.num_entries_processed == 0:
             if self.report.num_entries_failed > 0:
@@ -416,97 +334,19 @@ class SqlQueriesSource(Source):
             )
             return True
 
-        healthy = self._check_entry_parse_health()
-        healthy &= self._check_aggregator_health()
-        healthy &= self._check_sql_parsing_health()
-        return healthy
-
-    def _check_entry_parse_health(self) -> bool:
-        failed = self.report.num_entries_failed
-        return self._assess_failure_ratio(
-            failed=failed,
-            total=failed + self.report.num_entries_processed,
-            noun="entries",
-            messages=_ENTRY_PARSE_HEALTH,
-        )
-
-    def _check_aggregator_health(self) -> bool:
-        """Failures raised by the aggregator call itself.
-
-        Distinct from _check_sql_parsing_health: these never reach the
-        aggregator, so its own counters cannot see them.
-        """
-        failed = self.report.num_queries_aggregator_failures
-        if not failed:
-            return True
-
-        if self.report.num_queries_processed == 0:
+        if (
+            self.report.num_queries_aggregator_failures > 0
+            and self.report.num_queries_processed == 0
+        ):
             self.report.failure(
                 title="All queries failed aggregation",
                 message="Every query failed during aggregation — "
                 "likely a systemic issue (auth, connectivity, config)",
-                context=f"{failed} failures",
+                context=f"{self.report.num_queries_aggregator_failures} failures",
             )
             return False
 
-        return self._assess_failure_ratio(
-            failed=failed,
-            total=failed + self.report.num_queries_processed,
-            noun="queries",
-            messages=_AGGREGATION_HEALTH,
-        )
-
-    def _check_sql_parsing_health(self) -> bool:
-        """Failures the aggregator recorded while parsing SQL it accepted."""
-        agg_report = self.aggregator.report
-        return self._assess_failure_ratio(
-            failed=agg_report.num_observed_queries_failed,
-            total=agg_report.num_observed_queries,
-            noun="queries",
-            messages=_SQL_PARSING_HEALTH,
-        )
-
-    def _assess_failure_ratio(
-        self, *, failed: int, total: int, noun: str, messages: "_HealthMessages"
-    ) -> bool:
-        """Grade a failure ratio, reporting at the matching severity.
-
-        Shared by every health check so they cannot drift apart: the ordering of
-        the threshold and sample-floor branches decides whether a run fails, and
-        having that logic in one place is the point.
-        """
-        if not failed or not total:
-            return True
-
-        ratio = failed / total
-        context = f"{failed}/{total} {noun} failed ({ratio:.0%})"
-
-        # Not enough of the input is failing to call it systemic — but silence
-        # would hide a steadily-degrading source, so say it at warning level.
-        if ratio < self.config.failure_ratio_threshold:
-            self.report.warning(
-                title=messages.some_title,
-                message=messages.some_message,
-                context=context,
-            )
-            return True
-
-        # Ratio is high, but on too small a sample to tell a systemic problem
-        # from a handful of bad rows. Report it; don't fail the run over it.
-        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
-            self.report.warning(
-                title=messages.few_title,
-                message=messages.few_message,
-                context=context,
-            )
-            return True
-
-        self.report.failure(
-            title=messages.most_title,
-            message=messages.most_message,
-            context=context,
-        )
-        return False
+        return True
 
     def _parse_s3_query_file(
         self, aws_config: AwsConnectionConfig

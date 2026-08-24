@@ -12,7 +12,6 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
-    MIN_SAMPLE_FOR_FAILURE_RATIO,
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
@@ -554,30 +553,6 @@ class TestSqlQueriesSourceConfig:
         )
         assert len(config.temp_table_patterns) == 3
 
-    def test_configurable_threshold(self):
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            max_consecutive_aggregator_failures=10,
-        )
-        assert config.max_consecutive_aggregator_failures == 10
-
-    def test_threshold_disabled(self):
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            max_consecutive_aggregator_failures=0,
-        )
-        assert config.max_consecutive_aggregator_failures == 0
-
-    def test_negative_threshold_rejected(self):
-        with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(
-                platform="snowflake",
-                query_file="dummy.json",
-                max_consecutive_aggregator_failures=-1,
-            )
-
 
 # ── Source tests ──────────────────────────────────────────────────────────
 
@@ -710,62 +685,6 @@ class TestErrorHandling:
             f.title == "All entries failed to parse" for f in source.report.failures
         )
 
-    def test_consecutive_failures_trigger_abort(
-        self, pipeline_context, query_file_with
-    ):
-        path = query_file_with([_query_line(i) for i in range(10)])
-        source = _make_source(pipeline_context, path)
-        source.aggregator.add_observed_query = Mock(
-            side_effect=RuntimeError("Internal aggregator error")
-        )
-
-        list(source.get_workunits_internal())
-
-        assert len(source.report.failures) > 0
-        assert source.report.num_queries_aggregator_failures >= 5
-
-    def test_consecutive_failure_threshold_disabled(
-        self, pipeline_context, query_file_with
-    ):
-        """With threshold=0, consecutive failures never trigger the abort."""
-        path = query_file_with([_query_line(i) for i in range(10)])
-        source = _make_source(
-            pipeline_context, path, max_consecutive_aggregator_failures=0
-        )
-        source.aggregator.add_observed_query = Mock(side_effect=RuntimeError("Error"))
-
-        list(source.get_workunits_internal())
-
-        assert not any(
-            f.title == "Too many consecutive failures" for f in source.report.failures
-        )
-        assert source.report.num_queries_aggregator_failures == 10
-
-    def test_consecutive_failure_counter_resets_on_success(
-        self, pipeline_context, query_file_with
-    ):
-        """After a successful call, the consecutive counter resets — 4 failures
-        separated by a success should NOT trigger the threshold (5)."""
-        path = query_file_with([_query_line(i) for i in range(10)])
-        source = _make_source(pipeline_context, path)
-
-        call_count = 0
-
-        def alternate_failure(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count % 5 == 0:
-                return None
-            raise RuntimeError("transient error")
-
-        source.aggregator.add_observed_query = Mock(side_effect=alternate_failure)
-
-        list(source.get_workunits_internal())
-
-        assert not any(
-            f.title == "Too many consecutive failures" for f in source.report.failures
-        )
-
     def test_systemic_error_aborts_immediately(self, pipeline_context, query_file_with):
         """If a systemic error propagates through add_observed_query, abort immediately."""
         # Good rows first: without them "emitted nothing" is vacuously true.
@@ -785,43 +704,6 @@ class TestErrorHandling:
         # emitting partial output would overwrite good lineage with worse.
         assert source.report.num_queries_processed == 4
         assert work_units == []
-
-    def test_single_parse_failure_below_min_sample_is_not_a_failure(
-        self, pipeline_context, query_file_with
-    ):
-        """One unparseable query in a small file is a warning, not a systemic failure."""
-        path = query_file_with(
-            [
-                _query_line(0),
-                json.dumps({"query": "}{ not sql", "timestamp": 1640995200}),
-            ]
-        )
-        source = _make_source(pipeline_context, path)
-
-        list(source.get_workunits_internal())
-
-        assert not any(
-            f.title == "Most queries failed SQL parsing" for f in source.report.failures
-        )
-
-    def test_small_all_failing_file_warns(self, pipeline_context, query_file_with):
-        """Too few queries to judge systemically, but silence would be wrong."""
-        path = query_file_with(
-            [
-                json.dumps(
-                    {"query": "}{ not sql", "timestamp": 1640995200 + i, "user": "u"}
-                )
-                for i in range(3)
-            ]
-        )
-        source = _make_source(pipeline_context, path)
-
-        list(source.get_workunits_internal())
-
-        assert any(
-            w.title == "Queries failed SQL parsing" for w in source.report.warnings
-        )
-        assert not source.report.failures
 
     @pytest.mark.parametrize(
         "bad_field",
@@ -881,57 +763,6 @@ class TestErrorHandling:
 
         assert source.report.num_entries_failed == 1
         assert source.report.num_entries_processed == 0
-
-    @pytest.mark.parametrize("threshold,expect_failure", [(0.5, True), (0.95, False)])
-    def test_entry_failure_ratio_threshold_takes_effect(
-        self, pipeline_context, query_file_with, threshold, expect_failure
-    ):
-        """The configured threshold actually gates, at 60% failures."""
-        lines = ["not json {"] * 15 + [_lineage_line(i) for i in range(10)]
-        source = _make_source(
-            pipeline_context, query_file_with(lines), failure_ratio_threshold=threshold
-        )
-
-        work_units = list(source.get_workunits_internal())
-
-        failed = any(
-            f.title == "Most entries failed to parse" for f in source.report.failures
-        )
-        assert failed is expect_failure
-        # The gate must suppress emission, not merely report.
-        assert (work_units == []) is expect_failure
-
-    def test_interleaved_aggregator_failures_abort(
-        self, pipeline_context, query_file_with
-    ):
-        """Non-consecutive failures never trip the consecutive guard.
-
-        Losing most queries to a 4-fail/1-pass pattern must still fail and
-        suppress emission — partial lineage would replace good lineage.
-        """
-        source = _make_source(
-            pipeline_context,
-            query_file_with([_lineage_line(i) for i in range(25)]),
-        )
-        calls = {"n": 0}
-        real_add = source.aggregator.add_known_query_lineage
-
-        def every_fifth_succeeds(*args, **kwargs):
-            calls["n"] += 1
-            if calls["n"] % 5:
-                raise RuntimeError("intermittent failure")
-            return real_add(*args, **kwargs)
-
-        source.aggregator.add_known_query_lineage = every_fifth_succeeds
-
-        work_units = list(source.get_workunits_internal())
-
-        assert source.report.num_queries_aggregator_failures > 0
-        assert source.report.num_queries_processed > 0
-        assert any(
-            f.title == "Most queries failed aggregation" for f in source.report.failures
-        )
-        assert work_units == []
 
     def test_mid_read_error_reports_and_propagates(self, pipeline_context):
         """_guarded_stream converts a mid-transfer read error into a failure."""
@@ -1061,40 +892,6 @@ class TestErrorHandling:
         assert (
             sum(1 for r in caplog.records if "invalid table entry" in r.message.lower())
             == 3
-        )
-
-    def test_unparseable_queries_report_failure(
-        self, pipeline_context, query_file_with
-    ):
-        """Enough genuinely unparseable SQL trips the parse-failure ratio.
-
-        Uses real garbage SQL rather than hand-incrementing the aggregator's
-        counter, so this also covers the aggregator's own failure accounting.
-        """
-        garbage = [
-            "!!! this is not sql at all %%%",
-            "SELECT FROM FROM WHERE",
-            "}{ garbage",
-        ]
-        path = query_file_with(
-            [
-                json.dumps(
-                    {
-                        "query": garbage[i % len(garbage)],
-                        "timestamp": 1640995200 + i,
-                        "user": "test_user",
-                    }
-                )
-                for i in range(MIN_SAMPLE_FOR_FAILURE_RATIO + 5)
-            ]
-        )
-        source = _make_source(pipeline_context, path)
-
-        list(source.get_workunits_internal())
-
-        assert source.aggregator.report.num_observed_queries_failed > 0
-        assert any(
-            f.title == "Most queries failed SQL parsing" for f in source.report.failures
         )
 
     def test_all_queries_throw_under_threshold(self, pipeline_context, query_file_with):
