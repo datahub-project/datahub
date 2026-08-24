@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.codegen;
 
 import graphql.language.FieldDefinition;
-import graphql.language.ListType;
 import graphql.language.NonNullType;
 import graphql.language.ObjectTypeDefinition;
 import graphql.language.ObjectTypeExtensionDefinition;
@@ -57,17 +56,16 @@ public final class IncidentSdl {
 
   private static boolean isEntityIncidentsField(FieldDefinition field) {
     return INCIDENTS_FIELD.equals(field.getName())
-        && ENTITY_INCIDENTS_RESULT_TYPE.equals(unwrapTypeName(field.getType()));
+        && ENTITY_INCIDENTS_RESULT_TYPE.equals(namedTypeIfNotList(field.getType()));
   }
 
-  private static String unwrapTypeName(Type type) {
-    if (type instanceof NonNullType nonNullType) {
-      return unwrapTypeName(nonNullType.getType());
+  /** {@code EntityIncidentsResult} or {@code EntityIncidentsResult!}, not a list. */
+  private static String namedTypeIfNotList(Type type) {
+    Type current = type;
+    while (current instanceof NonNullType nonNullType) {
+      current = nonNullType.getType();
     }
-    if (type instanceof ListType listType) {
-      return unwrapTypeName(listType.getType());
-    }
-    if (type instanceof TypeName typeName) {
+    if (current instanceof TypeName typeName) {
       return typeName.getName();
     }
     return null;

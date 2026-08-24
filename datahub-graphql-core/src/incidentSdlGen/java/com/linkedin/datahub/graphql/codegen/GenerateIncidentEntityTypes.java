@@ -32,7 +32,10 @@ public final class GenerateIncidentEntityTypes {
     }
     List<String> sorted = new ArrayList<>(types);
     Collections.sort(sorted);
-    Files.createDirectories(outPath.getParent());
+    Path parent = outPath.toAbsolutePath().getParent();
+    if (parent != null) {
+      Files.createDirectories(parent);
+    }
     Files.writeString(outPath, render(sorted), StandardCharsets.UTF_8);
   }
 
