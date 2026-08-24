@@ -2,6 +2,7 @@ package io.datahubproject.openlineage.dataset;
 
 import static io.datahubproject.openlineage.converter.OpenLineageToDataHub.*;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.DatasetUrnArray;
@@ -17,6 +18,7 @@ import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataFlowInfo;
@@ -38,6 +40,13 @@ import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.query.QueryLanguage;
+import com.linkedin.query.QueryProperties;
+import com.linkedin.query.QuerySource;
+import com.linkedin.query.QueryStatement;
+import com.linkedin.query.QuerySubject;
+import com.linkedin.query.QuerySubjectArray;
+import com.linkedin.query.QuerySubjects;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
@@ -47,8 +56,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -75,6 +86,7 @@ public class DatahubJob {
   public static final String DATA_PROCESS_INSTANCE_ENTITY_TYPE = "dataProcessInstance";
   public static final String DATAFLOW_ENTITY_TYPE = "dataflow";
   public static final String DATAJOB_ENTITY_TYPE = "dataJob";
+  public static final String QUERY_ENTITY_TYPE = "query";
   DataFlowUrn flowUrn;
   DataFlowInfo dataFlowInfo;
   DataJobUrn jobUrn;
@@ -93,6 +105,10 @@ public class DatahubJob {
   final Set<DatahubDataset> outSet = new TreeSet<>(new DataSetComparator());
   final Set<DataJobUrn> parentJobs = new TreeSet<>(new DataJobUrnComparator());
   final Map<String, String> datasetProperties = new HashMap<>();
+  // Query URN -> raw statement text, populated by OpenLineageToDataHub#getFineGrainedLineage when
+  // captureQueryEntities is on. Not a builder field: it's plumbing internal to the conversion, not
+  // something a caller constructs a DatahubJob with.
+  final Map<Urn, String> queryStatements = new HashMap<>();
   long startTime;
   long endTime;
   long eventTime;
@@ -170,6 +186,9 @@ public class DatahubJob {
     // Generate and add DataJobInputOutput Aspect
     generateDataJobInputOutputMcp(inputEdges, outputEdges, config, mcps);
 
+    // Generate and add Query entity Aspects (queryProperties + querySubjects)
+    generateQueryEntityMcps(mcps);
+
     // Generate and add DataProcessInstance Aspect
     generateDataProcessInstanceMcp(inputUrnArray, outputUrnArray, mcps);
 
@@ -197,6 +216,67 @@ public class DatahubJob {
     }
 
     return fgls;
+  }
+
+  /**
+   * Emits a Query entity (queryProperties + querySubjects) for every statement captured via {@link
+   * #queryStatements}. A Query URN is only ever set on a FineGrainedLineage when {@code
+   * captureQueryEntities} is on (see OpenLineageToDataHub#getFineGrainedLineage), so {@code
+   * queryStatements} stays empty and this is a no-op with the flag off.
+   */
+  private void generateQueryEntityMcps(List<MetadataChangeProposal> mcps) {
+    if (queryStatements.isEmpty()) {
+      return;
+    }
+
+    Map<Urn, Set<Urn>> subjectsByQuery = new HashMap<>();
+    for (FineGrainedLineage fgl : mergeFinegrainedLineages()) {
+      Urn queryUrn = fgl.getQuery();
+      if (queryUrn == null) {
+        continue;
+      }
+      Set<Urn> subjects = subjectsByQuery.computeIfAbsent(queryUrn, u -> new LinkedHashSet<>());
+      addQuerySubjects(subjects, fgl.getUpstreams());
+      addQuerySubjects(subjects, fgl.getDownstreams());
+    }
+
+    AuditStamp auditStamp =
+        createAuditStamp(ZonedDateTime.ofInstant(Instant.ofEpochMilli(eventTime), ZoneOffset.UTC));
+
+    for (Map.Entry<Urn, String> entry : queryStatements.entrySet()) {
+      Urn queryUrn = entry.getKey();
+
+      QueryProperties queryProperties = new QueryProperties();
+      queryProperties.setStatement(
+          new QueryStatement().setValue(entry.getValue()).setLanguage(QueryLanguage.SQL));
+      queryProperties.setSource(QuerySource.SYSTEM);
+      queryProperties.setCreated(auditStamp);
+      queryProperties.setLastModified(auditStamp);
+      addAspectToMcps(queryUrn, QUERY_ENTITY_TYPE, queryProperties, mcps);
+
+      QuerySubjectArray subjectArray = new QuerySubjectArray();
+      for (Urn subjectUrn : subjectsByQuery.getOrDefault(queryUrn, Collections.emptySet())) {
+        subjectArray.add(new QuerySubject().setEntity(subjectUrn));
+      }
+      addAspectToMcps(
+          queryUrn, QUERY_ENTITY_TYPE, new QuerySubjects().setSubjects(subjectArray), mcps);
+    }
+  }
+
+  /**
+   * Fine-grained upstream/downstream entries are always schemaField URNs (see
+   * OpenLineageToDataHub#getFineGrainedLineage), formatted as {@code
+   * urn:li:schemaField:(<datasetUrn>,<field>)}. A query's subjects are both the field and the
+   * dataset it belongs to.
+   */
+  private static void addQuerySubjects(Set<Urn> subjects, UrnArray fieldUrns) {
+    if (fieldUrns == null) {
+      return;
+    }
+    for (Urn fieldUrn : fieldUrns) {
+      subjects.add(fieldUrn);
+      subjects.add(UrnUtils.getUrn(fieldUrn.getEntityKey().get(0)));
+    }
   }
 
   private void generateDataJobInputOutputMcp(

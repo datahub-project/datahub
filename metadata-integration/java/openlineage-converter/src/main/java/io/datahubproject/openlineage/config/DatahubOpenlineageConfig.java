@@ -55,6 +55,9 @@ public class DatahubOpenlineageConfig {
   // GROUP BY) rather than producing the output value. When false, input fields whose only
   // role is INDIRECT are dropped from column-level lineage.
   @Builder.Default private final boolean includeIndirectColumnLineage = true;
+  // Emits a Query entity (queryProperties + querySubjects) for the SQL captured in a job's
+  // SQLJobFacet, and links it as the `query` on the corresponding FineGrainedLineage entries.
+  @Builder.Default private final boolean captureQueryEntities = false;
 
   // Advanced configuration
   @Builder.Default private final DataJobUrn parentJobUrn = null;

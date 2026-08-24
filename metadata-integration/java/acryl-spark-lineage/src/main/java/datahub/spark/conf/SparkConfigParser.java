@@ -88,6 +88,7 @@ public class SparkConfigParser {
 
   public static final String CAPTURE_COLUMN_LEVEL_LINEAGE = "captureColumnLevelLineage";
   public static final String COLUMN_LINEAGE_INCLUDE_INDIRECT = "columnLineage.includeIndirect";
+  public static final String CAPTURE_QUERY_ENTITIES = "captureQueryEntities";
 
   public static final String TAGS_KEY = "tags";
 
@@ -189,6 +190,7 @@ public class SparkConfigParser {
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
     builder.includeIndirectColumnLineage(
         SparkConfigParser.isIncludeIndirectColumnLineage(sparkConfig));
+    builder.captureQueryEntities(SparkConfigParser.isCaptureQueryEntities(sparkConfig));
     builder.enhancedMergeIntoExtraction(
         SparkConfigParser.isEnhancedMergeIntoExtractionEnabled(sparkConfig));
     try {
@@ -492,5 +494,13 @@ public class SparkConfigParser {
     }
 
     return true;
+  }
+
+  public static boolean isCaptureQueryEntities(Config datahubConfig) {
+    if (datahubConfig.hasPath(CAPTURE_QUERY_ENTITIES)) {
+      return datahubConfig.getBoolean(CAPTURE_QUERY_ENTITIES);
+    }
+
+    return false;
   }
 }
