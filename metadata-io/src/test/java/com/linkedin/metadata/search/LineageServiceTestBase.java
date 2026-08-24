@@ -661,6 +661,49 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   }
 
   @Test
+  public void testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit() throws Exception {
+    // A null maxHops must resolve to the finite configured impact hop limit, not pass through as an
+    // unbounded (or null) deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        null,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // null must have resolved to the finite configured impact hop limit, not passed through.
+    assertTrue(maxHopsCaptor.getValue() > 0);
+    assertTrue(maxHopsCaptor.getValue() < Integer.MAX_VALUE);
+    clearCache(false);
+  }
+
+  @Test
   public void testLightningSearchService() throws Exception {
     // Mostly this test ensures the code path is exercised
 

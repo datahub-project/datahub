@@ -212,11 +212,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
-      // If maxRelations is -1 or 0, treat as unlimited (only bound by time). Otherwise stop when
-      // the
-      // budget shared across all slices of this hop is exhausted, not when this one slice alone
-      // reaches maxRelations (that per-slice cap made the peak slices * maxRelations).
-      while (maxRelations <= 0 || sharedRemaining.get() > 0) {
+      // Fixed page size (capped to maxRelations so a small limit does not over-fetch). Retention is
+      // bounded per page below by reserving the ACTUAL retained count from the budget shared across
+      // this hop's slices and truncating any tail past it, so the slices can never collectively
+      // retain more than maxRelations. Reserving a full page BEFORE fetching would instead let the
+      // first slice speculatively grab the whole budget and starve its siblings.
+      int pageSize = maxRelations > 0 ? Math.min(defaultPageSize, maxRelations) : defaultPageSize;
+      while (true) {
         // Check for thread interruption (from future.cancel(true))
         if (Thread.currentThread().isInterrupted()) {
           log.warn("Slice {} was interrupted, cleaning up PIT and stopping", sliceId);
@@ -233,7 +235,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
-        searchSourceBuilder.size(nextSharedPageSize(sharedRemaining, defaultPageSize));
+        searchSourceBuilder.size(pageSize);
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -284,25 +286,18 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 existingPaths,
                 false); // exploreMultiplePaths - not needed for impact lineage
 
+        int before = sliceRelationships.size();
         sliceRelationships.addAll(pageRelationships);
 
-        // Deduct from the hop's shared budget and stop when it (not this slice alone) is exhausted.
-        if (deductSharedBudgetAndCheckExhausted(sharedRemaining, pageRelationships.size())) {
-          if (allowPartialResults) {
-            log.warn(
-                "Shared maxRelations budget exhausted during slice {}, stopping PIT search. Results will be marked as partial.",
-                sliceId);
-            break;
-          } else {
-            log.error(
-                "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                sliceId,
-                maxRelations);
-            throw new IllegalStateException(
-                String.format(
-                    "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                    sliceId, maxRelations));
-          }
+        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+        if (reserveOrTruncateToSharedBudget(
+            sliceRelationships,
+            before,
+            sharedRemaining,
+            maxRelations,
+            sliceId,
+            allowPartialResults)) {
+          break; // shared budget exhausted; partial results
         }
 
         // Get search_after for next page

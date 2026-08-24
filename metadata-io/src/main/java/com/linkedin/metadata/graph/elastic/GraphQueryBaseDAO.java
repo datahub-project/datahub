@@ -1631,28 +1631,75 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   }
 
   /**
-   * The next page size for a slice: the smaller of the configured page size and the budget still
-   * shared across the hop's slices, so a fetch near the limit does not pull a full page past it.
-   * Returns {@code defaultPageSize} unchanged when the budget is unlimited ({@code null}).
+   * Atomically reserve up to {@code want} units from the budget shared across a hop's slices, to be
+   * claimed BEFORE fetching a page. Because the reservation is atomic, the reservations held by all
+   * slices at once can never exceed the budget, so the combined retained relationships stay within
+   * {@code maxRelations} even under concurrent slices (a plain read-then-deduct would let two
+   * slices observe the same remaining and overshoot). Returns the amount reserved (0..want); 0
+   * means the budget is exhausted. A {@code null} budget (unlimited) reserves the full {@code
+   * want}.
    */
-  static int nextSharedPageSize(@Nullable AtomicInteger sharedRemaining, int defaultPageSize) {
-    if (sharedRemaining == null) {
-      return defaultPageSize;
+  static int reserveSharedBudget(@Nullable AtomicInteger sharedRemaining, int want) {
+    if (want <= 0) {
+      return 0;
     }
-    return Math.min(defaultPageSize, Math.max(1, sharedRemaining.get()));
+    if (sharedRemaining == null) {
+      return want;
+    }
+    while (true) {
+      int current = sharedRemaining.get();
+      if (current <= 0) {
+        return 0;
+      }
+      int grant = Math.min(current, want);
+      if (sharedRemaining.compareAndSet(current, current - grant)) {
+        return grant;
+      }
+    }
   }
 
   /**
-   * Deduct the relationships a slice just added from the shared budget and report whether the
-   * budget is now exhausted (so the slice must stop). A {@code null} budget (unlimited) never
-   * exhausts.
+   * Bound a slice's retained relationships to its atomic share of the hop's shared budget. The
+   * slice materializes a page, appends it to {@code sliceRelationships}, then calls this to keep
+   * only what it can reserve, dropping any tail past the limit. Reserving the ACTUAL retained count
+   * after the fetch (rather than a full page before it) keeps the relationships retained across all
+   * slices within {@code maxRelations} without letting the first slice speculatively grab the whole
+   * budget and starve its siblings, and the atomic reservation avoids the read-then-deduct
+   * overshoot a plain deduct would allow. Returns {@code true} when the shared budget is exhausted
+   * so the caller stops; throws when the limit is hit and partial results are disallowed.
    */
-  static boolean deductSharedBudgetAndCheckExhausted(
-      @Nullable AtomicInteger sharedRemaining, int added) {
-    if (sharedRemaining == null) {
-      return false;
+  boolean reserveOrTruncateToSharedBudget(
+      List<LineageRelationship> sliceRelationships,
+      int before,
+      @Nullable AtomicInteger sharedRemaining,
+      int maxRelations,
+      int sliceId,
+      boolean allowPartialResults) {
+    int added = sliceRelationships.size() - before;
+    if (added <= 0) {
+      return false; // nothing new retained this batch (all dropped as visited/duplicate)
     }
-    return sharedRemaining.addAndGet(-Math.max(0, added)) <= 0;
+    int reserved = reserveSharedBudget(sharedRemaining, added);
+    if (reserved >= added) {
+      return false; // fully covered, or unlimited budget
+    }
+    if (!allowPartialResults) {
+      log.error(
+          "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+          sliceId,
+          maxRelations);
+      throw new IllegalStateException(
+          String.format(
+              "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+              sliceId, maxRelations));
+    }
+    // Shared budget ran out mid-page: keep only what we reserved, drop the over-limit tail so the
+    // combined retained relationships never exceed maxRelations.
+    sliceRelationships.subList(before + reserved, sliceRelationships.size()).clear();
+    log.warn(
+        "Shared maxRelations budget exhausted during slice {}, stopping. Results will be marked as partial.",
+        sliceId);
+    return true;
   }
 
   protected void cancelAndDrainSliceFutures(
