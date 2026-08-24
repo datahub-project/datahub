@@ -3,6 +3,8 @@ package io.datahubproject.openapi.v3.controller;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.QUERY_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
@@ -29,6 +31,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -59,6 +62,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -88,6 +92,13 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.query.QueryLanguage;
+import com.linkedin.query.QueryProperties;
+import com.linkedin.query.QuerySource;
+import com.linkedin.query.QueryStatement;
+import com.linkedin.query.QuerySubject;
+import com.linkedin.query.QuerySubjectArray;
+import com.linkedin.query.QuerySubjects;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -143,6 +154,8 @@ import org.testng.annotations.Test;
 @AutoConfigureWebMvc
 @AutoConfigureMockMvc
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
+  private static final String TEST_QUERY_STATEMENT = "SELECT sensitive FROM restricted_table";
+
   @Autowired private EntityController entityController;
   @Autowired private MockMvc mockMvc;
   @Autowired private AuthorizerChain authorizerChain;
@@ -618,6 +631,120 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         result
             .andExpect(status().is2xxSuccessful())
             .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(documentUrn.toString()));
+      } else {
+        result.andExpect(status().isForbidden());
+      }
+    }
+  }
+
+  @DataProvider
+  public Object[][] queryViewEntityQueriesCases() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  /**
+   * Documents currently-unenforced behavior: reading a query entity's queryProperties aspect (which
+   * contains the full SQL statement) must require the {@code VIEW_ENTITY_QUERIES} privilege on the
+   * query's subject dataset. The deny case is expected to fail (statement leaks with a 200) until
+   * enforcement is wired in.
+   */
+  @Test(dataProvider = "queryViewEntityQueriesCases")
+  public void testGetQueryPropertiesAspectRequiresViewEntityQueries(boolean hasPrivilege)
+      throws Exception {
+    Urn queryUrn = UrnUtils.getUrn("urn:li:query:view-entity-queries-test");
+    Urn subjectDataset =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,query-subject,PROD)");
+
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(queryUrn)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(queryUrn, querySubjectAspects(subjectDataset)));
+    stubQueryViewAuthorization(hasPrivilege);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                queryUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(QUERY_PROPERTIES_ASPECT_NAME)
+                        .setValue(new Aspect(testQueryProperties().data())))));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      org.springframework.test.web.servlet.ResultActions result =
+          mockMvc.perform(
+              MockMvcRequestBuilders.get(
+                      String.format("/openapi/v3/entity/query/%s/queryProperties", queryUrn))
+                  .accept(MediaType.APPLICATION_JSON));
+
+      if (hasPrivilege) {
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(
+                MockMvcResultMatchers.content()
+                    .string(org.hamcrest.Matchers.containsString(TEST_QUERY_STATEMENT)));
+      } else {
+        result.andExpect(status().isForbidden());
+      }
+    }
+  }
+
+  /**
+   * Documents currently-unenforced behavior: the query entity collection scroll must not return
+   * query entities whose subject datasets do not grant {@code VIEW_ENTITY_QUERIES} to the actor.
+   * The deny case is expected to fail (query entity leaks with a 200) until enforcement is wired
+   * in.
+   */
+  @Test(dataProvider = "queryViewEntityQueriesCases")
+  public void testScrollQueryEntitiesRequiresViewEntityQueries(boolean hasPrivilege)
+      throws Exception {
+    Urn queryUrn = UrnUtils.getUrn("urn:li:query:view-entity-queries-scroll-test");
+    Urn subjectDataset =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:testPlatform,query-scroll-subject,PROD)");
+
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(queryUrn)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(queryUrn, querySubjectAspects(subjectDataset)));
+    stubQueryViewAuthorization(hasPrivilege);
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("query")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(
+            new ScrollResult()
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(List.of(new SearchEntity().setEntity(queryUrn)))));
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                queryUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(QUERY_PROPERTIES_ASPECT_NAME)
+                        .setValue(new Aspect(testQueryProperties().data())))));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      org.springframework.test.web.servlet.ResultActions result =
+          mockMvc.perform(
+              MockMvcRequestBuilders.get("/openapi/v3/entity/query")
+                  .accept(MediaType.APPLICATION_JSON));
+
+      if (hasPrivilege) {
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(
+                MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(queryUrn.toString()));
       } else {
         result.andExpect(status().isForbidden());
       }
@@ -2025,6 +2152,52 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         request,
         allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
         "bridge document test");
+  }
+
+  /**
+   * Stubs the authorizer chain to model an actor with general read access (VIEW_ENTITY_PAGE,
+   * GET_ENTITY, ...) whose grant of the query-view privilege group (VIEW_ENTITY_QUERIES /
+   * EDIT_ENTITY_QUERIES / EDIT_ENTITY) is controlled by {@code hasQueryViewPrivilege}.
+   */
+  private void stubQueryViewAuthorization(boolean hasQueryViewPrivilege) {
+    Set<String> queryViewPrivileges =
+        Set.of(
+            PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType(),
+            PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+    reset(authorizerChain);
+    org.mockito.stubbing.Answer<AuthorizationResult> answer =
+        invocation -> {
+          AuthorizationRequest authRequest = invocation.getArgument(0);
+          boolean allowed =
+              hasQueryViewPrivilege || !queryViewPrivileges.contains(authRequest.getPrivilege());
+          return new AuthorizationResult(
+              authRequest,
+              allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+              "view entity queries test");
+        };
+    when(authorizerChain.authorize(any(AuthorizationRequest.class))).thenAnswer(answer);
+    when(authorizerChain.authorize(
+            any(AuthorizationRequest.class), any(Map.class), any(OperationContext.class)))
+        .thenAnswer(answer);
+  }
+
+  private static Map<String, Aspect> querySubjectAspects(Urn subjectDatasetUrn) {
+    QuerySubjects querySubjects =
+        new QuerySubjects()
+            .setSubjects(
+                new QuerySubjectArray(List.of(new QuerySubject().setEntity(subjectDatasetUrn))));
+    return Map.of(QUERY_SUBJECTS_ASPECT_NAME, new Aspect(querySubjects.data()));
+  }
+
+  private static QueryProperties testQueryProperties() {
+    Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:datahub");
+    return new QueryProperties()
+        .setSource(QuerySource.MANUAL)
+        .setStatement(
+            new QueryStatement().setLanguage(QueryLanguage.SQL).setValue(TEST_QUERY_STATEMENT))
+        .setCreated(new AuditStamp().setActor(actorUrn).setTime(0L))
+        .setLastModified(new AuditStamp().setActor(actorUrn).setTime(0L));
   }
 
   private static Map<String, Aspect> bridgeDocumentAspects(Urn sourceUrn) {
