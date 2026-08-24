@@ -99,9 +99,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             extra_columns={"is_missing": lambda v: v is None},
         )
         # Lowercased dataset-name key -> registered URN(s). Populated incrementally on
-        # schema registration and lazily per lookup key on cache miss (not at startup).
+        # schema registration and lazily bootstrapped on first normalized lookup.
         self._normalized_to_urns: Dict[str, Set[str]] = {}
-        self._normalized_keys_scanned: Set[str] = set()
+        self._normalized_bootstrapped = False
 
     @property
     def platform(self) -> str:
@@ -309,25 +309,19 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         except (ValueError, IndexError, AttributeError, TypeError, InvalidUrnError):
             return None
 
-    def _ensure_normalized_key_indexed(self, key: str) -> None:
-        if key in self._normalized_to_urns or key in self._normalized_keys_scanned:
+    def _ensure_normalized_index_bootstrapped(self) -> None:
+        if self._normalized_bootstrapped:
             return
-        matches: Set[str] = set()
+        self._normalized_bootstrapped = True
         for urn, info in self._schema_cache.items():
             if info is None:
                 continue
-            if self._normalized_urn_key(urn) == key:
-                matches.add(urn)
-        if matches:
-            self._normalized_to_urns[key] = matches
-        else:
-            self._normalized_keys_scanned.add(key)
+            self._index_normalized_urn(urn)
 
     def _index_normalized_urn(self, urn: str) -> None:
         key = self._normalized_urn_key(urn)
         if key is None:
             return
-        self._normalized_keys_scanned.discard(key)
         self._normalized_to_urns.setdefault(key, set()).add(urn)
 
     def _unindex_normalized_urn(self, urn: str) -> None:
@@ -361,7 +355,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             if key is None or key in seen_keys:
                 continue
             seen_keys.add(key)
-            self._ensure_normalized_key_indexed(key)
+            self._ensure_normalized_index_bootstrapped()
             matches = self._normalized_to_urns.get(key)
             if not matches:
                 continue
@@ -475,7 +469,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def close(self) -> None:
         self._schema_cache.close()
         self._normalized_to_urns.clear()
-        self._normalized_keys_scanned.clear()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
