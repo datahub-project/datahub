@@ -12,6 +12,7 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Set,
     Tuple,
     TypeVar,
     cast,
@@ -36,6 +37,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     DataFlowKeyClass,
@@ -47,8 +49,16 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     OperationClass,
     OperationTypeClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     StatusClass,
 )
+from datahub.metadata.urns import QueryUrn
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
 
@@ -311,6 +321,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                     "datahub-airflow-plugin": "v2",
                     "datahub-airflow-plugin-dag-events": True,
                     "capture_executions": plugin_config.capture_executions,
+                    "capture_query_entities": plugin_config.capture_query_entities,
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
                     "enable_extractors": plugin_config.enable_extractors,
@@ -676,11 +687,15 @@ class DataHubListener:
         task: "Operator",
         task_instance: "TaskInstance",
         complete: bool,
-    ) -> Tuple[List[str], List[str], Optional[SqlParsingResult]]:
+    ) -> Tuple[List[str], List[str], Optional[SqlParsingResult], Optional[str]]:
         """Extract lineage using Airflow 3.x OpenLineage integration."""
         input_urns: List[str] = []
         output_urns: List[str] = []
         sql_parsing_result: Optional[SqlParsingResult] = None
+        # Raw SQL text for the Query entity. SqlParsingResult has no text field
+        # (only a fingerprint) - the real statement lives in the OpenLineage SQL
+        # job facet set by _sql_parser_patch.py.
+        sql_statement_text: Optional[str] = None
 
         logger.debug(
             f"Extracting lineage for task {task.task_id} (complete={complete})"
@@ -707,7 +722,7 @@ class DataHubListener:
                 logger.debug(
                     f"Task {task.task_id} does not have OpenLineage support (missing {facet_method_name}) - SQL parsing will not be triggered"
                 )
-                return input_urns, output_urns, sql_parsing_result
+                return input_urns, output_urns, sql_parsing_result, sql_statement_text
 
             facet_method = getattr(task, facet_method_name)
 
@@ -723,7 +738,12 @@ class DataHubListener:
                     )
                     # Even if operator_lineage is None, we might have SQL parsing result from a patch
                     # that created a new OperatorLineage. But if it's None, there's nothing to process.
-                    return input_urns, output_urns, sql_parsing_result
+                    return (
+                        input_urns,
+                        output_urns,
+                        sql_parsing_result,
+                        sql_statement_text,
+                    )
 
                 logger.debug(
                     f"Got OpenLineage operator lineage for task {task.task_id}: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}, run_facets_keys={list(operator_lineage.run_facets.keys()) if hasattr(operator_lineage, 'run_facets') else 'N/A'}"
@@ -780,6 +800,17 @@ class DataHubListener:
                         f"No run_facets available in operator_lineage for task {task.task_id}"
                     )
 
+                # The SQL job facet carries the raw statement text (SqlParsingResult
+                # only has a fingerprint). Set by _sql_parser_patch.py, or passed
+                # through unchanged from OpenLineage's own SQL extractor.
+                if (
+                    hasattr(operator_lineage, "job_facets")
+                    and operator_lineage.job_facets
+                    and "sql" in operator_lineage.job_facets
+                ):
+                    sql_job_facet = operator_lineage.job_facets["sql"]  # type: ignore
+                    sql_statement_text = getattr(sql_job_facet, "query", None)
+
             except Exception as e:
                 logger.debug(
                     f"Error calling OpenLineage facet method: {e}", exc_info=True
@@ -790,23 +821,32 @@ class DataHubListener:
                 f"Error extracting lineage from OpenLineage: {e}", exc_info=True
             )
 
-        return input_urns, output_urns, sql_parsing_result
+        return input_urns, output_urns, sql_parsing_result, sql_statement_text
 
     def _process_sql_parsing_result(
         self,
         datajob: DataJob,
         sql_parsing_result: Optional[SqlParsingResult],
-    ) -> Tuple[List[str], List[str], List[FineGrainedLineageClass]]:
+        statement_text: Optional[str] = None,
+    ) -> Tuple[List[str], List[str], List[FineGrainedLineageClass], Set[str]]:
         """Process SQL parsing result and return additional URNs and column lineage."""
         input_urns: List[str] = []
         output_urns: List[str] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
+        # Dataset + schemaField URNs referenced by this query's fine-grained
+        # lineage, for the Query entity's querySubjects aspect. Only populated
+        # when a query URN is actually being written (flag on + text present).
+        subject_urns: Set[str] = set()
 
         if not sql_parsing_result:
             logger.debug(
                 f"No SQL parsing result available for task {datajob.urn} - lineage may be incomplete"
             )
-            return input_urns, output_urns, fine_grained_lineages
+            return input_urns, output_urns, fine_grained_lineages, subject_urns
+
+        query_urn: Optional[str] = None
+        if self.config.capture_query_entities and statement_text:
+            query_urn = QueryUrn(generate_hash(statement_text)).urn()
 
         # Log parsing result summary for debugging
         logger.debug(
@@ -833,26 +873,35 @@ class DataHubListener:
             if sql_parsing_result.column_lineage:
                 # Create FGLs from column_lineage items
                 # Duplicates will be caught by sql_fine_grained_lineages deduplication below
-                fine_grained_lineages.extend(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        upstreams=[
-                            builder.make_schema_field_urn(
-                                upstream.table, upstream.column
-                            )
-                            for upstream in column_lineage.upstreams
-                        ],
-                        downstreams=[
-                            builder.make_schema_field_urn(
-                                downstream.table, downstream.column
-                            )
-                            for downstream in [column_lineage.downstream]
-                            if downstream.table
-                        ],
+                for column_lineage in sql_parsing_result.column_lineage:
+                    upstream_field_urns = [
+                        builder.make_schema_field_urn(upstream.table, upstream.column)
+                        for upstream in column_lineage.upstreams
+                    ]
+                    downstream_field_urns = [
+                        builder.make_schema_field_urn(
+                            downstream.table, downstream.column
+                        )
+                        for downstream in [column_lineage.downstream]
+                        if downstream.table
+                    ]
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=upstream_field_urns,
+                            downstreams=downstream_field_urns,
+                            query=query_urn,
+                        )
                     )
-                    for column_lineage in sql_parsing_result.column_lineage
-                )
+                    if query_urn:
+                        subject_urns.update(upstream_field_urns)
+                        subject_urns.update(downstream_field_urns)
+                        subject_urns.update(
+                            upstream.table for upstream in column_lineage.upstreams
+                        )
+                        if column_lineage.downstream.table:
+                            subject_urns.add(column_lineage.downstream.table)
                 logger.debug(
                     f"Created {len(fine_grained_lineages)} FGLs from {len(sql_parsing_result.column_lineage)} column_lineage items for task {datajob.urn}"
                 )
@@ -861,7 +910,7 @@ class DataHubListener:
                 f"SQL parsing table error for task {datajob.urn}: {sql_parsing_result.debug_info.table_error}"
             )
 
-        return input_urns, output_urns, fine_grained_lineages
+        return input_urns, output_urns, fine_grained_lineages, subject_urns
 
     def _get_outlet_urns(
         self,
@@ -938,11 +987,15 @@ class DataHubListener:
         task_instance: "TaskInstance",
         complete: bool = False,
         session: Optional[Any] = None,
-    ) -> None:
+    ) -> Tuple[Optional[str], Set[str]]:
         """
         Combine lineage (including column lineage) from task inlets/outlets and
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
+
+        Returns the task's SQL statement text and the Query entity's subject
+        URNs (empty/None unless capture_query_entities is on), for the caller
+        to emit the Query entity alongside the DataJobInputOutput aspect.
         """
         logger.debug(
             f"_extract_lineage called for task {task.task_id} (complete={complete}, enable_datajob_lineage={self.config.enable_datajob_lineage})"
@@ -951,7 +1004,7 @@ class DataHubListener:
             logger.debug(
                 f"Skipping lineage extraction for task {task.task_id} - enable_datajob_lineage is False"
             )
-            return
+            return None, set()
 
         input_urns: List[str] = []
         output_urns: List[str] = []
@@ -966,9 +1019,12 @@ class DataHubListener:
 
         # Extract lineage using Airflow 3.x OpenLineage integration
         logger.debug(f"Calling _extract_lineage_from_airflow3 for task {task.task_id}")
-        extracted_input_urns, extracted_output_urns, sql_parsing_result = (
-            self._extract_lineage_from_airflow3(task, task_instance, complete)
-        )
+        (
+            extracted_input_urns,
+            extracted_output_urns,
+            sql_parsing_result,
+            statement_text,
+        ) = self._extract_lineage_from_airflow3(task, task_instance, complete)
         logger.debug(
             f"Lineage extraction result for task {task.task_id}: inputs={len(extracted_input_urns)}, outputs={len(extracted_output_urns)}, sql_parsing_result={'present' if sql_parsing_result else 'None'}"
         )
@@ -976,8 +1032,10 @@ class DataHubListener:
         output_urns.extend(extracted_output_urns)
 
         # Process SQL parsing result
-        sql_input_urns, sql_output_urns, sql_fine_grained_lineages = (
-            self._process_sql_parsing_result(datajob, sql_parsing_result)
+        sql_input_urns, sql_output_urns, sql_fine_grained_lineages, subject_urns = (
+            self._process_sql_parsing_result(
+                datajob, sql_parsing_result, statement_text
+            )
         )
         input_urns.extend(sql_input_urns)
         output_urns.extend(sql_output_urns)
@@ -1079,6 +1137,8 @@ class DataHubListener:
                 datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(
                     redact_with_exclusions(v)  # type: ignore[arg-type]
                 )
+
+        return statement_text, subject_urns
 
     def check_kill_switch(self) -> bool:
         """
@@ -1184,7 +1244,7 @@ class DataHubListener:
         )
 
         # Add lineage info
-        self._extract_lineage(
+        statement_text, subject_urns = self._extract_lineage(
             datajob, dagrun, task, task_instance, complete=complete, session=session
         )  # type: ignore[arg-type]
 
@@ -1208,10 +1268,55 @@ class DataHubListener:
 
             emitter.emit(mcp, self._make_emit_callback())
 
+        # Emit the Query entity alongside DataJobInputOutput (same `complete`
+        # branch) so a query URN is never written without the entity behind it.
+        if complete:
+            self._emit_query_entity(emitter, statement_text, subject_urns)
+
         status_text = f"finish w/ status {complete}" if complete else "start"
         logger.debug(f"Emitted DataHub Datajob {status_text}: {datajob}")
 
         return datajob
+
+    def _emit_query_entity(
+        self,
+        emitter: Emitter,
+        statement_text: Optional[str],
+        subject_urns: Set[str],
+    ) -> None:
+        """Emit a Query entity (queryProperties + querySubjects) for a task's SQL
+        statement.
+
+        No-ops unless capture_query_entities is on and a statement was captured,
+        so this is a byte-identical no-op with the flag off (the default). Uses
+        the same sha256-of-statement-text URN scheme as the Spark listener and
+        the SDK's lineage client, so a statement shared across producers
+        collapses to one Query entity.
+        """
+        if not self.config.capture_query_entities or not statement_text:
+            return
+
+        query_urn = QueryUrn(generate_hash(statement_text)).urn()
+        # time=0: this is a SYSTEM-sourced record with no meaningful creation
+        # time to report, matching datahub.sdk.lineage_client's _empty_audit_stamp.
+        audit_stamp = AuditStampClass(time=0, actor=builder.make_user_urn("airflow"))
+        for aspect in (
+            QueryPropertiesClass(
+                statement=QueryStatementClass(
+                    value=statement_text, language=QueryLanguageClass.SQL
+                ),
+                source=QuerySourceClass.SYSTEM,
+                created=audit_stamp,
+                lastModified=audit_stamp,
+            ),
+            QuerySubjectsClass(
+                subjects=[QuerySubjectClass(entity=urn) for urn in sorted(subject_urns)]
+            ),
+        ):
+            emitter.emit(
+                MetadataChangeProposalWrapper(entityUrn=query_urn, aspect=aspect),
+                self._make_emit_callback(),
+            )
 
     @hookimpl
     def on_starting(self, component: Any) -> None:  # type: ignore[no-untyped-def]

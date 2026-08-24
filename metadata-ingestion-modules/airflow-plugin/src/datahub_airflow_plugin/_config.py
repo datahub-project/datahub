@@ -54,6 +54,8 @@ class DatahubLineageConfig(ConfigModel):
 
     capture_executions: bool
 
+    capture_query_entities: bool = False
+
     datajob_url_link: DatajobUrl
 
     enable_extractors: bool
@@ -136,6 +138,9 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "capture_ownership_as_group", fallback=False
     )
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
+    capture_query_entities = conf.get(
+        "datahub", "capture_query_entities", fallback=False
+    )
     materialize_iolets = conf.get("datahub", "materialize_iolets", fallback=True)
     capture_airflow_assets = conf.get(
         "datahub", "capture_airflow_assets", fallback=True
@@ -198,6 +203,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_ownership_as_group=capture_ownership_as_group,
         capture_tags_info=capture_tags_info,
         capture_executions=capture_executions,
+        capture_query_entities=capture_query_entities,
         materialize_iolets=materialize_iolets,
         capture_airflow_assets=capture_airflow_assets,
         enable_extractors=enable_extractors,
