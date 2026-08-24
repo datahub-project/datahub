@@ -186,11 +186,10 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
-    when(mockContext.getOperationContext())
-        .thenReturn(
-            withDefaultSearchEntityTypes(
-                TestOperationContexts.userContextNoSearchAuthorization(
-                    mockAuthorizer, authentication)));
+    OperationContext operationContext =
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
     return mockContext;
   }
 
