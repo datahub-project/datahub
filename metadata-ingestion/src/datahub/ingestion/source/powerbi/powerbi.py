@@ -380,8 +380,11 @@ class Mapper:
 
         # One table can reach the same upstream by more than one route -- two
         # queries filtering a common source, or both branches of a conditional --
-        # and the aspect should name it once.
+        # and the aspect should name it once. The column edges each route carries
+        # need the same treatment, keyed on the fields they join so that a route
+        # contributing a mapping the others did not still reaches the aspect.
         emitted_upstream_urns: Set[str] = set()
+        emitted_column_edges: Set[Tuple[Tuple[str, ...], Tuple[str, ...]]] = set()
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
@@ -395,9 +398,6 @@ class Mapper:
                     continue
 
                 upstream_urn = self.lineage_urn_to_lowercase(upstream_dpt.urn)
-                # Only the upstream itself is deduplicated. Column lineage is
-                # left as it was, so a second route contributing mappings the
-                # first did not have still reaches the aspect.
                 if upstream_urn not in emitted_upstream_urns:
                     emitted_upstream_urns.add(upstream_urn)
                     upstream.append(
@@ -408,12 +408,18 @@ class Mapper:
                     )
 
                 # Add column level lineage if any
-                cll_lineage.extend(
-                    self.make_fine_grained_lineage_class(
-                        lineage=lineage,
-                        dataset_urn=ds_urn,
+                for column_edge in self.make_fine_grained_lineage_class(
+                    lineage=lineage,
+                    dataset_urn=ds_urn,
+                ):
+                    edge_key = (
+                        tuple(column_edge.downstreams or ()),
+                        tuple(column_edge.upstreams or ()),
                     )
-                )
+                    if edge_key in emitted_column_edges:
+                        continue
+                    emitted_column_edges.add(edge_key)
+                    cll_lineage.append(column_edge)
 
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(

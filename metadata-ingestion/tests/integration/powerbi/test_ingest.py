@@ -454,8 +454,25 @@ def test_shared_expression_lineage_ingest(
     pipeline.raise_from_status()
     golden_file = "golden_test_shared_expressions.json"
 
+    output_path = f"{tmp_path}/powerbi_shared_expressions_mces.json"
+
+    # The golden comparison treats lists as unordered, so a repeated edge reads
+    # as equal to a single one. The table here reaches its upstream by two
+    # routes, so assert on the counts directly.
+    for mcp in json.loads(Path(output_path).read_text()):
+        if mcp.get("aspectName") != "upstreamLineage":
+            continue
+        aspect = mcp["aspect"]["json"]
+        upstreams = [entry["dataset"] for entry in aspect["upstreams"]]
+        assert len(upstreams) == len(set(upstreams))
+        column_edges = [
+            (tuple(edge["downstreams"]), tuple(edge["upstreams"]))
+            for edge in aspect.get("fineGrainedLineages") or []
+        ]
+        assert len(column_edges) == len(set(column_edges))
+
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/powerbi_shared_expressions_mces.json",
+        output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
