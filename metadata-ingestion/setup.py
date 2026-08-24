@@ -152,11 +152,11 @@ kafka_protobuf = {
 }
 
 usage_common = {
-    # No floor: every supported Airflow 3.x constraints file pins sqlparse below
-    # 0.6.0 (0.5.3 on 3.0/3.1, 0.5.5 on 3.2), so a floor here makes
-    # `pip install acryl-datahub[<extra>] -c <airflow-constraints>` unsatisfiable.
-    # Security floor is in docker/snippets/ingestion/constraints.txt.
-    "sqlparse<1.0.0",
+    # 0.6.0 fixes CVE-2026-59893, CVE-2026-54284, CVE-2026-71491, CVE-2026-59894 and
+    # a quadratic-CPU DoS in format(reindent=...), which usage_common reaches with
+    # arbitrary query text. Airflow's constraints pin sqlparse lower, but the
+    # airflow-plugin never pulls a sqlparse-bearing extra, so it is unaffected.
+    "sqlparse>=0.6.0,<1.0.0",
 }
 
 sqlglot_lib = {
@@ -815,7 +815,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
+        | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -845,7 +845,7 @@ plugins: Dict[str, Set[str]] = {
     "quicksight": aws_common | sqlglot_lib,
     # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
     # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
-    "sigma": sqlglot_lib | {"sqlparse<1.0.0", "requests<3.0.0"},
+    "sigma": sqlglot_lib | {"sqlparse>=0.6.0,<1.0.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
