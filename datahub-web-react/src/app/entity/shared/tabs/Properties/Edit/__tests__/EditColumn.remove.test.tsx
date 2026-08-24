@@ -10,7 +10,7 @@ import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 // confirm -> mutation catch -> shared error handler), not the design system.
 vi.mock('@src/alchemy-components', () => ({
     Button: (props: any) => (
-        <button type="button" data-testid={props['data-testid']} onClick={props.onClick} />
+        <button type="button" aria-label="menu-trigger" data-testid={props['data-testid']} onClick={props.onClick} />
     ),
     Menu: ({ items, children }: any) => (
         <div>
@@ -27,7 +27,7 @@ vi.mock('@src/alchemy-components', () => ({
 vi.mock('@src/app/sharedV2/modals/ConfirmationModal', () => ({
     ConfirmationModal: ({ isOpen, handleConfirm }: any) =>
         isOpen ? (
-            <button type="button" data-testid="modal-confirm-button" onClick={handleConfirm} />
+            <button type="button" aria-label="confirm" data-testid="modal-confirm-button" onClick={handleConfirm} />
         ) : null,
 }));
 
