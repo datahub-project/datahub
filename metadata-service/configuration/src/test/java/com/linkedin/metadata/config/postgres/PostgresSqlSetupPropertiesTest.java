@@ -285,6 +285,51 @@ public class PostgresSqlSetupPropertiesTest {
     props.validateForUse(DatabaseType.POSTGRES);
   }
 
+  @Test
+  public void namedStore_urlOnly_leavesCredentialsBlankForEbeanFallback() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getPool().setUsername("default_user");
+    props.getPgTimeseries().getPool().setPassword("default_pass");
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig named =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    named.setTablePrefix("metadata_timeseries_named");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 day");
+    partitioning.setPartmanPremake(4);
+    named.setPartitioning(partitioning);
+    PostgresSqlSetupProperties.PgTimeseries.Pool pool =
+        new PostgresSqlSetupProperties.PgTimeseries.Pool();
+    pool.setUrl("jdbc:postgresql://other-host:5432/datahub");
+    named.setPool(pool);
+    props.getPgTimeseries().getStores().put("named", named);
+
+    PgTimeseriesStoreOptions built = props.buildPgTimeseriesOptions().getStores().get("named");
+    assertNull(built.getPoolUsername());
+    assertNull(built.getPoolPassword());
+    assertEquals(built.getPoolUrl(), "jdbc:postgresql://other-host:5432/datahub");
+  }
+
+  @Test
+  public void namedStore_withoutUrl_inheritsDefaultCredentials() {
+    PostgresSqlSetupProperties props = basePgTimeseriesProps();
+    props.getPgTimeseries().getPool().setUsername("default_user");
+    props.getPgTimeseries().getPool().setPassword("default_pass");
+    PostgresSqlSetupProperties.PgTimeseries.StoreConfig named =
+        new PostgresSqlSetupProperties.PgTimeseries.StoreConfig();
+    named.setTablePrefix("metadata_timeseries_named");
+    PostgresSqlSetupProperties.PgTimeseries.Partitioning partitioning =
+        new PostgresSqlSetupProperties.PgTimeseries.Partitioning();
+    partitioning.setPartmanPartitionInterval("1 day");
+    partitioning.setPartmanPremake(4);
+    named.setPartitioning(partitioning);
+    props.getPgTimeseries().getStores().put("named", named);
+
+    PgTimeseriesStoreOptions built = props.buildPgTimeseriesOptions().getStores().get("named");
+    assertEquals(built.getPoolUsername(), "default_user");
+    assertEquals(built.getPoolPassword(), "default_pass");
+  }
+
   private static PostgresSqlSetupProperties basePgTimeseriesProps() {
     PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
     props.setSchema("public");
