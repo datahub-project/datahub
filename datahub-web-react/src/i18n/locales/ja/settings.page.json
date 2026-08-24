@@ -1,0 +1,22 @@
+{
+    "logOut": "ログアウト",
+    "nav.access": "アクセス",
+    "nav.accessTokens": "アクセストークン",
+    "nav.appearance": "外観",
+    "nav.developer": "開発者",
+    "nav.features": "機能",
+    "nav.homePage": "ホームページ",
+    "nav.manage": "管理",
+    "nav.myNotifications": "自分の通知",
+    "nav.mySubscriptions": "自分のサブスクリプション",
+    "nav.ownershipTypes": "Ownership Types",
+    "nav.permissions": "権限",
+    "nav.personal": "個人設定",
+    "nav.preferences": "環境設定",
+    "nav.usersGroups": "ユーザーとグループ",
+    "nav.views": "ビュー",
+    "nav.collapseSidebar": "設定サイドバーを折りたたむ",
+    "nav.expandSidebar": "設定サイドバーを展開する",
+    "subTitle": "設定を管理します",
+    "title": "設定"
+}
