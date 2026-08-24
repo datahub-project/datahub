@@ -152,7 +152,9 @@ kafka_protobuf = {
 }
 
 usage_common = {
-    "sqlparse<0.6.0",
+    # No floor: Airflow constraints pin sqlparse to older releases (e.g. 0.5.0 on
+    # Airflow 2.9.x). Security floor is in docker/snippets/ingestion/constraints.txt.
+    "sqlparse<1.0.0",
 }
 
 sqlglot_lib = {
@@ -745,7 +747,7 @@ plugins: Dict[str, Set[str]] = {
         "kerberos>=1.3.0,<2.0.0",
     },
     "pulsar": {"requests<3.0.0"},
-    "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
+    "redash": {"redash-toolbelt<0.2.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
@@ -841,7 +843,7 @@ plugins: Dict[str, Set[str]] = {
     "quicksight": aws_common | sqlglot_lib,
     # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
     # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
-    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
+    "sigma": sqlglot_lib | {"sqlparse<1.0.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},

@@ -438,6 +438,23 @@ class AbstractLineage(ABC):
             logger.debug(f"Failed to parse query as SQL: {query}")
             return False
 
+    def get_tables_using_old_parser(self, query: str) -> List[str]:
+        # sqlparse raises SQLParseError once its DoS-protection grouping limits
+        # (MAX_GROUPING_DEPTH / MAX_GROUPING_TOKENS) are hit, so a single oversized
+        # native query would otherwise abort the whole ingestion run.
+        try:
+            return native_sql_parser.get_tables(query)
+        except Exception as e:
+            self.reporter.warning(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="Failed to extract tables from native SQL with the legacy "
+                "parser; lineage for this query is skipped. Enabling "
+                "enable_advance_lineage_sql_construct uses the sqlglot-based parser instead.",
+                context=f"table-name={self.table.full_name}",
+                exc=e,
+            )
+            return []
+
     def parse_custom_sql(
         self,
         query: str,
@@ -1242,7 +1259,7 @@ class MSSqlLineage(TwoStepDataAccessPattern):
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
 
-        tables: List[str] = native_sql_parser.get_tables(query)
+        tables: List[str] = self.get_tables_using_old_parser(query)
 
         for parsed_table in tables:
             # components: List[str] = [v.strip("[]") for v in parsed_table.split(".")]
@@ -1500,7 +1517,7 @@ class NativeQueryLineage(AbstractLineage):
     def create_urn_using_old_parser(self, query: str, server: str) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
 
-        tables: List[str] = native_sql_parser.get_tables(query)
+        tables: List[str] = self.get_tables_using_old_parser(query)
 
         column_lineage = []
         for qualified_table_name in tables:
