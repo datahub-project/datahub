@@ -281,10 +281,25 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # properties so they are applied to every request made by a REST
         # catalog, including the initial OAuth token fetch that happens inside
         # load_catalog(). Explicitly configured `header.<name>` properties take
-        # precedence over connection.headers.
+        # precedence over connection.headers; HTTP header names are
+        # case-insensitive (pyiceberg feeds them into requests' session
+        # headers, a CaseInsensitiveDict, where the last write would win), so
+        # the precedence check must ignore case too.
         headers: Dict[str, Any] = connection_conf.get("headers") or {}
+        if not isinstance(headers, dict):
+            raise ValueError(
+                "catalog connection.headers must be a mapping of header name to value, "
+                f"got {type(headers).__name__}"
+            )
+        explicit_header_keys = {
+            key.casefold() for key in load_catalog_config if key.startswith("header.")
+        }
         for header_name, header_value in headers.items():
-            load_catalog_config.setdefault(f"header.{header_name}", header_value)
+            if f"header.{header_name}".casefold() in explicit_header_keys:
+                continue
+            # Values may be parsed by YAML as int/bool; requests only accepts
+            # str header values, so coerce here.
+            load_catalog_config[f"header.{header_name}"] = str(header_value)
         if headers:
             logger.debug(
                 "Merged connection.headers into catalog properties (keys: %s)",

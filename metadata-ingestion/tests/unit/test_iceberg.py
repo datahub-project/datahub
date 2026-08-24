@@ -2285,6 +2285,64 @@ class TestRestCatalogConnectionConfig:
             _, kwargs = mock_load_catalog.call_args
             assert kwargs["header.Polaris-Realm"] == "explicit-realm"
 
+    def test_explicit_header_precedence_is_case_insensitive(self):
+        # HTTP header names are case-insensitive and pyiceberg puts them into
+        # requests' CaseInsensitiveDict where the last write wins, so a
+        # connection.header differing only in case must not be emitted next to
+        # the explicit property.
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "header.polaris-realm": "explicit-realm",
+                    "connection": {"headers": {"Polaris-Realm": "from-connection"}},
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs["header.polaris-realm"] == "explicit-realm"
+            assert "header.Polaris-Realm" not in kwargs
+
+    def test_connection_header_values_are_coerced_to_str(self):
+        # YAML parses unquoted values like `100` as int; requests only accepts
+        # str header values.
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": {"headers": {"X-Rate-Limit": 100}},
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs["header.X-Rate-Limit"] == "100"
+
+    def test_non_dict_connection_headers_rejected(self):
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": {"headers": "Polaris-Realm=my-realm"},
+                }
+            }
+        )
+        with (
+            patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
+            pytest.raises(ValueError, match="connection.headers"),
+        ):
+            config.get_catalog()
+
     def test_connection_retry_and_timeout_still_configure_rest_session(self):
         from unittest.mock import MagicMock
 
