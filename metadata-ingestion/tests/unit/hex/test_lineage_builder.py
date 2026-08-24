@@ -34,6 +34,28 @@ def _pin_dataset_urn_case_global(monkeypatch):
     monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
 
 
+@pytest.fixture(autouse=True)
+def _pin_bigquery_shard_suffix(monkeypatch):
+    """Defend against a known pollution vector for BigQuery shard normalization.
+
+    ``BigQueryIdentifierBuilder.__init__`` in ``bigquery_v2/common.py`` mutates the
+    class attribute ``BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX`` to ``""``
+    when ``enable_legacy_sharded_table_support=True`` and never restores it. Under
+    CI-wide random test ordering that leak flips shard folding off for every
+    subsequent test in the same worker, so our
+    ``test_build_from_queried_tables_bigquery_normalizes_date_shard`` assertion
+    ends up comparing against ``proj.dataset.events`` instead of the expected
+    ``proj.dataset.events_yyyymmdd``. Pin the suffix per-test to make Hex tests
+    hermetic regardless of collection order."""
+    from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+        BigqueryTableIdentifier,
+    )
+
+    monkeypatch.setattr(
+        BigqueryTableIdentifier, "_BQ_SHARDED_TABLE_SUFFIX", "_yyyymmdd"
+    )
+
+
 def _builder(
     connections: Optional[Dict[str, HexConnection]] = None,
     env: str = "PROD",
