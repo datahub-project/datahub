@@ -1987,6 +1987,11 @@ constraint-dependencies = [
     # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.7.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
     "urllib3>=2.7.0,<3.0.0",
+    # sqlparse: CVE-2026-59893, CVE-2026-54284, CVE-2026-71491, CVE-2026-59894 and a
+    # quadratic-CPU DoS in format(reindent=...); all fixed in 0.6.0.
+    # Not in setup.py: Airflow constraints pin sqlparse below 0.6.0 (0.5.3 on 3.0/3.1,
+    # 0.5.5 on 3.2). Enforced for Docker via docker/snippets/ingestion/constraints.txt.
+    "sqlparse>=0.6.0,<1.0.0",
 ]
 
 [tool.ruff]

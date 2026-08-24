@@ -27,6 +27,7 @@ constraints = [
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
     { name = "pypdf", specifier = ">=6.10.2" },
+    { name = "sqlparse", specifier = ">=0.6.0,<1.0.0" },
     { name = "urllib3", specifier = ">=2.7.0,<3.0.0" },
 ]
 
