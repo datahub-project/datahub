@@ -129,6 +129,7 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.IncidentSdl;
 import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
@@ -4004,18 +4005,13 @@ public class GmsGraphQLEngine {
                           : null;
                     })));
 
-    // Add incidents attribute to all entities that support it
+    // Wire from incident.graphql so SDL without a dataFetcher cannot silently return null.
     final List<String> entitiesWithIncidents =
-        ImmutableList.of(
-            "Dataset",
-            "DataJob",
-            "DataFlow",
-            "Dashboard",
-            "Chart",
-            "MLModel",
-            "MLFeature",
-            "MLFeatureTable",
-            "SchemaFieldEntity");
+        IncidentSdl.typesDeclaringIncidentsField(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
+    if (entitiesWithIncidents.isEmpty()) {
+      throw new IllegalStateException(
+          "incident.graphql declares no incidents fields; refusing to start with zero resolvers");
+    }
     for (String entity : entitiesWithIncidents) {
       builder.type(
           entity,
