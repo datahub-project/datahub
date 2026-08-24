@@ -97,7 +97,8 @@ class PipelineManager:
                     # Reporting is best-effort; a pipeline that never reached mark_start()
                     # has no stats to print, and that must not look like a stop failure.
                     logger.warning(
-                        f"Could not print run summary for pipeline {name}", exc_info=True
+                        f"Could not print run summary for pipeline {name}",
+                        exc_info=True,
                     )
                 del self.pipeline_registry[name]
             except Exception as e:
