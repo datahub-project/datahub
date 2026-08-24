@@ -458,6 +458,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
+        # Built once per run in get_workunits_internal; stays None for tests that
+        # call process_table/ingest_lineage directly without that setup.
+        self.query_lineage_resolver: Optional[QueryLineageResolver] = None
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
@@ -607,6 +610,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_notebooks:
             with self.report.new_stage("Ingest notebooks"):
                 yield from self.process_notebooks()
+
+        # Built once for the whole run and emitted before any lineage aspect can
+        # reference a query URN, so a `query` field never points at a missing entity.
+        self.query_lineage_resolver = self._build_query_lineage_resolver()
+        if self.query_lineage_resolver is not None:
+            yield from self._gen_query_entity_workunits(self.query_lineage_resolver)
 
         yield from self.process_metastores()
 
@@ -942,7 +951,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
             if lineage is None:
-                lineage = self.ingest_lineage(table)
+                lineage = self.ingest_lineage(table, self.query_lineage_resolver)
                 if lineage is None:
                     self.report.warning(
                         message="Metric view has no upstream lineage: neither YAML parsing "
@@ -951,7 +960,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         log=False,
                     )
         else:
-            lineage = self.ingest_lineage(table)
+            lineage = self.ingest_lineage(table, self.query_lineage_resolver)
 
         # Fold the foreign-catalog COPY upstream into this single upstreamLineage
         # aspect; a second MCP for the same URN would clobber the lineage above.
@@ -1141,7 +1150,73 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ).as_workunit()
             self.report.num_query_entities_emitted += 1
 
-    def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
+    def _build_query_lineage_resolver(self) -> Optional["QueryLineageResolver"]:
+        """Resolver for query-linked lineage, or None when the feature cannot apply.
+
+        Returns None when Query entities are disabled, when table lineage is off,
+        when include_metastore is enabled (system.access full names are always
+        three-part, so a four-part URN could never match), or when no SQL warehouse
+        is available — statement text lives in system.query.history, which needs a
+        warehouse to read.
+        """
+        if not self.config.include_queries or not self.config.include_table_lineage:
+            return None
+        if self.config.include_metastore:
+            self.warn(
+                logger,
+                "query-lineage",
+                "Query-linked lineage is unavailable with include_metastore enabled; "
+                "emitting lineage without query links.",
+            )
+            return None
+        if not getattr(self.config, "warehouse_id", None):
+            return None
+
+        resolver = QueryLineageResolver(
+            resolve_urn=self._lineage_full_name_to_urn,
+            platform=self.platform,
+        )
+        try:
+            for (
+                query
+            ) in self.unity_catalog_api_proxy.get_query_history_via_system_tables(
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                catalog_pattern=self.config.catalog_pattern,
+                include_operational_stats=False,
+            ):
+                resolver.add_query(query)
+        except Exception as e:
+            # Statement text is an enhancement: lineage must still be emitted without it.
+            self.warn(
+                logger,
+                "query-lineage",
+                f"Could not read query history for lineage attribution, "
+                f"emitting lineage without query links: {e}",
+            )
+            return None
+
+        self.report.num_lineage_statements_skipped += resolver.num_statements_skipped
+        return resolver
+
+    def _lineage_full_name_to_urn(self, full_name: str) -> Optional[str]:
+        """Map a Databricks three-part name to the same URN form lineage uses.
+
+        Must match `gen_dataset_urn` exactly: Tasks 3/4 look the resolver up with
+        gen_dataset_urn-built URNs, so any other form silently misses every edge.
+        """
+        parts = split_databricks_identifier(full_name)
+        if parts is None or len(parts) != 3:
+            logger.debug("Skipping unexpected table full name: %s", full_name)
+            return None
+        catalog, schema, table = parts
+        return self.gen_dataset_urn(
+            TableReference(metastore=None, catalog=catalog, schema=schema, table=table)
+        )
+
+    def ingest_lineage(
+        self, table: Table, resolver: Optional["QueryLineageResolver"] = None
+    ) -> Optional[UpstreamLineageClass]:
         # Calculate datetime filters for lineage
         lineage_start_time = None
         lineage_end_time = self.config.end_time
@@ -1175,7 +1250,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 end_time=lineage_end_time,
             )
 
-        return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
+        return self._generate_lineage_aspect(
+            self.gen_dataset_urn(table.ref), table, resolver=resolver
+        )
 
     def _generate_lineage_aspect(
         self,

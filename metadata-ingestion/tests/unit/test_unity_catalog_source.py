@@ -1190,7 +1190,7 @@ class TestUnityCatalogMetricViews:
         )
         with patch.object(source, "ingest_lineage", return_value=None) as rest_path:
             list(source.process_table(table, schema))
-        rest_path.assert_called_once_with(table)
+        rest_path.assert_called_once_with(table, source.query_lineage_resolver)
 
     def test_flag_off_uses_ingest_lineage_not_yaml(self):
         source = self._build_source(include_metric_views=False)
@@ -1201,7 +1201,7 @@ class TestUnityCatalogMetricViews:
         ):
             list(source.process_table(table, schema))
         yaml_path.assert_not_called()
-        rest_path.assert_called_once_with(table)
+        rest_path.assert_called_once_with(table, source.query_lineage_resolver)
 
     def test_yaml_lineage_no_parseable_sources_increments_counter(self):
         """Source entries that cannot resolve to a TableReference are surfaced via a counter."""
@@ -3344,3 +3344,30 @@ class TestUnityCatalogQueryLinkedLineage:
         assert aspect is not None
         assert aspect.fineGrainedLineages
         assert all(fg.query == expected_query_urn for fg in aspect.fineGrainedLineages)
+
+    def test_lineage_urn_helper_agrees_with_gen_dataset_urn(self):
+        """The resolver's URNs must match the ones the lineage aspect looks up.
+
+        _build_table_with_upstream attaches a metastore to its catalog fixture for
+        unrelated reasons; strip it here since _build_source runs with the default
+        include_metastore=False, under which a production table ref never carries
+        one (see the include_metastore guard test in test_unity_catalog_query_lineage.py).
+        """
+        from datahub.ingestion.source.unity.proxy_types import TableReference
+
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        ref = TableReference(
+            metastore=None,
+            catalog=table.ref.catalog,
+            schema=table.ref.schema,
+            table=table.ref.table,
+        )
+
+        from_gen = source.gen_dataset_urn(ref)
+        from_helper = source._lineage_full_name_to_urn(ref.qualified_table_name)
+
+        assert from_helper == from_gen, (
+            "resolver and lineage aspect disagree on dataset URN; "
+            "every query link would silently miss"
+        )

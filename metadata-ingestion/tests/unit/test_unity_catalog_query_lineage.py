@@ -291,3 +291,53 @@ def test_subject_urns_for_reflects_edges_added_after_a_prior_call():
             _urn("my_catalog.my_schema.tgt"),
         ]
     )
+
+
+def test_resolver_not_built_when_include_queries_disabled():
+    """include_queries: false must produce neither Query entities nor query URNs."""
+    from datahub.ingestion.source.unity.source import UnityCatalogSource
+
+    source = object.__new__(UnityCatalogSource)
+
+    class _Cfg:
+        include_queries = False
+        include_table_lineage = True
+
+    source.config = _Cfg()  # type: ignore[assignment]
+
+    assert UnityCatalogSource._build_query_lineage_resolver(source) is None
+
+
+def test_resolver_not_built_when_table_lineage_disabled():
+    from datahub.ingestion.source.unity.source import UnityCatalogSource
+
+    source = object.__new__(UnityCatalogSource)
+
+    class _Cfg:
+        include_queries = True
+        include_table_lineage = False
+
+    source.config = _Cfg()  # type: ignore[assignment]
+
+    assert UnityCatalogSource._build_query_lineage_resolver(source) is None
+
+
+def test_resolver_not_built_when_include_metastore_enabled():
+    """include_metastore makes gen_dataset_urn emit a four-part name, but
+    system.access full names are only ever three-part: no edge could ever match, so
+    the resolver must not be built at all (and must warn once, not silently no-op)."""
+    from datahub.ingestion.source.unity.source import UnityCatalogSource
+
+    source = object.__new__(UnityCatalogSource)
+
+    class _Cfg:
+        include_queries = True
+        include_table_lineage = True
+        include_metastore = True
+
+    source.config = _Cfg()  # type: ignore[assignment]
+    warnings: list = []
+    source.report = SimpleNamespace(warning=lambda **kwargs: warnings.append(kwargs))  # type: ignore[assignment]
+
+    assert UnityCatalogSource._build_query_lineage_resolver(source) is None
+    assert len(warnings) == 1
