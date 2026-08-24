@@ -7,8 +7,8 @@ pins down current behaviour so a later change that bounds the shutdown path has
 a baseline to change against; none of them assert desirable behaviour.
 """
 
-from typing import Any, Optional
-from unittest.mock import MagicMock
+from typing import Any, List, Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -114,23 +114,46 @@ def test_pipeline_registry_is_shared_across_manager_instances(tmp_path: Any) -> 
     assert "shared" in second.pipeline_registry
 
 
-def test_stop_all_fails_for_a_registered_but_not_yet_started_pipeline(
-    tmp_path: Any,
-) -> None:
-    """A pipeline registered before its thread reaches `mark_start()` breaks stop_all().
+def test_stop_pipeline_survives_a_pipeline_that_never_started(tmp_path: Any) -> None:
+    """A pipeline registered before its worker reached `mark_start()` must still stop.
 
-    `start_pipeline` starts the worker and registers the spec, while `run()` sets
-    `started_at` as its first statement. SIGTERM landing in between leaves
-    `stop_pipeline` calling `stats().pretty_print_summary()` on stats that have no
-    `started_at`; the AttributeError is re-raised as a stop failure, which by the
-    test above abandons every remaining pipeline.
+    `start_pipeline` registers the spec before starting the thread, and `run()` sets
+    `started_at` as its first statement, so a shutdown can land while stats are still
+    empty. Printing the run summary is best-effort: it must not escalate into a stop
+    failure, which would abandon every remaining pipeline.
     """
     manager = PipelineManager()
     pipeline = _pipeline("unstarted", tmp_path)
     pipeline.stop = MagicMock()  # type: ignore[method-assign]
-    manager.pipeline_registry["unstarted"] = PipelineSpec(
-        "unstarted", pipeline, MagicMock()
-    )
+    thread = MagicMock()
+    thread.ident = None  # never started
+    manager.pipeline_registry["unstarted"] = PipelineSpec("unstarted", pipeline, thread)
 
-    with pytest.raises(Exception, match="Caught exception while attempting to stop"):
-        manager.stop_pipeline("unstarted")
+    manager.stop_pipeline("unstarted")
+
+    pipeline.stop.assert_called_once()
+    thread.join.assert_not_called()  # join() on an unstarted thread raises
+    assert "unstarted" not in manager.pipeline_registry
+
+
+def test_start_pipeline_registers_before_starting_the_worker(tmp_path: Any) -> None:
+    """The worker must be reachable by stop_all() the instant it can be running.
+
+    If the thread were started first, a shutdown signal arriving in the gap would not
+    find the pipeline, so nothing would stop it -- and being non-daemon it would then
+    block interpreter exit until the runtime gave up and sent SIGKILL.
+    """
+    manager = PipelineManager()
+    pipeline = _pipeline("ordered", tmp_path)
+    registered_when_started: List[bool] = []
+
+    def fake_start() -> None:
+        registered_when_started.append("ordered" in manager.pipeline_registry)
+
+    with patch("datahub_actions.pipeline.pipeline_manager.Thread") as thread_cls:
+        thread_cls.return_value.start.side_effect = fake_start
+        manager.start_pipeline("ordered", pipeline)
+
+    assert registered_when_started == [True], (
+        "pipeline was not in the registry at the moment its worker started"
+    )

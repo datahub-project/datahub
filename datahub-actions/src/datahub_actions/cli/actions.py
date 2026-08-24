@@ -110,6 +110,13 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
     else:
         logging.getLogger().setLevel(logging.INFO)
 
+    # Registered before any of the work below, which loads configs and constructs event
+    # sources (network I/O against Kafka, the schema registry, or GMS). With `exec` in the
+    # entrypoint this process is PID 1, and the kernel discards signals that PID 1 has no
+    # handler for -- so a stop arriving during startup would not terminate the process at
+    # all, and the runtime could only end it with SIGKILL once the grace period expired.
+    _register_shutdown_handlers()
+
     pipelines: List[Pipeline] = []
     logger.debug("Creating Actions Pipelines...")
 
@@ -172,8 +179,6 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
 
     logger.debug("Starting Actions Pipelines")
 
-    _register_shutdown_handlers()
-
     # Start each pipeline
     for p in pipelines:
         pipeline_manager.start_pipeline(p.name, p)
@@ -194,7 +199,14 @@ def version() -> None:
 # Handle shutdown signal (ctrl-c, or a container runtime stopping the process).
 def handle_shutdown(signum: int, frame: Any) -> None:
     logger.info("Stopping all running Action Pipelines...")
-    pipeline_manager.stop_all()
+    try:
+        pipeline_manager.stop_all()
+    except Exception:
+        # Raising out of a signal handler would kill the process with a traceback and an
+        # incidental exit code. Exit non-zero deliberately instead: a pipeline that failed
+        # to stop may not have flushed its consumer offsets, so this is not a clean stop.
+        logger.exception("Failed to stop all Action Pipelines cleanly")
+        sys.exit(1)
     # A completed graceful shutdown is a success, not a failure, to the container runtime.
     sys.exit(0)
 
