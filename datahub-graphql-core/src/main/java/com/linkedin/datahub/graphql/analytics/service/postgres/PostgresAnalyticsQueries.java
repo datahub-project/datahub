@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.analytics.service.postgres;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.BarSegment;
@@ -72,8 +73,8 @@ public class PostgresAnalyticsQueries {
   }
 
   public String usageIndexName() {
-
-    return indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+    // OSS prefixes are deploy-wide; EMPTY matches IndexConvention bootstrap/test paths.
+    return indexConvention.getIndexName(OperationFingerprint.EMPTY, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   private void guardUsage(String indexName) {
@@ -280,9 +281,10 @@ public class PostgresAnalyticsQueries {
       case MINUTE -> zdt.truncatedTo(ChronoUnit.MINUTES).toInstant();
       case HOUR -> zdt.truncatedTo(ChronoUnit.HOURS).toInstant();
       case DAY -> zdt.truncatedTo(ChronoUnit.DAYS).toInstant();
-      case WEEK -> zdt.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-          .truncatedTo(ChronoUnit.DAYS)
-          .toInstant();
+      case WEEK ->
+          zdt.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+              .truncatedTo(ChronoUnit.DAYS)
+              .toInstant();
       case MONTH -> zdt.withDayOfMonth(1).truncatedTo(ChronoUnit.DAYS).toInstant();
       case YEAR -> zdt.withDayOfYear(1).truncatedTo(ChronoUnit.DAYS).toInstant();
     };

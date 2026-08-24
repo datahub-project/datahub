@@ -25,30 +25,31 @@ public final class CompositeAnalyticsService implements AnalyticsService {
   @Nonnull private final AnalyticsService usageAnalytics;
   @Nonnull private final AnalyticsService entityAnalytics;
 
-  private boolean isUsageIndex(@Nonnull String indexName) {
-    return getUsageIndexName().equals(indexName);
+  private boolean isUsageIndex(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return getUsageIndexName(opContext).equals(indexName);
   }
 
-  private AnalyticsService delegateFor(@Nonnull String indexName) {
-    return isUsageIndex(indexName) ? usageAnalytics : entityAnalytics;
-  }
-
-  @Override
-  @Nonnull
-  public String getEntityIndexName(EntityType entityType) {
-    return entityAnalytics.getEntityIndexName(entityType);
+  private AnalyticsService delegateFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return isUsageIndex(opContext, indexName) ? usageAnalytics : entityAnalytics;
   }
 
   @Override
   @Nonnull
-  public String getAllEntityIndexName() {
-    return entityAnalytics.getAllEntityIndexName();
+  public String getEntityIndexName(@Nonnull OperationContext opContext, EntityType entityType) {
+    return entityAnalytics.getEntityIndexName(opContext, entityType);
   }
 
   @Override
   @Nonnull
-  public String getUsageIndexName() {
-    return usageAnalytics.getUsageIndexName();
+  public String getAllEntityIndexName(@Nonnull OperationContext opContext) {
+    return entityAnalytics.getAllEntityIndexName(opContext);
+  }
+
+  @Override
+  @Nonnull
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return usageAnalytics.getUsageIndexName(opContext);
   }
 
   @Override
@@ -62,7 +63,7 @@ public final class CompositeAnalyticsService implements AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn,
       String dateRangeField) {
-    return delegateFor(indexName)
+    return delegateFor(opContext, indexName)
         .getTimeseriesChart(
             opContext,
             indexName,
@@ -85,7 +86,7 @@ public final class CompositeAnalyticsService implements AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn,
       boolean showMissing) {
-    return delegateFor(indexName)
+    return delegateFor(opContext, indexName)
         .getBarChart(
             opContext,
             indexName,
@@ -108,7 +109,7 @@ public final class CompositeAnalyticsService implements AnalyticsService {
       Optional<String> uniqueOn,
       int maxRows,
       Function<String, Cell> groupByValueToCell) {
-    return delegateFor(indexName)
+    return delegateFor(opContext, indexName)
         .getTopNTableChart(
             opContext,
             indexName,
@@ -129,7 +130,23 @@ public final class CompositeAnalyticsService implements AnalyticsService {
       Map<String, List<String>> filters,
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
-    return delegateFor(indexName)
+    return delegateFor(opContext, indexName)
         .getHighlights(opContext, indexName, dateRange, filters, mustNotFilters, uniqueOn);
+  }
+
+  @Override
+  public Map<String, Integer> getUniqueCountsByRange(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, DateRange> keyedRanges,
+      String uniqueOn) {
+    return delegateFor(opContext, indexName)
+        .getUniqueCountsByRange(opContext, indexName, keyedRanges, uniqueOn);
+  }
+
+  @Override
+  public Map<EntityType, EntityStats> getEntityStats(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    return entityAnalytics.getEntityStats(opContext, entityTypes, facetFields);
   }
 }

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -53,9 +55,10 @@ public class AnalyticsServiceTest {
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
-    when(mockIndexConvention.getEntityIndexName(any()))
-        .thenAnswer(invocation -> invocation.getArgument(0).toString().toLowerCase() + "index_v2");
-    when(mockIndexConvention.getIndexName(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX))
+    when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), any()))
+        .thenAnswer(invocation -> invocation.getArgument(1).toString().toLowerCase() + "index_v2");
+    when(mockIndexConvention.getIndexName(
+            any(OperationFingerprint.class), eq(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX)))
         .thenReturn(USAGE_INDEX);
 
     service = new DefaultAnalyticsService(mockClient, mockIndexConvention);
@@ -115,7 +118,8 @@ public class AnalyticsServiceTest {
   @Test
   public void testEntityStatsRequestTargetsEveryIndexOnce() {
     SearchRequest request =
-        service.buildEntityStatsRequest(List.of(EntityType.DATASET, EntityType.CHART), FACETS);
+        service.buildEntityStatsRequest(
+            opContext, List.of(EntityType.DATASET, EntityType.CHART), FACETS);
 
     assertEquals(request.indices(), new String[] {"datasetindex_v2", "chartindex_v2"});
     // A single missing index must not fail the batch.
@@ -141,7 +145,8 @@ public class AnalyticsServiceTest {
   @Test
   public void testEntityStatsRequestFiltersOnIndexAndFacetValues() {
     SearchRequest request =
-        service.buildEntityStatsRequest(List.of(EntityType.DATASET), List.of("hasOwners"));
+        service.buildEntityStatsRequest(
+            opContext, List.of(EntityType.DATASET), List.of("hasOwners"));
     String source = request.source().toString();
 
     assertTrue(source.contains("\"_index\""), "entity buckets must be scoped by _index");
@@ -152,7 +157,8 @@ public class AnalyticsServiceTest {
 
   @Test
   public void testEntityStatsRequestWithoutFacetsOmitsFacetAggregation() {
-    SearchRequest request = service.buildEntityStatsRequest(List.of(EntityType.DATASET), List.of());
+    SearchRequest request =
+        service.buildEntityStatsRequest(opContext, List.of(EntityType.DATASET), List.of());
 
     FiltersAggregationBuilder byEntity =
         (FiltersAggregationBuilder) subAggByName(topLevelAgg(request), "by_entity");

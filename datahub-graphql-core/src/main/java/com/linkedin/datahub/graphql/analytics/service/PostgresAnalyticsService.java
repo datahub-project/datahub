@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,26 +33,26 @@ public final class PostgresAnalyticsService implements AnalyticsService {
   @Nonnull private final IndexConvention indexConvention;
   @Nonnull private final PostgresAnalyticsQueries postgresAnalytics;
 
-  private boolean isUsageIndex(@Nonnull String indexName) {
-    return getUsageIndexName().equals(indexName);
+  private boolean isUsageIndex(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return getUsageIndexName(opContext).equals(indexName);
   }
 
   @Override
   @Nonnull
-  public String getEntityIndexName(EntityType entityType) {
-    return indexConvention.getEntityIndexName(EntityTypeMapper.getName(entityType));
+  public String getEntityIndexName(@Nonnull OperationContext opContext, EntityType entityType) {
+    return indexConvention.getEntityIndexName(opContext, EntityTypeMapper.getName(entityType));
   }
 
   @Override
   @Nonnull
-  public String getAllEntityIndexName() {
-    return indexConvention.getEntityIndexName("*");
+  public String getAllEntityIndexName(@Nonnull OperationContext opContext) {
+    return indexConvention.getEntityIndexName(opContext, "*");
   }
 
   @Override
   @Nonnull
-  public String getUsageIndexName() {
-    return indexConvention.getIndexName(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return indexConvention.getIndexName(opContext, AnalyticsService.DATAHUB_USAGE_EVENT_INDEX);
   }
 
   @Override
@@ -64,7 +66,7 @@ public final class PostgresAnalyticsService implements AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn,
       String dateRangeField) {
-    if (!isUsageIndex(indexName)) {
+    if (!isUsageIndex(opContext, indexName)) {
       return ImmutableList.of();
     }
     return postgresAnalytics.getTimeseriesChart(
@@ -88,7 +90,7 @@ public final class PostgresAnalyticsService implements AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn,
       boolean showMissing) {
-    if (!isUsageIndex(indexName)) {
+    if (!isUsageIndex(opContext, indexName)) {
       return ImmutableList.of();
     }
     return postgresAnalytics.getBarChart(
@@ -106,7 +108,7 @@ public final class PostgresAnalyticsService implements AnalyticsService {
       Optional<String> uniqueOn,
       int maxRows,
       Function<String, Cell> groupByValueToCell) {
-    if (!isUsageIndex(indexName)) {
+    if (!isUsageIndex(opContext, indexName)) {
       return ImmutableList.of();
     }
     return postgresAnalytics.getTopNTableChart(
@@ -128,9 +130,38 @@ public final class PostgresAnalyticsService implements AnalyticsService {
       Map<String, List<String>> filters,
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
-    if (!isUsageIndex(indexName)) {
+    if (!isUsageIndex(opContext, indexName)) {
       return 0;
     }
     return postgresAnalytics.getHighlights(indexName, dateRange, filters, mustNotFilters, uniqueOn);
+  }
+
+  @Override
+  public Map<String, Integer> getUniqueCountsByRange(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, DateRange> keyedRanges,
+      String uniqueOn) {
+    if (!isUsageIndex(opContext, indexName) || keyedRanges.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    Map<String, Integer> results = new LinkedHashMap<>();
+    for (Map.Entry<String, DateRange> entry : keyedRanges.entrySet()) {
+      results.put(
+          entry.getKey(),
+          postgresAnalytics.getHighlights(
+              indexName,
+              Optional.of(entry.getValue()),
+              Collections.emptyMap(),
+              Collections.emptyMap(),
+              Optional.of(uniqueOn)));
+    }
+    return results;
+  }
+
+  @Override
+  public Map<EntityType, EntityStats> getEntityStats(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    return Collections.emptyMap();
   }
 }

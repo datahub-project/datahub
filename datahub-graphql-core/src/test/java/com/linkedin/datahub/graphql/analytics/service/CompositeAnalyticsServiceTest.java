@@ -30,11 +30,11 @@ public class CompositeAnalyticsServiceTest {
   public void setUp() {
     usage = mock(AnalyticsService.class);
     entity = mock(AnalyticsService.class);
-    when(usage.getUsageIndexName()).thenReturn("datahub_usage_event");
-    when(entity.getEntityIndexName(EntityType.DATASET)).thenReturn("datasetindex_v2");
-    when(entity.getAllEntityIndexName()).thenReturn(".*index_v2");
-    composite = new CompositeAnalyticsService(usage, entity);
     opContext = mock(OperationContext.class);
+    when(usage.getUsageIndexName(any())).thenReturn("datahub_usage_event");
+    when(entity.getEntityIndexName(any(), eq(EntityType.DATASET))).thenReturn("datasetindex_v2");
+    when(entity.getAllEntityIndexName(any())).thenReturn(".*index_v2");
+    composite = new CompositeAnalyticsService(usage, entity);
   }
 
   @Test
@@ -84,8 +84,8 @@ public class CompositeAnalyticsServiceTest {
 
   @Test
   public void indexNameHelpersDelegateCorrectly() {
-    assertEquals(composite.getUsageIndexName(), "datahub_usage_event");
-    assertEquals(composite.getEntityIndexName(EntityType.DATASET), "datasetindex_v2");
-    assertEquals(composite.getAllEntityIndexName(), ".*index_v2");
+    assertEquals(composite.getUsageIndexName(opContext), "datahub_usage_event");
+    assertEquals(composite.getEntityIndexName(opContext, EntityType.DATASET), "datasetindex_v2");
+    assertEquals(composite.getAllEntityIndexName(opContext), ".*index_v2");
   }
 }
