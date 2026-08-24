@@ -119,6 +119,14 @@
         "recipe": "source:\n  type: dbt\n  config:\n    manifest_path: # path to manifest.json\n    catalog_path: # path to catalog.json\n    target_platform: # e.g. snowflake, bigquery\n    stateful_ingestion:\n      enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:sqlmesh",
+        "name": "sqlmesh",
+        "displayName": "SQLMesh",
+        "description": "Import Models, Seeds, Sources, lineage, and SQLMesh audits from a SQLMesh project.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sqlmesh/",
+        "recipe": "source:\n  type: sqlmesh\n  config:\n    project_path: /path/to/sqlmesh_project\n    # target_platform: snowflake  # auto-detected from gateway\n    # target_platform_instance: prod_snowflake\n    environment: prod\n    include_column_lineage: true\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
@@ -173,6 +181,14 @@
         "description": "Import Tables, Views, Databases, Schemas, and statistics from Hive.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hive/",
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:informix",
+        "name": "informix",
+        "displayName": "Informix",
+        "description": "Import Databases, Schemas, Tables, Views, foreign keys, and view lineage from IBM/HCL Informix.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/informix/",
+        "recipe": "source:\n    type: informix\n    config:\n        # Coordinates\n        host_port: # Your Informix host and port, e.g. localhost:9088\n        server: # INFORMIXSERVER name, e.g. informix\n        database: # Your Informix database name, e.g. mydb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Informix username, e.g. informix\n        password: \"${INFORMIX_PASSWORD}\"\n\n        # Required to auto-download the proprietary IBM JDBC driver from Maven Central\n        accept_ibm_jdbc_license: true\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_view_lineage: true\n        include_foreign_keys: true\n        include_row_counts: true\n        include_ownership: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:presto",
@@ -389,6 +405,14 @@
         "description": "Import Stories, Applications and Models from SAP Analytics Cloud.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sac/",
         "recipe": "source:\n    type: sac\n    config:\n        tenant_url: # Your SAP Analytics Cloud tenant URL, e.g. https://company.eu10.sapanalytics.cloud or https://company.eu10.hcs.cloud.sap\n        token_url: # The Token URL of your SAP Analytics Cloud tenant, e.g. https://company.eu10.hana.ondemand.com/oauth/token.\n\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: \"${SAC_CLIENT_ID}\" # Your SAP Analytics Cloud client id\n        client_secret: \"${SAC_CLIENT_SECRET}\" # Your SAP Analytics Cloud client secret"
+    },
+    {
+        "urn": "urn:li:dataPlatform:sap-datasphere",
+        "name": "sap-datasphere",
+        "displayName": "SAP Datasphere",
+        "description": "Import Views, Analytical Models, Local Tables and federated Remote Tables from SAP Datasphere, with table-level and column-level lineage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sap-datasphere/",
+        "recipe": "source:\n    type: sap-datasphere\n    config:\n        # Your SAP Datasphere tenant base URL\n        base_url: # https://<tenant>.<region>.hcs.cloud.sap\n        # Authentication — choose ONE:\n        # 1) raw bearer token\n        token: \"${SAP_DATASPHERE_TOKEN}\"\n        # 2) OAuth client-credentials / refresh-token (uncomment + set):\n        # client_id: \"${SAP_DATASPHERE_CLIENT_ID}\"\n        # client_secret: \"${SAP_DATASPHERE_CLIENT_SECRET}\"\n        # xsuaa_url: # https://<tenant>.authentication.<region>.hana.ondemand.com\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:notion",

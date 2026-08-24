@@ -18,8 +18,10 @@ import java.net.Socket;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-// java.security.AccessControlException removed in Java 21
-// Now caught as RuntimeException or IOException instead
+// java.security.AccessControlException is not thrown here: the SecurityManager was permanently
+// disabled (JEP 486) in JDK 24, not removed - the classes still exist. This module no longer
+// passes -Djava.security.manager=allow, so no SecurityManager is active and these operations
+// simply succeed instead of throwing.
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -86,7 +88,10 @@ public class TestAuthenticator implements Authenticator {
       throw new RuntimeException(
           "Plugin is able to access system properties"); // we should not reach here
     } catch (RuntimeException e) {
-      // Java 21+: SecurityManager removed, caught as RuntimeException
+      // With no SecurityManager active (permanently disabled in JDK 24 via JEP 486, and this
+      // module no longer passes -Djava.security.manager=allow), the property access above
+      // succeeds, so this catch actually swallows the explicit RuntimeException thrown above -
+      // it no longer indicates that access was denied.
       log.info("Expected: Don't have permission to read system properties");
     }
   }

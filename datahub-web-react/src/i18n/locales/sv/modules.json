@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Manuellt valda samlingar stöder inte länken “Visa alla” för närvarande.",
     "assetCollection.viewAllUnsupportedHint": "Den här samlingen visar ingen “Visa alla”-länk — den här filtertypen stöds inte för närvarande.",
     "assets.moduleName": "Tillgångar",
+    "assets.relatedModuleName": "Relaterade tillgångar",
     "assets.moduleDescription": "Relaterade tillgångar taggade med den överordnade entiteten",
     "assets.addTermError": "Det gick inte att lägga till Glossary-termen: \n {{error}}",
     "assets.addTermModalTitle": "Lägg till Glossary-term till tillgångar",

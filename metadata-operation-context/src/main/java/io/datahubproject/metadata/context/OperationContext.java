@@ -23,10 +23,12 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
 import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
+import io.opentelemetry.context.Scope;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -407,10 +409,10 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   }
 
   /**
-   * Whether default authentication is system level
-   *
-   * @return
+   * Whether default authentication is system level. Implements {@link
+   * com.datahub.context.OperationFingerprint#isSystemAuth()}.
    */
+  @Override
   public boolean isSystemAuth() {
     return operationContextConfig.isAllowSystemAuthentication()
         && sessionActorContext.isSystemAuth();
@@ -507,7 +509,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public <T> T withSpan(String name, Supplier<T> operation, String... attributes) {
     if (systemTelemetryContext != null) {
-      return systemTelemetryContext.withSpan(name, operation, attributes);
+      try (Scope scope = EnrichingSpanProcessor.attach(this)) {
+        return systemTelemetryContext.withSpan(name, operation, attributes);
+      }
     } else {
       return operation.get();
     }
@@ -515,7 +519,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
 
   public void withSpan(String name, Runnable operation, String... attributes) {
     if (systemTelemetryContext != null) {
-      systemTelemetryContext.withSpan(name, operation, attributes);
+      try (Scope scope = EnrichingSpanProcessor.attach(this)) {
+        systemTelemetryContext.withSpan(name, operation, attributes);
+      }
     } else {
       operation.run();
     }
@@ -574,79 +580,98 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public String getGlobalContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getAuthorizationContext())
-            .add(getSessionActorContext())
-            .add(getSearchContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
-            .add(getRetrieverContext())
-            .add(getObjectMapperContext())
-            .add(
-                getSystemTelemetryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getSystemTelemetryContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+            ImmutableSet.<ContextInterface>builder()
+                .add(getOperationContextConfig())
+                .add(getAuthorizationContext())
+                .add(getSessionActorContext())
+                .add(getSearchContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
+                .add(getRetrieverContext())
+                .add(getObjectMapperContext())
+                .add(
+                    getSystemTelemetryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getSystemTelemetryContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   // Context id specific to contexts which impact search responses
   public String getSearchContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getSessionActorContext())
-            .add(getSearchContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getRetrieverContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+            ImmutableSet.<ContextInterface>builder()
+                .add(getOperationContextConfig())
+                .add(getSessionActorContext())
+                .add(getSearchContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getRetrieverContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   // Context id specific to entity lookups (not search)
   public String getEntityContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getSessionActorContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getPrimaryStorageContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+            ImmutableSet.<ContextInterface>builder()
+                .add(getOperationContextConfig())
+                .add(getSessionActorContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getPrimaryStorageContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum())
+        + enrichmentCacheKeySuffix();
+  }
+
+  /**
+   * Discriminator folded into {@link #getGlobalContextId()}, {@link #getSearchContextId()}, and
+   * {@link #getEntityContextId()} for any per-request enrichment (a request-scoped identity), so a
+   * cache keyed on those ids isolates by enrichment. The empty bundle hashes to {@code 0}, so this
+   * is a no-op when no enrichments are present and only starts to discriminate once a deployment
+   * stamps one — discharging the "fold that discriminator into the OperationContext-level cache
+   * key" obligation noted on {@code SearchContext#getCacheKeyComponent}.
+   */
+  private String enrichmentCacheKeySuffix() {
+    // Collision-resistant string token (not the 32-bit hashCode) so two distinct enrichments can
+    // never share a cache key. Empty bundle -> "", keeping the id byte-identical to a context with
+    // no enrichments.
+    String token = getEnrichmentBundle().stableCacheToken();
+    return token.isEmpty() ? "" : "|" + token;
   }
 
   @Nonnull
@@ -706,8 +731,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    * unchanged. Useful for downstream services that need to enhance an existing enrichment, e.g.:
    *
    * <pre>{@code
-   * TenantConfig existing = opContext.getEnrichment(TenantConfig.class).orElseThrow();
-   * OperationContext promoted = opContext.withEnrichment(existing.withTier("premium"));
+   * MyEnrichment existing = opContext.getEnrichment(MyEnrichment.class).orElseThrow();
+   * OperationContext updated = opContext.withEnrichment(existing.withFoo("bar"));
    * }</pre>
    *
    * <p>The record's own {@code withXxx(...)} methods (idiomatic Java records) produce the updated

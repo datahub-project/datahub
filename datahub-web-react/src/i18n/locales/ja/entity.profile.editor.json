@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "代替テキスト",
+    "addImage.imageUrl": "画像URL",
+    "addImage.title": "画像を追加",
+    "heading.heading1": "見出し1",
+    "heading.heading2": "見出し2",
+    "heading.heading3": "見出し3",
+    "heading.heading4": "見出し4",
+    "heading.heading5": "見出し5",
+    "heading.normal": "標準",
+    "link.linkUrl": "リンクURL",
+    "link.text": "テキスト",
+    "link.title": "リンクを追加",
+    "mentions.failedToFindEntity": "エンティティが見つかりませんでした",
+    "table.deleteColumn": "列を削除",
+    "table.deleteRow": "行を削除",
+    "table.deleteTable": "テーブルを削除",
+    "table.insertColumnLeft": "左に列を挿入",
+    "table.insertColumnRight": "右に列を挿入",
+    "table.insertRowAbove": "上に行を挿入",
+    "table.insertRowBelow": "下に行を挿入"
+}

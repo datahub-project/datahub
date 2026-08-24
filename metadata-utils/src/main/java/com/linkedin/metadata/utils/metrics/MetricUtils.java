@@ -37,6 +37,9 @@ public class MetricUtils {
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
   public static final String DATAHUB_REQUEST_COUNT = "datahub_request_count";
 
+  /** Human login attempts (success/failure). Tags: outcome, login_source, denial_reason. */
+  public static final String DATAHUB_LOGIN = "datahub.login";
+
   public static final String MESSAGING_SYSTEM_KAFKA = "kafka";
   public static final String MESSAGING_SYSTEM_PGQUEUE = "pgqueue";
   public static final String MESSAGING_TOPIC = "topic";

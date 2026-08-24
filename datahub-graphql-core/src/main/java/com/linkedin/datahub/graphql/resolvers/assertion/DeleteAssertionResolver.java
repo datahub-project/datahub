@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.metadata.aspect.utils.AssertionUtils.getEntityFromAssertionInfo;
+
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -90,7 +92,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
     if (info != null) {
       // 3. check whether the actor has permission to edit the assertions on the assertee
-      final Urn asserteeUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
+      final Urn asserteeUrn = getEntityFromAssertionInfo(info);
       return AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
     }
 

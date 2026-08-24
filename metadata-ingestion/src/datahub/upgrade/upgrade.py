@@ -126,22 +126,14 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
-async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceConfig:
-    import aiohttp
-
-    headers = {
-        "X-RestLi-Protocol-Version": "2.0.0",
-        "Content-Type": "application/json",
-    }
-
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    async with aiohttp.ClientSession() as session:
-        config_endpoint = f"{gms_url}/config"
-        async with session.get(config_endpoint, headers=headers) as dh_response:
-            dh_response_json = await dh_response.json()
-            return RestServiceConfig(raw_config=dh_response_json)
+def fetch_server_config_via_graph() -> RestServiceConfig:
+    client_config = load_client_config()
+    client_config.client_mode = ClientMode.CLI
+    # Best-effort with a 0.7-3s asyncio budget (see check_upgrade_post); bound
+    # the underlying requests too so an abandoned worker thread exits promptly.
+    client_config.timeout_sec = 3
+    client_config.retry_max_times = 0
+    return DataHubGraph(client_config).server_config
 
 
 async def get_server_version_stats(
@@ -154,12 +146,11 @@ async def get_server_version_stats(
     server_config: Optional[RestServiceConfig] = None
     if not server:
         try:
-            # let's get the server from the cli config
-            client_config = load_client_config()
-            client_config.client_mode = ClientMode.CLI
-            host = client_config.server
-            token = client_config.token
-            server_config = await get_server_config(host, token)
+            # In a thread: keeps the event loop free (concurrent GitHub/PyPI
+            # fetches keep running) and the asyncio budget enforceable even if
+            # a token provider stalls. Failures land in the except below — the
+            # version check is best-effort by design.
+            server_config = await asyncio.to_thread(fetch_server_config_via_graph)
             log.debug(f"server_config:{server_config}")
         except Exception as e:
             log.debug(f"Failed to get a valid server: {e}")
@@ -416,7 +407,8 @@ def _maybe_print_upgrade_message(
                 + click.style(
                     f"➡️ Downgrade via `\"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
                     fg="cyan",
-                )
+                ),
+                err=True,
             )
     elif client_server_compat > 0:
         with contextlib.suppress(Exception):

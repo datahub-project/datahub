@@ -25,9 +25,12 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeWindowSizeClass,
 )
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Generate unique DPI ID
 dpi_id = f"test-pipeline-run-{randint(1000, 9999)}"

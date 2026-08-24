@@ -23,11 +23,6 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
-          type: "doc",
-          label: "Use Docs with AI",
-          id: "docs/use-docs-with-ai",
-        },
-        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -415,6 +410,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/overview",
             },
@@ -575,6 +571,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Metrics & Semantic Models",
+          type: "doc",
+          id: "docs/features/feature-guides/metrics-and-semantic-models",
+        },
+        {
           label: "MCP Server",
           type: "category",
           link: {
@@ -616,6 +617,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/properties/overview",
             },
@@ -648,15 +650,20 @@ module.exports = {
         },
         {
           label: "Subscriptions & Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          type: "category",
           className: "saasOnly",
-        },
-        {
-          label: "SMTP Email Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/smtp-email",
-          className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/subscription-and-notification",
+          },
+          items: [
+            {
+              label: "SMTP Email Notifications",
+              type: "doc",
+              id: "docs/managed-datahub/smtp-email",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Sync Status",
@@ -674,6 +681,11 @@ module.exports = {
           id: "docs/features/feature-guides/views/overview",
         },
       ],
+    },
+    {
+      type: "doc",
+      label: "Use Docs with AI Tools",
+      id: "docs/use-docs-with-ai",
     },
     // DataHub Cloud.
     {
@@ -719,6 +731,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/best-practices",
           className: "saasOnly",
         },
         {
@@ -810,6 +827,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
@@ -1264,6 +1282,12 @@ module.exports = {
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
         { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
         { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/evals",
+          label: "evals",
+          className: "saasOnly",
+        },
         { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
@@ -1329,6 +1353,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/semantic-models",
         "docs/api/tutorials/applications",
         "docs/api/tutorials/agent-registry",
         "docs/api/tutorials/service-catalog",
@@ -1611,10 +1636,8 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
-    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
-    // "smoke-test/tests/cypress/README"
     // ],
   ],
 };

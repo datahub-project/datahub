@@ -11,7 +11,6 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import java.lang.reflect.Field;
@@ -27,7 +26,6 @@ public class SqlSetupConfigTest {
   private static final String BANDS_JSON =
       "[{\"range\":[0,3],\"weight\":70},{\"range\":[4,6],\"weight\":20},{\"range\":[7,9],\"weight\":10}]";
 
-  @Mock private EntityRegistry mockEntityRegistry;
   @Mock private Database mockDatabase;
 
   private SqlSetupConfig sqlSetupConfig;
@@ -62,7 +60,7 @@ public class SqlSetupConfigTest {
 
   @Test
   public void testOperationContext() {
-    OperationContext operationContext = sqlSetupConfig.operationContext(mockEntityRegistry);
+    OperationContext operationContext = sqlSetupConfig.operationContext();
 
     assertNotNull(operationContext);
     assertTrue(operationContext instanceof OperationContext);

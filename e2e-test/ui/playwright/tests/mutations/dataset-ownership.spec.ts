@@ -84,6 +84,7 @@ test.describe.skip('add, remove ownership for dataset', () => {
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
       await datasetPage.addOwner(username, ownerType);
       // Verify in owned assets
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(3000);
       await page.getByText(username).click();
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
@@ -100,6 +101,7 @@ test.describe.skip('add, remove ownership for dataset', () => {
       await datasetPage.navigateToDataset(DATASET_URN);
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
       await datasetPage.addOwner(groupName, ownerType);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(3000);
       await page.getByText(groupName).click();
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });

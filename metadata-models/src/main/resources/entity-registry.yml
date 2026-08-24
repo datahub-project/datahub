@@ -24,6 +24,8 @@ entities:
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - usageFeatures
+      - storageFeatures
       - operation
       - domains
       - applications
@@ -57,6 +59,7 @@ entities:
       - logicalParent
       - assetSettings
       - documentation
+      - aliases
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -275,7 +278,6 @@ entities:
       - displayProperties
       - assetSettings
   - name: container
-    viewUnrestricted: true
     doc: A container of related data assets.
     category: core
     keyAspect: containerKey
@@ -332,6 +334,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -348,6 +351,8 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
+      - globalTags
   - name: document
     category: core
     keyAspect: documentKey
@@ -393,6 +398,7 @@ entities:
     keyAspect: assertionKey
     aspects:
       - assertionInfo
+      - assertionNote
       - dataPlatformInstance
       - assertionRunEvent
       - assertionRunSummary
@@ -449,6 +455,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -510,6 +517,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlFeature
@@ -533,6 +541,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey
@@ -597,6 +606,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - incidentsSummary
       - deprecation
       - subTypes
       - logicalParent
@@ -604,6 +614,8 @@ entities:
       - glossaryTerms
       - semanticFieldAnnotation
       - aiContext
+      - ownership
+      - domains
   - name: globalSettings
     viewUnrestricted: true
     doc: Global settings for an the platform

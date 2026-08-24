@@ -50,7 +50,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     enricher = new UsageMetricsSessionEnricher(store, true);
   }
@@ -134,7 +136,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher localEnricher = new UsageMetricsSessionEnricher(noOpStore, true);
 
@@ -172,7 +176,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher nestedEnricher =
         new UsageMetricsSessionEnricher(trackingStore, true);
@@ -202,7 +208,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher graphqlEnricher =
         new UsageMetricsSessionEnricher(trackingStore, true);
@@ -237,7 +245,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher graphqlEnricher =
         new UsageMetricsSessionEnricher(trackingStore, true);
@@ -283,7 +293,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher enricherUnderTest =
         new UsageMetricsSessionEnricher(trackingStore, true);
@@ -326,7 +338,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher syncEnricher = new UsageMetricsSessionEnricher(trackingStore, true);
 
@@ -354,7 +368,9 @@ public class UsageMetricsSessionEnricherTest {
           }
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher riskEnricher = new UsageMetricsSessionEnricher(trackingStore, true);
 
@@ -436,7 +452,9 @@ public class UsageMetricsSessionEnricherTest {
               }
 
               @Override
-              public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+              public void flush(
+                  @Nonnull OperationContext opContext,
+                  @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
             },
             false);
     RequestContext.RequestContextBuilder builder =
