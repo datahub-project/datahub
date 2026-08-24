@@ -3205,24 +3205,17 @@ class TestUnityCatalogQueryLinkedLineage:
     def _build_table_with_upstream() -> Table:
         from datahub.ingestion.source.unity.proxy_types import (
             Catalog,
-            Metastore,
             TableReference,
         )
 
-        metastore = Metastore(
-            id="metastore",
-            name="metastore",
-            comment=None,
-            global_metastore_id=None,
-            metastore_id=None,
-            owner=None,
-            region=None,
-            cloud=None,
-        )
+        # metastore=None matches production under _build_source's default
+        # include_metastore=False: process_metastores only assigns a real
+        # Metastore to catalogs when that flag is on (source.py:774-776), so a
+        # table ref's metastore is genuinely None here, not just in this fixture.
         catalog = Catalog(
             id="c",
             name="c",
-            metastore=metastore,
+            metastore=None,
             comment=None,
             owner=None,
             type=None,
@@ -3254,7 +3247,7 @@ class TestUnityCatalogQueryLinkedLineage:
             properties={},
         )
         upstream_ref = TableReference(
-            metastore="metastore", catalog="c", schema="s", table="upstream_table"
+            metastore=None, catalog="c", schema="s", table="upstream_table"
         )
         table.upstreams = {upstream_ref: {"col_a": ["col_a"]}}
         return table
@@ -3348,26 +3341,102 @@ class TestUnityCatalogQueryLinkedLineage:
     def test_lineage_urn_helper_agrees_with_gen_dataset_urn(self):
         """The resolver's URNs must match the ones the lineage aspect looks up.
 
-        _build_table_with_upstream attaches a metastore to its catalog fixture for
-        unrelated reasons; strip it here since _build_source runs with the default
-        include_metastore=False, under which a production table ref never carries
-        one (see the include_metastore guard test in test_unity_catalog_query_lineage.py).
+        table.ref.metastore is genuinely None here (see the comment on
+        _build_table_with_upstream), matching what production passes to both
+        gen_dataset_urn and the resolver under the default include_metastore=False
+        — so this exercises the real divergence risk instead of two paths that are
+        structurally forced to agree.
         """
-        from datahub.ingestion.source.unity.proxy_types import TableReference
-
         source = self._build_source()
         table = self._build_table_with_upstream()
-        ref = TableReference(
-            metastore=None,
-            catalog=table.ref.catalog,
-            schema=table.ref.schema,
-            table=table.ref.table,
-        )
 
-        from_gen = source.gen_dataset_urn(ref)
-        from_helper = source._lineage_full_name_to_urn(ref.qualified_table_name)
+        from_gen = source.gen_dataset_urn(table.ref)
+        from_helper = source._lineage_full_name_to_urn(table.ref.qualified_table_name)
 
         assert from_helper == from_gen, (
             "resolver and lineage aspect disagree on dataset URN; "
             "every query link would silently miss"
         )
+
+    def test_wiring_emits_query_linked_lineage_end_to_end(self, monkeypatch):
+        """Drives the real wiring, not a hand-built resolver: stubs
+        get_query_history_via_system_tables at the Databricks boundary, then calls
+        the real _build_query_lineage_resolver() and process_table()/ingest_lineage()
+        exactly as get_workunits_internal wires them, and inspects the emitted
+        workunits.
+
+        This is the test the brief's original (rejected) _lineage_full_name_to_urn
+        design — which resolved through the near-empty schema resolver during this
+        pass — would have failed: every other test in this class injects its own
+        resolver and so can't catch a real resolver that quietly links nothing.
+
+        Does not drive process_metastores/get_workunits_internal itself (that would
+        additionally require mocking catalogs/schemas/tables API calls unrelated to
+        this wiring); table_lineage/get_column_lineage are stubbed because they are
+        themselves Databricks-boundary calls the fixture's preset table.upstreams
+        doesn't need.
+        """
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import UpstreamLineageClass
+
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        upstream_ref = next(iter(table.upstreams))
+
+        query = Query(
+            query_id="stmt-1",
+            query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
+            statement_type=None,
+            start_time=None,
+            end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            user_id=None,
+            user_name=None,
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+            source_table_full_names=[upstream_ref.qualified_table_name],
+            target_table_full_names=[table.ref.qualified_table_name],
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy,
+            "get_query_history_via_system_tables",
+            lambda *args, **kwargs: iter([query]),
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "table_lineage", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "get_column_lineage", lambda *a, **k: None
+        )
+
+        source.query_lineage_resolver = source._build_query_lineage_resolver()
+        assert source.query_lineage_resolver is not None
+
+        entity_workunits = list(
+            source._gen_query_entity_workunits(source.query_lineage_resolver)
+        )
+        table_workunits = list(source.process_table(table, table.schema))
+
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        expected_query_urn = source.query_lineage_resolver.query_urn_for(
+            upstream_urn, dataset_urn
+        )
+        assert expected_query_urn is not None
+
+        lineage_aspects = [
+            wu.metadata.aspect
+            for wu in table_workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+        ]
+        assert len(lineage_aspects) == 1
+        linked = [u for u in lineage_aspects[0].upstreams if u.dataset == upstream_urn]
+        assert len(linked) == 1
+        assert linked[0].query == expected_query_urn
+
+        query_entity_urns = {
+            wu.metadata.entityUrn
+            for wu in entity_workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        }
+        assert expected_query_urn in query_entity_urns
