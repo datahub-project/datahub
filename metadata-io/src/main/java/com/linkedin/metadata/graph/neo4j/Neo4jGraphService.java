@@ -896,6 +896,19 @@ public class Neo4jGraphService implements GraphService {
     return disjunctionToFragments(filter.getOr(), alias);
   }
 
+  /**
+   * Same as {@link #filterToFragments(Filter, String)} for relationship filters. {@link
+   * RelationshipFilter} includes Filter fields in PDL but is not a Java subtype of {@link Filter}.
+   */
+  @Nonnull
+  private static Neo4jFilterFragments filterToFragments(
+      @Nullable RelationshipFilter filter, @Nonnull String alias) {
+    if (filter == null || filter.getOr() == null) {
+      return Neo4jFilterFragments.EMPTY;
+    }
+    return disjunctionToFragments(filter.getOr(), alias);
+  }
+
   @Nonnull
   private static Neo4jFilterFragments disjunctionToFragments(
       @Nullable final ConjunctiveCriterionArray disjunction, @Nonnull String alias) {
