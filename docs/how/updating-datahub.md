@@ -107,6 +107,8 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
+- #<PR_NUMBER> **(Ingestion / Spark & Airflow lineage)** New opt-in flags let the Spark and Airflow 3 listeners emit a job's captured SQL as a DataHub Query entity, referenced from the corresponding fine-grained lineage: `spark.datahub.captureQueryEntities` (Spark) and `capture_query_entities` (Airflow, `airflow.cfg` `[datahub]` section). With a query entity present, the lineage graph now renders a transformation node whose Logic panel shows the statement, instead of attributing the edge to the task. Both flags default to `false`, so nothing changes on upgrade unless explicitly enabled. Relatedly, the graph layer now prefers a fine-grained lineage entry's named query over its hosting datajob as the via entity when both are available — this affects no existing deployment, since no producer populated that query reference before this change. The feature only applies when the underlying operation is expressed as SQL: Spark's DataFrame API (`withColumn`, `concat`, etc.) emits no SQL job facet, so no query entity or transformation node appears for those jobs even with the flag on. **Action:** none required; enable either flag to opt in.
+
 ## v1.7.0
 
 Requirements:
