@@ -7,7 +7,6 @@ from datetime import datetime
 from functools import cached_property
 from typing import Any, Dict, Iterable, List, LiteralString, Optional, Union
 
-import requests.exceptions
 import smart_open
 from pydantic import (
     BaseModel,
@@ -18,7 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-from datahub.configuration.common import GraphError, HiddenFromDocs
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -66,23 +65,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD = 5
-
-# Query text is unbounded and routinely contains literals, so cap what we copy
-# into report context — the report is persisted in DataHub.
-_MAX_QUERY_CONTEXT_CHARS = 200
-
-# Deliberately excludes bare OSError: requests.exceptions.RequestException
-# subclasses it, so including it would treat a single HTTP 400 from one bad
-# query as systemic and discard the whole run.
-_SYSTEMIC_ERRORS = (
-    GraphError,
-    ConnectionError,
-    TimeoutError,
-    requests.exceptions.ConnectionError,
-    requests.exceptions.Timeout,
-)
 
 
 class SqlQueriesSourceConfig(
@@ -274,21 +256,12 @@ class SqlQueriesSource(Source):
                         )
                 except (MemoryError, SystemExit, KeyboardInterrupt):
                     raise
-                except _SYSTEMIC_ERRORS as e:
-                    self.report.failure(
-                        title="Systemic error",
-                        message="Systemic error while processing queries — "
-                        "check graph connectivity and authentication",
-                        context=str(e),
-                        exc=e,
-                    )
-                    return
                 except Exception as e:
                     self.report.num_queries_aggregator_failures += 1
                     self.report.warning(
                         title="Error adding query to aggregator",
                         message="Query skipped due to failure when adding query to SQL parsing aggregator",
-                        context=entry.query[:_MAX_QUERY_CONTEXT_CHARS],
+                        context=entry.query,
                         exc=e,
                     )
 
@@ -440,7 +413,7 @@ class SqlQueriesSource(Source):
                 self.report.warning(
                     title="Error processing query entry",
                     message="Query skipped due to parsing error",
-                    context=stripped[:_MAX_QUERY_CONTEXT_CHARS],
+                    context=stripped,
                     exc=e,
                     log=False,
                 )

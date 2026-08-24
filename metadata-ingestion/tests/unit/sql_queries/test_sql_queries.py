@@ -685,12 +685,17 @@ class TestErrorHandling:
             f.title == "All entries failed to parse" for f in source.report.failures
         )
 
-    def test_systemic_error_aborts_immediately(self, pipeline_context, query_file_with):
-        """If a systemic error propagates through add_observed_query, abort immediately."""
-        # Good rows first: without them "emitted nothing" is vacuously true.
-        path = query_file_with(
-            [_lineage_line(i) for i in range(4)] + [_query_line(i) for i in range(10)]
-        )
+    def test_every_query_failing_reports_and_emits_nothing(
+        self, pipeline_context, query_file_with
+    ):
+        """A dead graph surfaces per-query, then the zero-success gate stops emission.
+
+        There is no special-cased connectivity abort — like every other source,
+        errors are reported and the run continues. What must not happen is
+        emitting afterwards: with incremental_lineage off, partial output
+        replaces complete lineage in DataHub.
+        """
+        path = query_file_with([_query_line(i) for i in range(10)])
         source = _make_source(pipeline_context, path)
         source.aggregator.add_observed_query = Mock(
             side_effect=GraphError("Token expired")
@@ -698,11 +703,11 @@ class TestErrorHandling:
 
         work_units = list(source.get_workunits_internal())
 
-        assert any(f.title == "Systemic error" for f in source.report.failures)
-        # The 4 lineage rows aggregate fine before the error hits; the point is
-        # that none of them reach the sink. With incremental_lineage off,
-        # emitting partial output would overwrite good lineage with worse.
-        assert source.report.num_queries_processed == 4
+        assert source.report.num_queries_aggregator_failures == 10
+        assert source.report.num_queries_processed == 0
+        assert any(
+            f.title == "All queries failed aggregation" for f in source.report.failures
+        )
         assert work_units == []
 
     @pytest.mark.parametrize(
