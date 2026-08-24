@@ -413,7 +413,14 @@ class SqlAggregatorReport(Report):
     def compute_stats(self) -> None:
         if self._aggregator._closed:
             return
-        self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
+        # The resolver can be borrowed rather than owned (see the schema_resolver
+        # argument to SqlParsingAggregator), so its owner may close it while this
+        # aggregator is still open. The _closed check above says nothing about
+        # that. Guard only this line: an early return here would also drop the
+        # counters below, which stay readable when just the resolver is gone.
+        resolver = self._aggregator._schema_resolver
+        if not resolver.closed:
+            self.schema_resolver_count = resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)

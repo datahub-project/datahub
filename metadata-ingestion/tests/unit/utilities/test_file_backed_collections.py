@@ -431,3 +431,16 @@ def test_file_cleanup():
     assert filename.exists()
     cache.close()
     assert not filename.exists()
+
+
+def test_closed_property():
+    cache = FileBackedDict[int]()
+    assert not cache.closed
+
+    cache.close()
+    assert cache.closed
+
+    # close() guards on the connection, so a second call is a no-op rather than
+    # an error. Callers that share a dict cannot know who closes it first.
+    cache.close()
+    assert cache.closed

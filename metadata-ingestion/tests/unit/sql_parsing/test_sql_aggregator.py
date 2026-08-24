@@ -1827,3 +1827,116 @@ def test_usage_aggregator_uses_shared_connection() -> None:
         )
     finally:
         aggregator.close()
+
+
+def _borrowed_resolver_pair():
+    """An owner aggregator and a borrower that shares its schema resolver.
+
+    This is the shape Snowflake builds under `use_queries_v2`: one aggregator
+    owns the resolver, a second is handed the same object and never owns it.
+    """
+    owner = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=False,
+    )
+    resolver = owner._schema_resolver
+    resolver._schema_cache[
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
+    ] = {"col_a": "int"}
+    borrower = SqlParsingAggregator(
+        platform="snowflake",
+        schema_resolver=resolver,
+        generate_lineage=True,
+        generate_queries=False,
+    )
+    return owner, borrower
+
+
+@pytest.mark.parametrize("close_borrower_too", [False, True])
+def test_compute_stats_does_not_raise_after_resolver_closed(close_borrower_too):
+    """The guard has to describe the resolver, not the aggregator holding it.
+
+    The borrower never owns the resolver, so its own `_closed` flag says nothing
+    about whether the resolver's SQLite connection is still open. Closing the
+    owner used to leave the borrower's next report serialization raising
+    AttributeError on a None connection.
+    """
+    owner, borrower = _borrowed_resolver_pair()
+    if close_borrower_too:
+        borrower.close()
+    owner.close()
+
+    borrower.report.compute_stats()
+
+
+def test_aggregator_owned_stats_survive_dead_resolver():
+    """Only the resolver is foreign-owned; every other counter must still be set.
+
+    Guards against simplifying the narrow guard into an early return, which stays
+    silent because the crash remains fixed and only the counters vanish. Every
+    assignment below the guard is asserted, so a partial list cannot let that
+    regression through.
+    """
+    owner, borrower = _borrowed_resolver_pair()
+    owner.close()
+
+    borrower.report.compute_stats()
+
+    # aggregator-owned
+    assert borrower.report.num_unique_query_fingerprints is not None
+    assert borrower.report.num_urns_with_lineage is not None
+    assert borrower.report.num_temp_sessions is not None
+    assert borrower.report.num_inferred_temp_schemas is not None
+    # process-wide caches, unaffected by this aggregator's resolver
+    assert borrower.report.sql_parsing_cache_stats is not None
+    assert borrower.report.parse_statement_cache_stats is not None
+    assert borrower.report.format_query_cache_stats is not None
+    # the one thing that is genuinely unreadable
+    assert borrower.report.schema_resolver_count is None
+
+
+def test_no_stats_for_never_populated_closed_resolver():
+    owner, borrower = _borrowed_resolver_pair()
+    owner._schema_resolver._schema_cache.clear()
+    owner.close()
+
+    borrower.report.compute_stats()
+
+    # Absent, not a spurious zero: we did not measure it, so we do not claim it.
+    assert borrower.report.schema_resolver_count is None
+
+
+def test_compute_stats_early_returns_when_aggregator_closed():
+    """The pre-existing early return protects more than the resolver line.
+
+    `close()` computes stats once and then closes the exit stack, which takes
+    `_query_map` with it. A second `compute_stats()` without the early return
+    dies on `len(_query_map)`, the same exception this change fixes elsewhere.
+    The two guards therefore cover different cases and neither replaces the
+    other, which is what the dead-state assertion below pins.
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=False,
+    )
+    aggregator.close()
+    before = aggregator.report.num_unique_query_fingerprints
+
+    # returns without raising, and without recomputing
+    aggregator.report.compute_stats()
+    assert aggregator.report.num_unique_query_fingerprints == before
+
+    # and this is what it declined to touch: state that is genuinely gone
+    with pytest.raises(AttributeError):
+        len(aggregator._query_map)
+
+
+def test_report_serializes_twice_without_raising():
+    """The pipeline serializes the report mid-run for progress and again at the end."""
+    owner, borrower = _borrowed_resolver_pair()
+    owner.close()
+
+    borrower.report.as_obj()
+    borrower.report.as_obj()
