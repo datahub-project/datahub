@@ -72,6 +72,49 @@ The default preparsed path emits table-level usage only (no column `fieldCounts`
 
 :::
 
+#### Transformation logic in the lineage graph
+
+Databricks metadata reaches DataHub through two independent producers, and they surface
+transformation logic differently in the lineage graph.
+
+| Producer                              | Lineage shape                  | Transformation UI                                                          |
+| ------------------------------------- | ------------------------------ | -------------------------------------------------------------------------- |
+| Unity Catalog connector (this module) | Dataset-to-dataset             | A `~` query node with a **Logic** panel, for warehouse-executed statements |
+| Spark agent                           | Dataset → Spark task → dataset | The Spark task node, with the same logic in its own **Logic** panel        |
+
+The `~` query node requires the SQL text of the statement that produced the edge.
+Databricks records that text in `system.query.history` and links it to lineage rows through
+`statement_id`, which is populated only for statements executed on a SQL warehouse
+(including serverless). Lineage produced by Spark code running on cluster compute — a
+notebook, job, or pipeline — carries no `statement_id`, so no statement text is
+recoverable and those edges appear without a query node. What matters is the compute a
+statement runs on, not how it was triggered: a scheduled job whose task runs against a SQL
+warehouse still gets a `statement_id`. This is Databricks platform behavior; no connector
+configuration changes it.
+
+Query-linked lineage requires `include_queries` (`true` by default — see
+[Usage statistics](#usage-statistics) above) and a configured `warehouse_id`. It is
+unavailable when the deprecated `include_metastore` is enabled, since `system.access` table
+names are always three-part and cannot be matched against a four-part metastore URN; the
+connector emits a warning and falls back to lineage without query links in that case.
+[Metric Views](#metric-views) resolve lineage from their own YAML `source` and `joins`
+fields rather than from query history, so a metric view never carries a query URN, even
+when its YAML parses successfully.
+
+##### Spark: SQL versus the DataFrame API
+
+For the Spark agent, whether any transformation text exists at all depends on how the step
+that produced the edge is written:
+
+| Spark style                                   | Captured transformation text                     |
+| --------------------------------------------- | ------------------------------------------------ |
+| `spark.sql("SELECT a + b AS total FROM src")` | The full SQL statement                           |
+| DataFrame API (`withColumn`, `concat`, …)     | A type tag only, such as `DIRECT:TRANSFORMATION` |
+
+Spark emits no SQL for DataFrame-API operations, so there is no expression for DataHub to
+capture, regardless of connector or configuration. Expressing a step as `spark.sql(...)`
+is what makes its logic visible in the lineage graph.
+
 #### Delta Lake External Tables
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
