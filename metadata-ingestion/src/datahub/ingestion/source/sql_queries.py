@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, LiteralString, Optional, Union
 
 import requests.exceptions
 import smart_open
@@ -181,6 +181,54 @@ class SqlQueriesSourceConfig(
         return [
             re.compile(pattern, re.IGNORECASE) for pattern in self.temp_table_patterns
         ]
+
+
+@dataclass(frozen=True)
+class _HealthMessages:
+    """What to say at each severity for one failure-ratio check.
+
+    Titles are literals so the report groups identical problems together.
+    """
+
+    some_title: LiteralString
+    some_message: LiteralString
+    few_title: LiteralString
+    few_message: LiteralString
+    most_title: LiteralString
+    most_message: LiteralString
+
+
+_TOO_FEW = "but too few were seen to distinguish bad input from a systemic problem"
+
+_ENTRY_PARSE_HEALTH = _HealthMessages(
+    some_title="Some entries failed to parse",
+    some_message="Some input lines were not valid query entries and were skipped",
+    few_title="Entries failed to parse",
+    few_message=f"Most input lines were not valid query entries, {_TOO_FEW}",
+    most_title="Most entries failed to parse",
+    most_message="A high proportion of input lines were not valid query entries — "
+    "check the per-entry warnings for the underlying cause",
+)
+
+_AGGREGATION_HEALTH = _HealthMessages(
+    some_title="Some queries failed aggregation",
+    some_message="Some queries failed during aggregation, so their lineage is missing",
+    few_title="Queries failed aggregation",
+    few_message=f"Most queries failed during aggregation, {_TOO_FEW}",
+    most_title="Most queries failed aggregation",
+    most_message="A high proportion of queries failed during aggregation — "
+    "likely a systemic issue (auth, connectivity, config)",
+)
+
+_SQL_PARSING_HEALTH = _HealthMessages(
+    some_title="Some queries failed SQL parsing",
+    some_message="Some queries could not be parsed, so their lineage is missing",
+    few_title="Queries failed SQL parsing",
+    few_message=f"Most queries failed SQL parsing, {_TOO_FEW}",
+    most_title="Most queries failed SQL parsing",
+    most_message="A high proportion of queries failed during SQL parsing — "
+    "likely a systemic issue such as expired credentials or an unreachable graph",
+)
 
 
 @dataclass
@@ -375,44 +423,19 @@ class SqlQueriesSource(Source):
 
     def _check_entry_parse_health(self) -> bool:
         failed = self.report.num_entries_failed
-        total = failed + self.report.num_entries_processed
-        if not failed:
-            return True
-
-        ratio = failed / total
-        context = f"{failed}/{total} entries failed ({ratio:.0%})"
-
-        # Below the sample floor a ratio isn't evidence of a systemic problem.
-        # It still needs saying: unlike the SQL-parse equivalent, the entries
-        # that survived here do go on to emit.
-        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
-            self.report.warning(
-                title="Entries failed to parse",
-                message="Entries failed to parse, but too few were seen to "
-                "distinguish bad input from a systemic problem",
-                context=context,
-            )
-            return True
-
-        if ratio < self.config.failure_ratio_threshold:
-            # Below the threshold is not fatal, but staying silent would hide a
-            # steadily-degrading export. Surviving entries still emit.
-            self.report.warning(
-                title="Some entries failed to parse",
-                message="Some input lines were not valid query entries and were skipped",
-                context=context,
-            )
-            return True
-
-        self.report.failure(
-            title="Most entries failed to parse",
-            message="A high proportion of input lines were not valid query entries — "
-            "check the per-entry warnings for the underlying cause",
-            context=context,
+        return self._assess_failure_ratio(
+            failed=failed,
+            total=failed + self.report.num_entries_processed,
+            noun="entries",
+            messages=_ENTRY_PARSE_HEALTH,
         )
-        return False
 
     def _check_aggregator_health(self) -> bool:
+        """Failures raised by the aggregator call itself.
+
+        Distinct from _check_sql_parsing_health: these never reach the
+        aggregator, so its own counters cannot see them.
+        """
         failed = self.report.num_queries_aggregator_failures
         if not failed:
             return True
@@ -426,72 +449,61 @@ class SqlQueriesSource(Source):
             )
             return False
 
-        # These failures never reach the aggregator, so _check_sql_parsing_health
-        # cannot see them — without a ratio here, losing most of a run to
-        # non-consecutive failures would report success and still emit.
-        total = failed + self.report.num_queries_processed
-        ratio = failed / total
-        context = f"{failed}/{total} queries failed ({ratio:.0%})"
-
-        if ratio < self.config.failure_ratio_threshold:
-            return True
-
-        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
-            self.report.warning(
-                title="Queries failed aggregation",
-                message="Most queries failed during aggregation, but too few were "
-                "seen to distinguish bad input from a systemic problem",
-                context=context,
-            )
-            return True
-
-        self.report.failure(
-            title="Most queries failed aggregation",
-            message="A high proportion of queries failed during aggregation — "
-            "likely a systemic issue (auth, connectivity, config)",
-            context=context,
+        return self._assess_failure_ratio(
+            failed=failed,
+            total=failed + self.report.num_queries_processed,
+            noun="queries",
+            messages=_AGGREGATION_HEALTH,
         )
-        return False
 
     def _check_sql_parsing_health(self) -> bool:
+        """Failures the aggregator recorded while parsing SQL it accepted."""
         agg_report = self.aggregator.report
-        total = agg_report.num_observed_queries
-        failed = agg_report.num_observed_queries_failed
-        if not failed:
+        return self._assess_failure_ratio(
+            failed=agg_report.num_observed_queries_failed,
+            total=agg_report.num_observed_queries,
+            noun="queries",
+            messages=_SQL_PARSING_HEALTH,
+        )
+
+    def _assess_failure_ratio(
+        self, *, failed: int, total: int, noun: str, messages: "_HealthMessages"
+    ) -> bool:
+        """Grade a failure ratio, reporting at the matching severity.
+
+        Shared by every health check so they cannot drift apart: the ordering of
+        the threshold and sample-floor branches decides whether a run fails, and
+        having that logic in one place is the point.
+        """
+        if not failed or not total:
             return True
 
         ratio = failed / total
-        context = f"{failed}/{total} queries failed ({ratio:.0%})"
+        context = f"{failed}/{total} {noun} failed ({ratio:.0%})"
 
-        # Below the minimum sample a ratio is not evidence of a systemic problem
-        # — one bad query out of three is just one bad query. Still say so,
-        # rather than letting an all-failing small file look clean.
-        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
-            if ratio >= self.config.failure_ratio_threshold:
-                self.report.warning(
-                    title="Queries failed SQL parsing",
-                    message="Most queries failed SQL parsing, but too few were seen "
-                    "to distinguish bad input from a systemic problem",
-                    context=context,
-                )
+        # Not enough of the input is failing to call it systemic — but silence
+        # would hide a steadily-degrading source, so say it at warning level.
+        if ratio < self.config.failure_ratio_threshold:
+            self.report.warning(
+                title=messages.some_title,
+                message=messages.some_message,
+                context=context,
+            )
             return True
 
-        if ratio < self.config.failure_ratio_threshold:
-            # Some parse failure is normal (DDL, unsupported syntax), so this is
-            # a warning — but a run losing a large minority of its queries must
-            # not look identical to a healthy one.
+        # Ratio is high, but on too small a sample to tell a systemic problem
+        # from a handful of bad rows. Report it; don't fail the run over it.
+        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
             self.report.warning(
-                title="Some queries failed SQL parsing",
-                message="Some queries could not be parsed, so their lineage is missing",
+                title=messages.few_title,
+                message=messages.few_message,
                 context=context,
             )
             return True
 
         self.report.failure(
-            title="Most queries failed SQL parsing",
-            message="A high proportion of queries failed during SQL parsing — "
-            "likely a systemic issue such as expired credentials or "
-            "an unreachable schema resolver",
+            title=messages.most_title,
+            message=messages.most_message,
             context=context,
         )
         return False
@@ -522,7 +534,7 @@ class SqlQueriesSource(Source):
             )
 
     def _guarded_stream(
-        self, stream: Iterable[str], failure_title: str
+        self, stream: Iterable[str], failure_title: LiteralString
     ) -> Iterable[str]:
         """Yield lines, reporting read errors that occur mid-transfer.
 
