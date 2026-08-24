@@ -2,6 +2,7 @@ package datahub.spark;
 
 import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import org.apache.spark.sql.Dataset;
@@ -37,6 +38,10 @@ public class SparkQueryEntityDataFrameOnlySmokeTest extends SparkSmokeTestBase {
                   .csv(out.toString());
             });
 
+    // Baseline: the run genuinely emitted lineage. Without this, hasEntity("query") being false
+    // could mean "correctly no query entity" or "the listener silently emitted nothing at all"
+    // (SparkSmokeTestBase's one-class-one-Spark-job gotcha) - indistinguishable otherwise.
+    assertTrue(md.hasAspect("dataJobInputOutput"), "expected lineage to be emitted:\n" + md.raw);
     assertFalse(md.hasEntity("query"), "expected no query entity to be emitted:\n" + md.raw);
   }
 }
