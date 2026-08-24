@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Optional
 
 from datahub.ingestion.source.unity.proxy_types import Query
 from datahub.ingestion.source.unity.query_lineage import QueryLineageResolver
+from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 
 
 def _urn(full_name: str) -> str:
@@ -80,18 +82,68 @@ def test_latest_statement_wins_for_same_edge():
     assert emitted[urn] == newer.query_text
 
 
+def test_tie_break_is_stable_regardless_of_insertion_order():
+    # Same edge, same end_time: _is_newer's primary key ties, so the fingerprint
+    # tie-break is what decides the winner. Real data averages 126 distinct
+    # statements per edge, so this must not depend on add_query() call order.
+    stmt_a = _query(
+        "INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src",
+        1,
+        "my_catalog.my_schema.src",
+        "my_catalog.my_schema.tgt",
+    )
+    stmt_b = _query(
+        "INSERT INTO my_catalog.my_schema.tgt SELECT col_b FROM my_catalog.my_schema.src",
+        1,
+        "my_catalog.my_schema.src",
+        "my_catalog.my_schema.tgt",
+    )
+    edge = (
+        _urn("my_catalog.my_schema.src"),
+        _urn("my_catalog.my_schema.tgt"),
+    )
+
+    forward = QueryLineageResolver(resolve_urn=_resolve)
+    forward.add_query(stmt_a)
+    forward.add_query(stmt_b)
+
+    reverse = QueryLineageResolver(resolve_urn=_resolve)
+    reverse.add_query(stmt_b)
+    reverse.add_query(stmt_a)
+
+    forward_urn = forward.query_urn_for(*edge)
+    reverse_urn = reverse.query_urn_for(*edge)
+
+    assert forward_urn == reverse_urn
+    assert dict(forward.queries_to_emit()) == dict(reverse.queries_to_emit())
+
+
 def test_literal_only_variants_share_one_urn():
+    # Two different edges whose statements differ only in a literal value must
+    # still collapse to one Query, since query_text linkage is independent of
+    # which edge it was attached to.
     resolver = QueryLineageResolver(resolve_urn=_resolve)
-    for day, literal in ((1, "2026-01-01"), (2, "2026-01-02")):
+    edges = (
+        ("my_catalog.my_schema.src1", "my_catalog.my_schema.tgt1"),
+        ("my_catalog.my_schema.src2", "my_catalog.my_schema.tgt2"),
+    )
+    for day, (literal, (source, target)) in enumerate(
+        (("2026-01-01", edges[0]), ("2026-01-02", edges[1])), start=1
+    ):
         resolver.add_query(
             _query(
-                f"INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src WHERE d = '{literal}'",
+                f"SELECT * FROM t WHERE d = '{literal}'",
                 day,
-                "my_catalog.my_schema.src",
-                "my_catalog.my_schema.tgt",
+                source,
+                target,
             )
         )
 
+    urns = {
+        resolver.query_urn_for(_urn(source), _urn(target)) for source, target in edges
+    }
+
+    assert len(urns) == 1
     assert len(resolver.queries_to_emit()) == 1
 
 
@@ -124,3 +176,31 @@ def test_unresolvable_table_name_is_skipped():
 
     assert resolver.queries_to_emit() == []
     assert resolver.num_edges_linked == 0
+
+
+def test_single_target_urn_matches_usage_path_fingerprint():
+    # The system-tables usage path (usage.py's _query_fingerprint) already emits
+    # Query entities for these statements. Our resolver must derive the exact
+    # same URN for a single-target statement, or we mint a duplicate Query.
+    query = _query(
+        "INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src",
+        1,
+        "my_catalog.my_schema.src",
+        "my_catalog.my_schema.tgt",
+    )
+
+    resolver = QueryLineageResolver(resolve_urn=_resolve)
+    resolver.add_query(query)
+    urn = resolver.query_urn_for(
+        _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
+    )
+
+    usage_path_stub = SimpleNamespace(
+        platform="databricks",
+        report=SimpleNamespace(num_queries_preparsed_fingerprint_fallback=0),
+    )
+    expected_fingerprint = UnityCatalogUsageExtractor._query_fingerprint(
+        usage_path_stub, query
+    )
+
+    assert urn == f"urn:li:query:{expected_fingerprint}"

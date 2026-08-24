@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.unity.proxy_types import Query
 from datahub.metadata.urns import QueryUrn
@@ -43,30 +43,56 @@ class QueryLineageResolver:
             self._skipped += 1
             return
 
-        try:
-            fingerprint = get_query_fingerprint(text, platform=self.platform)
-        except Exception as e:
-            # get_query_fingerprint already falls back internally; treat any residual
-            # failure as unlinkable rather than aborting the whole run.
-            logger.debug("Could not fingerprint statement, skipping link: %s", e)
-            self._skipped += 1
+        upstream_urns = self._resolve_unique(query.source_table_full_names)
+        downstream_urns = self._resolve_unique(query.target_table_full_names)
+        if not upstream_urns or not downstream_urns:
             return
 
-        candidate = _Candidate(
-            query_urn=QueryUrn(fingerprint).urn(),
-            query_text=text,
-            end_time=query.end_time or _EPOCH,
-        )
-
-        for source in query.source_table_full_names:
-            upstream_urn = self.resolve_urn(source)
-            if upstream_urn is None:
-                continue
-            for target in query.target_table_full_names:
-                downstream_urn = self.resolve_urn(target)
-                if downstream_urn is None or downstream_urn == upstream_urn:
+        # Mirrors usage.py's _to_preparsed_queries: a statement that fans out to more
+        # than one resolved target gets one Query per downstream, disambiguated by
+        # folding the downstream urn into the fingerprint. This keeps our URNs
+        # identical to the ones the system-tables usage path already emits, so we
+        # reuse its Query entities instead of minting duplicates.
+        multi_target = len(downstream_urns) > 1
+        for downstream_urn in downstream_urns:
+            secondary_id = downstream_urn if multi_target else None
+            fingerprint = self._fingerprint(text, query.query_id, secondary_id)
+            candidate = _Candidate(
+                query_urn=QueryUrn(fingerprint).urn(),
+                query_text=text,
+                end_time=query.end_time or _EPOCH,
+            )
+            for upstream_urn in upstream_urns:
+                if upstream_urn == downstream_urn:
                     continue
                 self._offer((upstream_urn, downstream_urn), candidate)
+
+    def _resolve_unique(self, full_names: List[str]) -> List[str]:
+        urns: List[str] = []
+        seen: Set[str] = set()
+        for full_name in full_names:
+            urn = self.resolve_urn(full_name)
+            if urn and urn not in seen:
+                seen.add(urn)
+                urns.append(urn)
+        return urns
+
+    def _fingerprint(
+        self, text: str, query_id: Optional[str], secondary_id: Optional[str]
+    ) -> str:
+        try:
+            return get_query_fingerprint(
+                text, self.platform, fast=True, secondary_id=secondary_id
+            )
+        except Exception as e:
+            # get_query_fingerprint already falls back internally; a residual
+            # failure here mirrors usage.py's _query_fingerprint fallback so both
+            # paths agree on the id even when sqlglot can't parse the statement.
+            logger.debug(
+                "Could not fingerprint statement, using statement_id fallback: %s", e
+            )
+            base = f"unity-stmt-{query_id}"
+            return f"{base}-{secondary_id}" if secondary_id else base
 
     def _offer(self, key: EdgeKey, candidate: _Candidate) -> None:
         existing = self._by_edge.get(key)
