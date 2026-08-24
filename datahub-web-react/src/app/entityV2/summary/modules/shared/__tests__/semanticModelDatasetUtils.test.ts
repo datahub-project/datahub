@@ -20,6 +20,15 @@ function buildDataset(overrides: Partial<Dataset> = {}): Dataset {
 
 describe('semanticModelDatasetUtils', () => {
     describe('getSemanticModelDatasetDisplayName', () => {
+        it('prefers editableProperties.name over properties.name', () => {
+            const dataset = buildDataset({
+                name: 'raw.name',
+                properties: { name: 'Logical Name' } as Dataset['properties'],
+                editableProperties: { name: 'Editable Name' } as Dataset['editableProperties'],
+            });
+            expect(getSemanticModelDatasetDisplayName(dataset)).toBe('Editable Name');
+        });
+
         it('prefers properties.name over name', () => {
             const dataset = buildDataset({
                 name: 'raw.name',
@@ -83,6 +92,13 @@ describe('semanticModelDatasetUtils', () => {
             expect(aliased.properties?.name).toBe('ACCOUNTS');
             expect(aliased.editableProperties?.name).toBeUndefined();
             expect(dataset.properties?.name).toBe('Logical Name');
+        });
+        it('creates properties with alias when properties is missing', () => {
+            const dataset = buildDataset({
+                semanticModelProperties: { alias: 'ACCOUNTS' } as Dataset['semanticModelProperties'],
+            });
+            const aliased = withSemanticModelAlias(dataset);
+            expect(aliased.properties?.name).toBe('ACCOUNTS');
         });
     });
 });

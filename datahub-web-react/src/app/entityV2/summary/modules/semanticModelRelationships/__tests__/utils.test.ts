@@ -49,10 +49,11 @@ describe('semanticModelRelationships utils', () => {
     });
 
     describe('getRelationshipRowKey', () => {
-        it('prefers relationship name, otherwise from-to-index', () => {
+        it('includes index for stable keys even when name is present', () => {
             const named = { name: 'opp_to_acct', from: 'OPPORTUNITIES', to: 'ACCOUNTS' } as SemanticModelRelationship;
             const unnamed = { from: 'OPPORTUNITIES', to: 'ACCOUNTS' } as SemanticModelRelationship;
-            expect(getRelationshipRowKey(named, 0)).toBe('opp_to_acct');
+            expect(getRelationshipRowKey(named, 0)).toBe('opp_to_acct-0');
+            expect(getRelationshipRowKey(named, 1)).toBe('opp_to_acct-1');
             expect(getRelationshipRowKey(unnamed, 2)).toBe('OPPORTUNITIES-ACCOUNTS-2');
         });
     });

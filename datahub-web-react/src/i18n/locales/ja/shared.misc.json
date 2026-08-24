@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "戻る",
+    "confirmationModal.areYouSure": "よろしいですか？",
+    "copyUrn.tooltip": "URNをコピー。URNはDataHub上のエンティティを一意に識別します。",
+    "customIcon.alt": "アイコン",
+    "entityCountCard.viewCountTooltip": "{{formattedCount}} {{tooltipDescriptor}}を表示",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "次のステップに進む前に、必須項目をすべて入力してください",
+    "noEntityFound.subtitle": "申し訳ございませんが、DataHub内でこのエンティティが見つかりませんでした",
+    "noEntityFound.title": "見つかりません",
+    "noPageFound.backToHome": "ホームに戻る",
+    "noPageFound.subtitle": "リクエストされたページが見つかりませんでした。",
+    "platformIcon.alt": "プラットフォームロゴ"
+}

@@ -1,10 +1,14 @@
-import { Text, Tooltip } from '@components';
+import { InfiniteScrollList, Text, Tooltip } from '@components';
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    MEMBER_DATASETS_PAGE_SIZE,
+    useSemanticModelMemberDatasetsPage,
+} from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import {
     getSemanticModelDatasetDescription,
     getSemanticModelDatasetDisplayName,
@@ -17,12 +21,6 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Dataset, Entity } from '@types';
-
-type EntityDataWithDatasets = {
-    info?: {
-        datasets?: Dataset[] | null;
-    } | null;
-};
 
 const HoverContent = styled.div`
     display: flex;
@@ -81,10 +79,9 @@ function DatasetHoverCard({ alias, displayName, description }: DatasetHoverProps
 
 export default function SemanticModelDatasetsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
-
-    const datasets = (entityData as EntityDataWithDatasets)?.info?.datasets ?? [];
+    const { urn } = useEntityData();
+    const { total, loading, fetchDatasets } = useSemanticModelMemberDatasetsPage();
 
     const renderType = useCallback(
         (entity: Entity) => {
@@ -111,31 +108,32 @@ export default function SemanticModelDatasetsModule(props: ModuleProps) {
         );
     }, []);
 
-    if (!datasets.length) {
-        return (
-            <LargeModule {...props} dataTestId="semantic-model-datasets-module">
-                <EmptyContent
-                    icon={Database}
-                    title={t('semanticModelDatasets.emptyTitle')}
-                    description={t('semanticModelDatasets.emptyDescription')}
-                />
-            </LargeModule>
-        );
-    }
-
     return (
-        <LargeModule {...props} dataTestId="semantic-model-datasets-module">
-            {datasets.map((dataset) => (
-                <EntityItem
-                    key={dataset.urn}
-                    entity={withSemanticModelAlias(dataset)}
-                    moduleType={DataHubPageModuleType.SemanticModelDatasets}
-                    hideSubtitle
-                    hideMatches
-                    customDetailsRenderer={renderType}
-                    customHoverEntityName={(_entity, children) => renderHover(dataset, children)}
-                />
-            ))}
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-datasets-module">
+            <InfiniteScrollList<Dataset>
+                key={urn || 'no-urn'}
+                fetchData={fetchDatasets}
+                renderItem={(dataset) => (
+                    <EntityItem
+                        key={dataset.urn}
+                        entity={withSemanticModelAlias(dataset)}
+                        moduleType={DataHubPageModuleType.SemanticModelDatasets}
+                        hideSubtitle
+                        hideMatches
+                        customDetailsRenderer={renderType}
+                        customHoverEntityName={(_entity, children) => renderHover(dataset, children)}
+                    />
+                )}
+                pageSize={MEMBER_DATASETS_PAGE_SIZE}
+                emptyState={
+                    <EmptyContent
+                        icon={Database}
+                        title={t('semanticModelDatasets.emptyTitle')}
+                        description={t('semanticModelDatasets.emptyDescription')}
+                    />
+                }
+                totalItemCount={total}
+            />
         </LargeModule>
     );
 }

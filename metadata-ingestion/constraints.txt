@@ -37,6 +37,7 @@ annotated-types==0.7.0
     # via pydantic
 anyio==4.12.1
     # via
+    #   acryl-datahub
     #   google-genai
     #   gql
     #   httpx
@@ -176,7 +177,7 @@ cachetools==5.5.2
     #   confluent-kafka
     #   mlflow-skinny
     #   pyiceberg
-cassandra-driver==3.29.3
+cassandra-driver==3.30.1
     # via acryl-datahub
 cattrs==26.1.0
     # via looker-sdk
@@ -238,6 +239,7 @@ colorama==0.4.6
     #   build
     #   click
     #   feast
+    #   loguru
     #   pytest
     #   tqdm
     #   uvicorn
@@ -306,6 +308,7 @@ deepmerge==2.0
 defusedxml==0.7.1
     # via
     #   acryl-datahub
+    #   nltk
     #   python3-openid
     #   tableauserverclient
 deltalake==0.25.5
@@ -314,6 +317,7 @@ deprecated==1.3.1
     # via
     #   acryl-datahub
     #   atlassian-python-api
+    #   cassandra-driver
 dill==0.3.9
     # via feast
 distro==1.9.0
@@ -664,6 +668,8 @@ lkml==1.3.7
     # via acryl-datahub
 locket==1.0.0
     # via partd
+loguru==0.7.3
+    # via acryl-datahub
 looker-sdk==25.20.0
     # via acryl-datahub
 lxml==6.1.1
@@ -769,7 +775,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.10.3
     # via
     #   acryl-datahub
     #   unstructured
@@ -1371,7 +1377,7 @@ stopit==1.1.2
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
-tableauserverclient==0.25
+tableauserverclient==0.40
     # via acryl-datahub
 tableschema==1.21.0
     # via acryl-datahub
@@ -1538,6 +1544,7 @@ typing-extensions==4.15.0
     #   snowflake-connector-python
     #   sqlalchemy2-stubs
     #   starlette
+    #   tableauserverclient
     #   textual
     #   typeguard
     #   typing-inspect
@@ -1579,7 +1586,7 @@ unstructured-client==0.42.10
     # via unstructured
 unstructured-ingest==0.7.2
     # via acryl-datahub
-urllib3==1.26.20
+urllib3==2.7.0
     # via
     #   acryl-datahub
     #   botocore
@@ -1626,6 +1633,8 @@ werkzeug==3.1.6
     #   pytest-httpserver
 win-precise-time==1.4.2 ; (python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
     # via dlt
+win32-setctime==1.2.0 ; sys_platform == 'win32'
+    # via loguru
 wrapt==2.1.2
     # via
     #   aiobotocore

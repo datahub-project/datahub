@@ -4,9 +4,12 @@ import time
 import pytest
 from opensearchpy import OpenSearch
 
+from tests.utilities.domains import Domain
 from tests.utils import delete_urn, delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 es = OpenSearch(["http://localhost:9200"])
 
 

@@ -8,7 +8,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import StatusClass
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_urn, with_test_retry
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo_custom")
 

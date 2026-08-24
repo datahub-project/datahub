@@ -38,5 +38,6 @@ export function getCardinalityLabelKey(cardinality: ErModelRelationshipCardinali
 }
 
 export function getRelationshipRowKey(rel: SemanticModelRelationship, index: number): string {
-    return rel.name ?? `${rel.from}-${rel.to}-${index}`;
+    const base = rel.name ?? `${rel.from}-${rel.to}`;
+    return `${base}-${index}`;
 }

@@ -51,7 +51,7 @@ export default function EmptyContent({ icon, title, description, linkText, linkI
     return (
         <Container>
             <IconWrapper>
-                <Icon icon={icon} />
+                <Icon icon={icon} color="icon" />
             </IconWrapper>
             <Title>{title}</Title>
             <Description>{description}</Description>

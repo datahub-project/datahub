@@ -43,6 +43,18 @@ type EntityDataWithAiContext = {
     aiContext?: AiContext | null;
 };
 
+function withStableKeys(values: string[]): Array<{ value: string; key: string }> {
+    const counts = new Map<string, number>();
+    return values.map((value) => {
+        const occurrence = counts.get(value) ?? 0;
+        counts.set(value, occurrence + 1);
+        return {
+            value,
+            key: occurrence === 0 ? value : `${value}-${occurrence}`,
+        };
+    });
+}
+
 export default function AiContextModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
@@ -69,8 +81,8 @@ export default function AiContextModule(props: ModuleProps) {
                     <Section>
                         <SectionTitle>{t('aiContext.synonymsTitle')}</SectionTitle>
                         <ModulePillRow>
-                            {synonyms.map((synonym) => (
-                                <Pill key={synonym} label={synonym} size="sm" clickable={false} />
+                            {withStableKeys(synonyms).map(({ value: synonym, key }) => (
+                                <Pill key={key} label={synonym} size="sm" clickable={false} />
                             ))}
                         </ModulePillRow>
                     </Section>
@@ -85,8 +97,8 @@ export default function AiContextModule(props: ModuleProps) {
                     <Section>
                         <SectionTitle>{t('aiContext.examplesTitle')}</SectionTitle>
                         <ExampleList>
-                            {examples.map((example) => (
-                                <ExampleItem key={example}>
+                            {withStableKeys(examples).map(({ value: example, key }) => (
+                                <ExampleItem key={key}>
                                     <BodyText>{example}</BodyText>
                                 </ExampleItem>
                             ))}

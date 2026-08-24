@@ -24,6 +24,10 @@ describe('semanticModelDimensions utils', () => {
             expect(isDefaultAliasQualifiedField('OPPORTUNITIES.OPPORTUNITY_ID', 'opportunity_id')).toBe(true);
         });
 
+        it('rejects expressions that only suffix-match the field path', () => {
+            expect(isDefaultAliasQualifiedField('1 + opportunities.opportunity_id', 'opportunity_id')).toBe(false);
+        });
+
         it('rejects calculated expressions', () => {
             expect(isDefaultAliasQualifiedField('datediff(day, created_date, close_date)', 'close_date')).toBe(false);
             expect(isDefaultAliasQualifiedField('other_field', 'opportunity_id')).toBe(false);

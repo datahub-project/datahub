@@ -23,7 +23,7 @@ const StyledLink = styled(Link)`
 export default function ModuleEntityLink({ children, ...linkProps }: LinkProps) {
     const modalLinkProps = useGetModalLinkProps();
     return (
-        <StyledLink {...modalLinkProps} {...linkProps}>
+        <StyledLink {...linkProps} {...modalLinkProps}>
             {children}
         </StyledLink>
     );

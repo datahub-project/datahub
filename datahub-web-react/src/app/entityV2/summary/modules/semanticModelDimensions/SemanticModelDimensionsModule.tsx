@@ -9,7 +9,7 @@ import styled from 'styled-components';
 import { ColorOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import {
     DimensionPillKind,
     getDimensionGroups,
@@ -32,12 +32,6 @@ import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon'
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Dataset } from '@types';
-
-type EntityDataWithDatasets = {
-    info?: {
-        datasets?: Dataset[] | null;
-    } | null;
-};
 
 const DIMENSION_PILL_UI: Record<DimensionPillKind, { color: ColorOptions; leftIcon?: React.ComponentType<any> }> = {
     time: { color: 'blue', leftIcon: Clock },
@@ -69,33 +63,35 @@ const HeaderRow = styled.div`
     min-width: 0;
 `;
 
-const NameLink = styled(ModuleEntityLink)`
+const HeaderLink = styled(ModuleEntityLink)`
+    display: flex;
+    align-items: center;
+    gap: 16px;
     min-width: 0;
+    flex: 1;
     overflow: hidden;
 `;
 
 const DatasetName = styled(ModuleEntityName)`
-    ${DatasetGroup}:hover & {
+    ${HeaderLink}:hover & {
         text-decoration: underline;
     }
 `;
 
 export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const { templateType } = usePageTemplateContext();
+    const { datasets, loading } = useAllSemanticModelMemberDatasets();
 
-    const typedData = entityData as EntityDataWithDatasets | null;
-
-    const groups = useMemo(() => getDimensionGroups(typedData?.info?.datasets ?? []), [typedData?.info?.datasets]);
+    const groups = useMemo(() => getDimensionGroups(datasets), [datasets]);
 
     const onDatasetClick = useCallback(
-        (urn: string) => {
+        (datasetUrn: string) => {
             analytics.event({
                 type: EventType.HomePageTemplateModuleAssetClick,
                 moduleType: DataHubPageModuleType.SemanticModelDimensions,
-                assetUrn: urn,
+                assetUrn: datasetUrn,
                 location: templateType,
             });
         },
@@ -113,9 +109,9 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
         );
     }, []);
 
-    if (!groups.length) {
+    if (!loading && !groups.length) {
         return (
-            <LargeModule {...props} dataTestId="semantic-model-dimensions-module">
+            <LargeModule {...props} loading={loading} dataTestId="semantic-model-dimensions-module">
                 <EmptyContent
                     icon={Cube}
                     title={t('semanticModelDimensions.emptyTitle')}
@@ -126,7 +122,7 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="semantic-model-dimensions-module">
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-dimensions-module">
             {groups.map((group) => {
                 const label = getSemanticModelDatasetLabel(group.dataset);
                 const typeName = entityRegistry.getEntityName(group.dataset.type) ?? group.dataset.type;
@@ -134,14 +130,14 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
 
                 return (
                     <DatasetGroup key={group.dataset.urn}>
-                        <ModuleEntityIconSlot>
-                            <EntityIcon entity={group.dataset} />
-                        </ModuleEntityIconSlot>
                         <GroupBody>
                             <HeaderRow>
-                                <NameLink to={datasetUrl} onClick={() => onDatasetClick(group.dataset.urn)}>
+                                <HeaderLink to={datasetUrl} onClick={() => onDatasetClick(group.dataset.urn)}>
+                                    <ModuleEntityIconSlot>
+                                        <EntityIcon entity={group.dataset} />
+                                    </ModuleEntityIconSlot>
                                     {renderHover(group.dataset, <DatasetName displayName={label} />)}
-                                </NameLink>
+                                </HeaderLink>
                                 <ModuleSecondaryText>{typeName}</ModuleSecondaryText>
                             </HeaderRow>
                             <ModulePillRow>

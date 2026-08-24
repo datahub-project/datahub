@@ -539,6 +539,16 @@ type AuthConfig {
   Whether token-based auth is enabled.
   """
   tokenAuthEnabled: Boolean!
+
+  """
+  Whether creating access tokens with no expiry is allowed.
+  """
+  allowNoExpiry: Boolean!
+
+  """
+  ISO-8601 durations that may be used when creating access tokens, in display order.
+  """
+  allowedAccessTokenDurations: [String!]!
 }
 
 """

@@ -57,7 +57,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    toast.loading(tf('updating'), { duration: 3, key: 'add-assets' });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
                         toast.success(t('assets.addedTermSuccess'), { duration: 2, key: 'add-assets' });
                         refetch?.();
@@ -92,7 +92,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDomainModalVisible(false);
-                    toast.loading(tf('updating'), { duration: 3, key: 'add-assets' });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
                         toast.success(t('assets.addedToDomainSuccess'), { duration: 3, key: 'add-assets' });
                         refetch?.();
@@ -131,7 +131,7 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    toast.loading(tf('updating'), { duration: 3, key: 'add-assets' });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
                         toast.success(t('assets.addedToDataProductSuccess'), { duration: 3, key: 'add-assets' });
                         refetch?.();

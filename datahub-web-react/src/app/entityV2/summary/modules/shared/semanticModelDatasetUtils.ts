@@ -1,7 +1,7 @@
 import { Dataset } from '@types';
 
 export function getSemanticModelDatasetDisplayName(dataset: Dataset): string {
-    return dataset.properties?.name || dataset.name || dataset.urn;
+    return dataset.editableProperties?.name || dataset.properties?.name || dataset.name || dataset.urn;
 }
 
 export function getSemanticModelDatasetDescription(dataset: Dataset): string | undefined {
@@ -22,8 +22,9 @@ export function withSemanticModelAlias(dataset: Dataset): Dataset {
 
     return {
         ...dataset,
-        properties: dataset.properties ? { ...dataset.properties, name: alias } : dataset.properties,
-        // displayName checks editableProperties.name first
+        properties: dataset.properties
+            ? { ...dataset.properties, name: alias }
+            : ({ name: alias } as Dataset['properties']),
         editableProperties: dataset.editableProperties
             ? { ...dataset.editableProperties, name: undefined }
             : dataset.editableProperties,

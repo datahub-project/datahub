@@ -22,15 +22,17 @@ const Wrapper = styled.div`
 type Props = {
     displayName: string;
     className?: string;
+    showNameTooltipIfTruncated?: boolean;
 };
 
-export default function ModuleEntityName({ displayName, className }: Props) {
+export default function ModuleEntityName({ displayName, className, showNameTooltipIfTruncated }: Props) {
     return (
         <Wrapper className={className}>
             <DisplayName
                 displayName={displayName}
                 weight={DEFAULT_NAME_STYLES?.nameWeight}
                 fontSize={DEFAULT_NAME_STYLES?.nameFontSize}
+                showNameTooltipIfTruncated={showNameTooltipIfTruncated}
             />
         </Wrapper>
     );

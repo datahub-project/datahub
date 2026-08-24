@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import {
     getCardinalityLabelKey,
     getCardinalityPillColor,
@@ -21,11 +22,10 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { Dataset, Entity, EntityType, SemanticModelRelationship } from '@types';
+import { Entity, EntityType, SemanticModelRelationship } from '@types';
 
 type EntityDataWithRelationships = {
     info?: {
-        datasets?: Dataset[] | null;
         relationships?: SemanticModelRelationship[] | null;
     } | null;
 };
@@ -55,15 +55,10 @@ const EndpointText = styled.div<{ $align: 'left' | 'right' }>`
     align-items: ${(props) => (props.$align === 'right' ? 'flex-end' : 'flex-start')};
 `;
 
+const LinkedEndpoint = styled(ModuleEntityLink)``;
+
 const EndpointName = styled(ModuleEntityName)`
-    line-height: 20px;
-
-    & span,
-    & div {
-        line-height: inherit;
-    }
-
-    ${Endpoint}:hover & {
+    ${LinkedEndpoint}:hover & {
         text-decoration: underline;
     }
 `;
@@ -81,20 +76,28 @@ type EndpointSideProps = {
     align: 'left' | 'right';
 };
 
+function withStableKeys(values: string[]): Array<{ value: string; key: string }> {
+    const counts = new Map<string, number>();
+    return values.map((value) => {
+        const occurrence = counts.get(value) ?? 0;
+        counts.set(value, occurrence + 1);
+        return {
+            value,
+            key: occurrence === 0 ? value : `${value}-${occurrence}`,
+        };
+    });
+}
+
 function RelationshipEndpoint({ datasetName, columns, source, align }: EndpointSideProps) {
     const entityRegistry = useEntityRegistryV2();
 
     const content = (
         <Endpoint $align={align}>
-            {source && (
-                <ModuleEntityIconSlot>
-                    <EntityIcon entity={source} />
-                </ModuleEntityIconSlot>
-            )}
+            <ModuleEntityIconSlot>{source ? <EntityIcon entity={source} /> : null}</ModuleEntityIconSlot>
             <EndpointText $align={align}>
-                <EndpointName displayName={datasetName} />
-                {columns.map((column) => (
-                    <ModuleSecondaryText key={column} ellipsis>
+                <EndpointName displayName={datasetName} showNameTooltipIfTruncated />
+                {withStableKeys(columns).map(({ value: column, key }) => (
+                    <ModuleSecondaryText key={key} ellipsis showTooltipIfTruncated>
                         {column}
                     </ModuleSecondaryText>
                 ))}
@@ -103,7 +106,7 @@ function RelationshipEndpoint({ datasetName, columns, source, align }: EndpointS
     );
 
     if (source?.urn && source.type === EntityType.Dataset) {
-        return <ModuleEntityLink to={entityRegistry.getEntityUrl(source.type, source.urn)}>{content}</ModuleEntityLink>;
+        return <LinkedEndpoint to={entityRegistry.getEntityUrl(source.type, source.urn)}>{content}</LinkedEndpoint>;
     }
 
     return content;
@@ -112,18 +115,16 @@ function RelationshipEndpoint({ datasetName, columns, source, align }: EndpointS
 export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
+    const { datasets, loading } = useAllSemanticModelMemberDatasets();
 
     const typedData = entityData as EntityDataWithRelationships | null;
     const relationships = typedData?.info?.relationships ?? [];
 
-    const datasetsByName = useMemo(
-        () => indexDatasetsByAliasOrName(typedData?.info?.datasets ?? []),
-        [typedData?.info?.datasets],
-    );
+    const datasetsByName = useMemo(() => indexDatasetsByAliasOrName(datasets), [datasets]);
 
-    if (!relationships.length) {
+    if (!loading && !relationships.length) {
         return (
-            <LargeModule {...props} dataTestId="semantic-model-relationships-module">
+            <LargeModule {...props} loading={loading} dataTestId="semantic-model-relationships-module">
                 <EmptyContent
                     icon={ArrowsLeftRight}
                     title={t('semanticModelRelationships.emptyTitle')}
@@ -134,7 +135,7 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="semantic-model-relationships-module">
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-relationships-module">
             {relationships.map((rel, idx) => {
                 const fromDataset = datasetsByName.get(rel.from);
                 const toDataset = datasetsByName.get(rel.to);
