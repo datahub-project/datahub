@@ -38,9 +38,10 @@ export default function handleGraphQLError({
             return;
         }
         if (errorCode === ErrorCodes.BadRequest) {
-            // Prefer the caller's override, but fall back to the server's own message (e.g. a
-            // validator plugin's rejection reason) rather than the generic defaultMessage below.
-            toast.error(badRequestMessage || graphQLErrors[0].message || defaultMessage);
+            // Non-validation 400s keep master's behavior: only caller-supplied text is shown.
+            // Verbatim server messages are gated on errorSource=VALIDATION above so arbitrary
+            // BadRequest internals never leak to the toast.
+            toast.error(badRequestMessage || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {

@@ -76,6 +76,23 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           "Failed to execute: {}",
           metadataValidationException.getValidationExceptionCollection(),
           metadataValidationException);
+      // AUTHORIZATION-subtype failures (e.g. auth validators) are permission errors, not
+      // payload-validation errors: classify as 403 without the VALIDATION marker, mirroring
+      // the OpenAPI mapping in GlobalControllerExceptionHandler. Other subtypes (including
+      // PRECONDITION, which GraphQL has no distinct status for) stay 400/VALIDATION.
+      if (metadataValidationException.getValidationExceptionCollection() != null
+          && metadataValidationException
+              .getValidationExceptionCollection()
+              .getSubTypes()
+              .contains(
+                  com.linkedin.metadata.aspect.plugins.validation.ValidationSubType
+                      .AUTHORIZATION)) {
+        return completedResult(
+            metadataValidationException.getMessage(),
+            DataHubGraphQLErrorCode.UNAUTHORIZED,
+            path,
+            sourceLocation);
+      }
       return completedResult(
           metadataValidationException.getMessage(),
           DataHubGraphQLErrorCode.BAD_REQUEST,
