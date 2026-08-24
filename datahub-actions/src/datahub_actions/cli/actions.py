@@ -172,6 +172,8 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
 
     logger.debug("Starting Actions Pipelines")
 
+    _register_shutdown_handlers()
+
     # Start each pipeline
     for p in pipelines:
         pipeline_manager.start_pipeline(p.name, p)
@@ -189,11 +191,20 @@ def version() -> None:
     click.echo(f"Python version: {sys.version}")
 
 
-# Handle shutdown signal. (ctrl-c)
+# Handle shutdown signal (ctrl-c, or a container runtime stopping the process).
 def handle_shutdown(signum: int, frame: Any) -> None:
     logger.info("Stopping all running Action Pipelines...")
     pipeline_manager.stop_all()
-    sys.exit(1)
+    # A completed graceful shutdown is a success, not a failure, to the container runtime.
+    sys.exit(0)
 
 
-signal.signal(signal.SIGINT, handle_shutdown)
+def _register_shutdown_handlers() -> None:
+    # Registered here rather than at module import time: this module is imported
+    # unconditionally by the `datahub` CLI, so import-time registration would install
+    # these handlers on every `datahub` invocation -- including ingestion subprocesses,
+    # which are themselves cancelled with SIGTERM -- not just `datahub actions run`.
+    signal.signal(signal.SIGINT, handle_shutdown)
+    # Container runtimes stop with SIGTERM; it must reach the same stop_all() path,
+    # which is what closes the event source and flushes consumer offsets.
+    signal.signal(signal.SIGTERM, handle_shutdown)
