@@ -23,7 +23,6 @@ def provide_urn_alias_resolver(
     platform: str,
     platform_instance: Optional[str],
     env: str,
-    batch_size: int = _BATCH_SIZE,
 ) -> UrnAliasResolver:
     """A graph-less resolver over one bulk-loaded region of DataHub, cached per region.
 
@@ -45,7 +44,7 @@ def provide_urn_alias_resolver(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
-                batch_size=batch_size,
+                batch_size=_BATCH_SIZE,
             ):
                 resolver.add(urn)
                 count += 1
