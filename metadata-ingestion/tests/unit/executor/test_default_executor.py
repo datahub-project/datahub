@@ -61,12 +61,10 @@ class TestSecretStoreResolution:
     def test_builtin_short_name_resolves_via_the_registry(self) -> None:
         assert isinstance(_build_store("env"), EnvironmentSecretStore)
 
-    def test_dotted_import_path_resolves_to_the_class(self) -> None:
-        assert isinstance(_build_store(_DUMMY_PATH), DummySecretStore)
-
-    def test_colon_import_path_resolves_to_the_class(self) -> None:
+    @pytest.mark.parametrize("separator", [".", ":"])
+    def test_import_path_resolves_to_the_class(self, separator: str) -> None:
         module, _, name = _DUMMY_PATH.rpartition(".")
-        assert isinstance(_build_store(f"{module}:{name}"), DummySecretStore)
+        assert isinstance(_build_store(f"{module}{separator}{name}"), DummySecretStore)
 
     def test_unknown_short_name_reports_that_no_class_is_registered(self) -> None:
         with pytest.raises(KeyError, match="Did not find a registered class"):
