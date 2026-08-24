@@ -1711,6 +1711,37 @@ def test_databricks_lineage_leaf_step_without_kind(databricks_lineage):
     assert lineage.upstreams[0].urn == _DATABRICKS_EXPECTED_URN
 
 
+def test_databricks_lineage_middle_step_without_kind(databricks_lineage):
+    """Kind may be absent on a step in the middle of the chain, not just the leaf.
+    The schema step here carries only Name, so it takes Schema -- the first level
+    the catalog step has not already filled."""
+    table_accessor = IdentifierAccessor(
+        identifier="my_table", items={"Name": "my_table", "Kind": "Table"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="my_schema",
+        items={"Name": "my_schema"},
+        next=table_accessor,
+    )
+    database_accessor = IdentifierAccessor(
+        identifier="my_catalog",
+        items={"Name": "my_catalog", "Kind": "Database"},
+        next=schema_accessor,
+    )
+
+    lineage = databricks_lineage.create_lineage(
+        DataAccessFunctionDetail(
+            arg_list=_databricks_arg_list(),
+            data_access_function_name="Databricks.Catalogs",
+            identifier_accessor=database_accessor,
+            node_map={},
+        )
+    )
+
+    assert len(lineage.upstreams) == 1
+    assert lineage.upstreams[0].urn == _DATABRICKS_EXPECTED_URN
+
+
 def test_databricks_lineage_step_without_kind_or_name_warns(databricks_lineage):
     """A navigation step carrying neither Kind nor Name is reported as a warning
     rather than aborting the whole table with a bare KeyError."""
