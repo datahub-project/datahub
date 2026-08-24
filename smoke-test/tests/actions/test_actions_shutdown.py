@@ -31,24 +31,46 @@ pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)
 # instead.
 
 
+# A wedged daemon or container must fail this test, not hang the whole smoke phase.
+DOCKER_TIMEOUT_SEC = 30
+
+
 def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["docker", *args], capture_output=True, text=True, check=check
-    )
+    try:
+        return subprocess.run(
+            ["docker", *args],
+            capture_output=True,
+            text=True,
+            check=check,
+            timeout=DOCKER_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.fail(
+            f"`docker {' '.join(args)}` did not return within {DOCKER_TIMEOUT_SEC}s"
+        )
 
 
-def _infer_actions_container() -> str:
-    completed = subprocess.run(
-        "docker ps --format '{{.Names}}' | grep actions",
-        capture_output=True,
-        shell=True,
-        text=True,
-        check=False,
+def _actions_container() -> str:
+    """Resolve the actions container by its compose service label.
+
+    Matching on the container name would also select anything else whose name merely
+    contains "actions"; the compose service label is set only by the stack itself.
+    """
+    result = _docker(
+        "ps", "--format", '{{.Label "com.docker.compose.service"}}\t{{.Names}}'
     )
-    lines = str(completed.stdout).splitlines()
-    if not lines:
+    names = [
+        line.split("\t", 1)[1]
+        for line in result.stdout.splitlines()
+        if "\t" in line and line.split("\t", 1)[0].startswith("datahub-actions")
+    ]
+    if not names:
         pytest.skip("No datahub-actions container running in this environment")
-    return lines[0]
+    assert len(names) == 1, (
+        f"expected exactly one datahub-actions container, found {names}; "
+        "refusing to guess which one to inspect"
+    )
+    return names[0]
 
 
 @pytest.mark.integration
@@ -60,7 +82,7 @@ def test_actions_entrypoint_execs_so_python_is_pid_1() -> None:
     running stop_all(). Reads /proc/1/cmdline rather than shelling out to ps, which is not
     present in the slim image.
     """
-    container = _infer_actions_container()
+    container = _actions_container()
 
     # /proc/1/cmdline is NUL-separated; tr makes it greppable.
     result = _docker(
