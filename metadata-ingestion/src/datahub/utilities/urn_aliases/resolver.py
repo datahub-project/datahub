@@ -101,6 +101,10 @@ class UrnAliasResolver:
         """The dataset URN DataHub stores for `urn`, or None if nothing settles it."""
         return pick_match(urn, self.find_match(urn))
 
+    def urn_count(self) -> int:
+        """How many names are held; one key answers for every casing of a name."""
+        return len(self._urns_by_key)
+
     def close(self) -> None:
         self._urns_by_key.close()
 

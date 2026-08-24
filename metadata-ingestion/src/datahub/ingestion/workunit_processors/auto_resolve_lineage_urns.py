@@ -460,6 +460,15 @@ class AutoResolveLineageUrnsProcessor(
                 self._alias_resolvers.setdefault(entry.platform, []).append(
                     alias_resolver
                 )
+                if entry.platform_instance and alias_resolver.urn_count() == 0:
+                    self.ctx.source_report.warning(
+                        title="Lineage URN casing: no upstream URNs loaded",
+                        message="Preloaded no URNs, so every reference is looked up "
+                        "individually. The platform_instance filter matches the "
+                        "dataPlatformInstance aspect, which some connectors never emit; "
+                        "drop platform_instance to preload the platform whole.",
+                        context=scope,
+                    )
 
             try:
                 schema_resolver = self._provide_schema_resolver(

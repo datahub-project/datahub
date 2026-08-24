@@ -62,16 +62,6 @@ def provide_urn_alias_resolver(
         )
         resolver.close()
         return None
-
-    if count == 0 and platform_instance:
-        # The instance filter matches the `dataPlatformInstance` aspect, which a connector
-        # may never emit even with the instance in the URN. Every reference then misses and
-        # is asked of DataHub, which is correct but costs a query each.
-        logger.warning(
-            f"Loaded 0 URNs for {scope}. If this platform instance does hold datasets, its "
-            "connector likely does not emit the dataPlatformInstance aspect the filter "
-            "matches; drop platform_instance to load it."
-        )
     return resolver
 
 

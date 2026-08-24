@@ -1741,6 +1741,32 @@ def test_a_sibling_instance_does_not_answer_for_the_one_referenced():
     graph.get_dataset_urns_ignoring_case.assert_called_once()
 
 
+def test_an_empty_instance_filtered_preload_is_reported():
+    # A scroll that finished holding nothing is not a failed load, so it is not reported as
+    # one — but the usual cause is a connector that never emitted dataPlatformInstance, in
+    # which case every reference is asked one at a time. The operator has to see that.
+    cfg = AutoResolveLineageUrnsConfig(
+        enabled=True,
+        upstream_platforms=[
+            UpstreamPlatformCasing(
+                platform="snowflake", platform_instance=_MY_INSTANCE, env="PROD"
+            )
+        ],
+    )
+    processor, _graph, patcher = _processor_for(
+        cfg, _resolver({}), [], [("snowflake", _MY_INSTANCE, "PROD")]
+    )
+    patcher.stop()
+
+    titles = {
+        c.kwargs["title"]
+        for c in cast(
+            mock.MagicMock, processor.ctx.source_report
+        ).warning.call_args_list
+    }
+    assert "Lineage URN casing: no upstream URNs loaded" in titles
+
+
 def test_a_platform_wide_preload_answers_for_every_instance_locally():
     # The same reference, when the slice that was read does contain it: no instance filter
     # narrowed the scroll, so it enumerated every instance and a miss would be a fact.

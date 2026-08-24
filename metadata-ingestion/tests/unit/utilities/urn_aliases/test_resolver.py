@@ -242,15 +242,13 @@ def test_an_unfiltered_load_holds_every_instance() -> None:
     assert resolver.resolve(_IN_B_UPPER) == _IN_B
 
 
-def test_an_empty_instance_filtered_load_still_loads_and_says_so(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_an_empty_instance_filtered_load_still_loads() -> None:
     # The instance filter matches the dataPlatformInstance aspect a connector may never
-    # emit. Every reference then misses and is asked, which is correct but worth a log.
+    # emit. An empty load is a load, not a failure; the caller reports the emptiness.
     resolver = _load(_server(), instance="inst_a")
 
     assert resolver is not None
-    assert any("Loaded 0 URNs" in r.message for r in caplog.records)
+    assert resolver.urn_count() == 0
 
 
 # --- the gate on the whole feature -----------------------------------------------------
