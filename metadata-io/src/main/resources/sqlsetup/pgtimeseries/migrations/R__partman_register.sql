@@ -20,8 +20,7 @@ BEGIN
   WHERE e.extname = 'pg_partman';
 
   IF partman_schema IS NULL THEN
-    RAISE NOTICE 'pg_partman is not installed; skipping partition registration for pgTimeseries aspect table';
-    RETURN;
+    RAISE EXCEPTION 'pg_partman is required for pgTimeseries partition registration';
   END IF;
 
   IF to_regclass(parent_qual) IS NULL THEN
