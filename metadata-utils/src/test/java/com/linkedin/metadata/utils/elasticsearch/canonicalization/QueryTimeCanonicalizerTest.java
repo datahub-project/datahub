@@ -286,6 +286,9 @@ public class QueryTimeCanonicalizerTest {
     assertEquals(canonicalizer(1, "DAYS").getBucketMillis(), 24 * HOUR);
     // Omitting the unit means SECONDS, per ParseUtils.
     assertEquals(canonicalizer(30, null).getBucketMillis(), 30_000L);
+    // A sub-millisecond unit is fine as long as it lands on a whole millisecond: the restriction is
+    // on truncation, not on the unit itself.
+    assertEquals(canonicalizer(2_000_000, "NANOSECONDS").getBucketMillis(), 2L);
   }
 
   @Test
@@ -303,6 +306,10 @@ public class QueryTimeCanonicalizerTest {
           {Integer.MAX_VALUE, "DAYS", "UTC", "EXPAND"},
           {5, "MINUTES", "Mars/Olympus", "EXPAND"},
           {5, "MINUTES", "UTC", "SIDEWAYS"},
+          // Sub-millisecond buckets would truncate against a millisecond-precision clock: 1500us
+          // would become 1ms, and 1ns would become 0. Both must disable rather than round.
+          {1500, "MICROSECONDS", "UTC", "EXPAND"},
+          {1, "NANOSECONDS", "UTC", "EXPAND"},
         }) {
       final QueryTimeCanonicalizer c =
           canonicalizer((int) bad[0], (String) bad[1], (String) bad[2], (String) bad[3], null);
