@@ -1,13 +1,17 @@
 import json
 import logging
+import warnings
 from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
+from requests.exceptions import HTTPError
 
+from datahub.configuration.common import ConfigurationWarning, GraphError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql_queries import (
+    MIN_SAMPLE_FOR_FAILURE_RATIO,
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
@@ -19,14 +23,13 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 # ── Shared fixtures ──────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def mock_graph():
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-
     mock_graph = Mock(spec=DataHubGraph)
 
     def mock_make_schema_resolver(platform, platform_instance, env, include_graph=True):
@@ -498,10 +501,6 @@ class TestSqlQueriesSourceConfig:
         assert config.incremental_lineage is True
 
     def test_enable_lazy_schema_loading_removed_gracefully(self):
-        import warnings
-
-        from datahub.configuration.common import ConfigurationWarning
-
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             config = SqlQueriesSourceConfig.model_validate(
@@ -681,29 +680,6 @@ class TestErrorHandling:
             f.title == "All entries failed to parse" for f in source.report.failures
         )
 
-    def test_high_aggregator_failure_ratio_reports_failure(
-        self, pipeline_context, query_file_with
-    ):
-        """When >80% of observed queries fail inside the aggregator (e.g. due to
-        expired credentials swallowed by schema resolution), report a failure."""
-        path = query_file_with([_query_line(i) for i in range(10)])
-        source = _make_source(pipeline_context, path)
-
-        agg_report = source.aggregator.report
-        original_add = source.aggregator.add_observed_query
-
-        def mock_add(observed, **kwargs):
-            original_add(observed, **kwargs)
-            agg_report.num_observed_queries_failed += 1
-
-        source.aggregator.add_observed_query = mock_add
-
-        list(source.get_workunits_internal())
-
-        assert any(
-            f.title == "Most queries failed SQL parsing" for f in source.report.failures
-        )
-
     def test_consecutive_failures_trigger_abort(
         self, pipeline_context, query_file_with
     ):
@@ -762,18 +738,19 @@ class TestErrorHandling:
 
     def test_systemic_error_aborts_immediately(self, pipeline_context, query_file_with):
         """If a systemic error propagates through add_observed_query, abort immediately."""
-        from datahub.configuration.common import GraphError
-
         path = query_file_with([_query_line(i) for i in range(10)])
         source = _make_source(pipeline_context, path)
         source.aggregator.add_observed_query = Mock(
             side_effect=GraphError("Token expired")
         )
 
-        list(source.get_workunits_internal())
+        work_units = list(source.get_workunits_internal())
 
         assert any(f.title == "Systemic error" for f in source.report.failures)
-        assert source.report.num_queries_processed_sequential == 0
+        assert source.report.num_queries_processed == 0
+        # Aborting must emit nothing: with incremental_lineage off, partial
+        # output would overwrite good lineage with worse.
+        assert work_units == []
 
     def test_schema_resolver_auth_failure_detected(
         self, pipeline_context, query_file_with
@@ -784,8 +761,6 @@ class TestErrorHandling:
         schema_resolver catches it, caches URNs as None, and increments
         num_graph_fetch_errors. Queries parse "successfully" but without schemas.
         """
-        from requests.exceptions import HTTPError
-
         path = query_file_with([_query_line(i) for i in range(5)])
         source = _make_source(pipeline_context, path)
 
@@ -798,6 +773,82 @@ class TestErrorHandling:
         assert source.report.schema_resolver_report.num_graph_fetch_errors > 0
         assert any(
             f.title == "Schema resolution failed" for f in source.report.failures
+        )
+
+    def test_schema_resolver_partial_failure_warns(
+        self, pipeline_context, query_file_with
+    ):
+        """A token that expires mid-run must not produce a clean report.
+
+        The ratio stays under the failure threshold, so this is a warning rather
+        than a failure — but lineage for the affected tables is missing and the
+        operator has to be told.
+        """
+        path = query_file_with([_query_line(i) for i in range(20)])
+        source = _make_source(pipeline_context, path)
+
+        calls = {"n": 0}
+
+        def fail_near_the_end(*args, **kwargs):
+            calls["n"] += 1
+            # Keep the error ratio under failure_ratio_threshold so this covers
+            # the warning branch rather than the failure branch.
+            if calls["n"] > 15:
+                raise HTTPError("401 Unauthorized")
+            return {}
+
+        pipeline_context.graph.get_entities = Mock(side_effect=fail_near_the_end)
+
+        work_units = list(source.get_workunits_internal())
+
+        resolver_report = source.report.schema_resolver_report
+        assert resolver_report.num_graph_fetch_errors > 0
+        assert resolver_report.num_graph_fetch_success > 0
+        assert any(
+            w.title == "Some schema lookups failed" for w in source.report.warnings
+        )
+        assert not source.report.failures
+        # Below the threshold the run is still usable, so it must still emit.
+        assert work_units
+
+    def test_schema_lookups_finding_nothing_is_not_a_failure(
+        self, pipeline_context, query_file_with
+    ):
+        """Tables absent from DataHub is the normal first-run case, not an error.
+
+        Guards against a regression where the denominator counts cache misses:
+        a fetch that succeeds but finds nothing must never be read as a failure.
+        It does warrant a distinct warning, since it usually means the recipe's
+        platform/platform_instance/env don't match how the tables were ingested.
+        """
+        path = query_file_with([_query_line(i) for i in range(20)])
+        source = _make_source(pipeline_context, path)
+
+        pipeline_context.graph.get_entities = Mock(return_value={})
+
+        work_units = list(source.get_workunits_internal())
+
+        assert source.report.schema_resolver_report.num_graph_fetch_errors == 0
+        assert not source.report.failures
+        assert any(w.title == "No schemas resolved" for w in source.report.warnings)
+        assert work_units
+
+    def test_single_parse_failure_below_min_sample_is_not_a_failure(
+        self, pipeline_context, query_file_with
+    ):
+        """One unparseable query in a small file is a warning, not a systemic failure."""
+        path = query_file_with(
+            [
+                _query_line(0),
+                json.dumps({"query": "}{ not sql", "timestamp": 1640995200}),
+            ]
+        )
+        source = _make_source(pipeline_context, path)
+
+        list(source.get_workunits_internal())
+
+        assert not any(
+            f.title == "Most queries failed SQL parsing" for f in source.report.failures
         )
 
     def test_file_not_found_reports_failure(self, pipeline_context):
@@ -902,32 +953,43 @@ class TestErrorHandling:
             == 3
         )
 
-    def test_all_aggregator_failures_under_threshold(
+    def test_unparseable_queries_report_failure(
         self, pipeline_context, query_file_with
     ):
-        """3 entries, all fail aggregation (< threshold of 5) — pipeline should
-        still report failure via the aggregator failure ratio check."""
-        path = query_file_with([_query_line(i) for i in range(3)])
+        """Enough genuinely unparseable SQL trips the parse-failure ratio.
+
+        Uses real garbage SQL rather than hand-incrementing the aggregator's
+        counter, so this also covers the aggregator's own failure accounting.
+        """
+        garbage = [
+            "!!! this is not sql at all %%%",
+            "SELECT FROM FROM WHERE",
+            "}{ garbage",
+        ]
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": garbage[i % len(garbage)],
+                        "timestamp": 1640995200 + i,
+                        "user": "test_user",
+                    }
+                )
+                for i in range(MIN_SAMPLE_FOR_FAILURE_RATIO + 5)
+            ]
+        )
         source = _make_source(pipeline_context, path)
-
-        agg_report = source.aggregator.report
-        original_add = source.aggregator.add_observed_query
-
-        def mock_add(observed, **kwargs):
-            original_add(observed, **kwargs)
-            agg_report.num_observed_queries_failed += 1
-
-        source.aggregator.add_observed_query = mock_add
 
         list(source.get_workunits_internal())
 
+        assert source.aggregator.report.num_observed_queries_failed > 0
         assert any(
             f.title == "Most queries failed SQL parsing" for f in source.report.failures
         )
 
     def test_all_queries_throw_under_threshold(self, pipeline_context, query_file_with):
         """3 entries, all throw exceptions from add_observed_query (< threshold of 5).
-        Pipeline should still report failure because num_queries_processed_sequential == 0."""
+        Pipeline should still report failure because num_queries_processed == 0."""
         path = query_file_with([_query_line(i) for i in range(3)])
         source = _make_source(pipeline_context, path)
         source.aggregator.add_observed_query = Mock(
@@ -939,5 +1001,5 @@ class TestErrorHandling:
         assert any(
             f.title == "All queries failed aggregation" for f in source.report.failures
         )
-        assert source.report.num_queries_processed_sequential == 0
+        assert source.report.num_queries_processed == 0
         assert source.report.num_queries_aggregator_failures == 3

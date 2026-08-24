@@ -37,9 +37,11 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
-    # Graph fetches that errored out (auth, connectivity, timeout) rather than
-    # simply not finding the table. Compare against num_schema_cache_hits to
-    # distinguish "credentials are broken" from "these tables aren't in DataHub".
+    # Batch graph fetches that completed vs. errored out (auth, connectivity,
+    # timeout). Both count whole batch calls, so their ratio distinguishes "the
+    # graph is unreachable" from "these tables just aren't in DataHub yet" — a
+    # successful fetch that returns nothing is the latter, not a failure.
+    num_graph_fetch_success: int = 0
     num_graph_fetch_errors: int = 0
 
 
@@ -215,6 +217,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                                     schema_metadata = aspect_value
 
                         self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+                    if self.report:
+                        self.report.num_graph_fetch_success += 1
 
                 except (
                     TimeoutError,

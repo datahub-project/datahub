@@ -69,13 +69,22 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD = 5
 
-AGGREGATOR_FAILURE_RATIO_THRESHOLD = 0.8
+DEFAULT_FAILURE_RATIO_THRESHOLD = 0.8
 
-# Listed explicitly for readability even though several are OSError subclasses.
+# Below this many samples a failure ratio is noise: one bad query out of three
+# is not evidence of a systemic problem.
+MIN_SAMPLE_FOR_FAILURE_RATIO = 20
+
+# Query text is unbounded and routinely contains literals, so cap what we copy
+# into report context — the report is persisted in DataHub.
+_MAX_QUERY_CONTEXT_CHARS = 200
+
+# Deliberately excludes bare OSError: requests.exceptions.RequestException
+# subclasses it, so including it would treat a single HTTP 400 from one bad
+# query as systemic and discard the whole run.
 _SYSTEMIC_ERRORS = (
     GraphError,
     ConnectionError,
-    OSError,
     TimeoutError,
     requests.exceptions.ConnectionError,
     requests.exceptions.Timeout,
@@ -128,6 +137,16 @@ class SqlQueriesSourceConfig(
         "Set to 0 to disable.",
     )
 
+    failure_ratio_threshold: float = Field(
+        default=DEFAULT_FAILURE_RATIO_THRESHOLD,
+        gt=0.0,
+        le=1.0,
+        description="Fail the ingestion when at least this fraction of queries fail SQL parsing, "
+        "or this fraction of schema lookups cannot reach DataHub. Raise it to tolerate "
+        f"a noisier input. Ratios are only applied once at least {MIN_SAMPLE_FOR_FAILURE_RATIO} "
+        "samples have been seen.",
+    )
+
     # AWS/S3 configuration
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None,
@@ -170,8 +189,9 @@ class SqlQueriesSourceReport(SourceReport):
     num_entries_processed: int = 0
     num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0
-    num_queries_processed_sequential: int = 0
-    num_temp_tables_detected: int = 0
+    num_queries_processed: int = 0
+    num_invalid_table_entries: int = 0
+    num_temp_table_matches: int = 0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
     schema_resolver_report: Optional[SchemaResolverReport] = None
@@ -274,10 +294,10 @@ class SqlQueriesSource(Source):
                 try:
                     self._add_query_to_aggregator(entry)
                     consecutive_failures = 0
-                    self.report.num_queries_processed_sequential += 1
-                    if self.report.num_queries_processed_sequential % 1000 == 0:
+                    self.report.num_queries_processed += 1
+                    if self.report.num_queries_processed % 1000 == 0:
                         logger.info(
-                            f"Processed {self.report.num_queries_processed_sequential} queries"
+                            f"Processed {self.report.num_queries_processed} queries"
                         )
                 except (MemoryError, SystemExit, KeyboardInterrupt):
                     raise
@@ -296,7 +316,7 @@ class SqlQueriesSource(Source):
                     self.report.warning(
                         title="Error adding query to aggregator",
                         message="Query skipped due to failure when adding query to SQL parsing aggregator",
-                        context=entry.query,
+                        context=entry.query[:_MAX_QUERY_CONTEXT_CHARS],
                         exc=e,
                     )
                     if (
@@ -312,95 +332,166 @@ class SqlQueriesSource(Source):
                         )
                         return
 
-        self._check_post_loop_health()
+        if not self._check_post_loop_health():
+            # Emitting now would be actively harmful: incremental_lineage is off
+            # by default, so partial lineage REPLACES what is already in DataHub.
+            # A run that failed systemically must leave existing lineage alone.
+            logger.error(
+                "Aborting before emit: systemic failure detected, and emitting "
+                "partial results would overwrite good lineage in DataHub"
+            )
+            return
 
         with self.report.new_stage("Generating metadata work units"):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
 
-    def _check_post_loop_health(self) -> None:
-        """Check aggregator health after the processing loop.
+    def _check_post_loop_health(self) -> bool:
+        """Report on aggregator and schema-resolver health after the processing loop.
 
-        Handles three cases:
-        - Empty file (no entries parsed, no failures) → warning
-        - All entries malformed (no entries parsed, some failures) → failure
-        - Entries parsed but most failed inside the aggregator → failure
+        Returns False when the run is too broken to emit. Every check runs — a
+        symptom firing must not hide its root cause, since the aggregator and
+        schema-resolver ratios are usually two views of the same failure.
         """
-        if (
-            self.report.num_entries_processed == 0
-            and self.report.num_entries_failed == 0
-        ):
+        if self.report.num_entries_processed == 0:
+            if self.report.num_entries_failed > 0:
+                self.report.failure(
+                    title="All entries failed to parse",
+                    message="Every entry in the input file failed to parse — "
+                    "check the file format (expected newline-delimited JSON)",
+                    context=f"{self.report.num_entries_failed} entries failed",
+                )
+                return False
+
             self.report.warning(
                 title="Empty input",
                 message="No query entries found in input file",
                 context=self.config.query_file,
             )
-            return
+            return True
 
+        healthy = self._check_entry_parse_health()
+        healthy &= self._check_aggregator_health()
+        healthy &= self._check_sql_parsing_health()
+        healthy &= self._check_schema_resolver_health()
+        return healthy
+
+    def _check_entry_parse_health(self) -> bool:
+        failed = self.report.num_entries_failed
+        total = failed + self.report.num_entries_processed
+        if total < MIN_SAMPLE_FOR_FAILURE_RATIO or not failed:
+            return True
+
+        ratio = failed / total
+        if ratio < self.config.failure_ratio_threshold:
+            return True
+
+        self.report.failure(
+            title="Most entries failed to parse",
+            message="A high proportion of input lines were not valid query entries — "
+            "check that the file is newline-delimited JSON with the expected fields",
+            context=f"{failed}/{total} entries failed ({ratio:.0%})",
+        )
+        return False
+
+    def _check_aggregator_health(self) -> bool:
         if (
-            self.report.num_entries_processed == 0
-            and self.report.num_entries_failed > 0
+            self.report.num_queries_aggregator_failures == 0
+            or self.report.num_queries_processed > 0
         ):
-            self.report.failure(
-                title="All entries failed to parse",
-                message="Every entry in the input file failed to parse — "
-                "check the file format (expected newline-delimited JSON)",
-                context=f"{self.report.num_entries_failed} entries failed",
-            )
-            return
+            return True
 
-        if (
-            self.report.num_queries_aggregator_failures > 0
-            and self.report.num_queries_processed_sequential == 0
-        ):
-            self.report.failure(
-                title="All queries failed aggregation",
-                message="Every query failed during aggregation — "
-                "likely a systemic issue (auth, connectivity, config)",
-                context=f"{self.report.num_queries_aggregator_failures} failures",
-            )
-            return
+        self.report.failure(
+            title="All queries failed aggregation",
+            message="Every query failed during aggregation — "
+            "likely a systemic issue (auth, connectivity, config)",
+            context=f"{self.report.num_queries_aggregator_failures} failures",
+        )
+        return False
 
+    def _check_sql_parsing_health(self) -> bool:
         agg_report = self.aggregator.report
-        total_observed = agg_report.num_observed_queries
-        failed_observed = agg_report.num_observed_queries_failed
-        if total_observed > 0:
-            failure_ratio = failed_observed / total_observed
-            if failure_ratio >= AGGREGATOR_FAILURE_RATIO_THRESHOLD:
-                self.report.failure(
-                    title="Most queries failed SQL parsing",
-                    message="A high proportion of queries failed during SQL parsing — "
-                    "likely a systemic issue such as expired credentials or "
-                    "unreachable schema resolver",
-                    context=f"{failed_observed}/{total_observed} queries failed ({failure_ratio:.0%})",
-                )
-                return
+        total = agg_report.num_observed_queries
+        failed = agg_report.num_observed_queries_failed
+        # Require a minimum sample: in a handful of queries, one unparseable
+        # statement is a per-query warning, not a systemic failure.
+        if total < MIN_SAMPLE_FOR_FAILURE_RATIO or not failed:
+            return True
 
-        if self.report.schema_resolver_report:
-            resolver_report = self.report.schema_resolver_report
-            graph_errors = resolver_report.num_graph_fetch_errors
-            successful = resolver_report.num_schema_cache_hits
-            attempts = graph_errors + successful
-            # Compare errors against successful fetches, not cache misses: a miss
-            # also covers "table genuinely isn't in DataHub", which is not a failure.
-            if attempts > 0:
-                error_ratio = graph_errors / attempts
-                if error_ratio >= AGGREGATOR_FAILURE_RATIO_THRESHOLD:
-                    self.report.failure(
-                        title="Schema resolution failed",
-                        message="Most schema lookups failed to reach DataHub — "
-                        "likely expired credentials or an unreachable graph. "
-                        "Lineage will be incomplete.",
-                        context=f"{graph_errors}/{attempts} schema fetches errored ({error_ratio:.0%})",
-                    )
+        ratio = failed / total
+        if ratio < self.config.failure_ratio_threshold:
+            return True
+
+        self.report.failure(
+            title="Most queries failed SQL parsing",
+            message="A high proportion of queries failed during SQL parsing — "
+            "likely a systemic issue such as expired credentials or "
+            "an unreachable schema resolver",
+            context=f"{failed}/{total} queries failed ({ratio:.0%})",
+        )
+        return False
+
+    def _check_schema_resolver_health(self) -> bool:
+        resolver_report = self.report.schema_resolver_report
+        if not resolver_report:
+            return True
+
+        errored = resolver_report.num_graph_fetch_errors
+        resolved = resolver_report.num_schema_cache_hits
+        misses = resolver_report.num_schema_cache_misses
+
+        # Every lookup missed and none errored: the graph answered, it just had
+        # nothing. Usually a platform/platform_instance/env mismatch in the
+        # recipe rather than a broken connection, so it needs its own message.
+        if not errored and misses and not resolved:
+            self.report.warning(
+                title="No schemas resolved",
+                message="No table schema was found in DataHub, so column-level lineage "
+                "will be empty. Verify that platform, platform_instance and env "
+                "match how these tables were ingested, and that the token's actor "
+                "can read them.",
+                context=f"{misses} lookups, 0 resolved",
+            )
+            return True
+
+        if not errored:
+            return True
+
+        # Both counters track whole batch calls, so this ratio is meaningful. A
+        # fetch that succeeds but finds nothing is "not in DataHub yet", which is
+        # normal for a first run and must not be mistaken for a failure.
+        attempted = errored + resolver_report.num_graph_fetch_success
+        ratio = errored / attempted
+        context = f"{errored}/{attempted} schema fetches errored ({ratio:.0%})"
+
+        if ratio >= self.config.failure_ratio_threshold:
+            self.report.failure(
+                title="Schema resolution failed",
+                message="Most schema lookups could not reach DataHub — "
+                "likely expired credentials or an unreachable graph. "
+                "Lineage and column-level lineage will be incomplete.",
+                context=context,
+            )
+            return False
+
+        # Below the threshold this is not fatal, but any fetch error means some
+        # lineage is silently missing — never let that pass unreported.
+        self.report.warning(
+            title="Some schema lookups failed",
+            message="Some schema lookups could not reach DataHub, so lineage "
+            "for the affected tables will be incomplete",
+            context=context,
+        )
+        return True
 
     def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
         """Parse query file from S3 using smart_open."""
         logger.info(f"Reading query file from S3: {self.config.query_file}")
 
+        # Guaranteed by validate_s3_config; narrows the Optional for mypy.
+        assert self.config.aws_config is not None
+
         try:
-            if self.config.aws_config is None:
-                raise ValueError("aws_config must be set for S3 URIs")
             s3_client = self.config.aws_config.get_s3_client()
             file_stream_ctx = smart_open.open(
                 self.config.query_file, mode="r", transport_params={"client": s3_client}
@@ -450,16 +541,30 @@ class SqlQueriesSource(Source):
                 continue
             try:
                 query_dict = json.loads(stripped, strict=False)
-                entry = QueryEntry.create(query_dict, config=self.config)
-            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                entry = QueryEntry.create(
+                    query_dict, config=self.config, report=self.report
+                )
+            except (MemoryError, SystemExit, KeyboardInterrupt):
+                raise
+            except Exception as e:
+                # Deliberately broad: this is a per-row parser, and one bad row
+                # must never abort the run. Narrowing it to ValueError misses
+                # InvalidUrnError (a plain Exception), which a blank "user"
+                # field raises — common in exported query logs.
                 self.report.num_entries_failed += 1
                 self.report.warning(
                     title="Error processing query entry",
                     message="Query skipped due to parsing error",
-                    context=stripped,
+                    context=stripped[:_MAX_QUERY_CONTEXT_CHARS],
                     exc=e,
                     log=False,
                 )
+                if self.report.num_entries_failed % 1000 == 0:
+                    # Warnings are sampled, so without this the true volume of a
+                    # systematically-malformed file never reaches the log.
+                    logger.warning(
+                        f"{self.report.num_entries_failed} query entries have failed to parse"
+                    )
                 continue
             self.report.num_entries_processed += 1
             if self.report.num_entries_processed % 1000 == 0:
@@ -522,7 +627,7 @@ class SqlQueriesSource(Source):
                 logger.debug(
                     f"Table '{name}' matched temp table pattern: {compiled.pattern}"
                 )
-                self.report.num_temp_tables_detected += 1
+                self.report.num_temp_table_matches += 1
                 return True
 
         return False
@@ -557,7 +662,9 @@ class QueryEntry(BaseModel):
         if not v:
             return []
 
-        config: Optional[SqlQueriesSourceConfig] = (info.context or {}).get("config")
+        context = info.context or {}
+        config: Optional[SqlQueriesSourceConfig] = context.get("config")
+        report: Optional[SqlQueriesSourceReport] = context.get("report")
 
         result: List[DatasetUrn] = []
         for item in v:
@@ -577,6 +684,15 @@ class QueryEntry(BaseModel):
                         env=config.env,
                     )
                     result.append(DatasetUrn.from_string(urn_string))
+            elif report is not None:
+                # Dropping a lineage hint silently would hide missing lineage,
+                # so surface it in the report rather than only the log.
+                report.num_invalid_table_entries += 1
+                report.warning(
+                    title="Invalid table entry",
+                    message="Ignoring malformed table reference in lineage hints",
+                    context=f"type={type(item).__name__}, value={item!r}",
+                )
             else:
                 logger.warning(
                     f"Ignoring invalid table entry of type {type(item).__name__}: {item!r}"
@@ -586,7 +702,13 @@ class QueryEntry(BaseModel):
 
     @classmethod
     def create(
-        cls, entry_dict: Dict[str, Any], *, config: SqlQueriesSourceConfig
+        cls,
+        entry_dict: Dict[str, Any],
+        *,
+        config: SqlQueriesSourceConfig,
+        report: Optional[SqlQueriesSourceReport] = None,
     ) -> "QueryEntry":
         """Create QueryEntry from dict with config context."""
-        return cls.model_validate(entry_dict, context={"config": config})
+        return cls.model_validate(
+            entry_dict, context={"config": config, "report": report}
+        )

@@ -112,7 +112,7 @@ class TestTemporaryTableSupport:
         source = SqlQueriesSource.__new__(SqlQueriesSource)
         source.config = config
         source.report = Mock()
-        source.report.num_temp_tables_detected = 0
+        source.report.num_temp_table_matches = 0
         source.ctx = Mock()  # Add ctx attribute
 
         assert source.is_temp_table("temp_table") is False
@@ -128,7 +128,7 @@ class TestTemporaryTableSupport:
         source = SqlQueriesSource.__new__(SqlQueriesSource)
         source.config = config
         source.report = Mock()
-        source.report.num_temp_tables_detected = 0
+        source.report.num_temp_table_matches = 0
         source.ctx = Mock()  # Add ctx attribute
 
         # Test matching patterns
@@ -161,11 +161,11 @@ class TestTemporaryTableSupport:
         source = SqlQueriesSource.__new__(SqlQueriesSource)
         source.config = config
         source.report = Mock()
-        source.report.num_temp_tables_detected = 0
+        source.report.num_temp_table_matches = 0
         source.ctx = Mock()  # Add ctx attribute
 
         # Initial count should be 0
-        assert source.report.num_temp_tables_detected == 0
+        assert source.report.num_temp_table_matches == 0
 
         # Test temp table detection
         source.is_temp_table("temp_table1")
@@ -173,7 +173,7 @@ class TestTemporaryTableSupport:
         source.is_temp_table("regular_table")
 
         # Should count only the temp tables
-        assert source.report.num_temp_tables_detected == 2
+        assert source.report.num_temp_table_matches == 2
 
     def test_temp_table_patterns_tracking(self):
         """Test that temp table patterns are stored in config."""
@@ -337,64 +337,6 @@ class TestTemporaryTableSupport:
         # Pattern matching should catch tables matching the configured patterns
 
 
-class TestEnhancedReporting:
-    """Test enhanced reporting features."""
-
-    def test_schema_cache_tracking(self):
-        """Test schema cache hit/miss tracking."""
-        from datahub.sql_parsing.schema_resolver import (
-            SchemaResolverReport,
-        )
-
-        # Create a schema resolver report instance
-        schema_report = SchemaResolverReport()
-
-        # Initial counts should be 0
-        assert schema_report.num_schema_cache_hits == 0
-        assert schema_report.num_schema_cache_misses == 0
-
-        # Test with mock schema resolver
-        mock_schema_resolver = Mock()
-        mock_schema_resolver._schema_cache = {"urn1": "schema1"}
-        mock_schema_resolver.get_urn_for_table.return_value = "urn1"
-        mock_schema_resolver.resolve_table.return_value = "schema1"
-        mock_schema_resolver.report = schema_report
-
-        # Test tracking methods directly by calling them on the actual report
-        # since the mock methods don't actually call the tracking methods
-        schema_report.num_schema_cache_hits += 1
-        assert schema_report.num_schema_cache_hits == 1
-        assert schema_report.num_schema_cache_misses == 0
-
-        schema_report.num_schema_cache_misses += 1
-        assert schema_report.num_schema_cache_hits == 1
-        assert schema_report.num_schema_cache_misses == 1
-
-    def test_query_processing_counting(self):
-        """Test query processing counting."""
-        from datahub.ingestion.source.sql_queries import SqlQueriesSourceReport
-
-        # Create a report instance directly
-        report = SqlQueriesSourceReport()
-
-        # Initial counts should be 0
-        assert report.num_queries_processed_sequential == 0
-
-        # Simulate query processing
-        report.num_queries_processed_sequential += 5
-        assert report.num_queries_processed_sequential == 5
-
-    def test_temp_tables_detected_tracking(self):
-        """Test temp table detection counter."""
-        from datahub.ingestion.source.sql_queries import SqlQueriesSourceReport
-
-        report = SqlQueriesSourceReport()
-        assert report.num_temp_tables_detected == 0
-
-        report.num_temp_tables_detected += 3
-        assert report.num_temp_tables_detected == 3
-
-
 class TestConfigurationValidation:
     """Test configuration validation."""
 
@@ -443,7 +385,7 @@ class TestEdgeCases:
         source = SqlQueriesSource.__new__(SqlQueriesSource)
         source.config = config
         source.report = Mock()
-        source.report.num_temp_tables_detected = 0
+        source.report.num_temp_table_matches = 0
         source.ctx = Mock()  # Add ctx attribute
 
         # Should not match anything
@@ -505,7 +447,7 @@ class TestIntegrationScenarios:
         source = SqlQueriesSource.__new__(SqlQueriesSource)
         source.config = config
         source.report = Mock()
-        source.report.num_temp_tables_detected = 0
+        source.report.num_temp_table_matches = 0
         source.ctx = Mock()  # Add ctx attribute
 
         # Verify configuration
