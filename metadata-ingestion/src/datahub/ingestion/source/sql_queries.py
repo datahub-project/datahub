@@ -114,8 +114,8 @@ class SqlQueriesSourceConfig(
     )
     temp_table_patterns: List[str] = Field(
         description="Regex patterns for temporary tables to filter in lineage ingestion. "
-        "Patterns are start-anchored (like AllowDenyPattern). "
-        "Use '.*' suffix for prefix matching (e.g. 'temp_.*'). "
+        "Patterns are start-anchored (re.match, like AllowDenyPattern). "
+        "For example, 'temp_' matches any table starting with 'temp_'. "
         "This is useful for platforms like Athena "
         "that don't have native temp tables but use naming patterns for fake temp tables.",
         default=[],
@@ -123,6 +123,7 @@ class SqlQueriesSourceConfig(
 
     max_consecutive_aggregator_failures: int = Field(
         default=DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD,
+        ge=0,
         description="Abort after this many consecutive aggregator failures (likely systemic). "
         "Set to 0 to disable.",
     )
@@ -160,8 +161,7 @@ class SqlQueriesSourceConfig(
     @cached_property
     def _compiled_temp_table_patterns(self) -> List["re.Pattern[str]"]:
         return [
-            re.compile(pattern, re.IGNORECASE)
-            for pattern in self.temp_table_patterns
+            re.compile(pattern, re.IGNORECASE) for pattern in self.temp_table_patterns
         ]
 
 
@@ -266,9 +266,7 @@ class SqlQueriesSource(Source):
     def _process_queries_batch(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        consecutive_failure_threshold = (
-            self.config.max_consecutive_aggregator_failures
-        )
+        consecutive_failure_threshold = self.config.max_consecutive_aggregator_failures
 
         with self.report.new_stage("Parsing and processing queries"):
             consecutive_failures = 0
@@ -328,7 +326,10 @@ class SqlQueriesSource(Source):
         - All entries malformed (no entries parsed, some failures) → failure
         - Entries parsed but most failed inside the aggregator → failure
         """
-        if self.report.num_entries_processed == 0 and self.report.num_entries_failed == 0:
+        if (
+            self.report.num_entries_processed == 0
+            and self.report.num_entries_failed == 0
+        ):
             self.report.warning(
                 title="Empty input",
                 message="No query entries found in input file",
@@ -336,12 +337,27 @@ class SqlQueriesSource(Source):
             )
             return
 
-        if self.report.num_entries_processed == 0 and self.report.num_entries_failed > 0:
+        if (
+            self.report.num_entries_processed == 0
+            and self.report.num_entries_failed > 0
+        ):
             self.report.failure(
                 title="All entries failed to parse",
                 message="Every entry in the input file failed to parse — "
                 "check the file format (expected newline-delimited JSON)",
                 context=f"{self.report.num_entries_failed} entries failed",
+            )
+            return
+
+        if (
+            self.report.num_queries_aggregator_failures > 0
+            and self.report.num_queries_processed_sequential == 0
+        ):
+            self.report.failure(
+                title="All queries failed aggregation",
+                message="Every query failed during aggregation — "
+                "likely a systemic issue (auth, connectivity, config)",
+                context=f"{self.report.num_queries_aggregator_failures} failures",
             )
             return
 
@@ -358,6 +374,25 @@ class SqlQueriesSource(Source):
                     "unreachable schema resolver",
                     context=f"{failed_observed}/{total_observed} queries failed ({failure_ratio:.0%})",
                 )
+                return
+
+        if self.report.schema_resolver_report:
+            resolver_report = self.report.schema_resolver_report
+            graph_errors = resolver_report.num_graph_fetch_errors
+            successful = resolver_report.num_schema_cache_hits
+            attempts = graph_errors + successful
+            # Compare errors against successful fetches, not cache misses: a miss
+            # also covers "table genuinely isn't in DataHub", which is not a failure.
+            if attempts > 0:
+                error_ratio = graph_errors / attempts
+                if error_ratio >= AGGREGATOR_FAILURE_RATIO_THRESHOLD:
+                    self.report.failure(
+                        title="Schema resolution failed",
+                        message="Most schema lookups failed to reach DataHub — "
+                        "likely expired credentials or an unreachable graph. "
+                        "Lineage will be incomplete.",
+                        context=f"{graph_errors}/{attempts} schema fetches errored ({error_ratio:.0%})",
+                    )
 
     def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
         """Parse query file from S3 using smart_open."""
@@ -459,9 +494,7 @@ class SqlQueriesSource(Source):
                 )
                 self.aggregator.add_known_query_lineage(known_lineage)
         else:
-            if bool(query_entry.upstream_tables) ^ bool(
-                query_entry.downstream_tables
-            ):
+            if bool(query_entry.upstream_tables) ^ bool(query_entry.downstream_tables):
                 side = "upstream" if not query_entry.upstream_tables else "downstream"
                 logger.info(
                     "Partial lineage (missing %s), falling back to SQL parsing. Query: %.150s",

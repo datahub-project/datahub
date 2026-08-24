@@ -37,6 +37,10 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
+    # Graph fetches that errored out (auth, connectivity, timeout) rather than
+    # simply not finding the table. Compare against num_schema_cache_hits to
+    # distinguish "credentials are broken" from "these tables aren't in DataHub".
+    num_graph_fetch_errors: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -228,6 +232,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                         f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
                         exc_info=True,
                     )
+                    if self.report:
+                        self.report.num_graph_fetch_errors += 1
                     for fetch_urn in urns_to_fetch:
                         self._save_to_cache(fetch_urn, None)
 

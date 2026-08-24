@@ -29,9 +29,7 @@ def mock_graph():
 
     mock_graph = Mock(spec=DataHubGraph)
 
-    def mock_make_schema_resolver(
-        platform, platform_instance, env, include_graph=True
-    ):
+    def mock_make_schema_resolver(platform, platform_instance, env, include_graph=True):
         return SchemaResolver(
             platform=platform,
             platform_instance=platform_instance,
@@ -491,7 +489,11 @@ class TestSqlQueriesSourceConfig:
 
     def test_incremental_lineage_enabled(self):
         config = SqlQueriesSourceConfig.model_validate(
-            {"query_file": "test.jsonl", "platform": "snowflake", "incremental_lineage": True}
+            {
+                "query_file": "test.jsonl",
+                "platform": "snowflake",
+                "incremental_lineage": True,
+            }
         )
         assert config.incremental_lineage is True
 
@@ -503,19 +505,27 @@ class TestSqlQueriesSourceConfig:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             config = SqlQueriesSourceConfig.model_validate(
-                {"query_file": "test.jsonl", "platform": "snowflake", "enable_lazy_schema_loading": True}
+                {
+                    "query_file": "test.jsonl",
+                    "platform": "snowflake",
+                    "enable_lazy_schema_loading": True,
+                }
             )
             assert any(issubclass(x.category, ConfigurationWarning) for x in w)
         assert not hasattr(config, "enable_lazy_schema_loading")
 
     def test_s3_uri_requires_aws_config(self):
         with pytest.raises(ValueError, match="aws_config is required"):
-            SqlQueriesSourceConfig(platform="snowflake", query_file="s3://bucket/file.json")
+            SqlQueriesSourceConfig(
+                platform="snowflake", query_file="s3://bucket/file.json"
+            )
 
     def test_invalid_temp_table_regex_rejected(self):
         with pytest.raises(ValueError, match="Invalid regex in temp_table_patterns"):
             SqlQueriesSourceConfig(
-                platform="snowflake", query_file="dummy.json", temp_table_patterns=["[invalid("]
+                platform="snowflake",
+                query_file="dummy.json",
+                temp_table_patterns=["[invalid("],
             )
 
     def test_valid_regex_patterns_accepted(self):
@@ -528,15 +538,27 @@ class TestSqlQueriesSourceConfig:
 
     def test_configurable_threshold(self):
         config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", max_consecutive_aggregator_failures=10
+            platform="snowflake",
+            query_file="dummy.json",
+            max_consecutive_aggregator_failures=10,
         )
         assert config.max_consecutive_aggregator_failures == 10
 
     def test_threshold_disabled(self):
         config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", max_consecutive_aggregator_failures=0
+            platform="snowflake",
+            query_file="dummy.json",
+            max_consecutive_aggregator_failures=0,
         )
         assert config.max_consecutive_aggregator_failures == 0
+
+    def test_negative_threshold_rejected(self):
+        with pytest.raises(ValueError):
+            SqlQueriesSourceConfig(
+                platform="snowflake",
+                query_file="dummy.json",
+                max_consecutive_aggregator_failures=-1,
+            )
 
 
 # ── Source tests ──────────────────────────────────────────────────────────
@@ -578,11 +600,15 @@ class TestSqlQueriesSource:
         self, pipeline_context, temp_query_file, incremental_lineage
     ):
         if incremental_lineage is None:
-            config = SqlQueriesSourceConfig(query_file=temp_query_file, platform="snowflake")
+            config = SqlQueriesSourceConfig(
+                query_file=temp_query_file, platform="snowflake"
+            )
             expected_value = False
         else:
             config = SqlQueriesSourceConfig(
-                query_file=temp_query_file, platform="snowflake", incremental_lineage=incremental_lineage
+                query_file=temp_query_file,
+                platform="snowflake",
+                incremental_lineage=incremental_lineage,
             )
             expected_value = incremental_lineage
 
@@ -601,7 +627,11 @@ class TestSqlQueriesSource:
 
     def test_backward_compatibility(self, pipeline_context, temp_query_file):
         config = SqlQueriesSourceConfig.model_validate(
-            {"query_file": temp_query_file, "platform": "snowflake", "usage": {"bucket_duration": "DAY"}}
+            {
+                "query_file": temp_query_file,
+                "platform": "snowflake",
+                "usage": {"bucket_duration": "DAY"},
+            }
         )
         source = SqlQueriesSource(pipeline_context, config)
         assert source.config.incremental_lineage is False
@@ -612,13 +642,17 @@ class TestSqlQueriesSource:
 
 
 class TestErrorHandling:
-    def test_malformed_lines_skipped_and_counted(self, pipeline_context, query_file_with):
-        path = query_file_with([
-            "this is not json",
-            _query_line(0),
-            "{bad json too",
-            _query_line(1),
-        ])
+    def test_malformed_lines_skipped_and_counted(
+        self, pipeline_context, query_file_with
+    ):
+        path = query_file_with(
+            [
+                "this is not json",
+                _query_line(0),
+                "{bad json too",
+                _query_line(1),
+            ]
+        )
         source = _make_source(pipeline_context, path)
         list(source.get_workunits_internal())
 
@@ -634,14 +668,18 @@ class TestErrorHandling:
         assert len(source.report.failures) == 0
         assert any(w.title == "Empty input" for w in source.report.warnings)
 
-    def test_all_lines_malformed_reports_failure(self, pipeline_context, query_file_with):
+    def test_all_lines_malformed_reports_failure(
+        self, pipeline_context, query_file_with
+    ):
         path = query_file_with(["bad 1", "bad 2", "bad 3"])
         source = _make_source(pipeline_context, path)
         list(source.get_workunits_internal())
 
         assert source.report.num_entries_processed == 0
         assert source.report.num_entries_failed == 3
-        assert any(f.title == "All entries failed to parse" for f in source.report.failures)
+        assert any(
+            f.title == "All entries failed to parse" for f in source.report.failures
+        )
 
     def test_high_aggregator_failure_ratio_reports_failure(
         self, pipeline_context, query_file_with
@@ -666,7 +704,9 @@ class TestErrorHandling:
             f.title == "Most queries failed SQL parsing" for f in source.report.failures
         )
 
-    def test_consecutive_failures_trigger_abort(self, pipeline_context, query_file_with):
+    def test_consecutive_failures_trigger_abort(
+        self, pipeline_context, query_file_with
+    ):
         path = query_file_with([_query_line(i) for i in range(10)])
         source = _make_source(pipeline_context, path)
         source.aggregator.add_observed_query = Mock(
@@ -678,13 +718,15 @@ class TestErrorHandling:
         assert len(source.report.failures) > 0
         assert source.report.num_queries_aggregator_failures >= 5
 
-    def test_consecutive_failure_threshold_disabled(self, pipeline_context, query_file_with):
+    def test_consecutive_failure_threshold_disabled(
+        self, pipeline_context, query_file_with
+    ):
         """With threshold=0, consecutive failures never trigger the abort."""
         path = query_file_with([_query_line(i) for i in range(10)])
-        source = _make_source(pipeline_context, path, max_consecutive_aggregator_failures=0)
-        source.aggregator.add_observed_query = Mock(
-            side_effect=RuntimeError("Error")
+        source = _make_source(
+            pipeline_context, path, max_consecutive_aggregator_failures=0
         )
+        source.aggregator.add_observed_query = Mock(side_effect=RuntimeError("Error"))
 
         list(source.get_workunits_internal())
 
@@ -719,7 +761,7 @@ class TestErrorHandling:
         )
 
     def test_systemic_error_aborts_immediately(self, pipeline_context, query_file_with):
-        """GraphError, ConnectionError etc. abort without waiting for threshold."""
+        """If a systemic error propagates through add_observed_query, abort immediately."""
         from datahub.configuration.common import GraphError
 
         path = query_file_with([_query_line(i) for i in range(10)])
@@ -733,6 +775,31 @@ class TestErrorHandling:
         assert any(f.title == "Systemic error" for f in source.report.failures)
         assert source.report.num_queries_processed_sequential == 0
 
+    def test_schema_resolver_auth_failure_detected(
+        self, pipeline_context, query_file_with
+    ):
+        """Expired token causes schema resolver graph fetch errors, detected post-loop.
+
+        Simulates the real production path: graph.get_entities raises HTTPError,
+        schema_resolver catches it, caches URNs as None, and increments
+        num_graph_fetch_errors. Queries parse "successfully" but without schemas.
+        """
+        from requests.exceptions import HTTPError
+
+        path = query_file_with([_query_line(i) for i in range(5)])
+        source = _make_source(pipeline_context, path)
+
+        pipeline_context.graph.get_entities = Mock(
+            side_effect=HTTPError("401 Unauthorized")
+        )
+
+        list(source.get_workunits_internal())
+
+        assert source.report.schema_resolver_report.num_graph_fetch_errors > 0
+        assert any(
+            f.title == "Schema resolution failed" for f in source.report.failures
+        )
+
     def test_file_not_found_reports_failure(self, pipeline_context):
         source = _make_source(pipeline_context, "/nonexistent/path/queries.jsonl")
 
@@ -741,12 +808,22 @@ class TestErrorHandling:
 
         assert any(f.title == "Local file read error" for f in source.report.failures)
 
-    def test_wrongly_typed_tables_skipped_not_crash(self, pipeline_context, query_file_with):
+    def test_wrongly_typed_tables_skipped_not_crash(
+        self, pipeline_context, query_file_with
+    ):
         """upstream_tables: 42 should be skipped as a parse error, not crash."""
-        path = query_file_with([
-            json.dumps({"query": "SELECT 1", "timestamp": 1640995200, "upstream_tables": 42}),
-            _query_line(1),
-        ])
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": "SELECT 1",
+                        "timestamp": 1640995200,
+                        "upstream_tables": 42,
+                    }
+                ),
+                _query_line(1),
+            ]
+        )
         source = _make_source(pipeline_context, path)
         list(source.get_workunits_internal())
 
@@ -754,15 +831,19 @@ class TestErrorHandling:
         assert source.report.num_entries_processed == 1
 
     def test_explicit_lineage_routing(self, pipeline_context, query_file_with):
-        path = query_file_with([
-            json.dumps({
-                "query": "INSERT INTO target SELECT * FROM source",
-                "timestamp": 1640995200,
-                "user": "test_user",
-                "upstream_tables": ["source"],
-                "downstream_tables": ["target"],
-            })
-        ])
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": "INSERT INTO target SELECT * FROM source",
+                        "timestamp": 1640995200,
+                        "user": "test_user",
+                        "upstream_tables": ["source"],
+                        "downstream_tables": ["target"],
+                    }
+                )
+            ]
+        )
         source = _make_source(pipeline_context, path)
         source.aggregator.add_known_query_lineage = Mock()
         source.aggregator.add_observed_query = Mock()
@@ -777,13 +858,17 @@ class TestErrorHandling:
         source.aggregator.add_observed_query.assert_not_called()
 
     def test_observed_query_routing(self, pipeline_context, query_file_with):
-        path = query_file_with([
-            json.dumps({
-                "query": "SELECT * FROM some_table",
-                "timestamp": 1640995200,
-                "user": "test_user",
-            })
-        ])
+        path = query_file_with(
+            [
+                json.dumps(
+                    {
+                        "query": "SELECT * FROM some_table",
+                        "timestamp": 1640995200,
+                        "user": "test_user",
+                    }
+                )
+            ]
+        )
         source = _make_source(pipeline_context, path)
         source.aggregator.add_observed_query = Mock()
         source.aggregator.add_known_query_lineage = Mock()
@@ -812,9 +897,14 @@ class TestErrorHandling:
         assert entry.upstream_tables[0] == DatasetUrn.from_string(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,valid_table,PROD)"
         )
-        assert sum(1 for r in caplog.records if "invalid table entry" in r.message.lower()) == 3
+        assert (
+            sum(1 for r in caplog.records if "invalid table entry" in r.message.lower())
+            == 3
+        )
 
-    def test_all_aggregator_failures_under_threshold(self, pipeline_context, query_file_with):
+    def test_all_aggregator_failures_under_threshold(
+        self, pipeline_context, query_file_with
+    ):
         """3 entries, all fail aggregation (< threshold of 5) — pipeline should
         still report failure via the aggregator failure ratio check."""
         path = query_file_with([_query_line(i) for i in range(3)])
@@ -834,3 +924,20 @@ class TestErrorHandling:
         assert any(
             f.title == "Most queries failed SQL parsing" for f in source.report.failures
         )
+
+    def test_all_queries_throw_under_threshold(self, pipeline_context, query_file_with):
+        """3 entries, all throw exceptions from add_observed_query (< threshold of 5).
+        Pipeline should still report failure because num_queries_processed_sequential == 0."""
+        path = query_file_with([_query_line(i) for i in range(3)])
+        source = _make_source(pipeline_context, path)
+        source.aggregator.add_observed_query = Mock(
+            side_effect=RuntimeError("some error")
+        )
+
+        list(source.get_workunits_internal())
+
+        assert any(
+            f.title == "All queries failed aggregation" for f in source.report.failures
+        )
+        assert source.report.num_queries_processed_sequential == 0
+        assert source.report.num_queries_aggregator_failures == 3

@@ -19,12 +19,16 @@ class TestS3Support:
     def test_s3_uri_detection(self):
         """Test S3 URI detection via config validation."""
         # Non-S3 config works without aws_config
-        config = SqlQueriesSourceConfig(platform="snowflake", query_file="/local/path/file.json")
+        config = SqlQueriesSourceConfig(
+            platform="snowflake", query_file="/local/path/file.json"
+        )
         assert not config.query_file.startswith("s3://")
 
         # S3 URI without aws_config fails at config time
         with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(platform="snowflake", query_file="s3://bucket/path/file.json")
+            SqlQueriesSourceConfig(
+                platform="snowflake", query_file="s3://bucket/path/file.json"
+            )
 
     def test_aws_config_required_for_s3(self):
         """Test that AWS config is required for S3 files at config time."""

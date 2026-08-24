@@ -17,7 +17,6 @@ description: "Release notes and breaking change history for upgrading DataHub be
 - #15044: If using the new system-update sqlSetup, the system-update job must be granted privileges to create users, databases, and tables.
 - #15512: Assertion related data models will enforce strict urn validation including selective existence, format, and supported entity types. This may impact
           existing assertions which would need to be removed from the system.
-- **(Ingestion / sql-queries)** The `enable_lazy_schema_loading` config option has been removed (it was never read). Existing recipes that include it will now produce a deprecation warning instead of silently accepting it.
 
 ### Known Issues
 
@@ -57,6 +56,8 @@ Requirements:
 - #18944 **(GMS / Domain-scoped create & domain writes)** Ingest-time authorization now evaluates domain-scoped **Create Entity** / **Edit Entity** policies against **proposed** `domains` when establishing domains on a new entity or on an entity that has no `domains` aspect yet (`DomainWriteAuthorizationValidator`, plus proposed-domain seeding on RestLi/OpenAPI ingest). Domain-separated writers must include matching `domains` in the create (or first domains) write. Unscoped elevated ingestion policies are unchanged. Toggle via `metadataChangeProposal.validation.aspectAuthorization.domainWrite.enabled` (default `true`). **Action:** Domain-scoped write policies no longer need a separate unscoped create policy for the initial write when domains are proposed in-batch; update docs/runbooks that assumed domain filters could not authorize create.
 
 - #18944 **(GMS / Domain-scoped Edit on `domains` PATCH)** `ChangeType.PATCH` always requires **Edit Entity** (never Create Entity). Domain-scoped Edit on a `domains` PATCH must allow **both** the before and after domain membership when domains already exist; when establishing first domains via PATCH, Edit is matched against the after domains only. Sync requests re-check inside the DB transaction after patch apply; async MCE consume skips user domain auth (authorized on the API thread before Kafka). **Action:** Grant Edit on both source and destination domains before moving assets between domains with a domains PATCH.
+
+- #19099 **(Ingestion / sql-queries)** The `enable_lazy_schema_loading` config option has been removed (it was never read). Existing recipes that include it will now produce a deprecation warning instead of silently accepting it. **Action:** remove `enable_lazy_schema_loading` from your recipe.
 
 ### Known Issues
 
