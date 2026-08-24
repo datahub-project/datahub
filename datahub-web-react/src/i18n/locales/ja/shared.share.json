@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "このエンティティの共有可能なリンクをコピーします。",
+    "copyName.label": "名前をコピー",
+    "copyName.tooltip": "{{type}}の正式名称をコピーします",
+    "copyUrn.label": "URNをコピー",
+    "copyUrn.tooltip": "この{{type}}のURNをコピーします。URNはDataHub上のエンティティを一意に識別します。",
+    "email.label": "メール",
+    "email.tooltip": "この{{type}}をメールで共有します"
+}

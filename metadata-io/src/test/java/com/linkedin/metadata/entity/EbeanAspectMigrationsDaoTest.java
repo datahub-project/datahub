@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -70,7 +71,9 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
             server,
             1000,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server));
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(
+                _entityServiceImpl, _mockProducer, mock(MetricUtils.class)));
     _entityServiceImpl.setRetentionService(_retentionService);
 
     _migrationsDao = dao;

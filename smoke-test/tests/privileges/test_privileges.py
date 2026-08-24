@@ -20,6 +20,7 @@ from tests.privileges.utils import (
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_admin_credentials,
     get_frontend_session,
@@ -31,7 +32,11 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 # Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
 TEST_PRIVILEGES_USER_EMAIL = "privileges.user@smoke.datahub.test"
