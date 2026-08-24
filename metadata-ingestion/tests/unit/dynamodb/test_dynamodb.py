@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -318,6 +319,9 @@ class TestDynamoDBS3ExportLineage:
         assert mcp.aspect.upstreams[0].dataset == dataset_urn
         assert mcp.aspect.fineGrainedLineages is not None
         assert len(mcp.aspect.fineGrainedLineages) == 2
+        # graph is None in the fixture, so column lineage falls back to inferred identity mapping
+        assert source.report.s3_export_column_lineage_inferred == 2
+        assert source.report.s3_export_column_lineage_resolved == 0
         assert mcp.aspect.fineGrainedLineages[0].upstreams == [
             f"urn:li:schemaField:({dataset_urn},orderId)"
         ]
@@ -500,3 +504,53 @@ class TestDynamoDBS3ExportLineage:
         assert not mcp.aspect.fineGrainedLineages
         assert len(mcp.aspect.upstreams) == 1
         assert mcp.aspect.upstreams[0].dataset == dataset_urn
+
+    def test_column_lineage_resolves_against_s3_schema(
+        self, mock_context, lineage_config
+    ):
+        # When the S3 export dataset is already in DataHub, column lineage links only the
+        # fields that match its schema (case-insensitively); unmatched fields are dropped.
+        lineage_config.include_s3_export_column_lineage = True
+        s3_schema = SimpleNamespace(
+            fields=[
+                SimpleNamespace(fieldPath="OrderId"),
+                SimpleNamespace(fieldPath="total"),
+            ]
+        )
+        mock_context.graph = MagicMock()
+        mock_context.graph.get_schema_metadata.return_value = s3_schema
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)"
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn=dataset_urn,
+            dataset_name="us-west-2.x",
+            # orderId matches OrderId (case-insensitive); missing_field has no match.
+            field_paths=["orderId", "missing_field"],
+        )
+        workunits = list(source._emit_s3_export_lineage())
+        mcp = workunits[0].metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert isinstance(mcp.aspect, UpstreamLineageClass)
+        assert mcp.aspect.fineGrainedLineages is not None
+        assert len(mcp.aspect.fineGrainedLineages) == 1
+        assert source.report.s3_export_column_lineage_resolved == 1
+        assert source.report.s3_export_column_lineage_inferred == 0
+        fgl = mcp.aspect.fineGrainedLineages[0]
+        assert fgl.upstreams == [f"urn:li:schemaField:({dataset_urn},orderId)"]
+        # downstream uses the S3 dataset's actual field casing (OrderId), not the DynamoDB casing
+        assert fgl.downstreams == [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),OrderId)"
+        ]

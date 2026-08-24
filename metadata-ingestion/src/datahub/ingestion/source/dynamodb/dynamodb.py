@@ -79,6 +79,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 PAGE_SIZE = 100
 MAX_PRIMARY_KEYS_SIZE = 100
@@ -150,9 +151,10 @@ class DynamoDBConfig(
         default=False,
         description=(
             "When `include_s3_export_lineage` is enabled, also emit column-level COPY lineage "
-            "using identity field-path mapping from the inferred DynamoDB schema onto the S3 dataset. "
-            "Off by default: native Export to S3 writes DynamoDB JSON/Ion, whose field paths often "
-            "differ from the connector's flattened schema. Nested map attributes use dotted field paths."
+            "inferred from the DynamoDB table's schema. When the S3 export dataset is already in "
+            "DataHub, only fields that match its schema (case-insensitive) are linked; otherwise the "
+            "inferred DynamoDB field paths are used as-is. Off by default: native Export to S3 writes "
+            "DynamoDB JSON/Ion, whose field paths often differ from the connector's flattened schema."
         ),
     )
     # Custom Stateful Ingestion settings
@@ -168,6 +170,8 @@ class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportM
     filtered: LossyList[str] = field(default_factory=LossyList)
     s3_export_locations_found: int = 0
     s3_export_lineage_edges: int = 0
+    s3_export_column_lineage_resolved: int = 0
+    s3_export_column_lineage_inferred: int = 0
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -804,20 +808,51 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             self._s3_export_lineage[s3_urn][dataset_urn] = list(resolved_field_paths)
             self.report.s3_export_locations_found += 1
 
+    def _resolve_s3_downstream_field_paths(
+        self, s3_urn: str
+    ) -> Optional[Dict[str, str]]:
+        """Map ``lowercased simple field path`` -> ``actual field path`` for the S3 export dataset.
+
+        Returns ``None`` when the S3 dataset's schema is not available in the graph, signalling the
+        caller to fall back to inferred identity mapping from the DynamoDB field paths.
+        """
+        if not self.ctx.graph:
+            return None
+        schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
+        if not schema_metadata:
+            return None
+        resolved: Dict[str, str] = {}
+        for schema_field in schema_metadata.fields:
+            simple = get_simple_field_path_from_v2_field_path(schema_field.fieldPath)
+            resolved[simple.lower()] = simple
+        return resolved
+
     def _build_s3_export_fine_grained_lineages(
         self,
         s3_urn: str,
         upstream_urn: str,
         field_paths: List[str],
+        downstream_field_paths: Optional[Dict[str, str]],
     ) -> List[FineGrainedLineageClass]:
         fine_grained: List[FineGrainedLineageClass] = []
         for field_path in field_paths:
+            upstream_simple = get_simple_field_path_from_v2_field_path(field_path)
+            if downstream_field_paths is not None:
+                # S3 dataset is known: only link fields that actually exist on it.
+                downstream_simple = downstream_field_paths.get(upstream_simple.lower())
+                if downstream_simple is None:
+                    continue
+                self.report.s3_export_column_lineage_resolved += 1
+            else:
+                # S3 dataset not in the graph: inferred identity mapping, best-effort.
+                downstream_simple = upstream_simple
+                self.report.s3_export_column_lineage_inferred += 1
             fine_grained.append(
                 FineGrainedLineageClass(
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[make_schema_field_urn(s3_urn, field_path)],
+                    downstreams=[make_schema_field_urn(s3_urn, downstream_simple)],
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[make_schema_field_urn(upstream_urn, field_path)],
+                    upstreams=[make_schema_field_urn(upstream_urn, upstream_simple)],
                 )
             )
         return fine_grained
@@ -835,12 +870,14 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             ]
             fine_grained: List[FineGrainedLineageClass] = []
             if self.config.include_s3_export_column_lineage:
+                downstream_field_paths = self._resolve_s3_downstream_field_paths(s3_urn)
                 for upstream_urn in sorted(upstreams_by_urn):
                     fine_grained.extend(
                         self._build_s3_export_fine_grained_lineages(
                             s3_urn=s3_urn,
                             upstream_urn=upstream_urn,
                             field_paths=upstreams_by_urn[upstream_urn],
+                            downstream_field_paths=downstream_field_paths,
                         )
                     )
             self.report.s3_export_lineage_edges += len(upstreams)
