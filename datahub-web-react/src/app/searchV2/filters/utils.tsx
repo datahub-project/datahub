@@ -30,6 +30,7 @@ import {
     ENTITY_TYPE_FIELDS,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
+    FIELD_TO_LABEL,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
@@ -762,7 +763,10 @@ export function useFilterDisplayName(filter: FacetMetadata | FilterField, predic
         return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
     }
 
-    return predicateDisplayName || filter.displayName || filter.field;
+    // FIELD_TO_LABEL before filter.displayName: raw FacetMetadata carries the backend's
+    // English displayName (or a PDL filterNameOverride), so surfaces that hand us a facet
+    // directly (the "More" filter menu) would otherwise never localize.
+    return predicateDisplayName || FIELD_TO_LABEL[filter.field] || filter.displayName || filter.field;
 }
 
 export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
