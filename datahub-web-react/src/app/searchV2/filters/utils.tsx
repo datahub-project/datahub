@@ -513,7 +513,10 @@ function getKnownFilterField(field: string): FilterField | undefined {
 
 export function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
     const associatedAvailableFilter = availableFilters?.find((availableFilter) => availableFilter.field === field);
-    const filterDisplayName = associatedAvailableFilter?.displayName;
+    // FIELD_TO_LABEL before the facet's displayName: the backend ships an English displayName
+    // (sometimes a PDL filterNameOverride) for fields we have a localized label for, and this
+    // displayName is what SearchFilter passes down as the primary filter chip's label.
+    const filterDisplayName = FIELD_TO_LABEL[field] ?? associatedAvailableFilter?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
