@@ -137,7 +137,8 @@ allows for 3 parameters:
   initial OAuth token request. This is useful for catalogs requiring custom headers on all traffic, for example
   Apache Polaris deployments requiring a `Polaris-Realm` header. Headers are applied via pyiceberg's native
   `header.<name>` properties; an explicitly configured `header.<name>` catalog property takes precedence over
-  the same header defined here.
+  the same header defined here (header names are compared case-insensitively). Header values are converted to
+  strings; YAML booleans are sent as `true`/`false`.
 
 ```yaml
 source:

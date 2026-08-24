@@ -1,7 +1,8 @@
 import logging
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import boto3
 from humanfriendly import format_timespan
@@ -272,7 +273,16 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # The "connection" block (retry/timeout/headers) is a DataHub-specific
         # extension, not a pyiceberg catalog property, so keep it out of the
         # config passed to load_catalog().
-        connection_conf: Dict[str, Any] = catalog_config.get("connection") or {}
+        connection_conf: Mapping[str, Any] = (
+            {}
+            if catalog_config.get("connection") is None
+            else catalog_config["connection"]
+        )
+        if not isinstance(connection_conf, Mapping):
+            raise ValueError(
+                "catalog connection must be a mapping of connection settings, "
+                f"got {type(connection_conf).__name__}"
+            )
         load_catalog_config = {
             k: v for k, v in catalog_config.items() if k != "connection"
         }
@@ -285,25 +295,47 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # case-insensitive (pyiceberg feeds them into requests' session
         # headers, a CaseInsensitiveDict, where the last write would win), so
         # the precedence check must ignore case too.
-        headers: Dict[str, Any] = connection_conf.get("headers") or {}
-        if not isinstance(headers, dict):
+        headers: Mapping[str, Any] = (
+            {} if connection_conf.get("headers") is None else connection_conf["headers"]
+        )
+        if not isinstance(headers, Mapping):
             raise ValueError(
                 "catalog connection.headers must be a mapping of header name to value, "
                 f"got {type(headers).__name__}"
             )
-        explicit_header_keys = {
-            key.casefold() for key in load_catalog_config if key.startswith("header.")
-        }
-        for header_name, header_value in headers.items():
-            if f"header.{header_name}".casefold() in explicit_header_keys:
-                continue
-            # Values may be parsed by YAML as int/bool; requests only accepts
-            # str header values, so coerce here.
-            load_catalog_config[f"header.{header_name}"] = str(header_value)
         if headers:
+            explicit_header_keys = {
+                key.casefold()
+                for key in load_catalog_config
+                if key.startswith("header.")
+            }
+            seen_header_names: Set[str] = set()
+            merged_header_names: List[str] = []
+            for header_name, header_value in headers.items():
+                folded_name = str(header_name).casefold()
+                if folded_name in seen_header_names:
+                    raise ValueError(
+                        "catalog connection.headers contains duplicate header names "
+                        f"differing only in case: {header_name!r}"
+                    )
+                seen_header_names.add(folded_name)
+                if header_value is None:
+                    raise ValueError(
+                        f"catalog connection.headers value for {header_name!r} must not be null"
+                    )
+                if f"header.{header_name}".casefold() in explicit_header_keys:
+                    continue
+                if isinstance(header_value, bool):
+                    # YAML parses unquoted true/false as bool; send the lowercase
+                    # form the user wrote, not Python's "True"/"False".
+                    header_value = "true" if header_value else "false"
+                # Values may be parsed by YAML as e.g. int; requests only
+                # accepts str header values, so coerce here.
+                load_catalog_config[f"header.{header_name}"] = str(header_value)
+                merged_header_names.append(header_name)
             logger.debug(
                 "Merged connection.headers into catalog properties (keys: %s)",
-                list(headers.keys()),
+                merged_header_names,
             )
 
         catalog = load_catalog(name=catalog_name, **load_catalog_config)

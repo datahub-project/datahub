@@ -12,12 +12,13 @@ from typing import (
     Tuple,
 )
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from pyiceberg.catalog import Catalog
+from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
@@ -64,6 +65,10 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
     ToAvroSchemaIcebergVisitor,
+)
+from datahub.ingestion.source.iceberg.iceberg_common import (
+    DEFAULT_REST_RETRY_POLICY,
+    DEFAULT_REST_TIMEOUT,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
@@ -2309,14 +2314,17 @@ class TestRestCatalogConnectionConfig:
             assert "header.Polaris-Realm" not in kwargs
 
     def test_connection_header_values_are_coerced_to_str(self):
-        # YAML parses unquoted values like `100` as int; requests only accepts
-        # str header values.
+        # YAML parses unquoted values like `100` and `true` as int/bool;
+        # requests only accepts str header values, and bools should keep the
+        # lowercase form the user wrote in YAML.
         config = IcebergSourceConfig(
             catalog={
                 "test_rest": {
                     "type": "rest",
                     "uri": "https://catalog.example.com/api/catalog",
-                    "connection": {"headers": {"X-Rate-Limit": 100}},
+                    "connection": {
+                        "headers": {"X-Rate-Limit": 100, "X-Enable-Feature": True}
+                    },
                 }
             }
         )
@@ -2326,28 +2334,39 @@ class TestRestCatalogConnectionConfig:
             config.get_catalog()
             _, kwargs = mock_load_catalog.call_args
             assert kwargs["header.X-Rate-Limit"] == "100"
+            assert kwargs["header.X-Enable-Feature"] == "true"
 
-    def test_non_dict_connection_headers_rejected(self):
+    @pytest.mark.parametrize(
+        "connection",
+        [
+            # connection block itself is not a mapping
+            "timeout=60",
+            # headers is not a mapping (truthy and falsy variants)
+            {"headers": "Polaris-Realm=my-realm"},
+            {"headers": []},
+            # null header value (YAML `X-Foo:`)
+            {"headers": {"Polaris-Realm": None}},
+            # duplicate header names differing only in case
+            {"headers": {"X-Realm": "a", "x-realm": "b"}},
+        ],
+    )
+    def test_invalid_connection_config_rejected(self, connection):
         config = IcebergSourceConfig(
             catalog={
                 "test_rest": {
                     "type": "rest",
                     "uri": "https://catalog.example.com/api/catalog",
-                    "connection": {"headers": "Polaris-Realm=my-realm"},
+                    "connection": connection,
                 }
             }
         )
         with (
             patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
-            pytest.raises(ValueError, match="connection.headers"),
+            pytest.raises(ValueError, match="connection"),
         ):
             config.get_catalog()
 
     def test_connection_retry_and_timeout_still_configure_rest_session(self):
-        from unittest.mock import MagicMock
-
-        from pyiceberg.catalog.rest import RestCatalog
-
         config = IcebergSourceConfig(
             catalog={
                 "test_rest": {
@@ -2375,15 +2394,6 @@ class TestRestCatalogConnectionConfig:
         """The common case — no `connection` block — must keep working: the
         config reaches load_catalog() unchanged and the REST session gets the
         default retry/timeout."""
-        from unittest.mock import MagicMock
-
-        from pyiceberg.catalog.rest import RestCatalog
-
-        from datahub.ingestion.source.iceberg.iceberg_common import (
-            DEFAULT_REST_RETRY_POLICY,
-            DEFAULT_REST_TIMEOUT,
-        )
-
         config = IcebergSourceConfig(
             catalog={
                 "test_rest": {
