@@ -152,8 +152,10 @@ kafka_protobuf = {
 }
 
 usage_common = {
-    # No floor: Airflow constraints pin sqlparse to older releases (e.g. 0.5.0 on
-    # Airflow 2.9.x). Security floor is in docker/snippets/ingestion/constraints.txt.
+    # No floor: every supported Airflow 3.x constraints file pins sqlparse below
+    # 0.6.0 (0.5.3 on 3.0/3.1, 0.5.5 on 3.2), so a floor here makes
+    # `pip install acryl-datahub[<extra>] -c <airflow-constraints>` unsatisfiable.
+    # Security floor is in docker/snippets/ingestion/constraints.txt.
     "sqlparse<1.0.0",
 }
 
