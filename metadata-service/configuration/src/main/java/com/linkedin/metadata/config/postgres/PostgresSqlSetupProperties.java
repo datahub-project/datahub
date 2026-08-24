@@ -698,14 +698,16 @@ public class PostgresSqlSetupProperties {
         pool.getDriver() != null && !pool.getDriver().isBlank()
             ? pool.getDriver().trim()
             : defaults.getPoolDriver();
-    String poolUsername =
-        pool.getUsername() != null && !pool.getUsername().isBlank()
-            ? pool.getUsername().trim()
-            : defaults.getPoolUsername();
-    // Blank password must stay null so the runtime factory can fall back to ebean.* credentials
-    // (do not inherit the default store's password when only pool.url differs).
+    // Blank username/password must stay null when pool.url is overridden so the runtime
+    // factory can fall back to ebean.* credentials (do not inherit the default store's
+    // identity when only the JDBC URL differs).
+    boolean inheritDefaultPoolIdentity = pool.getUrl() == null || pool.getUrl().isBlank();
+    String poolUsername = blankToNull(pool.getUsername());
+    if (poolUsername == null && inheritDefaultPoolIdentity) {
+      poolUsername = defaults.getPoolUsername();
+    }
     String poolPassword = blankToNull(pool.getPassword());
-    if (poolPassword == null && (pool.getUrl() == null || pool.getUrl().isBlank())) {
+    if (poolPassword == null && inheritDefaultPoolIdentity) {
       poolPassword = defaults.getPoolPassword();
     }
 
