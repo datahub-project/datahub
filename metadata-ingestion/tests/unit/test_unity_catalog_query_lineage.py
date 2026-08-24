@@ -255,3 +255,31 @@ def test_subject_urns_for_returns_all_distinct_datasets_for_a_query():
             _urn("my_catalog.my_schema.tgt"),
         ]
     )
+
+
+def test_subject_urns_for_reflects_edges_added_after_a_prior_call():
+    # Guards the subjects cache added for perf (avoids an O(edges) scan per
+    # query_urn): a lazily-built cache that isn't invalidated on add_query
+    # would keep serving this pre-mutation subject list forever.
+    resolver = QueryLineageResolver(resolve_urn=_resolve)
+    text = "INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src"
+    resolver.add_query(
+        _query(text, 1, "my_catalog.my_schema.src", "my_catalog.my_schema.tgt")
+    )
+    urn = resolver.query_urn_for(
+        _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
+    )
+
+    resolver.subject_urns_for(urn)  # populate the cache before the mutation below
+
+    resolver.add_query(
+        _query(text, 1, "my_catalog.my_schema.src2", "my_catalog.my_schema.tgt")
+    )
+
+    assert resolver.subject_urns_for(urn) == sorted(
+        [
+            _urn("my_catalog.my_schema.src"),
+            _urn("my_catalog.my_schema.src2"),
+            _urn("my_catalog.my_schema.tgt"),
+        ]
+    )

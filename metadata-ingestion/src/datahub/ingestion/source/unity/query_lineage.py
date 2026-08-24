@@ -64,6 +64,11 @@ class QueryLineageResolver:
 
     _by_edge: Dict[EdgeKey, _Candidate] = field(default_factory=dict)
     _skipped: int = 0
+    # Lazily built, invalidated whenever _by_edge changes (see _offer) so it can
+    # never serve a stale subjects list for a query_urn added/replaced since the
+    # last build. Rebuilding costs O(edges) once per generation instead of once
+    # per subject_urns_for() call, which matters at production edge counts.
+    _subjects_by_query: Optional[Dict[str, List[str]]] = None
 
     def add_query(self, query: Query) -> None:
         text = query.query_text
@@ -126,6 +131,7 @@ class QueryLineageResolver:
         existing = self._by_edge.get(key)
         if existing is None or self._is_newer(candidate, existing):
             self._by_edge[key] = candidate
+            self._subjects_by_query = None
 
     @staticmethod
     def _is_newer(candidate: _Candidate, existing: _Candidate) -> bool:
@@ -148,12 +154,16 @@ class QueryLineageResolver:
 
     def subject_urns_for(self, query_urn: str) -> List[str]:
         """Every dataset touched by the statement behind this query URN."""
-        subjects: Set[str] = set()
-        for (upstream_urn, downstream_urn), candidate in self._by_edge.items():
-            if candidate.query_urn == query_urn:
+        if self._subjects_by_query is None:
+            by_query: Dict[str, Set[str]] = {}
+            for (upstream_urn, downstream_urn), candidate in self._by_edge.items():
+                subjects = by_query.setdefault(candidate.query_urn, set())
                 subjects.add(upstream_urn)
                 subjects.add(downstream_urn)
-        return sorted(subjects)
+            self._subjects_by_query = {
+                urn: sorted(subjects) for urn, subjects in by_query.items()
+            }
+        return self._subjects_by_query.get(query_urn, [])
 
     @property
     def num_edges_linked(self) -> int:
