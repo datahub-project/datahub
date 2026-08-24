@@ -1178,7 +1178,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 
     def _generate_lineage_aspect(
-        self, dataset_urn: str, table: Table
+        self,
+        dataset_urn: str,
+        table: Table,
+        resolver: Optional[QueryLineageResolver] = None,
     ) -> Optional[UpstreamLineageClass]:
         upstreams: List[UpstreamClass] = []
         finegrained_lineages: List[FineGrainedLineage] = []
@@ -1186,6 +1189,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             table.upstreams.items()
         ):
             upstream_urn = self.gen_dataset_urn(upstream_ref)
+            query_urn = (
+                resolver.query_urn_for(upstream_urn, dataset_urn) if resolver else None
+            )
+            if query_urn is not None:
+                self.report.num_lineage_edges_query_linked += 1
 
             # Should be empty if config.include_column_lineage is False
             finegrained_lineages.extend(
@@ -1207,6 +1215,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     upstream_urn,
                     DatasetLineageTypeClass.TRANSFORMED,
                     timestamp,
+                    query_urn=query_urn,
                 )
             )
 
@@ -1301,10 +1310,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         lineage_type: Union[str, DatasetLineageTypeClass],
         timestamp: Optional[int],
+        query_urn: Optional[str] = None,
     ) -> UpstreamClass:
         """
         Helper method to create UpstreamClass with optional audit stamp.
         If timestamp is None, audit stamp is omitted.
+
+        query_urn, when set, becomes the `via` edge that renders the transformation
+        node in the lineage graph. Only ever set for a Query entity we also emit.
         """
         if timestamp is not None:
             return UpstreamClass(
@@ -1314,11 +1327,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     time=timestamp,
                     actor=UNKNOWN_USER,
                 ),
+                query=query_urn,
             )
         else:
             return UpstreamClass(
                 dataset=dataset_urn,
                 type=lineage_type,
+                query=query_urn,
             )
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:

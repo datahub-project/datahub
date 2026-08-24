@@ -3177,3 +3177,116 @@ class TestUnityCatalogViewFiltering:
         assert dropped == [table.id]
         assert view.ref in source.view_refs
         assert metric_view.ref in source.table_refs
+
+
+class TestUnityCatalogQueryLinkedLineage:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        ctx = PipelineContext(run_id="test_run")
+        return UnityCatalogSource.create(config, ctx)
+
+    @staticmethod
+    def _build_table_with_upstream() -> Table:
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            TableReference,
+        )
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        table = Table(
+            id="c.s.my_table",
+            name="my_table",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=TableType.MANAGED,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition=None,
+            properties={},
+        )
+        upstream_ref = TableReference(
+            metastore="metastore", catalog="c", schema="s", table="upstream_table"
+        )
+        table.upstreams = {upstream_ref: {"col_a": ["col_a"]}}
+        return table
+
+    def test_lineage_aspect_sets_query_urn_on_upstream(self):
+        """Warehouse-attributable edges carry the query URN that renders the ~ node."""
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        upstream_ref = next(iter(table.upstreams))
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+
+        class _StubResolver:
+            def query_urn_for(self, up: str, down: str):
+                if (up, down) == (upstream_urn, dataset_urn):
+                    return "urn:li:query:abc123"
+                return None
+
+        aspect = source._generate_lineage_aspect(
+            dataset_urn, table, resolver=_StubResolver()
+        )
+
+        assert aspect is not None
+        linked = [u for u in aspect.upstreams if u.dataset == upstream_urn]
+        assert len(linked) == 1
+        assert linked[0].query == "urn:li:query:abc123"
+
+    def test_lineage_aspect_without_resolver_sets_no_query(self):
+        """Cluster-executed lineage has no statement_id, so nothing is linked."""
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=None)
+
+        assert aspect is not None
+        assert all(u.query is None for u in aspect.upstreams)
