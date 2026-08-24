@@ -6,6 +6,7 @@ import pytest
 
 from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.incidents import (
+    LIST_INCIDENTS_QUERY,
     _build_incident_summary,
     list_incidents,
     raise_incident,
@@ -68,6 +69,30 @@ def mock_client():
     mock._graph = Mock()
     mock.graph.execute_graphql = Mock()
     return mock
+
+
+# --- Generated GraphQL query ---
+
+
+class TestListIncidentsQuery:
+    def test_loads_query_from_gql_file(self):
+        assert "query listEntityIncidents" in LIST_INCIDENTS_QUERY
+        assert "... on Dataset {" in LIST_INCIDENTS_QUERY
+        assert "fragment entityIncidentsResultFields" in LIST_INCIDENTS_QUERY
+
+    def test_tags_only_types_newer_than_legacy_gms(self):
+        dataset_line = next(
+            line
+            for line in LIST_INCIDENTS_QUERY.splitlines()
+            if "... on Dataset {" in line
+        )
+        schema_field_line = next(
+            line
+            for line in LIST_INCIDENTS_QUERY.splitlines()
+            if "... on SchemaFieldEntity {" in line
+        )
+        assert "#[NEWER_GMS]" not in dataset_line
+        assert "#[NEWER_GMS]" in schema_field_line
 
 
 # --- Unit tests for helper functions ---

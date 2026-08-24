@@ -109,6 +109,57 @@ tasks.register('generateIncidentEntityTypes', JavaExec) {
     }
 }
 
+def listIncidentsGql = rootProject.file(
+    'datahub-agent-context/src/datahub_agent_context/mcp_tools/gql/list_entity_incidents.gql')
+def generatedListIncidentsGql = layout.buildDirectory.file('generated/list_entity_incidents.gql')
+
+tasks.register('generateListIncidentsGql', JavaExec) {
+    dependsOn compileIncidentSdlGenJava
+    classpath = sourceSets.incidentSdlGen.runtimeClasspath
+    mainClass = 'com.linkedin.datahub.graphql.codegen.GenerateListIncidentsQuery'
+    inputs.file incidentGraphqlSdl
+    outputs.file listIncidentsGql
+    doFirst {
+        listIncidentsGql.parentFile.mkdirs()
+        args = [
+            incidentGraphqlSdl.asFile.absolutePath,
+            listIncidentsGql.absolutePath
+        ]
+    }
+}
+
+tasks.register('verifyListIncidentsGql', JavaExec) {
+    dependsOn compileIncidentSdlGenJava
+    classpath = sourceSets.incidentSdlGen.runtimeClasspath
+    mainClass = 'com.linkedin.datahub.graphql.codegen.GenerateListIncidentsQuery'
+    inputs.file incidentGraphqlSdl
+    inputs.file listIncidentsGql
+    outputs.file generatedListIncidentsGql
+    doFirst {
+        def outFile = generatedListIncidentsGql.get().asFile
+        outFile.parentFile.mkdirs()
+        args = [
+            incidentGraphqlSdl.asFile.absolutePath,
+            outFile.absolutePath
+        ]
+    }
+    doLast {
+        def expected = generatedListIncidentsGql.get().asFile.getText('UTF-8')
+        if (!listIncidentsGql.exists()) {
+            throw new GradleException(
+                "Missing ${listIncidentsGql}. Run ./gradlew :datahub-graphql-core:generateListIncidentsGql")
+        }
+        def actual = listIncidentsGql.getText('UTF-8')
+        if (expected != actual) {
+            throw new GradleException(
+                "${listIncidentsGql} is stale relative to incident.graphql. " +
+                "Run ./gradlew :datahub-graphql-core:generateListIncidentsGql")
+        }
+    }
+}
+
+check.dependsOn verifyListIncidentsGql
+
 clean {
     delete 'src/mainGeneratedGraphQL'
 }
