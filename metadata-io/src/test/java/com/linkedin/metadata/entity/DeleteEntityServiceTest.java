@@ -27,6 +27,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
@@ -104,7 +105,12 @@ public class DeleteEntityServiceTest {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, mock(EventProducer.class), true, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            mock(EventProducer.class),
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService =
         new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService, null, null);

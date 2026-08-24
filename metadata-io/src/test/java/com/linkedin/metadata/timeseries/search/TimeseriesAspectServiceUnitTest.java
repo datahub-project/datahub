@@ -109,7 +109,8 @@ public class TimeseriesAspectServiceUnitTest {
 
   @Test
   public void testGetIndicesIntegerWrap() throws IOException {
-    when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
+    when(indexConvention.getAllTimeseriesAspectIndicesPattern(any(OperationFingerprint.class)))
+        .thenReturn(INDEX_PATTERN);
     when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
         .thenReturn(response);
     ObjectNode jsonNode = JsonNodeFactory.instance.objectNode();
@@ -132,12 +133,15 @@ public class TimeseriesAspectServiceUnitTest {
     List<TimeseriesIndexSizeResult> results = _timeseriesAspectService.getIndexSizes(opContext);
 
     Assert.assertEquals(results.get(0).getSizeInMb(), 8078.398031);
+    // Propagation: the index pattern must be resolved with the exact operation context passed in.
+    verify(indexConvention).getAllTimeseriesAspectIndicesPattern(eq(opContext));
   }
 
   @Test
   public void testSearchQueryFailure() throws IOException {
     // setup mock
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("testAspect")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("testAspect")))
         .thenReturn("dataset_testAspect_index_v1");
 
     // Setup search request that will fail
@@ -168,7 +172,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testScrollSearchQueryFailure() throws IOException {
     // setup mock
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("testAspect")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("testAspect")))
         .thenReturn("dataset_testAspect_index_v1");
 
     // Setup search request that will fail
@@ -194,7 +199,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testParseDocumentJsonProcessingException() throws IOException {
     // Setup mock for parseDocument failure
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("testProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("testProfile")))
         .thenReturn("dataset_testProfile_index_v1");
 
     // Create a mock ObjectMapper that throws JsonProcessingException
@@ -249,7 +255,8 @@ public class TimeseriesAspectServiceUnitTest {
 
   @Test
   public void testParseDocumentSystemMetadataJsonProcessingException() throws IOException {
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     SearchHit mockHit = mock(SearchHit.class);
@@ -294,11 +301,13 @@ public class TimeseriesAspectServiceUnitTest {
 
   @Test
   public void testGetIndexSizesJsonProcessingException() throws IOException {
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Setup mock to throw IOException when reading JSON response
-    when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
+    when(indexConvention.getAllTimeseriesAspectIndicesPattern(any(OperationFingerprint.class)))
+        .thenReturn(INDEX_PATTERN);
     when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
         .thenReturn(response);
 
@@ -318,7 +327,8 @@ public class TimeseriesAspectServiceUnitTest {
 
   @Test
   public void testScrollAspectsWithEventField() throws IOException {
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     SearchHit mockHit = mock(SearchHit.class);
@@ -360,7 +370,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testScrollAspectsReturnsScrollIdWhenFullPage() throws IOException {
     // Test that scrollId is returned when we get a full page of results (indicating more data)
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     int requestedCount = 2;
@@ -425,7 +436,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testScrollAspectsNoScrollIdWhenPartialPage() throws IOException {
     // Test that scrollId is NOT returned when we get fewer results than requested (last page)
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     int requestedCount = 10;
@@ -472,7 +484,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testScrollAspectsNoScrollIdWhenEmptyResults() throws IOException {
     // Test that scrollId is NOT returned when we get no results
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     SearchHits mockHits = mock(SearchHits.class);
@@ -505,7 +518,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testScrollAspectsWithEventFieldJsonException() throws IOException {
     // Setup mock for scroll search with invalid event field
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("testProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("testProfile")))
         .thenReturn("dataset_testProfile_index_v1");
 
     // Create a mock ObjectMapper that throws JsonProcessingException
@@ -558,7 +572,8 @@ public class TimeseriesAspectServiceUnitTest {
 
   @Test
   public void testScrollAspectsWithoutEventField() throws IOException {
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     SearchHit mockHit = mock(SearchHit.class);
@@ -609,7 +624,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testGetLatestTimeseriesAspectValuesWithInterruptedException() throws Exception {
     // Setup
-    when(indexConvention.getTimeseriesAspectIndexName(anyString(), anyString()))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), anyString(), anyString()))
         .thenReturn("test_index");
 
     // Build a service with batchLoadEnabled=false so the thread-pool fan-out path is exercised.
@@ -653,7 +669,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testGetLatestTimeseriesAspectValuesWithExecutionException() throws Exception {
     // Setup
-    when(indexConvention.getTimeseriesAspectIndexName(anyString(), anyString()))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), anyString(), anyString()))
         .thenReturn("test_index");
 
     // Build a service with batchLoadEnabled=false so the thread-pool fan-out path is exercised.
@@ -731,7 +748,8 @@ public class TimeseriesAspectServiceUnitTest {
     String aspectName = "datasetProfile";
     String indexName = "dataset_datasetProfile_index_v1";
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName)))
         .thenReturn(indexName);
 
     // Mock search response
@@ -779,9 +797,11 @@ public class TimeseriesAspectServiceUnitTest {
     AspectSpec mockSpec2 = mock(AspectSpec.class);
     when(mockSpec2.isTimeseries()).thenReturn(true);
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName1)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName1)))
         .thenReturn("dataset_datasetProfile_index_v1");
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName2)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName2)))
         .thenReturn("dataset_operation_index_v1");
 
     // Mock search responses for both aspects
@@ -841,7 +861,8 @@ public class TimeseriesAspectServiceUnitTest {
     String urnString = "urn:li:dataset:123";
     String aspectName = "datasetProfile";
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName)))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Mock empty search response
@@ -870,7 +891,8 @@ public class TimeseriesAspectServiceUnitTest {
     String urnString = "urn:li:dataset:123";
     String aspectName = "datasetProfile";
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName)))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Mock search to throw IOException
@@ -927,7 +949,8 @@ public class TimeseriesAspectServiceUnitTest {
     String urnString2 = "urn:li:dataset:456";
     String aspectName = "datasetProfile";
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName)))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Mock search responses for both URNs
@@ -1005,7 +1028,8 @@ public class TimeseriesAspectServiceUnitTest {
     String urnString = "urn:li:dataset:123";
     Urn urn = UrnUtils.getUrn(urnString);
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     SearchHits emptyHits = mock(SearchHits.class);
@@ -1028,12 +1052,37 @@ public class TimeseriesAspectServiceUnitTest {
   }
 
   @Test
+  public void testBatchGetAspectValuesZeroLimitDoesNotDivideByZero() throws IOException {
+    // limit=0 survives applyLimit as 0 (it is neither negative nor above max), so it reaches the
+    // batched path and is used as the divisor when deriving the sub-batch size. A caller asking
+    // for zero documents should get empty lists, matching size(0) on the per-URN path.
+    Urn urn1 = UrnUtils.getUrn("urn:li:dataset:123");
+    Urn urn2 = UrnUtils.getUrn("urn:li:dataset:456");
+
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext,
+            new HashSet<>(Arrays.asList(urn1, urn2)),
+            "dataset",
+            "datasetProfile",
+            null,
+            null,
+            0,
+            null,
+            null);
+
+    verify(searchClient, never()).search(any(), any(), any());
+    Assert.assertTrue(result.isEmpty());
+  }
+
+  @Test
   public void testBatchGetAspectValuesSubBatchFailure() throws IOException {
     // When searchClient.search throws, the failed URN is still present with emptyList.
     String urnString = "urn:li:dataset:123";
     Urn urn = UrnUtils.getUrn(urnString);
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
     when(searchClient.search(any(), any(), any())).thenThrow(new IOException("ES unavailable"));
 
@@ -1055,7 +1104,8 @@ public class TimeseriesAspectServiceUnitTest {
     String urnString2 = "urn:li:dataset:456";
     Urn urn2 = UrnUtils.getUrn(urnString2);
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetProfile")))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Build the mock hit with an event payload.
@@ -1107,7 +1157,8 @@ public class TimeseriesAspectServiceUnitTest {
     Urn urn = UrnUtils.getUrn(urnString);
     String aspectName = "datasetProfile";
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq(aspectName)))
         .thenReturn("dataset_datasetProfile_index_v1");
 
     ParsedTerms emptyTerms = mock(ParsedTerms.class);
@@ -1141,7 +1192,8 @@ public class TimeseriesAspectServiceUnitTest {
     document.put("urn", "urn:li:dataset:foo");
     document.put("timestampMillis", 1_700_000_000_000L);
 
-    when(indexConvention.getTimeseriesAspectIndexName(entityName, aspectName))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq(entityName), eq(aspectName)))
         .thenReturn("dataset_datasetprofileaspect_v1");
 
     _timeseriesAspectService.upsertDocument(opContext, entityName, aspectName, docId, document);
@@ -1174,7 +1226,8 @@ public class TimeseriesAspectServiceUnitTest {
   public void testBatchGetAggregatedStatsBatchPathSingleCall() throws IOException {
     // With batchLoadEnabled=true (default) all URNs in one sub-batch → exactly 1 ES call
     // regardless of N (contrast: per-URN path would call N times).
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetUsageStatistics")))
         .thenReturn("dataset_datasetusagestatistics_v1");
 
     ParsedTerms emptyTerms = mock(ParsedTerms.class);
@@ -1224,7 +1277,8 @@ public class TimeseriesAspectServiceUnitTest {
             indexBuilder,
             null);
 
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetUsageStatistics")))
         .thenReturn("dataset_datasetusagestatistics_v1");
 
     // Minimal valid response: outer URN agg with no buckets (all input URNs → empty tables).
@@ -1265,7 +1319,8 @@ public class TimeseriesAspectServiceUnitTest {
   public void testBatchGetAggregatedStatsWithMetricOrdering() throws IOException {
     // Exercises: findOrderBySpec returning non-null, BucketOrder.aggregation(metric, asc),
     // ascending=false path, hasSize()→getSize(), and the innerRoot!=null branch.
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetUsageStatistics")))
         .thenReturn("dataset_datasetusagestatistics_v1");
 
     ParsedTerms emptyTerms = mock(ParsedTerms.class);
@@ -1314,7 +1369,8 @@ public class TimeseriesAspectServiceUnitTest {
       throws IOException {
     // Exercises: BucketOrder.aggregation("_key", asc) path, !hasSize()→MAX_TERM_BUCKETS,
     // default ascending (asc=true), and the sharedFilter!=null path.
-    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+    when(indexConvention.getTimeseriesAspectIndexName(
+            any(OperationFingerprint.class), eq("dataset"), eq("datasetUsageStatistics")))
         .thenReturn("dataset_datasetusagestatistics_v1");
 
     ParsedTerms emptyTerms = mock(ParsedTerms.class);

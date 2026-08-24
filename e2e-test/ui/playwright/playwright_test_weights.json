@@ -1,0 +1,362 @@
+[
+  {
+    "filePath": "analytics/analytics.spec.ts",
+    "duration": "21.883s"
+  },
+  {
+    "filePath": "application/application-management.spec.ts",
+    "duration": "32.992s"
+  },
+  {
+    "filePath": "application/application-sidebar.spec.ts",
+    "duration": "30.437s"
+  },
+  {
+    "filePath": "auth/login-with-welcome-modal.spec.ts",
+    "duration": "14.084s"
+  },
+  {
+    "filePath": "auth/login.spec.ts",
+    "duration": "22.272s"
+  },
+  {
+    "filePath": "autocomplete-v2/autocomplete.spec.ts",
+    "duration": "29.058s"
+  },
+  {
+    "filePath": "browse-v2/browse-v2.spec.ts",
+    "duration": "80.132s"
+  },
+  {
+    "filePath": "business-attributes/business-attribute-navigation.spec.ts",
+    "duration": "6.828s"
+  },
+  {
+    "filePath": "business-attributes/business-attribute.spec.ts",
+    "duration": "0.538s"
+  },
+  {
+    "filePath": "business-attributes/check-feature-flag.spec.ts",
+    "duration": "4.937s"
+  },
+  {
+    "filePath": "change-history/change-history.spec.ts",
+    "duration": "242.287s"
+  },
+  {
+    "filePath": "column-lineage-controls/column-lineage-controls.spec.ts",
+    "duration": "81.474s"
+  },
+  {
+    "filePath": "containers-v2/v2-containers.spec.ts",
+    "duration": "4.655s"
+  },
+  {
+    "filePath": "documents/document-import.spec.ts",
+    "duration": "27.416s"
+  },
+  {
+    "filePath": "documents/document-management.spec.ts",
+    "duration": "271.110s"
+  },
+  {
+    "filePath": "documents/document-tree-expand.spec.ts",
+    "duration": "47.748s"
+  },
+  {
+    "filePath": "domains-v2/v2-domains-advanced.spec.ts",
+    "duration": "34.878s"
+  },
+  {
+    "filePath": "domains-v2/v2-domains-core.spec.ts",
+    "duration": "24.927s"
+  },
+  {
+    "filePath": "domains-v2/v2-domains-summary.spec.ts",
+    "duration": "19.723s"
+  },
+  {
+    "filePath": "entity-pages/summary-tab/v2-summary-tab-about-section.spec.ts",
+    "duration": "18.277s"
+  },
+  {
+    "filePath": "entity-pages/summary-tab/v2-summary-tab-data-product.spec.ts",
+    "duration": "4.479s"
+  },
+  {
+    "filePath": "entity-pages/summary-tab/v2-summary-tab-domain.spec.ts",
+    "duration": "8.309s"
+  },
+  {
+    "filePath": "entity-pages/summary-tab/v2-summary-tab-glossary-node.spec.ts",
+    "duration": "5.633s"
+  },
+  {
+    "filePath": "entity-pages/summary-tab/v2-summary-tab-glossary-term.spec.ts",
+    "duration": "11.046s"
+  },
+  {
+    "filePath": "glossary/v2-glossary-navigation.spec.ts",
+    "duration": "60.273s"
+  },
+  {
+    "filePath": "glossary/v2-glossary-node-tags.spec.ts",
+    "duration": "10.470s"
+  },
+  {
+    "filePath": "glossary/v2-glossary-term-tags.spec.ts",
+    "duration": "14.154s"
+  },
+  {
+    "filePath": "glossary/v2-glossary-term.spec.ts",
+    "duration": "19.886s"
+  },
+  {
+    "filePath": "glossary/v2-glossary.spec.ts",
+    "duration": "109.478s"
+  },
+  {
+    "filePath": "home-v2/v2-home.spec.ts",
+    "duration": "5.389s"
+  },
+  {
+    "filePath": "home/homepage-collection-view-all.spec.ts",
+    "duration": "5.992s"
+  },
+  {
+    "filePath": "home/homepage-modules.spec.ts",
+    "duration": "42.959s"
+  },
+  {
+    "filePath": "home/homepage-templates.spec.ts",
+    "duration": "6.641s"
+  },
+  {
+    "filePath": "home/homepage-visibility.spec.ts",
+    "duration": "6.683s"
+  },
+  {
+    "filePath": "incidents-v2/v2-incidents.spec.ts",
+    "duration": "29.647s"
+  },
+  {
+    "filePath": "ingestion-v2/odcs-source.spec.ts",
+    "duration": "10.207s"
+  },
+  {
+    "filePath": "ingestion-v2/run-history.spec.ts",
+    "duration": "20.717s"
+  },
+  {
+    "filePath": "ingestion-v2/secrets-tab.spec.ts",
+    "duration": "43.427s"
+  },
+  {
+    "filePath": "ingestion-v2/sources.spec.ts",
+    "duration": "59.542s"
+  },
+  {
+    "filePath": "ingestion-v3/run-history.spec.ts",
+    "duration": "21.608s"
+  },
+  {
+    "filePath": "ingestion-v3/secrets-tab.spec.ts",
+    "duration": "44.483s"
+  },
+  {
+    "filePath": "ingestion-v3/sources.spec.ts",
+    "duration": "59.027s"
+  },
+  {
+    "filePath": "lineage-v3/v3-download-lineage-results.spec.ts",
+    "duration": "7.699s"
+  },
+  {
+    "filePath": "lineage-v3/v3-lineage-column-level.spec.ts",
+    "duration": "7.487s"
+  },
+  {
+    "filePath": "lineage-v3/v3-lineage-column-path.spec.ts",
+    "duration": "20.784s"
+  },
+  {
+    "filePath": "lineage-v3/v3-lineage-graph.spec.ts",
+    "duration": "73.617s"
+  },
+  {
+    "filePath": "lineage-v3/v3-lineage-impact-analysis.spec.ts",
+    "duration": "104.801s"
+  },
+  {
+    "filePath": "login-v2/v2-login.spec.ts",
+    "duration": "5.542s"
+  },
+  {
+    "filePath": "manage-tags/assign-unassign-tags.spec.ts",
+    "duration": "16.888s"
+  },
+  {
+    "filePath": "manage-tags/create-edit-remove-tags.spec.ts",
+    "duration": "11.290s"
+  },
+  {
+    "filePath": "manage-tags/search-filter-tags.spec.ts",
+    "duration": "12.449s"
+  },
+  {
+    "filePath": "mfeframework/valid-config-mfe.spec.ts",
+    "duration": "16.052s"
+  },
+  {
+    "filePath": "ml-entities-v2/v2-experiment.spec.ts",
+    "duration": "19.625s"
+  },
+  {
+    "filePath": "ml-entities-v2/v2-model-mlflow.spec.ts",
+    "duration": "25.861s"
+  },
+  {
+    "filePath": "ml-entities-v2/v2-model-sagemaker.spec.ts",
+    "duration": "7.024s"
+  },
+  {
+    "filePath": "mutations-v2/v2-domains.spec.ts",
+    "duration": "48.557s"
+  },
+  {
+    "filePath": "mutations-v2/v2-edit-documentation.spec.ts",
+    "duration": "59.687s"
+  },
+  {
+    "filePath": "mutations/dataset-health.spec.ts",
+    "duration": "3.373s"
+  },
+  {
+    "filePath": "mutations/edit-documentation.spec.ts",
+    "duration": "9.540s"
+  },
+  {
+    "filePath": "navbar/navbar.spec.ts",
+    "duration": "17.512s"
+  },
+  {
+    "filePath": "nested-column-stats/nested-column-stats.spec.ts",
+    "duration": "13.262s"
+  },
+  {
+    "filePath": "onboarding/welcome-modal.spec.ts",
+    "duration": "183.946s"
+  },
+  {
+    "filePath": "ownership-v2/v2-manage-ownership.spec.ts",
+    "duration": "14.191s"
+  },
+  {
+    "filePath": "quality/assertion-list.spec.ts",
+    "duration": "8.103s"
+  },
+  {
+    "filePath": "schema-blame/schema-blame.spec.ts",
+    "duration": "10.150s"
+  },
+  {
+    "filePath": "search/query-and-filter-search.spec.ts",
+    "duration": "93.740s"
+  },
+  {
+    "filePath": "search/search-filters.spec.ts",
+    "duration": "45.768s"
+  },
+  {
+    "filePath": "search/search-within-operator.spec.ts",
+    "duration": "18.370s"
+  },
+  {
+    "filePath": "search/search.spec.ts",
+    "duration": "65.092s"
+  },
+  {
+    "filePath": "search/searchv2.spec.ts",
+    "duration": "112.987s"
+  },
+  {
+    "filePath": "settings-v2/v2-home-page-posts.spec.ts",
+    "duration": "50.213s"
+  },
+  {
+    "filePath": "settings-v2/v2-manage-access-tokens.spec.ts",
+    "duration": "7.998s"
+  },
+  {
+    "filePath": "settings-v2/v2-manage-policies.spec.ts",
+    "duration": "74.689s"
+  },
+  {
+    "filePath": "settings-v2/v2-manage-service-accounts.spec.ts",
+    "duration": "19.416s"
+  },
+  {
+    "filePath": "settings-v2/v2-managing-groups.spec.ts",
+    "duration": "73.738s"
+  },
+  {
+    "filePath": "siblings-v2/siblings.spec.ts",
+    "duration": "28.101s"
+  },
+  {
+    "filePath": "stats-v2/v2-change-history.spec.ts",
+    "duration": "51.944s"
+  },
+  {
+    "filePath": "stats-v2/v2-charts.spec.ts",
+    "duration": "44.081s"
+  },
+  {
+    "filePath": "stats-v2/v2-column-stats.spec.ts",
+    "duration": "8.099s"
+  },
+  {
+    "filePath": "stats-v2/v2-highlights.spec.ts",
+    "duration": "7.858s"
+  },
+  {
+    "filePath": "stats-v2/v2-stats-tab.spec.ts",
+    "duration": "21.229s"
+  },
+  {
+    "filePath": "structured-properties/entity-level.spec.ts",
+    "duration": "36.648s"
+  },
+  {
+    "filePath": "structured-properties/schema-field.spec.ts",
+    "duration": "49.376s"
+  },
+  {
+    "filePath": "structured-properties/structured-properties.spec.ts",
+    "duration": "18.995s"
+  },
+  {
+    "filePath": "structured-properties/structured-props-drawer-font.spec.ts",
+    "duration": "5.906s"
+  },
+  {
+    "filePath": "task-runs-v2/task-runs.spec.ts",
+    "duration": "11.550s"
+  },
+  {
+    "filePath": "upload-files/upload-files.spec.ts",
+    "duration": "45.058s"
+  },
+  {
+    "filePath": "views/v2-manage-views.spec.ts",
+    "duration": "8.408s"
+  },
+  {
+    "filePath": "views/v2-view-select.spec.ts",
+    "duration": "17.720s"
+  },
+  {
+    "filePath": "views/v2-view-within-operator.spec.ts",
+    "duration": "8.064s"
+  }
+]

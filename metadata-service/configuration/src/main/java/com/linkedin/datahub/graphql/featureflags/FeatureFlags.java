@@ -88,4 +88,12 @@ public class FeatureFlags {
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
+  private boolean entityHealthBatchLoadEnabled = true;
+  private boolean entityExistsBatchLoadEnabled = true;
+  private boolean parentContainersBatchLoadEnabled = true;
+  private boolean parentNodesBatchLoadEnabled = true;
+  // Kill switch for schema-driven GraphQL aspect optimization. When true, entity hydration fetches
+  // only the aspects required by the selected fields. When false, every loader falls back to
+  // fetching its full default aspect set (legacy behavior). Default ON.
+  private boolean graphQLAspectOptimizationEnabled = true;
 }

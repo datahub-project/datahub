@@ -1328,6 +1328,13 @@ class TableauSiteSource:
                 return all_project_map
 
             for project in TSC.Pager(self.server.projects):
+                if project.id is None or project.name is None:
+                    self.report.warning(
+                        title="Project without an id or name skipped",
+                        message="A project returned by the Tableau API has no id or name and was excluded from the project hierarchy.",
+                        context=f"id={project.id}, name={project.name}",
+                    )
+                    continue
                 all_project_map[project.id] = TableauProject(
                     id=project.id,
                     name=project.name,
@@ -1337,19 +1344,21 @@ class TableauSiteSource:
                     path=[],
                 )
             # Set parent project name
-            for _project_id, project in all_project_map.items():
-                if project.parent_id is None:
+            for _project_id, tableau_project in all_project_map.items():
+                if tableau_project.parent_id is None:
                     continue
 
-                if project.parent_id in all_project_map:
-                    project.parent_name = all_project_map[project.parent_id].name
+                if tableau_project.parent_id in all_project_map:
+                    tableau_project.parent_name = all_project_map[
+                        tableau_project.parent_id
+                    ].name
                 else:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
+                        context=f"Missing {tableau_project.parent_id}, referenced by {tableau_project.id} {tableau_project.name}",
                     )
-                    project.parent_id = None
+                    tableau_project.parent_id = None
 
             # Post-condition
             assert all(
@@ -1477,6 +1486,13 @@ class TableauSiteSource:
                         f"registry"
                     )
                     continue
+                if ds.id is None:
+                    self.report.warning(
+                        title="Datasource without an id skipped",
+                        message="A datasource returned by the Tableau API has no id and was excluded from the datasource-to-project map.",
+                        context=f"name={ds.name}, project_id={ds.project_id}",
+                    )
+                    continue
                 self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
@@ -1495,6 +1511,13 @@ class TableauSiteSource:
                 logger.debug(
                     f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
                     f"registry"
+                )
+                continue
+            if wb.id is None:
+                self.report.warning(
+                    title="Workbook without an id skipped",
+                    message="A workbook returned by the Tableau API has no id and was excluded from the workbook-to-project map.",
+                    context=f"name={wb.name}, project_id={wb.project_id}",
                 )
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
@@ -2643,7 +2666,7 @@ class TableauSiteSource:
                     f"registry"
                 )
             else:
-                self.datasource_project_map[ds_result.id] = ds_result.project_id
+                self.datasource_project_map[ds_luid] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
             self.report.warning(
@@ -3903,12 +3926,20 @@ class TableauSiteSource:
             self.config.permission_ingestion
             and self.config.permission_ingestion.enable_workbooks
         ):
-            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
-            workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
-            self.server.workbooks.populate_permissions(workbook_instance)
-            custom_props = self._create_workbook_properties(
-                workbook_instance.permissions
-            )
+            workbook_luid = workbook.get(c.LUID)
+            logger.debug(f"Ingest access roles of workbook-id='{workbook_luid}'")
+            if workbook_luid:
+                workbook_instance = self.server.workbooks.get_by_id(workbook_luid)
+                self.server.workbooks.populate_permissions(workbook_instance)
+                custom_props = self._create_workbook_properties(
+                    workbook_instance.permissions
+                )
+            else:
+                self.report.warning(
+                    title="Workbook permissions skipped",
+                    message="Workbook has no LUID, so its access roles could not be ingested.",
+                    context=f"name={workbook.get(c.NAME)}, id={workbook.get(c.ID)}",
+                )
 
         luid_props: Dict = (
             {c.LUID: str(workbook[c.LUID])} if workbook.get(c.LUID) else {}
@@ -4310,6 +4341,13 @@ class TableauSiteSource:
 
     def _fetch_groups(self):
         for group in TSC.Pager(self.server.groups):
+            if group.id is None:
+                self.report.warning(
+                    title="Group without an id skipped",
+                    message="A group returned by the Tableau API has no id and was excluded from the group map.",
+                    context=f"name={group.name}",
+                )
+                continue
             self.group_map[group.id] = group
 
     def _get_allowed_capabilities(self, capabilities: Dict[str, str]) -> List[str]:
@@ -4330,7 +4368,8 @@ class TableauSiteSource:
         groups = []
         for rule in permissions:
             if rule.grantee.tag_name == "group":
-                group = self.group_map.get(rule.grantee.id)
+                grantee_id = rule.grantee.id
+                group = self.group_map.get(grantee_id) if grantee_id else None
                 if not group or not group.name:
                     logger.debug(f"Group {rule.grantee.id} not found in group map.")
                     continue

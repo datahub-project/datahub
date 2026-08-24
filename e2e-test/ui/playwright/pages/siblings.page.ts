@@ -138,10 +138,12 @@ export class SiblingsPage extends BasePage {
     await this.addTermsButton.click();
     await this.tagTermModalTrigger.click();
     await this.tagTermInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     await this.tagTermInput.click();
     await this.tagTermInput.fill(termName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     const termOption = this.getTermOption(termName);
@@ -150,6 +152,7 @@ export class SiblingsPage extends BasePage {
     await termOption.click({ force: true });
 
     await this.tagTermModalTrigger.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await this.addTagTermConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);

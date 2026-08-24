@@ -99,6 +99,8 @@ public class GraphQLControllerUsageRecordingTest {
     controller.rateLimitEngine = rateLimitEngine;
     controller.graphqlUsageClassificationRegistry = registry;
     controller.usageMetricsSessionEnricher = enricher;
+    controller.aspectMappingRegistry =
+        mock(com.linkedin.datahub.graphql.AspectMappingRegistry.class);
     setSystemOperationContext(controller, systemContext);
 
     authenticationContextMock = Mockito.mockStatic(AuthenticationContext.class);

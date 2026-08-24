@@ -824,7 +824,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         extra_info=extra_info,
                     )
                     return
-                columns.add(self.identifiers.snowflake_identifier(column_name))
+                columns.add(self.identifiers.snowflake_column_identifier(column_name))
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
@@ -955,7 +955,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                             ColumnLineageInfo(
                                 downstream=DownstreamColumnRef(
                                     table=obj_downstream,
-                                    column=self.identifiers.snowflake_identifier(
+                                    column=self.identifiers.snowflake_column_identifier(
                                         modified_column["columnName"]
                                     ),
                                 ),
@@ -966,7 +966,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                                                 upstream["objectName"]
                                             )
                                         ),
-                                        column=self.identifiers.snowflake_identifier(
+                                        column=self.identifiers.snowflake_column_identifier(
                                             upstream["columnName"]
                                         ),
                                     )
