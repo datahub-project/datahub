@@ -409,10 +409,10 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   }
 
   /**
-   * Whether default authentication is system level
-   *
-   * @return
+   * Whether default authentication is system level. Implements {@link
+   * com.datahub.context.OperationFingerprint#isSystemAuth()}.
    */
+  @Override
   public boolean isSystemAuth() {
     return operationContextConfig.isAllowSystemAuthentication()
         && sessionActorContext.isSystemAuth();

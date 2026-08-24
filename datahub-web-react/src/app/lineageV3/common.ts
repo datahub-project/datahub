@@ -19,7 +19,7 @@ export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
 // Page size for fetching/displaying a bounding box's members, and the initial home member limit.
-export const BOUNDING_BOX_MEMBER_PAGE_SIZE = 50;
+export const BOUNDING_BOX_MEMBER_PAGE_SIZE = 20;
 
 /** Entity types rendered as a bounding-box lineage graph (DataProduct, SemanticModel). */
 export const BOUNDING_BOX_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
@@ -405,6 +405,19 @@ export function removeFromAdjacencyList(
 ): void {
     adjacencyList[direction].get(parent)?.delete(child);
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
+}
+
+/** Deep copies an adjacency list, so that it can be modified without affecting the original. */
+export function cloneAdjacencyList(adjacencyList: NodeContext['adjacencyList']): NodeContext['adjacencyList'] {
+    return {
+        [LineageDirection.Upstream]: cloneNeighbors(adjacencyList[LineageDirection.Upstream]),
+        [LineageDirection.Downstream]: cloneNeighbors(adjacencyList[LineageDirection.Downstream]),
+    };
+}
+
+/** Deep copies one direction of an adjacency list. */
+export function cloneNeighbors(neighbors: NeighborMap): NeighborMap {
+    return new Map(Array.from(neighbors, ([urn, children]) => [urn, new Set(children)]));
 }
 
 /**
