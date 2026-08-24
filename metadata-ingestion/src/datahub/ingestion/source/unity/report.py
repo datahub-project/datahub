@@ -34,6 +34,10 @@ class UnityCatalogReport(SQLSourceReport):
     num_external_upstreams_unsupported: int = 0
     num_external_upstreams_partition_stripped: int = 0
 
+    num_query_entities_emitted: int = 0
+    num_lineage_edges_query_linked: int = 0
+    num_lineage_statements_skipped: int = 0
+
     num_queries: int = 0
     num_queries_dropped: int = 0
     num_queries_preparsed_from_lineage: int = 0

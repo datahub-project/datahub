@@ -3,7 +3,10 @@ from types import SimpleNamespace
 from typing import Optional
 
 from datahub.ingestion.source.unity.proxy_types import Query
-from datahub.ingestion.source.unity.query_lineage import QueryLineageResolver
+from datahub.ingestion.source.unity.query_lineage import (
+    QueryLineageResolver,
+    build_query_entity_aspects,
+)
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 
 
@@ -204,3 +207,51 @@ def test_single_target_urn_matches_usage_path_fingerprint():
     )
 
     assert urn == f"urn:li:query:{expected_fingerprint}"
+
+
+def test_build_query_entity_aspects_shape():
+    aspects = build_query_entity_aspects(
+        query_urn="urn:li:query:abc123",
+        query_text="SELECT col_a FROM my_catalog.my_schema.src",
+        subject_urns=[
+            _urn("my_catalog.my_schema.src"),
+            _urn("my_catalog.my_schema.tgt"),
+        ],
+    )
+
+    names = {type(a).__name__ for a in aspects}
+    assert names == {"QueryPropertiesClass", "QuerySubjectsClass"}
+
+    props = next(a for a in aspects if type(a).__name__ == "QueryPropertiesClass")
+    assert props.statement.value == "SELECT col_a FROM my_catalog.my_schema.src"
+    assert props.statement.language == "SQL"
+    assert props.source == "SYSTEM"
+
+    subjects = next(a for a in aspects if type(a).__name__ == "QuerySubjectsClass")
+    assert len(subjects.subjects) == 2
+
+
+def test_subject_urns_for_returns_all_distinct_datasets_for_a_query():
+    resolver = QueryLineageResolver(resolve_urn=_resolve)
+    text = "INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src"
+    resolver.add_query(
+        _query(text, 1, "my_catalog.my_schema.src", "my_catalog.my_schema.tgt")
+    )
+    resolver.add_query(
+        _query(text, 1, "my_catalog.my_schema.src2", "my_catalog.my_schema.tgt")
+    )
+
+    urn = resolver.query_urn_for(
+        _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
+    )
+    assert urn == resolver.query_urn_for(
+        _urn("my_catalog.my_schema.src2"), _urn("my_catalog.my_schema.tgt")
+    )
+
+    assert resolver.subject_urns_for(urn) == sorted(
+        [
+            _urn("my_catalog.my_schema.src"),
+            _urn("my_catalog.my_schema.src2"),
+            _urn("my_catalog.my_schema.tgt"),
+        ]
+    )

@@ -1,8 +1,9 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
+import datahub.metadata.schema_classes as models
 from datahub.ingestion.source.unity.proxy_types import Query
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
@@ -13,6 +14,33 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # (upstream_urn, downstream_urn)
 EdgeKey = Tuple[str, str]
+
+_EMPTY_AUDIT_STAMP = models.AuditStampClass(time=0, actor="urn:li:corpuser:_ingestion")
+
+
+def build_query_entity_aspects(
+    query_urn: str,
+    query_text: str,
+    subject_urns: Sequence[str],
+) -> List[Union[models.QueryPropertiesClass, models.QuerySubjectsClass]]:
+    """Aspects for a Query entity representing one Databricks statement."""
+    return [
+        models.QueryPropertiesClass(
+            statement=models.QueryStatementClass(
+                value=query_text,
+                language=models.QueryLanguageClass.SQL,
+            ),
+            source=models.QuerySourceClass.SYSTEM,
+            created=_EMPTY_AUDIT_STAMP,
+            lastModified=_EMPTY_AUDIT_STAMP,
+        ),
+        models.QuerySubjectsClass(
+            subjects=[
+                models.QuerySubjectClass(entity=urn)
+                for urn in sorted(set(subject_urns))
+            ]
+        ),
+    ]
 
 
 @dataclass
@@ -117,6 +145,15 @@ class QueryLineageResolver:
             c.query_urn: c.query_text for c in self._by_edge.values()
         }
         return sorted(deduped.items())
+
+    def subject_urns_for(self, query_urn: str) -> List[str]:
+        """Every dataset touched by the statement behind this query URN."""
+        subjects: Set[str] = set()
+        for (upstream_urn, downstream_urn), candidate in self._by_edge.items():
+            if candidate.query_urn == query_urn:
+                subjects.add(upstream_urn)
+                subjects.add(downstream_urn)
+        return sorted(subjects)
 
     @property
     def num_edges_linked(self) -> int:

@@ -114,6 +114,10 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableReference,
 )
+from datahub.ingestion.source.unity.query_lineage import (
+    QueryLineageResolver,
+    build_query_entity_aspects,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResource,
@@ -1116,6 +1120,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from ml_model.as_workunits()
         yield from self.add_model_version_to_schema_container(str(ml_model.urn), schema)
         self.report.ml_model_versions.processed(ml_model_version.id)
+
+    def _gen_query_entity_workunits(
+        self, resolver: QueryLineageResolver
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit Query entities for statements the lineage path resolved.
+
+        Emitted before any lineage aspect references them, so a `query` URN never
+        points at a missing entity. The usage path may emit the same URN with the
+        same aspects; that upsert is idempotent, so no cross-path dedup is needed.
+        """
+        for query_urn, query_text in resolver.queries_to_emit():
+            for aspect in build_query_entity_aspects(
+                query_urn=query_urn,
+                query_text=query_text,
+                subject_urns=resolver.subject_urns_for(query_urn),
+            ):
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=query_urn, aspect=aspect
+                ).as_workunit()
+            self.report.num_query_entities_emitted += 1
 
     def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
         # Calculate datetime filters for lineage
