@@ -21,8 +21,10 @@ import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -51,30 +53,49 @@ import lombok.extern.slf4j.Slf4j;
 public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
+  private record FieldCheck(BatchItem item, Urn datasetUrn, String fieldPath, String role) {}
+
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     final ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
-    // A multi-column link emits one item per mapped column, all referencing the same two datasets;
-    // cache field paths per dataset so each schema is read at most once per batch.
-    final Map<Urn, Set<String>> fieldPathCache = new HashMap<>();
+    // Collect the checks for the whole batch before reading anything: a multi-column link emits one
+    // item per mapped column, all referencing the same two datasets, so every schema referenced by
+    // the batch is read in one batch fetch and each dataset at most once.
+    final List<FieldCheck> fieldChecks = new ArrayList<>();
 
     mcpItems.forEach(
         item -> {
           if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
-            validatePatchItem(
-                (MCPItem) item, operationContext, retrieverContext, fieldPathCache, exceptions);
+            collectPatchItemChecks((MCPItem) item, fieldChecks);
             return;
           }
-          validateLogicalParent(
-              item,
-              item.getAspect(LogicalParent.class),
-              operationContext,
-              retrieverContext,
-              fieldPathCache,
-              exceptions);
+          collectChecks(item, item.getAspect(LogicalParent.class), fieldChecks);
+        });
+
+    if (fieldChecks.isEmpty()) {
+      return exceptions.streamAllExceptions();
+    }
+
+    final Map<Urn, Set<String>> fieldPathsByDataset =
+        readFieldPaths(
+            fieldChecks.stream().map(FieldCheck::datasetUrn).collect(Collectors.toSet()),
+            operationContext,
+            retrieverContext);
+
+    fieldChecks.forEach(
+        check -> {
+          if (!fieldPathsByDataset
+              .getOrDefault(check.datasetUrn(), Set.of())
+              .contains(check.fieldPath())) {
+            exceptions.addException(
+                check.item(),
+                String.format(
+                    "Field path '%s' not found on %s dataset %s",
+                    check.fieldPath(), check.role(), check.datasetUrn()));
+          }
         });
 
     return exceptions.streamAllExceptions();
@@ -86,12 +107,8 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
    * the child field path comes from the item's own urn. Unparseable values are left to schema
    * validation at merge time.
    */
-  private void validatePatchItem(
-      @Nonnull final MCPItem item,
-      @Nonnull final OperationFingerprint operationContext,
-      @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
-      @Nonnull final ValidationExceptionCollection exceptions) {
+  private void collectPatchItemChecks(
+      @Nonnull final MCPItem item, @Nonnull final List<FieldCheck> fieldChecks) {
     PatchOperationUtils.addAndReplaceValues(item)
         .forEach(
             op ->
@@ -99,27 +116,21 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
                     .ifPresent(
                         nested -> {
                           try {
-                            validateLogicalParent(
+                            collectChecks(
                                 item,
                                 RecordUtils.toRecordTemplate(
                                     LogicalParent.class, nested.toString()),
-                                operationContext,
-                                retrieverContext,
-                                fieldPathCache,
-                                exceptions);
+                                fieldChecks);
                           } catch (RuntimeException e) {
                             // unparseable delta — schema validation rejects it at merge time
                           }
                         }));
   }
 
-  private void validateLogicalParent(
+  private void collectChecks(
       @Nonnull final BatchItem item,
       final LogicalParent logicalParent,
-      @Nonnull final OperationFingerprint operationContext,
-      @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
-      @Nonnull final ValidationExceptionCollection exceptions) {
+      @Nonnull final List<FieldCheck> fieldChecks) {
     if (logicalParent == null
         || logicalParent.getParent() == null
         || logicalParent.getParent().getDestinationUrn() == null) {
@@ -136,62 +147,40 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       return;
     }
 
-    validateFieldPresent(
-        item,
-        child.get().getFirst(),
-        child.get().getSecond(),
-        "child",
-        operationContext,
-        retrieverContext,
-        fieldPathCache,
-        exceptions);
-    validateFieldPresent(
-        item,
-        parent.get().getFirst(),
-        parent.get().getSecond(),
-        "parent",
-        operationContext,
-        retrieverContext,
-        fieldPathCache,
-        exceptions);
-  }
-
-  private void validateFieldPresent(
-      @Nonnull final BatchItem item,
-      @Nonnull final Urn datasetUrn,
-      @Nonnull final String fieldPath,
-      @Nonnull final String role,
-      @Nonnull final OperationFingerprint operationContext,
-      @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
-      @Nonnull final ValidationExceptionCollection exceptions) {
-    final Set<String> fieldPaths =
-        fieldPathCache.computeIfAbsent(
-            datasetUrn, urn -> readFieldPaths(urn, operationContext, retrieverContext));
-    if (!fieldPaths.contains(fieldPath)) {
-      exceptions.addException(
-          item,
-          String.format("Field path '%s' not found on %s dataset %s", fieldPath, role, datasetUrn));
-    }
+    fieldChecks.add(new FieldCheck(item, child.get().getFirst(), child.get().getSecond(), "child"));
+    fieldChecks.add(
+        new FieldCheck(item, parent.get().getFirst(), parent.get().getSecond(), "parent"));
   }
 
   @Nonnull
-  private Set<String> readFieldPaths(
-      @Nonnull final Urn datasetUrn,
+  private Map<Urn, Set<String>> readFieldPaths(
+      @Nonnull final Set<Urn> datasetUrns,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
-    final Aspect aspect =
+    final Map<Urn, Map<String, Aspect>> aspects =
         retrieverContext
             .getAspectRetriever()
-            .getLatestAspectObject(operationContext, datasetUrn, SCHEMA_METADATA_ASPECT_NAME);
-    if (aspect == null) {
-      return Set.of();
-    }
-    final SchemaMetadata schema = new SchemaMetadata(aspect.data());
-    if (!schema.hasFields()) {
-      return Set.of();
-    }
-    return schema.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toSet());
+            .getLatestAspectObjects(
+                operationContext, datasetUrns, Set.of(SCHEMA_METADATA_ASPECT_NAME));
+
+    final Map<Urn, Set<String>> fieldPathsByDataset = new HashMap<>();
+    aspects.forEach(
+        (datasetUrn, aspectsByName) -> {
+          final Aspect aspect = aspectsByName.get(SCHEMA_METADATA_ASPECT_NAME);
+          if (aspect == null) {
+            return;
+          }
+          final SchemaMetadata schema = new SchemaMetadata(aspect.data());
+          if (!schema.hasFields()) {
+            return;
+          }
+          fieldPathsByDataset.put(
+              datasetUrn,
+              schema.getFields().stream()
+                  .map(SchemaField::getFieldPath)
+                  .collect(Collectors.toSet()));
+        });
+    return fieldPathsByDataset;
   }
 
   @Override
