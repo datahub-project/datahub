@@ -17,10 +17,8 @@ from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_report_warning_sample_size,
 )
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
-)
+from datahub.configuration.source_common import EnvConfigMixin
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
@@ -52,19 +50,32 @@ class FailureLoggingConfig(ConfigModel):
     log_config: Optional[FileSinkConfig] = None
 
 
-class UpstreamPlatformCasing(PlatformInstanceConfigMixin, EnvConfigMixin):
+class UpstreamPlatformCasing(EnvConfigMixin):
     """An upstream warehouse platform whose asset casing lineage references should
     be reconciled against.
 
-    Inherits ``platform_instance`` and ``env`` (with its FabricType validator) from the
-    shared config mixins, so `env` is validated/normalized rather than under-resolving
-    silently on a typo.
-
-    ``platform_instance`` narrows the catalog read through DataHub's search filter, which
-    matches the ``dataPlatformInstance`` aspect rather than the URN. A connector that puts
-    the instance in the URN without emitting that aspect therefore reads nothing; leave it
-    unset to read the whole platform / env. See docs/dev_guides/lineage_urn_casing.md.
+    ``EnvConfigMixin`` is inherited for its validator, but ``env``'s description is
+    overridden and ``platform_instance`` declared here rather than taken from
+    ``PlatformInstanceConfigMixin``: both mixins describe assets a recipe produces, not a
+    scoped read of assets already in DataHub. See docs/dev_guides/lineage_urn_casing.md.
     """
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance of the upstream platform whose catalog to "
+        "preload. This narrows the read through DataHub's search filter, which matches "
+        "the `dataPlatformInstance` aspect rather than the URN, so a connector that puts "
+        "the instance in the URN without emitting that aspect preloads nothing. It "
+        "scopes the preload only: a reference into an instance you did not list is still "
+        "reconciled, by asking DataHub.",
+    )
+
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment of the upstream platform whose catalog to preload. "
+        "Scopes the preload only, like `platform_instance`: a reference into another "
+        "environment is still reconciled, by asking DataHub.",
+    )
 
     platform: str = Field(
         description="Upstream data platform whose assets are referenced by this "
