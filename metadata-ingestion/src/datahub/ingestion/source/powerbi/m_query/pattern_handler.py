@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
+from sqlparse.exceptions import SQLParseError
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -439,16 +440,19 @@ class AbstractLineage(ABC):
             return False
 
     def get_tables_using_old_parser(self, query: str) -> List[str]:
-        # sqlparse raises SQLParseError once its DoS-protection grouping limits
-        # (MAX_GROUPING_DEPTH / MAX_GROUPING_TOKENS) are hit, so a single oversized
-        # native query would otherwise abort the whole ingestion run.
+        # sqlparse raises SQLParseError once its DoS-protection limits
+        # (MAX_GROUPING_DEPTH / MAX_GROUPING_TOKENS) are hit. Without this, the
+        # error escapes to the caller in parser.py, which abandons the remaining
+        # data-access functions for this table and reports the generic "Unknown
+        # M-Query Pattern" warning. Only that error is caught: anything else is a
+        # bug in get_tables and should not be relabelled as a parse failure.
         try:
             return native_sql_parser.get_tables(query)
-        except Exception as e:
+        except SQLParseError as e:
             self.reporter.warning(
                 title=Constant.SQL_PARSING_FAILURE,
-                message="Failed to extract tables from native SQL with the legacy "
-                "parser; lineage for this query is skipped. Enabling "
+                message="Native SQL exceeded the SQL parser's size limits, so "
+                "lineage for this query is skipped. Enabling "
                 "enable_advance_lineage_sql_construct uses the sqlglot-based parser instead.",
                 context=f"table-name={self.table.full_name}",
                 exc=e,
