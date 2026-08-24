@@ -449,18 +449,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # should only have a high value if the sink is actually a bottleneck.
         with self.report.main_thread_blocking_timer:
             record = record_envelope.record
-
-            # Validate before the record can be batched with others. emit_mcps is
-            # all-or-nothing, and BatchPartitionExecutor reports one batch failure
-            # against every record in it, so an unreadable urn caught downstream
-            # would fail its valid siblings and mis-attribute their error.
-            try:
-                validate_emitted_urn(_get_urn(record_envelope))
-            except InvalidUrnError as e:
-                self.report.report_failure({"error": str(e)})
-                write_callback.on_failure(record_envelope, e, {})
-                return
-
             if self.config.mode == RestSinkMode.ASYNC:
                 assert isinstance(self.executor, PartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
@@ -475,6 +463,19 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 )
                 self.report.pending_requests += 1
             elif self.config.mode == RestSinkMode.ASYNC_BATCH:
+                # This mode is the only one that packs unrelated records into a single
+                # emit_mcps call. That call is all-or-nothing, and BatchPartitionExecutor
+                # reports its one failure against every record in the batch, so an
+                # unreadable urn has to be rejected before it can be batched with valid
+                # siblings. The other modes emit one record per call, where the emitter's
+                # own guard already fails exactly the record that caused it.
+                try:
+                    validate_emitted_urn(_get_urn(record_envelope))
+                except InvalidUrnError as e:
+                    self.report.report_failure({"error": str(e)})
+                    write_callback.on_failure(record_envelope, e, {})
+                    return
+
                 assert isinstance(self.executor, BatchPartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
                 self.executor.submit(

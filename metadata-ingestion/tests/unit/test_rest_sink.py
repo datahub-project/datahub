@@ -497,9 +497,10 @@ def test_rest_sink_config_accepts_client_config_dump():
 def test_write_record_async_fails_only_the_invalid_record():
     """An unreadable urn must not be batched with, or fail, its valid siblings.
 
-    emit_mcps is all-or-nothing and BatchPartitionExecutor attributes a single
-    batch failure to every record in it, so the guard has to run per record in
-    the sink rather than only in the emitter.
+    ASYNC_BATCH is the mode at risk: emit_mcps is all-or-nothing and
+    BatchPartitionExecutor attributes a single batch failure to every record in
+    it, so the guard has to run per record in the sink rather than only in the
+    emitter.
     """
     from datahub.ingestion.api.common import RecordEnvelope
     from datahub.utilities.partition_executor import BatchPartitionExecutor
